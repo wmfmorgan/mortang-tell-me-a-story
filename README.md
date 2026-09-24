@@ -53,14 +53,20 @@ supabase status -o env   # copy API_URL / ANON_KEY for dart-define (do not commi
 
 ## Flutter run (dart-define example)
 
+Auth `site_url` is pinned to **`http://127.0.0.1:3000`**. Always pass **`--web-port=3000`** so magic-link redirects land on the Flutter web app (otherwise the email’s `redirect_to` hits a dead port and Chrome shows “This site can’t be reached”).
+
 ```bash
 cd apps/tell_me_a_story
 
 # Values from `supabase status -o env` — example local URL only:
-flutter run -d chrome \
+flutter run -d chrome --web-port=3000 \
   --dart-define=SUPABASE_URL=http://127.0.0.1:57321 \
   --dart-define=SUPABASE_ANON_KEY=<anon-from-supabase-status>
 ```
+
+After “Send magic link”, open Mailpit (`http://127.0.0.1:57324`), click the link, and you should return to port **3000** then `/timeline`.
+
+If you change Auth redirect settings in `supabase/config.toml`, restart local Supabase (`supabase stop && supabase start`).
 
 iOS sim: same dart-defines (`-d ios`). **OPEN (tooling):** full Xcode required for iOS compile; CLT-only machines can use `flutter test` + `flutter build web`.
 
