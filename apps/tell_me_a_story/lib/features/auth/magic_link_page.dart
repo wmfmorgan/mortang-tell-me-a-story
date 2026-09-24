@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'magic_link_redirect.dart';
+
 /// Signed-out magic-link entry.
 ///
 /// OPEN (Mugatu): exact chrome-lock field/button copy not available in repo;
@@ -41,7 +43,10 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
     });
 
     try {
-      await _auth.signInWithOtp(email: email);
+      await _auth.signInWithOtp(
+        email: email,
+        emailRedirectTo: magicLinkEmailRedirectTo(),
+      );
       if (!mounted) return;
       setState(() => _message = 'Check your email for the magic link');
     } on AuthException catch (e) {
