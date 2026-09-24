@@ -53,20 +53,37 @@ supabase status -o env   # copy API_URL / ANON_KEY for dart-define (do not commi
 
 ## Flutter run (dart-define example)
 
-Auth `site_url` is pinned to **`http://127.0.0.1:3000`**. Always pass **`--web-port=3000`** so magic-link redirects land on the Flutter web app (otherwise the email’s `redirect_to` hits a dead port and Chrome shows “This site can’t be reached”).
+Auth `site_url` is pinned to **`http://127.0.0.1:3000`**. Serve the app on that port so magic-link `redirect_to` lands on a live origin.
+
+### Recommended for magic-link testing: `web-server`
+
+`flutter run -d chrome` ties the debug app to the Chrome window Flutter launched. Mailpit opens the verify redirect in a **new tab**, which loads the DWDS debug assets without that tooling connection and stays a **white blank page**. Use **`web-server`** so any tab can run the app:
 
 ```bash
 cd apps/tell_me_a_story
 
 # Values from `supabase status -o env` — example local URL only:
-flutter run -d chrome --web-port=3000 \
+flutter run -d web-server --web-hostname=127.0.0.1 --web-port=3000 \
   --dart-define=SUPABASE_URL=http://127.0.0.1:57321 \
   --dart-define=SUPABASE_ANON_KEY=<anon-from-supabase-status>
 ```
 
-After “Send magic link”, open Mailpit (`http://127.0.0.1:57324`), click the link, and you should return to port **3000** then `/timeline`.
+Then open **http://127.0.0.1:3000/** in Chrome yourself.
+
+1. Enter email → **Send magic link**
+2. Open Mailpit: http://127.0.0.1:57324  
+3. Click the link (new tab is OK with `web-server`)
+4. You should land on port **3000** with `?code=...`, then redirect to `/timeline`
 
 If you change Auth redirect settings in `supabase/config.toml`, restart local Supabase (`supabase stop && supabase start`).
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|--------|-----|
+| “This site can’t be reached” | Nothing on port 3000 | Use `--web-port=3000` and confirm `supabase` + Flutter are running |
+| White blank page after clicking the email link | Opened against `flutter run -d chrome` DWDS from a new tab | Switch to `-d web-server` as above; request a **new** magic link |
+| Link works but stays signed out | PKCE code verifier missing / old link reused | Request OTP from the same origin (`127.0.0.1:3000`), click a fresh Mailpit message |
 
 iOS sim: same dart-defines (`-d ios`). **OPEN (tooling):** full Xcode required for iOS compile; CLT-only machines can use `flutter test` + `flutter build web`.
 
