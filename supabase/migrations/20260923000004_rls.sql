@@ -141,7 +141,8 @@ create policy places_delete_member
   to authenticated
   using (public.is_family_member(family_id));
 
--- stories: SELECT member; INSERT member + author_id = uid; UPDATE/DELETE author only
+-- stories: SELECT member; INSERT member + author_id = uid;
+-- UPDATE/DELETE author + is_family_member (blocks cross-family move / ex-member writes)
 create policy stories_select_member
   on public.stories for select
   to authenticated
@@ -158,13 +159,22 @@ create policy stories_insert_member_author
 create policy stories_update_author
   on public.stories for update
   to authenticated
-  using (author_id = auth.uid())
-  with check (author_id = auth.uid());
+  using (
+    author_id = auth.uid()
+    and public.is_family_member(family_id)
+  )
+  with check (
+    author_id = auth.uid()
+    and public.is_family_member(family_id)
+  );
 
 create policy stories_delete_author
   on public.stories for delete
   to authenticated
-  using (author_id = auth.uid());
+  using (
+    author_id = auth.uid()
+    and public.is_family_member(family_id)
+  );
 
 -- story_people: SELECT member (via story); INSERT/UPDATE/DELETE story author
 create policy story_people_select_member
@@ -213,7 +223,8 @@ create policy story_people_delete_author
     )
   );
 
--- photos: SELECT member; INSERT member + uploader_id = uid; UPDATE/DELETE uploader or story author
+-- photos: SELECT member; INSERT member + uploader_id = uid;
+-- UPDATE/DELETE (uploader or story author) + is_family_member
 create policy photos_select_member
   on public.photos for select
   to authenticated
@@ -231,17 +242,23 @@ create policy photos_update_uploader_or_author
   on public.photos for update
   to authenticated
   using (
-    uploader_id = auth.uid()
-    or exists (
-      select 1 from public.stories s
-      where s.id = story_id and s.author_id = auth.uid()
+    public.is_family_member(family_id)
+    and (
+      uploader_id = auth.uid()
+      or exists (
+        select 1 from public.stories s
+        where s.id = story_id and s.author_id = auth.uid()
+      )
     )
   )
   with check (
-    uploader_id = auth.uid()
-    or exists (
-      select 1 from public.stories s
-      where s.id = story_id and s.author_id = auth.uid()
+    public.is_family_member(family_id)
+    and (
+      uploader_id = auth.uid()
+      or exists (
+        select 1 from public.stories s
+        where s.id = story_id and s.author_id = auth.uid()
+      )
     )
   );
 
@@ -249,10 +266,13 @@ create policy photos_delete_uploader_or_author
   on public.photos for delete
   to authenticated
   using (
-    uploader_id = auth.uid()
-    or exists (
-      select 1 from public.stories s
-      where s.id = story_id and s.author_id = auth.uid()
+    public.is_family_member(family_id)
+    and (
+      uploader_id = auth.uid()
+      or exists (
+        select 1 from public.stories s
+        where s.id = story_id and s.author_id = auth.uid()
+      )
     )
   );
 
@@ -273,13 +293,22 @@ create policy comments_insert_member_author
 create policy comments_update_author
   on public.comments for update
   to authenticated
-  using (author_id = auth.uid())
-  with check (author_id = auth.uid());
+  using (
+    author_id = auth.uid()
+    and public.is_family_member(family_id)
+  )
+  with check (
+    author_id = auth.uid()
+    and public.is_family_member(family_id)
+  );
 
 create policy comments_delete_author
   on public.comments for delete
   to authenticated
-  using (author_id = auth.uid());
+  using (
+    author_id = auth.uid()
+    and public.is_family_member(family_id)
+  );
 
 -- perspectives
 create policy perspectives_select_member
@@ -298,13 +327,22 @@ create policy perspectives_insert_member_author
 create policy perspectives_update_author
   on public.perspectives for update
   to authenticated
-  using (author_id = auth.uid())
-  with check (author_id = auth.uid());
+  using (
+    author_id = auth.uid()
+    and public.is_family_member(family_id)
+  )
+  with check (
+    author_id = auth.uid()
+    and public.is_family_member(family_id)
+  );
 
 create policy perspectives_delete_author
   on public.perspectives for delete
   to authenticated
-  using (author_id = auth.uid());
+  using (
+    author_id = auth.uid()
+    and public.is_family_member(family_id)
+  );
 
 -- invites: SELECT member; INSERT member + invited_by = uid; UPDATE/DELETE Edge only
 create policy invites_select_member
