@@ -105,6 +105,7 @@ If you change Auth redirect settings in `supabase/config.toml`, restart local Su
 | “This site can’t be reached” | Nothing on port 3000 | Use `--web-port=3000` and confirm `supabase` + Flutter are running |
 | White blank page after clicking the email link | Opened against `flutter run -d chrome` DWDS from a new tab | Switch to `-d web-server` as above; request a **new** magic link |
 | Link works but stays signed out | PKCE code verifier missing / old link reused | Request OTP from the same origin (`127.0.0.1:3000`), click a fresh Mailpit message |
+| Console `otp_expired` / `access_denied` on load | Browser URL still has auth error/code params from an old Mailpit click | Open a clean `http://127.0.0.1:3000/` (no query string), then request a **new** magic link |
 
 iOS sim: same dart-defines (`-d ios`). **OPEN (tooling):** full Xcode required for iOS compile; CLT-only machines can use `flutter test` + `flutter build web`.
 
