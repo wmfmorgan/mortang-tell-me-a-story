@@ -60,14 +60,18 @@ Auth `site_url` is pinned to **`http://127.0.0.1:3000`**. Serve the app on that 
 `flutter run -d chrome` ties the debug app to the Chrome window Flutter launched. Mailpit opens the verify redirect in a **new tab**, which loads the DWDS debug assets without that tooling connection and stays a **white blank page**. Use **`web-server`** so any tab can run the app:
 
 ```bash
+# From repo root — copy real values (never paste literal "..." placeholders):
+supabase status -o env | rg '^(API_URL|ANON_KEY)='
+
 cd apps/tell_me_a_story
 
-# Values from `supabase status -o env` — example local URL only:
 flutter run -d web-server --web-hostname=127.0.0.1 --web-port=3000 \
   --dart-define=SUPABASE_URL=http://127.0.0.1:57321 \
-  --dart-define=SUPABASE_ANON_KEY=<anon-from-supabase-status> \
+  --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0 \
   --dart-define=INVITE_APP_ORIGIN=http://127.0.0.1:3000
 ```
+
+Local demo `ANON_KEY` above is the standard Supabase local key from `supabase status` (safe for local only). If your ports differ, use your `API_URL` / `ANON_KEY` from status.
 
 `INVITE_APP_ORIGIN` defaults to `http://127.0.0.1:3000`. Invite links are `{INVITE_APP_ORIGIN}/timeline?invite=<token>`. Later MS: change only this define/env to the shareable host — do not invent a second invite system.
 
