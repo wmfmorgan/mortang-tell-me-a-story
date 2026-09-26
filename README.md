@@ -65,8 +65,11 @@ cd apps/tell_me_a_story
 # Values from `supabase status -o env` — example local URL only:
 flutter run -d web-server --web-hostname=127.0.0.1 --web-port=3000 \
   --dart-define=SUPABASE_URL=http://127.0.0.1:57321 \
-  --dart-define=SUPABASE_ANON_KEY=<anon-from-supabase-status>
+  --dart-define=SUPABASE_ANON_KEY=<anon-from-supabase-status> \
+  --dart-define=INVITE_APP_ORIGIN=http://127.0.0.1:3000
 ```
+
+`INVITE_APP_ORIGIN` defaults to `http://127.0.0.1:3000`. Invite links are `{INVITE_APP_ORIGIN}/timeline?invite=<token>`. Later MS: change only this define/env to the shareable host — do not invent a second invite system.
 
 Then open **http://127.0.0.1:3000/** in Chrome yourself.
 
@@ -74,6 +77,20 @@ Then open **http://127.0.0.1:3000/** in Chrome yourself.
 2. Open Mailpit: http://127.0.0.1:57324  
 3. Click the link (new tab is OK with `web-server`)
 4. You should land on port **3000** with `?code=...`, then redirect to `/timeline`
+5. On Timeline, **+ Invite** opens Email / Link modal (no SMS). Link copy / email send use locked toasts.
+
+### Edge functions (M2 invites) — local only
+
+```bash
+# From repo root (Docker required)
+supabase start
+supabase functions serve --env-file supabase/.env.local
+# Optional in .env.local (never commit secrets):
+# INVITE_APP_ORIGIN=http://127.0.0.1:3000
+# RESEND_API_KEY=...   # OPEN (Bill) — without it send-invite-email returns structured failure
+```
+
+Family create is **data/API** (`create_family` RPC) — no Create Family screen in M2. First invite may bootstrap a family via API when none exists. Joining is via invite accept on `/timeline?invite=`.
 
 If you change Auth redirect settings in `supabase/config.toml`, restart local Supabase (`supabase stop && supabase start`).
 

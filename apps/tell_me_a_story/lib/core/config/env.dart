@@ -5,6 +5,12 @@ class Env {
   static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
+  /// Shareable app origin for invite links. Staging MS: change define only.
+  static const inviteAppOrigin = String.fromEnvironment(
+    'INVITE_APP_ORIGIN',
+    defaultValue: 'http://127.0.0.1:3000',
+  );
+
   /// Fails closed when required dart-defines are missing.
   static void validate() {
     if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
