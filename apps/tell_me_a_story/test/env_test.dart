@@ -8,4 +8,11 @@ void main() {
     expect(Env.supabaseAnonKey, isEmpty);
     expect(Env.validate, throwsA(isA<StateError>()));
   });
+
+  test('isAbsoluteHttpUrl rejects relative placeholders like ...', () {
+    expect(Env.isAbsoluteHttpUrl('...'), isFalse);
+    expect(Env.isAbsoluteHttpUrl('/auth/v1'), isFalse);
+    expect(Env.isAbsoluteHttpUrl('http://127.0.0.1:57321'), isTrue);
+    expect(Env.isAbsoluteHttpUrl('https://example.supabase.co'), isTrue);
+  });
 }
