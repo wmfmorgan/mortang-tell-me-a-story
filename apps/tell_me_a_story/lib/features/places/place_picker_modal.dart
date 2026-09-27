@@ -11,6 +11,9 @@ import 'place_map.dart';
 const placeMapFailureCopy =
     'Couldn’t load the map. Check your connection and try again.';
 
+/// Retry label for locked Mapbox failure UX.
+const placeMapRetryLabel = 'Try again';
+
 /// Optional map injection for tests (avoids real Mapbox tiles).
 typedef PlaceMapBuilder = Widget Function({double? lat, double? lng});
 
@@ -220,6 +223,30 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
     Navigator.of(context).pop(place);
   }
 
+  Future<void> _togglePendingFavorite() async {
+    final place = _pending;
+    if (place == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      final updated = await widget.places.setFavorite(
+        placeId: place.id,
+        isFavorite: !place.isFavorite,
+      );
+      if (!mounted) return;
+      setState(() {
+        _pending = updated;
+        _busy = false;
+      });
+      await _loadLists();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t update favorite. Try again.')),
+      );
+      setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewInsets = MediaQuery.viewInsetsOf(context);
@@ -261,13 +288,35 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
               _buildMapArea(),
               if (_pending != null) ...[
                 const SizedBox(height: 8),
-                Text(
-                  _pending!.label,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  _pending!.address,
-                  style: Theme.of(context).textTheme.bodySmall,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _pending!.label,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          Text(
+                            _pending!.address,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      key: const Key('place-favorite-toggle'),
+                      tooltip: _pending!.isFavorite
+                          ? 'Remove from favorites'
+                          : 'Add to favorites',
+                      onPressed: _busy ? null : _togglePendingFavorite,
+                      icon: Icon(
+                        _pending!.isFavorite ? Icons.star : Icons.star_border,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 FilledButton(
@@ -318,7 +367,7 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
           const Text(placeMapFailureCopy),
           TextButton(
             onPressed: _busy ? null : _retryMap,
-            child: const Text('Try again'),
+            child: const Text(placeMapRetryLabel),
           ),
         ],
       );

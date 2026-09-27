@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/env.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
@@ -48,6 +49,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   final List<Person> _selectedPeople = [];
   Place? _selectedPlace;
+  var _shellMapFailed = false;
+
+  bool get _tokenOk => widget.hasMapboxToken ?? Env.hasMapboxToken;
 
   @override
   void initState() {
@@ -56,6 +60,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
     _people = widget.peopleApi ?? PeopleApi();
     _places = widget.placesApi ?? PlacesApi();
     _search = widget.mapboxSearch ?? MapboxSearchApi();
+    _shellMapFailed = !_tokenOk;
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
@@ -116,7 +121,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
         mapBuilder: widget.mapBuilder,
       );
       if (!mounted || place == null) return;
-      setState(() => _selectedPlace = place);
+      setState(() {
+        _selectedPlace = place;
+        _shellMapFailed = !_tokenOk;
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -124,6 +132,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   void _removePerson(Person person) {
     setState(() => _selectedPeople.removeWhere((p) => p.id == person.id));
+  }
+
+  void _retryShellMap() {
+    setState(() => _shellMapFailed = !_tokenOk);
   }
 
   @override
@@ -188,6 +200,19 @@ class _NewStoryPageState extends State<NewStoryPage> {
   }
 
   Widget _buildSelectedPlaceMap(Place place) {
+    if (_shellMapFailed || !_tokenOk) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(placeMapFailureCopy),
+          TextButton(
+            onPressed: _retryShellMap,
+            child: const Text(placeMapRetryLabel),
+          ),
+        ],
+      );
+    }
+
     final builder = widget.mapBuilder;
     if (builder != null) {
       return builder(lat: place.lat, lng: place.lng);
@@ -196,6 +221,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
       lat: place.lat,
       lng: place.lng,
       height: 140,
+      onTileError: (error, stackTrace) {
+        if (!mounted) return;
+        setState(() => _shellMapFailed = true);
+      },
     );
   }
 }
