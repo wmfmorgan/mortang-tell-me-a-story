@@ -6,9 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/data/comments_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/perspectives_api.dart'
+    hide displayNameOrMember;
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
@@ -183,6 +186,50 @@ class _StubPhotosApi implements PhotosGateway {
   Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }
 
+class _StubCommentsApi implements CommentsGateway {
+  @override
+  Future<List<Comment>> listForStory(String storyId) async => const [];
+
+  @override
+  Future<Comment> create({
+    required String storyId,
+    required String familyId,
+    required String body,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> update({required String id, required String body}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+}
+
+class _StubPerspectivesApi implements PerspectivesGateway {
+  @override
+  Future<List<Perspective>> listForStory(String storyId) async => const [];
+
+  @override
+  Future<Perspective> create({
+    required String storyId,
+    required String familyId,
+    required String body,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> update({required String id, required String body}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+}
+
 GoRouter _router({required AuthRefresh auth}) {
   return createAppRouter(
     authRefresh: auth,
@@ -192,6 +239,8 @@ GoRouter _router({required AuthRefresh auth}) {
     mapboxSearch: _StubMapboxSearch(),
     storiesApi: _StubStoriesApi(),
     photosApi: _StubPhotosApi(),
+    commentsApi: _StubCommentsApi(),
+    perspectivesApi: _StubPerspectivesApi(),
   );
 }
 

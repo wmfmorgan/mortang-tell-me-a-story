@@ -295,12 +295,18 @@ class _FakeCommentsApi implements CommentsGateway {
 }
 
 class _FakePerspectivesApi implements PerspectivesGateway {
-  _FakePerspectivesApi({List<Perspective>? seed}) : rows = [...?seed];
+  _FakePerspectivesApi({List<Perspective>? seed, this.throwOnCreate = false})
+    : rows = [...?seed];
 
   final List<Perspective> rows;
+  final bool throwOnCreate;
+  var listCalls = 0;
+  var createCalls = 0;
+  var _seq = 0;
 
   @override
   Future<List<Perspective>> listForStory(String storyId) async {
+    listCalls++;
     return rows.where((p) => p.storyId == storyId).toList();
   }
 
@@ -309,8 +315,21 @@ class _FakePerspectivesApi implements PerspectivesGateway {
     required String storyId,
     required String familyId,
     required String body,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    createCalls++;
+    if (throwOnCreate) throw StateError('create failed');
+    ensureValidPerspectiveBody(body);
+    final row = Perspective(
+      id: 'v-new${++_seq}',
+      storyId: storyId,
+      familyId: familyId,
+      authorId: 'u1',
+      body: body.trim(),
+      createdAt: DateTime.utc(2026, 9, 27, 12),
+      authorDisplayName: 'Me',
+    );
+    rows.add(row);
+    return row;
   }
 
   @override
@@ -338,6 +357,7 @@ Widget _readerApp({
   bool? hasMapboxToken,
   PlaceMapBuilder? mapBuilder,
 }) {
+  final perspectivesApi = perspectives ?? _FakePerspectivesApi();
   final router = GoRouter(
     initialLocation: AppRoutes.storyPath(storyId),
     routes: [
@@ -348,7 +368,14 @@ Widget _readerApp({
       ),
       GoRoute(
         path: AppRoutes.storyPerspective,
-        builder: (context, state) => const AddPerspectivePage(storyId: 'x'),
+        builder: (context, state) {
+          final extra = state.extra;
+          return AddPerspectivePage(
+            storyId: state.pathParameters['storyId']!,
+            familyId: extra is String ? extra : _familyId,
+            perspectivesApi: perspectivesApi,
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.story,
@@ -359,7 +386,7 @@ Widget _readerApp({
           placesApi: places ?? _FakePlacesApi(),
           photosApi: photos ?? _FakePhotosApi(),
           commentsApi: comments ?? _FakeCommentsApi(),
-          perspectivesApi: perspectives ?? _FakePerspectivesApi(),
+          perspectivesApi: perspectivesApi,
           currentUserId: currentUserId,
           hasMapboxToken: hasMapboxToken ?? true,
           mapBuilder: mapBuilder ?? _defaultStubMap,
@@ -619,6 +646,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('add-perspective')), findsOneWidget);
+  });
+
+  testWidgets('published perspective is listed after overlay pops', (
+    tester,
+  ) async {
+    final perspectives = _FakePerspectivesApi();
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        perspectives: perspectives,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('+ Add your perspective'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byType(TextField),
+      'From the porch it looked different.',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Publish perspective'));
+    await tester.pumpAndSettle();
+
+    expect(perspectives.createCalls, 1);
+    expect(find.byKey(const Key('add-perspective')), findsNothing);
+    expect(find.byKey(const Key('story-reader')), findsOneWidget);
+    expect(find.text('From the porch it looked different.'), findsOneWidget);
+    expect(find.text('Me'), findsOneWidget);
+    expect(perspectives.listCalls, greaterThanOrEqualTo(2));
   });
 
   testWidgets('Post with text creates a comment and shows the body', (

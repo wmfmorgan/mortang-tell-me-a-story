@@ -90,8 +90,15 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRoutes.storyPerspective,
-        builder: (context, state) =>
-            AddPerspectivePage(storyId: state.pathParameters['storyId']!),
+        builder: (context, state) {
+          final extra = state.extra;
+          return AddPerspectivePage(
+            storyId: state.pathParameters['storyId']!,
+            familyId: extra is String ? extra : null,
+            perspectivesApi: perspectivesApi,
+            storiesApi: storiesApi,
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.story,

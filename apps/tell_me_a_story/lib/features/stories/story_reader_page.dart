@@ -71,6 +71,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   PhotosGateway? _photosOverride;
   CommentsGateway? _commentsOverride;
   PerspectivesGateway? _perspectivesOverride;
+  GoRouter? _router;
 
   var _loading = true;
   var _notFound = false;
@@ -122,9 +123,39 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.maybeOf(context);
+    if (identical(router, _router)) return;
+    _router?.routerDelegate.removeListener(_onRouteChanged);
+    _router = router;
+    _router?.routerDelegate.addListener(_onRouteChanged);
+  }
+
+  @override
   void dispose() {
+    _router?.routerDelegate.removeListener(_onRouteChanged);
     _composerFocus.dispose();
     super.dispose();
+  }
+
+  void _onRouteChanged() {
+    if (!mounted) return;
+    final path = _router?.routerDelegate.currentConfiguration.uri.path;
+    if (path != AppRoutes.storyPath(widget.storyId)) return;
+    _reloadPerspectives();
+  }
+
+  Future<void> _reloadPerspectives() async {
+    try {
+      final rows = await _perspectivesApi.listForStory(widget.storyId);
+      if (!mounted) return;
+      setState(() => _perspectives = rows);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+    }
   }
 
   Future<void> _load() async {
@@ -345,8 +376,10 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: () =>
-                  context.push(AppRoutes.storyPerspectivePath(widget.storyId)),
+              onPressed: () => context.push(
+                AppRoutes.storyPerspectivePath(widget.storyId),
+                extra: story.familyId,
+              ),
               child: const Text('+ Add your perspective'),
             ),
           ),
