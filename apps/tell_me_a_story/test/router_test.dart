@@ -362,6 +362,32 @@ void main() {
     auth.dispose();
   });
 
+  testWidgets('Timeline AppBar Drafts pushes /drafts', (tester) async {
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = _router(auth: auth);
+
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TimelinePage), findsOneWidget);
+    final draftsButton = find.widgetWithText(TextButton, 'Drafts');
+    expect(draftsButton, findsOneWidget);
+    tester.widget<TextButton>(draftsButton).onPressed!.call();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(DraftsPage), findsOneWidget);
+    final locations = router.routerDelegate.currentConfiguration.matches
+        .map((m) => m.matchedLocation)
+        .toList();
+    expect(locations, contains(AppRoutes.drafts));
+
+    auth.dispose();
+  });
+
   testWidgets('signed-in user can open /drafts', (tester) async {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = _router(auth: auth);

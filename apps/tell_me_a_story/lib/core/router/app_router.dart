@@ -57,7 +57,10 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRoutes.timeline,
-        builder: (context, state) => TimelinePage(api: inviteApi),
+        builder: (context, state) => TimelinePage(
+          api: inviteApi,
+          storiesApi: storiesApi,
+        ),
       ),
       GoRoute(
         path: AppRoutes.newStory,
