@@ -4,8 +4,11 @@ import 'package:go_router/go_router.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
+import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
+import '../../data/stories_api.dart';
 import '../../features/auth/magic_link_page.dart';
+import '../../features/drafts/drafts_page.dart';
 import '../../features/stories/new_story_page.dart';
 import '../../features/timeline/timeline_page.dart';
 import 'auth_refresh.dart';
@@ -15,6 +18,7 @@ abstract final class AppRoutes {
   static const magicLink = '/';
   static const timeline = '/timeline';
   static const newStory = '/stories/new';
+  static const drafts = '/drafts';
 }
 
 GoRouter createAppRouter({
@@ -23,6 +27,8 @@ GoRouter createAppRouter({
   PeopleGateway? peopleApi,
   PlacesGateway? placesApi,
   MapboxSearchGateway? mapboxSearch,
+  StoriesGateway? storiesApi,
+  PhotosGateway? photosApi,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.magicLink,
@@ -55,11 +61,25 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRoutes.newStory,
-        builder: (context, state) => NewStoryPage(
+        builder: (context, state) {
+          final draft = state.uri.queryParameters['draft'];
+          return NewStoryPage(
+            inviteApi: inviteApi,
+            peopleApi: peopleApi,
+            placesApi: placesApi,
+            mapboxSearch: mapboxSearch,
+            storiesApi: storiesApi,
+            photosApi: photosApi,
+            draftId: (draft != null && draft.isNotEmpty) ? draft : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.drafts,
+        builder: (context, state) => DraftsPage(
           inviteApi: inviteApi,
-          peopleApi: peopleApi,
-          placesApi: placesApi,
-          mapboxSearch: mapboxSearch,
+          storiesApi: storiesApi,
+          photosApi: photosApi,
         ),
       ),
     ],
