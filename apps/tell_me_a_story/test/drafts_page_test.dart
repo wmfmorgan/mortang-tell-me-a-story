@@ -123,6 +123,13 @@ class _FakeStoriesApi implements StoriesGateway {
   }
 }
 
+class _ThrowingListStoriesApi extends _FakeStoriesApi {
+  @override
+  Future<List<Story>> listMyDrafts(String familyId) async {
+    throw StateError('network');
+  }
+}
+
 class _SlowStoriesApi extends _FakeStoriesApi {
   _SlowStoriesApi() {
     _pending = Completer<List<Story>>();
@@ -187,8 +194,7 @@ class _StubPlacesApi implements PlacesGateway {
   Future<Place?> findByMapboxPlaceId(
     String familyId,
     String mapboxPlaceId,
-  ) async =>
-      null;
+  ) async => null;
 }
 
 class _StubMapboxSearch implements MapboxSearchGateway {
@@ -229,10 +235,7 @@ class _FakePhotosApi implements PhotosGateway {
   }
 }
 
-Widget _drafts({
-  required StoriesGateway stories,
-  PhotosGateway? photos,
-}) {
+Widget _drafts({required StoriesGateway stories, PhotosGateway? photos}) {
   return MaterialApp(
     home: DraftsPage(
       inviteApi: _FakeInviteApi(),
@@ -247,8 +250,22 @@ void main() {
     await tester.pumpWidget(_drafts(stories: _FakeStoriesApi(drafts: [])));
     await tester.pumpAndSettle();
     expect(
-      find.text('No drafts yet. Stories you’re still writing will show up here.'),
+      find.text(
+        'No drafts yet. Stories you’re still writing will show up here.',
+      ),
       findsOneWidget,
+    );
+  });
+
+  testWidgets('list load failure is not empty copy', (tester) async {
+    await tester.pumpWidget(_drafts(stories: _ThrowingListStoriesApi()));
+    await tester.pumpAndSettle();
+    expect(find.text('Couldn’t load drafts. Try again.'), findsOneWidget);
+    expect(
+      find.text(
+        'No drafts yet. Stories you’re still writing will show up here.',
+      ),
+      findsNothing,
     );
   });
 
@@ -328,7 +345,9 @@ void main() {
       peopleApi: _StubPeopleApi(),
       placesApi: _StubPlacesApi(),
       mapboxSearch: _StubMapboxSearch(),
-      storiesApi: _FakeStoriesApi(drafts: [_draft(id: 's1', body: 'Jam')]),
+      storiesApi: _FakeStoriesApi(
+        drafts: [_draft(id: 's1', body: 'Jam')],
+      ),
       photosApi: _FakePhotosApi(),
     );
 
@@ -358,24 +377,31 @@ void main() {
     expect(locations, contains(AppRoutes.newStory));
   });
 
-  testWidgets('Discard calls deleteAllForStory then discard and removes the row',
-      (tester) async {
-    final log = <String>[];
-    final api = _FakeStoriesApi(drafts: [_draft(id: 's1')], callLog: log);
-    final photos = _FakePhotosApi(callLog: log);
-    await tester.pumpWidget(_drafts(stories: api, photos: photos));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'Discard calls deleteAllForStory then discard and removes the row',
+    (tester) async {
+      final log = <String>[];
+      final api = _FakeStoriesApi(
+        drafts: [_draft(id: 's1')],
+        callLog: log,
+      );
+      final photos = _FakePhotosApi(callLog: log);
+      await tester.pumpWidget(_drafts(stories: api, photos: photos));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Discard'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
 
-    expect(photos.deletedStories, ['s1']);
-    expect(api.discarded, ['s1']);
-    expect(log, ['photos:s1', 'discard:s1']);
-    expect(find.text('Continue writing'), findsNothing);
-    expect(
-      find.text('No drafts yet. Stories you’re still writing will show up here.'),
-      findsOneWidget,
-    );
-  });
+      expect(photos.deletedStories, ['s1']);
+      expect(api.discarded, ['s1']);
+      expect(log, ['photos:s1', 'discard:s1']);
+      expect(find.text('Continue writing'), findsNothing);
+      expect(
+        find.text(
+          'No drafts yet. Stories you’re still writing will show up here.',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 }

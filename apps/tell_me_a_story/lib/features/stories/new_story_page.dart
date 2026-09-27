@@ -113,7 +113,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
     _places = widget.placesApi ?? PlacesApi();
     _search = widget.mapboxSearch ?? MapboxSearchApi();
     _shellMapFailed = !_tokenOk;
-    _storyId = widget.draftId;
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
@@ -127,40 +126,31 @@ class _NewStoryPageState extends State<NewStoryPage> {
     try {
       final id = await _invite.currentFamilyId();
       if (!mounted) return;
-      setState(() {
-        _familyId = id;
-        _loadingFamily = false;
-      });
+      setState(() => _familyId = id);
       final draftId = widget.draftId;
       if (draftId != null) {
         await _hydrateDraft(draftId);
       }
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _loadingFamily = false);
+      // Family lookup failed; keep an unbound empty form.
+    } finally {
+      if (mounted) setState(() => _loadingFamily = false);
     }
   }
 
   Future<void> _hydrateDraft(String draftId) async {
-    final story = await _stories.getStory(draftId);
-    if (!mounted) return;
-    final familyId = story.familyId;
-    final people = await _people.listPeople(familyId);
-    Place? place;
-    final placeId = story.placeId;
-    if (placeId != null && placeId.isNotEmpty) {
-      final favorites = await _places.listFavorites(familyId);
-      final recents = await _places.listRecents(familyId);
-      for (final candidate in [...favorites, ...recents]) {
-        if (candidate.id == placeId) {
-          place = candidate;
-          break;
-        }
-      }
+    final Story story;
+    try {
+      story = await _stories.getStory(draftId);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t load draft. Try again.')),
+      );
+      return;
     }
     if (!mounted) return;
-    final listed = await _photos.listPhotos(draftId);
-    if (!mounted) return;
+    final familyId = story.familyId;
     final decade = DecadeRange.containing(story.timeframeStart);
     setState(() {
       _storyId = story.id;
@@ -168,16 +158,54 @@ class _NewStoryPageState extends State<NewStoryPage> {
       _timeframeStart = decade?.start ?? story.timeframeStart;
       _timeframeEnd = decade?.end ?? story.timeframeEnd;
       _body.text = story.body ?? '';
-      _selectedPeople
-        ..clear()
-        ..addAll(people.where((p) => story.personIds.contains(p.id)));
-      _selectedPlace = place;
-      _placeId = placeId;
+      _placeId = story.placeId;
       _shellMapFailed = !_tokenOk;
-      _storyPhotos
-        ..clear()
-        ..addAll(listed);
     });
+
+    try {
+      final people = await _people.listPeople(familyId);
+      if (!mounted) return;
+      setState(() {
+        _selectedPeople
+          ..clear()
+          ..addAll(people.where((p) => story.personIds.contains(p.id)));
+      });
+    } catch (_) {
+      // Story fields already applied; people chips stay empty.
+    }
+
+    final placeId = story.placeId;
+    if (placeId != null && placeId.isNotEmpty) {
+      try {
+        final favorites = await _places.listFavorites(familyId);
+        final recents = await _places.listRecents(familyId);
+        Place? place;
+        for (final candidate in [...favorites, ...recents]) {
+          if (candidate.id == placeId) {
+            place = candidate;
+            break;
+          }
+        }
+        if (!mounted) return;
+        if (place != null) {
+          setState(() => _selectedPlace = place);
+        }
+      } catch (_) {
+        // Keep placeId even if favorites/recents lookup fails.
+      }
+    }
+
+    try {
+      final listed = await _photos.listPhotos(draftId);
+      if (!mounted) return;
+      setState(() {
+        _storyPhotos
+          ..clear()
+          ..addAll(listed);
+      });
+    } catch (_) {
+      // Story fields already applied; photo strip stays empty.
+    }
   }
 
   Future<String?> _ensureFamilyId() async {
@@ -250,7 +278,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
   }
 
   Future<Uint8List?> _pickFromGallery() async {
-    final file = await ImagePicker().pickImage(source: ImageSource.gallery);
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
     if (file == null) return null;
     return file.readAsBytes();
   }
@@ -304,7 +335,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         _photoError = false;
         _pendingPhotoBytes = null;
       });
-    } on StorageFailedException {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _photoError = true);
     }
@@ -356,10 +387,16 @@ class _NewStoryPageState extends State<NewStoryPage> {
     if (!_canSaveDraft) return;
     setState(() => _busy = true);
     try {
-      await _persistDraft();
+      final story = await _persistDraft();
       if (!mounted) return;
+      if (story == null) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Draft saved')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save draft. Try again.')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -382,6 +419,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
       if (router != null) {
         context.go(AppRoutes.timeline);
       }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t publish story. Try again.')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }

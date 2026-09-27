@@ -122,12 +122,14 @@ class _FakeMapboxSearch implements MapboxSearchGateway {
 }
 
 class _FakeStoriesApi implements StoriesGateway {
-  _FakeStoriesApi({this.story});
+  _FakeStoriesApi({this.story, this.throwOnCreate = false});
 
   Story? story;
+  var throwOnCreate = false;
   var createDraftCalls = 0;
   var updateDraftCalls = 0;
   var publishCalls = 0;
+  String? lastUpdatedStoryId;
   DateTime? lastTimeframeStart;
   DateTime? lastTimeframeEnd;
   String? lastBody;
@@ -165,6 +167,9 @@ class _FakeStoriesApi implements StoriesGateway {
     String? placeId,
     List<String> personIds = const [],
   }) async {
+    if (throwOnCreate) {
+      throw StateError('save failed');
+    }
     createDraftCalls++;
     lastTimeframeStart = timeframeStart;
     lastTimeframeEnd = timeframeEnd;
@@ -192,6 +197,7 @@ class _FakeStoriesApi implements StoriesGateway {
     List<String>? personIds,
   }) async {
     updateDraftCalls++;
+    lastUpdatedStoryId = storyId;
     lastTimeframeStart = timeframeStart ?? lastTimeframeStart;
     lastTimeframeEnd = timeframeEnd ?? lastTimeframeEnd;
     lastBody = body ?? lastBody;
@@ -249,10 +255,14 @@ class _FakePicker {
 }
 
 class _FakePhotosApi implements PhotosGateway {
-  _FakePhotosApi({this.failUpload = false, List<Photo>? seed})
-    : rows = [...?seed];
+  _FakePhotosApi({
+    this.failUpload = false,
+    this.failDecode = false,
+    List<Photo>? seed,
+  }) : rows = [...?seed];
 
   var failUpload = false;
+  var failDecode = false;
   var uploadCalls = 0;
   final List<Photo> rows;
   final List<Photo> deleted = [];
@@ -270,6 +280,9 @@ class _FakePhotosApi implements PhotosGateway {
     required int sortOrder,
   }) async {
     uploadCalls++;
+    if (failDecode) {
+      throw ArgumentError.value(bytes, 'bytes', 'not a decodable image');
+    }
     if (failUpload) {
       throw const StorageFailedException();
     }
@@ -531,6 +544,50 @@ void main() {
     expect(save.onPressed, isNotNull);
   });
 
+  testWidgets('hydrate getStory failure does not bind draft id', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi();
+    await tester.pumpWidget(
+      _captureShell(stories: stories, draftId: 'draft-1'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Couldn’t load draft. Try again.'), findsOneWidget);
+    expect(find.text('Jam at the park'), findsNothing);
+    final save = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Save draft'),
+    );
+    expect(save.onPressed, isNull);
+    expect(stories.updateDraftCalls, 0);
+    expect(stories.createDraftCalls, 0);
+
+    await tester.tap(find.widgetWithText(TextButton, '1980s'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
+    await tester.pumpAndSettle();
+
+    expect(stories.updateDraftCalls, 0);
+    expect(stories.lastUpdatedStoryId, isNull);
+    expect(stories.createDraftCalls, 1);
+    expect(stories.story?.id, isNot('draft-1'));
+  });
+
+  testWidgets('Save draft throw does not show Draft saved', (tester) async {
+    final stories = _FakeStoriesApi(throwOnCreate: true);
+    await tester.pumpWidget(_captureShell(stories: stories));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '1980s'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Draft saved'), findsNothing);
+    expect(find.text('Couldn’t save draft. Try again.'), findsOneWidget);
+    expect(stories.createDraftCalls, 0);
+    expect(stories.updateDraftCalls, 0);
+  });
+
   testWidgets('Add photo without timeframe does not pick', (tester) async {
     final picker = _FakePicker();
     await tester.pumpWidget(_captureShell(picker: picker.call));
@@ -570,6 +627,26 @@ void main() {
 
   testWidgets('upload failure shows retry copy', (tester) async {
     final photos = _FakePhotosApi(failUpload: true);
+    await tester.pumpWidget(
+      _captureShell(photos: photos, picker: _FakePicker().call),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '1980s'));
+    await tester.pumpAndSettle();
+    await _tapAddPhoto(tester);
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Couldn’t upload the photo. Check your connection and try again.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.byKey(const Key('photo-thumb')), findsNothing);
+  });
+
+  testWidgets('decode failure shows photo retry copy', (tester) async {
+    final photos = _FakePhotosApi(failDecode: true);
     await tester.pumpWidget(
       _captureShell(photos: photos, picker: _FakePicker().call),
     );
