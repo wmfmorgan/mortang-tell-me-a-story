@@ -1,12 +1,13 @@
 -- §14 two-family RLS isolation: User A cannot SELECT family 2 tenant rows.
 -- Harness: insert auth.users (trigger → profiles); SET LOCAL ROLE authenticated
 -- + request.jwt.claim.sub/role; create_family as each user; seed as family owner;
--- assert cross-family SELECTs empty. Entire script runs in a transaction + ROLLBACK.
+-- assert cross-family SELECTs empty (incl. comments, perspectives, stranger profile).
+-- Entire script runs in a transaction + ROLLBACK.
 
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(7);
+select plan(10);
 
 create temporary table test_ctx (
   user_a uuid primary key,
@@ -98,6 +99,28 @@ select
   'pending'::public.invite_status
 from test_ctx;
 
+insert into public.comments (
+  id, story_id, family_id, author_id, body
+)
+select
+  'b6000000-0000-4000-8000-000000000006',
+  'b3000000-0000-4000-8000-000000000003',
+  family_b,
+  user_b,
+  'family B comment'
+from test_ctx;
+
+insert into public.perspectives (
+  id, story_id, family_id, author_id, body
+)
+select
+  'b7000000-0000-4000-8000-000000000007',
+  'b3000000-0000-4000-8000-000000000003',
+  family_b,
+  user_b,
+  'family B perspective'
+from test_ctx;
+
 -- Switch to User A: must not see any family B rows
 set local request.jwt.claim.sub = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
@@ -146,6 +169,27 @@ select isnt(
 select is_empty(
   $$select id from public.stories where id = 'b3000000-0000-4000-8000-000000000003'$$,
   'User A cannot SELECT family 2 story by primary key'
+);
+
+select is(
+  (select count(*)::int from public.comments cm
+   join test_ctx c on cm.family_id = c.family_b),
+  0,
+  'User A cannot SELECT family 2 comments'
+);
+
+select is(
+  (select count(*)::int from public.perspectives pv
+   join test_ctx c on pv.family_id = c.family_b),
+  0,
+  'User A cannot SELECT family 2 perspectives'
+);
+
+select is(
+  (select count(*)::int from public.profiles p
+   join test_ctx c on p.id = c.user_b),
+  0,
+  'User A cannot SELECT User B profile when they share no family'
 );
 
 select * from finish();
