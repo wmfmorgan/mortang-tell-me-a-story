@@ -233,6 +233,9 @@ class _FakePhotosApi implements PhotosGateway {
     callLog.add('photos:$storyId');
     deletedStories.add(storyId);
   }
+
+  @override
+  Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }
 
 Widget _drafts({required StoriesGateway stories, PhotosGateway? photos}) {

@@ -114,6 +114,7 @@ abstract class PhotosGateway {
     required String familyId,
     required String storyId,
   });
+  Future<Uint8List> downloadBytes(String storagePath);
 }
 
 typedef PhotoUploadBinary = Future<void> Function({
@@ -133,13 +134,15 @@ class PhotosApi implements PhotosGateway {
     Future<void> Function(List<String> paths)? removeObjects,
     Future<Map<String, dynamic>> Function(Map<String, dynamic> row)?
     insertPhoto,
+    Future<Uint8List> Function(String path)? downloadBytes,
   }) : _client = client ?? Supabase.instance.client,
        _maxCountLoader = maxCountLoader,
        _photoIdFactory = photoIdFactory,
        _uploaderId = uploaderId,
        _uploadBinary = uploadBinary,
        _removeObjects = removeObjects,
-       _insertPhoto = insertPhoto;
+       _insertPhoto = insertPhoto,
+       _downloadBytes = downloadBytes;
 
   final SupabaseClient _client;
   final Future<int> Function()? _maxCountLoader;
@@ -149,6 +152,7 @@ class PhotosApi implements PhotosGateway {
   final Future<void> Function(List<String> paths)? _removeObjects;
   final Future<Map<String, dynamic>> Function(Map<String, dynamic> row)?
   _insertPhoto;
+  final Future<Uint8List> Function(String path)? _downloadBytes;
 
   @override
   Future<List<Photo>> listPhotos(String storyId) async {
@@ -216,6 +220,12 @@ class PhotosApi implements PhotosGateway {
         .list(path: prefix);
     if (objects.isEmpty) return;
     await _remove([for (final object in objects) '$prefix/${object.name}']);
+  }
+
+  @override
+  Future<Uint8List> downloadBytes(String storagePath) async {
+    if (_downloadBytes != null) return _downloadBytes(storagePath);
+    return _client.storage.from(storyPhotosBucket).download(storagePath);
   }
 
   Future<int> _countPhotos(String storyId) async {
