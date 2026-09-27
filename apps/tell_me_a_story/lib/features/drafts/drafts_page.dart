@@ -39,6 +39,7 @@ class _DraftsPageState extends State<DraftsPage> {
   PhotosGateway? _photosOverride;
 
   var _loading = true;
+  var _loadError = false;
   var _busy = false;
   String? _familyId;
   List<Story> _drafts = const [];
@@ -58,7 +59,10 @@ class _DraftsPageState extends State<DraftsPage> {
   }
 
   Future<void> _reload() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadError = false;
+    });
     try {
       final familyId = _familyId ?? await _invite.currentFamilyId();
       if (!mounted) return;
@@ -79,7 +83,10 @@ class _DraftsPageState extends State<DraftsPage> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _loadError = true;
+      });
     }
   }
 
@@ -99,13 +106,15 @@ class _DraftsPageState extends State<DraftsPage> {
     setState(() => _busy = true);
     try {
       final familyId = _familyId ?? story.familyId;
-      await _photos.deleteAllForStory(
-        familyId: familyId,
-        storyId: story.id,
-      );
+      await _photos.deleteAllForStory(familyId: familyId, storyId: story.id);
       await _stories.discard(story.id);
       if (!mounted) return;
       await _reload();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t discard draft. Try again.')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -144,6 +153,17 @@ class _DraftsPageState extends State<DraftsPage> {
   Widget _body() {
     if (_loading) {
       return const Center(child: Text('Loading drafts…'));
+    }
+    if (_loadError) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Couldn’t load drafts. Try again.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
     }
     if (_drafts.isEmpty) {
       return const Center(
@@ -229,10 +249,7 @@ class _DraftRow extends StatelessWidget {
                 onPressed: onContinue,
                 child: const Text('Continue writing'),
               ),
-              TextButton(
-                onPressed: onDiscard,
-                child: const Text('Discard'),
-              ),
+              TextButton(onPressed: onDiscard, child: const Text('Discard')),
             ],
           ),
         ],
