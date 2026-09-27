@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/album_theme.dart';
+
 class DecadeRange {
   const DecadeRange(this.startYear);
   final int startYear; // 1980
@@ -62,11 +64,19 @@ class TimeframeChips extends StatelessWidget {
             onPressed: () => onSelected(decade),
             style: TextButton.styleFrom(
               backgroundColor: decade.startYear == selectedStartYear
-                  ? const Color(0xFF8B5E4B)
-                  : null,
+                  ? albumTerracotta
+                  : albumParchment,
               foregroundColor: decade.startYear == selectedStartYear
-                  ? Colors.white
-                  : null,
+                  ? albumParchment
+                  : albumInk,
+              side: BorderSide(
+                color: decade.startYear == selectedStartYear
+                    ? albumTerracotta
+                    : albumSage,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: Text(decade.label),
           ),
