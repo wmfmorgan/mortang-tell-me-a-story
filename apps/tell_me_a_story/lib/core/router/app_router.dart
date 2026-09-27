@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/comments_api.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
+import '../../data/perspectives_api.dart' hide displayNameOrMember;
 import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/stories_api.dart';
@@ -37,6 +39,8 @@ GoRouter createAppRouter({
   MapboxSearchGateway? mapboxSearch,
   StoriesGateway? storiesApi,
   PhotosGateway? photosApi,
+  CommentsGateway? commentsApi,
+  PerspectivesGateway? perspectivesApi,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.magicLink,
@@ -46,8 +50,9 @@ GoRouter createAppRouter({
       final loc = state.matchedLocation;
       final onMagicLink = loc == AppRoutes.magicLink;
       final invite = state.uri.queryParameters['invite'];
-      final inviteSuffix =
-          (invite != null && invite.isNotEmpty) ? '?invite=$invite' : '';
+      final inviteSuffix = (invite != null && invite.isNotEmpty)
+          ? '?invite=$invite'
+          : '';
 
       if (!signedIn && !onMagicLink) {
         // Preserve invite token across auth (no dedicated /invite route).
@@ -65,10 +70,8 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRoutes.timeline,
-        builder: (context, state) => TimelinePage(
-          api: inviteApi,
-          storiesApi: storiesApi,
-        ),
+        builder: (context, state) =>
+            TimelinePage(api: inviteApi, storiesApi: storiesApi),
       ),
       GoRoute(
         path: AppRoutes.newStory,
@@ -87,14 +90,19 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRoutes.storyPerspective,
-        builder: (context, state) => AddPerspectivePage(
-          storyId: state.pathParameters['storyId']!,
-        ),
+        builder: (context, state) =>
+            AddPerspectivePage(storyId: state.pathParameters['storyId']!),
       ),
       GoRoute(
         path: AppRoutes.story,
         builder: (context, state) => StoryReaderPage(
           storyId: state.pathParameters['storyId']!,
+          storiesApi: storiesApi,
+          peopleApi: peopleApi,
+          placesApi: placesApi,
+          photosApi: photosApi,
+          commentsApi: commentsApi,
+          perspectivesApi: perspectivesApi,
         ),
       ),
       GoRoute(

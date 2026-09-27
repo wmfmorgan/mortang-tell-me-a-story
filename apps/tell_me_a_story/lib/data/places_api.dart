@@ -42,10 +42,7 @@ class Place {
 }
 
 /// Rejects empty / whitespace-only label or address before network.
-void ensureValidPlaceCreate({
-  required String label,
-  required String address,
-}) {
+void ensureValidPlaceCreate({required String label, required String address}) {
   if (label.trim().isEmpty) {
     throw ArgumentError.value(label, 'label', 'must not be empty');
   }
@@ -95,12 +92,13 @@ abstract class PlacesGateway {
     required bool isFavorite,
   });
   Future<Place?> findByMapboxPlaceId(String familyId, String mapboxPlaceId);
+  Future<Place?> getPlace(String id);
 }
 
 /// PostgREST CRUD gateway for family-scoped `places` rows.
 class PlacesApi implements PlacesGateway {
   PlacesApi({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
 
@@ -151,8 +149,11 @@ class PlacesApi implements PlacesGateway {
       isFavorite: isFavorite,
       lastUsedAt: DateTime.now().toUtc(),
     );
-    final row =
-        await _client.from('places').insert(payload).select(_columns).single();
+    final row = await _client
+        .from('places')
+        .insert(payload)
+        .select(_columns)
+        .single();
     return Place.fromJson(row);
   }
 
@@ -160,9 +161,7 @@ class PlacesApi implements PlacesGateway {
   Future<Place> markUsed(String placeId) async {
     final row = await _client
         .from('places')
-        .update({
-          'last_used_at': DateTime.now().toUtc().toIso8601String(),
-        })
+        .update({'last_used_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', placeId)
         .select(_columns)
         .single();
@@ -193,6 +192,17 @@ class PlacesApi implements PlacesGateway {
         .select(_columns)
         .eq('family_id', familyId)
         .eq('mapbox_place_id', mapboxPlaceId)
+        .maybeSingle();
+    if (row == null) return null;
+    return Place.fromJson(row);
+  }
+
+  @override
+  Future<Place?> getPlace(String id) async {
+    final row = await _client
+        .from('places')
+        .select(_columns)
+        .eq('id', id)
         .maybeSingle();
     if (row == null) return null;
     return Place.fromJson(row);

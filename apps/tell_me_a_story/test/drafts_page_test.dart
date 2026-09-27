@@ -195,6 +195,9 @@ class _StubPlacesApi implements PlacesGateway {
     String familyId,
     String mapboxPlaceId,
   ) async => null;
+
+  @override
+  Future<Place?> getPlace(String id) async => null;
 }
 
 class _StubMapboxSearch implements MapboxSearchGateway {

@@ -113,6 +113,14 @@ class _FakePlacesApi implements PlacesGateway {
     String familyId,
     String mapboxPlaceId,
   ) async => null;
+
+  @override
+  Future<Place?> getPlace(String id) async {
+    for (final p in rows) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
 }
 
 class _FakeMapboxSearch implements MapboxSearchGateway {

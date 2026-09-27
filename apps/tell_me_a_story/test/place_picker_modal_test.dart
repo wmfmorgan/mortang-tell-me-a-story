@@ -34,7 +34,7 @@ Place _place({
 
 class _FakePlacesGateway implements PlacesGateway {
   _FakePlacesGateway({List<Place>? seed, this.throwOnCreate = false})
-      : rows = [...?seed];
+    : rows = [...?seed];
 
   final List<Place> rows;
   final bool throwOnCreate;
@@ -47,19 +47,19 @@ class _FakePlacesGateway implements PlacesGateway {
 
   @override
   Future<List<Place>> listFavorites(String familyId) async {
-    final filtered = rows
-        .where((p) => p.familyId == familyId && p.isFavorite)
-        .toList()
-      ..sort((a, b) => a.label.compareTo(b.label));
+    final filtered =
+        rows.where((p) => p.familyId == familyId && p.isFavorite).toList()
+          ..sort((a, b) => a.label.compareTo(b.label));
     return filtered;
   }
 
   @override
   Future<List<Place>> listRecents(String familyId, {int limit = 10}) async {
-    final filtered = rows
-        .where((p) => p.familyId == familyId && p.lastUsedAt != null)
-        .toList()
-      ..sort((a, b) => b.lastUsedAt!.compareTo(a.lastUsedAt!));
+    final filtered =
+        rows
+            .where((p) => p.familyId == familyId && p.lastUsedAt != null)
+            .toList()
+          ..sort((a, b) => b.lastUsedAt!.compareTo(a.lastUsedAt!));
     return filtered.take(limit).toList();
   }
 
@@ -150,6 +150,14 @@ class _FakePlacesGateway implements PlacesGateway {
       if (p.familyId == familyId && p.mapboxPlaceId == mapboxPlaceId) {
         return p;
       }
+    }
+    return null;
+  }
+
+  @override
+  Future<Place?> getPlace(String id) async {
+    for (final p in rows) {
+      if (p.id == id) return p;
     }
     return null;
   }
@@ -740,4 +748,3 @@ void main() {
     });
   });
 }
-
