@@ -128,8 +128,7 @@ class _FakePlacesApi implements PlacesGateway {
   Future<Place?> findByMapboxPlaceId(
     String familyId,
     String mapboxPlaceId,
-  ) async =>
-      null;
+  ) async => null;
 }
 
 class _FakeMapboxSearch implements MapboxSearchGateway {
@@ -163,20 +162,16 @@ Widget _defaultStubMap({double? lat, double? lng}) {
 }
 
 void main() {
-  testWidgets('shell shows New story chrome without draft/publish',
-      (tester) async {
+  testWidgets('shell shows New story chrome with people and place', (
+    tester,
+  ) async {
     await tester.pumpWidget(_shell());
     await tester.pumpAndSettle();
 
     expect(find.text('New story'), findsOneWidget);
     expect(find.text('Add person'), findsOneWidget);
     expect(find.text('Choose place'), findsOneWidget);
-    expect(find.text('Capture fields arrive in M4.'), findsOneWidget);
-
-    expect(find.text('Save draft'), findsNothing);
-    expect(find.textContaining('Save draft'), findsNothing);
-    expect(find.text('Publish'), findsNothing);
-    expect(find.textContaining('Publish'), findsNothing);
+    expect(find.text('Capture fields arrive in M4.'), findsNothing);
   });
 
   testWidgets('Add person opens AddPersonModal', (tester) async {
@@ -299,11 +294,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _shell(
-          places: places,
-          hasMapboxToken: false,
-          mapBuilder: null,
-        ),
+        _shell(places: places, hasMapboxToken: false, mapBuilder: null),
       );
       await tester.pumpAndSettle();
 
@@ -321,8 +312,9 @@ void main() {
     },
   );
 
-  testWidgets('bootstraps family via createFamily when none exists',
-      (tester) async {
+  testWidgets('bootstraps family via createFamily when none exists', (
+    tester,
+  ) async {
     final invite = _FakeInviteApi(familyId: null);
     final people = _FakePeopleApi();
 
