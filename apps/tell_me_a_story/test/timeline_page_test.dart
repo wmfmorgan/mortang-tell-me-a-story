@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
@@ -118,8 +120,9 @@ Story _published({
   );
 }
 
-Widget _timeline({required StoriesGateway stories}) {
+Widget _timeline({required StoriesGateway stories, ThemeData? theme}) {
   return MaterialApp(
+    theme: theme,
     home: TimelinePage(
       api: _FakeInviteApi(),
       storiesApi: stories,
@@ -128,6 +131,9 @@ Widget _timeline({required StoriesGateway stories}) {
 }
 
 void main() {
+  setUpAll(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
   testWidgets('empty published list shows locked empty copy', (tester) async {
     await tester.pumpWidget(_timeline(stories: _FakeStoriesApi(published: [])));
     await tester.pumpAndSettle();
@@ -170,6 +176,24 @@ void main() {
         .map((button) => (button.child as Text).data)
         .toList();
     expect(labels, ['New story', 'Drafts', '+ Invite']);
+  });
+
+  testWidgets('album AppBar fits at 320px without overflow', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: []),
+        theme: albumTheme(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('New story'), findsOneWidget);
+    expect(find.text('Drafts'), findsOneWidget);
+    expect(find.text('+ Invite'), findsOneWidget);
   });
 
   testWidgets(

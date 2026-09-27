@@ -143,21 +143,38 @@ class _TimelinePageState extends State<TimelinePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Timeline'),
-        actions: [
-          TextButton(
-            onPressed: _openNewStory,
-            child: const Text('New story'),
-          ),
-          TextButton(
-            onPressed: _openDrafts,
-            child: const Text('Drafts'),
-          ),
-          TextButton(
-            onPressed: _loadingFamily ? null : _openInvite,
-            child: const Text('+ Invite'),
-          ),
-        ],
+        title: Row(
+          children: [
+            const Text('Timeline'),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton(
+                        onPressed: _openNewStory,
+                        child: const Text('New story'),
+                      ),
+                      TextButton(
+                        onPressed: _openDrafts,
+                        child: const Text('Drafts'),
+                      ),
+                      TextButton(
+                        onPressed: _loadingFamily ? null : _openInvite,
+                        child: const Text('+ Invite'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       body: SafeArea(child: _body()),
     );
