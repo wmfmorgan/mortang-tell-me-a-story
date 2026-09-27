@@ -12,7 +12,7 @@ Private family storytelling app (Mortang). Specs in Notion are law — see Impl 
 - `supabase/` — migrations, config, RLS/pgTAP tests
 - `docs/superpowers/plans/` — implementation plans
 
-M2+ (family create, Edge invites, Mapbox, Flutter upload, product screens) is **not started**.
+M1+M2 merged. M3 = people + places + Mapbox picker (this branch). Flutter upload / full New Story = **M4**.
 
 ## Secrets (forbidden in git)
 
@@ -85,6 +85,17 @@ Then open **http://127.0.0.1:3000/** in Chrome yourself.
 3. Click the link (new tab is OK with `web-server`)
 4. You should land on port **3000** with `?code=...`, then redirect to `/timeline`
 5. On Timeline, **+ Invite** opens Email / Link modal (no SMS). Link copy / email send use locked toasts.
+
+### M3 people + places smoke (local)
+
+After magic-link → `/timeline`:
+
+1. Tap **New story** (smoke entry only) → `/stories/new`
+2. **Add person** — pick existing or create (relationship required; email optional)
+3. **Choose place** — favorites/recents + Mapbox search; pin uses Mapbox streets tiles
+4. Without `MAPBOX_ACCESS_TOKEN`, map shows locked failure copy + **Try again**
+
+Full capture (text/photos/draft/publish) is **M4**. Do not expect Save draft / Publish on the M3 shell.
 
 ### Edge functions (M2 invites) — local only
 
