@@ -25,6 +25,7 @@ class TimelinePage extends StatefulWidget {
 class _TimelinePageState extends State<TimelinePage> {
   late final InviteGateway _api;
   StoriesGateway? _storiesOverride;
+  GoRouter? _router;
   String? _familyId;
   List<Story> _published = const [];
   var _loadingFamily = true;
@@ -39,6 +40,29 @@ class _TimelinePageState extends State<TimelinePage> {
     super.initState();
     _api = widget.api ?? InviteApi();
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.maybeOf(context);
+    if (identical(router, _router)) return;
+    _router?.routerDelegate.removeListener(_onRouteChanged);
+    _router = router;
+    _router?.routerDelegate.addListener(_onRouteChanged);
+  }
+
+  @override
+  void dispose() {
+    _router?.routerDelegate.removeListener(_onRouteChanged);
+    super.dispose();
+  }
+
+  void _onRouteChanged() {
+    if (!mounted) return;
+    final path = _router?.routerDelegate.currentConfiguration.uri.path;
+    if (path != AppRoutes.timeline) return;
+    _loadPublished();
   }
 
   Future<void> _bootstrap() async {

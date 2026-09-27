@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tell_me_a_story/app.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/core/router/auth_refresh.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
@@ -96,13 +99,14 @@ class _SlowStoriesApi extends _FakeStoriesApi {
 
 Story _published({
   String id = 's1',
+  String familyId = _familyId,
   String? body = 'Jam',
   DateTime? timeframeStart,
   DateTime? timeframeEnd,
 }) {
   return Story(
     id: id,
-    familyId: _familyId,
+    familyId: familyId,
     authorId: 'u1',
     body: body,
     timeframeStart: timeframeStart ?? DateTime(1980, 1, 1),
@@ -167,4 +171,41 @@ void main() {
         .toList();
     expect(labels, ['New story', 'Drafts', '+ Invite']);
   });
+
+  testWidgets(
+    'returning to timeline after publish reloads published list',
+    (tester) async {
+      final stories = _FakeStoriesApi(published: []);
+      final auth = AuthRefresh(initiallySignedIn: true);
+      final router = createAppRouter(
+        authRefresh: auth,
+        inviteApi: _FakeInviteApi(),
+        storiesApi: stories,
+      );
+
+      await tester.pumpWidget(TellMeAStoryApp(router: router));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('No stories yet. Capture the first one for this family.'),
+        findsOneWidget,
+      );
+
+      router.push(AppRoutes.drafts);
+      await tester.pumpAndSettle();
+
+      stories.published.add(_published(familyId: _familyId));
+
+      router.go(AppRoutes.timeline);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Jam'), findsOneWidget);
+      expect(
+        find.text('No stories yet. Capture the first one for this family.'),
+        findsNothing,
+      );
+
+      auth.dispose();
+    },
+  );
 }
