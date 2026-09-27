@@ -41,6 +41,7 @@ dependencies:
   latlong2: ^0.10.1
   image: ^4.10.1
   uuid: ^4.6.0
+  image_picker: ^1.2.0
 
 dev_dependencies:
   flutter_test:

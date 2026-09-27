@@ -1,12 +1,16 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
+import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 import 'package:tell_me_a_story/features/stories/timeframe_chips.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -230,6 +234,70 @@ class _FakeStoriesApi implements StoriesGateway {
   Future<void> discard(String storyId) async {}
 }
 
+final _tinyJpeg = Uint8List.fromList(const [0xFF, 0xD8, 0xFF, 0xD9]);
+
+class _FakePicker {
+  _FakePicker({Uint8List? bytes}) : bytes = bytes ?? _tinyJpeg;
+
+  final Uint8List bytes;
+  var calls = 0;
+
+  Future<Uint8List?> call() async {
+    calls++;
+    return bytes;
+  }
+}
+
+class _FakePhotosApi implements PhotosGateway {
+  _FakePhotosApi({this.failUpload = false, List<Photo>? seed})
+    : rows = [...?seed];
+
+  var failUpload = false;
+  var uploadCalls = 0;
+  final List<Photo> rows;
+  final List<Photo> deleted = [];
+
+  @override
+  Future<List<Photo>> listPhotos(String storyId) async {
+    return rows.where((p) => p.storyId == storyId).toList();
+  }
+
+  @override
+  Future<Photo> uploadPhoto({
+    required String familyId,
+    required String storyId,
+    required Uint8List bytes,
+    required int sortOrder,
+  }) async {
+    uploadCalls++;
+    if (failUpload) {
+      throw const StorageFailedException();
+    }
+    final photo = Photo(
+      id: 'ph$uploadCalls',
+      storyId: storyId,
+      familyId: familyId,
+      uploaderId: 'u1',
+      storagePath: '$familyId/$storyId/ph$uploadCalls.jpg',
+      sortOrder: sortOrder,
+    );
+    rows.add(photo);
+    return photo;
+  }
+
+  @override
+  Future<void> deletePhoto(Photo photo) async {
+    deleted.add(photo);
+    rows.removeWhere((p) => p.id == photo.id);
+  }
+
+  @override
+  Future<void> deleteAllForStory({
+    required String familyId,
+    required String storyId,
+  }) async {}
+}
+
 const _ada = Person(
   id: 'p1',
   familyId: _familyId,
@@ -252,6 +320,8 @@ Widget _captureShell({
   StoriesGateway? stories,
   PeopleGateway? people,
   PlacesGateway? places,
+  PhotosGateway? photos,
+  Future<Uint8List?> Function()? picker,
   String? draftId,
 }) {
   return MaterialApp(
@@ -261,6 +331,8 @@ Widget _captureShell({
       placesApi: places ?? _FakePlacesApi(seed: [_park]),
       mapboxSearch: _FakeMapboxSearch(),
       storiesApi: stories ?? _FakeStoriesApi(),
+      photosApi: photos ?? _FakePhotosApi(),
+      pickImageBytes: picker ?? (() async => null),
       hasMapboxToken: true,
       mapBuilder: _defaultStubMap,
       draftId: draftId,
@@ -270,6 +342,13 @@ Widget _captureShell({
 
 Widget _defaultStubMap({double? lat, double? lng}) {
   return const SizedBox(key: Key('stub-map'), height: 120);
+}
+
+Future<void> _tapAddPhoto(WidgetTester tester) async {
+  final add = find.byKey(const Key('photo-add'));
+  await tester.ensureVisible(add);
+  await tester.pumpAndSettle();
+  await tester.tap(add);
 }
 
 bool _hasTerracottaBorder(Widget widget) {
@@ -450,5 +529,141 @@ void main() {
       find.widgetWithText(TextButton, 'Save draft'),
     );
     expect(save.onPressed, isNotNull);
+  });
+
+  testWidgets('Add photo without timeframe does not pick', (tester) async {
+    final picker = _FakePicker();
+    await tester.pumpWidget(_captureShell(picker: picker.call));
+    await tester.pumpAndSettle();
+    await _tapAddPhoto(tester);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Finish the highlighted fields to publish.'),
+      findsNothing,
+    );
+    expect(picker.calls, 0);
+    expect(
+      tester
+          .widgetList<Container>(find.byType(Container))
+          .any(_hasTerracottaBorder),
+      isTrue,
+    );
+    expect(find.byKey(const Key('photo-thumb')), findsNothing);
+  });
+
+  testWidgets('Add photo after decade uploads via gateway', (tester) async {
+    final photos = _FakePhotosApi();
+    final stories = _FakeStoriesApi();
+    final picker = _FakePicker(bytes: _tinyJpeg);
+    await tester.pumpWidget(
+      _captureShell(stories: stories, photos: photos, picker: picker.call),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '1980s'));
+    await tester.pumpAndSettle();
+    await _tapAddPhoto(tester);
+    await tester.pumpAndSettle();
+    expect(stories.createDraftCalls, 1);
+    expect(photos.uploadCalls, 1);
+    expect(find.byKey(const Key('photo-thumb')), findsOneWidget);
+  });
+
+  testWidgets('upload failure shows retry copy', (tester) async {
+    final photos = _FakePhotosApi(failUpload: true);
+    await tester.pumpWidget(
+      _captureShell(photos: photos, picker: _FakePicker().call),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '1980s'));
+    await tester.pumpAndSettle();
+    await _tapAddPhoto(tester);
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Couldn’t upload the photo. Check your connection and try again.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.byKey(const Key('photo-thumb')), findsNothing);
+  });
+
+  testWidgets('Try again re-uploads pending bytes', (tester) async {
+    final photos = _FakePhotosApi(failUpload: true);
+    await tester.pumpWidget(
+      _captureShell(photos: photos, picker: _FakePicker().call),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '1980s'));
+    await tester.pumpAndSettle();
+    await _tapAddPhoto(tester);
+    await tester.pumpAndSettle();
+
+    photos.failUpload = false;
+    final retry = find.text('Try again');
+    await tester.ensureVisible(retry);
+    await tester.pumpAndSettle();
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+
+    expect(photos.uploadCalls, 2);
+    expect(find.byKey(const Key('photo-thumb')), findsOneWidget);
+    expect(
+      find.text(
+        'Couldn’t upload the photo. Check your connection and try again.',
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('author remove calls deletePhoto', (tester) async {
+    final photos = _FakePhotosApi();
+    await tester.pumpWidget(
+      _captureShell(photos: photos, picker: _FakePicker().call),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '1980s'));
+    await tester.pumpAndSettle();
+    await _tapAddPhoto(tester);
+    await tester.pumpAndSettle();
+
+    final remove = find.byKey(const Key('photo-remove'));
+    await tester.ensureVisible(remove);
+    await tester.pumpAndSettle();
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+
+    expect(photos.deleted, isNotEmpty);
+    expect(find.byKey(const Key('photo-thumb')), findsNothing);
+  });
+
+  testWidgets('hides add tile at 20 photos', (tester) async {
+    final photos = List<Photo>.generate(
+      maxPhotosPerStory,
+      (i) => Photo(
+        id: 'ph$i',
+        storyId: 's1',
+        familyId: _familyId,
+        uploaderId: 'u1',
+        storagePath: 'f/s/ph$i.jpg',
+        sortOrder: i,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PhotoStrip(
+            photos: photos,
+            onAdd: () {},
+            onRemove: (_) {},
+            onRetry: () {},
+            uploadFailed: false,
+            canAdd: false,
+          ),
+        ),
+      ),
+    );
+    expect(find.byKey(const Key('photo-add')), findsNothing);
+    expect(find.byKey(const Key('photo-thumb')), findsNWidgets(20));
   });
 }

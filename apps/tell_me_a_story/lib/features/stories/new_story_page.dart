@@ -1,16 +1,21 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/config/env.dart';
 import '../../core/router/app_router.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
+import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/stories_api.dart';
 import '../people/add_person_modal.dart';
 import '../places/place_map.dart';
 import '../places/place_picker_modal.dart';
+import 'photo_strip.dart';
 import 'timeframe_chips.dart';
 
 const _terracotta = Color(0xFF8B5E4B);
@@ -24,6 +29,8 @@ class NewStoryPage extends StatefulWidget {
     this.placesApi,
     this.mapboxSearch,
     this.storiesApi,
+    this.photosApi,
+    this.pickImageBytes,
     this.hasMapboxToken,
     this.mapBuilder,
     this.draftId,
@@ -34,6 +41,10 @@ class NewStoryPage extends StatefulWidget {
   final PlacesGateway? placesApi;
   final MapboxSearchGateway? mapboxSearch;
   final StoriesGateway? storiesApi;
+  final PhotosGateway? photosApi;
+
+  /// Gallery picker override so widget tests never open the system picker.
+  final Future<Uint8List?> Function()? pickImageBytes;
 
   /// Defaults to [Env.hasMapboxToken] inside [PlacePickerModal].
   final bool? hasMapboxToken;
@@ -54,6 +65,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
   late final PlacesGateway _places;
   late final MapboxSearchGateway _search;
   StoriesGateway? _storiesOverride;
+  PhotosGateway? _photosOverride;
 
   final _body = TextEditingController();
 
@@ -62,6 +74,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
   var _loadingFamily = true;
   var _busy = false;
   var _showPublishBanner = false;
+  var _highlightTimeframeForPhoto = false;
+  var _photoError = false;
+  Uint8List? _pendingPhotoBytes;
+  final List<Photo> _storyPhotos = [];
 
   DateTime? _timeframeStart;
   DateTime? _timeframeEnd;
@@ -74,6 +90,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
+
+  PhotosGateway get _photos =>
+      widget.photosApi ?? (_photosOverride ??= PhotosApi());
 
   PublishReadiness get _readiness => publishReadiness(
     body: _body.text,
@@ -140,6 +159,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
       }
     }
     if (!mounted) return;
+    final listed = await _photos.listPhotos(draftId);
+    if (!mounted) return;
     final decade = DecadeRange.containing(story.timeframeStart);
     setState(() {
       _storyId = story.id;
@@ -153,6 +174,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
       _selectedPlace = place;
       _placeId = placeId;
       _shellMapFailed = !_tokenOk;
+      _storyPhotos
+        ..clear()
+        ..addAll(listed);
     });
   }
 
@@ -221,7 +245,81 @@ class _NewStoryPageState extends State<NewStoryPage> {
     setState(() {
       _timeframeStart = decade.start;
       _timeframeEnd = decade.end;
+      _highlightTimeframeForPhoto = false;
     });
+  }
+
+  Future<Uint8List?> _pickFromGallery() async {
+    final file = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (file == null) return null;
+    return file.readAsBytes();
+  }
+
+  Future<void> _onAddPhoto() async {
+    if (_busy || _loadingFamily) return;
+    if (_timeframeStart == null) {
+      setState(() => _highlightTimeframeForPhoto = true);
+      return;
+    }
+    if (_storyPhotos.length >= maxPhotosPerStory) return;
+    setState(() => _busy = true);
+    try {
+      final story = await _persistDraft();
+      if (!mounted || story == null) return;
+      final picker = widget.pickImageBytes ?? _pickFromGallery;
+      final bytes = await picker();
+      if (!mounted || bytes == null) return;
+      _pendingPhotoBytes = bytes;
+      await _uploadPending();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _onRetryPhoto() async {
+    if (_busy || _pendingPhotoBytes == null) return;
+    setState(() => _busy = true);
+    try {
+      await _uploadPending();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _uploadPending() async {
+    final bytes = _pendingPhotoBytes;
+    final familyId = _familyId;
+    final storyId = _storyId;
+    if (bytes == null || familyId == null || storyId == null) return;
+    try {
+      final photo = await _photos.uploadPhoto(
+        familyId: familyId,
+        storyId: storyId,
+        bytes: bytes,
+        sortOrder: _storyPhotos.length,
+      );
+      if (!mounted) return;
+      setState(() {
+        _storyPhotos.add(photo);
+        _photoError = false;
+        _pendingPhotoBytes = null;
+      });
+    } on StorageFailedException {
+      if (!mounted) return;
+      setState(() => _photoError = true);
+    }
+  }
+
+  Future<void> _onRemovePhoto(Photo photo) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _photos.deletePhoto(photo);
+      if (!mounted) return;
+      setState(() => _storyPhotos.removeWhere((p) => p.id == photo.id));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<Story?> _persistDraft() async {
@@ -329,7 +427,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
                 const SizedBox(height: 16),
               ],
               _highlightIfMissing(
-                missing: !readiness.hasTimeframe,
+                missing:
+                    (_showPublishBanner && !readiness.hasTimeframe) ||
+                    (_highlightTimeframeForPhoto && _timeframeStart == null),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -349,7 +449,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
               ),
               const SizedBox(height: 24),
               _highlightIfMissing(
-                missing: !readiness.hasPerson,
+                missing: _showPublishBanner && !readiness.hasPerson,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -378,7 +478,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
               ),
               const SizedBox(height: 24),
               _highlightIfMissing(
-                missing: !readiness.hasPlace,
+                missing: _showPublishBanner && !readiness.hasPlace,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -412,7 +512,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
               ),
               const SizedBox(height: 24),
               _highlightIfMissing(
-                missing: !readiness.hasBody,
+                missing: _showPublishBanner && !readiness.hasBody,
                 child: TextField(
                   controller: _body,
                   minLines: 5,
@@ -425,7 +525,14 @@ class _NewStoryPageState extends State<NewStoryPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              const SizedBox.shrink(),
+              PhotoStrip(
+                photos: _storyPhotos,
+                onAdd: _onAddPhoto,
+                onRemove: _onRemovePhoto,
+                onRetry: _onRetryPhoto,
+                uploadFailed: _photoError,
+                canAdd: _storyPhotos.length < maxPhotosPerStory,
+              ),
             ],
           ),
         ),
@@ -434,7 +541,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
   }
 
   Widget _highlightIfMissing({required bool missing, required Widget child}) {
-    if (!_showPublishBanner || !missing) return child;
+    if (!missing) return child;
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: _terracotta, width: 2),
