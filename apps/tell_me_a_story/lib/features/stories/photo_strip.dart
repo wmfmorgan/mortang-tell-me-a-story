@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../data/photos_api.dart';
@@ -12,6 +14,7 @@ class PhotoStrip extends StatelessWidget {
   const PhotoStrip({
     super.key,
     required this.photos,
+    this.previews = const {},
     required this.onAdd,
     required this.onRemove,
     required this.onRetry,
@@ -20,6 +23,7 @@ class PhotoStrip extends StatelessWidget {
   });
 
   final List<Photo> photos;
+  final Map<String, Uint8List> previews;
   final VoidCallback onAdd;
   final ValueChanged<Photo> onRemove;
   final VoidCallback onRetry;
@@ -46,7 +50,11 @@ class PhotoStrip extends StatelessWidget {
             child: Row(
               children: [
                 for (final photo in photos)
-                  _Thumb(photo: photo, onRemove: onRemove),
+                  _Thumb(
+                    photo: photo,
+                    preview: previews[photo.id],
+                    onRemove: onRemove,
+                  ),
                 if (canAdd) _AddTile(onAdd: onAdd),
               ],
             ),
@@ -85,9 +93,14 @@ class _AddTile extends StatelessWidget {
 }
 
 class _Thumb extends StatelessWidget {
-  const _Thumb({required this.photo, required this.onRemove});
+  const _Thumb({
+    required this.photo,
+    required this.onRemove,
+    this.preview,
+  });
 
   final Photo photo;
+  final Uint8List? preview;
   final ValueChanged<Photo> onRemove;
 
   @override
@@ -101,12 +114,27 @@ class _Thumb extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.photo_outlined),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: preview == null
+                    ? ColoredBox(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        child: const Icon(Icons.photo_outlined),
+                      )
+                    : Image.memory(
+                        preview!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return ColoredBox(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            child: const Icon(Icons.photo_outlined),
+                          );
+                        },
+                      ),
               ),
             ),
             Positioned(

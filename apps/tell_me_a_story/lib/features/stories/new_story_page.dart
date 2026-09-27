@@ -78,6 +78,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
   var _photoError = false;
   Uint8List? _pendingPhotoBytes;
   final List<Photo> _storyPhotos = [];
+  final Map<String, Uint8List> _photoPreviews = {};
 
   DateTime? _timeframeStart;
   DateTime? _timeframeEnd;
@@ -198,10 +199,22 @@ class _NewStoryPageState extends State<NewStoryPage> {
     try {
       final listed = await _photos.listPhotos(draftId);
       if (!mounted) return;
+      final previews = <String, Uint8List>{};
+      for (final photo in listed) {
+        try {
+          previews[photo.id] = await _photos.downloadBytes(photo.storagePath);
+        } catch (_) {
+          // Keep the tile; placeholder icon if bytes are missing.
+        }
+      }
+      if (!mounted) return;
       setState(() {
         _storyPhotos
           ..clear()
           ..addAll(listed);
+        _photoPreviews
+          ..clear()
+          ..addAll(previews);
       });
     } catch (_) {
       // Story fields already applied; photo strip stays empty.
@@ -332,6 +345,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       if (!mounted) return;
       setState(() {
         _storyPhotos.add(photo);
+        _photoPreviews[photo.id] = bytes;
         _photoError = false;
         _pendingPhotoBytes = null;
       });
@@ -347,7 +361,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
     try {
       await _photos.deletePhoto(photo);
       if (!mounted) return;
-      setState(() => _storyPhotos.removeWhere((p) => p.id == photo.id));
+      setState(() {
+        _storyPhotos.removeWhere((p) => p.id == photo.id);
+        _photoPreviews.remove(photo.id);
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -569,6 +586,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
               const SizedBox(height: 24),
               PhotoStrip(
                 photos: _storyPhotos,
+                previews: _photoPreviews,
                 onAdd: _onAddPhoto,
                 onRemove: _onRemovePhoto,
                 onRetry: _onRetryPhoto,

@@ -309,6 +309,9 @@ class _FakePhotosApi implements PhotosGateway {
     required String familyId,
     required String storyId,
   }) async {}
+
+  @override
+  Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }
 
 const _ada = Person(
@@ -623,6 +626,13 @@ void main() {
     expect(stories.createDraftCalls, 1);
     expect(photos.uploadCalls, 1);
     expect(find.byKey(const Key('photo-thumb')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('photo-thumb')),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('upload failure shows retry copy', (tester) async {
