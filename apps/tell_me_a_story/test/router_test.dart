@@ -1,13 +1,19 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
+import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
@@ -101,6 +107,87 @@ class _StubMapboxSearch implements MapboxSearchGateway {
   @override
   Future<List<MapboxSearchHit>> search(String query, {int limit = 5}) async =>
       const [];
+}
+
+class _StubStoriesApi implements StoriesGateway {
+  @override
+  Future<Story> createDraft({
+    required String familyId,
+    required DateTime timeframeStart,
+    DateTime? timeframeEnd,
+    String? body,
+    String? placeId,
+    List<String> personIds = const [],
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Story> updateDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Story> publish(String storyId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Story> getStory(String storyId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<Story>> listMyDrafts(String familyId) async => const [];
+
+  @override
+  Future<List<Story>> listPublished(String familyId) async => const [];
+
+  @override
+  Future<void> discard(String storyId) async {}
+}
+
+class _StubPhotosApi implements PhotosGateway {
+  @override
+  Future<List<Photo>> listPhotos(String storyId) async => const [];
+
+  @override
+  Future<Photo> uploadPhoto({
+    required String familyId,
+    required String storyId,
+    required Uint8List bytes,
+    required int sortOrder,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deletePhoto(Photo photo) async {}
+
+  @override
+  Future<void> deleteAllForStory({
+    required String familyId,
+    required String storyId,
+  }) async {}
+}
+
+GoRouter _router({required AuthRefresh auth}) {
+  return createAppRouter(
+    authRefresh: auth,
+    inviteApi: _StubInviteApi(),
+    peopleApi: _StubPeopleApi(),
+    placesApi: _StubPlacesApi(),
+    mapboxSearch: _StubMapboxSearch(),
+    storiesApi: _StubStoriesApi(),
+    photosApi: _StubPhotosApi(),
+  );
 }
 
 void main() {
@@ -271,6 +358,89 @@ void main() {
         .map((m) => m.matchedLocation)
         .toList();
     expect(locations, contains(AppRoutes.newStory));
+
+    auth.dispose();
+  });
+
+  testWidgets('Timeline AppBar Drafts pushes /drafts', (tester) async {
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = _router(auth: auth);
+
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TimelinePage), findsOneWidget);
+    final draftsButton = find.widgetWithText(TextButton, 'Drafts');
+    expect(draftsButton, findsOneWidget);
+    tester.widget<TextButton>(draftsButton).onPressed!.call();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(DraftsPage), findsOneWidget);
+    final locations = router.routerDelegate.currentConfiguration.matches
+        .map((m) => m.matchedLocation)
+        .toList();
+    expect(locations, contains(AppRoutes.drafts));
+
+    auth.dispose();
+  });
+
+  testWidgets('signed-in user can open /drafts', (tester) async {
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.drafts);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.drafts,
+    );
+    expect(find.byType(DraftsPage), findsOneWidget);
+    expect(find.text('Drafts'), findsWidgets);
+
+    auth.dispose();
+  });
+
+  testWidgets('signed-out user is redirected from /drafts to magic-link',
+      (tester) async {
+    final auth = AuthRefresh(initiallySignedIn: false);
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.drafts);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.magicLink,
+    );
+    expect(find.byType(MagicLinkPage), findsOneWidget);
+    expect(find.byType(DraftsPage), findsNothing);
+
+    auth.dispose();
+  });
+
+  testWidgets('new story route forwards draft query', (tester) async {
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go('${AppRoutes.newStory}?draft=s1');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NewStoryPage), findsOneWidget);
+    expect(tester.widget<NewStoryPage>(find.byType(NewStoryPage)).draftId, 's1');
 
     auth.dispose();
   });

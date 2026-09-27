@@ -7,12 +7,14 @@ Private family storytelling app (Mortang). Specs in Notion are law — see Impl 
 - `apps/tell_me_a_story/` — Flutter client (iOS/iPad + web)
   - `lib/core/` — env, supabase init, router
   - `lib/features/auth/` — magic-link entry
-  - `lib/features/timeline/` — `/timeline` stub (post-auth redirect only)
-  - `lib/data/` — empty scaffold (`.gitkeep`); no repositories in M1
+  - `lib/features/stories/` — `/stories/new` capture (timeframe, people, place, text, photos)
+  - `lib/features/drafts/` — `/drafts` author-only list
+  - `lib/features/timeline/` — `/timeline` smoke list of published stories
+  - `lib/data/` — PostgREST gateways (people, places, stories, photos, invites)
 - `supabase/` — migrations, config, RLS/pgTAP tests
 - `docs/superpowers/plans/` — implementation plans
 
-M1+M2 merged. M3 = people + places + Mapbox picker (this branch). Flutter upload / full New Story = **M4**.
+M1–M3 merged. This branch is **M4** (stories + drafts + photos; First 10 #9 Flutter upload). Reader / comments / perspectives = **M5**. Timeline zoom / Realtime = **M6**. Search = **M7**.
 
 ## Secrets (forbidden in git)
 
@@ -90,12 +92,27 @@ Then open **http://127.0.0.1:3000/** in Chrome yourself.
 
 After magic-link → `/timeline`:
 
-1. Tap **New story** (smoke entry only) → `/stories/new`
+1. Tap **New story** → `/stories/new`
 2. **Add person** — pick existing or create (relationship required; email optional)
 3. **Choose place** — favorites/recents + Mapbox search; pin uses Mapbox streets tiles
 4. Without `MAPBOX_ACCESS_TOKEN`, map shows locked failure copy + **Try again**
 
-Full capture (text/photos/draft/publish) is **M4**. Do not expect Save draft / Publish on the M3 shell.
+### M4 stories + drafts + photos smoke (local)
+
+After the people/place steps above (or continue on the same `/stories/new` form):
+
+1. Pick a **decade chip** (required before Save draft; `timeframe_start` is NOT NULL)
+2. Enter **story text**
+3. **Save draft** → toast `Draft saved` (**OPEN (Mugatu)** exact toast)
+4. Timeline AppBar **Drafts** → `/drafts` (author-only `status = draft`). Row shows missing-field chips. **Continue writing** resumes via `/stories/new?draft=<id>`
+5. Add a photo (≤20). Kill network / fail Storage → photo retry copy + **Try again** (retry label locked; failure sentence **OPEN (Mugatu)**)
+6. Fill people + place + text → **Publish story** (sets `status = published` **and** `published_at`)
+7. Land on `/timeline`; draft gone from Drafts; smoke preview listed (row tap is a no-op — reader is M5)
+8. Blocked Publish (missing fields) stays on the form with `Finish the highlighted fields to publish.`
+
+Do **not** claim Bill local smoke closed until Bill runs this path.
+
+Photos RLS is unchanged from M1 (`member + uploader_id = uid`). Author attach on capture is M4; any-member attach on a published story is **M5**. Drafts are online-only (no Hive/SQLite).
 
 ### Edge functions (M2 invites) — local only
 
