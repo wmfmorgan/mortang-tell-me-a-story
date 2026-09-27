@@ -236,11 +236,22 @@ class _FakePhotosApi implements PhotosGateway {
 }
 
 class _FakeCommentsApi implements CommentsGateway {
-  _FakeCommentsApi({List<Comment>? seed, this.throwOnList = false})
-    : rows = [...?seed];
+  _FakeCommentsApi({
+    List<Comment>? seed,
+    this.throwOnList = false,
+    this.throwOnCreate = false,
+    this.throwOnDelete = false,
+    this.authorId = 'u1',
+  }) : rows = [...?seed];
 
   final List<Comment> rows;
   final bool throwOnList;
+  final bool throwOnCreate;
+  final bool throwOnDelete;
+  final String authorId;
+  var createCalls = 0;
+  var deleteCalls = 0;
+  var _seq = 0;
 
   @override
   Future<List<Comment>> listForStory(String storyId) async {
@@ -253,8 +264,21 @@ class _FakeCommentsApi implements CommentsGateway {
     required String storyId,
     required String familyId,
     required String body,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    createCalls++;
+    if (throwOnCreate) throw StateError('create failed');
+    ensureValidCommentBody(body);
+    final comment = Comment(
+      id: 'new${++_seq}',
+      storyId: storyId,
+      familyId: familyId,
+      authorId: authorId,
+      body: body.trim(),
+      createdAt: DateTime.utc(2026, 9, 27, 12),
+      authorDisplayName: 'Me',
+    );
+    rows.add(comment);
+    return comment;
   }
 
   @override
@@ -263,7 +287,11 @@ class _FakeCommentsApi implements CommentsGateway {
   }
 
   @override
-  Future<void> delete(String id) async {}
+  Future<void> delete(String id) async {
+    deleteCalls++;
+    if (throwOnDelete) throw StateError('delete failed');
+    rows.removeWhere((c) => c.id == id);
+  }
 }
 
 class _FakePerspectivesApi implements PerspectivesGateway {
@@ -306,6 +334,7 @@ Widget _readerApp({
   CommentsGateway? comments,
   PerspectivesGateway? perspectives,
   String storyId = _storyId,
+  String? currentUserId,
   bool? hasMapboxToken,
   PlaceMapBuilder? mapBuilder,
 }) {
@@ -331,6 +360,7 @@ Widget _readerApp({
           photosApi: photos ?? _FakePhotosApi(),
           commentsApi: comments ?? _FakeCommentsApi(),
           perspectivesApi: perspectives ?? _FakePerspectivesApi(),
+          currentUserId: currentUserId,
           hasMapboxToken: hasMapboxToken ?? true,
           mapBuilder: mapBuilder ?? _defaultStubMap,
         ),
@@ -589,5 +619,124 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('add-perspective')), findsOneWidget);
+  });
+
+  testWidgets('Post with text creates a comment and shows the body', (
+    tester,
+  ) async {
+    final comments = _FakeCommentsApi();
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        comments: comments,
+        currentUserId: 'u1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '  I remember the pie.  ');
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Post'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Post'));
+    await tester.pumpAndSettle();
+
+    expect(comments.createCalls, 1);
+    expect(find.text('I remember the pie.'), findsOneWidget);
+    expect(find.text('Me'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      '',
+    );
+  });
+
+  testWidgets('empty Post does not create a comment', (tester) async {
+    final comments = _FakeCommentsApi();
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        comments: comments,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Post'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Post'));
+    await tester.pumpAndSettle();
+
+    expect(comments.createCalls, 0);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('Comments'), findsOneWidget);
+  });
+
+  testWidgets('failed Post shows Try again and does not add a row', (
+    tester,
+  ) async {
+    final comments = _FakeCommentsApi(throwOnCreate: true);
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        comments: comments,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Did not save');
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Post'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Post'));
+    await tester.pumpAndSettle();
+
+    expect(comments.createCalls, 1);
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      'Did not save',
+    );
+  });
+
+  testWidgets('own comment row can delete; other author has no menu', (
+    tester,
+  ) async {
+    final comments = _FakeCommentsApi(
+      seed: [
+        Comment(
+          id: 'mine',
+          storyId: _storyId,
+          familyId: _familyId,
+          authorId: 'u1',
+          body: 'My note',
+          createdAt: DateTime.utc(2026, 9, 27),
+          authorDisplayName: 'Me',
+        ),
+        Comment(
+          id: 'theirs',
+          storyId: _storyId,
+          familyId: _familyId,
+          authorId: 'u2',
+          body: 'Their note',
+          createdAt: DateTime.utc(2026, 9, 27),
+          authorDisplayName: 'Aunt Clara',
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        comments: comments,
+        currentUserId: 'u1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('comment-menu-mine')), findsOneWidget);
+    expect(find.byKey(const Key('comment-menu-theirs')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('comment-menu-mine')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(comments.deleteCalls, 1);
+    expect(find.text('My note'), findsNothing);
+    expect(find.text('Their note'), findsOneWidget);
   });
 }

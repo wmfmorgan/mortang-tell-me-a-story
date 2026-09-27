@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/config/env.dart';
 import '../../core/router/app_router.dart';
@@ -11,6 +12,7 @@ import '../../data/perspectives_api.dart' hide displayNameOrMember;
 import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/stories_api.dart';
+import '../comments/comment_composer.dart';
 import '../places/place_map.dart';
 import '../places/place_picker_modal.dart';
 import 'photo_strip.dart';
@@ -36,6 +38,7 @@ class StoryReaderPage extends StatefulWidget {
     this.photosApi,
     this.commentsApi,
     this.perspectivesApi,
+    this.currentUserId,
     this.hasMapboxToken,
     this.mapBuilder,
   });
@@ -47,6 +50,9 @@ class StoryReaderPage extends StatefulWidget {
   final PhotosGateway? photosApi;
   final CommentsGateway? commentsApi;
   final PerspectivesGateway? perspectivesApi;
+
+  /// Session uid for author-only comment delete. Tests inject this.
+  final String? currentUserId;
 
   /// Defaults to [Env.hasMapboxToken].
   final bool? hasMapboxToken;
@@ -76,8 +82,19 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   Map<String, Uint8List> _previews = const {};
   List<Comment> _comments = const [];
   List<Perspective> _perspectives = const [];
+  final _composerFocus = FocusNode();
+  final _composerKey = GlobalKey();
 
   bool get _tokenOk => widget.hasMapboxToken ?? Env.hasMapboxToken;
+
+  String? get _currentUserId {
+    if (widget.currentUserId != null) return widget.currentUserId;
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
@@ -102,6 +119,12 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     super.initState();
     _mapFailed = !_tokenOk;
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _composerFocus.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -197,6 +220,51 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     setState(() => _mapFailed = !_tokenOk);
   }
 
+  void _focusComposer() {
+    _composerFocus.requestFocus();
+    final ctx = _composerKey.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 200),
+        alignment: 1,
+      );
+    }
+  }
+
+  Future<void> _postComment(String body) async {
+    final story = _story;
+    if (story == null) return;
+    try {
+      final created = await _commentsApi.create(
+        storyId: story.id,
+        familyId: story.familyId,
+        body: body,
+      );
+      if (!mounted) return;
+      setState(() => _comments = [..._comments, created]);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+      rethrow;
+    }
+  }
+
+  Future<void> _deleteComment(Comment row) async {
+    try {
+      await _commentsApi.delete(row.id);
+      if (!mounted) return;
+      setState(() {
+        _comments = _comments.where((c) => c.id != row.id).toList();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -289,15 +357,27 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           ],
           const SizedBox(height: 8),
           Text('Comments', style: theme.textTheme.titleMedium),
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
-            child: TextButton(onPressed: _noop, child: Text('+ Add comment')),
+            child: TextButton(
+              onPressed: _focusComposer,
+              child: const Text('+ Add comment'),
+            ),
           ),
-          for (final row in _comments) ...[
-            Text(row.authorLabel, style: theme.textTheme.titleSmall),
-            Text(row.body, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 12),
-          ],
+          for (final row in _comments)
+            CommentTile(
+              comment: row,
+              canDelete:
+                  _currentUserId != null && row.authorId == _currentUserId,
+              onDelete: () => _deleteComment(row),
+            ),
+          KeyedSubtree(
+            key: _composerKey,
+            child: CommentComposer(
+              onPost: _postComment,
+              focusNode: _composerFocus,
+            ),
+          ),
         ],
       ),
     );
