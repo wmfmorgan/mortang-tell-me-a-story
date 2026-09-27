@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/router/app_router.dart';
 import '../../data/invite_api.dart';
 import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
 
 /// Signed-in home stub. Full timeline UX is M6.
 /// M2: `+ Invite` opens Email/Link modal (chrome locks).
+/// M3: smoke-only `New story` → `/stories/new` (no Stitch/Memory Album chrome).
 class TimelinePage extends StatefulWidget {
   const TimelinePage({super.key, this.api});
 
@@ -68,12 +70,20 @@ class _TimelinePageState extends State<TimelinePage> {
     await InviteModal.show(context, familyId: familyId!, api: _api);
   }
 
+  void _openNewStory() {
+    context.push(AppRoutes.newStory);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Timeline'),
         actions: [
+          TextButton(
+            onPressed: _openNewStory,
+            child: const Text('New story'),
+          ),
           TextButton(
             onPressed: _loadingFamily ? null : _openInvite,
             child: const Text('+ Invite'),

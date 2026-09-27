@@ -12,7 +12,7 @@ Private family storytelling app (Mortang). Specs in Notion are law — see Impl 
 - `supabase/` — migrations, config, RLS/pgTAP tests
 - `docs/superpowers/plans/` — implementation plans
 
-M2+ (family create, Edge invites, Mapbox, Flutter upload, product screens) is **not started**.
+M1+M2 merged. M3 = people + places + Mapbox picker (this branch). Flutter upload / full New Story = **M4**.
 
 ## Secrets (forbidden in git)
 
@@ -68,12 +68,15 @@ cd apps/tell_me_a_story
 flutter run -d web-server --web-hostname=127.0.0.1 --web-port=3000 \
   --dart-define=SUPABASE_URL=http://127.0.0.1:57321 \
   --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0 \
-  --dart-define=INVITE_APP_ORIGIN=http://127.0.0.1:3000
+  --dart-define=INVITE_APP_ORIGIN=http://127.0.0.1:3000 \
+  --dart-define=MAPBOX_ACCESS_TOKEN=<public-token>
 ```
 
 Local demo `ANON_KEY` above is the standard Supabase local key from `supabase status` (safe for local only). If your ports differ, use your `API_URL` / `ANON_KEY` from status.
 
 `INVITE_APP_ORIGIN` defaults to `http://127.0.0.1:3000`. Invite links are `{INVITE_APP_ORIGIN}/timeline?invite=<token>`. Later MS: change only this define/env to the shareable host — do not invent a second invite system.
+
+**OPEN (Bill):** `MAPBOX_ACCESS_TOKEN` — restricted public token. App startup does **not** require it (`Env.hasMapboxToken` is soft). Without a real token, place-picker map smoke shows the locked failure UX (`Couldn’t load the map…` / `Try again`). Do not paste README `<public-token>` / `...` placeholders into dart-define.
 
 Then open **http://127.0.0.1:3000/** in Chrome yourself.
 
@@ -82,6 +85,17 @@ Then open **http://127.0.0.1:3000/** in Chrome yourself.
 3. Click the link (new tab is OK with `web-server`)
 4. You should land on port **3000** with `?code=...`, then redirect to `/timeline`
 5. On Timeline, **+ Invite** opens Email / Link modal (no SMS). Link copy / email send use locked toasts.
+
+### M3 people + places smoke (local)
+
+After magic-link → `/timeline`:
+
+1. Tap **New story** (smoke entry only) → `/stories/new`
+2. **Add person** — pick existing or create (relationship required; email optional)
+3. **Choose place** — favorites/recents + Mapbox search; pin uses Mapbox streets tiles
+4. Without `MAPBOX_ACCESS_TOKEN`, map shows locked failure copy + **Try again**
+
+Full capture (text/photos/draft/publish) is **M4**. Do not expect Save draft / Publish on the M3 shell.
 
 ### Edge functions (M2 invites) — local only
 
