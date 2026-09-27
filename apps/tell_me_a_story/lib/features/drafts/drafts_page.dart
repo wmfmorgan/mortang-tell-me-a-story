@@ -220,39 +220,49 @@ class _DraftRow extends StatelessWidget {
     final preview = _bodyPreview(story);
     return KeyedSubtree(
       key: Key('draft-row-${story.id}'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _timeframeLabel(story),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(preview),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!ready.hasBody) const Chip(label: Text('Missing text')),
-              if (!ready.hasPerson) const Chip(label: Text('Missing people')),
-              if (!ready.hasPlace) const Chip(label: Text('Missing place')),
-              if (story.photoCount <= 0)
-                const Chip(label: Text('Missing photos')),
-              if (ready.canPublish) const Chip(label: Text('Ready to publish')),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              TextButton(
-                onPressed: onContinue,
-                child: const Text('Continue writing'),
+              Text(
+                _timeframeLabel(story),
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-              TextButton(onPressed: onDiscard, child: const Text('Discard')),
+              const SizedBox(height: 4),
+              Text(preview, style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (!ready.hasBody) const Chip(label: Text('Missing text')),
+                  if (!ready.hasPerson)
+                    const Chip(label: Text('Missing people')),
+                  if (!ready.hasPlace) const Chip(label: Text('Missing place')),
+                  if (story.photoCount <= 0)
+                    const Chip(label: Text('Missing photos')),
+                  if (ready.canPublish)
+                    const Chip(label: Text('Ready to publish')),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: onContinue,
+                    child: const Text('Continue writing'),
+                  ),
+                  TextButton(
+                    onPressed: onDiscard,
+                    child: const Text('Discard'),
+                  ),
+                ],
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

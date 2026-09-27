@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../core/theme/album_theme.dart';
 import '../../data/photos_api.dart';
 
 const photoUploadFailureCopy =
@@ -75,8 +76,11 @@ class _AddTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Material(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        color: albumParchment,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: albumSage.withValues(alpha: 0.45)),
+        ),
         child: InkWell(
           key: const Key('photo-add'),
           onTap: onAdd,
@@ -118,20 +122,16 @@ class _Thumb extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 child: preview == null
                     ? ColoredBox(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
-                        child: const Icon(Icons.photo_outlined),
+                        color: albumParchment,
+                        child: const Icon(Icons.photo_outlined, color: albumSage),
                       )
                     : Image.memory(
                         preview!,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          return ColoredBox(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
-                            child: const Icon(Icons.photo_outlined),
+                          return const ColoredBox(
+                            color: albumParchment,
+                            child: Icon(Icons.photo_outlined, color: albumSage),
                           );
                         },
                       ),

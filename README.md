@@ -14,7 +14,7 @@ Private family storytelling app (Mortang). Specs in Notion are law — see Impl 
 - `supabase/` — migrations, config, RLS/pgTAP tests
 - `docs/superpowers/plans/` — implementation plans
 
-M1–M3 merged. This branch is **M4** (stories + drafts + photos; First 10 #9 Flutter upload). Reader / comments / perspectives = **M5**. Timeline zoom / Realtime = **M6**. Search = **M7**.
+M1–M4 merged. This branch is **M4.5** (Memory Album visual skin on `/timeline`, `/stories/new`, `/drafts`, capture people/place sheets). Reader / comments / perspectives = **M5**. Timeline zoom / Realtime = **M6**. Search = **M7**.
 
 ## Secrets (forbidden in git)
 
@@ -113,6 +113,17 @@ After the people/place steps above (or continue on the same `/stories/new` form)
 Do **not** claim Bill local smoke closed until Bill runs this path.
 
 Photos RLS is unchanged from M1 (`member + uploader_id = uid`). Author attach on capture is M4; any-member attach on a published story is **M5**. Drafts are online-only (no Hive/SQLite).
+
+### M4.5 Memory Album visual skin (local)
+
+After M4 smoke, check **chrome only** on these surfaces (no new routes/features):
+
+1. `/timeline` — parchment background, ink title, **soft story cards** (or locked empty copy). No Far/Mid/Near zoom.
+2. `/stories/new` — Newsreader section titles, Literata body, Source Sans 3 labels; **Save draft** secondary; **Publish story** terracotta primary; decade chips terracotta when selected.
+3. `/drafts` — album cards + missing-field chips (sage accent); empty `No drafts yet. Stories you’re still writing will show up here.`
+4. Add person / Choose place sheets — parchment, not cold Material white.
+
+Do **not** claim Mugatu PASS or Bill M4.5 smoke until they sign.
 
 ### Edge functions (M2 invites) — local only
 

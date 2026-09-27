@@ -49,6 +49,7 @@ class PlacePickerModal extends StatefulWidget {
     return showModalBottomSheet<Place>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (ctx) => PlacePickerModal(
         familyId: familyId,
         places: places,

@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/config/env.dart';
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
@@ -18,7 +19,7 @@ import '../places/place_picker_modal.dart';
 import 'photo_strip.dart';
 import 'timeframe_chips.dart';
 
-const _terracotta = Color(0xFF8B5E4B);
+
 
 /// Capture form for `/stories/new` — timeframe, people, place, body, persist.
 class NewStoryPage extends StatefulWidget {
@@ -604,7 +605,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
     if (!missing) return child;
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: _terracotta, width: 2),
+        border: Border.all(color: albumTerracotta, width: 2),
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.all(8),

@@ -24,6 +24,7 @@ class AddPersonModal extends StatefulWidget {
     return showModalBottomSheet<Person>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (ctx) => AddPersonModal(familyId: familyId, api: api),
     );
   }
