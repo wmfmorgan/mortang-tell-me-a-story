@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
+import 'package:tell_me_a_story/features/places/place_map.dart';
 import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -31,9 +33,11 @@ Place _place({
 }
 
 class _FakePlacesGateway implements PlacesGateway {
-  _FakePlacesGateway({List<Place>? seed}) : rows = [...?seed];
+  _FakePlacesGateway({List<Place>? seed, this.throwOnCreate = false})
+      : rows = [...?seed];
 
   final List<Place> rows;
+  final bool throwOnCreate;
   var markUsedCalls = 0;
   String? lastMarkedId;
   var createCalls = 0;
@@ -67,6 +71,9 @@ class _FakePlacesGateway implements PlacesGateway {
     bool isFavorite = false,
   }) async {
     createCalls++;
+    if (throwOnCreate) {
+      throw StateError('create failed');
+    }
     ensureValidPlaceCreate(label: label, address: address);
     final place = Place(
       id: 'pl-new',
@@ -494,4 +501,177 @@ void main() {
     expect(result?.label, 'Short Name');
     expect(result?.address, 'Full Address, City');
   });
+
+  testWidgets('createPlace failure shows snack, not map failure copy', (
+    tester,
+  ) async {
+    final places = _FakePlacesGateway(throwOnCreate: true);
+    final search = _FakeSearchGateway(
+      hits: const [
+        MapboxSearchHit(
+          id: 'poi.fail',
+          label: 'Broken',
+          address: 'Nowhere',
+          lat: 3,
+          lng: 4,
+        ),
+      ],
+    );
+
+    await _openModal(
+      tester,
+      places: places,
+      search: search,
+      hasMapboxToken: true,
+    );
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search places'),
+      'Broken',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Nowhere'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(_mapFailureCopy), findsNothing);
+    expect(find.text('Couldn’t save place. Try again.'), findsOneWidget);
+    expect(find.text('Choose place'), findsOneWidget);
+  });
+
+  testWidgets('mapBuilder receives pending lat/lng after search select', (
+    tester,
+  ) async {
+    double? seenLat;
+    double? seenLng;
+    final places = _FakePlacesGateway();
+    final search = _FakeSearchGateway(
+      hits: const [
+        MapboxSearchHit(
+          id: 'poi.pin',
+          label: 'Pin Spot',
+          address: 'Pin Addr',
+          lat: 41.2,
+          lng: -72.1,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                await PlacePickerModal.show(
+                  context,
+                  familyId: _familyId,
+                  places: places,
+                  search: search,
+                  hasMapboxToken: true,
+                  mapBuilder: ({double? lat, double? lng}) {
+                    seenLat = lat;
+                    seenLng = lng;
+                    return _placeholderMap(lat: lat, lng: lng);
+                  },
+                );
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(seenLat, isNull);
+    expect(seenLng, isNull);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search places'),
+      'Pin',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pin Addr'));
+    await tester.pumpAndSettle();
+
+    expect(seenLat, 41.2);
+    expect(seenLng, -72.1);
+    expect(find.text('map-placeholder 41.2,-72.1'), findsOneWidget);
+  });
+
+  group('PlaceMap Mapbox tile config + remount key', () {
+    test('exposes Mapbox streets 512px tile constants', () {
+      expect(mapboxStreetsTileDimension, 512);
+      expect(mapboxStreetsZoomOffset, -1);
+      expect(
+        mapboxStreetsTileUrl('tok'),
+        contains('styles/v1/mapbox/streets-v12/tiles/'),
+      );
+      expect(mapboxStreetsTileUrl('tok'), isNot(contains('openstreetmap')));
+    });
+
+    test('mapKeyFor changes when lat/lng change', () {
+      expect(
+        PlaceMap.mapKeyFor(lat: null, lng: null),
+        const ValueKey('place-map-empty'),
+      );
+      expect(
+        PlaceMap.mapKeyFor(lat: 1.0, lng: 2.0),
+        isNot(PlaceMap.mapKeyFor(lat: 3.0, lng: 4.0)),
+      );
+      expect(
+        PlaceMap.mapKeyFor(lat: 1.0, lng: 2.0),
+        PlaceMap.mapKeyFor(lat: 1.0, lng: 2.0),
+      );
+    });
+
+    testWidgets('FlutterMap remounts with key for selected lat/lng', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: PlaceMap(
+              lat: 40.78,
+              lng: -73.96,
+              accessToken: 'pk.test-token-at-least-20',
+            ),
+          ),
+        ),
+      );
+
+      final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
+      expect(map.key, PlaceMap.mapKeyFor(lat: 40.78, lng: -73.96));
+      expect(map.options.initialCenter.latitude, 40.78);
+      expect(map.options.initialCenter.longitude, -73.96);
+      expect(map.options.initialZoom, 14.0);
+
+      final tile = tester.widget<TileLayer>(find.byType(TileLayer));
+      expect(tile.tileDimension, mapboxStreetsTileDimension);
+      expect(tile.zoomOffset, mapboxStreetsZoomOffset);
+      expect(tile.urlTemplate, contains('mapbox/streets-v12'));
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: PlaceMap(
+              lat: 41.2,
+              lng: -72.1,
+              accessToken: 'pk.test-token-at-least-20',
+            ),
+          ),
+        ),
+      );
+
+      final moved = tester.widget<FlutterMap>(find.byType(FlutterMap));
+      expect(moved.key, PlaceMap.mapKeyFor(lat: 41.2, lng: -72.1));
+      expect(moved.options.initialCenter.latitude, 41.2);
+      expect(moved.options.initialCenter.longitude, -72.1);
+    });
+  });
 }
+

@@ -10,9 +10,16 @@ String mapboxStreetsTileUrl(String accessToken) {
       '{z}/{x}/{y}?access_token=$accessToken';
 }
 
+/// Mapbox styles API serves 512px tiles; pair with [mapboxStreetsZoomOffset].
+const int mapboxStreetsTileDimension = 512;
+
+/// Compensates for 512px tiles so z in the URL matches visual zoom.
+const double mapboxStreetsZoomOffset = -1;
+
 /// Thin basemap + pin for place picker / new-story shell (iOS + web via flutter_map).
 ///
 /// Parent owns failure UX when token missing or tiles fail — do not fake pins.
+/// Remounts [FlutterMap] when [lat]/[lng] change so the camera centers on the pin.
 class PlaceMap extends StatelessWidget {
   const PlaceMap({
     super.key,
@@ -34,6 +41,14 @@ class PlaceMap extends StatelessWidget {
   /// Invoked when a Mapbox tile request fails (parent shows locked copy).
   final void Function(Object error, StackTrace? stackTrace)? onTileError;
 
+  /// Key that changes with coordinates so [FlutterMap] remounts at the new center.
+  static Key mapKeyFor({double? lat, double? lng}) {
+    if (lat == null || lng == null) {
+      return const ValueKey('place-map-empty');
+    }
+    return ValueKey('place-map-$lat,$lng');
+  }
+
   @override
   Widget build(BuildContext context) {
     final token = accessToken ?? Env.mapboxAccessToken;
@@ -45,6 +60,7 @@ class PlaceMap extends StatelessWidget {
       height: height,
       width: double.infinity,
       child: FlutterMap(
+        key: mapKeyFor(lat: lat, lng: lng),
         options: MapOptions(
           initialCenter: center,
           initialZoom: zoom,
@@ -55,6 +71,8 @@ class PlaceMap extends StatelessWidget {
         children: [
           TileLayer(
             urlTemplate: mapboxStreetsTileUrl(token),
+            tileDimension: mapboxStreetsTileDimension,
+            zoomOffset: mapboxStreetsZoomOffset,
             userAgentPackageName: 'tell_me_a_story',
             errorTileCallback: (tile, error, stackTrace) {
               onTileError?.call(error, stackTrace);

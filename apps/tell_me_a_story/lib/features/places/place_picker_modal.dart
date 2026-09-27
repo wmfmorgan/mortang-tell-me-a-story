@@ -207,10 +207,10 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _mapFailed = true;
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save place. Try again.')),
+      );
+      setState(() => _busy = false);
     }
   }
 
