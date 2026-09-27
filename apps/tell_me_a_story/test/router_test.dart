@@ -447,4 +447,70 @@ void main() {
 
     auth.dispose();
   });
+
+  testWidgets('signed-in /stories/new is still capture, not the reader',
+      (tester) async {
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.newStory);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.newStory,
+    );
+    expect(find.byType(NewStoryPage), findsOneWidget);
+    expect(find.byKey(const Key('story-reader')), findsNothing);
+
+    auth.dispose();
+  });
+
+  testWidgets('signed-in /stories/<uuid> shows story-reader, not capture',
+      (tester) async {
+    const storyId = '550e8400-e29b-41d4-a716-446655440000';
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.storyPath(storyId));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.storyPath(storyId),
+    );
+    expect(find.byKey(const Key('story-reader')), findsOneWidget);
+    expect(find.byType(NewStoryPage), findsNothing);
+
+    auth.dispose();
+  });
+
+  testWidgets('signed-in /stories/<uuid>/perspective shows add-perspective',
+      (tester) async {
+    const storyId = '550e8400-e29b-41d4-a716-446655440000';
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.storyPerspectivePath(storyId));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.storyPerspectivePath(storyId),
+    );
+    expect(find.byKey(const Key('add-perspective')), findsOneWidget);
+    expect(find.byType(NewStoryPage), findsNothing);
+    expect(find.byKey(const Key('story-reader')), findsNothing);
+
+    auth.dispose();
+  });
 }

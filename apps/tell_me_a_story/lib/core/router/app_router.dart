@@ -9,7 +9,9 @@ import '../../data/places_api.dart';
 import '../../data/stories_api.dart';
 import '../../features/auth/magic_link_page.dart';
 import '../../features/drafts/drafts_page.dart';
+import '../../features/perspectives/add_perspective_page.dart';
 import '../../features/stories/new_story_page.dart';
+import '../../features/stories/story_reader_page.dart';
 import '../../features/timeline/timeline_page.dart';
 import 'auth_refresh.dart';
 
@@ -18,7 +20,13 @@ abstract final class AppRoutes {
   static const magicLink = '/';
   static const timeline = '/timeline';
   static const newStory = '/stories/new';
+  static const story = '/stories/:storyId';
+  static const storyPerspective = '/stories/:storyId/perspective';
   static const drafts = '/drafts';
+
+  static String storyPath(String id) => '/stories/$id';
+
+  static String storyPerspectivePath(String id) => '/stories/$id/perspective';
 }
 
 GoRouter createAppRouter({
@@ -76,6 +84,18 @@ GoRouter createAppRouter({
             draftId: (draft != null && draft.isNotEmpty) ? draft : null,
           );
         },
+      ),
+      GoRoute(
+        path: AppRoutes.storyPerspective,
+        builder: (context, state) => AddPerspectivePage(
+          storyId: state.pathParameters['storyId']!,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.story,
+        builder: (context, state) => StoryReaderPage(
+          storyId: state.pathParameters['storyId']!,
+        ),
       ),
       GoRoute(
         path: AppRoutes.drafts,

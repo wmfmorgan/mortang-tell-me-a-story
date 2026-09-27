@@ -232,4 +232,33 @@ void main() {
       auth.dispose();
     },
   );
+
+  testWidgets('tapping a published card pushes the story reader',
+      (tester) async {
+    final story = _published();
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: _FakeInviteApi(),
+      storiesApi: _FakeStoriesApi(published: [story]),
+    );
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Jam'), findsOneWidget);
+    expect(find.byType(Card), findsOneWidget);
+
+    await tester.tap(find.byType(Card));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byKey(const Key('story-reader')), findsOneWidget);
+    final locations = router.routerDelegate.currentConfiguration.matches
+        .map((m) => m.matchedLocation)
+        .toList();
+    expect(locations, contains(AppRoutes.storyPath(story.id)));
+
+    auth.dispose();
+  });
 }
