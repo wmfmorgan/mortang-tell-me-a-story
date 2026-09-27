@@ -68,12 +68,15 @@ cd apps/tell_me_a_story
 flutter run -d web-server --web-hostname=127.0.0.1 --web-port=3000 \
   --dart-define=SUPABASE_URL=http://127.0.0.1:57321 \
   --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0 \
-  --dart-define=INVITE_APP_ORIGIN=http://127.0.0.1:3000
+  --dart-define=INVITE_APP_ORIGIN=http://127.0.0.1:3000 \
+  --dart-define=MAPBOX_ACCESS_TOKEN=<public-token>
 ```
 
 Local demo `ANON_KEY` above is the standard Supabase local key from `supabase status` (safe for local only). If your ports differ, use your `API_URL` / `ANON_KEY` from status.
 
 `INVITE_APP_ORIGIN` defaults to `http://127.0.0.1:3000`. Invite links are `{INVITE_APP_ORIGIN}/timeline?invite=<token>`. Later MS: change only this define/env to the shareable host — do not invent a second invite system.
+
+**OPEN (Bill):** `MAPBOX_ACCESS_TOKEN` — restricted public token. App startup does **not** require it (`Env.hasMapboxToken` is soft). Without a real token, place-picker map smoke shows the locked failure UX (`Couldn’t load the map…` / `Try again`). Do not paste README `<public-token>` / `...` placeholders into dart-define.
 
 Then open **http://127.0.0.1:3000/** in Chrome yourself.
 

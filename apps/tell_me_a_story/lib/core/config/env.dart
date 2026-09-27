@@ -11,7 +11,20 @@ class Env {
     defaultValue: 'http://127.0.0.1:3000',
   );
 
+  /// Public Mapbox token for geocode + basemap. OPEN (Bill) until provided.
+  static const mapboxAccessToken = String.fromEnvironment('MAPBOX_ACCESS_TOKEN');
+
+  /// Soft gate: missing/placeholder token → map failure UX, not startup crash.
+  static bool get hasMapboxToken => isPlausibleMapboxToken(mapboxAccessToken);
+
+  /// Rejects empty / README placeholders; public tokens are long.
+  static bool isPlausibleMapboxToken(String value) {
+    if (value.isEmpty || value == '...' || value.startsWith('<')) return false;
+    return value.length >= 20;
+  }
+
   /// Fails closed when required dart-defines are missing or clearly invalid.
+  /// Does not require MAPBOX_ACCESS_TOKEN (soft — place picker failure UX).
   static void validate() {
     if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
       throw StateError(
