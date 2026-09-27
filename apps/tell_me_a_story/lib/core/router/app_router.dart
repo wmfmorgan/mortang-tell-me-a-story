@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/invite_api.dart';
+import '../../data/mapbox_search.dart';
+import '../../data/people_api.dart';
+import '../../data/places_api.dart';
 import '../../features/auth/magic_link_page.dart';
+import '../../features/stories/new_story_page.dart';
 import '../../features/timeline/timeline_page.dart';
 import 'auth_refresh.dart';
 
@@ -10,11 +14,15 @@ import 'auth_refresh.dart';
 abstract final class AppRoutes {
   static const magicLink = '/';
   static const timeline = '/timeline';
+  static const newStory = '/stories/new';
 }
 
 GoRouter createAppRouter({
   required AuthRefresh authRefresh,
   InviteGateway? inviteApi,
+  PeopleGateway? peopleApi,
+  PlacesGateway? placesApi,
+  MapboxSearchGateway? mapboxSearch,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.magicLink,
@@ -44,6 +52,15 @@ GoRouter createAppRouter({
       GoRoute(
         path: AppRoutes.timeline,
         builder: (context, state) => TimelinePage(api: inviteApi),
+      ),
+      GoRoute(
+        path: AppRoutes.newStory,
+        builder: (context, state) => NewStoryPage(
+          inviteApi: inviteApi,
+          peopleApi: peopleApi,
+          placesApi: placesApi,
+          mapboxSearch: mapboxSearch,
+        ),
       ),
     ],
   );
