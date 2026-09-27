@@ -41,6 +41,9 @@ class _FakePlacesGateway implements PlacesGateway {
   var markUsedCalls = 0;
   String? lastMarkedId;
   var createCalls = 0;
+  var setFavoriteCalls = 0;
+  String? lastFavoritePlaceId;
+  bool? lastFavoriteValue;
 
   @override
   Future<List<Place>> listFavorites(String familyId) async {
@@ -117,7 +120,25 @@ class _FakePlacesGateway implements PlacesGateway {
     required String placeId,
     required bool isFavorite,
   }) async {
-    throw UnimplementedError();
+    setFavoriteCalls++;
+    lastFavoritePlaceId = placeId;
+    lastFavoriteValue = isFavorite;
+    final i = rows.indexWhere((p) => p.id == placeId);
+    if (i < 0) throw StateError('missing $placeId');
+    final existing = rows[i];
+    final updated = Place(
+      id: existing.id,
+      familyId: existing.familyId,
+      label: existing.label,
+      address: existing.address,
+      lat: existing.lat,
+      lng: existing.lng,
+      mapboxPlaceId: existing.mapboxPlaceId,
+      isFavorite: isFavorite,
+      lastUsedAt: existing.lastUsedAt,
+    );
+    rows[i] = updated;
+    return updated;
   }
 
   @override
@@ -538,6 +559,51 @@ void main() {
     expect(find.text(_mapFailureCopy), findsNothing);
     expect(find.text('Couldn’t save place. Try again.'), findsOneWidget);
     expect(find.text('Choose place'), findsOneWidget);
+  });
+
+  testWidgets('toggle favorite on pending place calls setFavorite', (
+    tester,
+  ) async {
+    final places = _FakePlacesGateway();
+    final search = _FakeSearchGateway(
+      hits: const [
+        MapboxSearchHit(
+          id: 'poi.fav',
+          label: 'Star Spot',
+          address: 'Fav Addr',
+          lat: 10,
+          lng: 20,
+        ),
+      ],
+    );
+
+    await _openModal(
+      tester,
+      places: places,
+      search: search,
+      hasMapboxToken: true,
+    );
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search places'),
+      'Star',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fav Addr'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('place-favorite-toggle')), findsOneWidget);
+    expect(find.byIcon(Icons.star_border), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('place-favorite-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(places.setFavoriteCalls, 1);
+    expect(places.lastFavoritePlaceId, 'pl-new');
+    expect(places.lastFavoriteValue, isTrue);
+    expect(find.byIcon(Icons.star), findsWidgets);
+    expect(find.text('Star Spot'), findsWidgets);
   });
 
   testWidgets('mapBuilder receives pending lat/lng after search select', (
