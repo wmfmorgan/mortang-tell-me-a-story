@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
+import 'package:tell_me_a_story/features/places/place_map.dart';
+import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -103,7 +106,22 @@ class _FakePlacesApi implements PlacesGateway {
     required String placeId,
     required bool isFavorite,
   }) async {
-    throw UnimplementedError();
+    final i = rows.indexWhere((p) => p.id == placeId);
+    if (i < 0) throw StateError('missing $placeId');
+    final existing = rows[i];
+    final updated = Place(
+      id: existing.id,
+      familyId: existing.familyId,
+      label: existing.label,
+      address: existing.address,
+      lat: existing.lat,
+      lng: existing.lng,
+      mapboxPlaceId: existing.mapboxPlaceId,
+      isFavorite: isFavorite,
+      lastUsedAt: existing.lastUsedAt,
+    );
+    rows[i] = updated;
+    return updated;
   }
 
   @override
@@ -125,6 +143,8 @@ Widget _shell({
   PeopleGateway? people,
   PlacesGateway? places,
   MapboxSearchGateway? search,
+  bool hasMapboxToken = true,
+  PlaceMapBuilder? mapBuilder = _defaultStubMap,
 }) {
   return MaterialApp(
     home: NewStoryPage(
@@ -132,11 +152,14 @@ Widget _shell({
       peopleApi: people ?? _FakePeopleApi(),
       placesApi: places ?? _FakePlacesApi(),
       mapboxSearch: search ?? _FakeMapboxSearch(),
-      hasMapboxToken: false,
-      mapBuilder: ({double? lat, double? lng}) =>
-          const SizedBox(key: Key('stub-map'), height: 120),
+      hasMapboxToken: hasMapboxToken,
+      mapBuilder: mapBuilder,
     ),
   );
+}
+
+Widget _defaultStubMap({double? lat, double? lng}) {
+  return const SizedBox(key: Key('stub-map'), height: 120);
 }
 
 void main() {
@@ -257,6 +280,46 @@ void main() {
     expect(find.text('New York, NY'), findsOneWidget);
     expect(find.byKey(const Key('stub-map')), findsOneWidget);
   });
+
+  testWidgets(
+    'selected place with no Mapbox token shows failure copy, not PlaceMap',
+    (tester) async {
+      final places = _FakePlacesApi(
+        seed: [
+          Place(
+            id: 'pl1',
+            familyId: _familyId,
+            label: 'Central Park',
+            address: 'New York, NY',
+            lat: 40.78,
+            lng: -73.96,
+            isFavorite: true,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _shell(
+          places: places,
+          hasMapboxToken: false,
+          mapBuilder: null,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, 'Central Park'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(placeMapFailureCopy), findsOneWidget);
+      expect(find.text(placeMapRetryLabel), findsOneWidget);
+      expect(find.byType(PlaceMap), findsNothing);
+      expect(find.byType(FlutterMap), findsNothing);
+      expect(find.byType(TileLayer), findsNothing);
+      expect(find.text('Central Park'), findsOneWidget);
+    },
+  );
 
   testWidgets('bootstraps family via createFamily when none exists',
       (tester) async {
