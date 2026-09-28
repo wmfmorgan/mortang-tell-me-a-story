@@ -169,9 +169,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   Future<void> _load() async {
     var loadError = false;
     try {
-      final story = await _stories.getStory(widget.storyId);
+      final story = await _stories.getPublished(widget.storyId);
       if (!mounted) return;
-      if (story.status != StoryStatus.published) {
+      if (story == null || story.status != StoryStatus.published) {
         setState(() {
           _loading = false;
           _notFound = true;
@@ -249,9 +249,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _notFound = true;
+        _notFound = false;
         _story = null;
       });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
     }
   }
 
@@ -403,8 +405,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_notFound || _story == null) {
+    if (_notFound) {
       return const Center(child: Text('Not found'));
+    }
+    if (_story == null) {
+      return const SizedBox.shrink();
     }
 
     final story = _story!;

@@ -119,6 +119,16 @@ class _FakeStoriesApi implements StoriesGateway {
   }
 
   @override
+  Future<Story?> getPublished(String storyId) async {
+    if (getDelay != null) await getDelay;
+    if (throwOnGet) throw StateError('network $storyId');
+    final existing = story;
+    if (existing == null || existing.id != storyId) return null;
+    if (existing.status != StoryStatus.published) return null;
+    return existing;
+  }
+
+  @override
   Future<List<Story>> listMyDrafts(String familyId) async => const [];
 
   @override
@@ -561,12 +571,26 @@ void main() {
   testWidgets('missing story shows Not found without loading comments', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _readerApp(stories: _FakeStoriesApi(throwOnGet: true)),
-    );
+    await tester.pumpWidget(_readerApp(stories: _FakeStoriesApi()));
     await tester.pumpAndSettle();
 
     expect(find.text('Not found'), findsOneWidget);
+    expect(find.text('Picnic at the lake'), findsNothing);
+    expect(find.text('Perspectives'), findsNothing);
+  });
+
+  testWidgets('throwing getPublished shows SnackBar, not Not found', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _readerApp(stories: _FakeStoriesApi(throwOnGet: true)),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('Not found'), findsNothing);
     expect(find.text('Picnic at the lake'), findsNothing);
     expect(find.text('Perspectives'), findsNothing);
   });

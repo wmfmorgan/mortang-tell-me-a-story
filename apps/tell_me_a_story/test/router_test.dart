@@ -150,6 +150,9 @@ class _StubStoriesApi implements StoriesGateway {
   }
 
   @override
+  Future<Story?> getPublished(String storyId) async => null;
+
+  @override
   Future<List<Story>> listMyDrafts(String familyId) async => const [];
 
   @override

@@ -77,6 +77,14 @@ class _FakeStoriesApi implements StoriesGateway {
   }
 
   @override
+  Future<Story?> getPublished(String storyId) async {
+    for (final s in published) {
+      if (s.id == storyId && s.status == StoryStatus.published) return s;
+    }
+    return null;
+  }
+
+  @override
   Future<List<Story>> listMyDrafts(String familyId) async => const [];
 
   @override

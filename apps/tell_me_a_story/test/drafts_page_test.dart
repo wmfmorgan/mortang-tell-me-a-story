@@ -108,6 +108,9 @@ class _FakeStoriesApi implements StoriesGateway {
   }
 
   @override
+  Future<Story?> getPublished(String storyId) async => null;
+
+  @override
   Future<List<Story>> listMyDrafts(String familyId) async {
     return drafts.where((s) => s.familyId == familyId).toList();
   }
