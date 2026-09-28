@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/config/env.dart';
@@ -38,6 +39,7 @@ class StoryReaderPage extends StatefulWidget {
     this.photosApi,
     this.commentsApi,
     this.perspectivesApi,
+    this.pickImageBytes,
     this.currentUserId,
     this.hasMapboxToken,
     this.mapBuilder,
@@ -50,6 +52,9 @@ class StoryReaderPage extends StatefulWidget {
   final PhotosGateway? photosApi;
   final CommentsGateway? commentsApi;
   final PerspectivesGateway? perspectivesApi;
+
+  /// Gallery picker override so widget tests never open the system picker.
+  final Future<Uint8List?> Function()? pickImageBytes;
 
   /// Session uid for author-only comment delete. Tests inject this.
   final String? currentUserId;
@@ -83,6 +88,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   Map<String, Uint8List> _previews = const {};
   List<Comment> _comments = const [];
   List<Perspective> _perspectives = const [];
+  var _busy = false;
+  var _photoError = false;
+  Uint8List? _pendingPhotoBytes;
   final _composerFocus = FocusNode();
   final _composerKey = GlobalKey();
 
@@ -282,6 +290,85 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     }
   }
 
+  Future<Uint8List?> _pickFromGallery() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (file == null) return null;
+    return file.readAsBytes();
+  }
+
+  Future<void> _onAddPhoto() async {
+    if (_busy) return;
+    if (_photos.length >= maxPhotosPerStory) return;
+    final story = _story;
+    if (story == null) return;
+    setState(() => _busy = true);
+    try {
+      final picker = widget.pickImageBytes ?? _pickFromGallery;
+      final bytes = await picker();
+      if (!mounted || bytes == null) return;
+      _pendingPhotoBytes = bytes;
+      await _uploadPending();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _onRetryPhoto() async {
+    if (_busy || _pendingPhotoBytes == null) return;
+    setState(() => _busy = true);
+    try {
+      await _uploadPending();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _uploadPending() async {
+    final bytes = _pendingPhotoBytes;
+    final story = _story;
+    if (bytes == null || story == null) return;
+    try {
+      final photo = await _photosApi.uploadPhoto(
+        familyId: story.familyId,
+        storyId: story.id,
+        bytes: bytes,
+        sortOrder: _photos.length,
+      );
+      if (!mounted) return;
+      setState(() {
+        _photos = [..._photos, photo];
+        _previews = {..._previews, photo.id: bytes};
+        _photoError = false;
+        _pendingPhotoBytes = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _photoError = true);
+    }
+  }
+
+  Future<void> _onRemovePhoto(Photo photo) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _photosApi.deletePhoto(photo);
+      if (!mounted) return;
+      setState(() {
+        _photos = _photos.where((p) => p.id != photo.id).toList();
+        _previews = Map.of(_previews)..remove(photo.id);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _deleteComment(Comment row) async {
     try {
       await _commentsApi.delete(row.id);
@@ -358,18 +445,22 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           const SizedBox(height: 16),
           Text(story.body ?? '', style: theme.textTheme.bodyLarge),
           const SizedBox(height: 24),
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
-            child: TextButton(onPressed: _noop, child: Text('Add photos')),
+            child: TextButton(
+              onPressed:
+                  _photos.length < maxPhotosPerStory ? _onAddPhoto : null,
+              child: const Text('Add photos'),
+            ),
           ),
           PhotoStrip(
             photos: _photos,
             previews: _previews,
-            onAdd: _noop,
-            onRemove: _noopPhoto,
-            onRetry: _noop,
-            uploadFailed: false,
-            canAdd: false,
+            onAdd: _onAddPhoto,
+            onRemove: _onRemovePhoto,
+            onRetry: _onRetryPhoto,
+            uploadFailed: _photoError,
+            canAdd: _photos.length < maxPhotosPerStory,
           ),
           const SizedBox(height: 24),
           Text('Perspectives', style: theme.textTheme.titleMedium),
@@ -445,10 +536,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     );
   }
 }
-
-void _noop() {}
-
-void _noopPhoto(Photo photo) {}
 
 String _timeframeLabel(Story story) {
   final end = story.timeframeEnd;

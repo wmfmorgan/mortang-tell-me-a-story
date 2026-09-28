@@ -202,10 +202,35 @@ class _FakePlacesApi implements PlacesGateway {
   }
 }
 
+final _tinyJpeg = Uint8List.fromList(const [0xFF, 0xD8, 0xFF, 0xD9]);
+
+class _FakePicker {
+  _FakePicker({Uint8List? bytes}) : bytes = bytes ?? _tinyJpeg;
+
+  final Uint8List bytes;
+  var calls = 0;
+
+  Future<Uint8List?> call() async {
+    calls++;
+    return bytes;
+  }
+}
+
 class _FakePhotosApi implements PhotosGateway {
-  _FakePhotosApi({List<Photo>? seed}) : rows = [...?seed];
+  _FakePhotosApi({
+    List<Photo>? seed,
+    this.failUpload = false,
+    this.failDecode = false,
+  }) : rows = [...?seed];
 
   final List<Photo> rows;
+  var failUpload = false;
+  var failDecode = false;
+  var uploadCalls = 0;
+  String? lastFamilyId;
+  String? lastStoryId;
+  int? lastSortOrder;
+  final List<Photo> deleted = [];
 
   @override
   Future<List<Photo>> listPhotos(String storyId) async {
@@ -218,12 +243,34 @@ class _FakePhotosApi implements PhotosGateway {
     required String storyId,
     required Uint8List bytes,
     required int sortOrder,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    uploadCalls++;
+    lastFamilyId = familyId;
+    lastStoryId = storyId;
+    lastSortOrder = sortOrder;
+    if (failDecode) {
+      throw ArgumentError.value(bytes, 'bytes', 'not a decodable image');
+    }
+    if (failUpload) {
+      throw const StorageFailedException();
+    }
+    final photo = Photo(
+      id: 'ph$uploadCalls',
+      storyId: storyId,
+      familyId: familyId,
+      uploaderId: 'u-member',
+      storagePath: '$familyId/$storyId/ph$uploadCalls.jpg',
+      sortOrder: sortOrder,
+    );
+    rows.add(photo);
+    return photo;
   }
 
   @override
-  Future<void> deletePhoto(Photo photo) async {}
+  Future<void> deletePhoto(Photo photo) async {
+    deleted.add(photo);
+    rows.removeWhere((p) => p.id == photo.id);
+  }
 
   @override
   Future<void> deleteAllForStory({
@@ -352,6 +399,7 @@ Widget _readerApp({
   PhotosGateway? photos,
   CommentsGateway? comments,
   PerspectivesGateway? perspectives,
+  Future<Uint8List?> Function()? pickImageBytes,
   String storyId = _storyId,
   String? currentUserId,
   bool? hasMapboxToken,
@@ -387,6 +435,7 @@ Widget _readerApp({
           photosApi: photos ?? _FakePhotosApi(),
           commentsApi: comments ?? _FakeCommentsApi(),
           perspectivesApi: perspectivesApi,
+          pickImageBytes: pickImageBytes,
           currentUserId: currentUserId,
           hasMapboxToken: hasMapboxToken ?? true,
           mapBuilder: mapBuilder ?? _defaultStubMap,
@@ -796,5 +845,141 @@ void main() {
     expect(comments.deleteCalls, 1);
     expect(find.text('My note'), findsNothing);
     expect(find.text('Their note'), findsOneWidget);
+  });
+
+  testWidgets('member Add photos with injected bytes calls uploadPhoto', (
+    tester,
+  ) async {
+    final photos = _FakePhotosApi();
+    final picker = _FakePicker(bytes: _tinyJpeg);
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        photos: photos,
+        pickImageBytes: picker.call,
+        currentUserId: 'u-member',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final add = find.widgetWithText(TextButton, 'Add photos');
+    await tester.ensureVisible(add);
+    await tester.pumpAndSettle();
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+
+    expect(picker.calls, 1);
+    expect(photos.uploadCalls, 1);
+    expect(photos.lastFamilyId, _familyId);
+    expect(photos.lastStoryId, _storyId);
+    expect(photos.lastSortOrder, 0);
+    expect(find.byKey(const Key('photo-thumb')), findsOneWidget);
+  });
+
+  testWidgets('at 20 photos add is disabled or hidden', (tester) async {
+    final seed = List<Photo>.generate(
+      maxPhotosPerStory,
+      (i) => Photo(
+        id: 'ph$i',
+        storyId: _storyId,
+        familyId: _familyId,
+        uploaderId: 'u1',
+        storagePath: 'f/s/ph$i.jpg',
+        sortOrder: i,
+      ),
+    );
+    final photos = _FakePhotosApi(seed: seed);
+    final picker = _FakePicker();
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        photos: photos,
+        pickImageBytes: picker.call,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('photo-add')), findsNothing);
+    expect(find.byKey(const Key('photo-thumb')), findsNWidgets(20));
+    final addCta = find.widgetWithText(TextButton, 'Add photos');
+    if (addCta.evaluate().isNotEmpty) {
+      expect(tester.widget<TextButton>(addCta).onPressed, isNull);
+    }
+    expect(picker.calls, 0);
+    expect(photos.uploadCalls, 0);
+  });
+
+  testWidgets('STORAGE_FAILED shows retry; Try again re-uploads', (
+    tester,
+  ) async {
+    final photos = _FakePhotosApi(failUpload: true);
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        photos: photos,
+        pickImageBytes: _FakePicker().call,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final add = find.widgetWithText(TextButton, 'Add photos');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+
+    expect(photos.uploadCalls, 1);
+    expect(
+      find.text(
+        'Couldn’t upload the photo. Check your connection and try again.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.byKey(const Key('photo-thumb')), findsNothing);
+
+    photos.failUpload = false;
+    final retry = find.text('Try again');
+    await tester.ensureVisible(retry);
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+
+    expect(photos.uploadCalls, 2);
+    expect(find.byKey(const Key('photo-thumb')), findsOneWidget);
+    expect(
+      find.text(
+        'Couldn’t upload the photo. Check your connection and try again.',
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('photo remove calls deletePhoto', (tester) async {
+    final photos = _FakePhotosApi(
+      seed: const [
+        Photo(
+          id: 'ph1',
+          storyId: _storyId,
+          familyId: _familyId,
+          uploaderId: 'u1',
+          storagePath: 'f/s/ph1.jpg',
+          sortOrder: 0,
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        photos: photos,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final remove = find.byKey(const Key('photo-remove'));
+    await tester.ensureVisible(remove);
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+
+    expect(photos.deleted, isNotEmpty);
+    expect(find.byKey(const Key('photo-thumb')), findsNothing);
   });
 }
