@@ -7,14 +7,16 @@ Private family storytelling app (Mortang). Specs in Notion are law — see Impl 
 - `apps/tell_me_a_story/` — Flutter client (iOS/iPad + web)
   - `lib/core/` — env, supabase init, router
   - `lib/features/auth/` — magic-link entry
-  - `lib/features/stories/` — `/stories/new` capture (timeframe, people, place, text, photos)
+  - `lib/features/stories/` — `/stories/new` capture; published reader `/stories/:storyId`
+  - `lib/features/comments/` — reader comment composer
+  - `lib/features/perspectives/` — Add Perspective overlay
   - `lib/features/drafts/` — `/drafts` author-only list
-  - `lib/features/timeline/` — `/timeline` smoke list of published stories
-  - `lib/data/` — PostgREST gateways (people, places, stories, photos, invites)
+  - `lib/features/timeline/` — `/timeline` smoke list of published stories (tap → reader)
+  - `lib/data/` — PostgREST gateways (people, places, stories, photos, comments, perspectives, invites)
 - `supabase/` — migrations, config, RLS/pgTAP tests
 - `docs/superpowers/plans/` — implementation plans
 
-M1–M4 merged. This branch is **M4.5** (Memory Album visual skin on `/timeline`, `/stories/new`, `/drafts`, capture people/place sheets). Reader / comments / perspectives = **M5**. Timeline zoom / Realtime = **M6**. Search = **M7**.
+M1–M4.5 merged. This branch is **M5** Reader / comments / perspectives. M6 zoom/Realtime. M7 Search.
 
 ## Secrets (forbidden in git)
 
@@ -107,12 +109,12 @@ After the people/place steps above (or continue on the same `/stories/new` form)
 4. Timeline AppBar **Drafts** → `/drafts` (author-only `status = draft`). Row shows missing-field chips. **Continue writing** resumes via `/stories/new?draft=<id>`
 5. Add a photo (≤20). Kill network / fail Storage → photo retry copy + **Try again** (retry label locked; failure sentence **OPEN (Mugatu)**)
 6. Fill people + place + text → **Publish story** (sets `status = published` **and** `published_at`)
-7. Land on `/timeline`; draft gone from Drafts; smoke preview listed (row tap is a no-op — reader is M5)
+7. Land on `/timeline`; draft gone from Drafts; smoke preview listed (row tap opens the reader in M5)
 8. Blocked Publish (missing fields) stays on the form with `Finish the highlighted fields to publish.`
 
 Do **not** claim Bill local smoke closed until Bill runs this path.
 
-Photos RLS is unchanged from M1 (`member + uploader_id = uid`). Author attach on capture is M4; any-member attach on a published story is **M5**. Drafts are online-only (no Hive/SQLite).
+Photos RLS is unchanged from M1 (`member + uploader_id = uid`). Author attach on capture is M4; any-member attach on a published story is **M5** (this PR). Drafts are online-only (no Hive/SQLite).
 
 ### M4.5 Memory Album visual skin (local)
 
@@ -124,6 +126,21 @@ After M4 smoke, check **chrome only** on these surfaces (no new routes/features)
 4. Add person / Choose place sheets — parchment, not cold Material white.
 
 Do **not** claim Mugatu PASS or Bill M4.5 smoke until they sign.
+
+### M5 reader + comments + perspectives smoke (local)
+
+Local smoke (two magic-link users in one family if possible; single user still proves author path). After M4 publish:
+
+1. Publish a story from `/stories/new` (M4 path).
+2. Timeline card → reader; body, people, place, photos visible.
+3. Add a comment; it lists under **Comments** with display name or `Member`.
+4. `+ Add your perspective` → overlay → `Publish perspective` → listed under **Perspectives** (not in Comments).
+5. `Add photos` on reader attaches another image (≤20).
+6. Open `/stories/<draft-id>` → not-found.
+
+Do **not** claim Bill local smoke closed until Bill runs this path.
+
+Any-member attach on a published story is **M5** (this PR). Photos INSERT policy is unchanged from M1 (`member + uploader_id = uid`). Nested `profiles.display_name` via co-member SELECT; null/empty → `Member`. `/stories/:storyId` is published-only (draft or missing → not-found). Stitch “Edit story” is out of M5.
 
 ### Edge functions (M2 invites) — local only
 
