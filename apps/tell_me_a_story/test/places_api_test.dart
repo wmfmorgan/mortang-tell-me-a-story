@@ -117,10 +117,7 @@ void main() {
   group('ensureValidPlaceCreate', () {
     test('accepts non-empty label and address', () {
       expect(
-        () => ensureValidPlaceCreate(
-          label: 'Park',
-          address: '1 Park Ave',
-        ),
+        () => ensureValidPlaceCreate(label: 'Park', address: '1 Park Ave'),
         returnsNormally,
       );
     });
@@ -144,31 +141,31 @@ void main() {
     late FakePlacesGateway gateway;
 
     setUp(() {
-      gateway = FakePlacesGateway(
-        now: () => DateTime.utc(2026, 9, 26, 12),
-      );
+      gateway = FakePlacesGateway(now: () => DateTime.utc(2026, 9, 26, 12));
     });
 
-    test('createPlace persists distinct label and address + last_used_at',
-        () async {
-      final place = await gateway.createPlace(
-        familyId: 'f1',
-        label: 'Central Park',
-        address: 'New York, NY, USA',
-        lat: 40.78,
-        lng: -73.96,
-        mapboxPlaceId: 'poi.1',
-      );
+    test(
+      'createPlace persists distinct label and address + last_used_at',
+      () async {
+        final place = await gateway.createPlace(
+          familyId: 'f1',
+          label: 'Central Park',
+          address: 'New York, NY, USA',
+          lat: 40.78,
+          lng: -73.96,
+          mapboxPlaceId: 'poi.1',
+        );
 
-      expect(place.label, 'Central Park');
-      expect(place.address, 'New York, NY, USA');
-      expect(place.label, isNot(place.address));
-      expect(place.lastUsedAt, DateTime.utc(2026, 9, 26, 12));
-      expect(place.isFavorite, isFalse);
-      expect(place.mapboxPlaceId, 'poi.1');
-      expect(gateway.lastCreatePayload?['label'], 'Central Park');
-      expect(gateway.lastCreatePayload?['address'], 'New York, NY, USA');
-    });
+        expect(place.label, 'Central Park');
+        expect(place.address, 'New York, NY, USA');
+        expect(place.label, isNot(place.address));
+        expect(place.lastUsedAt, DateTime.utc(2026, 9, 26, 12));
+        expect(place.isFavorite, isFalse);
+        expect(place.mapboxPlaceId, 'poi.1');
+        expect(gateway.lastCreatePayload?['label'], 'Central Park');
+        expect(gateway.lastCreatePayload?['address'], 'New York, NY, USA');
+      },
+    );
 
     test('createPlace rejects empty label before insert', () async {
       await expectLater(
@@ -221,56 +218,57 @@ void main() {
       expect(favs.map((p) => p.label), ['Arcade', 'Zoo']);
     });
 
-    test('listRecents orders by last_used_at desc and respects limit', () async {
-      var tick = 0;
-      gateway = FakePlacesGateway(
-        now: () => DateTime.utc(2026, 9, 26, tick++),
-      );
+    test(
+      'listRecents orders by last_used_at desc and respects limit',
+      () async {
+        var tick = 0;
+        gateway = FakePlacesGateway(
+          now: () => DateTime.utc(2026, 9, 26, tick++),
+        );
 
-      final older = await gateway.createPlace(
-        familyId: 'f1',
-        label: 'Older',
-        address: 'A',
-        lat: 1,
-        lng: 1,
-      );
-      final newer = await gateway.createPlace(
-        familyId: 'f1',
-        label: 'Newer',
-        address: 'B',
-        lat: 2,
-        lng: 2,
-      );
-      await gateway.createPlace(
-        familyId: 'f2',
-        label: 'OtherFamily',
-        address: 'C',
-        lat: 3,
-        lng: 3,
-      );
+        final older = await gateway.createPlace(
+          familyId: 'f1',
+          label: 'Older',
+          address: 'A',
+          lat: 1,
+          lng: 1,
+        );
+        final newer = await gateway.createPlace(
+          familyId: 'f1',
+          label: 'Newer',
+          address: 'B',
+          lat: 2,
+          lng: 2,
+        );
+        await gateway.createPlace(
+          familyId: 'f2',
+          label: 'OtherFamily',
+          address: 'C',
+          lat: 3,
+          lng: 3,
+        );
 
-      // Clear last_used_at on one row to exclude from recents.
-      gateway.rows[gateway.rows.indexWhere((p) => p.id == older.id)] = Place(
-        id: older.id,
-        familyId: older.familyId,
-        label: older.label,
-        address: older.address,
-        lat: older.lat,
-        lng: older.lng,
-        mapboxPlaceId: older.mapboxPlaceId,
-        isFavorite: older.isFavorite,
-        lastUsedAt: null,
-      );
+        // Clear last_used_at on one row to exclude from recents.
+        gateway.rows[gateway.rows.indexWhere((p) => p.id == older.id)] = Place(
+          id: older.id,
+          familyId: older.familyId,
+          label: older.label,
+          address: older.address,
+          lat: older.lat,
+          lng: older.lng,
+          mapboxPlaceId: older.mapboxPlaceId,
+          isFavorite: older.isFavorite,
+          lastUsedAt: null,
+        );
 
-      final recents = await gateway.listRecents('f1', limit: 10);
-      expect(recents.map((p) => p.id), [newer.id]);
-    });
+        final recents = await gateway.listRecents('f1', limit: 10);
+        expect(recents.map((p) => p.id), [newer.id]);
+      },
+    );
 
     test('listRecents default limit is 10', () async {
       var tick = 0;
-      gateway = FakePlacesGateway(
-        now: () => DateTime.utc(2026, 1, 1, tick++),
-      );
+      gateway = FakePlacesGateway(now: () => DateTime.utc(2026, 1, 1, tick++));
       for (var i = 0; i < 12; i++) {
         await gateway.createPlace(
           familyId: 'f1',
@@ -345,13 +343,25 @@ void main() {
       expect(found?.label, 'Park');
       expect(await gateway.findByMapboxPlaceId('f1', 'missing'), isNull);
     });
+
+    test('getPlace returns row by id or null', () async {
+      final created = await gateway.createPlace(
+        familyId: 'f1',
+        label: 'Park',
+        address: 'Addr',
+        lat: 1,
+        lng: 2,
+      );
+
+      expect((await gateway.getPlace(created.id))?.label, 'Park');
+      expect(await gateway.getPlace('missing'), isNull);
+    });
   });
 }
 
 /// In-memory [PlacesGateway] that mirrors PlacesApi create/list rules.
 class FakePlacesGateway implements PlacesGateway {
-  FakePlacesGateway({DateTime Function()? now})
-      : now = now ?? DateTime.now;
+  FakePlacesGateway({DateTime Function()? now}) : now = now ?? DateTime.now;
 
   DateTime Function() now;
   final List<Place> rows = [];
@@ -360,19 +370,19 @@ class FakePlacesGateway implements PlacesGateway {
 
   @override
   Future<List<Place>> listFavorites(String familyId) async {
-    final filtered = rows
-        .where((p) => p.familyId == familyId && p.isFavorite)
-        .toList()
-      ..sort((a, b) => a.label.compareTo(b.label));
+    final filtered =
+        rows.where((p) => p.familyId == familyId && p.isFavorite).toList()
+          ..sort((a, b) => a.label.compareTo(b.label));
     return filtered;
   }
 
   @override
   Future<List<Place>> listRecents(String familyId, {int limit = 10}) async {
-    final filtered = rows
-        .where((p) => p.familyId == familyId && p.lastUsedAt != null)
-        .toList()
-      ..sort((a, b) => b.lastUsedAt!.compareTo(a.lastUsedAt!));
+    final filtered =
+        rows
+            .where((p) => p.familyId == familyId && p.lastUsedAt != null)
+            .toList()
+          ..sort((a, b) => b.lastUsedAt!.compareTo(a.lastUsedAt!));
     return filtered.take(limit).toList();
   }
 
@@ -470,6 +480,14 @@ class FakePlacesGateway implements PlacesGateway {
       if (p.familyId == familyId && p.mapboxPlaceId == mapboxPlaceId) {
         return p;
       }
+    }
+    return null;
+  }
+
+  @override
+  Future<Place?> getPlace(String id) async {
+    for (final p in rows) {
+      if (p.id == id) return p;
     }
     return null;
   }

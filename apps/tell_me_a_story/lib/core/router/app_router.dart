@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/comments_api.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
+import '../../data/perspectives_api.dart' hide displayNameOrMember;
 import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/stories_api.dart';
 import '../../features/auth/magic_link_page.dart';
 import '../../features/drafts/drafts_page.dart';
+import '../../features/perspectives/add_perspective_page.dart';
 import '../../features/stories/new_story_page.dart';
+import '../../features/stories/story_reader_page.dart';
 import '../../features/timeline/timeline_page.dart';
 import 'auth_refresh.dart';
 
@@ -18,7 +22,13 @@ abstract final class AppRoutes {
   static const magicLink = '/';
   static const timeline = '/timeline';
   static const newStory = '/stories/new';
+  static const story = '/stories/:storyId';
+  static const storyPerspective = '/stories/:storyId/perspective';
   static const drafts = '/drafts';
+
+  static String storyPath(String id) => '/stories/$id';
+
+  static String storyPerspectivePath(String id) => '/stories/$id/perspective';
 }
 
 GoRouter createAppRouter({
@@ -29,6 +39,8 @@ GoRouter createAppRouter({
   MapboxSearchGateway? mapboxSearch,
   StoriesGateway? storiesApi,
   PhotosGateway? photosApi,
+  CommentsGateway? commentsApi,
+  PerspectivesGateway? perspectivesApi,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.magicLink,
@@ -38,8 +50,9 @@ GoRouter createAppRouter({
       final loc = state.matchedLocation;
       final onMagicLink = loc == AppRoutes.magicLink;
       final invite = state.uri.queryParameters['invite'];
-      final inviteSuffix =
-          (invite != null && invite.isNotEmpty) ? '?invite=$invite' : '';
+      final inviteSuffix = (invite != null && invite.isNotEmpty)
+          ? '?invite=$invite'
+          : '';
 
       if (!signedIn && !onMagicLink) {
         // Preserve invite token across auth (no dedicated /invite route).
@@ -57,10 +70,8 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRoutes.timeline,
-        builder: (context, state) => TimelinePage(
-          api: inviteApi,
-          storiesApi: storiesApi,
-        ),
+        builder: (context, state) =>
+            TimelinePage(api: inviteApi, storiesApi: storiesApi),
       ),
       GoRoute(
         path: AppRoutes.newStory,
@@ -76,6 +87,30 @@ GoRouter createAppRouter({
             draftId: (draft != null && draft.isNotEmpty) ? draft : null,
           );
         },
+      ),
+      GoRoute(
+        path: AppRoutes.storyPerspective,
+        builder: (context, state) {
+          final extra = state.extra;
+          return AddPerspectivePage(
+            storyId: state.pathParameters['storyId']!,
+            familyId: extra is String ? extra : null,
+            perspectivesApi: perspectivesApi,
+            storiesApi: storiesApi,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.story,
+        builder: (context, state) => StoryReaderPage(
+          storyId: state.pathParameters['storyId']!,
+          storiesApi: storiesApi,
+          peopleApi: peopleApi,
+          placesApi: placesApi,
+          photosApi: photosApi,
+          commentsApi: commentsApi,
+          perspectivesApi: perspectivesApi,
+        ),
       ),
       GoRoute(
         path: AppRoutes.drafts,

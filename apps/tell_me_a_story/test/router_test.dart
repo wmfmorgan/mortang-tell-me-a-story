@@ -6,9 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/data/comments_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/perspectives_api.dart'
+    hide displayNameOrMember;
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
@@ -99,8 +102,10 @@ class _StubPlacesApi implements PlacesGateway {
   Future<Place?> findByMapboxPlaceId(
     String familyId,
     String mapboxPlaceId,
-  ) async =>
-      null;
+  ) async => null;
+
+  @override
+  Future<Place?> getPlace(String id) async => null;
 }
 
 class _StubMapboxSearch implements MapboxSearchGateway {
@@ -145,6 +150,9 @@ class _StubStoriesApi implements StoriesGateway {
   }
 
   @override
+  Future<Story?> getPublished(String storyId) async => null;
+
+  @override
   Future<List<Story>> listMyDrafts(String familyId) async => const [];
 
   @override
@@ -181,6 +189,50 @@ class _StubPhotosApi implements PhotosGateway {
   Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }
 
+class _StubCommentsApi implements CommentsGateway {
+  @override
+  Future<List<Comment>> listForStory(String storyId) async => const [];
+
+  @override
+  Future<Comment> create({
+    required String storyId,
+    required String familyId,
+    required String body,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> update({required String id, required String body}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+}
+
+class _StubPerspectivesApi implements PerspectivesGateway {
+  @override
+  Future<List<Perspective>> listForStory(String storyId) async => const [];
+
+  @override
+  Future<Perspective> create({
+    required String storyId,
+    required String familyId,
+    required String body,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> update({required String id, required String body}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+}
+
 GoRouter _router({required AuthRefresh auth}) {
   return createAppRouter(
     authRefresh: auth,
@@ -190,12 +242,15 @@ GoRouter _router({required AuthRefresh auth}) {
     mapboxSearch: _StubMapboxSearch(),
     storiesApi: _StubStoriesApi(),
     photosApi: _StubPhotosApi(),
+    commentsApi: _StubCommentsApi(),
+    perspectivesApi: _StubPerspectivesApi(),
   );
 }
 
 void main() {
-  testWidgets('signed-out user is redirected from /timeline to magic-link',
-      (tester) async {
+  testWidgets('signed-out user is redirected from /timeline to magic-link', (
+    tester,
+  ) async {
     final auth = AuthRefresh(initiallySignedIn: false);
     final router = createAppRouter(
       authRefresh: auth,
@@ -208,15 +263,19 @@ void main() {
     router.go(AppRoutes.timeline);
     await tester.pumpAndSettle();
 
-    expect(router.routerDelegate.currentConfiguration.uri.path, AppRoutes.magicLink);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.magicLink,
+    );
     expect(find.byType(MagicLinkPage), findsOneWidget);
     expect(find.byType(TimelinePage), findsNothing);
 
     auth.dispose();
   });
 
-  testWidgets('signed-in user is redirected from magic-link to /timeline',
-      (tester) async {
+  testWidgets('signed-in user is redirected from magic-link to /timeline', (
+    tester,
+  ) async {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
@@ -226,15 +285,19 @@ void main() {
     await tester.pumpWidget(TellMeAStoryApp(router: router));
     await tester.pumpAndSettle();
 
-    expect(router.routerDelegate.currentConfiguration.uri.path, AppRoutes.timeline);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.timeline,
+    );
     expect(find.byType(TimelinePage), findsOneWidget);
     expect(find.byType(MagicLinkPage), findsNothing);
 
     auth.dispose();
   });
 
-  testWidgets('auth refresh moves signed-out user to timeline after sign-in',
-      (tester) async {
+  testWidgets('auth refresh moves signed-out user to timeline after sign-in', (
+    tester,
+  ) async {
     final auth = AuthRefresh(initiallySignedIn: false);
     final router = createAppRouter(
       authRefresh: auth,
@@ -257,8 +320,9 @@ void main() {
     auth.dispose();
   });
 
-  testWidgets('invite query is preserved when redirecting to timeline',
-      (tester) async {
+  testWidgets('invite query is preserved when redirecting to timeline', (
+    tester,
+  ) async {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
@@ -304,8 +368,9 @@ void main() {
     auth.dispose();
   });
 
-  testWidgets('signed-out user is redirected from /stories/new to magic-link',
-      (tester) async {
+  testWidgets('signed-out user is redirected from /stories/new to magic-link', (
+    tester,
+  ) async {
     final auth = AuthRefresh(initiallySignedIn: false);
     final router = createAppRouter(
       authRefresh: auth,
@@ -411,8 +476,9 @@ void main() {
     auth.dispose();
   });
 
-  testWidgets('signed-out user is redirected from /drafts to magic-link',
-      (tester) async {
+  testWidgets('signed-out user is redirected from /drafts to magic-link', (
+    tester,
+  ) async {
     final auth = AuthRefresh(initiallySignedIn: false);
     final router = _router(auth: auth);
 
@@ -443,7 +509,79 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(NewStoryPage), findsOneWidget);
-    expect(tester.widget<NewStoryPage>(find.byType(NewStoryPage)).draftId, 's1');
+    expect(
+      tester.widget<NewStoryPage>(find.byType(NewStoryPage)).draftId,
+      's1',
+    );
+
+    auth.dispose();
+  });
+
+  testWidgets('signed-in /stories/new is still capture, not the reader', (
+    tester,
+  ) async {
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.newStory);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.newStory,
+    );
+    expect(find.byType(NewStoryPage), findsOneWidget);
+    expect(find.byKey(const Key('story-reader')), findsNothing);
+
+    auth.dispose();
+  });
+
+  testWidgets('signed-in /stories/<uuid> shows story-reader, not capture', (
+    tester,
+  ) async {
+    const storyId = '550e8400-e29b-41d4-a716-446655440000';
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.storyPath(storyId));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.storyPath(storyId),
+    );
+    expect(find.byKey(const Key('story-reader')), findsOneWidget);
+    expect(find.byType(NewStoryPage), findsNothing);
+
+    auth.dispose();
+  });
+
+  testWidgets('signed-in /stories/<uuid>/perspective shows add-perspective', (
+    tester,
+  ) async {
+    const storyId = '550e8400-e29b-41d4-a716-446655440000';
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.storyPerspectivePath(storyId));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.storyPerspectivePath(storyId),
+    );
+    expect(find.byKey(const Key('add-perspective')), findsOneWidget);
+    expect(find.byType(NewStoryPage), findsNothing);
+    expect(find.byKey(const Key('story-reader')), findsNothing);
 
     auth.dispose();
   });

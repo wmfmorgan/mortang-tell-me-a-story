@@ -113,6 +113,7 @@ abstract class StoriesGateway {
   });
   Future<Story> publish(String storyId);
   Future<Story> getStory(String storyId);
+  Future<Story?> getPublished(String storyId);
   Future<List<Story>> listMyDrafts(String familyId);
   Future<List<Story>> listPublished(String familyId);
   Future<void> discard(String storyId);
@@ -219,6 +220,18 @@ class StoriesApi implements StoriesGateway {
         .select(_storySelect)
         .eq('id', storyId)
         .single();
+    return Story.fromJson(row);
+  }
+
+  @override
+  Future<Story?> getPublished(String storyId) async {
+    final row = await _client
+        .from('stories')
+        .select(_storySelect)
+        .eq('id', storyId)
+        .eq('status', 'published')
+        .maybeSingle();
+    if (row == null) return null;
     return Story.fromJson(row);
   }
 

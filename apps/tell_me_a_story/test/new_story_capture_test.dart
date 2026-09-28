@@ -113,6 +113,14 @@ class _FakePlacesApi implements PlacesGateway {
     String familyId,
     String mapboxPlaceId,
   ) async => null;
+
+  @override
+  Future<Place?> getPlace(String id) async {
+    for (final p in rows) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
 }
 
 class _FakeMapboxSearch implements MapboxSearchGateway {
@@ -227,6 +235,14 @@ class _FakeStoriesApi implements StoriesGateway {
     if (existing == null || existing.id != storyId) {
       throw StateError('missing $storyId');
     }
+    return existing;
+  }
+
+  @override
+  Future<Story?> getPublished(String storyId) async {
+    final existing = story;
+    if (existing == null || existing.id != storyId) return null;
+    if (existing.status != StoryStatus.published) return null;
     return existing;
   }
 
