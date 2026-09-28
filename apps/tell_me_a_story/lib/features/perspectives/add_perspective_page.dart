@@ -52,13 +52,13 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
     try {
       final familyId =
           widget.familyId ?? (await _stories.getStory(widget.storyId)).familyId;
-      await _perspectives.create(
+      final created = await _perspectives.create(
         storyId: widget.storyId,
         familyId: familyId,
         body: body,
       );
       if (!mounted) return;
-      context.pop();
+      context.pop(created);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)

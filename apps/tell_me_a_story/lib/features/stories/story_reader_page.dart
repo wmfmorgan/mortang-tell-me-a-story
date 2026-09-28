@@ -155,6 +155,19 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     _reloadPerspectives();
   }
 
+  Future<void> _openPerspective() async {
+    final familyId = _story?.familyId;
+    final created = await context.push<Perspective>(
+      AppRoutes.storyPerspectivePath(widget.storyId),
+      extra: familyId,
+    );
+    if (!mounted) return;
+    if (created != null && !_perspectives.any((p) => p.id == created.id)) {
+      setState(() => _perspectives = [..._perspectives, created]);
+    }
+    await _reloadPerspectives();
+  }
+
   Future<void> _reloadPerspectives() async {
     try {
       final rows = await _perspectivesApi.listForStory(widget.storyId);
@@ -480,10 +493,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: () => context.push(
-                AppRoutes.storyPerspectivePath(widget.storyId),
-                extra: story.familyId,
-              ),
+              onPressed: _openPerspective,
               child: const Text('+ Add your perspective'),
             ),
           ),
