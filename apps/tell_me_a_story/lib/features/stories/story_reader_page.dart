@@ -90,6 +90,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   List<Perspective> _perspectives = const [];
   var _busy = false;
   var _photoError = false;
+  var _composingComment = false;
   Uint8List? _pendingPhotoBytes;
   final _composerFocus = FocusNode();
   final _composerKey = GlobalKey();
@@ -261,16 +262,20 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     setState(() => _mapFailed = !_tokenOk);
   }
 
-  void _focusComposer() {
-    _composerFocus.requestFocus();
-    final ctx = _composerKey.currentContext;
-    if (ctx != null) {
-      Scrollable.ensureVisible(
-        ctx,
-        duration: const Duration(milliseconds: 200),
-        alignment: 1,
-      );
-    }
+  void _openComposer() {
+    setState(() => _composingComment = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _composerFocus.requestFocus();
+      final ctx = _composerKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 200),
+          alignment: 1,
+        );
+      }
+    });
   }
 
   Future<void> _postComment(String body) async {
@@ -283,7 +288,10 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         body: body,
       );
       if (!mounted) return;
-      setState(() => _comments = [..._comments, created]);
+      setState(() {
+        _comments = [..._comments, created];
+        _composingComment = false;
+      });
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -489,7 +497,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: _focusComposer,
+              onPressed: _openComposer,
               child: const Text('+ Add comment'),
             ),
           ),
@@ -500,13 +508,14 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                   _currentUserId != null && row.authorId == _currentUserId,
               onDelete: () => _deleteComment(row),
             ),
-          KeyedSubtree(
-            key: _composerKey,
-            child: CommentComposer(
-              onPost: _postComment,
-              focusNode: _composerFocus,
+          if (_composingComment)
+            KeyedSubtree(
+              key: _composerKey,
+              child: CommentComposer(
+                onPost: _postComment,
+                focusNode: _composerFocus,
+              ),
             ),
-          ),
         ],
       ),
     );

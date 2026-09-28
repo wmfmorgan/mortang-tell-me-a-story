@@ -541,9 +541,26 @@ void main() {
     expect(find.text('Uncle Ben'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
     expect(find.text('+ Add comment'), findsOneWidget);
+    expect(find.byKey(const Key('comment-composer')), findsNothing);
     expect(find.text('I remember the pie.'), findsOneWidget);
     expect(find.text('Aunt Clara'), findsOneWidget);
     expect(find.text('Not found'), findsNothing);
+  });
+
+  testWidgets('+ Add comment reveals the composer', (tester) async {
+    await tester.pumpWidget(
+      _readerApp(stories: _FakeStoriesApi(story: _published())),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('comment-composer')), findsNothing);
+
+    await tester.tap(find.text('+ Add comment'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('comment-composer')), findsOneWidget);
+    expect(find.text('Share a short memory or note...'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Post'), findsOneWidget);
   });
 
   testWidgets('draft id shows Not found without body text', (tester) async {
@@ -765,6 +782,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('+ Add comment'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '  I remember the pie.  ');
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Post'));
     await tester.tap(find.widgetWithText(FilledButton, 'Post'));
@@ -773,10 +792,7 @@ void main() {
     expect(comments.createCalls, 1);
     expect(find.text('I remember the pie.'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller?.text,
-      '',
-    );
+    expect(find.byKey(const Key('comment-composer')), findsNothing);
   });
 
   testWidgets('empty Post does not create a comment', (tester) async {
@@ -789,12 +805,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('+ Add comment'));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Post'));
     await tester.tap(find.widgetWithText(FilledButton, 'Post'));
     await tester.pumpAndSettle();
 
     expect(comments.createCalls, 0);
     expect(find.byType(SnackBar), findsNothing);
+    expect(find.byKey(const Key('comment-composer')), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
   });
 
@@ -810,6 +829,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('+ Add comment'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Did not save');
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Post'));
     await tester.tap(find.widgetWithText(FilledButton, 'Post'));
