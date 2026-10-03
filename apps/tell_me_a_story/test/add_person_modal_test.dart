@@ -157,19 +157,32 @@ void main() {
     await tester.tap(find.text('+ Create new person'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Name'), findsOneWidget);
-    expect(find.text('Relationship'), findsOneWidget);
-    expect(find.text('Email (optional)'), findsOneWidget);
-    expect(find.text('Save'), findsOneWidget);
-
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Name'),
-      'Ada Lovelace',
+    expect(find.text('FULL NAME'), findsOneWidget);
+    expect(find.text('Enter first and last name'), findsOneWidget);
+    expect(find.text('RELATIONSHIP'), findsOneWidget);
+    expect(
+      find.text(
+        'How is this person related in the context of this family story?',
+      ),
+      findsOneWidget,
     );
-    await tester.tap(find.text('Save'));
+    expect(find.text('Aunt / Uncle'), findsOneWidget);
+    expect(find.text('EMAIL'), findsOneWidget);
+    expect(find.text('optional'), findsOneWidget);
+    expect(find.text('e.g. clara@example.com'), findsOneWidget);
+    expect(find.text('Also add to shared family people list'), findsNothing);
+    expect(find.textContaining('family invite'), findsNothing);
+    expect(find.widgetWithText(FilledButton, 'Add person'), findsOneWidget);
+
+    final name = find.widgetWithText(TextField, 'Enter first and last name');
+    await tester.ensureVisible(name);
+    await tester.enterText(name, 'Ada Lovelace');
+    final save = find.widgetWithText(FilledButton, 'Add person');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
     await tester.pumpAndSettle();
 
-    expect(find.text('Add person'), findsOneWidget);
+    expect(find.text('Add person'), findsNWidgets(2));
     expect(find.text('Relationship is required'), findsOneWidget);
     expect(api.createCalls, 0);
   });
@@ -204,16 +217,19 @@ void main() {
     await tester.tap(find.text('+ Create new person'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Name'),
-      'Ada Lovelace',
-    );
-    await tester.tap(find.text('Grandparent'));
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Email (optional)'),
-      'ada@example.com',
-    );
-    await tester.tap(find.text('Save'));
+    final name = find.widgetWithText(TextField, 'Enter first and last name');
+    await tester.ensureVisible(name);
+    await tester.enterText(name, 'Ada Lovelace');
+    final grandparent = find.text('Grandparent');
+    await tester.ensureVisible(grandparent);
+    await tester.tap(grandparent);
+    await tester.pumpAndSettle();
+    final email = find.widgetWithText(TextField, 'e.g. clara@example.com');
+    await tester.ensureVisible(email);
+    await tester.enterText(email, 'ada@example.com');
+    final save = find.widgetWithText(FilledButton, 'Add person');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
     await tester.pumpAndSettle();
 
     expect(result, isNotNull);

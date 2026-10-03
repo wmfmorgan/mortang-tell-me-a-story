@@ -6,21 +6,21 @@ import '../../data/people_api.dart';
 
 enum _AddPersonMode { chooseExisting, createNew }
 
-/// Paint-only labels. Each chip writes this string to [PeopleGateway.createPerson].
-const _relationshipChoices = [
-  'Father',
-  'Mother',
-  'Grandparent',
-  'Sibling',
-  'Aunt/Uncle',
-  'Cousin',
-  'Spouse',
-  'Family friend',
-  'Other',
+/// Visible chip label, then the string written by [PeopleGateway.createPerson].
+const _relationshipChoices = <(String, String)>[
+  ('Mother', 'Mother'),
+  ('Father', 'Father'),
+  ('Grandparent', 'Grandparent'),
+  ('Sibling', 'Sibling'),
+  ('Aunt / Uncle', 'Aunt/Uncle'),
+  ('Cousin', 'Cousin'),
+  ('Spouse', 'Spouse'),
+  ('Family friend', 'Family friend'),
+  ('Other', 'Other'),
 ];
 
-/// Add Person modal — pick existing family person or create new.
-/// Create requires name + relationship; email optional (future invite).
+/// Add Person modal — pick an existing family person or create one.
+/// Create writes name, relationship, and optional email. It does not send an invite.
 class AddPersonModal extends StatefulWidget {
   const AddPersonModal({super.key, required this.familyId, required this.api});
 
@@ -211,8 +211,9 @@ class _AddPersonModalState extends State<AddPersonModal> {
             ),
             _modeButton(
               mode: _AddPersonMode.createNew,
-              icon: Icons.person_add_outlined,
+              icon: Icons.person_add,
               label: '+ Create new person',
+              solid: true,
             ),
           ],
         ),
@@ -225,16 +226,35 @@ class _AddPersonModalState extends State<AddPersonModal> {
     required IconData icon,
     required String label,
     String? badge,
+    bool solid = false,
   }) {
     final selected = _mode == mode;
+    final Color background;
+    final Color foreground;
+    final Color iconColor;
+    final BorderSide side;
+    if (selected && solid) {
+      background = albumTerracotta;
+      foreground = Colors.white;
+      iconColor = Colors.white;
+      side = BorderSide.none;
+    } else if (selected) {
+      background = const Color(0xFFFAF5EE);
+      foreground = const Color(0xFF37312F);
+      iconColor = albumTerracotta;
+      side = const BorderSide(color: Color(0xFFE8DFC8));
+    } else {
+      background = Colors.transparent;
+      foreground = const Color(0xFF6B5E55);
+      iconColor = const Color(0xFF6B5E55);
+      side = BorderSide.none;
+    }
     return Expanded(
       child: Material(
-        color: selected ? const Color(0xFFFAF5EE) : Colors.transparent,
+        color: background,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(
-            color: selected ? const Color(0xFFE8DFC8) : Colors.transparent,
-          ),
+          side: side,
         ),
         child: InkWell(
           onTap: _busy ? null : () => _setMode(mode),
@@ -244,13 +264,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  size: 18,
-                  color: selected
-                      ? albumTerracotta
-                      : albumInk.withValues(alpha: 0.62),
-                ),
+                Icon(icon, size: 18, color: iconColor),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
@@ -259,6 +273,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       fontSize: 13,
+                      color: foreground,
                       fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                     ),
                   ),
@@ -267,7 +282,9 @@ class _AddPersonModalState extends State<AddPersonModal> {
                   const SizedBox(width: 6),
                   DecoratedBox(
                     decoration: BoxDecoration(
-                      color: albumTerracotta.withValues(alpha: 0.15),
+                      color: selected
+                          ? albumTerracotta.withValues(alpha: 0.15)
+                          : const Color(0x99D6D3D1),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Padding(
@@ -278,7 +295,9 @@ class _AddPersonModalState extends State<AddPersonModal> {
                       child: Text(
                         badge,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: albumTerracotta,
+                          color: selected
+                              ? albumTerracotta
+                              : const Color(0xFF6B5E55),
                           fontWeight: FontWeight.w700,
                           fontSize: 10,
                         ),
@@ -327,15 +346,18 @@ class _AddPersonModalState extends State<AddPersonModal> {
             label: const Text('Add to story'),
           )
         else
-          FilledButton(
+          FilledButton.icon(
             onPressed: _busy ? null : _saveCreate,
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, 48),
               backgroundColor: albumTerracotta,
               foregroundColor: Colors.white,
+              disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.35),
               shape: buttonShape,
+              padding: const EdgeInsets.symmetric(horizontal: 28),
             ),
-            child: Text(_busy ? 'Saving…' : 'Save'),
+            icon: const Icon(Icons.person_add, size: 18),
+            label: Text(_busy ? 'Adding…' : 'Add person'),
           ),
       ],
     );
@@ -538,42 +560,133 @@ class _AddPersonModalState extends State<AddPersonModal> {
     return parts.map((part) => part[0].toUpperCase()).join();
   }
 
-  Widget _relationshipChip(String choice) {
-    final selected = _relationship == choice;
-    return ChoiceChip(
-      label: Text(choice),
-      selected: selected,
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      selectedColor: albumTerracotta,
-      labelStyle: TextStyle(color: selected ? albumParchment : albumInk),
-      onSelected: _busy
-          ? null
-          : (next) {
-              setState(() {
-                _relationship = next ? choice : null;
-                _relationshipError = null;
-              });
-            },
+  Widget _relationshipChip(String label, String value) {
+    final selected = _relationship == value;
+    final foreground = selected ? Colors.white : const Color(0xFF554942);
+    return Material(
+      color: selected ? albumTerracotta : Colors.white,
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: selected ? albumTerracotta : const Color(0xFFE7DECE),
+        ),
+      ),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: _busy
+            ? null
+            : () {
+                setState(() {
+                  _relationship = selected ? null : value;
+                  _relationshipError = null;
+                });
+              },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: foreground,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  fontSize: 12,
+                ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.check, size: 13, color: foreground),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _relationshipChips() {
-    final chips = [
-      for (final choice in _relationshipChoices) _relationshipChip(choice),
-    ];
-    if (MediaQuery.sizeOf(context).height >= 760) {
-      return Wrap(spacing: 8, runSpacing: 8, children: chips);
-    }
-    return SizedBox(
-      height: 40,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          for (final chip in chips)
-            Padding(padding: const EdgeInsets.only(right: 8), child: chip),
-        ],
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final (label, value) in _relationshipChoices)
+          _relationshipChip(label, value),
+      ],
+    );
+  }
+
+  Widget _sectionLabel({
+    required String label,
+    bool requiredMark = false,
+    required Widget trailing,
+    Color color = const Color(0xFF4A3E38),
+  }) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            letterSpacing: 0.6,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+        if (requiredMark)
+          Text(
+            ' *',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: const Color(0xFF9F403D),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        const Spacer(),
+        trailing,
+      ],
+    );
+  }
+
+  Widget _requiredPill(String text) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: albumTerracotta.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(4),
       ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: Text(
+          text,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: albumTerracotta,
+            fontWeight: FontWeight.w500,
+            fontSize: 11,
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _createFieldDecoration({
+    required String hint,
+    required IconData icon,
+    String? errorText,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      errorText: errorText,
+      prefixIcon: Icon(icon, size: 20),
+      prefixIconColor: const Color(0xFFA8A29E),
+      hintStyle: const TextStyle(
+        color: Color(0xFFA8A29E),
+        fontWeight: FontWeight.w400,
+        fontSize: 14,
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+      border: _fieldBorder(),
+      enabledBorder: _fieldBorder(),
+      focusedBorder: _fieldBorder(color: albumTerracotta, width: 1.5),
     );
   }
 
@@ -581,18 +694,21 @@ class _AddPersonModalState extends State<AddPersonModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _sectionLabel(
+          label: 'FULL NAME',
+          requiredMark: true,
+          trailing: _requiredPill('required'),
+        ),
+        const SizedBox(height: 6),
         TextField(
           controller: _nameController,
           enabled: !_busy,
           textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(
-            labelText: 'Name',
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          decoration: _createFieldDecoration(
+            hint: 'Enter first and last name',
+            icon: Icons.person_outline,
             errorText: _nameError,
-            filled: true,
-            fillColor: Colors.white,
-            border: _fieldBorder(),
-            enabledBorder: _fieldBorder(),
-            focusedBorder: _fieldBorder(color: albumTerracotta, width: 1.5),
           ),
           onChanged: (_) {
             if (_nameError != null) {
@@ -600,36 +716,67 @@ class _AddPersonModalState extends State<AddPersonModal> {
             }
           },
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Text('Relationship', style: Theme.of(context).textTheme.titleSmall),
-            if (_relationshipError != null) ...[
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  _relationshipError!,
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: albumTerracotta),
+        const SizedBox(height: 16),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFAF5EE),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE8DFC8)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _sectionLabel(
+                  label: 'RELATIONSHIP',
+                  requiredMark: true,
+                  color: const Color(0xFF37312F),
+                  trailing: _requiredPill('Required'),
                 ),
-              ),
-            ],
-          ],
+                const SizedBox(height: 4),
+                Text(
+                  'How is this person related in the context of this family story?',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: const Color(0xFF6B5E55),
+                    fontWeight: FontWeight.w400,
+                    fontSize: 12,
+                  ),
+                ),
+                if (_relationshipError != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _relationshipError!,
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: albumTerracotta),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                _relationshipChips(),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
-        _relationshipChips(),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
+        _sectionLabel(
+          label: 'EMAIL',
+          trailing: Text(
+            'optional',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: const Color(0xFF817976),
+              fontWeight: FontWeight.w400,
+              fontSize: 11,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
         TextField(
           controller: _emailController,
           enabled: !_busy,
           keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(
-            labelText: 'Email (optional)',
-            filled: true,
-            fillColor: Colors.white,
-            border: _fieldBorder(),
-            enabledBorder: _fieldBorder(),
-            focusedBorder: _fieldBorder(color: albumTerracotta, width: 1.5),
+          decoration: _createFieldDecoration(
+            hint: 'e.g. clara@example.com',
+            icon: Icons.mail_outline,
           ),
         ),
       ],
