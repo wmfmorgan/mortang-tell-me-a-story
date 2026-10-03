@@ -55,8 +55,8 @@ class _FakePerspectivesApi implements PerspectivesGateway {
 }
 
 Finder _publish() => find.widgetWithText(FilledButton, 'Publish perspective');
-Finder _cancel() => find.widgetWithText(TextButton, 'Cancel');
-Finder _bodyField() => find.byType(TextField);
+Finder _cancel() => find.widgetWithText(OutlinedButton, 'Cancel');
+Finder _bodyField() => find.byKey(const Key('perspective-body'));
 
 Future<GoRouter> _pumpOverlay(
   WidgetTester tester, {
@@ -93,12 +93,41 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
+  testWidgets('posting as shows the name and Author when ids match', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: AppRoutes.storyPerspectivePath(_storyId),
+      routes: [
+        GoRoute(
+          path: AppRoutes.storyPerspective,
+          builder: (context, state) => AddPerspectivePage(
+            storyId: state.pathParameters['storyId']!,
+            familyId: _familyId,
+            perspectivesApi: _FakePerspectivesApi(),
+            postingAs: 'Dad (Thomas)',
+            storyAuthorId: 'u1',
+            currentUserId: 'u1',
+          ),
+        ),
+      ],
+    );
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Posting as'), findsOneWidget);
+    expect(find.text('Dad (Thomas)'), findsOneWidget);
+    expect(find.text('DT'), findsOneWidget);
+    expect(find.text('Author'), findsOneWidget);
+  });
+
   testWidgets('shows locked Add Perspective copy and no title field', (
     tester,
   ) async {
     await _pumpOverlay(tester, api: _FakePerspectivesApi());
 
     expect(find.byKey(const Key('add-perspective')), findsOneWidget);
+    expect(find.text('FAMILY PERSPECTIVE'), findsOneWidget);
     expect(find.text('Add your perspective'), findsOneWidget);
     expect(
       find.text(
@@ -107,19 +136,29 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Your story'), findsOneWidget);
+    expect(find.text('0 words'), findsOneWidget);
     expect(
       find.text('What do you remember? Who was there, what was said…'),
       findsOneWidget,
     );
+    expect(
+      find.textContaining(
+        'Only you can edit this perspective later. Use Comments below for short reactions.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Close modal'), findsOneWidget);
     expect(_publish(), findsOneWidget);
     expect(_cancel(), findsOneWidget);
     expect(find.text('Perspective title'), findsNothing);
     expect(find.textContaining('title (optional)'), findsNothing);
+    expect(find.text('Posting as'), findsNothing);
   });
 
   testWidgets('Cancel pops the overlay', (tester) async {
     await _pumpOverlay(tester, api: _FakePerspectivesApi());
 
+    await tester.ensureVisible(_cancel());
     await tester.tap(_cancel());
     await tester.pumpAndSettle();
 
@@ -142,6 +181,7 @@ void main() {
     expect(find.byKey(const Key('add-perspective')), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
 
+    await tester.ensureVisible(_publish());
     await tester.tap(_publish());
     await tester.pump();
 
@@ -160,7 +200,9 @@ void main() {
     await tester.pump();
 
     expect(tester.widget<FilledButton>(_publish()).onPressed, isNotNull);
+    expect(find.text('6 words'), findsOneWidget);
 
+    await tester.ensureVisible(_publish());
     await tester.tap(_publish());
     await tester.pumpAndSettle();
 
@@ -180,6 +222,7 @@ void main() {
 
     await tester.enterText(_bodyField(), 'Keep me');
     await tester.pump();
+    await tester.ensureVisible(_publish());
     await tester.tap(_publish());
     await tester.pumpAndSettle();
 

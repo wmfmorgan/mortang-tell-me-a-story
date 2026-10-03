@@ -814,10 +814,13 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(
-      find.byType(TextField),
+      find.byKey(const Key('perspective-body')),
       'From the porch it looked different.',
     );
     await tester.pump();
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Publish perspective'),
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Publish perspective'));
     await tester.pumpAndSettle();
 

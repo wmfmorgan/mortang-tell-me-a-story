@@ -196,6 +196,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       familyId: _story?.familyId,
       perspectivesApi: _perspectivesApi,
       storiesApi: _stories,
+      storyAuthorId: _story?.authorId,
+      currentUserId: _currentUserId,
     );
     if (!mounted) return;
     if (created != null && !_perspectives.any((p) => p.id == created.id)) {
