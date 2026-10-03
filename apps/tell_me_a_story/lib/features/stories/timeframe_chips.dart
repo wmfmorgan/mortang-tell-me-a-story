@@ -65,7 +65,7 @@ class TimeframeChips extends StatelessWidget {
             style: TextButton.styleFrom(
               backgroundColor: decade.startYear == selectedStartYear
                   ? albumTerracotta
-                  : const Color(0xFFFFF8F6),
+                  : albumParchment,
               foregroundColor: decade.startYear == selectedStartYear
                   ? albumParchment
                   : albumInk,

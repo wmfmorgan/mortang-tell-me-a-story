@@ -127,6 +127,7 @@ class _DraftsPageState extends State<DraftsPage> {
       appBar: const AlbumTopBar(screenLabel: 'Drafts'),
       body: SafeArea(
         child: AlbumColumn(
+          maxWidth: 1080,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -183,15 +184,31 @@ class _DraftsPageState extends State<DraftsPage> {
       );
     }
     final rows = _visible;
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-      itemCount: rows.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) => _DraftRow(
-        story: rows[index],
-        onContinue: _busy ? null : () => _continueWriting(rows[index]),
-        onDiscard: _busy ? null : () => _discard(rows[index]),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 640 ? 2 : 1;
+        const pad = 20.0;
+        final inner = constraints.maxWidth - pad * 2;
+        final tileWidth = (inner - 16 * (columns - 1)) / columns;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              for (final story in rows)
+                SizedBox(
+                  width: tileWidth,
+                  child: _DraftRow(
+                    story: story,
+                    onContinue: _busy ? null : () => _continueWriting(story),
+                    onDiscard: _busy ? null : () => _discard(story),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -223,7 +240,7 @@ class _DraftRow extends StatelessWidget {
       personIds: story.personIds,
       placeId: story.placeId,
     );
-    final preview = _bodyPreview(story);
+    final excerpt = _bodyExcerpt(story);
     return KeyedSubtree(
       key: Key('draft-row-${story.id}'),
       child: Card(
@@ -236,8 +253,6 @@ class _DraftRow extends StatelessWidget {
                 _timeframeLabel(story),
                 style: Theme.of(context).textTheme.labelLarge,
               ),
-              const SizedBox(height: 8),
-              Text(preview, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -253,19 +268,21 @@ class _DraftRow extends StatelessWidget {
                     const Chip(label: Text('Ready to publish')),
                 ],
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  FilledButton(
-                    onPressed: onContinue,
-                    child: const Text('Continue writing'),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: onDiscard,
-                    child: const Text('Discard'),
-                  ),
-                ],
+              const SizedBox(height: 12),
+              Text(
+                excerpt,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: onContinue,
+                child: const Text('Continue writing'),
+              ),
+              TextButton(
+                onPressed: onDiscard,
+                child: const Text('Discard draft'),
               ),
             ],
           ),
@@ -292,9 +309,11 @@ bool _matchesFilter(Story story, _DraftsFilter filter) {
   };
 }
 
-String _bodyPreview(Story story) {
+String _bodyExcerpt(Story story) {
   final body = story.body?.trim() ?? '';
-  return body.isEmpty ? 'Untitled' : body;
+  if (body.isEmpty) return 'Untitled';
+  if (body.length <= 180) return body;
+  return '${body.substring(0, 180).trimRight()}…';
 }
 
 String _timeframeLabel(Story story) {

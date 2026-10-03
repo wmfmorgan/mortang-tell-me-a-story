@@ -18,7 +18,7 @@ class InviteModal extends StatefulWidget {
   }) {
     return showAlbumDialog<void>(
       context: context,
-      maxWidth: 480,
+      maxWidth: 560,
       builder: (ctx) => InviteModal(familyId: familyId, api: api),
     );
   }
@@ -122,7 +122,12 @@ class _InviteModalState extends State<InviteModal>
               'Invite to the family archive',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            Text(
+              'Send an email invite, or create a link to copy.',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 16),
             TabBar(
               controller: _tabs,
               tabs: const [
@@ -130,14 +135,16 @@ class _InviteModalState extends State<InviteModal>
                 Tab(text: 'Link'),
               ],
             ),
+            const SizedBox(height: 8),
             SizedBox(
-              height: 148,
+              height: 220,
               child: TabBarView(
                 controller: _tabs,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.only(top: 12),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         TextField(
                           controller: _emailController,
@@ -145,7 +152,7 @@ class _InviteModalState extends State<InviteModal>
                           enabled: !_busy,
                           decoration: const InputDecoration(labelText: 'Email'),
                         ),
-                        const SizedBox(height: 16),
+                        const Spacer(),
                         FilledButton(
                           onPressed: _busy ? null : _sendEmail,
                           child: Text(_busy ? 'Sending…' : 'Send invite'),
@@ -154,13 +161,13 @@ class _InviteModalState extends State<InviteModal>
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.only(top: 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (_linkUrl != null)
                           SelectableText(_linkUrl!, maxLines: 3),
-                        const SizedBox(height: 16),
+                        const Spacer(),
                         FilledButton(
                           onPressed: _busy
                               ? null

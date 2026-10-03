@@ -469,116 +469,174 @@ class _NewStoryPageState extends State<NewStoryPage> {
       ),
       body: SafeArea(
         child: AlbumColumn(
+          maxWidth: 1080,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (_showPublishBanner) ...[
                   const Text('Finish the highlighted fields to publish.'),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                 ],
                 if (readiness.canPublish) ...[
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Chip(label: Text('Ready to publish')),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                 ],
-                _highlightIfMissing(
-                  missing:
-                      (_showPublishBanner && !readiness.hasTimeframe) ||
-                      (_highlightTimeframeForPhoto && _timeframeStart == null),
-                  child: AlbumPanel(
-                    title: 'Timeframe',
-                    child: TimeframeChips(
-                      selectedStartYear: _timeframeStart == null
-                          ? null
-                          : DecadeRange.containing(_timeframeStart!)?.startYear,
-                      onSelected: _selectDecade,
-                    ),
-                  ),
-                ),
-                _highlightIfMissing(
-                  missing: _showPublishBanner && !readiness.hasPerson,
-                  child: AlbumPanel(
-                    title: 'People',
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final person in _selectedPeople)
-                          Chip(
-                            label: Text(person.name),
-                            onDeleted: () => _removePerson(person),
-                          ),
-                        TextButton(
-                          onPressed: _actionsEnabled ? _openAddPerson : null,
-                          child: const Text('Add person'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                _highlightIfMissing(
-                  missing: _showPublishBanner && !readiness.hasPlace,
-                  child: AlbumPanel(
-                    title: 'Place',
-                    child: Column(
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final storyColumn = _storyColumn();
+                    final contextColumn = _contextColumn(place);
+                    if (constraints.maxWidth < 680) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [storyColumn, contextColumn],
+                      );
+                    }
+                    final contextWidth = constraints.maxWidth * 0.52;
+                    return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (place != null) ...[
-                          _buildSelectedPlaceMap(place),
-                          const SizedBox(height: 8),
-                          Text(
-                            place.label,
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          Text(
-                            place.address,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        TextButton(
-                          onPressed: _actionsEnabled ? _openChoosePlace : null,
-                          child: const Text('Choose place'),
-                        ),
+                        Expanded(child: storyColumn),
+                        const SizedBox(width: 24),
+                        SizedBox(width: contextWidth, child: contextColumn),
                       ],
-                    ),
-                  ),
-                ),
-                _highlightIfMissing(
-                  missing: _showPublishBanner && !readiness.hasBody,
-                  child: AlbumPanel(
-                    child: TextField(
-                      controller: _body,
-                      minLines: 6,
-                      maxLines: null,
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: 'Story',
-                        alignLabelWithHint: true,
-                      ),
-                    ),
-                  ),
-                ),
-                AlbumPanel(
-                  title: 'Photos',
-                  child: PhotoStrip(
-                    photos: _storyPhotos,
-                    previews: _photoPreviews,
-                    onAdd: _onAddPhoto,
-                    onRemove: _onRemovePhoto,
-                    onRetry: _onRetryPhoto,
-                    uploadFailed: _photoError,
-                    canAdd: _storyPhotos.length < maxPhotosPerStory,
-                  ),
+                    );
+                  },
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _storyColumn() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _highlightIfMissing(
+          missing: _showPublishBanner && !_readiness.hasBody,
+          child: TextField(
+            controller: _body,
+            minLines: 8,
+            maxLines: null,
+            onChanged: (_) => setState(() {}),
+            style: Theme.of(context).textTheme.bodyLarge,
+            decoration: const InputDecoration(
+              labelText: 'Story',
+              alignLabelWithHint: true,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text('Photos', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        PhotoStrip(
+          photos: _storyPhotos,
+          previews: _photoPreviews,
+          onAdd: _onAddPhoto,
+          onRemove: _onRemovePhoto,
+          onRetry: _onRetryPhoto,
+          uploadFailed: _photoError,
+          canAdd: _storyPhotos.length < maxPhotosPerStory,
+        ),
+      ],
+    );
+  }
+
+  Widget _contextColumn(Place? place) {
+    final readiness = _readiness;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _highlightIfMissing(
+          missing:
+              (_showPublishBanner && !readiness.hasTimeframe) ||
+              (_highlightTimeframeForPhoto && _timeframeStart == null),
+          child: _section(
+            title: 'Timeframe',
+            child: TimeframeChips(
+              selectedStartYear: _timeframeStart == null
+                  ? null
+                  : DecadeRange.containing(_timeframeStart!)?.startYear,
+              onSelected: _selectDecade,
+            ),
+          ),
+        ),
+        _highlightIfMissing(
+          missing: _showPublishBanner && !readiness.hasPerson,
+          child: _section(
+            title: 'People',
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final person in _selectedPeople)
+                  Chip(
+                    label: Text(person.name),
+                    onDeleted: () => _removePerson(person),
+                  ),
+                TextButton(
+                  onPressed: _actionsEnabled ? _openAddPerson : null,
+                  child: const Text('Add person'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        _highlightIfMissing(
+          missing: _showPublishBanner && !readiness.hasPlace,
+          child: _placeCard(place),
+        ),
+      ],
+    );
+  }
+
+  Widget _section({required String title, required Widget child}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _placeCard(Place? place) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      decoration: BoxDecoration(
+        color: albumParchment,
+        borderRadius: BorderRadius.circular(albumCardRadius),
+        border: Border.all(color: albumSage.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Place', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          if (place != null) ...[
+            _buildSelectedPlaceMap(place),
+            const SizedBox(height: 8),
+            Text(place.label, style: Theme.of(context).textTheme.titleSmall),
+            Text(place.address, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 4),
+          ],
+          TextButton(
+            onPressed: _actionsEnabled ? _openChoosePlace : null,
+            child: const Text('Choose place'),
+          ),
+        ],
       ),
     );
   }

@@ -401,7 +401,7 @@ void main() {
       await tester.pumpWidget(_drafts(stories: api, photos: photos));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Discard'));
+      await tester.tap(find.text('Discard draft'));
       await tester.pumpAndSettle();
 
       expect(photos.deletedStories, ['s1']);

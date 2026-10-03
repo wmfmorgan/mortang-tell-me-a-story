@@ -28,8 +28,9 @@ class _FakePeopleGateway implements PeopleGateway {
   }) async {
     createCalls++;
     ensureValidPersonCreate(name: name, relationship: relationship);
-    final trimmedEmail =
-        email != null && email.trim().isNotEmpty ? email.trim() : null;
+    final trimmedEmail = email != null && email.trim().isNotEmpty
+        ? email.trim()
+        : null;
     final person = Person(
       id: 'p${++_seq}',
       familyId: familyId,
@@ -72,7 +73,9 @@ Future<Person?> _openModal(
 }
 
 void main() {
-  testWidgets('shows Add person chrome and choose/create modes', (tester) async {
+  testWidgets('shows Add person chrome and choose/create modes', (
+    tester,
+  ) async {
     final api = _FakePeopleGateway();
     await _openModal(tester, api: api);
 
@@ -198,10 +201,7 @@ void main() {
       find.widgetWithText(TextField, 'Name'),
       'Ada Lovelace',
     );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Relationship'),
-      'Grandmother',
-    );
+    await tester.tap(find.text('Grandparent'));
     await tester.enterText(
       find.widgetWithText(TextField, 'Email (optional)'),
       'ada@example.com',
@@ -211,7 +211,7 @@ void main() {
 
     expect(result, isNotNull);
     expect(result!.name, 'Ada Lovelace');
-    expect(result!.relationship, 'Grandmother');
+    expect(result!.relationship, 'Grandparent');
     expect(result!.email, 'ada@example.com');
     expect(api.createCalls, 1);
     expect(find.text('Add person'), findsNothing);

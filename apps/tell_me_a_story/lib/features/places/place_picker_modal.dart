@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/config/env.dart';
 import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/places_api.dart';
 import 'place_map.dart';
@@ -289,41 +290,7 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
               _buildMapArea(),
               if (_pending != null) ...[
                 const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _pending!.label,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          Text(
-                            _pending!.address,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      key: const Key('place-favorite-toggle'),
-                      tooltip: _pending!.isFavorite
-                          ? 'Remove from favorites'
-                          : 'Add to favorites',
-                      onPressed: _busy ? null : _togglePendingFavorite,
-                      icon: Icon(
-                        _pending!.isFavorite ? Icons.star : Icons.star_border,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                FilledButton(
-                  onPressed: _busy ? null : _confirmPending,
-                  child: const Text('Use this place'),
-                ),
+                _selectedPlaceCard(),
               ],
               if (_searching)
                 const Padding(
@@ -356,6 +323,59 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _selectedPlaceCard() {
+    final place = _pending!;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: albumParchment,
+        borderRadius: BorderRadius.circular(albumCardRadius),
+        border: Border.all(color: albumSage.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      place.label,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      place.address,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                key: const Key('place-favorite-toggle'),
+                tooltip: place.isFavorite
+                    ? 'Remove from favorites'
+                    : 'Add to favorites',
+                onPressed: _busy ? null : _togglePendingFavorite,
+                icon: Icon(
+                  place.isFavorite ? Icons.star : Icons.star_border,
+                  color: albumTerracotta,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: _busy ? null : _confirmPending,
+            child: const Text('Use this place'),
+          ),
+        ],
       ),
     );
   }

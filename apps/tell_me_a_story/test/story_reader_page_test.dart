@@ -529,7 +529,7 @@ void main() {
     expect(find.text('Picnic at the lake'), findsOneWidget);
     expect(find.textContaining('We brought pie.'), findsOneWidget);
     expect(find.text('1980s'), findsOneWidget);
-    expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
+    expect(find.text('Ada'), findsOneWidget);
     expect(find.text('Bob'), findsNothing);
     expect(find.text('Central Park'), findsOneWidget);
     expect(find.byKey(const Key('stub-map')), findsOneWidget);

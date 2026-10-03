@@ -7,16 +7,21 @@ import 'album_theme.dart';
 const albumColumnWidth = 800.0;
 
 class AlbumColumn extends StatelessWidget {
-  const AlbumColumn({super.key, required this.child});
+  const AlbumColumn({
+    super.key,
+    required this.child,
+    this.maxWidth = albumColumnWidth,
+  });
 
   final Widget child;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: albumColumnWidth),
+        constraints: BoxConstraints(maxWidth: maxWidth),
         child: child,
       ),
     );
@@ -112,7 +117,7 @@ class AlbumPanel extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8F6),
+        color: albumParchment,
         borderRadius: BorderRadius.circular(albumCardRadius),
         border: Border.all(color: albumSage.withValues(alpha: 0.35)),
       ),

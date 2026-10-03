@@ -15,6 +15,7 @@ import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/stories_api.dart';
 import '../comments/comment_composer.dart';
+import '../perspectives/add_perspective_page.dart';
 import '../places/place_map.dart';
 import '../places/place_picker_modal.dart';
 import 'photo_strip.dart';
@@ -27,6 +28,21 @@ String storyHeadline(String? body) {
     if (t.isNotEmpty) return t;
   }
   return 'Untitled';
+}
+
+/// Body after the lead line. A one-line story is only the lead.
+String storyBodyRest(String? body) {
+  final lines = (body ?? '').split('\n');
+  var skippedLead = false;
+  final rest = <String>[];
+  for (final line in lines) {
+    if (!skippedLead && line.trim().isNotEmpty) {
+      skippedLead = true;
+      continue;
+    }
+    if (skippedLead) rest.add(line);
+  }
+  return rest.join('\n').trim();
 }
 
 /// Published-only reader at `/stories/:storyId`.
@@ -157,10 +173,12 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   }
 
   Future<void> _openPerspective() async {
-    final familyId = _story?.familyId;
-    final created = await context.push<Perspective>(
-      AppRoutes.storyPerspectivePath(widget.storyId),
-      extra: familyId,
+    final created = await AddPerspectivePage.show(
+      context,
+      storyId: widget.storyId,
+      familyId: _story?.familyId,
+      perspectivesApi: _perspectivesApi,
+      storiesApi: _stories,
     );
     if (!mounted) return;
     if (created != null && !_perspectives.any((p) => p.id == created.id)) {
@@ -436,104 +454,145 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     final theme = Theme.of(context);
     final place = _place;
 
+    final article = theme.textTheme.bodyLarge?.copyWith(
+      fontSize: 17,
+      height: 1.45,
+    );
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                storyHeadline(story.body),
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontSize: 28,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(_timeframeLabel(story), style: theme.textTheme.labelLarge),
+              if (_peopleOnStory.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 4,
+                  children: [
+                    for (final person in _peopleOnStory)
+                      Text(person.name, style: theme.textTheme.labelLarge),
+                  ],
+                ),
+              ],
+              if (place != null) ...[
+                const SizedBox(height: 4),
+                Text(place.label, style: theme.textTheme.labelLarge),
+                const SizedBox(height: 12),
+                _buildPlaceMap(place),
+              ],
+              if (storyBodyRest(story.body).isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text(storyBodyRest(story.body), style: article),
+              ],
+              _readingSection(
+                title: 'Photos',
+                trailing: TextButton(
+                  onPressed: _photos.length < maxPhotosPerStory
+                      ? _onAddPhoto
+                      : null,
+                  child: const Text('Add photos'),
+                ),
+                child: PhotoStrip(
+                  photos: _photos,
+                  previews: _previews,
+                  onAdd: _onAddPhoto,
+                  onRemove: _onRemovePhoto,
+                  onRetry: _onRetryPhoto,
+                  uploadFailed: _photoError,
+                  canAdd: _photos.length < maxPhotosPerStory,
+                ),
+              ),
+              _readingSection(
+                title: 'Perspectives',
+                trailing: TextButton(
+                  onPressed: _openPerspective,
+                  child: const Text('+ Add your perspective'),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final row in _perspectives) ...[
+                      Text(row.authorLabel, style: theme.textTheme.titleSmall),
+                      const SizedBox(height: 4),
+                      Text(row.body, style: theme.textTheme.bodyMedium),
+                      const SizedBox(height: 16),
+                    ],
+                  ],
+                ),
+              ),
+              _readingSection(
+                title: 'Comments',
+                trailing: TextButton(
+                  onPressed: _openComposer,
+                  child: const Text('+ Add comment'),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final row in _comments)
+                      CommentTile(
+                        comment: row,
+                        canDelete:
+                            _currentUserId != null &&
+                            row.authorId == _currentUserId,
+                        onDelete: () => _deleteComment(row),
+                      ),
+                    if (_composingComment)
+                      KeyedSubtree(
+                        key: _composerKey,
+                        child: CommentComposer(
+                          onPost: _postComment,
+                          focusNode: _composerFocus,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _readingSection({
+    required String title,
+    Widget? trailing,
+    required Widget child,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            storyHeadline(story.body),
-            style: theme.textTheme.headlineMedium,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              if (trailing != null) trailing,
+            ],
           ),
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Chip(label: Text(_timeframeLabel(story))),
-          ),
-          if (_peopleOnStory.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final person in _peopleOnStory)
-                  Chip(label: Text(person.name)),
-              ],
-            ),
-          ],
-          if (place != null) ...[
-            const SizedBox(height: 8),
-            Text(place.label, style: theme.textTheme.titleSmall),
-            const SizedBox(height: 8),
-            _buildPlaceMap(place),
-          ],
-          const SizedBox(height: 12),
-          Text(story.body ?? '', style: theme.textTheme.bodyLarge),
-          const SizedBox(height: 16),
-          AlbumPanel(
-            title: 'Photos',
-            trailing: TextButton(
-              onPressed: _photos.length < maxPhotosPerStory
-                  ? _onAddPhoto
-                  : null,
-              child: const Text('Add photos'),
-            ),
-            child: PhotoStrip(
-              photos: _photos,
-              previews: _previews,
-              onAdd: _onAddPhoto,
-              onRemove: _onRemovePhoto,
-              onRetry: _onRetryPhoto,
-              uploadFailed: _photoError,
-              canAdd: _photos.length < maxPhotosPerStory,
-            ),
-          ),
-          AlbumPanel(
-            title: 'Perspectives',
-            trailing: TextButton(
-              onPressed: _openPerspective,
-              child: const Text('+ Add your perspective'),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final row in _perspectives) ...[
-                  Text(row.authorLabel, style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 4),
-                  Text(row.body, style: theme.textTheme.bodyMedium),
-                  const SizedBox(height: 12),
-                ],
-              ],
-            ),
-          ),
-          AlbumPanel(
-            title: 'Comments',
-            trailing: TextButton(
-              onPressed: _openComposer,
-              child: const Text('+ Add comment'),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final row in _comments)
-                  CommentTile(
-                    comment: row,
-                    canDelete:
-                        _currentUserId != null &&
-                        row.authorId == _currentUserId,
-                    onDelete: () => _deleteComment(row),
-                  ),
-                if (_composingComment)
-                  KeyedSubtree(
-                    key: _composerKey,
-                    child: CommentComposer(
-                      onPost: _postComment,
-                      focusNode: _composerFocus,
-                    ),
-                  ),
-              ],
-            ),
-          ),
+          child,
         ],
       ),
     );

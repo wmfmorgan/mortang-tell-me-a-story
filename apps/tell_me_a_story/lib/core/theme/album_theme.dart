@@ -77,7 +77,7 @@ ThemeData albumTheme() {
       ),
     ),
     cardTheme: CardThemeData(
-      color: const Color(0xFFFFF8F6),
+      color: albumParchment,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(albumCardRadius),

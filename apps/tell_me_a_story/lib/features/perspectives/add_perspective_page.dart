@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
 import '../../data/perspectives_api.dart';
 import '../../data/stories_api.dart';
 
@@ -13,6 +14,7 @@ class AddPerspectivePage extends StatefulWidget {
     this.familyId,
     this.perspectivesApi,
     this.storiesApi,
+    this.asDialog = false,
   });
 
   final String storyId;
@@ -21,6 +23,29 @@ class AddPerspectivePage extends StatefulWidget {
   final String? familyId;
   final PerspectivesGateway? perspectivesApi;
   final StoriesGateway? storiesApi;
+
+  /// Reader opens this as a dialog. The route page stays for the existing URL.
+  final bool asDialog;
+
+  static Future<Perspective?> show(
+    BuildContext context, {
+    required String storyId,
+    String? familyId,
+    PerspectivesGateway? perspectivesApi,
+    StoriesGateway? storiesApi,
+  }) {
+    return showAlbumDialog<Perspective>(
+      context: context,
+      maxWidth: 560,
+      builder: (ctx) => AddPerspectivePage(
+        storyId: storyId,
+        familyId: familyId,
+        perspectivesApi: perspectivesApi,
+        storiesApi: storiesApi,
+        asDialog: true,
+      ),
+    );
+  }
 
   @override
   State<AddPerspectivePage> createState() => _AddPerspectivePageState();
@@ -59,7 +84,11 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
         body: body,
       );
       if (!mounted) return;
-      context.pop(created);
+      if (widget.asDialog) {
+        Navigator.of(context).pop(created);
+      } else {
+        context.pop(created);
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -69,19 +98,23 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
     }
   }
 
+  void _cancel() {
+    if (widget.asDialog) {
+      Navigator.of(context).pop();
+    } else {
+      context.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.asDialog) return _dialog(context);
     final theme = Theme.of(context);
     return Scaffold(
       key: const Key('add-perspective'),
       appBar: AlbumTopBar(
         screenLabel: 'Add your perspective',
-        actions: [
-          TextButton(
-            onPressed: () => context.pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
+        actions: [TextButton(onPressed: _cancel, child: const Text('Cancel'))],
       ),
       body: SafeArea(
         child: AlbumColumn(
@@ -117,6 +150,52 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dialog(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      key: const Key('add-perspective'),
+      color: albumParchment,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Add your perspective', style: theme.textTheme.headlineSmall),
+            const SizedBox(height: 8),
+            Text(
+              'Tell this story in your own words — a full telling, not a quick reaction.',
+              style: theme.textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 16),
+            Text('Your story', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _body,
+              minLines: 4,
+              maxLines: 6,
+              enabled: !_busy,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                hintText: 'What do you remember? Who was there, what was said…',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _canPublish ? _publish : null,
+              child: const Text('Publish perspective'),
+            ),
+            TextButton(
+              onPressed: _busy ? null : _cancel,
+              child: const Text('Cancel'),
+            ),
+          ],
         ),
       ),
     );
