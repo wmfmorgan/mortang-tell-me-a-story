@@ -201,7 +201,10 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Choose or create'), findsOneWidget);
+    expect(
+      find.text('Add someone to this story or your family circle'),
+      findsOneWidget,
+    );
     expect(find.text('Ada'), findsOneWidget);
   });
 
@@ -251,9 +254,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ListTile, 'Ada'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Add to story'));
+    await tester.pumpAndSettle();
 
     expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
-    expect(find.text('Choose or create'), findsNothing);
+    expect(
+      find.text('Add someone to this story or your family circle'),
+      findsNothing,
+    );
   });
 
   testWidgets('selecting place shows label and stub map', (tester) async {
@@ -333,6 +341,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(invite.createFamilyCalls, 1);
-    expect(find.text('Choose or create'), findsOneWidget);
+    expect(
+      find.text('Add someone to this story or your family circle'),
+      findsOneWidget,
+    );
   });
 }

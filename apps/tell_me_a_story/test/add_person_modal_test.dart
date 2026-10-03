@@ -80,10 +80,14 @@ void main() {
     await _openModal(tester, api: api);
 
     expect(find.text('Add person'), findsOneWidget);
-    expect(find.text('Choose or create'), findsOneWidget);
+    expect(
+      find.text('Add someone to this story or your family circle'),
+      findsOneWidget,
+    );
     expect(find.text('Choose existing'), findsOneWidget);
-    expect(find.text('Create new'), findsOneWidget);
+    expect(find.text('+ Create new person'), findsOneWidget);
     expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Add to story'), findsOneWidget);
   });
 
   testWidgets('pick list shows people and returns selected person', (
@@ -136,6 +140,9 @@ void main() {
 
     await tester.tap(find.text('Ada'));
     await tester.pumpAndSettle();
+    expect(find.text('Selected'), findsOneWidget);
+    await tester.tap(find.text('Add to story'));
+    await tester.pumpAndSettle();
 
     expect(result, isNotNull);
     expect(result!.id, 'p1');
@@ -147,7 +154,7 @@ void main() {
     final api = _FakePeopleGateway();
     await _openModal(tester, api: api);
 
-    await tester.tap(find.text('Create new'));
+    await tester.tap(find.text('+ Create new person'));
     await tester.pumpAndSettle();
 
     expect(find.text('Name'), findsOneWidget);
@@ -194,7 +201,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Create new'));
+    await tester.tap(find.text('+ Create new person'));
     await tester.pumpAndSettle();
 
     await tester.enterText(

@@ -49,6 +49,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
   final _emailController = TextEditingController();
   final _searchController = TextEditingController();
   String? _relationship;
+  Person? _selectedPerson;
 
   List<Person>? _people;
   Object? _loadError;
@@ -123,65 +124,220 @@ class _AddPersonModalState extends State<AddPersonModal> {
     }
   }
 
+  void _setMode(_AddPersonMode mode) {
+    setState(() {
+      _mode = mode;
+      _nameError = null;
+      _relationshipError = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final choosing = _mode == _AddPersonMode.chooseExisting;
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: EdgeInsets.only(
           left: 24,
           right: 24,
-          top: 16,
-          bottom: MediaQuery.viewInsetsOf(context).bottom + 12,
+          top: 20,
+          bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Add person',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Choose or create',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 12),
-            SegmentedButton<_AddPersonMode>(
-              segments: const [
-                ButtonSegment(
-                  value: _AddPersonMode.chooseExisting,
-                  label: Text('Choose existing'),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Add person',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontSize: 28),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Add someone to this story or your family circle',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: albumInk.withValues(alpha: 0.62),
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                ButtonSegment(
-                  value: _AddPersonMode.createNew,
-                  label: Text('Create new'),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
                 ),
               ],
-              selected: {_mode},
-              onSelectionChanged: _busy
-                  ? null
-                  : (next) {
-                      setState(() {
-                        _mode = next.first;
-                        _nameError = null;
-                        _relationshipError = null;
-                      });
-                    },
             ),
-            const SizedBox(height: 8),
-            if (_mode == _AddPersonMode.chooseExisting)
-              _buildPickList()
-            else
-              _buildCreateForm(),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: _busy ? null : () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+            const SizedBox(height: 16),
+            _modeToggle(),
+            const SizedBox(height: 16),
+            if (choosing) _buildPickList() else _buildCreateForm(),
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: Color(0xFFEAE1D3)),
+            const SizedBox(height: 12),
+            _footer(choosing),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _modeToggle() {
+    final count = _people?.length;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3EDE6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE7DECE)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          children: [
+            _modeButton(
+              mode: _AddPersonMode.chooseExisting,
+              icon: Icons.group_outlined,
+              label: 'Choose existing',
+              badge: count == null ? null : '$count',
+            ),
+            _modeButton(
+              mode: _AddPersonMode.createNew,
+              icon: Icons.person_add_outlined,
+              label: '+ Create new person',
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _modeButton({
+    required _AddPersonMode mode,
+    required IconData icon,
+    required String label,
+    String? badge,
+  }) {
+    final selected = _mode == mode;
+    return Expanded(
+      child: Material(
+        color: selected ? const Color(0xFFFAF5EE) : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+            color: selected ? const Color(0xFFE8DFC8) : Colors.transparent,
+          ),
+        ),
+        child: InkWell(
+          onTap: _busy ? null : () => _setMode(mode),
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected
+                      ? albumTerracotta
+                      : albumInk.withValues(alpha: 0.62),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (badge != null) ...[
+                  const SizedBox(width: 6),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: albumTerracotta.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      child: Text(
+                        badge,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: albumTerracotta,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _footer(bool choosing) {
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    );
+    return Row(
+      children: [
+        OutlinedButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 48),
+            foregroundColor: albumInk,
+            side: const BorderSide(color: Color(0xFFDCD3C4)),
+            shape: buttonShape,
+          ),
+          child: const Text('Cancel'),
+        ),
+        const Spacer(),
+        if (choosing)
+          FilledButton.icon(
+            onPressed: _busy || _selectedPerson == null
+                ? null
+                : () => Navigator.of(context).pop(_selectedPerson),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 48),
+              backgroundColor: albumTerracotta,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.35),
+              shape: buttonShape,
+            ),
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('Add to story'),
+          )
+        else
+          FilledButton(
+            onPressed: _busy ? null : _saveCreate,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 48),
+              backgroundColor: albumTerracotta,
+              foregroundColor: Colors.white,
+              shape: buttonShape,
+            ),
+            child: Text(_busy ? 'Saving…' : 'Save'),
+          ),
+      ],
     );
   }
 
@@ -220,12 +376,42 @@ class _AddPersonModalState extends State<AddPersonModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Row(
+          children: [
+            Text(
+              'SELECT FAMILY MEMBER',
+              style: Theme.of(context).textTheme.labelSmall
+                  ?.copyWith(letterSpacing: 0.6, fontWeight: FontWeight.w600),
+            ),
+            Text(
+              ' *',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: albumTerracotta,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'Choose one to tag',
+              style: Theme.of(context).textTheme.labelSmall
+                  ?.copyWith(color: albumInk.withValues(alpha: 0.55)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         TextField(
           controller: _searchController,
           enabled: !_busy,
-          decoration: const InputDecoration(
-            labelText: 'Search people',
-            prefixIcon: Icon(Icons.search),
+          decoration: InputDecoration(
+            hintText: 'Search family members…',
+            prefixIcon: const Icon(Icons.search),
+            filled: true,
+            fillColor: Colors.white,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            border: _fieldBorder(),
+            enabledBorder: _fieldBorder(),
+            focusedBorder: _fieldBorder(color: albumTerracotta, width: 1.5),
           ),
           onChanged: (_) => setState(() {}),
         ),
@@ -237,46 +423,90 @@ class _AddPersonModalState extends State<AddPersonModal> {
           )
         else
           ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 240),
+            constraints: const BoxConstraints(maxHeight: 220),
             child: ListView.builder(
               shrinkWrap: true,
               itemCount: shown.length,
               itemBuilder: (context, index) {
                 final person = shown[index];
+                final selected = _selectedPerson?.id == person.id;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Material(
-                    color: albumParchment,
+                    color: selected ? const Color(0xFFFAF5EE) : Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: albumSage.withValues(alpha: 0.4)),
+                      side: BorderSide(
+                        color: selected
+                            ? albumTerracotta
+                            : const Color(0xFFE7DECE),
+                        width: selected ? 2 : 1,
+                      ),
                     ),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
+                        horizontal: 10,
+                        vertical: 2,
+                      ),
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: selected
+                            ? albumTerracotta
+                            : const Color(0xFFF3EDE6),
+                        foregroundColor: selected
+                            ? Colors.white
+                            : const Color(0xFF554942),
+                        child: Text(
+                          _initials(person.name),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: selected
+                                    ? Colors.white
+                                    : const Color(0xFF554942),
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
                       ),
                       title: Text(
                         person.name,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontSize: 16),
                       ),
-                      trailing: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: albumSage.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          child: Text(
-                            person.relationship,
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                        ),
+                      subtitle: Text(
+                        person.relationship,
+                        style: Theme.of(context).textTheme.labelSmall
+                            ?.copyWith(color: albumInk.withValues(alpha: 0.55)),
                       ),
-                      onTap: () => Navigator.of(context).pop(person),
+                      trailing: selected
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: albumTerracotta,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Selected',
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: albumTerracotta,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              'Select',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: albumInk.withValues(alpha: 0.55),
+                                  ),
+                            ),
+                      onTap: _busy
+                          ? null
+                          : () => setState(() => _selectedPerson = person),
                     ),
                   ),
                 );
@@ -285,6 +515,27 @@ class _AddPersonModalState extends State<AddPersonModal> {
           ),
       ],
     );
+  }
+
+  OutlineInputBorder _fieldBorder({
+    Color color = const Color(0xFFDCD3C4),
+    double width = 1,
+  }) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: color, width: width),
+    );
+  }
+
+  String _initials(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .toList();
+    if (parts.isEmpty) return '?';
+    return parts.map((part) => part[0].toUpperCase()).join();
   }
 
   Widget _relationshipChip(String choice) {
@@ -334,7 +585,15 @@ class _AddPersonModalState extends State<AddPersonModal> {
           controller: _nameController,
           enabled: !_busy,
           textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(labelText: 'Name', errorText: _nameError),
+          decoration: InputDecoration(
+            labelText: 'Name',
+            errorText: _nameError,
+            filled: true,
+            fillColor: Colors.white,
+            border: _fieldBorder(),
+            enabledBorder: _fieldBorder(),
+            focusedBorder: _fieldBorder(color: albumTerracotta, width: 1.5),
+          ),
           onChanged: (_) {
             if (_nameError != null) {
               setState(() => _nameError = null);
@@ -364,12 +623,14 @@ class _AddPersonModalState extends State<AddPersonModal> {
           controller: _emailController,
           enabled: !_busy,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'Email (optional)'),
-        ),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _busy ? null : _saveCreate,
-          child: Text(_busy ? 'Saving…' : 'Save'),
+          decoration: InputDecoration(
+            labelText: 'Email (optional)',
+            filled: true,
+            fillColor: Colors.white,
+            border: _fieldBorder(),
+            enabledBorder: _fieldBorder(),
+            focusedBorder: _fieldBorder(color: albumTerracotta, width: 1.5),
+          ),
         ),
       ],
     );

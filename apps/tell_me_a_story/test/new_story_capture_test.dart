@@ -505,6 +505,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ListTile, 'Ada'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Add to story'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
     await tester.pumpAndSettle();
