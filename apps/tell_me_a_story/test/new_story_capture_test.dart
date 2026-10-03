@@ -140,6 +140,7 @@ class _FakeStoriesApi implements StoriesGateway {
   String? lastUpdatedStoryId;
   DateTime? lastTimeframeStart;
   DateTime? lastTimeframeEnd;
+  String? lastTitle;
   String? lastBody;
   String? lastPlaceId;
   List<String> lastPersonIds = const [];
@@ -148,6 +149,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String> personIds = const [],
@@ -157,6 +159,7 @@ class _FakeStoriesApi implements StoriesGateway {
       id: id,
       familyId: familyId,
       authorId: 'u1',
+      title: title,
       body: body,
       timeframeStart: timeframeStart,
       timeframeEnd: timeframeEnd,
@@ -171,6 +174,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String> personIds = const [],
@@ -181,6 +185,7 @@ class _FakeStoriesApi implements StoriesGateway {
     createDraftCalls++;
     lastTimeframeStart = timeframeStart;
     lastTimeframeEnd = timeframeEnd;
+    lastTitle = title;
     lastBody = body;
     lastPlaceId = placeId;
     lastPersonIds = personIds;
@@ -188,6 +193,7 @@ class _FakeStoriesApi implements StoriesGateway {
       familyId: familyId,
       timeframeStart: timeframeStart,
       timeframeEnd: timeframeEnd,
+      title: title,
       body: body,
       placeId: placeId,
       personIds: personIds,
@@ -200,6 +206,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String>? personIds,
@@ -208,6 +215,7 @@ class _FakeStoriesApi implements StoriesGateway {
     lastUpdatedStoryId = storyId;
     lastTimeframeStart = timeframeStart ?? lastTimeframeStart;
     lastTimeframeEnd = timeframeEnd ?? lastTimeframeEnd;
+    lastTitle = title ?? lastTitle;
     lastBody = body ?? lastBody;
     lastPlaceId = placeId ?? lastPlaceId;
     lastPersonIds = personIds ?? lastPersonIds;
@@ -216,6 +224,7 @@ class _FakeStoriesApi implements StoriesGateway {
       familyId: story?.familyId ?? _familyId,
       timeframeStart: lastTimeframeStart ?? DateTime(1980, 1, 1),
       timeframeEnd: lastTimeframeEnd,
+      title: lastTitle,
       body: lastBody,
       placeId: lastPlaceId,
       personIds: lastPersonIds,
@@ -469,7 +478,11 @@ void main() {
     expect(find.widgetWithText(TextButton, '1900s'), findsOneWidget);
     expect(find.widgetWithText(TextButton, '1980s'), findsOneWidget);
     expect(find.widgetWithText(TextButton, '2020s'), findsOneWidget);
-    expect(find.text('Story'), findsOneWidget);
+    expect(find.text('Story'), findsNothing);
+    expect(find.byKey(const Key('story-title')), findsOneWidget);
+    expect(find.byKey(const Key('story-body')), findsOneWidget);
+    expect(find.text('Give your memory a title...'), findsOneWidget);
+    expect(find.text('Write the story'), findsOneWidget);
     expect(find.text('Title'), findsNothing);
   });
 
@@ -491,7 +504,9 @@ void main() {
     );
   });
 
-  testWidgets('complete form shows Ready to publish', (tester) async {
+  testWidgets('complete form keeps publish fields without a ready chip', (
+    tester,
+  ) async {
     await tester.pumpWidget(_captureShell());
     await tester.pumpAndSettle();
 
@@ -502,16 +517,56 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ListTile, 'Ada'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Add to story'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ListTile, 'Central Park'));
+    await tester.tap(find.text('Central Park'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Use this place'));
+    await tester.tap(find.text('Use this place'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'We made jam.');
+    await tester.enterText(find.byKey(const Key('story-body')), 'We made jam.');
     await tester.pumpAndSettle();
 
-    expect(find.text('Ready to publish'), findsOneWidget);
+    expect(find.text('We made jam.'), findsOneWidget);
+    expect(find.text('Ready to publish'), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Finish the highlighted fields to publish.'),
+      findsOneWidget,
+    );
+    expect(find.text('New story'), findsOneWidget);
+  });
+
+  testWidgets('title field is saved on create and update', (tester) async {
+    final stories = _FakeStoriesApi();
+    await tester.pumpWidget(_captureShell(stories: stories));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '1980s'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('story-title')),
+      'Making Blackberry Jam on the Back Porch',
+    );
+    await tester.enterText(find.byKey(const Key('story-body')), 'We made jam.');
+    await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
+    await tester.pumpAndSettle();
+
+    expect(stories.createDraftCalls, 1);
+    expect(stories.lastTitle, 'Making Blackberry Jam on the Back Porch');
+    expect(stories.lastBody, 'We made jam.');
+
+    await tester.enterText(find.byKey(const Key('story-title')), '   ');
+    await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
+    await tester.pumpAndSettle();
+
+    expect(stories.updateDraftCalls, 1);
+    expect(stories.lastTitle, '   ');
   });
 
   testWidgets('second Save draft updates the existing row', (tester) async {
@@ -522,7 +577,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Second pass');
+    await tester.enterText(find.byKey(const Key('story-body')), 'Second pass');
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
     await tester.pumpAndSettle();
@@ -538,6 +593,7 @@ void main() {
         id: 'draft-1',
         familyId: _familyId,
         authorId: 'u1',
+        title: 'Making Blackberry Jam on the Back Porch',
         body: 'Jam at the park',
         timeframeStart: DateTime(1980, 1, 1),
         timeframeEnd: DateTime(1989, 12, 31),
@@ -552,10 +608,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(
+      find.text('Making Blackberry Jam on the Back Porch'),
+      findsOneWidget,
+    );
     expect(find.text('Jam at the park'), findsOneWidget);
     expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
     expect(find.text('Central Park'), findsOneWidget);
-    expect(find.text('Ready to publish'), findsOneWidget);
+    expect(find.text('Ready to publish'), findsNothing);
 
     final save = tester.widget<TextButton>(
       find.widgetWithText(TextButton, 'Save draft'),
@@ -609,7 +669,11 @@ void main() {
 
   testWidgets('Add photo without timeframe does not pick', (tester) async {
     final picker = _FakePicker();
-    await tester.pumpWidget(_captureShell(picker: picker.call));
+    final stories = _FakeStoriesApi();
+    final photos = _FakePhotosApi();
+    await tester.pumpWidget(
+      _captureShell(stories: stories, photos: photos, picker: picker.call),
+    );
     await tester.pumpAndSettle();
     await _tapAddPhoto(tester);
     await tester.pumpAndSettle();
@@ -618,6 +682,12 @@ void main() {
       findsNothing,
     );
     expect(picker.calls, 0);
+    expect(stories.createDraftCalls, 0);
+    expect(photos.uploadCalls, 0);
+    expect(
+      find.text('A Timeframe is required before adding a photo.'),
+      findsOneWidget,
+    );
     expect(
       tester
           .widgetList<Container>(find.byType(Container))

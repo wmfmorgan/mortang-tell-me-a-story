@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/theme/album_chrome.dart';
 import '../../data/invite_api.dart';
 
 /// Invite modal — Email + Link only (chrome locks). No SMS.
 class InviteModal extends StatefulWidget {
-  const InviteModal({
-    super.key,
-    required this.familyId,
-    this.api,
-  });
+  const InviteModal({super.key, required this.familyId, this.api});
 
   final String familyId;
   final InviteGateway? api;
@@ -19,9 +16,9 @@ class InviteModal extends StatefulWidget {
     required String familyId,
     InviteGateway? api,
   }) {
-    return showModalBottomSheet<void>(
+    return showAlbumDialog<void>(
       context: context,
-      isScrollControlled: true,
+      maxWidth: 560,
       builder: (ctx) => InviteModal(familyId: familyId, api: api),
     );
   }
@@ -53,7 +50,8 @@ class _InviteModalState extends State<InviteModal>
   }
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _sendEmail() async {
@@ -120,6 +118,16 @@ class _InviteModalState extends State<InviteModal>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Text(
+              'Invite to the family archive',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Send an email invite, or create a link to copy.',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 16),
             TabBar(
               controller: _tabs,
               tabs: const [
@@ -127,24 +135,24 @@ class _InviteModalState extends State<InviteModal>
                 Tab(text: 'Link'),
               ],
             ),
+            const SizedBox(height: 8),
             SizedBox(
-              height: 180,
+              height: 220,
               child: TabBarView(
                 controller: _tabs,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.only(top: 12),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         TextField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           enabled: !_busy,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                          ),
+                          decoration: const InputDecoration(labelText: 'Email'),
                         ),
-                        const SizedBox(height: 16),
+                        const Spacer(),
                         FilledButton(
                           onPressed: _busy ? null : _sendEmail,
                           child: Text(_busy ? 'Sending…' : 'Send invite'),
@@ -153,13 +161,13 @@ class _InviteModalState extends State<InviteModal>
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.only(top: 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (_linkUrl != null)
                           SelectableText(_linkUrl!, maxLines: 3),
-                        const SizedBox(height: 16),
+                        const Spacer(),
                         FilledButton(
                           onPressed: _busy
                               ? null
@@ -173,8 +181,8 @@ class _InviteModalState extends State<InviteModal>
                             _busy
                                 ? 'Working…'
                                 : (_linkUrl == null
-                                    ? 'Create link'
-                                    : 'Copy link'),
+                                      ? 'Create link'
+                                      : 'Copy link'),
                           ),
                         ),
                       ],

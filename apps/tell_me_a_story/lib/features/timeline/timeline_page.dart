@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
 import '../../data/invite_api.dart';
 import '../../data/stories_api.dart';
 import '../invites/invite_accept.dart';
@@ -112,11 +113,7 @@ class _TimelinePageState extends State<TimelinePage> {
     _inviteHandled = true;
     final uri = GoRouterState.of(context).uri;
     if (!uri.queryParameters.containsKey('invite')) return;
-    await acceptInviteFromUriIfPresent(
-      context: context,
-      uri: uri,
-      api: _api,
-    );
+    await acceptInviteFromUriIfPresent(context: context, uri: uri, api: _api);
   }
 
   Future<void> _openInvite() async {
@@ -142,41 +139,18 @@ class _TimelinePageState extends State<TimelinePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const Text('Timeline'),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextButton(
-                        onPressed: _openNewStory,
-                        child: const Text('New story'),
-                      ),
-                      TextButton(
-                        onPressed: _openDrafts,
-                        child: const Text('Drafts'),
-                      ),
-                      TextButton(
-                        onPressed: _loadingFamily ? null : _openInvite,
-                        child: const Text('+ Invite'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+      appBar: AlbumTopBar(
+        screenLabel: 'Timeline',
+        actions: [
+          TextButton(onPressed: _openNewStory, child: const Text('New story')),
+          TextButton(onPressed: _openDrafts, child: const Text('Drafts')),
+          TextButton(
+            onPressed: _loadingFamily ? null : _openInvite,
+            child: const Text('+ Invite'),
+          ),
+        ],
       ),
-      body: SafeArea(child: _body()),
+      body: SafeArea(child: AlbumColumn(child: _body())),
     );
   }
 
@@ -196,9 +170,9 @@ class _TimelinePageState extends State<TimelinePage> {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
       itemCount: _published.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) => _PublishedRow(story: _published[index]),
     );
   }
@@ -215,18 +189,18 @@ class _PublishedRow extends StatelessWidget {
       child: InkWell(
         onTap: () => context.push('/stories/${story.id}'),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 _timeframeLabel(story),
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.labelLarge,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               Text(
                 _bodyPreview(story),
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
             ],
           ),
@@ -237,8 +211,8 @@ class _PublishedRow extends StatelessWidget {
 }
 
 String _bodyPreview(Story story) {
-  final body = story.body?.trim() ?? '';
-  return body.isEmpty ? 'Untitled' : body;
+  final title = story.title?.trim() ?? '';
+  return title.isEmpty ? 'Untitled' : title;
 }
 
 String _timeframeLabel(Story story) {

@@ -254,6 +254,10 @@ void main() {
     expect(find.text('Favorites'), findsOneWidget);
     expect(find.text('Recents'), findsOneWidget);
     expect(find.text('Favorite Park'), findsOneWidget);
+    expect(find.text('(1)'), findsOneWidget);
+
+    await tester.tap(find.text('Recents'));
+    await tester.pumpAndSettle();
     expect(find.text('Recent Cafe'), findsOneWidget);
   });
 
@@ -286,7 +290,7 @@ void main() {
     );
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'Search places'),
+      find.widgetWithText(TextField, 'Search address or place…'),
       'Central Park',
     );
     await tester.testTextInput.receiveAction(TextInputAction.search);
@@ -337,11 +341,20 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Recents'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Recent Cafe'));
     await tester.pumpAndSettle();
 
     expect(places.markUsedCalls, 1);
     expect(places.lastMarkedId, 'rec1');
+    expect(find.text('Choose place'), findsOneWidget);
+    expect(find.text('Use this place'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Use this place'));
+    await tester.tap(find.text('Use this place'));
+    await tester.pumpAndSettle();
+
     expect(result, isNotNull);
     expect(result!.id, 'rec1');
     expect(result!.label, 'Recent Cafe');
@@ -390,9 +403,14 @@ void main() {
 
     await tester.tap(find.text('Favorite Park'));
     await tester.pumpAndSettle();
-
     expect(places.markUsedCalls, 1);
     expect(places.lastMarkedId, 'fav1');
+    expect(find.text('Choose place'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Use this place'));
+    await tester.tap(find.text('Use this place'));
+    await tester.pumpAndSettle();
+
     expect(result?.id, 'fav1');
   });
 
@@ -448,7 +466,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'Search places'),
+      find.widgetWithText(TextField, 'Search address or place…'),
       'Central',
     );
     await tester.testTextInput.receiveAction(TextInputAction.search);
@@ -462,6 +480,7 @@ void main() {
     expect(places.markUsedCalls, 1);
     expect(places.lastMarkedId, 'existing');
 
+    await tester.ensureVisible(find.text('Use this place'));
     await tester.tap(find.text('Use this place'));
     await tester.pumpAndSettle();
 
@@ -510,7 +529,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'Search places'),
+      find.widgetWithText(TextField, 'Search address or place…'),
       'Short',
     );
     await tester.testTextInput.receiveAction(TextInputAction.search);
@@ -524,6 +543,7 @@ void main() {
     expect(places.rows.last.address, 'Full Address, City');
     expect(places.rows.last.mapboxPlaceId, 'poi.new');
 
+    await tester.ensureVisible(find.text('Use this place'));
     await tester.tap(find.text('Use this place'));
     await tester.pumpAndSettle();
 
@@ -555,7 +575,7 @@ void main() {
     );
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'Search places'),
+      find.widgetWithText(TextField, 'Search address or place…'),
       'Broken',
     );
     await tester.testTextInput.receiveAction(TextInputAction.search);
@@ -593,7 +613,7 @@ void main() {
     );
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'Search places'),
+      find.widgetWithText(TextField, 'Search address or place…'),
       'Star',
     );
     await tester.testTextInput.receiveAction(TextInputAction.search);
@@ -602,7 +622,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('place-favorite-toggle')), findsOneWidget);
-    expect(find.byIcon(Icons.star_border), findsOneWidget);
+    expect(find.byIcon(Icons.bookmark_border), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('place-favorite-toggle')));
     await tester.pumpAndSettle();
@@ -610,7 +630,7 @@ void main() {
     expect(places.setFavoriteCalls, 1);
     expect(places.lastFavoritePlaceId, 'pl-new');
     expect(places.lastFavoriteValue, isTrue);
-    expect(find.byIcon(Icons.star), findsWidgets);
+    expect(find.byIcon(Icons.bookmark), findsOneWidget);
     expect(find.text('Star Spot'), findsWidgets);
   });
 
@@ -664,7 +684,7 @@ void main() {
     expect(seenLng, isNull);
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'Search places'),
+      find.widgetWithText(TextField, 'Search address or place…'),
       'Pin',
     );
     await tester.testTextInput.receiveAction(TextInputAction.search);
