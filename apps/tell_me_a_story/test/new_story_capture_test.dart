@@ -510,7 +510,10 @@ void main() {
 
     await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ActionChip, 'Central Park'));
+    await tester.tap(find.text('Central Park'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Use this place'));
+    await tester.tap(find.text('Use this place'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'We made jam.');

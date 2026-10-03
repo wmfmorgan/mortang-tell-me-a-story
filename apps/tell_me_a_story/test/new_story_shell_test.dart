@@ -231,7 +231,7 @@ void main() {
 
     expect(find.text('Favorites'), findsOneWidget);
     expect(find.text('Central Park'), findsOneWidget);
-    expect(find.text('Search places'), findsOneWidget);
+    expect(find.text('Search address or place…'), findsOneWidget);
   });
 
   testWidgets('selecting person shows chip in memory only', (tester) async {
@@ -284,7 +284,10 @@ void main() {
 
     await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ActionChip, 'Central Park'));
+    await tester.tap(find.text('Central Park'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Use this place'));
+    await tester.tap(find.text('Use this place'));
     await tester.pumpAndSettle();
 
     expect(find.text('Central Park'), findsOneWidget);
@@ -316,7 +319,10 @@ void main() {
 
       await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ActionChip, 'Central Park'));
+      await tester.tap(find.text('Central Park'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Use this place'));
+      await tester.tap(find.text('Use this place'));
       await tester.pumpAndSettle();
 
       expect(find.text(placeMapFailureCopy), findsOneWidget);
