@@ -513,22 +513,45 @@ class _NewStoryPageState extends State<NewStoryPage> {
       children: [
         _highlightIfMissing(
           missing: _showPublishBanner && !_readiness.hasBody,
-          child: TextField(
-            controller: _body,
-            minLines: 8,
-            maxLines: null,
-            onChanged: (_) => setState(() {}),
-            style: Theme.of(context).textTheme.bodyLarge
-                ?.copyWith(fontSize: 22, height: 1.5),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              focusedErrorBorder: InputBorder.none,
-              filled: false,
-              contentPadding: EdgeInsets.zero,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFFFF),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x142C2416),
+                  blurRadius: 24,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+              child: TextField(
+                controller: _body,
+                minLines: 8,
+                maxLines: null,
+                cursorColor: albumTerracotta,
+                onChanged: (_) => setState(() {}),
+                style: Theme.of(context).textTheme.bodyLarge
+                    ?.copyWith(fontSize: 22, height: 1.55),
+                decoration: InputDecoration(
+                  hintText: 'Write the story',
+                  hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontSize: 22,
+                    height: 1.55,
+                    color: albumInk.withValues(alpha: 0.38),
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                  filled: false,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
             ),
           ),
         ),
