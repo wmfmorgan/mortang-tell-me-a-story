@@ -43,6 +43,7 @@ class _FakeInviteApi implements InviteGateway {
 
 Story _draft({
   String id = 's1',
+  String? title,
   String? body,
   List<String> personIds = const [],
   String? placeId,
@@ -54,6 +55,7 @@ Story _draft({
     id: id,
     familyId: _familyId,
     authorId: 'u1',
+    title: title,
     body: body,
     timeframeStart: timeframeStart ?? DateTime(1980, 1, 1),
     timeframeEnd: timeframeEnd ?? DateTime(1989, 12, 31),
@@ -78,6 +80,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String> personIds = const [],
@@ -90,6 +93,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String>? personIds,
@@ -343,6 +347,28 @@ void main() {
     expect(find.text('Jam'), findsOneWidget);
     expect(find.text('Untitled'), findsNothing);
     expect(find.text('Continue writing'), findsOneWidget);
+  });
+
+  testWidgets('draft card prefers a saved title', (tester) async {
+    await tester.pumpWidget(
+      _drafts(
+        stories: _FakeStoriesApi(
+          drafts: [
+            _draft(
+              id: 's3',
+              title: 'Making Blackberry Jam on the Back Porch',
+              body: 'We spent the afternoon.',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Making Blackberry Jam on the Back Porch'),
+      findsOneWidget,
+    );
+    expect(find.text('We spent the afternoon.'), findsNothing);
   });
 
   testWidgets('Continue writing goes to /stories/new?draft=id', (tester) async {

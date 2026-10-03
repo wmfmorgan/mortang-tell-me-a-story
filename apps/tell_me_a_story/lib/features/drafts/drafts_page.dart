@@ -347,6 +347,8 @@ bool _matchesFilter(Story story, _DraftsFilter filter) {
 }
 
 String _bodyExcerpt(Story story) {
+  final title = story.title?.trim() ?? '';
+  if (title.isNotEmpty) return title;
   final body = story.body?.trim() ?? '';
   if (body.isEmpty) return 'Untitled';
   if (body.length <= 180) return body;

@@ -50,6 +50,7 @@ final _park = Place(
 
 Story _published({
   String id = _storyId,
+  String? title,
   String? body = 'Picnic at the lake\nWe brought pie.',
   DateTime? timeframeStart,
   DateTime? timeframeEnd,
@@ -61,6 +62,7 @@ Story _published({
     id: id,
     familyId: _familyId,
     authorId: 'u1',
+    title: title,
     body: body,
     timeframeStart: timeframeStart ?? DateTime(1980, 1, 1),
     timeframeEnd: timeframeEnd ?? DateTime(1989, 12, 31),
@@ -83,6 +85,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String> personIds = const [],
@@ -95,6 +98,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String>? personIds,
@@ -474,6 +478,35 @@ void main() {
     expect(storyHeadline('   \n  '), 'Untitled');
   });
 
+  test('readerHeadline uses a saved title and keeps the full body', () {
+    expect(
+      readerHeadline(
+        title: 'Making Blackberry Jam on the Back Porch',
+        body: 'Picnic at the lake\nWe brought pie.',
+      ),
+      'Making Blackberry Jam on the Back Porch',
+    );
+    expect(
+      readerArticleBody(
+        title: 'Making Blackberry Jam on the Back Porch',
+        body: 'Picnic at the lake\nWe brought pie.',
+      ),
+      'Picnic at the lake\nWe brought pie.',
+    );
+    expect(
+      readerHeadline(title: '   ', body: 'Picnic at the lake\nWe brought pie.'),
+      'Picnic at the lake',
+    );
+    expect(
+      readerArticleBody(
+        title: '   ',
+        body: 'Picnic at the lake\nWe brought pie.',
+      ),
+      'We brought pie.',
+    );
+    expect(readerHeadline(title: null, body: null), 'Untitled');
+  });
+
   testWidgets('published story renders body, people, place, sections', (
     tester,
   ) async {
@@ -663,6 +696,30 @@ void main() {
     expect(find.text('Unsigned note'), findsOneWidget);
     expect(find.text('Unsigned telling'), findsOneWidget);
     expect(find.text('Member'), findsNWidgets(2));
+  });
+
+  testWidgets('saved title is the headline and the full body stays', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(
+          story: _published(
+            title: 'Making Blackberry Jam on the Back Porch',
+            body: 'Picnic at the lake\nWe brought pie.',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Making Blackberry Jam on the Back Porch'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Picnic at the lake'), findsOneWidget);
+    expect(find.textContaining('We brought pie.'), findsOneWidget);
+    expect(find.text('Timeline'), findsOneWidget);
   });
 
   testWidgets('empty body headline is Untitled', (tester) async {

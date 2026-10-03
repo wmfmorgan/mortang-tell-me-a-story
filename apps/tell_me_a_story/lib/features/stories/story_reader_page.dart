@@ -22,7 +22,8 @@ import '../places/place_picker_modal.dart';
 import 'photo_strip.dart';
 import 'timeframe_chips.dart';
 
-/// First non-empty line of [body], else `Untitled`. Does not use `stories.title`.
+/// First non-empty line of [body], else `Untitled`.
+/// Fallback when a story has no saved title.
 String storyHeadline(String? body) {
   for (final line in (body ?? '').split('\n')) {
     final t = line.trim();
@@ -44,6 +45,21 @@ String storyBodyRest(String? body) {
     if (skippedLead) rest.add(line);
   }
   return rest.join('\n').trim();
+}
+
+/// Large reader headline. A saved title wins. Otherwise the first body line.
+String readerHeadline({String? title, String? body}) {
+  final saved = title?.trim() ?? '';
+  if (saved.isNotEmpty) return saved;
+  return storyHeadline(body);
+}
+
+/// Article under the headline. A saved title keeps the full body.
+/// With no title, the lead line is the headline and is left out of the body.
+String readerArticleBody({String? title, String? body}) {
+  final saved = title?.trim() ?? '';
+  if (saved.isNotEmpty) return (body ?? '').trim();
+  return storyBodyRest(body);
 }
 
 /// Published-only reader at `/stories/:storyId`.
@@ -464,7 +480,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       height: 1.15,
       fontWeight: FontWeight.w700,
     );
-    final rest = storyBodyRest(story.body);
+    final rest = readerArticleBody(title: story.title, body: story.body);
     final canAddPhoto = _photos.length < maxPhotosPerStory;
 
     return SingleChildScrollView(
@@ -480,7 +496,10 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(storyHeadline(story.body), style: headline),
+              Text(
+                readerHeadline(title: story.title, body: story.body),
+                style: headline,
+              ),
               if (story.publishedAt != null) ...[
                 const SizedBox(height: 8),
                 Text(

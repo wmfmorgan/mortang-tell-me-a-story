@@ -47,6 +47,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String> personIds = const [],
@@ -59,6 +60,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String>? personIds,
@@ -110,6 +112,7 @@ class _SlowStoriesApi extends _FakeStoriesApi {
 Story _published({
   String id = 's1',
   String familyId = _familyId,
+  String? title,
   String? body = 'Jam',
   DateTime? timeframeStart,
   DateTime? timeframeEnd,
@@ -118,6 +121,7 @@ Story _published({
     id: id,
     familyId: familyId,
     authorId: 'u1',
+    title: title,
     body: body,
     timeframeStart: timeframeStart ?? DateTime(1980, 1, 1),
     timeframeEnd: timeframeEnd ?? DateTime(1989, 12, 31),
@@ -131,10 +135,7 @@ Story _published({
 Widget _timeline({required StoriesGateway stories, ThemeData? theme}) {
   return MaterialApp(
     theme: theme,
-    home: TimelinePage(
-      api: _FakeInviteApi(),
-      storiesApi: stories,
-    ),
+    home: TimelinePage(api: _FakeInviteApi(), storiesApi: stories),
   );
 }
 
@@ -153,8 +154,9 @@ void main() {
     expect(find.text('Timeline'), findsWidgets);
   });
 
-  testWidgets('published story preview appears after listPublished',
-      (tester) async {
+  testWidgets('published story preview appears after listPublished', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _timeline(stories: _FakeStoriesApi(published: [_published()])),
     );
@@ -162,6 +164,28 @@ void main() {
 
     expect(find.textContaining('Jam'), findsOneWidget);
     expect(find.text('1980s'), findsOneWidget);
+  });
+
+  testWidgets('timeline card prefers a saved title', (tester) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              title: 'Making Blackberry Jam on the Back Porch',
+              body: 'We spent the afternoon.',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Making Blackberry Jam on the Back Porch'),
+      findsOneWidget,
+    );
+    expect(find.text('We spent the afternoon.'), findsNothing);
   });
 
   testWidgets('loading published shows small progress', (tester) async {
@@ -204,45 +228,45 @@ void main() {
     expect(find.text('+ Invite'), findsOneWidget);
   });
 
-  testWidgets(
-    'returning to timeline after publish reloads published list',
-    (tester) async {
-      final stories = _FakeStoriesApi(published: []);
-      final auth = AuthRefresh(initiallySignedIn: true);
-      final router = createAppRouter(
-        authRefresh: auth,
-        inviteApi: _FakeInviteApi(),
-        storiesApi: stories,
-      );
+  testWidgets('returning to timeline after publish reloads published list', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(published: []);
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: _FakeInviteApi(),
+      storiesApi: stories,
+    );
 
-      await tester.pumpWidget(TellMeAStoryApp(router: router));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
 
-      expect(
-        find.text('No stories yet. Capture the first one for this family.'),
-        findsOneWidget,
-      );
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsOneWidget,
+    );
 
-      router.push(AppRoutes.drafts);
-      await tester.pumpAndSettle();
+    router.push(AppRoutes.drafts);
+    await tester.pumpAndSettle();
 
-      stories.published.add(_published(familyId: _familyId));
+    stories.published.add(_published(familyId: _familyId));
 
-      router.go(AppRoutes.timeline);
-      await tester.pumpAndSettle();
+    router.go(AppRoutes.timeline);
+    await tester.pumpAndSettle();
 
-      expect(find.textContaining('Jam'), findsOneWidget);
-      expect(
-        find.text('No stories yet. Capture the first one for this family.'),
-        findsNothing,
-      );
+    expect(find.textContaining('Jam'), findsOneWidget);
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsNothing,
+    );
 
-      auth.dispose();
-    },
-  );
+    auth.dispose();
+  });
 
-  testWidgets('tapping a published card pushes the story reader',
-      (tester) async {
+  testWidgets('tapping a published card pushes the story reader', (
+    tester,
+  ) async {
     final story = _published();
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(

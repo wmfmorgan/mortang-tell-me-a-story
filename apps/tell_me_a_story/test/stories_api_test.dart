@@ -2,6 +2,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 
 void main() {
+  test('storedStoryTitle trims and clears blank titles', () {
+    expect(storedStoryTitle(null), isNull);
+    expect(storedStoryTitle(''), isNull);
+    expect(storedStoryTitle('   '), isNull);
+    expect(
+      storedStoryTitle('  Making Blackberry Jam on the Back Porch  '),
+      'Making Blackberry Jam on the Back Porch',
+    );
+  });
+
   test('ensureValidDraftSave rejects missing timeframe', () {
     expect(
       () => ensureValidDraftSave(timeframeStart: null),

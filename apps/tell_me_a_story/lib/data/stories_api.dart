@@ -84,6 +84,13 @@ PublishReadiness publishReadiness({
   );
 }
 
+/// Whitespace-only titles are stored as null so a saved title can be cleared.
+String? storedStoryTitle(String? title) {
+  if (title == null) return null;
+  final trimmed = title.trim();
+  return trimmed.isEmpty ? null : trimmed;
+}
+
 void ensureValidDraftSave({required DateTime? timeframeStart}) {
   if (timeframeStart == null) {
     throw ArgumentError.value(
@@ -99,6 +106,7 @@ abstract class StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String> personIds = const [],
@@ -107,6 +115,7 @@ abstract class StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String>? personIds,
@@ -134,6 +143,7 @@ class StoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String> personIds = const [],
@@ -145,6 +155,7 @@ class StoriesApi implements StoriesGateway {
         .insert({
           'family_id': familyId,
           'author_id': uid,
+          'title': storedStoryTitle(title),
           'body': body?.trim(),
           'timeframe_start': _date(timeframeStart),
           'timeframe_end': timeframeEnd == null ? null : _date(timeframeEnd),
@@ -163,6 +174,7 @@ class StoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String>? personIds,
@@ -176,6 +188,10 @@ class StoriesApi implements StoriesGateway {
     }
     if (timeframeEnd != null) {
       patch['timeframe_end'] = _date(timeframeEnd);
+    }
+    // Null leaves the column alone. A blank string clears a saved title.
+    if (title != null) {
+      patch['title'] = storedStoryTitle(title);
     }
     if (body != null) {
       patch['body'] = body.trim();

@@ -20,7 +20,7 @@ import '../places/place_picker_modal.dart';
 import 'photo_strip.dart';
 import 'timeframe_chips.dart';
 
-/// Capture form for `/stories/new` — timeframe, people, place, body, persist.
+/// Capture form for `/stories/new` — timeframe, people, place, title, body, persist.
 class NewStoryPage extends StatefulWidget {
   const NewStoryPage({
     super.key,
@@ -67,6 +67,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
   StoriesGateway? _storiesOverride;
   PhotosGateway? _photosOverride;
 
+  final _title = TextEditingController();
   final _body = TextEditingController();
 
   String? _familyId;
@@ -120,6 +121,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   @override
   void dispose() {
+    _title.dispose();
     _body.dispose();
     super.dispose();
   }
@@ -159,6 +161,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       _familyId = familyId;
       _timeframeStart = decade?.start ?? story.timeframeStart;
       _timeframeEnd = decade?.end ?? story.timeframeEnd;
+      _title.text = story.title ?? '';
       _body.text = story.body ?? '';
       _placeId = story.placeId;
       _shellMapFailed = !_tokenOk;
@@ -404,6 +407,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
     if (!mounted || familyId == null || start == null) return null;
     final personIds = _selectedPeople.map((p) => p.id).toList();
     final placeId = _selectedPlace?.id ?? _placeId;
+    final title = _title.text;
     final body = _body.text;
     final existingId = _storyId;
     final story = existingId == null
@@ -411,6 +415,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
             familyId: familyId,
             timeframeStart: start,
             timeframeEnd: _timeframeEnd,
+            title: title,
             body: body,
             placeId: placeId,
             personIds: personIds,
@@ -419,6 +424,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
             storyId: existingId,
             timeframeStart: start,
             timeframeEnd: _timeframeEnd,
+            title: title,
             body: body,
             placeId: placeId,
             personIds: personIds,
@@ -555,30 +561,71 @@ class _NewStoryPageState extends State<NewStoryPage> {
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
-              child: TextField(
-                controller: _body,
-                minLines: 8,
-                maxLines: null,
-                cursorColor: albumTerracotta,
-                onChanged: (_) => setState(() {}),
-                style: Theme.of(context).textTheme.bodyLarge
-                    ?.copyWith(fontSize: 22, height: 1.55),
-                decoration: InputDecoration(
-                  hintText: 'Write the story',
-                  hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontSize: 22,
-                    height: 1.55,
-                    color: albumInk.withValues(alpha: 0.38),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    key: const Key('story-title'),
+                    controller: _title,
+                    minLines: 1,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                    cursorColor: albumTerracotta,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontSize: 30,
+                      height: 1.2,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Give your memory a title...',
+                      hintStyle: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontSize: 30,
+                            height: 1.2,
+                            fontWeight: FontWeight.w700,
+                            color: albumInk.withValues(alpha: 0.38),
+                          ),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: albumTerracotta),
+                      ),
+                      disabledBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
                   ),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  disabledBorder: InputBorder.none,
-                  errorBorder: InputBorder.none,
-                  focusedErrorBorder: InputBorder.none,
-                  filled: false,
-                  contentPadding: EdgeInsets.zero,
-                ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('story-body'),
+                    controller: _body,
+                    minLines: 8,
+                    maxLines: null,
+                    cursorColor: albumTerracotta,
+                    onChanged: (_) => setState(() {}),
+                    style: Theme.of(context).textTheme.bodyLarge
+                        ?.copyWith(fontSize: 22, height: 1.55),
+                    decoration: InputDecoration(
+                      hintText: 'Write the story',
+                      hintStyle: Theme.of(context).textTheme.bodyLarge
+                          ?.copyWith(
+                            fontSize: 22,
+                            height: 1.55,
+                            color: albumInk.withValues(alpha: 0.38),
+                          ),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
