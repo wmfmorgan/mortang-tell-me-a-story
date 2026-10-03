@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/album_theme.dart';
 import '../../data/comments_api.dart';
 
 /// Inline short comment field + Post. Empty/whitespace Post is a no-op.
@@ -49,30 +50,59 @@ class _CommentComposerState extends State<CommentComposer> {
   @override
   Widget build(BuildContext context) {
     final enabled = widget.enabled && !_busy;
-    return Column(
+    return DecoratedBox(
       key: const Key('comment-composer'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        TextField(
-          controller: _controller,
-          focusNode: widget.focusNode,
-          enabled: enabled,
-          minLines: 2,
-          maxLines: 4,
-          textInputAction: TextInputAction.newline,
-          decoration: const InputDecoration(
-            hintText: 'Share a short memory or note...',
-          ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F1EB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE7DECE)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                focusNode: widget.focusNode,
+                enabled: enabled,
+                minLines: 1,
+                maxLines: 4,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(
+                  hintText: 'Share a short memory or note...',
+                  filled: true,
+                  fillColor: Colors.white,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE7DECE)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE7DECE)),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: enabled ? _submit : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: albumTerracotta,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 44),
+              ),
+              child: const Text('Post'),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FilledButton(
-            onPressed: enabled ? _submit : null,
-            child: const Text('Post'),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -93,31 +123,118 @@ class CommentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final when = comment.createdAt.toLocal();
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final date = '${months[when.month - 1]} ${when.day}, ${when.year}';
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(comment.authorLabel, style: theme.textTheme.titleSmall),
-                Text(comment.body, style: theme.textTheme.bodyMedium),
-              ],
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6F1EB),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE7DECE)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 4, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: _CommentInitials(comment.authorLabel),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          comment.authorLabel,
+                          style: theme.textTheme.titleSmall,
+                        ),
+                        Text(
+                          '• $date',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: const Color(0xFF6B5E55),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(comment.body, style: theme.textTheme.bodyMedium),
+                  ],
+                ),
+              ),
+              if (canDelete)
+                PopupMenuButton<String>(
+                  key: Key('comment-menu-${comment.id}'),
+                  onSelected: (value) {
+                    if (value == 'delete') onDelete?.call();
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommentInitials extends StatelessWidget {
+  const _CommentInitials(this.name);
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final letters = parts.isEmpty
+        ? '?'
+        : parts.length == 1
+        ? (parts.first.length == 1 ? parts.first : parts.first.substring(0, 2))
+        : '${parts[0][0]}${parts[1][0]}';
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Color(0xFFE7D5CC),
+        shape: BoxShape.circle,
+      ),
+      child: SizedBox(
+        width: 24,
+        height: 24,
+        child: Center(
+          child: Text(
+            letters.toUpperCase(),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: albumTerracotta,
             ),
           ),
-          if (canDelete)
-            PopupMenuButton<String>(
-              key: Key('comment-menu-${comment.id}'),
-              onSelected: (value) {
-                if (value == 'delete') onDelete?.call();
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'delete', child: Text('Delete')),
-              ],
-            ),
-        ],
+        ),
       ),
     );
   }

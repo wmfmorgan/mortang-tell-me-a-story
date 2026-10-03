@@ -52,7 +52,7 @@ class PhotoStrip extends StatelessWidget {
   final String? addHint;
 
   /// When set, tiles fill this many columns at a 4:3 ratio.
-  /// The reader leaves this null and keeps the horizontal strip.
+  /// Null keeps the horizontal strip.
   final int? columns;
 
   /// When false the add tile is dimmed. It still accepts taps.

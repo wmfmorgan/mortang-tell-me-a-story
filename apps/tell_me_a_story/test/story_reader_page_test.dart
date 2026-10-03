@@ -555,6 +555,7 @@ void main() {
 
     expect(find.byKey(const Key('comment-composer')), findsNothing);
 
+    await tester.ensureVisible(find.text('+ Add comment'));
     await tester.tap(find.text('+ Add comment'));
     await tester.pumpAndSettle();
 
@@ -732,6 +733,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('+ Add your perspective'));
     await tester.tap(find.text('+ Add your perspective'));
     await tester.pumpAndSettle();
 
@@ -750,6 +752,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('+ Add your perspective'));
     await tester.tap(find.text('+ Add your perspective'));
     await tester.pumpAndSettle();
 
@@ -782,6 +785,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('+ Add comment'));
     await tester.tap(find.text('+ Add comment'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '  I remember the pie.  ');
@@ -805,6 +809,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('+ Add comment'));
     await tester.tap(find.text('+ Add comment'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Post'));
@@ -829,6 +834,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('+ Add comment'));
     await tester.tap(find.text('+ Add comment'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Did not save');
@@ -882,6 +888,7 @@ void main() {
     expect(find.byKey(const Key('comment-menu-mine')), findsOneWidget);
     expect(find.byKey(const Key('comment-menu-theirs')), findsNothing);
 
+    await tester.ensureVisible(find.byKey(const Key('comment-menu-mine')));
     await tester.tap(find.byKey(const Key('comment-menu-mine')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
