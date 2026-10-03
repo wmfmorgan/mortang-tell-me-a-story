@@ -75,6 +75,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
   var _busy = false;
   var _showPublishBanner = false;
   var _highlightTimeframeForPhoto = false;
+  var _picking = false;
   var _photoError = false;
   Uint8List? _pendingPhotoBytes;
   final List<Photo> _storyPhotos = [];
@@ -288,6 +289,16 @@ class _NewStoryPageState extends State<NewStoryPage> {
       _timeframeEnd = decade.end;
       _highlightTimeframeForPhoto = false;
     });
+    if (_pendingPhotoBytes != null) {
+      _savePendingPhoto();
+    }
+  }
+
+  void _clearHeldPhoto() {
+    setState(() {
+      _pendingPhotoBytes = null;
+      _highlightTimeframeForPhoto = false;
+    });
   }
 
   Future<Uint8List?> _pickFromGallery() async {
@@ -300,18 +311,29 @@ class _NewStoryPageState extends State<NewStoryPage> {
   }
 
   Future<void> _onAddPhoto() async {
-    if (_busy || _loadingFamily) return;
+    if (_busy || _loadingFamily || _picking) return;
+    if (_storyPhotos.length >= maxPhotosPerStory) return;
+    // The browser only opens the file chooser in this click. Anything awaited
+    // before pickImage spends the gesture, and the chooser never appears.
+    final picker = widget.pickImageBytes ?? _pickFromGallery;
+    _picking = true;
+    Uint8List? bytes;
+    try {
+      bytes = await picker();
+    } finally {
+      _picking = false;
+    }
+    if (!mounted || bytes == null) return;
+    _pendingPhotoBytes = bytes;
     if (_timeframeStart == null) {
       setState(() => _highlightTimeframeForPhoto = true);
       return;
     }
-    if (_storyPhotos.length >= maxPhotosPerStory) return;
-    // The browser only opens the file chooser in this click. Saving the draft
-    // first spends the gesture, and the chooser never appears.
-    final picker = widget.pickImageBytes ?? _pickFromGallery;
-    final bytes = await picker();
-    if (!mounted || bytes == null) return;
-    _pendingPhotoBytes = bytes;
+    await _savePendingPhoto();
+  }
+
+  Future<void> _savePendingPhoto() async {
+    if (_busy || _pendingPhotoBytes == null || _timeframeStart == null) return;
     setState(() => _busy = true);
     try {
       final story = await _persistDraft();
@@ -628,7 +650,19 @@ class _NewStoryPageState extends State<NewStoryPage> {
                   columns: 3,
                   addLabel: 'Add photo',
                   addHint: 'Up to $maxPhotosPerStory photos',
+                  heldPreview: _highlightTimeframeForPhoto
+                      ? _pendingPhotoBytes
+                      : null,
+                  onClearHeld: _clearHeldPhoto,
                 ),
+                if (_highlightTimeframeForPhoto) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Choose a decade to keep this photo.',
+                    style: Theme.of(context).textTheme.labelSmall
+                        ?.copyWith(color: albumTerracotta),
+                  ),
+                ],
               ],
             ),
           ),

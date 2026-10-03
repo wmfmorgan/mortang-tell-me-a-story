@@ -27,6 +27,8 @@ class PhotoStrip extends StatelessWidget {
     this.addLabel,
     this.addHint,
     this.columns,
+    this.heldPreview,
+    this.onClearHeld,
   });
 
   final List<Photo> photos;
@@ -53,6 +55,10 @@ class PhotoStrip extends StatelessWidget {
   /// When set, tiles fill this many columns at a 4:3 ratio.
   /// The reader leaves this null and keeps the horizontal strip.
   final int? columns;
+
+  /// A chosen photo that is not saved yet.
+  final Uint8List? heldPreview;
+  final VoidCallback? onClearHeld;
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +104,14 @@ class PhotoStrip extends StatelessWidget {
 
   List<Widget> _tiles(double width, double height, {bool padRight = true}) {
     return [
+      if (heldPreview != null && onClearHeld != null)
+        _HeldThumb(
+          bytes: heldPreview!,
+          onRemove: onClearHeld!,
+          width: width,
+          height: height,
+          padRight: padRight,
+        ),
       for (final photo in photos)
         _Thumb(
           photo: photo,
@@ -202,6 +216,69 @@ class _AddTile extends StatelessWidget {
               const SizedBox(height: 2),
               Text(hint!, textAlign: TextAlign.center, style: hintStyle),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeldThumb extends StatelessWidget {
+  const _HeldThumb({
+    required this.bytes,
+    required this.onRemove,
+    required this.width,
+    required this.height,
+    required this.padRight,
+  });
+
+  final Uint8List bytes;
+  final VoidCallback onRemove;
+  final double width;
+  final double height;
+  final bool padRight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(right: padRight ? 12 : 0),
+      child: SizedBox(
+        key: const Key('photo-held'),
+        width: width,
+        height: height,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.memory(
+                  bytes,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const ColoredBox(
+                      color: albumParchment,
+                      child: Icon(Icons.photo_outlined, color: albumSage),
+                    );
+                  },
+                ),
+              ),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                key: const Key('photo-held-remove'),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                iconSize: 18,
+                style: IconButton.styleFrom(
+                  backgroundColor: albumParchment.withValues(alpha: 0.92),
+                  foregroundColor: albumInk,
+                ),
+                onPressed: onRemove,
+                icon: const Icon(Icons.close),
+              ),
+            ),
           ],
         ),
       ),
