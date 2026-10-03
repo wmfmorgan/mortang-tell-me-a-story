@@ -27,8 +27,7 @@ class PhotoStrip extends StatelessWidget {
     this.addLabel,
     this.addHint,
     this.columns,
-    this.heldPreview,
-    this.onClearHeld,
+    this.addEnabled = true,
   });
 
   final List<Photo> photos;
@@ -56,9 +55,8 @@ class PhotoStrip extends StatelessWidget {
   /// The reader leaves this null and keeps the horizontal strip.
   final int? columns;
 
-  /// A chosen photo that is not saved yet.
-  final Uint8List? heldPreview;
-  final VoidCallback? onClearHeld;
+  /// When false the add tile is dimmed. It still accepts taps.
+  final bool addEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -104,14 +102,6 @@ class PhotoStrip extends StatelessWidget {
 
   List<Widget> _tiles(double width, double height, {bool padRight = true}) {
     return [
-      if (heldPreview != null && onClearHeld != null)
-        _HeldThumb(
-          bytes: heldPreview!,
-          onRemove: onClearHeld!,
-          width: width,
-          height: height,
-          padRight: padRight,
-        ),
       for (final photo in photos)
         _Thumb(
           photo: photo,
@@ -129,6 +119,7 @@ class PhotoStrip extends StatelessWidget {
           label: addLabel,
           hint: addHint,
           padRight: padRight,
+          enabled: addEnabled,
         ),
     ];
   }
@@ -142,6 +133,7 @@ class _AddTile extends StatelessWidget {
     this.label,
     this.hint,
     this.padRight = true,
+    this.enabled = true,
   });
 
   final VoidCallback onAdd;
@@ -150,26 +142,30 @@ class _AddTile extends StatelessWidget {
   final String? label;
   final String? hint;
   final bool padRight;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final labeled = label != null;
     return Padding(
       padding: EdgeInsets.only(right: padRight ? 12 : 0),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          key: const Key('photo-add'),
-          onTap: onAdd,
-          borderRadius: BorderRadius.circular(12),
-          child: CustomPaint(
-            painter: _DashedCardPainter(
-              color: labeled ? albumInk.withValues(alpha: 0.28) : albumSage,
-            ),
-            child: SizedBox(
-              width: width,
-              height: height,
-              child: labeled ? _labeledBody(context) : _iconOnly(),
+      child: Opacity(
+        opacity: enabled ? 1 : 0.4,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: const Key('photo-add'),
+            onTap: onAdd,
+            borderRadius: BorderRadius.circular(12),
+            child: CustomPaint(
+              painter: _DashedCardPainter(
+                color: labeled ? albumInk.withValues(alpha: 0.28) : albumSage,
+              ),
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: labeled ? _labeledBody(context) : _iconOnly(),
+              ),
             ),
           ),
         ),
@@ -216,69 +212,6 @@ class _AddTile extends StatelessWidget {
               const SizedBox(height: 2),
               Text(hint!, textAlign: TextAlign.center, style: hintStyle),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeldThumb extends StatelessWidget {
-  const _HeldThumb({
-    required this.bytes,
-    required this.onRemove,
-    required this.width,
-    required this.height,
-    required this.padRight,
-  });
-
-  final Uint8List bytes;
-  final VoidCallback onRemove;
-  final double width;
-  final double height;
-  final bool padRight;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(right: padRight ? 12 : 0),
-      child: SizedBox(
-        key: const Key('photo-held'),
-        width: width,
-        height: height,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.memory(
-                  bytes,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const ColoredBox(
-                      color: albumParchment,
-                      child: Icon(Icons.photo_outlined, color: albumSage),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Positioned(
-              top: 4,
-              right: 4,
-              child: IconButton(
-                key: const Key('photo-held-remove'),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                iconSize: 18,
-                style: IconButton.styleFrom(
-                  backgroundColor: albumParchment.withValues(alpha: 0.92),
-                  foregroundColor: albumInk,
-                ),
-                onPressed: onRemove,
-                icon: const Icon(Icons.close),
-              ),
-            ),
           ],
         ),
       ),

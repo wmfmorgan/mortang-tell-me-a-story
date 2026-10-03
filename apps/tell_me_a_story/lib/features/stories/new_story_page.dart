@@ -289,16 +289,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
       _timeframeEnd = decade.end;
       _highlightTimeframeForPhoto = false;
     });
-    if (_pendingPhotoBytes != null) {
-      _savePendingPhoto();
-    }
-  }
-
-  void _clearHeldPhoto() {
-    setState(() {
-      _pendingPhotoBytes = null;
-      _highlightTimeframeForPhoto = false;
-    });
   }
 
   Future<Uint8List?> _pickFromGallery() async {
@@ -313,6 +303,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
   Future<void> _onAddPhoto() async {
     if (_busy || _loadingFamily || _picking) return;
     if (_storyPhotos.length >= maxPhotosPerStory) return;
+    if (_timeframeStart == null) {
+      setState(() => _highlightTimeframeForPhoto = true);
+      return;
+    }
     // The browser only opens the file chooser in this click. Anything awaited
     // before pickImage spends the gesture, and the chooser never appears.
     final picker = widget.pickImageBytes ?? _pickFromGallery;
@@ -325,10 +319,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
     }
     if (!mounted || bytes == null) return;
     _pendingPhotoBytes = bytes;
-    if (_timeframeStart == null) {
-      setState(() => _highlightTimeframeForPhoto = true);
-      return;
-    }
     await _savePendingPhoto();
   }
 
@@ -650,15 +640,12 @@ class _NewStoryPageState extends State<NewStoryPage> {
                   columns: 3,
                   addLabel: 'Add photo',
                   addHint: 'Up to $maxPhotosPerStory photos',
-                  heldPreview: _highlightTimeframeForPhoto
-                      ? _pendingPhotoBytes
-                      : null,
-                  onClearHeld: _clearHeldPhoto,
+                  addEnabled: _timeframeStart != null,
                 ),
-                if (_highlightTimeframeForPhoto) ...[
+                if (_highlightTimeframeForPhoto && _timeframeStart == null) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Choose a decade to keep this photo.',
+                    'A Timeframe is required before adding a photo.',
                     style: Theme.of(context).textTheme.labelSmall
                         ?.copyWith(color: albumTerracotta),
                   ),

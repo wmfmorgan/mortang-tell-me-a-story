@@ -611,7 +611,7 @@ void main() {
     expect(stories.updateDraftCalls, 0);
   });
 
-  testWidgets('Add photo without timeframe opens the picker', (tester) async {
+  testWidgets('Add photo without timeframe does not pick', (tester) async {
     final picker = _FakePicker();
     final stories = _FakeStoriesApi();
     final photos = _FakePhotosApi();
@@ -625,27 +625,20 @@ void main() {
       find.text('Finish the highlighted fields to publish.'),
       findsNothing,
     );
-    expect(picker.calls, 1);
+    expect(picker.calls, 0);
     expect(stories.createDraftCalls, 0);
     expect(photos.uploadCalls, 0);
-    expect(find.text('Choose a decade to keep this photo.'), findsOneWidget);
+    expect(
+      find.text('A Timeframe is required before adding a photo.'),
+      findsOneWidget,
+    );
     expect(
       tester
           .widgetList<Container>(find.byType(Container))
           .any(_hasTerracottaBorder),
       isTrue,
     );
-    expect(find.byKey(const Key('photo-held')), findsOneWidget);
     expect(find.byKey(const Key('photo-thumb')), findsNothing);
-
-    await tester.ensureVisible(find.widgetWithText(TextButton, '1980s'));
-    await tester.tap(find.widgetWithText(TextButton, '1980s'));
-    await tester.pumpAndSettle();
-    expect(stories.createDraftCalls, 1);
-    expect(photos.uploadCalls, 1);
-    expect(find.byKey(const Key('photo-held')), findsNothing);
-    expect(find.byKey(const Key('photo-thumb')), findsOneWidget);
-    expect(find.text('Choose a decade to keep this photo.'), findsNothing);
   });
 
   testWidgets('Add photo after decade uploads via gateway', (tester) async {
