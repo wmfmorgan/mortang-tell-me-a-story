@@ -98,6 +98,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       widget.photosApi ?? (_photosOverride ??= PhotosApi());
 
   PublishReadiness get _readiness => publishReadiness(
+    title: _title.text,
     body: _body.text,
     timeframeStart: _timeframeStart,
     personIds: _selectedPeople.map((p) => p.id),
@@ -545,32 +546,33 @@ class _NewStoryPageState extends State<NewStoryPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _highlightIfMissing(
-          missing: _showPublishBanner && !_readiness.hasBody,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFFFFF),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x142C2416),
-                  blurRadius: 24,
-                  offset: Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x142C2416),
+                blurRadius: 24,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _highlightIfMissing(
+                  missing: _showPublishBanner && !_readiness.hasTitle,
+                  child: TextField(
                     key: const Key('story-title'),
                     controller: _title,
                     minLines: 1,
                     maxLines: 3,
                     textCapitalization: TextCapitalization.sentences,
                     cursorColor: albumTerracotta,
+                    onChanged: (_) => setState(() {}),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontSize: 30,
                       height: 1.2,
@@ -597,8 +599,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
                       contentPadding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
+                ),
+                const SizedBox(height: 8),
+                _highlightIfMissing(
+                  missing: _showPublishBanner && !_readiness.hasBody,
+                  child: TextField(
                     key: const Key('story-body'),
                     controller: _body,
                     minLines: 8,
@@ -625,8 +630,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

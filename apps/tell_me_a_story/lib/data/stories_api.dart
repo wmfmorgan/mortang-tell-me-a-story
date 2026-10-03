@@ -58,25 +58,30 @@ class Story {
 
 class PublishReadiness {
   const PublishReadiness({
+    required this.hasTitle,
     required this.hasBody,
     required this.hasTimeframe,
     required this.hasPerson,
     required this.hasPlace,
   });
+  final bool hasTitle;
   final bool hasBody;
   final bool hasTimeframe;
   final bool hasPerson;
   final bool hasPlace;
-  bool get canPublish => hasBody && hasTimeframe && hasPerson && hasPlace;
+  bool get canPublish =>
+      hasTitle && hasBody && hasTimeframe && hasPerson && hasPlace;
 }
 
 PublishReadiness publishReadiness({
+  required String? title,
   required String? body,
   required DateTime? timeframeStart,
   required Iterable<String> personIds,
   required String? placeId,
 }) {
   return PublishReadiness(
+    hasTitle: (title ?? '').trim().isNotEmpty,
     hasBody: (body ?? '').trim().isNotEmpty,
     hasTimeframe: timeframeStart != null,
     hasPerson: personIds.isNotEmpty,
@@ -212,6 +217,7 @@ class StoriesApi implements StoriesGateway {
   Future<Story> publish(String storyId) async {
     final story = await getStory(storyId);
     if (!publishReadiness(
+      title: story.title,
       body: story.body,
       timeframeStart: story.timeframeStart,
       personIds: story.personIds,

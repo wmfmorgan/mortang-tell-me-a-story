@@ -162,7 +162,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Jam'), findsOneWidget);
+    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.text('Jam'), findsNothing);
     expect(find.text('1980s'), findsOneWidget);
   });
 
@@ -250,7 +251,7 @@ void main() {
     router.push(AppRoutes.drafts);
     await tester.pumpAndSettle();
 
-    stories.published.add(_published(familyId: _familyId));
+    stories.published.add(_published(familyId: _familyId, title: 'Jam'));
 
     router.go(AppRoutes.timeline);
     await tester.pumpAndSettle();
@@ -267,7 +268,7 @@ void main() {
   testWidgets('tapping a published card pushes the story reader', (
     tester,
   ) async {
-    final story = _published();
+    final story = _published(title: 'Jam');
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,

@@ -212,9 +212,7 @@ class _PublishedRow extends StatelessWidget {
 
 String _bodyPreview(Story story) {
   final title = story.title?.trim() ?? '';
-  if (title.isNotEmpty) return title;
-  final body = story.body?.trim() ?? '';
-  return body.isEmpty ? 'Untitled' : body;
+  return title.isEmpty ? 'Untitled' : title;
 }
 
 String _timeframeLabel(Story story) {

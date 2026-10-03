@@ -19,18 +19,30 @@ void main() {
     );
   });
 
-  test('publishReadiness requires body, timeframe, person, place', () {
+  test('publishReadiness requires title, body, timeframe, person, place', () {
     final r = publishReadiness(
+      title: '  ',
       body: '  ',
       timeframeStart: DateTime(1980, 1, 1),
       personIds: const [],
       placeId: null,
     );
     expect(r.canPublish, isFalse);
+    expect(r.hasTitle, isFalse);
     expect(r.hasBody, isFalse);
     expect(r.hasTimeframe, isTrue);
     expect(r.hasPerson, isFalse);
     expect(r.hasPlace, isFalse);
+
+    final ready = publishReadiness(
+      title: 'Making Blackberry Jam on the Back Porch',
+      body: 'We made jam.',
+      timeframeStart: DateTime(1980, 1, 1),
+      personIds: const ['p1'],
+      placeId: 'pl1',
+    );
+    expect(ready.canPublish, isTrue);
+    expect(ready.hasTitle, isTrue);
   });
 
   test('Story.fromJson maps draft status and nested person ids', () {

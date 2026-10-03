@@ -533,6 +533,14 @@ void main() {
 
     expect(find.text('We made jam.'), findsOneWidget);
     expect(find.text('Ready to publish'), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Finish the highlighted fields to publish.'),
+      findsOneWidget,
+    );
+    expect(find.text('New story'), findsOneWidget);
   });
 
   testWidgets('title field is saved on create and update', (tester) async {

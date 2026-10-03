@@ -316,12 +316,14 @@ class _StatusPill extends StatelessWidget {
 /// One status for the card. Filter chips still expose every missing field.
 String _statusPill(Story story) {
   final ready = publishReadiness(
+    title: story.title,
     body: story.body,
     timeframeStart: story.timeframeStart,
     personIds: story.personIds,
     placeId: story.placeId,
   );
   if (ready.canPublish) return 'Ready to publish';
+  if (!ready.hasTitle) return 'Missing title';
   if (!ready.hasBody) return 'Missing text';
   if (!ready.hasPerson) return 'Missing people';
   if (!ready.hasPlace) return 'Missing place';
@@ -331,6 +333,7 @@ String _statusPill(Story story) {
 
 bool _matchesFilter(Story story, _DraftsFilter filter) {
   final ready = publishReadiness(
+    title: story.title,
     body: story.body,
     timeframeStart: story.timeframeStart,
     personIds: story.personIds,
@@ -348,11 +351,7 @@ bool _matchesFilter(Story story, _DraftsFilter filter) {
 
 String _bodyExcerpt(Story story) {
   final title = story.title?.trim() ?? '';
-  if (title.isNotEmpty) return title;
-  final body = story.body?.trim() ?? '';
-  if (body.isEmpty) return 'Untitled';
-  if (body.length <= 180) return body;
-  return '${body.substring(0, 180).trimRight()}…';
+  return title.isEmpty ? 'Untitled' : title;
 }
 
 String _timeframeLabel(Story story) {

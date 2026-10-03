@@ -466,45 +466,21 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  test('storyHeadline uses first non-empty line else Untitled', () {
+  test('readerHeadline uses only a saved title and keeps the full body', () {
     expect(
-      storyHeadline('Picnic at the lake\nWe brought pie.'),
-      'Picnic at the lake',
-    );
-    expect(storyHeadline('\n  \nThe picnic'), 'The picnic');
-    expect(storyHeadline('  Hello  '), 'Hello');
-    expect(storyHeadline(null), 'Untitled');
-    expect(storyHeadline(''), 'Untitled');
-    expect(storyHeadline('   \n  '), 'Untitled');
-  });
-
-  test('readerHeadline uses a saved title and keeps the full body', () {
-    expect(
-      readerHeadline(
-        title: 'Making Blackberry Jam on the Back Porch',
-        body: 'Picnic at the lake\nWe brought pie.',
-      ),
+      readerHeadline(title: 'Making Blackberry Jam on the Back Porch'),
       'Making Blackberry Jam on the Back Porch',
     );
     expect(
-      readerArticleBody(
-        title: 'Making Blackberry Jam on the Back Porch',
-        body: 'Picnic at the lake\nWe brought pie.',
-      ),
+      readerArticleBody(body: 'Picnic at the lake\nWe brought pie.'),
       'Picnic at the lake\nWe brought pie.',
     );
+    expect(readerHeadline(title: '   '), 'Untitled');
+    expect(readerHeadline(title: null), 'Untitled');
     expect(
-      readerHeadline(title: '   ', body: 'Picnic at the lake\nWe brought pie.'),
-      'Picnic at the lake',
+      readerArticleBody(body: 'Picnic at the lake\nWe brought pie.'),
+      'Picnic at the lake\nWe brought pie.',
     );
-    expect(
-      readerArticleBody(
-        title: '   ',
-        body: 'Picnic at the lake\nWe brought pie.',
-      ),
-      'We brought pie.',
-    );
-    expect(readerHeadline(title: null, body: null), 'Untitled');
   });
 
   testWidgets('published story renders body, people, place, sections', (
@@ -559,7 +535,8 @@ void main() {
 
     expect(find.byKey(const Key('story-reader')), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'Timeline'), findsOneWidget);
-    expect(find.text('Picnic at the lake'), findsOneWidget);
+    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.textContaining('Picnic at the lake'), findsOneWidget);
     expect(find.textContaining('We brought pie.'), findsOneWidget);
     expect(find.text('1980s'), findsOneWidget);
     expect(find.text('Ada'), findsOneWidget);
@@ -749,7 +726,8 @@ void main() {
 
     delay.complete();
     await tester.pumpAndSettle();
-    expect(find.text('Picnic at the lake'), findsOneWidget);
+    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.textContaining('Picnic at the lake'), findsOneWidget);
   });
 
   testWidgets('ancillary load error shows SnackBar and keeps the story', (
@@ -765,7 +743,8 @@ void main() {
     await tester.pump();
 
     expect(find.byType(SnackBar), findsOneWidget);
-    expect(find.text('Picnic at the lake'), findsOneWidget);
+    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.textContaining('Picnic at the lake'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
   });
 

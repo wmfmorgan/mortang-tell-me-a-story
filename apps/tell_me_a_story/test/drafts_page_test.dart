@@ -296,7 +296,8 @@ void main() {
             _draft(body: null, personIds: [], placeId: null),
             _draft(
               id: 's2',
-              body: 'Jam',
+              title: 'Jam',
+              body: 'We made jam on the porch.',
               personIds: const ['p'],
               placeId: 'pl',
               photoCount: 0,
@@ -331,7 +332,8 @@ void main() {
             _draft(id: 's1', body: null, personIds: [], placeId: null),
             _draft(
               id: 's2',
-              body: 'Jam',
+              title: 'Jam',
+              body: 'We made jam on the porch.',
               personIds: const ['p'],
               placeId: 'pl',
             ),
