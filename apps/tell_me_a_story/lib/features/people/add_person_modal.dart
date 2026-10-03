@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/album_chrome.dart';
 import '../../data/people_api.dart';
 
 enum _AddPersonMode { chooseExisting, createNew }
@@ -7,11 +8,7 @@ enum _AddPersonMode { chooseExisting, createNew }
 /// Add Person modal — pick existing family person or create new.
 /// Create requires name + relationship; email optional (future invite).
 class AddPersonModal extends StatefulWidget {
-  const AddPersonModal({
-    super.key,
-    required this.familyId,
-    required this.api,
-  });
+  const AddPersonModal({super.key, required this.familyId, required this.api});
 
   final String familyId;
   final PeopleGateway api;
@@ -21,10 +18,9 @@ class AddPersonModal extends StatefulWidget {
     required String familyId,
     required PeopleGateway api,
   }) {
-    return showModalBottomSheet<Person>(
+    return showAlbumDialog<Person>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      maxWidth: 560,
       builder: (ctx) => AddPersonModal(familyId: familyId, api: api),
     );
   }
@@ -78,8 +74,9 @@ class _AddPersonModalState extends State<AddPersonModal> {
     final name = _nameController.text.trim();
     final relationship = _relationshipController.text.trim();
     final nameError = name.isEmpty ? 'Name is required' : null;
-    final relationshipError =
-        relationship.isEmpty ? 'Relationship is required' : null;
+    final relationshipError = relationship.isEmpty
+        ? 'Relationship is required'
+        : null;
     if (nameError != null || relationshipError != null) {
       setState(() {
         _nameError = nameError;
@@ -127,7 +124,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
           children: [
             Text(
               'Add person',
-              style: Theme.of(context).textTheme.titleLarge,
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
@@ -220,10 +217,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
           controller: _nameController,
           enabled: !_busy,
           textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(
-            labelText: 'Name',
-            errorText: _nameError,
-          ),
+          decoration: InputDecoration(labelText: 'Name', errorText: _nameError),
           onChanged: (_) {
             if (_nameError != null) {
               setState(() => _nameError = null);

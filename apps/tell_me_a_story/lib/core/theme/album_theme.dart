@@ -77,7 +77,7 @@ ThemeData albumTheme() {
       ),
     ),
     cardTheme: CardThemeData(
-      color: albumParchment,
+      color: const Color(0xFFFFF8F6),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(albumCardRadius),
@@ -95,6 +95,7 @@ ThemeData albumTheme() {
       style: FilledButton.styleFrom(
         backgroundColor: albumTerracotta,
         foregroundColor: albumParchment,
+        minimumSize: const Size(48, 48),
         textStyle: GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -102,16 +103,23 @@ ThemeData albumTheme() {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: albumInk,
+        minimumSize: const Size(48, 40),
         textStyle: GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: albumInk,
+        minimumSize: const Size(48, 48),
         side: const BorderSide(color: albumSage),
         textStyle: GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: albumParchment,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,

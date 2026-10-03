@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/config/env.dart';
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
@@ -18,8 +19,6 @@ import '../places/place_map.dart';
 import '../places/place_picker_modal.dart';
 import 'photo_strip.dart';
 import 'timeframe_chips.dart';
-
-
 
 /// Capture form for `/stories/new` — timeframe, people, place, body, persist.
 class NewStoryPage extends StatefulWidget {
@@ -453,72 +452,58 @@ class _NewStoryPageState extends State<NewStoryPage> {
     final readiness = _readiness;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('New story'),
+      appBar: AlbumTopBar(
+        screenLabel: 'New story',
         actions: [
           TextButton(
             onPressed: _canSaveDraft ? _onSaveDraft : null,
             child: const Text('Save draft'),
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilledButton(
-              onPressed: _actionsEnabled ? _onPublish : null,
-              child: const Text('Publish story'),
-            ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: _actionsEnabled ? _onPublish : null,
+            child: const Text('Publish story'),
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_showPublishBanner) ...[
-                const Text('Finish the highlighted fields to publish.'),
-                const SizedBox(height: 16),
-              ],
-              if (readiness.canPublish) ...[
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Chip(label: Text('Ready to publish')),
-                ),
-                const SizedBox(height: 16),
-              ],
-              _highlightIfMissing(
-                missing:
-                    (_showPublishBanner && !readiness.hasTimeframe) ||
-                    (_highlightTimeframeForPhoto && _timeframeStart == null),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Timeframe',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    TimeframeChips(
+        child: AlbumColumn(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_showPublishBanner) ...[
+                  const Text('Finish the highlighted fields to publish.'),
+                  const SizedBox(height: 16),
+                ],
+                if (readiness.canPublish) ...[
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Chip(label: Text('Ready to publish')),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                _highlightIfMissing(
+                  missing:
+                      (_showPublishBanner && !readiness.hasTimeframe) ||
+                      (_highlightTimeframeForPhoto && _timeframeStart == null),
+                  child: AlbumPanel(
+                    title: 'Timeframe',
+                    child: TimeframeChips(
                       selectedStartYear: _timeframeStart == null
                           ? null
                           : DecadeRange.containing(_timeframeStart!)?.startYear,
                       onSelected: _selectDecade,
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              _highlightIfMissing(
-                missing: _showPublishBanner && !readiness.hasPerson,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'People',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
+                _highlightIfMissing(
+                  missing: _showPublishBanner && !readiness.hasPerson,
+                  child: AlbumPanel(
+                    title: 'People',
+                    child: Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
@@ -533,68 +518,65 @@ class _NewStoryPageState extends State<NewStoryPage> {
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              _highlightIfMissing(
-                missing: _showPublishBanner && !readiness.hasPlace,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Place',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    if (place != null) ...[
-                      _buildSelectedPlaceMap(place),
-                      const SizedBox(height: 8),
-                      Text(
-                        place.label,
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      Text(
-                        place.address,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        onPressed: _actionsEnabled ? _openChoosePlace : null,
-                        child: const Text('Choose place'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              _highlightIfMissing(
-                missing: _showPublishBanner && !readiness.hasBody,
-                child: TextField(
-                  controller: _body,
-                  minLines: 5,
-                  maxLines: null,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'Story',
-                    alignLabelWithHint: true,
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              PhotoStrip(
-                photos: _storyPhotos,
-                previews: _photoPreviews,
-                onAdd: _onAddPhoto,
-                onRemove: _onRemovePhoto,
-                onRetry: _onRetryPhoto,
-                uploadFailed: _photoError,
-                canAdd: _storyPhotos.length < maxPhotosPerStory,
-              ),
-            ],
+                _highlightIfMissing(
+                  missing: _showPublishBanner && !readiness.hasPlace,
+                  child: AlbumPanel(
+                    title: 'Place',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (place != null) ...[
+                          _buildSelectedPlaceMap(place),
+                          const SizedBox(height: 8),
+                          Text(
+                            place.label,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          Text(
+                            place.address,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        TextButton(
+                          onPressed: _actionsEnabled ? _openChoosePlace : null,
+                          child: const Text('Choose place'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                _highlightIfMissing(
+                  missing: _showPublishBanner && !readiness.hasBody,
+                  child: AlbumPanel(
+                    child: TextField(
+                      controller: _body,
+                      minLines: 6,
+                      maxLines: null,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(
+                        labelText: 'Story',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ),
+                ),
+                AlbumPanel(
+                  title: 'Photos',
+                  child: PhotoStrip(
+                    photos: _storyPhotos,
+                    previews: _photoPreviews,
+                    onAdd: _onAddPhoto,
+                    onRemove: _onRemovePhoto,
+                    onRetry: _onRetryPhoto,
+                    uploadFailed: _photoError,
+                    canAdd: _storyPhotos.length < maxPhotosPerStory,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -634,7 +616,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
     return PlaceMap(
       lat: place.lat,
       lng: place.lng,
-      height: 140,
+      height: 200,
       onTileError: (error, stackTrace) {
         if (!mounted) return;
         setState(() => _shellMapFailed = true);

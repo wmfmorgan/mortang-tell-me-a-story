@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/config/env.dart';
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
 import '../../data/comments_api.dart';
 import '../../data/people_api.dart';
 import '../../data/perspectives_api.dart' hide displayNameOrMember;
@@ -410,15 +411,13 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: const Key('story-reader'),
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leadingWidth: 120,
+      appBar: AlbumTopBar(
         leading: TextButton(
           onPressed: () => context.go(AppRoutes.timeline),
           child: const Text('Timeline'),
         ),
       ),
-      body: SafeArea(child: _body(context)),
+      body: SafeArea(child: AlbumColumn(child: _body(context))),
     );
   }
 
@@ -446,7 +445,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             storyHeadline(story.body),
             style: theme.textTheme.headlineMedium,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
             child: Chip(label: Text(_timeframeLabel(story))),
@@ -463,69 +462,78 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             ),
           ],
           if (place != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(place.label, style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),
             _buildPlaceMap(place),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(story.body ?? '', style: theme.textTheme.bodyLarge),
-          const SizedBox(height: 24),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed:
-                  _photos.length < maxPhotosPerStory ? _onAddPhoto : null,
+          const SizedBox(height: 16),
+          AlbumPanel(
+            title: 'Photos',
+            trailing: TextButton(
+              onPressed: _photos.length < maxPhotosPerStory
+                  ? _onAddPhoto
+                  : null,
               child: const Text('Add photos'),
             ),
+            child: PhotoStrip(
+              photos: _photos,
+              previews: _previews,
+              onAdd: _onAddPhoto,
+              onRemove: _onRemovePhoto,
+              onRetry: _onRetryPhoto,
+              uploadFailed: _photoError,
+              canAdd: _photos.length < maxPhotosPerStory,
+            ),
           ),
-          PhotoStrip(
-            photos: _photos,
-            previews: _previews,
-            onAdd: _onAddPhoto,
-            onRemove: _onRemovePhoto,
-            onRetry: _onRetryPhoto,
-            uploadFailed: _photoError,
-            canAdd: _photos.length < maxPhotosPerStory,
-          ),
-          const SizedBox(height: 24),
-          Text('Perspectives', style: theme.textTheme.titleMedium),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
+          AlbumPanel(
+            title: 'Perspectives',
+            trailing: TextButton(
               onPressed: _openPerspective,
               child: const Text('+ Add your perspective'),
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final row in _perspectives) ...[
+                  Text(row.authorLabel, style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  Text(row.body, style: theme.textTheme.bodyMedium),
+                  const SizedBox(height: 12),
+                ],
+              ],
+            ),
           ),
-          for (final row in _perspectives) ...[
-            Text(row.authorLabel, style: theme.textTheme.titleSmall),
-            Text(row.body, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 12),
-          ],
-          const SizedBox(height: 8),
-          Text('Comments', style: theme.textTheme.titleMedium),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
+          AlbumPanel(
+            title: 'Comments',
+            trailing: TextButton(
               onPressed: _openComposer,
               child: const Text('+ Add comment'),
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final row in _comments)
+                  CommentTile(
+                    comment: row,
+                    canDelete:
+                        _currentUserId != null &&
+                        row.authorId == _currentUserId,
+                    onDelete: () => _deleteComment(row),
+                  ),
+                if (_composingComment)
+                  KeyedSubtree(
+                    key: _composerKey,
+                    child: CommentComposer(
+                      onPost: _postComment,
+                      focusNode: _composerFocus,
+                    ),
+                  ),
+              ],
+            ),
           ),
-          for (final row in _comments)
-            CommentTile(
-              comment: row,
-              canDelete:
-                  _currentUserId != null && row.authorId == _currentUserId,
-              onDelete: () => _deleteComment(row),
-            ),
-          if (_composingComment)
-            KeyedSubtree(
-              key: _composerKey,
-              child: CommentComposer(
-                onPost: _postComment,
-                focusNode: _composerFocus,
-              ),
-            ),
         ],
       ),
     );

@@ -45,7 +45,7 @@ class PhotoStrip extends StatelessWidget {
           const SizedBox(height: 8),
         ],
         SizedBox(
-          height: 88,
+          height: 80,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -97,11 +97,7 @@ class _AddTile extends StatelessWidget {
 }
 
 class _Thumb extends StatelessWidget {
-  const _Thumb({
-    required this.photo,
-    required this.onRemove,
-    this.preview,
-  });
+  const _Thumb({required this.photo, required this.onRemove, this.preview});
 
   final Photo photo;
   final Uint8List? preview;
@@ -123,7 +119,10 @@ class _Thumb extends StatelessWidget {
                 child: preview == null
                     ? ColoredBox(
                         color: albumParchment,
-                        child: const Icon(Icons.photo_outlined, color: albumSage),
+                        child: const Icon(
+                          Icons.photo_outlined,
+                          color: albumSage,
+                        ),
                       )
                     : Image.memory(
                         preview!,

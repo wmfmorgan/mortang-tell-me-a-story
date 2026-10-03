@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/config/env.dart';
+import '../../core/theme/album_chrome.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/places_api.dart';
 import 'place_map.dart';
@@ -46,10 +47,9 @@ class PlacePickerModal extends StatefulWidget {
     bool? hasMapboxToken,
     PlaceMapBuilder? mapBuilder,
   }) {
-    return showModalBottomSheet<Place>(
+    return showAlbumDialog<Place>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      maxWidth: 720,
       builder: (ctx) => PlacePickerModal(
         familyId: familyId,
         places: places,
@@ -268,7 +268,7 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
             children: [
               Text(
                 'Choose place',
-                style: Theme.of(context).textTheme.titleLarge,
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 12),
               TextField(

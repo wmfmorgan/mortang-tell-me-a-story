@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme/album_chrome.dart';
 import '../../data/perspectives_api.dart';
 import '../../data/stories_api.dart';
 
@@ -73,9 +74,8 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
     final theme = Theme.of(context);
     return Scaffold(
       key: const Key('add-perspective'),
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Add your perspective'),
+      appBar: AlbumTopBar(
+        screenLabel: 'Add your perspective',
         actions: [
           TextButton(
             onPressed: () => context.pop(),
@@ -84,36 +84,38 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Tell this story in your own words — a full telling, not a quick reaction.',
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 24),
-              Text('Your story', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _body,
-                minLines: 8,
-                maxLines: null,
-                enabled: !_busy,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  hintText:
-                      'What do you remember? Who was there, what was said…',
-                  alignLabelWithHint: true,
+        child: AlbumColumn(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Tell this story in your own words — a full telling, not a quick reaction.',
+                  style: theme.textTheme.bodyLarge,
                 ),
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _canPublish ? _publish : null,
-                child: const Text('Publish perspective'),
-              ),
-            ],
+                const SizedBox(height: 24),
+                AlbumPanel(
+                  title: 'Your story',
+                  child: TextField(
+                    controller: _body,
+                    minLines: 8,
+                    maxLines: null,
+                    enabled: !_busy,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      hintText:
+                          'What do you remember? Who was there, what was said…',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                ),
+                FilledButton(
+                  onPressed: _canPublish ? _publish : null,
+                  child: const Text('Publish perspective'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

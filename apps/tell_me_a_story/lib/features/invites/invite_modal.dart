@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/theme/album_chrome.dart';
 import '../../data/invite_api.dart';
 
 /// Invite modal — Email + Link only (chrome locks). No SMS.
 class InviteModal extends StatefulWidget {
-  const InviteModal({
-    super.key,
-    required this.familyId,
-    this.api,
-  });
+  const InviteModal({super.key, required this.familyId, this.api});
 
   final String familyId;
   final InviteGateway? api;
@@ -19,9 +16,9 @@ class InviteModal extends StatefulWidget {
     required String familyId,
     InviteGateway? api,
   }) {
-    return showModalBottomSheet<void>(
+    return showAlbumDialog<void>(
       context: context,
-      isScrollControlled: true,
+      maxWidth: 480,
       builder: (ctx) => InviteModal(familyId: familyId, api: api),
     );
   }
@@ -53,7 +50,8 @@ class _InviteModalState extends State<InviteModal>
   }
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _sendEmail() async {
@@ -120,6 +118,11 @@ class _InviteModalState extends State<InviteModal>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Text(
+              'Invite to the family archive',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 12),
             TabBar(
               controller: _tabs,
               tabs: const [
@@ -128,7 +131,7 @@ class _InviteModalState extends State<InviteModal>
               ],
             ),
             SizedBox(
-              height: 180,
+              height: 148,
               child: TabBarView(
                 controller: _tabs,
                 children: [
@@ -140,9 +143,7 @@ class _InviteModalState extends State<InviteModal>
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           enabled: !_busy,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                          ),
+                          decoration: const InputDecoration(labelText: 'Email'),
                         ),
                         const SizedBox(height: 16),
                         FilledButton(
@@ -173,8 +174,8 @@ class _InviteModalState extends State<InviteModal>
                             _busy
                                 ? 'Working…'
                                 : (_linkUrl == null
-                                    ? 'Create link'
-                                    : 'Copy link'),
+                                      ? 'Create link'
+                                      : 'Copy link'),
                           ),
                         ),
                       ],

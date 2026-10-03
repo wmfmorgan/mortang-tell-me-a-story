@@ -65,18 +65,17 @@ class TimeframeChips extends StatelessWidget {
             style: TextButton.styleFrom(
               backgroundColor: decade.startYear == selectedStartYear
                   ? albumTerracotta
-                  : albumParchment,
+                  : const Color(0xFFFFF8F6),
               foregroundColor: decade.startYear == selectedStartYear
                   ? albumParchment
                   : albumInk,
+              minimumSize: const Size(48, 40),
               side: BorderSide(
                 color: decade.startYear == selectedStartYear
                     ? albumTerracotta
-                    : albumSage,
+                    : albumSage.withValues(alpha: 0.7),
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              shape: const StadiumBorder(),
             ),
             child: Text(decade.label),
           ),

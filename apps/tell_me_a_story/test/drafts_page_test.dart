@@ -369,9 +369,12 @@ void main() {
     router.go(AppRoutes.drafts);
     await tester.pumpAndSettle();
 
-    final continueWriting = find.widgetWithText(TextButton, 'Continue writing');
+    final continueWriting = find.widgetWithText(
+      FilledButton,
+      'Continue writing',
+    );
     expect(continueWriting, findsOneWidget);
-    tester.widget<TextButton>(continueWriting).onPressed!.call();
+    tester.widget<FilledButton>(continueWriting).onPressed!.call();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 

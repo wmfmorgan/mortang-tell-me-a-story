@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
 import '../../data/invite_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
@@ -123,28 +124,33 @@ class _DraftsPageState extends State<DraftsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Drafts')),
+      appBar: const AlbumTopBar(screenLabel: 'Drafts'),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _filterChip('All', _DraftsFilter.all),
-                  _filterChip('Missing text', _DraftsFilter.missingText),
-                  _filterChip('Missing people', _DraftsFilter.missingPeople),
-                  _filterChip('Missing place', _DraftsFilter.missingPlace),
-                  _filterChip('Missing photos', _DraftsFilter.missingPhotos),
-                  _filterChip('Ready to publish', _DraftsFilter.readyToPublish),
-                ],
+        child: AlbumColumn(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _filterChip('All', _DraftsFilter.all),
+                    _filterChip('Missing text', _DraftsFilter.missingText),
+                    _filterChip('Missing people', _DraftsFilter.missingPeople),
+                    _filterChip('Missing place', _DraftsFilter.missingPlace),
+                    _filterChip('Missing photos', _DraftsFilter.missingPhotos),
+                    _filterChip(
+                      'Ready to publish',
+                      _DraftsFilter.readyToPublish,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Expanded(child: _body()),
-          ],
+              Expanded(child: _body()),
+            ],
+          ),
         ),
       ),
     );
@@ -178,7 +184,7 @@ class _DraftsPageState extends State<DraftsPage> {
     }
     final rows = _visible;
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       itemCount: rows.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) => _DraftRow(
@@ -222,16 +228,16 @@ class _DraftRow extends StatelessWidget {
       key: Key('draft-row-${story.id}'),
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 _timeframeLabel(story),
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.labelLarge,
               ),
-              const SizedBox(height: 4),
-              Text(preview, style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(height: 8),
+              Text(preview, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -250,10 +256,11 @@ class _DraftRow extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  TextButton(
+                  FilledButton(
                     onPressed: onContinue,
                     child: const Text('Continue writing'),
                   ),
+                  const SizedBox(width: 8),
                   TextButton(
                     onPressed: onDiscard,
                     child: const Text('Discard'),
