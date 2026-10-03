@@ -306,15 +306,22 @@ class _NewStoryPageState extends State<NewStoryPage> {
       return;
     }
     if (_storyPhotos.length >= maxPhotosPerStory) return;
+    // The browser only opens the file chooser in this click. Saving the draft
+    // first spends the gesture, and the chooser never appears.
+    final picker = widget.pickImageBytes ?? _pickFromGallery;
+    final bytes = await picker();
+    if (!mounted || bytes == null) return;
+    _pendingPhotoBytes = bytes;
     setState(() => _busy = true);
     try {
       final story = await _persistDraft();
-      if (!mounted || story == null) return;
-      final picker = widget.pickImageBytes ?? _pickFromGallery;
-      final bytes = await picker();
-      if (!mounted || bytes == null) return;
-      _pendingPhotoBytes = bytes;
+      if (!mounted || story == null) {
+        if (mounted) setState(() => _photoError = true);
+        return;
+      }
       await _uploadPending();
+    } catch (_) {
+      if (mounted) setState(() => _photoError = true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -324,7 +331,16 @@ class _NewStoryPageState extends State<NewStoryPage> {
     if (_busy || _pendingPhotoBytes == null) return;
     setState(() => _busy = true);
     try {
+      if (_storyId == null) {
+        final story = await _persistDraft();
+        if (!mounted || story == null) {
+          if (mounted) setState(() => _photoError = true);
+          return;
+        }
+      }
       await _uploadPending();
+    } catch (_) {
+      if (mounted) setState(() => _photoError = true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -556,26 +572,66 @@ class _NewStoryPageState extends State<NewStoryPage> {
           ),
         ),
         const SizedBox(height: 20),
-        Row(
-          children: [
-            Text('Photos', style: Theme.of(context).textTheme.titleSmall),
-            const Spacer(),
-            Text(
-              '${_storyPhotos.length} of $maxPhotosPerStory',
-              style: Theme.of(context).textTheme.labelLarge,
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x142C2416),
+                blurRadius: 24,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.photo_library_outlined,
+                      color: albumTerracotta,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Photos & Keepsakes',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                    Text(
+                      '${_storyPhotos.length} of $maxPhotosPerStory added',
+                      style: Theme.of(context).textTheme.labelSmall
+                          ?.copyWith(color: albumInk.withValues(alpha: 0.55)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                PhotoStrip(
+                  photos: _storyPhotos,
+                  previews: _photoPreviews,
+                  onAdd: _onAddPhoto,
+                  onRemove: _onRemovePhoto,
+                  onRetry: _onRetryPhoto,
+                  uploadFailed: _photoError,
+                  canAdd: _storyPhotos.length < maxPhotosPerStory,
+                  columns: 3,
+                  addLabel: 'Add photo',
+                  addHint: 'Up to $maxPhotosPerStory photos',
+                ),
+              ],
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        PhotoStrip(
-          photos: _storyPhotos,
-          previews: _photoPreviews,
-          onAdd: _onAddPhoto,
-          onRemove: _onRemovePhoto,
-          onRetry: _onRetryPhoto,
-          uploadFailed: _photoError,
-          canAdd: _storyPhotos.length < maxPhotosPerStory,
-          tileSize: 168,
+          ),
         ),
       ],
     );
