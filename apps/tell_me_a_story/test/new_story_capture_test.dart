@@ -469,7 +469,8 @@ void main() {
     expect(find.widgetWithText(TextButton, '1900s'), findsOneWidget);
     expect(find.widgetWithText(TextButton, '1980s'), findsOneWidget);
     expect(find.widgetWithText(TextButton, '2020s'), findsOneWidget);
-    expect(find.text('Story'), findsOneWidget);
+    expect(find.text('Story'), findsNothing);
+    expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Title'), findsNothing);
   });
 
@@ -491,7 +492,9 @@ void main() {
     );
   });
 
-  testWidgets('complete form shows Ready to publish', (tester) async {
+  testWidgets('complete form keeps publish fields without a ready chip', (
+    tester,
+  ) async {
     await tester.pumpWidget(_captureShell());
     await tester.pumpAndSettle();
 
@@ -505,13 +508,14 @@ void main() {
 
     await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ListTile, 'Central Park'));
+    await tester.tap(find.widgetWithText(ActionChip, 'Central Park'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'We made jam.');
     await tester.pumpAndSettle();
 
-    expect(find.text('Ready to publish'), findsOneWidget);
+    expect(find.text('We made jam.'), findsOneWidget);
+    expect(find.text('Ready to publish'), findsNothing);
   });
 
   testWidgets('second Save draft updates the existing row', (tester) async {
@@ -555,7 +559,7 @@ void main() {
     expect(find.text('Jam at the park'), findsOneWidget);
     expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
     expect(find.text('Central Park'), findsOneWidget);
-    expect(find.text('Ready to publish'), findsOneWidget);
+    expect(find.text('Ready to publish'), findsNothing);
 
     final save = tester.widget<TextButton>(
       find.widgetWithText(TextButton, 'Save draft'),

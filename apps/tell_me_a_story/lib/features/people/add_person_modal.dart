@@ -243,10 +243,42 @@ class _AddPersonModalState extends State<AddPersonModal> {
               itemCount: shown.length,
               itemBuilder: (context, index) {
                 final person = shown[index];
-                return ListTile(
-                  title: Text(person.name),
-                  subtitle: Text(person.relationship),
-                  onTap: () => Navigator.of(context).pop(person),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: albumParchment,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: albumSage.withValues(alpha: 0.4)),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      title: Text(
+                        person.name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      trailing: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: albumSage.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          child: Text(
+                            person.relationship,
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                        ),
+                      ),
+                      onTap: () => Navigator.of(context).pop(person),
+                    ),
+                  ),
                 );
               },
             ),

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
@@ -234,38 +235,37 @@ class _DraftRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ready = publishReadiness(
-      body: story.body,
-      timeframeStart: story.timeframeStart,
-      personIds: story.personIds,
-      placeId: story.placeId,
-    );
     final excerpt = _bodyExcerpt(story);
     return KeyedSubtree(
       key: Key('draft-row-${story.id}'),
-      child: Card(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: albumParchment,
+          borderRadius: BorderRadius.circular(albumCardRadius),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x142C2416),
+              blurRadius: 18,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _timeframeLabel(story),
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (!ready.hasBody) const Chip(label: Text('Missing text')),
-                  if (!ready.hasPerson)
-                    const Chip(label: Text('Missing people')),
-                  if (!ready.hasPlace) const Chip(label: Text('Missing place')),
-                  if (story.photoCount <= 0)
-                    const Chip(label: Text('Missing photos')),
-                  if (ready.canPublish)
-                    const Chip(label: Text('Ready to publish')),
+                  Expanded(
+                    child: Text(
+                      _timeframeLabel(story),
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _StatusPill(label: _statusPill(story)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -273,7 +273,8 @@ class _DraftRow extends StatelessWidget {
                 excerpt,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyLarge,
+                style: Theme.of(context).textTheme.bodyLarge
+                    ?.copyWith(fontSize: 18, height: 1.45),
               ),
               const SizedBox(height: 16),
               FilledButton(
@@ -290,6 +291,42 @@ class _DraftRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: albumSage.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+      ),
+    );
+  }
+}
+
+/// One status for the card. Filter chips still expose every missing field.
+String _statusPill(Story story) {
+  final ready = publishReadiness(
+    body: story.body,
+    timeframeStart: story.timeframeStart,
+    personIds: story.personIds,
+    placeId: story.placeId,
+  );
+  if (ready.canPublish) return 'Ready to publish';
+  if (!ready.hasBody) return 'Missing text';
+  if (!ready.hasPerson) return 'Missing people';
+  if (!ready.hasPlace) return 'Missing place';
+  if (story.photoCount <= 0) return 'Missing photos';
+  return 'Draft';
 }
 
 bool _matchesFilter(Story story, _DraftsFilter filter) {

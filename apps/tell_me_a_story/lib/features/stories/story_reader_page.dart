@@ -455,8 +455,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     final place = _place;
 
     final article = theme.textTheme.bodyLarge?.copyWith(
-      fontSize: 17,
-      height: 1.45,
+      fontSize: 18,
+      height: 1.5,
     );
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
@@ -467,13 +467,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                storyHeadline(story.body),
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontSize: 28,
-                  height: 1.15,
-                ),
-              ),
+              _dropCapText(storyHeadline(story.body), article),
               const SizedBox(height: 12),
               Text(_timeframeLabel(story), style: theme.textTheme.labelLarge),
               if (_peopleOnStory.isNotEmpty) ...[
@@ -494,7 +488,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                 _buildPlaceMap(place),
               ],
               if (storyBodyRest(story.body).isNotEmpty) ...[
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text(storyBodyRest(story.body), style: article),
               ],
               _readingSection(
@@ -513,6 +507,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                   onRetry: _onRetryPhoto,
                   uploadFailed: _photoError,
                   canAdd: _photos.length < maxPhotosPerStory,
+                  tileSize: 128,
                 ),
               ),
               _readingSection(
@@ -564,6 +559,25 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _dropCapText(String text, TextStyle? article) {
+    final style = article ?? const TextStyle(fontSize: 18, height: 1.5);
+    final chars = text.characters;
+    final first = chars.first;
+    final rest = chars.skip(1).string;
+    return Text.rich(
+      TextSpan(
+        style: style,
+        children: [
+          TextSpan(
+            text: first,
+            style: style.copyWith(fontSize: 52, height: 0.8),
+          ),
+          TextSpan(text: rest),
+        ],
       ),
     );
   }

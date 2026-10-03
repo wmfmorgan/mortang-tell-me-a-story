@@ -258,7 +258,7 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
           left: 24,
           right: 24,
           top: 16,
-          bottom: viewInsets.bottom + 24,
+          bottom: viewInsets.bottom + 12,
         ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
@@ -287,6 +287,8 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
                 },
               ),
               const SizedBox(height: 12),
+              _favoriteChips(),
+              const SizedBox(height: 8),
               _buildMapArea(),
               if (_pending != null) ...[
                 const SizedBox(height: 8),
@@ -410,31 +412,49 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
     );
   }
 
-  Widget _buildLists() {
+  Widget _favoriteChips() {
     final favorites = _favorites;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Favorites', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        if (favorites == null)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: LinearProgressIndicator(),
+          )
+        else if (favorites.isEmpty)
+          const Text('No favorites yet.')
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final place in favorites)
+                ActionChip(
+                  label: Text(place.label),
+                  avatar: const Icon(
+                    Icons.star,
+                    size: 16,
+                    color: albumTerracotta,
+                  ),
+                  onPressed: _busy ? null : () => _selectExisting(place),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLists() {
     final recents = _recents;
-    if (favorites == null || recents == null) {
+    if (recents == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
     return ListView(
       children: [
-        Text('Favorites', style: Theme.of(context).textTheme.titleSmall),
-        if (favorites.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('No favorites yet.'),
-          )
-        else
-          ...favorites.map(
-            (p) => ListTile(
-              title: Text(p.label),
-              subtitle: Text(p.address),
-              leading: const Icon(Icons.star),
-              onTap: _busy ? null : () => _selectExisting(p),
-            ),
-          ),
-        const SizedBox(height: 8),
         Text('Recents', style: Theme.of(context).textTheme.titleSmall),
         if (recents.isEmpty)
           const Padding(

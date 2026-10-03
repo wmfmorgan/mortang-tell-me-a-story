@@ -276,7 +276,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ListTile, 'Central Park'));
+    await tester.tap(find.widgetWithText(ActionChip, 'Central Park'));
     await tester.pumpAndSettle();
 
     expect(find.text('Central Park'), findsOneWidget);
@@ -308,7 +308,7 @@ void main() {
 
       await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ListTile, 'Central Park'));
+      await tester.tap(find.widgetWithText(ActionChip, 'Central Park'));
       await tester.pumpAndSettle();
 
       expect(find.text(placeMapFailureCopy), findsOneWidget);

@@ -449,7 +449,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
   @override
   Widget build(BuildContext context) {
     final place = _selectedPlace;
-    final readiness = _readiness;
 
     return Scaffold(
       appBar: AlbumTopBar(
@@ -477,13 +476,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
               children: [
                 if (_showPublishBanner) ...[
                   const Text('Finish the highlighted fields to publish.'),
-                  const SizedBox(height: 12),
-                ],
-                if (readiness.canPublish) ...[
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Chip(label: Text('Ready to publish')),
-                  ),
                   const SizedBox(height: 12),
                 ],
                 LayoutBuilder(
@@ -526,10 +518,17 @@ class _NewStoryPageState extends State<NewStoryPage> {
             minLines: 8,
             maxLines: null,
             onChanged: (_) => setState(() {}),
-            style: Theme.of(context).textTheme.bodyLarge,
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(fontSize: 22, height: 1.5),
             decoration: const InputDecoration(
-              labelText: 'Story',
-              alignLabelWithHint: true,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              filled: false,
+              contentPadding: EdgeInsets.zero,
             ),
           ),
         ),
@@ -544,6 +543,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           onRetry: _onRetryPhoto,
           uploadFailed: _photoError,
           canAdd: _storyPhotos.length < maxPhotosPerStory,
+          tileSize: 168,
         ),
       ],
     );
@@ -579,6 +579,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
                 for (final person in _selectedPeople)
                   Chip(
                     label: Text(person.name),
+                    labelStyle: Theme.of(context).textTheme.titleMedium,
+                    labelPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     onDeleted: () => _removePerson(person),
                   ),
                 TextButton(
