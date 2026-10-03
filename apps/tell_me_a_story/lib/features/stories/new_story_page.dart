@@ -556,7 +556,16 @@ class _NewStoryPageState extends State<NewStoryPage> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('Photos', style: Theme.of(context).textTheme.titleSmall),
+        Row(
+          children: [
+            Text('Photos', style: Theme.of(context).textTheme.titleSmall),
+            const Spacer(),
+            Text(
+              '${_storyPhotos.length} of $maxPhotosPerStory',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         PhotoStrip(
           photos: _storyPhotos,
@@ -581,37 +590,65 @@ class _NewStoryPageState extends State<NewStoryPage> {
           missing:
               (_showPublishBanner && !readiness.hasTimeframe) ||
               (_highlightTimeframeForPhoto && _timeframeStart == null),
-          child: _section(
-            title: 'Timeframe',
-            child: TimeframeChips(
-              selectedStartYear: _timeframeStart == null
-                  ? null
-                  : DecadeRange.containing(_timeframeStart!)?.startYear,
-              onSelected: _selectDecade,
+          child: _paperCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Timeframe',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                TimeframeChips(
+                  selectedStartYear: _timeframeStart == null
+                      ? null
+                      : DecadeRange.containing(_timeframeStart!)?.startYear,
+                  onSelected: _selectDecade,
+                ),
+              ],
             ),
           ),
         ),
         _highlightIfMissing(
           missing: _showPublishBanner && !readiness.hasPerson,
-          child: _section(
-            title: 'People',
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
+          child: _paperCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final person in _selectedPeople)
-                  Chip(
-                    label: Text(person.name),
-                    labelStyle: Theme.of(context).textTheme.titleMedium,
-                    labelPadding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'People',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
                     ),
-                    onDeleted: () => _removePerson(person),
-                  ),
-                TextButton(
-                  onPressed: _actionsEnabled ? _openAddPerson : null,
-                  child: const Text('Add person'),
+                    Text(
+                      '${_selectedPeople.length}',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final person in _selectedPeople)
+                      Chip(
+                        label: Text(person.name),
+                        labelStyle: Theme.of(context).textTheme.titleMedium,
+                        labelPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        onDeleted: () => _removePerson(person),
+                      ),
+                    TextButton(
+                      onPressed: _actionsEnabled ? _openAddPerson : null,
+                      child: const Text('Add person'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -625,40 +662,41 @@ class _NewStoryPageState extends State<NewStoryPage> {
     );
   }
 
-  Widget _section({required String title, required Widget child}) {
+  Widget _paperCard({required Widget child}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          child,
-        ],
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFFFF),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x142C2416),
+              blurRadius: 24,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: child,
+        ),
       ),
     );
   }
 
   Widget _placeCard(Place? place) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      decoration: BoxDecoration(
-        color: albumParchment,
-        borderRadius: BorderRadius.circular(albumCardRadius),
-        border: Border.all(color: albumSage.withValues(alpha: 0.45)),
-      ),
+    return _paperCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Place', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
           if (place != null) ...[
-            _buildSelectedPlaceMap(place),
             const SizedBox(height: 8),
             Text(place.label, style: Theme.of(context).textTheme.titleSmall),
             Text(place.address, style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
+            _buildSelectedPlaceMap(place),
           ],
           TextButton(
             onPressed: _actionsEnabled ? _openChoosePlace : null,
