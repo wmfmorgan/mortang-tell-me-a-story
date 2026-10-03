@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
@@ -123,28 +125,34 @@ class _DraftsPageState extends State<DraftsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Drafts')),
+      appBar: const AlbumTopBar(screenLabel: 'Drafts'),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _filterChip('All', _DraftsFilter.all),
-                  _filterChip('Missing text', _DraftsFilter.missingText),
-                  _filterChip('Missing people', _DraftsFilter.missingPeople),
-                  _filterChip('Missing place', _DraftsFilter.missingPlace),
-                  _filterChip('Missing photos', _DraftsFilter.missingPhotos),
-                  _filterChip('Ready to publish', _DraftsFilter.readyToPublish),
-                ],
+        child: AlbumColumn(
+          maxWidth: 1080,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _filterChip('All', _DraftsFilter.all),
+                    _filterChip('Missing text', _DraftsFilter.missingText),
+                    _filterChip('Missing people', _DraftsFilter.missingPeople),
+                    _filterChip('Missing place', _DraftsFilter.missingPlace),
+                    _filterChip('Missing photos', _DraftsFilter.missingPhotos),
+                    _filterChip(
+                      'Ready to publish',
+                      _DraftsFilter.readyToPublish,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Expanded(child: _body()),
-          ],
+              Expanded(child: _body()),
+            ],
+          ),
         ),
       ),
     );
@@ -177,15 +185,31 @@ class _DraftsPageState extends State<DraftsPage> {
       );
     }
     final rows = _visible;
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      itemCount: rows.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) => _DraftRow(
-        story: rows[index],
-        onContinue: _busy ? null : () => _continueWriting(rows[index]),
-        onDiscard: _busy ? null : () => _discard(rows[index]),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 640 ? 2 : 1;
+        const pad = 20.0;
+        final inner = constraints.maxWidth - pad * 2;
+        final tileWidth = (inner - 16 * (columns - 1)) / columns;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              for (final story in rows)
+                SizedBox(
+                  width: tileWidth,
+                  child: _DraftRow(
+                    story: story,
+                    onContinue: _busy ? null : () => _continueWriting(story),
+                    onDiscard: _busy ? null : () => _discard(story),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -211,54 +235,55 @@ class _DraftRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ready = publishReadiness(
-      body: story.body,
-      timeframeStart: story.timeframeStart,
-      personIds: story.personIds,
-      placeId: story.placeId,
-    );
-    final preview = _bodyPreview(story);
+    final excerpt = _bodyExcerpt(story);
     return KeyedSubtree(
       key: Key('draft-row-${story.id}'),
-      child: Card(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: albumParchment,
+          borderRadius: BorderRadius.circular(albumCardRadius),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x142C2416),
+              blurRadius: 18,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _timeframeLabel(story),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(preview, style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (!ready.hasBody) const Chip(label: Text('Missing text')),
-                  if (!ready.hasPerson)
-                    const Chip(label: Text('Missing people')),
-                  if (!ready.hasPlace) const Chip(label: Text('Missing place')),
-                  if (story.photoCount <= 0)
-                    const Chip(label: Text('Missing photos')),
-                  if (ready.canPublish)
-                    const Chip(label: Text('Ready to publish')),
-                ],
-              ),
-              const SizedBox(height: 8),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  TextButton(
-                    onPressed: onContinue,
-                    child: const Text('Continue writing'),
+                  Expanded(
+                    child: Text(
+                      _timeframeLabel(story),
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
                   ),
-                  TextButton(
-                    onPressed: onDiscard,
-                    child: const Text('Discard'),
-                  ),
+                  const SizedBox(width: 12),
+                  _StatusPill(label: _statusPill(story)),
                 ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                excerpt,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyLarge
+                    ?.copyWith(fontSize: 18, height: 1.45),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: onContinue,
+                child: const Text('Continue writing'),
+              ),
+              TextButton(
+                onPressed: onDiscard,
+                child: const Text('Discard draft'),
               ),
             ],
           ),
@@ -268,8 +293,47 @@ class _DraftRow extends StatelessWidget {
   }
 }
 
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: albumSage.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+      ),
+    );
+  }
+}
+
+/// One status for the card. Filter chips still expose every missing field.
+String _statusPill(Story story) {
+  final ready = publishReadiness(
+    title: story.title,
+    body: story.body,
+    timeframeStart: story.timeframeStart,
+    personIds: story.personIds,
+    placeId: story.placeId,
+  );
+  if (ready.canPublish) return 'Ready to publish';
+  if (!ready.hasTitle) return 'Missing title';
+  if (!ready.hasBody) return 'Missing text';
+  if (!ready.hasPerson) return 'Missing people';
+  if (!ready.hasPlace) return 'Missing place';
+  if (story.photoCount <= 0) return 'Missing photos';
+  return 'Draft';
+}
+
 bool _matchesFilter(Story story, _DraftsFilter filter) {
   final ready = publishReadiness(
+    title: story.title,
     body: story.body,
     timeframeStart: story.timeframeStart,
     personIds: story.personIds,
@@ -285,9 +349,9 @@ bool _matchesFilter(Story story, _DraftsFilter filter) {
   };
 }
 
-String _bodyPreview(Story story) {
-  final body = story.body?.trim() ?? '';
-  return body.isEmpty ? 'Untitled' : body;
+String _bodyExcerpt(Story story) {
+  final title = story.title?.trim() ?? '';
+  return title.isEmpty ? 'Untitled' : title;
 }
 
 String _timeframeLabel(Story story) {

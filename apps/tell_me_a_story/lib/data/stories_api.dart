@@ -58,30 +58,42 @@ class Story {
 
 class PublishReadiness {
   const PublishReadiness({
+    required this.hasTitle,
     required this.hasBody,
     required this.hasTimeframe,
     required this.hasPerson,
     required this.hasPlace,
   });
+  final bool hasTitle;
   final bool hasBody;
   final bool hasTimeframe;
   final bool hasPerson;
   final bool hasPlace;
-  bool get canPublish => hasBody && hasTimeframe && hasPerson && hasPlace;
+  bool get canPublish =>
+      hasTitle && hasBody && hasTimeframe && hasPerson && hasPlace;
 }
 
 PublishReadiness publishReadiness({
+  required String? title,
   required String? body,
   required DateTime? timeframeStart,
   required Iterable<String> personIds,
   required String? placeId,
 }) {
   return PublishReadiness(
+    hasTitle: (title ?? '').trim().isNotEmpty,
     hasBody: (body ?? '').trim().isNotEmpty,
     hasTimeframe: timeframeStart != null,
     hasPerson: personIds.isNotEmpty,
     hasPlace: placeId != null && placeId.isNotEmpty,
   );
+}
+
+/// Whitespace-only titles are stored as null so a saved title can be cleared.
+String? storedStoryTitle(String? title) {
+  if (title == null) return null;
+  final trimmed = title.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }
 
 void ensureValidDraftSave({required DateTime? timeframeStart}) {
@@ -99,6 +111,7 @@ abstract class StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String> personIds = const [],
@@ -107,6 +120,7 @@ abstract class StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String>? personIds,
@@ -134,6 +148,7 @@ class StoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String> personIds = const [],
@@ -145,6 +160,7 @@ class StoriesApi implements StoriesGateway {
         .insert({
           'family_id': familyId,
           'author_id': uid,
+          'title': storedStoryTitle(title),
           'body': body?.trim(),
           'timeframe_start': _date(timeframeStart),
           'timeframe_end': timeframeEnd == null ? null : _date(timeframeEnd),
@@ -163,6 +179,7 @@ class StoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String>? personIds,
@@ -176,6 +193,10 @@ class StoriesApi implements StoriesGateway {
     }
     if (timeframeEnd != null) {
       patch['timeframe_end'] = _date(timeframeEnd);
+    }
+    // Null leaves the column alone. A blank string clears a saved title.
+    if (title != null) {
+      patch['title'] = storedStoryTitle(title);
     }
     if (body != null) {
       patch['body'] = body.trim();
@@ -196,6 +217,7 @@ class StoriesApi implements StoriesGateway {
   Future<Story> publish(String storyId) async {
     final story = await getStory(storyId);
     if (!publishReadiness(
+      title: story.title,
       body: story.body,
       timeframeStart: story.timeframeStart,
       personIds: story.personIds,

@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/config/env.dart';
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
 import '../../data/comments_api.dart';
 import '../../data/people_api.dart';
 import '../../data/perspectives_api.dart' hide displayNameOrMember;
@@ -14,18 +16,22 @@ import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/stories_api.dart';
 import '../comments/comment_composer.dart';
+import '../perspectives/add_perspective_page.dart';
 import '../places/place_map.dart';
 import '../places/place_picker_modal.dart';
 import 'photo_strip.dart';
 import 'timeframe_chips.dart';
 
-/// First non-empty line of [body], else `Untitled`. Does not use `stories.title`.
-String storyHeadline(String? body) {
-  for (final line in (body ?? '').split('\n')) {
-    final t = line.trim();
-    if (t.isNotEmpty) return t;
-  }
+/// Large reader headline. Only a saved title is used.
+String readerHeadline({String? title}) {
+  final saved = title?.trim() ?? '';
+  if (saved.isNotEmpty) return saved;
   return 'Untitled';
+}
+
+/// Article under the headline. The full body stays, including its first line.
+String readerArticleBody({String? body}) {
+  return (body ?? '').trim();
 }
 
 /// Published-only reader at `/stories/:storyId`.
@@ -156,10 +162,14 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   }
 
   Future<void> _openPerspective() async {
-    final familyId = _story?.familyId;
-    final created = await context.push<Perspective>(
-      AppRoutes.storyPerspectivePath(widget.storyId),
-      extra: familyId,
+    final created = await AddPerspectivePage.show(
+      context,
+      storyId: widget.storyId,
+      familyId: _story?.familyId,
+      perspectivesApi: _perspectivesApi,
+      storiesApi: _stories,
+      storyAuthorId: _story?.authorId,
+      currentUserId: _currentUserId,
     );
     if (!mounted) return;
     if (created != null && !_perspectives.any((p) => p.id == created.id)) {
@@ -410,15 +420,14 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: const Key('story-reader'),
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leadingWidth: 120,
-        leading: TextButton(
+      appBar: AlbumTopBar(
+        leading: TextButton.icon(
           onPressed: () => context.go(AppRoutes.timeline),
-          child: const Text('Timeline'),
+          icon: const Icon(Icons.arrow_back, size: 18),
+          label: const Text('Timeline'),
         ),
       ),
-      body: SafeArea(child: _body(context)),
+      body: SafeArea(child: AlbumColumn(maxWidth: 1080, child: _body(context))),
     );
   }
 
@@ -436,96 +445,493 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     final story = _story!;
     final theme = Theme.of(context);
     final place = _place;
+    final article = theme.textTheme.bodyLarge?.copyWith(
+      fontSize: 18,
+      height: 1.55,
+    );
+    final headline = theme.textTheme.headlineMedium?.copyWith(
+      fontSize: 36,
+      height: 1.15,
+      fontWeight: FontWeight.w700,
+    );
+    final rest = readerArticleBody(body: story.body);
+    final canAddPhoto = _photos.length < maxPhotosPerStory;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            storyHeadline(story.body),
-            style: theme.textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Chip(label: Text(_timeframeLabel(story))),
-          ),
-          if (_peopleOnStory.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final person in _peopleOnStory)
-                  Chip(label: Text(person.name)),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFE7DECE)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(readerHeadline(title: story.title), style: headline),
+              if (story.publishedAt != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Documented ${_albumMonthYear(story.publishedAt!)}',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: const Color(0xFF6B5E55),
+                  ),
+                ),
               ],
+              const SizedBox(height: 20),
+              const Divider(height: 1, color: Color(0xFFE7DECE)),
+              const SizedBox(height: 16),
+              _metaRow(story, place),
+              if (rest.isNotEmpty) ...[
+                const SizedBox(height: 28),
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: _dropCapText(rest, article),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 28),
+              const Divider(height: 1, color: Color(0xFFE7DECE)),
+              const SizedBox(height: 20),
+              _sectionHeader(
+                icon: Icons.photo_library_outlined,
+                iconColor: albumTerracotta,
+                title: 'Keepsake Photos & Artifacts',
+                subtitle: _photoCountLine(_photos.length),
+                trailing: TextButton.icon(
+                  onPressed: canAddPhoto ? _onAddPhoto : null,
+                  icon: const Icon(
+                    Icons.add_photo_alternate_outlined,
+                    size: 18,
+                  ),
+                  label: const Text('Add photos'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  final columns = width >= 900 ? 4 : (width >= 560 ? 2 : 1);
+                  return PhotoStrip(
+                    photos: _photos,
+                    previews: _previews,
+                    onAdd: _onAddPhoto,
+                    onRemove: _onRemovePhoto,
+                    onRetry: _onRetryPhoto,
+                    uploadFailed: _photoError,
+                    canAdd: canAddPhoto,
+                    columns: columns,
+                    addLabel: 'Add photos to story',
+                    addHint: 'Up to $maxPhotosPerStory photos',
+                  );
+                },
+              ),
+              const SizedBox(height: 28),
+              const Divider(height: 1, color: Color(0xFFE7DECE)),
+              const SizedBox(height: 20),
+              _sectionHeader(
+                icon: Icons.diversity_3_outlined,
+                iconColor: albumSage,
+                title: 'Perspectives',
+                subtitle:
+                    'Full alternate tellings contributed by family members',
+                trailing: FilledButton.icon(
+                  onPressed: _openPerspective,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: albumTerracotta,
+                    foregroundColor: Colors.white,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: const Icon(Icons.add_comment_outlined, size: 18),
+                  label: const Text('+ Add your perspective'),
+                ),
+              ),
+              if (_perspectives.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                for (final row in _perspectives) ...[
+                  _perspectiveCard(row),
+                  const SizedBox(height: 12),
+                ],
+              ],
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: Color(0xFFE7DECE)),
+              const SizedBox(height: 20),
+              _sectionHeader(
+                icon: Icons.forum_outlined,
+                iconColor: albumTerracotta,
+                title: 'Comments',
+                countLabel: _comments.length == 1
+                    ? '1 note'
+                    : '${_comments.length} notes',
+                trailing: TextButton.icon(
+                  onPressed: _openComposer,
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('+ Add comment'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final row in _comments)
+                CommentTile(
+                  comment: row,
+                  canDelete:
+                      _currentUserId != null && row.authorId == _currentUserId,
+                  onDelete: () => _deleteComment(row),
+                ),
+              if (_composingComment)
+                KeyedSubtree(
+                  key: _composerKey,
+                  child: CommentComposer(
+                    onPost: _postComment,
+                    focusNode: _composerFocus,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _metaRow(Story story, Place? place) {
+    final chips = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _timeframePill(_timeframeLabel(story)),
+        for (final person in _peopleOnStory) _personChip(person),
+      ],
+    );
+    if (place == null) return chips;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final location = _locationCard(place);
+        if (constraints.maxWidth < 680) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [chips, const SizedBox(height: 12), location],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: chips),
+            const SizedBox(width: 16),
+            SizedBox(width: 280, child: location),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _timeframePill(String label) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3EDE6),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_today, size: 14, color: albumTerracotta),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ],
-          if (place != null) ...[
-            const SizedBox(height: 12),
-            Text(place.label, style: theme.textTheme.titleSmall),
-            const SizedBox(height: 8),
-            _buildPlaceMap(place),
+        ),
+      ),
+    );
+  }
+
+  Widget _personChip(Person person) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F1EB),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE7DECE)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _initialsAvatar(person.name, size: 22),
+            const SizedBox(width: 6),
+            Text(person.name, style: Theme.of(context).textTheme.labelMedium),
+            if (person.relationship.trim().isNotEmpty) ...[
+              const SizedBox(width: 4),
+              Text(
+                person.relationship,
+                style: Theme.of(context).textTheme.labelSmall
+                    ?.copyWith(color: const Color(0xFF6B5E55)),
+              ),
+            ],
           ],
-          const SizedBox(height: 16),
-          Text(story.body ?? '', style: theme.textTheme.bodyLarge),
-          const SizedBox(height: 24),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed:
-                  _photos.length < maxPhotosPerStory ? _onAddPhoto : null,
-              child: const Text('Add photos'),
-            ),
-          ),
-          PhotoStrip(
-            photos: _photos,
-            previews: _previews,
-            onAdd: _onAddPhoto,
-            onRemove: _onRemovePhoto,
-            onRetry: _onRetryPhoto,
-            uploadFailed: _photoError,
-            canAdd: _photos.length < maxPhotosPerStory,
-          ),
-          const SizedBox(height: 24),
-          Text('Perspectives', style: theme.textTheme.titleMedium),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: _openPerspective,
-              child: const Text('+ Add your perspective'),
-            ),
-          ),
-          for (final row in _perspectives) ...[
-            Text(row.authorLabel, style: theme.textTheme.titleSmall),
-            Text(row.body, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _locationCard(Place place) {
+    final failed = _mapFailed || !_tokenOk;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F1EB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE7DECE)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!failed)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(width: 96, child: _buildPlaceMap(place)),
+              ),
+            if (!failed) const SizedBox(width: 10),
+            Expanded(child: _locationCopy(place, failed: failed)),
           ],
-          const SizedBox(height: 8),
-          Text('Comments', style: theme.textTheme.titleMedium),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: _openComposer,
-              child: const Text('+ Add comment'),
-            ),
-          ),
-          for (final row in _comments)
-            CommentTile(
-              comment: row,
-              canDelete:
-                  _currentUserId != null && row.authorId == _currentUserId,
-              onDelete: () => _deleteComment(row),
-            ),
-          if (_composingComment)
-            KeyedSubtree(
-              key: _composerKey,
-              child: CommentComposer(
-                onPost: _postComment,
-                focusNode: _composerFocus,
+        ),
+      ),
+    );
+  }
+
+  Widget _locationCopy(Place place, {required bool failed}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.pin_drop_outlined, size: 14, color: albumSage),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                'Story Location',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall
+                    ?.copyWith(color: albumSage, fontWeight: FontWeight.w700),
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          place.label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelLarge
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        Text(
+          place.address,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: const Color(0xFF6B5E55)),
+        ),
+        if (failed) ...[
+          const SizedBox(height: 8),
+          const Text(placeMapFailureCopy),
+          TextButton(
+            onPressed: _retryMap,
+            child: const Text(placeMapRetryLabel),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _perspectiveCard(Perspective row) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F1EB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE7DECE)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _initialsAvatar(row.authorLabel, size: 36),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        row.authorLabel,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontSize: 18,
+                        ),
+                      ),
+                      Text(
+                        'Recorded ${_albumDate(row.createdAt)}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: const Color(0xFF6B5E55),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            DecoratedBox(
+              decoration: const BoxDecoration(
+                border: Border(
+                  left: BorderSide(color: albumTerracotta, width: 2),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Text(
+                  row.body,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontSize: 16,
+                    height: 1.5,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    String? subtitle,
+    String? countLabel,
+    required Widget trailing,
+  }) {
+    final theme = Theme.of(context);
+    final titleBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                title,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            if (countLabel != null) ...[
+              const SizedBox(width: 8),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3EDE6),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  child: Text(
+                    countLabel,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: const Color(0xFF6B5E55),
+            ),
+          ),
+        ],
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 640) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [titleBlock, const SizedBox(height: 8), trailing],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: titleBlock),
+            trailing,
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _initialsAvatar(String name, {required double size}) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Color(0xFFE7D5CC),
+        shape: BoxShape.circle,
+      ),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Center(
+          child: Text(
+            _initials(name),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontSize: size < 28 ? 9 : 12,
+              fontWeight: FontWeight.w700,
+              color: albumTerracotta,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dropCapText(String text, TextStyle? article) {
+    final style = article ?? const TextStyle(fontSize: 18, height: 1.5);
+    final chars = text.characters;
+    final first = chars.first;
+    final rest = chars.skip(1).string;
+    return Text.rich(
+      TextSpan(
+        style: style,
+        children: [
+          TextSpan(
+            text: first,
+            style: style.copyWith(fontSize: 52, height: 0.8),
+          ),
+          TextSpan(text: rest),
         ],
       ),
     );
@@ -552,7 +958,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     return PlaceMap(
       lat: place.lat,
       lng: place.lng,
-      height: 140,
+      height: 72,
       onTileError: (error, stackTrace) {
         if (!mounted) return;
         setState(() => _mapFailed = true);
@@ -582,4 +988,48 @@ String _ymd(DateTime value) {
   final m = value.month.toString().padLeft(2, '0');
   final d = value.day.toString().padLeft(2, '0');
   return '$y-$m-$d';
+}
+
+const _monthShort = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+String _albumDate(DateTime value) {
+  final local = value.toLocal();
+  return '${_monthShort[local.month - 1]} ${local.day}, ${local.year}';
+}
+
+String _albumMonthYear(DateTime value) {
+  final local = value.toLocal();
+  return '${_monthShort[local.month - 1]} ${local.year}';
+}
+
+String _photoCountLine(int count) {
+  final noun = count == 1 ? 'family item' : 'family items';
+  return '$count $noun attached to this memory';
+}
+
+String _initials(String name) {
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) {
+    final word = parts.first;
+    return (word.length == 1 ? word : word.substring(0, 2)).toUpperCase();
+  }
+  return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
 }

@@ -50,6 +50,7 @@ final _park = Place(
 
 Story _published({
   String id = _storyId,
+  String? title,
   String? body = 'Picnic at the lake\nWe brought pie.',
   DateTime? timeframeStart,
   DateTime? timeframeEnd,
@@ -61,6 +62,7 @@ Story _published({
     id: id,
     familyId: _familyId,
     authorId: 'u1',
+    title: title,
     body: body,
     timeframeStart: timeframeStart ?? DateTime(1980, 1, 1),
     timeframeEnd: timeframeEnd ?? DateTime(1989, 12, 31),
@@ -83,6 +85,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String> personIds = const [],
@@ -95,6 +98,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? title,
     String? body,
     String? placeId,
     List<String>? personIds,
@@ -462,16 +466,21 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  test('storyHeadline uses first non-empty line else Untitled', () {
+  test('readerHeadline uses only a saved title and keeps the full body', () {
     expect(
-      storyHeadline('Picnic at the lake\nWe brought pie.'),
-      'Picnic at the lake',
+      readerHeadline(title: 'Making Blackberry Jam on the Back Porch'),
+      'Making Blackberry Jam on the Back Porch',
     );
-    expect(storyHeadline('\n  \nThe picnic'), 'The picnic');
-    expect(storyHeadline('  Hello  '), 'Hello');
-    expect(storyHeadline(null), 'Untitled');
-    expect(storyHeadline(''), 'Untitled');
-    expect(storyHeadline('   \n  '), 'Untitled');
+    expect(
+      readerArticleBody(body: 'Picnic at the lake\nWe brought pie.'),
+      'Picnic at the lake\nWe brought pie.',
+    );
+    expect(readerHeadline(title: '   '), 'Untitled');
+    expect(readerHeadline(title: null), 'Untitled');
+    expect(
+      readerArticleBody(body: 'Picnic at the lake\nWe brought pie.'),
+      'Picnic at the lake\nWe brought pie.',
+    );
   });
 
   testWidgets('published story renders body, people, place, sections', (
@@ -526,10 +535,11 @@ void main() {
 
     expect(find.byKey(const Key('story-reader')), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'Timeline'), findsOneWidget);
-    expect(find.text('Picnic at the lake'), findsOneWidget);
+    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.textContaining('Picnic at the lake'), findsOneWidget);
     expect(find.textContaining('We brought pie.'), findsOneWidget);
     expect(find.text('1980s'), findsOneWidget);
-    expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
+    expect(find.text('Ada'), findsOneWidget);
     expect(find.text('Bob'), findsNothing);
     expect(find.text('Central Park'), findsOneWidget);
     expect(find.byKey(const Key('stub-map')), findsOneWidget);
@@ -555,6 +565,7 @@ void main() {
 
     expect(find.byKey(const Key('comment-composer')), findsNothing);
 
+    await tester.ensureVisible(find.text('+ Add comment'));
     await tester.tap(find.text('+ Add comment'));
     await tester.pumpAndSettle();
 
@@ -664,6 +675,30 @@ void main() {
     expect(find.text('Member'), findsNWidgets(2));
   });
 
+  testWidgets('saved title is the headline and the full body stays', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(
+          story: _published(
+            title: 'Making Blackberry Jam on the Back Porch',
+            body: 'Picnic at the lake\nWe brought pie.',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Making Blackberry Jam on the Back Porch'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Picnic at the lake'), findsOneWidget);
+    expect(find.textContaining('We brought pie.'), findsOneWidget);
+    expect(find.text('Timeline'), findsOneWidget);
+  });
+
   testWidgets('empty body headline is Untitled', (tester) async {
     await tester.pumpWidget(
       _readerApp(
@@ -691,7 +726,8 @@ void main() {
 
     delay.complete();
     await tester.pumpAndSettle();
-    expect(find.text('Picnic at the lake'), findsOneWidget);
+    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.textContaining('Picnic at the lake'), findsOneWidget);
   });
 
   testWidgets('ancillary load error shows SnackBar and keeps the story', (
@@ -707,7 +743,8 @@ void main() {
     await tester.pump();
 
     expect(find.byType(SnackBar), findsOneWidget);
-    expect(find.text('Picnic at the lake'), findsOneWidget);
+    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.textContaining('Picnic at the lake'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
   });
 
@@ -732,6 +769,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('+ Add your perspective'));
     await tester.tap(find.text('+ Add your perspective'));
     await tester.pumpAndSettle();
 
@@ -750,14 +788,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('+ Add your perspective'));
     await tester.tap(find.text('+ Add your perspective'));
     await tester.pumpAndSettle();
 
     await tester.enterText(
-      find.byType(TextField),
+      find.byKey(const Key('perspective-body')),
       'From the porch it looked different.',
     );
     await tester.pump();
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Publish perspective'),
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Publish perspective'));
     await tester.pumpAndSettle();
 
@@ -782,6 +824,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('+ Add comment'));
     await tester.tap(find.text('+ Add comment'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '  I remember the pie.  ');
@@ -805,6 +848,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('+ Add comment'));
     await tester.tap(find.text('+ Add comment'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Post'));
@@ -829,6 +873,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('+ Add comment'));
     await tester.tap(find.text('+ Add comment'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Did not save');
@@ -882,6 +927,7 @@ void main() {
     expect(find.byKey(const Key('comment-menu-mine')), findsOneWidget);
     expect(find.byKey(const Key('comment-menu-theirs')), findsNothing);
 
+    await tester.ensureVisible(find.byKey(const Key('comment-menu-mine')));
     await tester.tap(find.byKey(const Key('comment-menu-mine')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));

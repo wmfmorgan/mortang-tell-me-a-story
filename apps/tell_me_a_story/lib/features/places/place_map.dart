@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/config/env.dart';
+import '../../core/theme/album_theme.dart';
 
 /// Mapbox streets-v12 raster tile URL (never OSM).
 String mapboxStreetsTileUrl(String accessToken) {
@@ -56,45 +57,48 @@ class PlaceMap extends StatelessWidget {
     final center = hasPin ? LatLng(lat!, lng!) : const LatLng(20, 0);
     final zoom = hasPin ? 14.0 : 1.0;
 
-    return SizedBox(
-      height: height,
-      width: double.infinity,
-      child: FlutterMap(
-        key: mapKeyFor(lat: lat, lng: lng),
-        options: MapOptions(
-          initialCenter: center,
-          initialZoom: zoom,
-          interactionOptions: const InteractionOptions(
-            flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-          ),
-        ),
-        children: [
-          TileLayer(
-            urlTemplate: mapboxStreetsTileUrl(token),
-            tileDimension: mapboxStreetsTileDimension,
-            zoomOffset: mapboxStreetsZoomOffset,
-            userAgentPackageName: 'tell_me_a_story',
-            errorTileCallback: (tile, error, stackTrace) {
-              onTileError?.call(error, stackTrace);
-            },
-          ),
-          if (hasPin)
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: center,
-                  width: 40,
-                  height: 40,
-                  alignment: Alignment.topCenter,
-                  child: const Icon(
-                    Icons.location_on,
-                    color: Colors.red,
-                    size: 40,
-                  ),
-                ),
-              ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(albumCardRadius),
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: FlutterMap(
+          key: mapKeyFor(lat: lat, lng: lng),
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom: zoom,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
             ),
-        ],
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: mapboxStreetsTileUrl(token),
+              tileDimension: mapboxStreetsTileDimension,
+              zoomOffset: mapboxStreetsZoomOffset,
+              userAgentPackageName: 'tell_me_a_story',
+              errorTileCallback: (tile, error, stackTrace) {
+                onTileError?.call(error, stackTrace);
+              },
+            ),
+            if (hasPin)
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: center,
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.topCenter,
+                    child: const Icon(
+                      Icons.location_on,
+                      color: albumTerracotta,
+                      size: 40,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
