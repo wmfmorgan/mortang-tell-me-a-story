@@ -7,7 +7,10 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/config/env.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/families_api.dart';
+import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
@@ -34,6 +37,7 @@ class NewStoryPage extends StatefulWidget {
     this.hasMapboxToken,
     this.mapBuilder,
     this.draftId,
+    this.familiesApi,
   });
 
   final InviteGateway? inviteApi;
@@ -55,6 +59,8 @@ class NewStoryPage extends StatefulWidget {
   /// Resume a draft via `/stories/new?draft=`.
   final String? draftId;
 
+  final FamiliesGateway? familiesApi;
+
   @override
   State<NewStoryPage> createState() => _NewStoryPageState();
 }
@@ -71,6 +77,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
   final _body = TextEditingController();
 
   String? _familyId;
+  String? _menuFamilyId;
+  List<MemberFamily> _families = const [];
   String? _storyId;
   var _loadingFamily = true;
   var _busy = false;
@@ -132,6 +140,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       final id = await _invite.currentFamilyId();
       if (!mounted) return;
       setState(() => _familyId = id);
+      await _loadFamilies();
       final draftId = widget.draftId;
       if (draftId != null) {
         await _hydrateDraft(draftId);
@@ -481,25 +490,55 @@ class _NewStoryPageState extends State<NewStoryPage> {
     }
   }
 
+  Future<void> _loadFamilies() async {
+    List<MemberFamily> rows = const [];
+    try {
+      if (widget.familiesApi != null) {
+        rows = await widget.familiesApi!.listMine();
+      } else if (widget.inviteApi != null || widget.storiesApi != null) {
+        final id = _familyId;
+        if (id != null) {
+          rows = [
+            MemberFamily(id: id, name: 'Family', createdAt: DateTime.utc(2020)),
+          ];
+        }
+      } else {
+        rows = await FamiliesApi().listMine();
+      }
+    } catch (_) {
+      rows = const [];
+    }
+    if (!mounted) return;
+    setState(() => _families = rows);
+  }
+
+  void _selectFamily(String id) {
+    FamilySelection.remember(id);
+    setState(() => _menuFamilyId = id);
+  }
+
+  String get _shownFamilyId => _menuFamilyId ?? _familyId ?? '';
+
+  String get _familyName {
+    for (final family in _families) {
+      if (family.id == _shownFamilyId) return family.name;
+    }
+    return 'Family';
+  }
+
   @override
   Widget build(BuildContext context) {
     final place = _selectedPlace;
 
     return Scaffold(
-      appBar: AlbumTopBar(
-        screenLabel: 'New story',
-        actions: [
-          TextButton(
-            onPressed: _canSaveDraft ? _onSaveDraft : null,
-            child: const Text('Save draft'),
-          ),
-          const SizedBox(width: 8),
-          FilledButton(
-            onPressed: _actionsEnabled ? _onPublish : null,
-            child: const Text('Publish story'),
-          ),
-          const SizedBox(width: 4),
-        ],
+      appBar: AlbumHeader(
+        page: AlbumHeaderPage.capture,
+        familyName: _familyName,
+        families: _families,
+        currentFamilyId: _shownFamilyId,
+        onFamilySelected: _selectFamily,
+        onSaveDraft: _canSaveDraft ? _onSaveDraft : null,
+        onPublish: _actionsEnabled ? _onPublish : null,
       ),
       body: SafeArea(
         child: AlbumColumn(

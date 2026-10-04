@@ -39,16 +39,16 @@ void main() {
     expect(Env.inviteAppOrigin, 'http://127.0.0.1:3000');
   });
 
-  testWidgets('timeline far header shows Save draft and Publish', (
-    tester,
-  ) async {
+  testWidgets('timeline header shows Invite and New story', (tester) async {
     await tester.pumpWidget(
       MaterialApp(home: TimelinePage(api: _StubInviteApi())),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Save draft'), findsOneWidget);
-    expect(find.text('Publish'), findsOneWidget);
+    expect(find.text('Invite'), findsOneWidget);
+    expect(find.text('New story'), findsOneWidget);
     expect(find.text('Timeline'), findsWidgets);
+    expect(find.text('Save draft'), findsNothing);
+    expect(find.text('Publish'), findsNothing);
   });
 
   testWidgets('invite modal has Email and Link tabs only', (tester) async {

@@ -4,13 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/families_api.dart';
+import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../invites/invite_accept.dart';
+import '../invites/invite_modal.dart';
 import 'timeline_zoom.dart';
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
@@ -197,9 +200,42 @@ class _TimelinePageState extends State<TimelinePage> {
     await acceptInviteFromUriIfPresent(context: context, uri: uri, api: _api);
   }
 
-  void _openNewStory() => context.push(AppRoutes.newStory);
+  Future<void> _selectFamily(String id) async {
+    FamilySelection.remember(id);
+    if (id == _familyId) return;
+    final previousFocus = _focusedStoryId;
+    setState(() {
+      _familyId = id;
+      _loadingPublished = true;
+    });
+    _watchLive();
+    await _loadPublished();
+    if (!mounted) return;
+    final still =
+        previousFocus != null &&
+        _published.any((story) => story.id == previousFocus);
+    if (!still && previousFocus != null) {
+      setState(() {
+        _focusedStoryId = null;
+        _decadeStart = null;
+        _zoom = TimelineZoom.far;
+      });
+    }
+  }
 
-  void _openDrafts() => context.push(AppRoutes.drafts);
+  Future<void> _openInvite() async {
+    var familyId = _familyId;
+    if (familyId == null) {
+      familyId = await _api.currentFamilyId();
+    }
+    if (familyId == null) {
+      familyId = await _api.createFamily('Family');
+      if (!mounted) return;
+      setState(() => _familyId = familyId);
+    }
+    if (!mounted) return;
+    await InviteModal.show(context, familyId: familyId, api: _api);
+  }
 
   MemberFamily? get _currentFamily {
     for (final family in _families) {
@@ -317,54 +353,72 @@ class _TimelinePageState extends State<TimelinePage> {
     final showRail = !_loadingFamily && !_loadingPublished && bands.isNotEmpty;
     return Scaffold(
       backgroundColor: albumParchment,
-      appBar: _TimelineHeader(
-        zoom: _zoom,
+      appBar: AlbumHeader(
+        page: AlbumHeaderPage.timeline,
         familyName: family?.name ?? 'Family',
-        onNewStory: _openNewStory,
-        onDrafts: _openDrafts,
+        families: _families,
+        currentFamilyId: _familyId,
+        onFamilySelected: _selectFamily,
+        onInvite: _openInvite,
       ),
-      body: GestureDetector(
-        onScaleStart: (_) => _pinchLatched = false,
-        onScaleUpdate: _onPinch,
-        child: Stack(
-          children: [
-            Column(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // A 1×1 pass (web startup, before the view has a real size) makes
+          // the footer wrap one glyph per line and overflow this column.
+          if (constraints.maxWidth < 8 || constraints.maxHeight < 8) {
+            return const SizedBox.shrink();
+          }
+          final showFooter =
+              showRail &&
+              _zoom == TimelineZoom.far &&
+              constraints.maxHeight > 96;
+          return GestureDetector(
+            onScaleStart: (_) => _pinchLatched = false,
+            onScaleUpdate: _onPinch,
+            child: Stack(
               children: [
-                Expanded(child: _body(bands, decade)),
-                if (showRail && _zoom == TimelineZoom.far)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: Text(
-                      farFooter(familyName: family?.name ?? 'Family'),
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontStyle: FontStyle.italic,
-                        color: albumInk.withValues(alpha: 0.55),
+                Column(
+                  children: [
+                    Expanded(child: _body(bands, decade)),
+                    if (showFooter)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                        child: Text(
+                          farFooter(familyName: family?.name ?? 'Family'),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                fontStyle: FontStyle.italic,
+                                color: albumInk.withValues(alpha: 0.55),
+                              ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (showRail)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: _zoom == TimelineZoom.far ? 48 : 16,
+                    child: Align(
+                      alignment: Alignment.bottomRight,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _ZoomCluster(
+                          zoom: _zoom,
+                          onIn: _zoomIn,
+                          onOut: _zoomOut,
+                          onFit: _fitAll,
+                        ),
                       ),
                     ),
                   ),
               ],
             ),
-            if (showRail)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: _zoom == TimelineZoom.far ? 48 : 16,
-                child: Align(
-                  alignment: Alignment.bottomRight,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _ZoomCluster(
-                      zoom: _zoom,
-                      onIn: _zoomIn,
-                      onOut: _zoomOut,
-                      onFit: _fitAll,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -414,174 +468,6 @@ class _TimelinePageState extends State<TimelinePage> {
         onOpen: (story) => context.push('/stories/${story.id}'),
       ),
     };
-  }
-}
-
-class _TimelineHeader extends StatelessWidget implements PreferredSizeWidget {
-  const _TimelineHeader({
-    required this.zoom,
-    required this.familyName,
-    required this.onNewStory,
-    required this.onDrafts,
-  });
-
-  final TimelineZoom zoom;
-  final String familyName;
-  final VoidCallback onNewStory;
-  final VoidCallback onDrafts;
-
-  @override
-  Size get preferredSize => const Size.fromHeight(68);
-
-  @override
-  Widget build(BuildContext context) {
-    final ink = albumInk;
-    return Material(
-      color: albumParchment,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: albumInk.withValues(alpha: 0.15)),
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return Row(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            Text(
-                              'Tell Me a Story',
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    fontStyle: FontStyle.italic,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(width: 16),
-                            if (zoom == TimelineZoom.far ||
-                                zoom == TimelineZoom.mid)
-                              _FamilyPill(name: familyName),
-                            const SizedBox(width: 12),
-                            _NavLink(label: 'Timeline', selected: true),
-                            _NavLink(label: 'Stories'),
-                            _NavLink(label: 'Family Members'),
-                            _NavLink(label: 'Places'),
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8),
-                              child: _SearchChip(key: Key('timeline-search')),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: constraints.maxWidth,
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextButton(
-                              onPressed: onDrafts,
-                              child: const Text('Save draft'),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton(
-                              onPressed: onNewStory,
-                              child: const Text('Publish'),
-                            ),
-                            IconButton(
-                              onPressed: () {},
-                              icon: Icon(Icons.help_outline, color: ink),
-                              tooltip: 'Help',
-                            ),
-                            PopupMenuButton<String>(
-                              key: const Key('timeline-more'),
-                              tooltip: 'More',
-                              onSelected: (value) {
-                                if (value == 'drafts') onDrafts();
-                              },
-                              itemBuilder: (context) => const [
-                                PopupMenuItem(
-                                  value: 'drafts',
-                                  child: Text('Drafts'),
-                                ),
-                              ],
-                              icon: Icon(Icons.more_vert, color: ink),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavLink extends StatelessWidget {
-  const _NavLink({required this.label, this.selected = false});
-
-  final String label;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: selected ? albumTerracotta : albumInk.withValues(alpha: 0.7),
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          decoration: selected ? TextDecoration.underline : null,
-          decorationColor: albumTerracotta,
-          decorationThickness: 2,
-        ),
-      ),
-    );
-  }
-}
-
-class _FamilyPill extends StatelessWidget {
-  const _FamilyPill({required this.name});
-
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: albumSage.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: albumInk.withValues(alpha: 0.05)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.groups, size: 16, color: albumInk.withValues(alpha: 0.7)),
-          const SizedBox(width: 6),
-          Text(name, style: Theme.of(context).textTheme.labelMedium),
-        ],
-      ),
-    );
   }
 }
 
@@ -664,34 +550,6 @@ class _ZoomCluster extends StatelessWidget {
           controls,
         ],
       ],
-    );
-  }
-}
-
-class _SearchChip extends StatelessWidget {
-  const _SearchChip({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push(AppRoutes.search),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: albumInk.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.search, size: 16),
-              SizedBox(width: 6),
-              Text('Search archive...', style: TextStyle(fontSize: 12)),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -460,7 +460,9 @@ void main() {
       find.text('Finish the highlighted fields to publish.'),
       findsOneWidget,
     );
-    expect(find.text('New story'), findsOneWidget);
+    expect(find.text('Publish story'), findsOneWidget);
+    expect(find.text('New story'), findsNothing);
+    expect(find.text('Invite'), findsNothing);
   });
 
   testWidgets('Save draft with timeframe calls createDraft', (tester) async {
@@ -545,7 +547,9 @@ void main() {
       find.text('Finish the highlighted fields to publish.'),
       findsOneWidget,
     );
-    expect(find.text('New story'), findsOneWidget);
+    expect(find.text('Publish story'), findsOneWidget);
+    expect(find.text('New story'), findsNothing);
+    expect(find.text('Invite'), findsNothing);
   });
 
   testWidgets('title field is saved on create and update', (tester) async {

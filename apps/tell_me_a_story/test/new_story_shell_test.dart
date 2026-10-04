@@ -181,7 +181,9 @@ void main() {
     await tester.pumpWidget(_shell());
     await tester.pumpAndSettle();
 
-    expect(find.text('New story'), findsOneWidget);
+    expect(find.text('Tell Me a Story'), findsOneWidget);
+    expect(find.text('New story'), findsNothing);
+    expect(find.text('Invite'), findsNothing);
     expect(find.text('Add person'), findsOneWidget);
     expect(find.text('Choose place'), findsOneWidget);
     expect(find.text('Capture fields arrive in M4.'), findsNothing);

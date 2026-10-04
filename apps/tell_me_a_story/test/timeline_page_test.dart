@@ -7,11 +7,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/core/theme/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
+import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
@@ -125,6 +128,18 @@ class _FakeLive implements TimelineLive {
   void dispose() {}
 
   void emit() => onChange?.call();
+}
+
+class _RecordingStories extends _FakeStoriesApi {
+  _RecordingStories({super.published});
+
+  final loads = <String>[];
+
+  @override
+  Future<List<Story>> listPublished(String familyId) async {
+    loads.add(familyId);
+    return super.listPublished(familyId);
+  }
 }
 
 class _SlowStoriesApi extends _FakeStoriesApi {
@@ -246,24 +261,31 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 
-  testWidgets('far header has Publish, Save draft, and Drafts in More', (
+  testWidgets('shared header shows Invite, New story, and Drafts', (
     tester,
   ) async {
     await tester.pumpWidget(_timeline(stories: _FakeStoriesApi(published: [])));
     await tester.pumpAndSettle();
 
-    expect(find.text('Publish'), findsOneWidget);
-    expect(find.text('Save draft'), findsOneWidget);
     expect(find.text('Tell Me a Story'), findsOneWidget);
-    expect(find.byKey(const Key('timeline-search')), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('timeline-more')));
-    await tester.pumpAndSettle();
+    expect(find.text('Timeline'), findsWidgets);
     expect(find.text('Drafts'), findsOneWidget);
+    expect(find.text('Invite'), findsOneWidget);
+    expect(find.text('New story'), findsOneWidget);
+    expect(find.text('Family'), findsOneWidget);
+    expect(find.byKey(const Key('timeline-search')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
+    expect(find.text('Save draft'), findsNothing);
+    expect(find.text('Publish'), findsNothing);
+    expect(find.text('Stories'), findsNothing);
+    expect(find.text('Family Members'), findsNothing);
+    expect(find.text('Places'), findsNothing);
+    expect(find.text('Help'), findsNothing);
+    expect(find.byKey(const Key('timeline-more')), findsNothing);
   });
 
   testWidgets('album AppBar fits at 320px without overflow', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(320, 568));
+    await tester.binding.setSurfaceSize(const Size(320, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
@@ -275,8 +297,139 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Publish'), findsOneWidget);
-    expect(find.text('Save draft'), findsOneWidget);
+    expect(find.byKey(const Key('timeline-search')), findsOneWidget);
+    expect(find.text('Drafts'), findsOneWidget);
+    expect(find.text('Invite'), findsOneWidget);
+    expect(find.text('New story'), findsOneWidget);
+  });
+
+  testWidgets('1px layout pass does not overflow the timeline column', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1, 1));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        theme: albumTheme(),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('above 320 the search chip shrinks before the wordmark', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1370, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: []),
+        theme: albumTheme(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.renderObject<RenderBox>(find.byType(AlbumHeader)).size.height,
+      72,
+    );
+    expect(
+      tester.widget<Text>(find.text('Tell Me a Story')).style?.fontSize,
+      24,
+    );
+    expect(
+      tester.renderObject<RenderBox>(find.text('Tell Me a Story')).size.width,
+      greaterThan(300),
+    );
+    final search = tester
+        .renderObject<RenderBox>(find.byKey(const Key('timeline-search')))
+        .size
+        .width;
+    expect(search, lessThan(224));
+    expect(search, greaterThan(100));
+  });
+
+  testWidgets('family switch reloads that family and Invite uses it', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    const otherId = '00000000-0000-0000-0000-000000000002';
+    final stories = _RecordingStories(published: [_published(title: 'Jam')]);
+    final live = _FakeLive();
+    await tester.pumpWidget(
+      _timeline(
+        stories: stories,
+        live: live,
+        families: _FakeFamilies([
+          MemberFamily(
+            id: _familyId,
+            name: 'Ada',
+            createdAt: DateTime.utc(2020),
+          ),
+          MemberFamily(id: otherId, name: 'Bea', createdAt: DateTime.utc(2021)),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(live.familyId, _familyId);
+    expect(stories.loads, [_familyId]);
+
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bea').last);
+    await tester.pumpAndSettle();
+
+    expect(stories.loads.last, otherId);
+    expect(live.familyId, otherId);
+    expect(find.byKey(const Key('timeline-dot-s1')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('header-invite')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<InviteModal>(find.byType(InviteModal)).familyId,
+      otherId,
+    );
+  });
+
+  testWidgets('Drafts and New story leave the timeline', (tester) async {
+    final router = GoRouter(
+      initialLocation: AppRoutes.timeline,
+      routes: [
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) => TimelinePage(
+            api: _FakeInviteApi(),
+            storiesApi: _FakeStoriesApi(published: []),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.drafts,
+          builder: (context, state) => const Text('drafts-screen'),
+        ),
+        GoRoute(
+          path: AppRoutes.newStory,
+          builder: (context, state) => const Text('new-story-screen'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Drafts'));
+    await tester.pumpAndSettle();
+    expect(find.text('drafts-screen'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New story'));
+    await tester.pumpAndSettle();
+    expect(find.text('new-story-screen'), findsOneWidget);
   });
 
   testWidgets('returning to timeline after publish reloads published list', (
