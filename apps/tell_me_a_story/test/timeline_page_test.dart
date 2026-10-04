@@ -12,6 +12,7 @@ import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -421,9 +422,9 @@ void main() {
           .opacity;
     }
 
-    expect(decadeOpacity('2020s'), 0.4);
+    expect(decadeOpacity('2020s'), 1);
     expect(decadeOpacity('1980s'), 1);
-    expect(decadeOpacity('1950s'), 0.4);
+    expect(decadeOpacity('1950s'), 1);
     expect(find.text('Jam (1980)'), findsNothing);
     expect(_tooltipFor(tester, 'mid'), 'Jam (1980)');
     await tester.tap(find.byKey(const Key('timeline-dot-mid')));
@@ -450,6 +451,127 @@ void main() {
     expect(opacityFor('mid') > opacityFor('early'), isTrue);
     expect(opacityFor('mid') > opacityFor('late'), isTrue);
     expect(find.byKey(const Key('timeline-stub-mid')), findsOneWidget);
+  });
+
+  test('a far decade fades only while it leaves the viewport', () {
+    expect(
+      farEdgeOpacity(
+        rowTop: 100,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: 400,
+      ),
+      1,
+    );
+    expect(
+      farEdgeOpacity(
+        rowTop: -40,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: 400,
+      ),
+      closeTo(0.5, 0.001),
+    );
+    expect(
+      farEdgeOpacity(
+        rowTop: 360,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: 400,
+      ),
+      closeTo(0.5, 0.001),
+    );
+    expect(
+      farEdgeOpacity(
+        rowTop: -80,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: 400,
+      ),
+      0,
+    );
+    expect(
+      farEdgeOpacity(
+        rowTop: 20,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: 400,
+      ),
+      1,
+    );
+  });
+
+  testWidgets('a far decade fades as it leaves and sharpens when it returns', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Arrival',
+              timeframeStart: DateTime(1954),
+            ),
+            _published(id: 'mid', title: 'Jam', timeframeStart: DateTime(1980)),
+            _published(
+              id: 'late',
+              title: 'Willow',
+              timeframeStart: DateTime(2024),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    double decadeOpacity(String label) {
+      return tester
+          .widget<Opacity>(
+            find
+                .ancestor(of: find.text(label), matching: find.byType(Opacity))
+                .first,
+          )
+          .opacity;
+    }
+
+    final scrollable = find
+        .ancestor(of: find.text('2020s'), matching: find.byType(Scrollable))
+        .first;
+    final view = tester.renderObject<RenderBox>(scrollable);
+    final row = tester.renderObject<RenderBox>(
+      find
+          .ancestor(of: find.text('2020s'), matching: find.byType(Opacity))
+          .first,
+    );
+    final slack =
+        row.localToGlobal(Offset.zero).dy - view.localToGlobal(Offset.zero).dy;
+    expect(slack, greaterThan(0));
+    expect(decadeOpacity('2020s'), 1);
+
+    final position = tester.state<ScrollableState>(scrollable).position;
+    final home = position.pixels;
+    position.jumpTo(home + slack + row.size.height / 2);
+    await tester.pumpAndSettle();
+
+    final leaving = tester.renderObject<RenderBox>(
+      find
+          .ancestor(of: find.text('2020s'), matching: find.byType(Opacity))
+          .first,
+    );
+    final leavingView = tester.renderObject<RenderBox>(scrollable);
+    final expected = farEdgeOpacity(
+      rowTop: leaving.localToGlobal(Offset.zero).dy,
+      rowHeight: leaving.size.height,
+      viewportTop: leavingView.localToGlobal(Offset.zero).dy,
+      viewportHeight: leavingView.size.height,
+    );
+    expect(expected, lessThan(1));
+    expect(decadeOpacity('2020s'), closeTo(expected, 0.02));
+
+    position.jumpTo(home);
+    await tester.pumpAndSettle();
+    expect(decadeOpacity('2020s'), 1);
   });
 
   testWidgets('oldest published story can sit at the dial center', (

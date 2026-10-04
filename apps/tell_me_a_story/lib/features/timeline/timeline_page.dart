@@ -748,6 +748,7 @@ class _FarRailState extends State<_FarRail> {
   final _viewportKey = GlobalKey();
   final _rowKeys = <int, GlobalKey>{};
   int? _centerYear;
+  Map<int, double> _opacities = const {};
   var _centered = false;
 
   GlobalKey _rowKey(int year) => _rowKeys.putIfAbsent(year, GlobalKey.new);
@@ -812,36 +813,59 @@ class _FarRailState extends State<_FarRail> {
     final viewport =
         _viewportKey.currentContext?.findRenderObject() as RenderBox?;
     if (viewport == null || !viewport.hasSize) return;
-    final centerY = viewport
-        .localToGlobal(Offset(0, viewport.size.height / 2))
-        .dy;
+    final viewportTop = viewport.localToGlobal(Offset.zero).dy;
+    final centerY = viewportTop + viewport.size.height / 2;
     int? bestYear;
     var best = double.infinity;
+    final opacities = <int, double>{};
     for (final band in widget.bands) {
       final row =
           _rowKey(band.startYear).currentContext?.findRenderObject()
               as RenderBox?;
       if (row == null || !row.hasSize) continue;
-      final mid = row.localToGlobal(Offset(0, row.size.height / 2)).dy;
+      final rowTop = row.localToGlobal(Offset.zero).dy;
+      final mid = rowTop + row.size.height / 2;
       final distance = (mid - centerY).abs();
+      opacities[band.startYear] = farEdgeOpacity(
+        rowTop: rowTop,
+        rowHeight: row.size.height,
+        viewportTop: viewportTop,
+        viewportHeight: viewport.size.height,
+      );
       if (distance < best) {
         best = distance;
         bestYear = band.startYear;
       }
     }
-    if (bestYear == null || bestYear == _centerYear) return;
-    setState(() => _centerYear = bestYear);
+    final yearChanged = bestYear != null && bestYear != _centerYear;
+    if (!yearChanged && _sameOpacity(opacities)) return;
+    setState(() {
+      if (bestYear != null) _centerYear = bestYear;
+      _opacities = opacities;
+    });
     DecadeBand? band;
     for (final candidate in widget.bands) {
       if (candidate.startYear == bestYear) band = candidate;
     }
     final story = band == null ? null : _highlight(band);
     final id = story?.id;
+    if (!yearChanged) return;
     if (id != null && id != widget.focusedId) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && id != widget.focusedId) widget.onFocus(id);
       });
     }
+  }
+
+  bool _sameOpacity(Map<int, double> next) {
+    if (next.length != _opacities.length) return false;
+    for (final entry in next.entries) {
+      final previous = _opacities[entry.key];
+      if (previous == null || (previous - entry.value).abs() > 0.01) {
+        return false;
+      }
+    }
+    return true;
   }
 
   int? _joinYear() {
@@ -913,11 +937,7 @@ class _FarRailState extends State<_FarRail> {
                             key: _rowKey(widget.bands[i].startYear),
                             band: widget.bands[i],
                             focused: widget.bands[i].startYear == _centerYear,
-                            opacity:
-                                widget.bands.length > 1 &&
-                                    (i == 0 || i == widget.bands.length - 1)
-                                ? 0.4
-                                : 1,
+                            opacity: _opacities[widget.bands[i].startYear] ?? 1,
                             highlight: _highlight(widget.bands[i]),
                             showBranch:
                                 joinYear != null &&
