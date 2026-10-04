@@ -387,7 +387,7 @@ class _TimelinePageState extends State<TimelinePage> {
     final child = _familyId == null ? null : childFamily(_families, _familyId!);
     return switch (_zoom) {
       TimelineZoom.far => _FarRail(
-        bands: bands.reversed.toList(),
+        bands: bands,
         focusedId: _focusedStoryId,
         child: child,
         onDot: _openMid,
@@ -787,8 +787,7 @@ class _FarRailState extends State<_FarRail> {
       if (story.id == widget.focusedId) return story;
     }
     if (band.stories.isEmpty) return null;
-    final oldestFirst = band.stories.reversed.toList();
-    return oldestFirst[oldestFirst.length ~/ 2];
+    return band.stories[band.stories.length ~/ 2];
   }
 
   void _centerInitial() {
@@ -933,6 +932,18 @@ class _FarRailState extends State<_FarRail> {
                                 joinYear != null && band.startYear == joinYear,
                             continueRail:
                                 joinYear != null && band.startYear >= joinYear,
+                            railAbove:
+                                joinYear != null &&
+                                widget.bands.any(
+                                  (other) => other.startYear > band.startYear,
+                                ),
+                            railBelow:
+                                joinYear != null &&
+                                widget.bands.any(
+                                  (other) =>
+                                      other.startYear >= joinYear &&
+                                      other.startYear < band.startYear,
+                                ),
                             branchName: widget.child?.name,
                             onDot: widget.onDot,
                           ),
@@ -1088,6 +1099,8 @@ class _FarDecadeRow extends StatelessWidget {
     required this.highlight,
     required this.showBranch,
     required this.continueRail,
+    required this.railAbove,
+    required this.railBelow,
     required this.branchName,
     required this.onDot,
   });
@@ -1098,12 +1111,14 @@ class _FarDecadeRow extends StatelessWidget {
   final Story? highlight;
   final bool showBranch;
   final bool continueRail;
+  final bool railAbove;
+  final bool railBelow;
   final String? branchName;
   final ValueChanged<Story> onDot;
 
   @override
   Widget build(BuildContext context) {
-    final stories = band.stories.reversed.toList();
+    final stories = band.stories;
     final count = countWord(band.stories.length, 'story', 'stories');
     final label = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -1223,8 +1238,8 @@ class _FarDecadeRow extends StatelessWidget {
                       if (continueRail)
                         Positioned(
                           left: railLeft,
-                          top: showBranch ? 0 : -22,
-                          bottom: -22,
+                          top: railAbove ? -22 : 0,
+                          bottom: railBelow ? -22 : 0,
                           width: 2,
                           child: IgnorePointer(
                             child: CustomPaint(

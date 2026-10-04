@@ -407,6 +407,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('2020s')).dy,
+      lessThan(tester.getTopLeft(find.text('1950s')).dy),
+    );
     await tester.tap(find.byKey(const Key('timeline-dot-mid')));
     await tester.pumpAndSettle();
 
