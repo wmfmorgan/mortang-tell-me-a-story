@@ -361,48 +361,64 @@ class _TimelinePageState extends State<TimelinePage> {
         onFamilySelected: _selectFamily,
         onInvite: _openInvite,
       ),
-      body: GestureDetector(
-        onScaleStart: (_) => _pinchLatched = false,
-        onScaleUpdate: _onPinch,
-        child: Stack(
-          children: [
-            Column(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // A 1×1 pass (web startup, before the view has a real size) makes
+          // the footer wrap one glyph per line and overflow this column.
+          if (constraints.maxWidth < 8 || constraints.maxHeight < 8) {
+            return const SizedBox.shrink();
+          }
+          final showFooter =
+              showRail &&
+              _zoom == TimelineZoom.far &&
+              constraints.maxHeight > 96;
+          return GestureDetector(
+            onScaleStart: (_) => _pinchLatched = false,
+            onScaleUpdate: _onPinch,
+            child: Stack(
               children: [
-                Expanded(child: _body(bands, decade)),
-                if (showRail && _zoom == TimelineZoom.far)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: Text(
-                      farFooter(familyName: family?.name ?? 'Family'),
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontStyle: FontStyle.italic,
-                        color: albumInk.withValues(alpha: 0.55),
+                Column(
+                  children: [
+                    Expanded(child: _body(bands, decade)),
+                    if (showFooter)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                        child: Text(
+                          farFooter(familyName: family?.name ?? 'Family'),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                fontStyle: FontStyle.italic,
+                                color: albumInk.withValues(alpha: 0.55),
+                              ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (showRail)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: _zoom == TimelineZoom.far ? 48 : 16,
+                    child: Align(
+                      alignment: Alignment.bottomRight,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _ZoomCluster(
+                          zoom: _zoom,
+                          onIn: _zoomIn,
+                          onOut: _zoomOut,
+                          onFit: _fitAll,
+                        ),
                       ),
                     ),
                   ),
               ],
             ),
-            if (showRail)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: _zoom == TimelineZoom.far ? 48 : 16,
-                child: Align(
-                  alignment: Alignment.bottomRight,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _ZoomCluster(
-                      zoom: _zoom,
-                      onIn: _zoomIn,
-                      onOut: _zoomOut,
-                      onFit: _fitAll,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

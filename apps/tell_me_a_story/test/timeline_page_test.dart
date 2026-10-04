@@ -302,6 +302,23 @@ void main() {
     expect(find.text('New story'), findsOneWidget);
   });
 
+  testWidgets('1px layout pass does not overflow the timeline column', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1, 1));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        theme: albumTheme(),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('family switch reloads that family and Invite uses it', (
     tester,
   ) async {
