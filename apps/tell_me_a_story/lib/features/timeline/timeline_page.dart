@@ -1319,6 +1319,7 @@ class _DialRow extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.all(focused ? 16 : 0),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: cardOnLeft
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
@@ -1453,80 +1454,95 @@ class _DialRow extends StatelessWidget {
               ),
             ),
           );
+    final node = Container(
+      width: focused ? 22 : 16,
+      height: focused ? 22 : 16,
+      decoration: BoxDecoration(
+        color: focused
+            ? albumTerracotta.withValues(alpha: 0.22)
+            : const Color(0xFFFFF8F6),
+        shape: BoxShape.circle,
+        border: Border.all(color: albumTerracotta, width: focused ? 2 : 1.5),
+      ),
+      child: Center(
+        child: Container(
+          width: focused ? 8 : 6,
+          height: focused ? 8 : 6,
+          decoration: const BoxDecoration(
+            color: albumTerracotta,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
     return Opacity(
       opacity: opacity,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 28),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: cardOnLeft ? card : note,
-                ),
-              ),
-              SizedBox(
-                width: 56,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned.fill(
-                      child: Align(
-                        child: Container(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned.fill(
+              child: Row(
+                children: [
+                  const Expanded(child: SizedBox.shrink()),
+                  SizedBox(
+                    width: 56,
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          top: 0,
+                          bottom: 0,
+                          left: 27,
                           width: 2,
-                          color: albumInk.withValues(alpha: 0.16),
-                        ),
-                      ),
-                    ),
-                    if (showBranchRail)
-                      Positioned(
-                        top: 0,
-                        bottom: 0,
-                        left: 36,
-                        child: CustomPaint(
-                          painter: _DashPainter(
-                            color: albumSage.withValues(alpha: 0.7),
-                          ),
-                          child: const SizedBox(width: 2),
-                        ),
-                      ),
-                    Container(
-                      width: focused ? 22 : 16,
-                      height: focused ? 22 : 16,
-                      decoration: BoxDecoration(
-                        color: focused
-                            ? albumTerracotta.withValues(alpha: 0.22)
-                            : const Color(0xFFFFF8F6),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: albumTerracotta,
-                          width: focused ? 2 : 1.5,
-                        ),
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: focused ? 8 : 6,
-                          height: focused ? 8 : 6,
-                          decoration: const BoxDecoration(
-                            color: albumTerracotta,
-                            shape: BoxShape.circle,
+                          child: ColoredBox(
+                            color: albumInk.withValues(alpha: 0.16),
                           ),
                         ),
-                      ),
+                        if (showBranchRail)
+                          Positioned(
+                            top: 0,
+                            bottom: 0,
+                            right: 0,
+                            width: 2,
+                            child: CustomPaint(
+                              painter: _DashPainter(
+                                color: albumSage.withValues(alpha: 0.7),
+                              ),
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const Expanded(child: SizedBox.shrink()),
+                ],
               ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [label, cardOnLeft ? note : card],
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: cardOnLeft ? card : note,
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 56),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [label, cardOnLeft ? note : card],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            node,
+          ],
         ),
       ),
     );

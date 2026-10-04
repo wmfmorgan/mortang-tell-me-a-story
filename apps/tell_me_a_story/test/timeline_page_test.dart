@@ -431,6 +431,26 @@ void main() {
     expect(find.byKey(const Key('timeline-stub-mid')), findsOneWidget);
   });
 
+  testWidgets('mid dial excerpt wraps without a paint overflow', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final body = List.filled(30, 'dolore eum sint eligendi et').join(' ');
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [_published(id: 's1', title: 'title2', body: body)],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-dot-s1')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('title2'), findsOneWidget);
+  });
+
   testWidgets('a draft in the gateway list stays off the rail', (tester) async {
     await tester.pumpWidget(
       _timeline(
