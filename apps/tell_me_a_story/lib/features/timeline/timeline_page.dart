@@ -1364,25 +1364,6 @@ class _DialRow extends StatelessWidget {
                           fontWeight: focused ? FontWeight.w700 : null,
                         ),
                       ),
-                    if (focused)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: albumTerracotta.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          'DIAL CENTER',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: albumTerracotta,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
                     if (photos != null)
                       Row(
                         mainAxisSize: MainAxisSize.min,

@@ -410,7 +410,7 @@ void main() {
 
     expect(find.text('Continuous Family Dial'), findsOneWidget);
     expect(find.text('1980 · IN FOCUS'), findsOneWidget);
-    expect(find.text('DIAL CENTER'), findsOneWidget);
+    expect(find.text('DIAL CENTER'), findsNothing);
     expect(find.text('Mid-1980s to Mid-1990s Era'), findsNothing);
 
     double opacityFor(String id) {
