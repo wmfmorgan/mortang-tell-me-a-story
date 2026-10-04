@@ -15,6 +15,7 @@ import '../../data/perspectives_api.dart' hide displayNameOrMember;
 import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/stories_api.dart';
+import '../../data/timeline_live.dart';
 import '../comments/comment_composer.dart';
 import '../perspectives/add_perspective_page.dart';
 import '../places/place_map.dart';
@@ -49,6 +50,7 @@ class StoryReaderPage extends StatefulWidget {
     this.currentUserId,
     this.hasMapboxToken,
     this.mapBuilder,
+    this.live,
   });
 
   final String storyId;
@@ -71,6 +73,9 @@ class StoryReaderPage extends StatefulWidget {
   /// When set, used instead of [PlaceMap] (widget tests).
   final PlaceMapBuilder? mapBuilder;
 
+  /// Family-scoped story feed. Tests omit this. Production subscribes.
+  final TimelineLive? live;
+
   @override
   State<StoryReaderPage> createState() => _StoryReaderPageState();
 }
@@ -83,6 +88,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   CommentsGateway? _commentsOverride;
   PerspectivesGateway? _perspectivesOverride;
   GoRouter? _router;
+  TimelineLive? _ownedLive;
+  String? _watchedFamily;
 
   var _loading = true;
   var _notFound = false;
@@ -130,6 +137,12 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   PerspectivesGateway get _perspectivesApi =>
       widget.perspectivesApi ?? (_perspectivesOverride ??= PerspectivesApi());
 
+  TimelineLive? get _live {
+    if (widget.live != null) return widget.live;
+    if (widget.storiesApi != null) return null;
+    return _ownedLive ??= SupabaseTimelineLive();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -150,8 +163,21 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   @override
   void dispose() {
     _router?.routerDelegate.removeListener(_onRouteChanged);
+    _ownedLive?.dispose();
     _composerFocus.dispose();
     super.dispose();
+  }
+
+  void _watchFamily(String familyId) {
+    if (_watchedFamily == familyId) return;
+    _watchedFamily = familyId;
+    _live?.watch(
+      familyId: familyId,
+      onChange: () {
+        if (!mounted || _busy || _composingComment) return;
+        _load();
+      },
+    );
   }
 
   void _onRouteChanged() {
@@ -203,6 +229,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         });
         return;
       }
+      _watchFamily(story.familyId);
 
       List<Person> people = const [];
       try {

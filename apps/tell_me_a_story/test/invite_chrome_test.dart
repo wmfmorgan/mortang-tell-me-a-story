@@ -8,10 +8,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 class _StubInviteApi implements InviteGateway {
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(
-      familyId: 'f',
-      membershipId: 'm',
-    );
+    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
   }
 
   @override
@@ -42,12 +39,15 @@ void main() {
     expect(Env.inviteAppOrigin, 'http://127.0.0.1:3000');
   });
 
-  testWidgets('timeline shows + Invite chrome lock control', (tester) async {
+  testWidgets('timeline far header shows Save draft and Publish', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(home: TimelinePage(api: _StubInviteApi())),
     );
     await tester.pumpAndSettle();
-    expect(find.text('+ Invite'), findsOneWidget);
+    expect(find.text('Save draft'), findsOneWidget);
+    expect(find.text('Publish'), findsOneWidget);
     expect(find.text('Timeline'), findsWidgets);
   });
 

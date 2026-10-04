@@ -16,6 +16,12 @@ class Story {
     this.publishedAt,
     this.personIds = const [],
     this.photoCount = 0,
+    this.placeLabel,
+    this.personNames = const [],
+    this.authorDisplayName,
+    this.commentCount = 0,
+    this.perspectiveCount = 0,
+    this.photoPaths = const [],
   });
   final String id;
   final String familyId;
@@ -29,6 +35,12 @@ class Story {
   final DateTime? publishedAt;
   final List<String> personIds;
   final int photoCount;
+  final String? placeLabel;
+  final List<String> personNames;
+  final String? authorDisplayName;
+  final int commentCount;
+  final int perspectiveCount;
+  final List<String> photoPaths;
 
   factory Story.fromJson(Map<String, dynamic> json) {
     final people = json['story_people'];
@@ -52,8 +64,64 @@ class Story {
           ? people.map((row) => (row as Map)['person_id'] as String).toList()
           : const [],
       photoCount: photos is List ? photos.length : 0,
+      placeLabel: _embedLabel(json['places']),
+      personNames: _personNames(people),
+      authorDisplayName: _authorName(json['profiles']),
+      commentCount: _rowCount(json['comments']),
+      perspectiveCount: _rowCount(json['perspectives']),
+      photoPaths: _photoPaths(photos),
     );
   }
+}
+
+String? _embedLabel(Object? places) {
+  if (places is Map) {
+    final label = places['label'];
+    if (label is String && label.trim().isNotEmpty) return label.trim();
+  }
+  return null;
+}
+
+List<String> _personNames(Object? people) {
+  if (people is! List) return const [];
+  final names = <String>[];
+  for (final row in people) {
+    if (row is! Map) continue;
+    final nested = row['people'];
+    if (nested is Map) {
+      final name = nested['name'];
+      if (name is String && name.trim().isNotEmpty) names.add(name.trim());
+    }
+  }
+  return names;
+}
+
+String? _authorName(Object? profiles) {
+  final map = profiles is Map
+      ? profiles
+      : (profiles is List && profiles.isNotEmpty && profiles.first is Map
+            ? profiles.first as Map
+            : null);
+  if (map == null) return null;
+  final name = map['display_name'];
+  if (name is String && name.trim().isNotEmpty) return name.trim();
+  return null;
+}
+
+int _rowCount(Object? rows) => rows is List ? rows.length : 0;
+
+List<String> _photoPaths(Object? photos) {
+  if (photos is! List) return const [];
+  final rows = photos.whereType<Map>().toList();
+  rows.sort(
+    (a, b) => ((a['sort_order'] as int?) ?? 0).compareTo(
+      (b['sort_order'] as int?) ?? 0,
+    ),
+  );
+  return [
+    for (final row in rows)
+      if (row['storage_path'] is String) row['storage_path'] as String,
+  ];
 }
 
 class PublishReadiness {
@@ -142,6 +210,9 @@ class StoriesApi implements StoriesGateway {
 
   static const _storySelect =
       'id, family_id, author_id, title, body, timeframe_start, timeframe_end, place_id, status, published_at, story_people(person_id), photos(id)';
+
+  static const _publishedSelect =
+      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, place_id, status, published_at, places(label), story_people(person_id, people(name)), profiles!author_id(display_name), photos(id, storage_path, sort_order), comments(id), perspectives(id)';
 
   @override
   Future<Story> createDraft({
@@ -274,7 +345,7 @@ class StoriesApi implements StoriesGateway {
   Future<List<Story>> listPublished(String familyId) async {
     final rows = await _client
         .from('stories')
-        .select(_storySelect)
+        .select(_publishedSelect)
         .eq('family_id', familyId)
         .eq('status', 'published')
         .order('timeframe_start');

@@ -1,0 +1,177 @@
+import '../../data/families_api.dart';
+import '../../data/stories_api.dart';
+
+enum TimelineZoom { far, mid, near }
+
+class DecadeBand {
+  const DecadeBand({required this.startYear, required this.stories});
+
+  final int startYear;
+  final List<Story> stories;
+
+  String get label => '${startYear}s';
+}
+
+int decadeStartYear(DateTime date) => (date.year ~/ 10) * 10;
+
+List<Story> publishedStories(Iterable<Story> stories) {
+  return stories
+      .where((story) => story.status == StoryStatus.published)
+      .toList();
+}
+
+/// Newest decade first. Stories inside a decade are newest first.
+List<DecadeBand> decadeBands(Iterable<Story> stories) {
+  final grouped = <int, List<Story>>{};
+  for (final story in publishedStories(stories)) {
+    final start = decadeStartYear(story.timeframeStart);
+    (grouped[start] ??= []).add(story);
+  }
+  final years = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+  return [
+    for (final year in years)
+      DecadeBand(
+        startYear: year,
+        stories: [...grouped[year]!]
+          ..sort((a, b) => b.timeframeStart.compareTo(a.timeframeStart)),
+      ),
+  ];
+}
+
+/// Oldest story first, for the mid rail.
+List<Story> decadeOldestFirst(Iterable<Story> stories, int startYear) {
+  final rows = publishedStories(stories)
+      .where((story) => decadeStartYear(story.timeframeStart) == startYear)
+      .toList();
+  rows.sort((a, b) => a.timeframeStart.compareTo(b.timeframeStart));
+  return rows;
+}
+
+/// Newest story first, for the near rail.
+List<Story> decadeNewestFirst(Iterable<Story> stories, int startYear) {
+  return decadeOldestFirst(stories, startYear).reversed.toList();
+}
+
+String storyTitle(Story story) {
+  final title = story.title?.trim() ?? '';
+  return title.isEmpty ? 'Untitled' : title;
+}
+
+String dotTooltip(Story story) =>
+    '${storyTitle(story)} (${story.timeframeStart.year})';
+
+String excerpt(String? body, {int max = 180}) {
+  final flat = (body ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (flat.length <= max) return flat;
+  return '${flat.substring(0, max - 1)}…';
+}
+
+String countWord(int count, String singular, String plural) {
+  return '$count ${count == 1 ? singular : plural}';
+}
+
+String farFooter({required String familyName}) =>
+    '$familyName Archive · heirloom stories preserved across the decades';
+
+/// Every published story, newest year first. Mid scrolls this whole list.
+List<Story> dialStories(Iterable<Story> stories) {
+  final rows = publishedStories(stories).toList();
+  rows.sort((a, b) => b.timeframeStart.compareTo(a.timeframeStart));
+  return rows;
+}
+
+/// Share of the viewport, at the top and at the bottom, where a decade
+/// starts to dim while it is still on screen.
+const farFadeBand = 0.45;
+
+/// 1 while the row's center is in the middle of the rail. Dims as that
+/// center enters the top or bottom band, and returns to 1 when it moves back.
+double farEdgeOpacity({
+  required double rowTop,
+  required double rowHeight,
+  required double viewportTop,
+  required double viewportHeight,
+}) {
+  if (rowHeight <= 0 || viewportHeight <= 0) return 1;
+  final band = viewportHeight * farFadeBand;
+  if (band <= 0) return 1;
+  final rowCenter = rowTop + rowHeight / 2;
+  final fromTop = rowCenter - viewportTop;
+  final fromBottom = viewportTop + viewportHeight - rowCenter;
+  final nearest = fromTop < fromBottom ? fromTop : fromBottom;
+  if (nearest >= band) return 1;
+  if (nearest <= 0) return 0;
+  return nearest / band;
+}
+
+/// Fade from 1 at the dial center to 0.10 at the edge of the viewport.
+double dialOpacity({required double distance, required double halfExtent}) {
+  if (halfExtent <= 0) return 1;
+  final t = (distance / halfExtent).clamp(0.0, 1.0);
+  return (1 - (t * 0.9)).clamp(0.10, 1.0);
+}
+
+String dialFocusLabel(int year) => '$year · IN FOCUS';
+
+String nearHeading(Iterable<Story> stories) {
+  final years = stories.map((story) => story.timeframeStart.year).toList();
+  if (years.isEmpty) return 'Generational Chapters';
+  final first = years.reduce((a, b) => a < b ? a : b);
+  final last = years.reduce((a, b) => a > b ? a : b);
+  if (first == last) return 'Generational Chapters ($first)';
+  return 'Generational Chapters ($first–$last)';
+}
+
+TimelineZoom zoomIn(TimelineZoom zoom) {
+  return switch (zoom) {
+    TimelineZoom.far => TimelineZoom.mid,
+    TimelineZoom.mid => TimelineZoom.near,
+    TimelineZoom.near => TimelineZoom.near,
+  };
+}
+
+TimelineZoom zoomOut(TimelineZoom zoom) {
+  return switch (zoom) {
+    TimelineZoom.near => TimelineZoom.mid,
+    TimelineZoom.mid => TimelineZoom.far,
+    TimelineZoom.far => TimelineZoom.far,
+  };
+}
+
+/// Child family when the member can see one, otherwise the parent.
+MemberFamily? branchFamily(List<MemberFamily> families, String currentId) {
+  for (final family in families) {
+    if (family.parentFamilyId == currentId) return family;
+  }
+  final current = families.cast<MemberFamily?>().firstWhere(
+    (family) => family?.id == currentId,
+    orElse: () => null,
+  );
+  final parentId = current?.parentFamilyId;
+  if (parentId == null) return null;
+  for (final family in families) {
+    if (family.id == parentId) return family;
+  }
+  return null;
+}
+
+MemberFamily? childFamily(List<MemberFamily> families, String currentId) {
+  for (final family in families) {
+    if (family.parentFamilyId == currentId) return family;
+  }
+  return null;
+}
+
+int closestStoryIndex(List<Story> oldestFirst, DateTime createdAt) {
+  if (oldestFirst.isEmpty) return 0;
+  var best = 0;
+  var bestDelta = 1 << 30;
+  for (var i = 0; i < oldestFirst.length; i++) {
+    final delta = (oldestFirst[i].timeframeStart.year - createdAt.year).abs();
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = i;
+    }
+  }
+  return best;
+}
