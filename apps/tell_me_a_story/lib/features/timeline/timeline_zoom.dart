@@ -81,27 +81,21 @@ String farFooter({
   return '$familyName Archive · ${countWord(stories, 'heirloom story', 'heirloom stories')} preserved across ${countWord(decades, 'decade', 'decades')}';
 }
 
-/// Decade whose mid-year starts the Stitch window (mid-decade through mid-next).
-int midAnchorDecade(DateTime date) {
-  final decade = decadeStartYear(date);
-  if (date.year < decade + 5) return decade - 10;
-  return decade;
-}
-
-/// Stories from the middle of [anchorDecade] through the middle of the next.
-List<Story> midWindowStories(Iterable<Story> stories, int anchorDecade) {
-  final start = anchorDecade + 5;
-  final end = anchorDecade + 15;
-  final rows = publishedStories(stories).where((story) {
-    final year = story.timeframeStart.year;
-    return year >= start && year <= end;
-  }).toList();
+/// Every published story, oldest year first. Mid scrolls this whole list.
+List<Story> dialStories(Iterable<Story> stories) {
+  final rows = publishedStories(stories).toList();
   rows.sort((a, b) => a.timeframeStart.compareTo(b.timeframeStart));
   return rows;
 }
 
-String midHeading(int anchorDecade) =>
-    'Mid-${anchorDecade}s to Mid-${anchorDecade + 10}s Era';
+/// Fade from 1 at the dial center to 0.10 at the edge of the viewport.
+double dialOpacity({required double distance, required double halfExtent}) {
+  if (halfExtent <= 0) return 1;
+  final t = (distance / halfExtent).clamp(0.0, 1.0);
+  return (1 - (t * 0.9)).clamp(0.10, 1.0);
+}
+
+String dialFocusLabel(int year) => '$year · IN FOCUS';
 
 String nearHeading(Iterable<Story> stories) {
   final years = stories.map((story) => story.timeframeStart.year).toList();

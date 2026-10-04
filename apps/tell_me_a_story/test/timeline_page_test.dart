@@ -336,8 +336,14 @@ void main() {
 
     await tester.tap(find.byKey(Key('timeline-dot-${story.id}')));
     await tester.pumpAndSettle();
+    expect(find.text('Continuous Family Dial'), findsOneWidget);
+    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
     expect(find.text('Mid'), findsOneWidget);
     expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.timeline,
+    );
 
     await tester.tap(find.byKey(Key('timeline-stub-${story.id}')));
     await tester.pumpAndSettle();
@@ -366,12 +372,63 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-dot-s1')));
     await tester.pumpAndSettle();
-    expect(find.text('Mid-1970s to Mid-1980s Era'), findsOneWidget);
+    expect(find.text('Continuous Family Dial'), findsOneWidget);
+    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('Mid-1980s'), findsNothing);
 
     await tester.tap(find.byKey(const Key('timeline-fit')));
     await tester.pumpAndSettle();
     expect(find.text('Family Archive Constellation'), findsOneWidget);
     expect(find.text('Fit'), findsOneWidget);
+  });
+
+  testWidgets('mid dial keeps the center year sharp and fades the edges', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Arrival',
+              timeframeStart: DateTime(1954),
+            ),
+            _published(id: 'mid', title: 'Jam', timeframeStart: DateTime(1980)),
+            _published(
+              id: 'late',
+              title: 'Willow',
+              timeframeStart: DateTime(2024),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-dot-mid')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Continuous Family Dial'), findsOneWidget);
+    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('DIAL CENTER'), findsOneWidget);
+    expect(find.text('Mid-1980s to Mid-1990s Era'), findsNothing);
+
+    double opacityFor(String id) {
+      return tester
+          .widget<Opacity>(
+            find
+                .ancestor(
+                  of: find.byKey(Key('timeline-stub-$id')),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity;
+    }
+
+    expect(opacityFor('mid') > opacityFor('early'), isTrue);
+    expect(opacityFor('mid') > opacityFor('late'), isTrue);
+    expect(find.byKey(const Key('timeline-stub-mid')), findsOneWidget);
   });
 
   testWidgets('a draft in the gateway list stays off the rail', (tester) async {
