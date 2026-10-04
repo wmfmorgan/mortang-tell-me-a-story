@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/core/theme/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
@@ -317,6 +318,41 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('above 320 the search chip shrinks before the wordmark', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1370, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: []),
+        theme: albumTheme(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.renderObject<RenderBox>(find.byType(AlbumHeader)).size.height,
+      72,
+    );
+    expect(
+      tester.widget<Text>(find.text('Tell Me a Story')).style?.fontSize,
+      24,
+    );
+    expect(
+      tester.renderObject<RenderBox>(find.text('Tell Me a Story')).size.width,
+      greaterThan(300),
+    );
+    final search = tester
+        .renderObject<RenderBox>(find.byKey(const Key('timeline-search')))
+        .size
+        .width;
+    expect(search, lessThan(224));
+    expect(search, greaterThan(100));
   });
 
   testWidgets('family switch reloads that family and Invite uses it', (

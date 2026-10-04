@@ -3,13 +3,16 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../data/family_selection.dart';
+
 /// Notifies [GoRouter] when auth session changes.
 class AuthRefresh extends ChangeNotifier {
   AuthRefresh({Stream<AuthState>? authStateChanges, bool? initiallySignedIn})
-      : _signedIn = initiallySignedIn ?? false {
+    : _signedIn = initiallySignedIn ?? false {
     if (authStateChanges != null) {
       _subscription = authStateChanges.listen((state) {
         final next = state.session != null;
+        if (!next) FamilySelection.clear();
         if (next != _signedIn) {
           _signedIn = next;
           notifyListeners();
