@@ -11,7 +11,6 @@ import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../invites/invite_accept.dart';
-import '../invites/invite_modal.dart';
 import 'timeline_zoom.dart';
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
@@ -198,17 +197,6 @@ class _TimelinePageState extends State<TimelinePage> {
     await acceptInviteFromUriIfPresent(context: context, uri: uri, api: _api);
   }
 
-  Future<void> _openInvite() async {
-    var familyId = _familyId;
-    if (familyId == null) {
-      familyId = await _api.createFamily('Family');
-      if (!mounted) return;
-      setState(() => _familyId = familyId);
-    }
-    if (!mounted) return;
-    await InviteModal.show(context, familyId: familyId, api: _api);
-  }
-
   void _openNewStory() => context.push(AppRoutes.newStory);
 
   void _openDrafts() => context.push(AppRoutes.drafts);
@@ -286,6 +274,18 @@ class _TimelinePageState extends State<TimelinePage> {
     if (next == TimelineZoom.near) _reveal(focus.id);
   }
 
+  void _openFullCards() {
+    final rows = dialStories(_published);
+    if (rows.isEmpty) return;
+    final focus = _storyById(_focusedStoryId) ?? rows.first;
+    setState(() {
+      _focusedStoryId = focus.id;
+      _decadeStart = decadeStartYear(focus.timeframeStart);
+      _zoom = TimelineZoom.near;
+    });
+    _reveal(focus.id);
+  }
+
   void _zoomOut() {
     setState(() => _zoom = zoomOut(_zoom));
   }
@@ -320,8 +320,6 @@ class _TimelinePageState extends State<TimelinePage> {
       appBar: _TimelineHeader(
         zoom: _zoom,
         familyName: family?.name ?? 'Family',
-        branch: _familyId == null ? null : branchFamily(_families, _familyId!),
-        onInvite: _loadingFamily ? null : _openInvite,
         onNewStory: _openNewStory,
         onDrafts: _openDrafts,
       ),
@@ -337,16 +335,12 @@ class _TimelinePageState extends State<TimelinePage> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                     child: Text(
-                      farFooter(
-                        familyName: family?.name ?? 'Family',
-                        stories: bands.fold<int>(
-                          0,
-                          (sum, band) => sum + band.stories.length,
-                        ),
-                        decades: bands.length,
-                      ),
+                      farFooter(familyName: family?.name ?? 'Family'),
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelMedium,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontStyle: FontStyle.italic,
+                        color: albumInk.withValues(alpha: 0.55),
+                      ),
                     ),
                   ),
               ],
@@ -357,9 +351,7 @@ class _TimelinePageState extends State<TimelinePage> {
                 right: 0,
                 bottom: _zoom == TimelineZoom.far ? 48 : 16,
                 child: Align(
-                  alignment: _zoom == TimelineZoom.far
-                      ? Alignment.bottomCenter
-                      : Alignment.bottomRight,
+                  alignment: Alignment.bottomRight,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _ZoomCluster(
@@ -394,7 +386,15 @@ class _TimelinePageState extends State<TimelinePage> {
     }
     final child = _familyId == null ? null : childFamily(_families, _familyId!);
     return switch (_zoom) {
-      TimelineZoom.far => _FarRail(bands: bands, onDot: _openMid),
+      TimelineZoom.far => _FarRail(
+        bands: bands.reversed.toList(),
+        focusedId: _focusedStoryId,
+        child: child,
+        onDot: _openMid,
+        onFocus: _onDialFocus,
+        onMid: _zoomIn,
+        onFullCards: _openFullCards,
+      ),
       TimelineZoom.mid => _MidRail(
         stories: dialStories(_published),
         focusedId: _focusedStoryId,
@@ -421,16 +421,12 @@ class _TimelineHeader extends StatelessWidget implements PreferredSizeWidget {
   const _TimelineHeader({
     required this.zoom,
     required this.familyName,
-    required this.branch,
-    required this.onInvite,
     required this.onNewStory,
     required this.onDrafts,
   });
 
   final TimelineZoom zoom;
   final String familyName;
-  final MemberFamily? branch;
-  final VoidCallback? onInvite;
   final VoidCallback onNewStory;
   final VoidCallback onDrafts;
 
@@ -470,49 +466,19 @@ class _TimelineHeader extends StatelessWidget implements PreferredSizeWidget {
                                   ),
                             ),
                             const SizedBox(width: 16),
-                            if (zoom == TimelineZoom.far) ...[
-                              _FamilyPill(name: familyName),
-                              if (branch != null) ...[
-                                const SizedBox(width: 8),
-                                _FamilyPill(
-                                  name: '${branch!.name} branch',
-                                  quiet: true,
-                                ),
-                              ],
-                            ],
-                            if (zoom == TimelineZoom.mid)
+                            if (zoom == TimelineZoom.far ||
+                                zoom == TimelineZoom.mid)
                               _FamilyPill(name: familyName),
                             const SizedBox(width: 12),
                             _NavLink(label: 'Timeline', selected: true),
                             _NavLink(label: 'Stories'),
                             _NavLink(label: 'Family Members'),
                             _NavLink(label: 'Places'),
-                            if (zoom == TimelineZoom.far) ...[
-                              const SizedBox(width: 12),
-                              SizedBox(
-                                width: 220,
-                                child: TextField(
-                                  key: const Key('timeline-search'),
-                                  readOnly: true,
-                                  decoration: InputDecoration(
-                                    isDense: true,
-                                    hintText: 'Search memories, places...',
-                                    prefixIcon: const Icon(
-                                      Icons.search,
-                                      size: 18,
-                                    ),
-                                    filled: true,
-                                    fillColor: albumParchment,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(24),
-                                    ),
-                                  ),
-                                ),
+                            if (zoom == TimelineZoom.far)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: _SearchChip(key: Key('timeline-search')),
                               ),
-                            ],
                             if (zoom == TimelineZoom.mid)
                               Padding(
                                 padding: const EdgeInsets.only(left: 8),
@@ -554,29 +520,15 @@ class _TimelineHeader extends StatelessWidget implements PreferredSizeWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (zoom == TimelineZoom.far) ...[
-                              OutlinedButton.icon(
-                                onPressed: onInvite,
-                                icon: const Icon(Icons.person_add, size: 18),
-                                label: const Text('Invite'),
-                              ),
-                              const SizedBox(width: 8),
-                              FilledButton.icon(
-                                onPressed: onNewStory,
-                                icon: const Icon(Icons.add, size: 18),
-                                label: const Text('New story'),
-                              ),
-                            ] else ...[
-                              TextButton(
-                                onPressed: onDrafts,
-                                child: const Text('Save draft'),
-                              ),
-                              const SizedBox(width: 8),
-                              FilledButton(
-                                onPressed: onNewStory,
-                                child: const Text('Publish'),
-                              ),
-                            ],
+                            TextButton(
+                              onPressed: onDrafts,
+                              child: const Text('Save draft'),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton(
+                              onPressed: onNewStory,
+                              child: const Text('Publish'),
+                            ),
                             IconButton(
                               onPressed: () {},
                               icon: Icon(Icons.help_outline, color: ink),
@@ -636,21 +588,18 @@ class _NavLink extends StatelessWidget {
 }
 
 class _FamilyPill extends StatelessWidget {
-  const _FamilyPill({required this.name, this.quiet = false});
+  const _FamilyPill({required this.name});
 
   final String name;
-  final bool quiet;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: quiet ? albumParchment : albumSage.withValues(alpha: 0.18),
+        color: albumSage.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: albumInk.withValues(alpha: quiet ? 0.12 : 0.05),
-        ),
+        border: Border.all(color: albumInk.withValues(alpha: 0.05)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -680,11 +629,11 @@ class _ZoomCluster extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hint = switch (zoom) {
-      TimelineZoom.far => 'Pinch or tap a dot to zoom',
+      TimelineZoom.far => 'Pinch · tap decade dot to zoom in · − to pull back',
       TimelineZoom.mid => 'Pinch · tap stub to zoom in · − to pull back',
       TimelineZoom.near => 'Pinch out · tap − · or Fit all to pull back',
     };
-    final fitLabel = zoom == TimelineZoom.far ? 'Fit' : 'Fit all';
+    const fitLabel = 'Fit all';
     final controls = Material(
       color: albumParchment,
       elevation: zoom == TimelineZoom.mid ? 6 : 2,
@@ -700,46 +649,30 @@ class _ZoomCluster extends StatelessWidget {
               onPressed: onOut,
               icon: const Icon(Icons.remove),
             ),
-            if (zoom != TimelineZoom.far) ...[
-              IconButton(
-                key: const Key('timeline-zoom-in'),
-                tooltip: 'Zoom in',
-                onPressed: onIn,
-                icon: const Icon(Icons.add),
+            IconButton(
+              key: const Key('timeline-zoom-in'),
+              tooltip: 'Zoom in',
+              onPressed: onIn,
+              icon: const Icon(Icons.add),
+            ),
+            if (zoom != TimelineZoom.near)
+              Container(
+                width: 1,
+                height: 24,
+                color: albumInk.withValues(alpha: 0.15),
               ),
-              if (zoom == TimelineZoom.mid)
-                Container(
-                  width: 1,
-                  height: 24,
-                  color: albumInk.withValues(alpha: 0.15),
-                ),
-              TextButton(
-                key: const Key('timeline-fit'),
-                onPressed: onFit,
-                child: Text(fitLabel),
-              ),
-            ] else ...[
-              TextButton(
-                key: const Key('timeline-fit'),
-                onPressed: onFit,
-                child: Text(fitLabel),
-              ),
-              IconButton(
-                key: const Key('timeline-zoom-in'),
-                tooltip: 'Zoom in',
-                onPressed: onIn,
-                icon: const Icon(Icons.add),
-              ),
-            ],
+            TextButton(
+              key: const Key('timeline-fit'),
+              onPressed: onFit,
+              child: const Text(fitLabel),
+            ),
           ],
         ),
       ),
     );
     final hintText = Text(hint, style: Theme.of(context).textTheme.labelMedium);
     return Column(
-      crossAxisAlignment: zoom == TimelineZoom.far
-          ? CrossAxisAlignment.center
-          : CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         if (zoom == TimelineZoom.near)
           Padding(
@@ -749,7 +682,7 @@ class _ZoomCluster extends StatelessWidget {
               style: Theme.of(context).textTheme.labelMedium,
             ),
           ),
-        if (zoom == TimelineZoom.mid) ...[
+        if (zoom != TimelineZoom.near) ...[
           controls,
           const SizedBox(height: 8),
           hintText,
@@ -763,127 +696,668 @@ class _ZoomCluster extends StatelessWidget {
   }
 }
 
-class _FarRail extends StatelessWidget {
-  const _FarRail({required this.bands, required this.onDot});
-
-  final List<DecadeBand> bands;
-  final ValueChanged<Story> onDot;
+class _SearchChip extends StatelessWidget {
+  const _SearchChip({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 140),
-      children: [
-        Text(
-          'Family Archive Constellation',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          farSubtitle(bands.length),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        const SizedBox(height: 28),
-        Stack(
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: albumInk.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.center,
-                child: Container(
-                  width: 2,
-                  color: albumInk.withValues(alpha: 0.18),
-                ),
-              ),
-            ),
-            Column(
+            Icon(Icons.search, size: 16),
+            SizedBox(width: 6),
+            Text('Search archive...', style: TextStyle(fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FarRail extends StatefulWidget {
+  const _FarRail({
+    required this.bands,
+    required this.focusedId,
+    required this.child,
+    required this.onDot,
+    required this.onFocus,
+    required this.onMid,
+    required this.onFullCards,
+  });
+
+  final List<DecadeBand> bands;
+  final String? focusedId;
+  final MemberFamily? child;
+  final ValueChanged<Story> onDot;
+  final ValueChanged<String> onFocus;
+  final VoidCallback onMid;
+  final VoidCallback onFullCards;
+
+  @override
+  State<_FarRail> createState() => _FarRailState();
+}
+
+class _FarRailState extends State<_FarRail> {
+  final _viewportKey = GlobalKey();
+  final _rowKeys = <int, GlobalKey>{};
+  int? _centerYear;
+  Map<int, double> _opacities = const {};
+  var _centered = false;
+
+  GlobalKey _rowKey(int year) => _rowKeys.putIfAbsent(year, GlobalKey.new);
+
+  @override
+  void initState() {
+    super.initState();
+    _centerYear = _yearOf(widget.focusedId);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _centerInitial());
+  }
+
+  @override
+  void didUpdateWidget(covariant _FarRail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final year = _yearOf(widget.focusedId);
+    if (year != null &&
+        year != _yearOf(oldWidget.focusedId) &&
+        year != _centerYear) {
+      _centerYear = year;
+      _centerOn(year);
+    }
+  }
+
+  int? _yearOf(String? id) {
+    if (id == null) return null;
+    for (final band in widget.bands) {
+      for (final story in band.stories) {
+        if (story.id == id) return band.startYear;
+      }
+    }
+    return null;
+  }
+
+  Story? _highlight(DecadeBand band) {
+    for (final story in band.stories) {
+      if (story.id == widget.focusedId) return story;
+    }
+    if (band.stories.isEmpty) return null;
+    final oldestFirst = band.stories.reversed.toList();
+    return oldestFirst[oldestFirst.length ~/ 2];
+  }
+
+  void _centerInitial() {
+    if (!mounted || _centered || widget.bands.isEmpty) return;
+    _centered = true;
+    final year =
+        _centerYear ?? widget.bands[widget.bands.length ~/ 2].startYear;
+    _centerYear = year;
+    _centerOn(year);
+  }
+
+  void _centerOn(int year) {
+    final target = _rowKey(year).currentContext;
+    if (target == null || !target.mounted) return;
+    Scrollable.ensureVisible(target, alignment: 0.5, duration: Duration.zero);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _measure();
+    });
+  }
+
+  void _measure() {
+    if (!mounted) return;
+    final viewport =
+        _viewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (viewport == null || !viewport.hasSize) return;
+    final centerY = viewport
+        .localToGlobal(Offset(0, viewport.size.height / 2))
+        .dy;
+    final half = viewport.size.height / 2;
+    int? bestYear;
+    var best = double.infinity;
+    final opacities = <int, double>{};
+    for (final band in widget.bands) {
+      final row =
+          _rowKey(band.startYear).currentContext?.findRenderObject()
+              as RenderBox?;
+      if (row == null || !row.hasSize) continue;
+      final mid = row.localToGlobal(Offset(0, row.size.height / 2)).dy;
+      final distance = (mid - centerY).abs();
+      opacities[band.startYear] = dialOpacity(
+        distance: distance,
+        halfExtent: half,
+      );
+      if (distance < best) {
+        best = distance;
+        bestYear = band.startYear;
+      }
+    }
+    final changed = bestYear != null && bestYear != _centerYear;
+    setState(() {
+      if (bestYear != null) _centerYear = bestYear;
+      _opacities = opacities;
+    });
+    if (!changed) return;
+    DecadeBand? band;
+    for (final candidate in widget.bands) {
+      if (candidate.startYear == bestYear) band = candidate;
+    }
+    final story = band == null ? null : _highlight(band);
+    final id = story?.id;
+    if (id != null && id != widget.focusedId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && id != widget.focusedId) widget.onFocus(id);
+      });
+    }
+  }
+
+  int? _joinYear() {
+    final child = widget.child;
+    if (child == null || widget.bands.isEmpty) return null;
+    var best = widget.bands.first.startYear;
+    var bestDelta = 1 << 30;
+    for (final band in widget.bands) {
+      final delta = (band.startYear - child.createdAt.year).abs();
+      if (delta < bestDelta) {
+        bestDelta = delta;
+        best = band.startYear;
+      }
+    }
+    return best;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var focusBand = widget.bands[widget.bands.length ~/ 2];
+    for (final band in widget.bands) {
+      if (band.startYear == _centerYear) focusBand = band;
+    }
+    final focusLabel = '${focusBand.label} · IN FOCUS';
+    final joinYear = _joinYear();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+          child: _FarContext(
+            focusLabel: focusLabel,
+            onMid: widget.onMid,
+            onFullCards: widget.onFullCards,
+          ),
+        ),
+        Expanded(
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollUpdateNotification ||
+                  notification is ScrollEndNotification) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _measure();
+                });
+              }
+              return false;
+            },
+            child: Stack(
+              key: _viewportKey,
               children: [
-                for (var i = 0; i < bands.length; i++)
-                  _DecadeRow(
-                    band: bands[i],
-                    labelOnLeft: i.isEven,
-                    onDot: onDot,
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: Center(
+                      child: SizedBox(
+                        width: 2,
+                        child: ColoredBox(color: Color(0x332C2416)),
+                      ),
+                    ),
                   ),
+                ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final pad = constraints.maxHeight / 2;
+                    return ListView(
+                      padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
+                      children: [
+                        for (final band in widget.bands)
+                          _FarDecadeRow(
+                            key: _rowKey(band.startYear),
+                            band: band,
+                            focused: band.startYear == _centerYear,
+                            opacity:
+                                _opacities[band.startYear] ??
+                                (band.startYear == _centerYear ? 1 : 0.4),
+                            highlight: _highlight(band),
+                            showBranch:
+                                joinYear != null && band.startYear == joinYear,
+                            continueRail:
+                                joinYear != null && band.startYear >= joinYear,
+                            branchName: widget.child?.name,
+                            onDot: widget.onDot,
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                const _DialFade(top: true),
+                const _DialFade(top: false),
               ],
             ),
-          ],
+          ),
         ),
       ],
     );
   }
 }
 
-class _DecadeRow extends StatelessWidget {
-  const _DecadeRow({
+class _FarContext extends StatelessWidget {
+  const _FarContext({
+    required this.focusLabel,
+    required this.onMid,
+    required this.onFullCards,
+  });
+
+  final String focusLabel;
+  final VoidCallback onMid;
+  final VoidCallback onFullCards;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: albumInk.withValues(alpha: 0.12)),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          runSpacing: 12,
+          spacing: 16,
+          children: [
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: albumTerracotta,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                Text(
+                  'CONTINUOUS FAMILY DIAL',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                Text('·', style: Theme.of(context).textTheme.labelMedium),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: albumTerracotta.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: albumTerracotta.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Text(
+                    focusLabel,
+                    style: Theme.of(context).textTheme.labelSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              children: [
+                Text(
+                  'Zoom Level: Far (Decade dots)',
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: albumInk.withValues(alpha: 0.7)),
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: albumInk.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: albumInk.withValues(alpha: 0.12)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                          onPressed: () {},
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            backgroundColor: albumTerracotta,
+                            foregroundColor: albumParchment,
+                            shape: const StadiumBorder(),
+                          ),
+                          child: const Text('Macro'),
+                        ),
+                        TextButton(
+                          onPressed: onMid,
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            foregroundColor: albumInk.withValues(alpha: 0.7),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: const Text('Mid'),
+                        ),
+                        TextButton(
+                          onPressed: onFullCards,
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            foregroundColor: albumInk.withValues(alpha: 0.7),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: const Text('Full Cards'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FarDecadeRow extends StatelessWidget {
+  const _FarDecadeRow({
+    super.key,
     required this.band,
-    required this.labelOnLeft,
+    required this.focused,
+    required this.opacity,
+    required this.highlight,
+    required this.showBranch,
+    required this.continueRail,
+    required this.branchName,
     required this.onDot,
   });
 
   final DecadeBand band;
-  final bool labelOnLeft;
+  final bool focused;
+  final double opacity;
+  final Story? highlight;
+  final bool showBranch;
+  final bool continueRail;
+  final String? branchName;
   final ValueChanged<Story> onDot;
 
   @override
   Widget build(BuildContext context) {
+    final stories = band.stories.reversed.toList();
+    final count = countWord(band.stories.length, 'story', 'stories');
     final label = Column(
-      crossAxisAlignment: labelOnLeft
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           band.label,
-          style: Theme.of(context).textTheme.headlineSmall
-              ?.copyWith(color: albumTerracotta),
+          style: focused
+              ? Theme.of(context).textTheme.headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)
+              : Theme.of(context).textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w500),
         ),
-        Text(
-          countWord(band.stories.length, 'story', 'stories'),
-          style: Theme.of(context).textTheme.labelMedium,
+        const SizedBox(height: 2),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (focused)
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(right: 6),
+                decoration: const BoxDecoration(
+                  color: albumTerracotta,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            Text(
+              focused ? '$count preserved' : count,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: focused
+                    ? albumTerracotta
+                    : albumInk.withValues(alpha: 0.6),
+                fontWeight: focused ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ],
     );
-    final dots = Column(
+    final dots = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (var i = 0; i < band.stories.length; i++)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Tooltip(
-              message: dotTooltip(band.stories[i]),
-              child: GestureDetector(
-                key: Key('timeline-dot-${band.stories[i].id}'),
-                onTap: () => onDot(band.stories[i]),
+        for (final story in stories)
+          _FarDot(
+            story: story,
+            highlighted: focused && story.id == highlight?.id,
+            onTap: () => onDot(story),
+          ),
+      ],
+    );
+    return Opacity(
+      opacity: opacity,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 22),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Align(alignment: Alignment.centerRight, child: label),
+            ),
+            SizedBox(
+              width: 48,
+              child: Center(
                 child: Container(
-                  width: i == 0 ? 14 : 11,
-                  height: i == 0 ? 14 : 11,
+                  width: focused ? 28 : 14,
+                  height: focused ? 28 : 14,
                   decoration: BoxDecoration(
-                    color: i == 0 ? albumTerracotta : albumSage,
+                    color: focused
+                        ? albumTerracotta.withValues(alpha: 0.2)
+                        : const Color(0xFFFFF8F6),
                     shape: BoxShape.circle,
-                    border: Border.all(color: albumParchment, width: 2),
+                    border: Border.all(
+                      color: focused
+                          ? albumTerracotta
+                          : albumInk.withValues(alpha: 0.35),
+                      width: focused ? 1.5 : 2,
+                    ),
                   ),
+                  child: focused
+                      ? Center(
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: const BoxDecoration(
+                              color: albumTerracotta,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        )
+                      : null,
                 ),
               ),
             ),
-          ),
-      ],
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: Row(
-        children: [
-          Expanded(
-            child: labelOnLeft
-                ? Align(alignment: Alignment.centerRight, child: label)
-                : const SizedBox.shrink(),
-          ),
-          SizedBox(width: 36, child: dots),
-          Expanded(
-            child: labelOnLeft
-                ? const SizedBox.shrink()
-                : Align(alignment: Alignment.centerLeft, child: label),
-          ),
-        ],
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final railLeft = (constraints.maxWidth - 8).clamp(
+                    72.0,
+                    200.0,
+                  );
+                  final reserve = continueRail
+                      ? (constraints.maxWidth - railLeft + 12).clamp(
+                          0.0,
+                          constraints.maxWidth,
+                        )
+                      : 0.0;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.only(left: 16, right: reserve),
+                        child: dots,
+                      ),
+                      if (continueRail)
+                        Positioned(
+                          left: railLeft,
+                          top: showBranch ? 0 : -22,
+                          bottom: -22,
+                          width: 2,
+                          child: IgnorePointer(
+                            child: CustomPaint(
+                              painter: _DashPainter(
+                                color: albumSage.withValues(alpha: 0.85),
+                              ),
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
+                        ),
+                      if (showBranch && branchName != null)
+                        Positioned(
+                          left: railLeft + 12,
+                          top: -4,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: albumParchment,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: albumSage.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                child: Text(
+                                  '${branchName!.toUpperCase()} BRANCH',
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: albumSage,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.6,
+                                      ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '← $branchName union joined archive',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      color: albumSage,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _FarDot extends StatelessWidget {
+  const _FarDot({
+    required this.story,
+    required this.highlighted,
+    required this.onTap,
+  });
+
+  final Story story;
+  final bool highlighted;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final dot = GestureDetector(
+      key: Key('timeline-dot-${story.id}'),
+      onTap: onTap,
+      child: Container(
+        width: highlighted ? 14 : 12,
+        height: highlighted ? 14 : 12,
+        decoration: BoxDecoration(
+          color: albumTerracotta,
+          shape: BoxShape.circle,
+          border: highlighted
+              ? Border.all(color: albumTerracotta, width: 2)
+              : null,
+          boxShadow: highlighted
+              ? [
+                  BoxShadow(
+                    color: albumTerracotta.withValues(alpha: 0.35),
+                    blurRadius: 0,
+                    spreadRadius: 3,
+                  ),
+                ]
+              : null,
+        ),
+      ),
+    );
+    return Tooltip(
+      message: dotTooltip(story),
+      child: highlighted
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: albumInk,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    dotTooltip(story),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: albumParchment,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                CustomPaint(
+                  size: const Size(8, 6),
+                  painter: _CaretPainter(color: albumInk),
+                ),
+                const SizedBox(height: 6),
+                dot,
+              ],
+            )
+          : dot,
     );
   }
 }
@@ -1532,6 +2006,26 @@ class _DialRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CaretPainter extends CustomPainter {
+  const _CaretPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CaretPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _DashPainter extends CustomPainter {

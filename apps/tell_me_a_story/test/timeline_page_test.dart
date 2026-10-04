@@ -244,14 +244,14 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 
-  testWidgets('far header has New story, Invite, and Drafts in More', (
+  testWidgets('far header has Publish, Save draft, and Drafts in More', (
     tester,
   ) async {
     await tester.pumpWidget(_timeline(stories: _FakeStoriesApi(published: [])));
     await tester.pumpAndSettle();
 
-    expect(find.text('New story'), findsOneWidget);
-    expect(find.text('Invite'), findsOneWidget);
+    expect(find.text('Publish'), findsOneWidget);
+    expect(find.text('Save draft'), findsOneWidget);
     expect(find.text('Tell Me a Story'), findsOneWidget);
     expect(find.byKey(const Key('timeline-search')), findsOneWidget);
 
@@ -273,8 +273,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('New story'), findsOneWidget);
-    expect(find.text('Invite'), findsOneWidget);
+    expect(find.text('Publish'), findsOneWidget);
+    expect(find.text('Save draft'), findsOneWidget);
   });
 
   testWidgets('returning to timeline after publish reloads published list', (
@@ -378,8 +378,10 @@ void main() {
 
     await tester.tap(find.byKey(const Key('timeline-fit')));
     await tester.pumpAndSettle();
-    expect(find.text('Family Archive Constellation'), findsOneWidget);
-    expect(find.text('Fit'), findsOneWidget);
+    expect(find.text('CONTINUOUS FAMILY DIAL'), findsOneWidget);
+    expect(find.text('1980s · IN FOCUS'), findsOneWidget);
+    expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
+    expect(find.text('Fit all'), findsWidgets);
   });
 
   testWidgets('mid dial keeps the center year sharp and fades the edges', (
@@ -470,7 +472,9 @@ void main() {
     expect(find.text('1954 · IN FOCUS'), findsOneWidget);
 
     final earlyTop = tester.getTopLeft(early).dy;
-    final lateTop = tester.getTopLeft(find.byKey(const Key('timeline-stub-late'))).dy;
+    final lateTop = tester
+        .getTopLeft(find.byKey(const Key('timeline-stub-late')))
+        .dy;
     expect(lateTop, lessThan(earlyTop));
   });
 
@@ -540,7 +544,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Martinez branch'), findsOneWidget);
+    expect(find.text('MARTINEZ BRANCH'), findsOneWidget);
+    expect(find.text('← Martinez union joined archive'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('timeline-dot-s1')));
     await tester.pumpAndSettle();

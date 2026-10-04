@@ -70,16 +70,8 @@ String countWord(int count, String singular, String plural) {
   return '$count ${count == 1 ? singular : plural}';
 }
 
-String farSubtitle(int decades) =>
-    'Macro overview spanning ${countWord(decades, 'decade', 'decades')} of heirloom memories';
-
-String farFooter({
-  required String familyName,
-  required int stories,
-  required int decades,
-}) {
-  return '$familyName Archive · ${countWord(stories, 'heirloom story', 'heirloom stories')} preserved across ${countWord(decades, 'decade', 'decades')}';
-}
+String farFooter({required String familyName}) =>
+    '$familyName Archive · heirloom stories preserved across the decades';
 
 /// Every published story, newest year first. Mid scrolls this whole list.
 List<Story> dialStories(Iterable<Story> stories) {

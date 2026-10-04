@@ -415,11 +415,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TimelinePage), findsOneWidget);
-    final newStoryButton = find.widgetWithText(FilledButton, 'New story');
-    expect(newStoryButton, findsOneWidget);
+    final publishButton = find.widgetWithText(FilledButton, 'Publish');
+    expect(publishButton, findsOneWidget);
     // Invoke directly: AppBar action hit-tests can miss in small surfaces;
     // push Future completes only when the route is popped.
-    tester.widget<FilledButton>(newStoryButton).onPressed!.call();
+    tester.widget<FilledButton>(publishButton).onPressed!.call();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
