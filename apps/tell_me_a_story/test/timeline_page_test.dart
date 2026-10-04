@@ -422,9 +422,9 @@ void main() {
           .opacity;
     }
 
-    expect(decadeOpacity('2020s'), 1);
     expect(decadeOpacity('1980s'), 1);
-    expect(decadeOpacity('1950s'), 1);
+    expect(decadeOpacity('2020s'), lessThan(1));
+    expect(decadeOpacity('1950s'), lessThan(1));
     expect(find.text('Jam (1980)'), findsNothing);
     expect(_tooltipFor(tester, 'mid'), 'Jam (1980)');
     await tester.tap(find.byKey(const Key('timeline-dot-mid')));
@@ -453,51 +453,46 @@ void main() {
     expect(find.byKey(const Key('timeline-stub-mid')), findsOneWidget);
   });
 
-  test('a far decade fades only while it leaves the viewport', () {
+  test('a far decade dims before it reaches the viewport edge', () {
+    const viewportHeight = 400.0;
+    final band = viewportHeight * farFadeBand;
+
     expect(
       farEdgeOpacity(
-        rowTop: 100,
+        rowTop: viewportHeight / 2 - 40,
         rowHeight: 80,
         viewportTop: 0,
-        viewportHeight: 400,
+        viewportHeight: viewportHeight,
       ),
       1,
     );
     expect(
       farEdgeOpacity(
-        rowTop: -40,
+        rowTop: 30,
         rowHeight: 80,
         viewportTop: 0,
-        viewportHeight: 400,
+        viewportHeight: viewportHeight,
       ),
-      closeTo(0.5, 0.001),
+      closeTo(70 / band, 0.001),
     );
     expect(
       farEdgeOpacity(
-        rowTop: 360,
+        rowTop: viewportHeight - 110,
         rowHeight: 80,
         viewportTop: 0,
-        viewportHeight: 400,
+        viewportHeight: viewportHeight,
       ),
-      closeTo(0.5, 0.001),
+      closeTo(70 / band, 0.001),
     );
+    expect(70 / band, lessThan(0.6));
     expect(
       farEdgeOpacity(
-        rowTop: -80,
+        rowTop: -120,
         rowHeight: 80,
         viewportTop: 0,
-        viewportHeight: 400,
+        viewportHeight: viewportHeight,
       ),
       0,
-    );
-    expect(
-      farEdgeOpacity(
-        rowTop: 20,
-        rowHeight: 80,
-        viewportTop: 0,
-        viewportHeight: 400,
-      ),
-      1,
     );
   });
 
@@ -547,7 +542,7 @@ void main() {
     final slack =
         row.localToGlobal(Offset.zero).dy - view.localToGlobal(Offset.zero).dy;
     expect(slack, greaterThan(0));
-    expect(decadeOpacity('2020s'), 1);
+    final homeOpacity = decadeOpacity('2020s');
 
     final position = tester.state<ScrollableState>(scrollable).position;
     final home = position.pixels;
@@ -566,12 +561,12 @@ void main() {
       viewportTop: leavingView.localToGlobal(Offset.zero).dy,
       viewportHeight: leavingView.size.height,
     );
-    expect(expected, lessThan(1));
+    expect(expected, lessThan(homeOpacity));
     expect(decadeOpacity('2020s'), closeTo(expected, 0.02));
 
     position.jumpTo(home);
     await tester.pumpAndSettle();
-    expect(decadeOpacity('2020s'), 1);
+    expect(decadeOpacity('2020s'), closeTo(homeOpacity, 0.02));
   });
 
   testWidgets('oldest published story can sit at the dial center', (

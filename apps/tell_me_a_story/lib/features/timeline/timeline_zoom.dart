@@ -80,8 +80,12 @@ List<Story> dialStories(Iterable<Story> stories) {
   return rows;
 }
 
-/// 1 while the row sits fully in the viewport. Falls toward 0 as the row
-/// leaves through the top or bottom edge, and returns to 1 when it is back.
+/// Share of the viewport, at the top and at the bottom, where a decade
+/// starts to dim while it is still on screen.
+const farFadeBand = 0.45;
+
+/// 1 while the row's center is in the middle of the rail. Dims as that
+/// center enters the top or bottom band, and returns to 1 when it moves back.
 double farEdgeOpacity({
   required double rowTop,
   required double rowHeight,
@@ -89,14 +93,15 @@ double farEdgeOpacity({
   required double viewportHeight,
 }) {
   if (rowHeight <= 0 || viewportHeight <= 0) return 1;
-  final viewportBottom = viewportTop + viewportHeight;
-  final rowBottom = rowTop + rowHeight;
-  final above = viewportTop > rowTop ? viewportTop - rowTop : 0.0;
-  final below = rowBottom > viewportBottom ? rowBottom - viewportBottom : 0.0;
-  final visible = 1 - (above + below) / rowHeight;
-  if (visible <= 0) return 0;
-  if (visible >= 1) return 1;
-  return visible;
+  final band = viewportHeight * farFadeBand;
+  if (band <= 0) return 1;
+  final rowCenter = rowTop + rowHeight / 2;
+  final fromTop = rowCenter - viewportTop;
+  final fromBottom = viewportTop + viewportHeight - rowCenter;
+  final nearest = fromTop < fromBottom ? fromTop : fromBottom;
+  if (nearest >= band) return 1;
+  if (nearest <= 0) return 0;
+  return nearest / band;
 }
 
 /// Fade from 1 at the dial center to 0.10 at the edge of the viewport.
