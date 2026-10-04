@@ -81,7 +81,27 @@ String farFooter({
   return '$familyName Archive · ${countWord(stories, 'heirloom story', 'heirloom stories')} preserved across ${countWord(decades, 'decade', 'decades')}';
 }
 
-String midHeading(int decadeStart) => 'Mid-${decadeStart}s';
+/// Decade whose mid-year starts the Stitch window (mid-decade through mid-next).
+int midAnchorDecade(DateTime date) {
+  final decade = decadeStartYear(date);
+  if (date.year < decade + 5) return decade - 10;
+  return decade;
+}
+
+/// Stories from the middle of [anchorDecade] through the middle of the next.
+List<Story> midWindowStories(Iterable<Story> stories, int anchorDecade) {
+  final start = anchorDecade + 5;
+  final end = anchorDecade + 15;
+  final rows = publishedStories(stories).where((story) {
+    final year = story.timeframeStart.year;
+    return year >= start && year <= end;
+  }).toList();
+  rows.sort((a, b) => a.timeframeStart.compareTo(b.timeframeStart));
+  return rows;
+}
+
+String midHeading(int anchorDecade) =>
+    'Mid-${anchorDecade}s to Mid-${anchorDecade + 10}s Era';
 
 String nearHeading(Iterable<Story> stories) {
   final years = stories.map((story) => story.timeframeStart.year).toList();

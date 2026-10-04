@@ -366,7 +366,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-dot-s1')));
     await tester.pumpAndSettle();
-    expect(find.text('Mid-1980s'), findsOneWidget);
+    expect(find.text('Mid-1970s to Mid-1980s Era'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('timeline-fit')));
     await tester.pumpAndSettle();
@@ -425,7 +425,7 @@ void main() {
     await tester.tap(find.byKey(const Key('timeline-dot-s1')));
     await tester.pumpAndSettle();
     expect(find.text('Martinez Branch'), findsOneWidget);
-    expect(find.text('← Martinez joined archive'), findsOneWidget);
+    expect(find.text('← Martinez union joined archive'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('timeline-stub-s1')));
     await tester.pumpAndSettle();

@@ -242,6 +242,20 @@ class _TimelinePageState extends State<TimelinePage> {
     return bands.first.startYear;
   }
 
+  int _midAnchor(int fallbackDecade) {
+    final focusId = _focusedStoryId;
+    if (focusId != null) {
+      for (final story in _published) {
+        if (story.id == focusId) return midAnchorDecade(story.timeframeStart);
+      }
+    }
+    final inDecade = decadeOldestFirst(_published, fallbackDecade);
+    if (inDecade.isNotEmpty) {
+      return midAnchorDecade(inDecade.last.timeframeStart);
+    }
+    return fallbackDecade;
+  }
+
   void _reveal(String storyId) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final target = _anchorKeys[storyId]?.currentContext;
@@ -395,11 +409,16 @@ class _TimelinePageState extends State<TimelinePage> {
       );
     }
     final child = _familyId == null ? null : childFamily(_families, _familyId!);
+    final midAnchor = _midAnchor(decade);
+    final midStories = midWindowStories(_published, midAnchor);
     return switch (_zoom) {
       TimelineZoom.far => _FarRail(bands: bands, onDot: _openMid),
       TimelineZoom.mid => _MidRail(
-        stories: decadeOldestFirst(_published, decade),
-        decadeStart: decade,
+        stories: midStories.isNotEmpty
+            ? midStories
+            : decadeOldestFirst(_published, decade),
+        decadeStart: midAnchor,
+        focusedId: _focusedStoryId,
         child: child,
         anchorFor: _anchor,
         onStub: _openNear,
@@ -499,6 +518,7 @@ class _TimelineHeader extends StatelessWidget implements PreferredSizeWidget {
                                 child: _FamilyPill(
                                   name: familyName,
                                   chevron: true,
+                                  menu: true,
                                 ),
                               ),
                             const SizedBox(width: 12),
@@ -533,10 +553,31 @@ class _TimelineHeader extends StatelessWidget implements PreferredSizeWidget {
                               ),
                             ],
                             if (zoom == TimelineZoom.mid)
-                              TextButton.icon(
-                                onPressed: () {},
-                                icon: const Icon(Icons.search, size: 18),
-                                label: const Text('Search archive...'),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: albumInk.withValues(alpha: 0.06),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.search, size: 16),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'Search archive...',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
                           ],
                         ),
@@ -638,19 +679,25 @@ class _FamilyPill extends StatelessWidget {
     required this.name,
     this.quiet = false,
     this.chevron = false,
+    this.menu = false,
   });
 
   final String name;
   final bool quiet;
   final bool chevron;
+  final bool menu;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: quiet ? albumParchment : albumSage.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(20),
+        color: menu
+            ? albumInk.withValues(alpha: 0.05)
+            : quiet
+            ? albumParchment
+            : albumSage.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(menu ? 8 : 20),
         border: Border.all(
           color: albumInk.withValues(alpha: quiet ? 0.12 : 0.05),
         ),
@@ -658,9 +705,17 @@ class _FamilyPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.groups, size: 16, color: albumInk.withValues(alpha: 0.7)),
+          Icon(
+            menu ? Icons.diversity_3 : Icons.groups,
+            size: 16,
+            color: albumInk.withValues(alpha: 0.7),
+          ),
           const SizedBox(width: 6),
-          Text(name, style: Theme.of(context).textTheme.labelMedium),
+          Text(
+            name,
+            style: Theme.of(context).textTheme.labelMedium
+                ?.copyWith(fontWeight: menu ? FontWeight.w600 : null),
+          ),
           if (chevron) const Icon(Icons.arrow_drop_down),
         ],
       ),
@@ -689,6 +744,57 @@ class _ZoomCluster extends StatelessWidget {
       TimelineZoom.near => 'Pinch out · tap − · or Fit all to pull back',
     };
     final fitLabel = zoom == TimelineZoom.far ? 'Fit' : 'Fit all';
+    final controls = Material(
+      color: albumParchment,
+      elevation: zoom == TimelineZoom.mid ? 6 : 2,
+      borderRadius: BorderRadius.circular(zoom == TimelineZoom.mid ? 12 : 24),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              key: const Key('timeline-zoom-out'),
+              tooltip: 'Zoom out',
+              onPressed: onOut,
+              icon: const Icon(Icons.remove),
+            ),
+            if (zoom != TimelineZoom.far) ...[
+              IconButton(
+                key: const Key('timeline-zoom-in'),
+                tooltip: 'Zoom in',
+                onPressed: onIn,
+                icon: const Icon(Icons.add),
+              ),
+              if (zoom == TimelineZoom.mid)
+                Container(
+                  width: 1,
+                  height: 24,
+                  color: albumInk.withValues(alpha: 0.15),
+                ),
+              TextButton(
+                key: const Key('timeline-fit'),
+                onPressed: onFit,
+                child: Text(fitLabel),
+              ),
+            ] else ...[
+              TextButton(
+                key: const Key('timeline-fit'),
+                onPressed: onFit,
+                child: Text(fitLabel),
+              ),
+              IconButton(
+                key: const Key('timeline-zoom-in'),
+                tooltip: 'Zoom in',
+                onPressed: onIn,
+                icon: const Icon(Icons.add),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+    final hintText = Text(hint, style: Theme.of(context).textTheme.labelMedium);
     return Column(
       crossAxisAlignment: zoom == TimelineZoom.far
           ? CrossAxisAlignment.center
@@ -702,52 +808,15 @@ class _ZoomCluster extends StatelessWidget {
               style: Theme.of(context).textTheme.labelMedium,
             ),
           ),
-        Text(hint, style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: 8),
-        Material(
-          color: albumParchment,
-          elevation: 2,
-          borderRadius: BorderRadius.circular(24),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  key: const Key('timeline-zoom-out'),
-                  tooltip: 'Zoom out',
-                  onPressed: onOut,
-                  icon: const Icon(Icons.remove),
-                ),
-                if (zoom != TimelineZoom.far) ...[
-                  IconButton(
-                    key: const Key('timeline-zoom-in'),
-                    tooltip: 'Zoom in',
-                    onPressed: onIn,
-                    icon: const Icon(Icons.add),
-                  ),
-                  TextButton(
-                    key: const Key('timeline-fit'),
-                    onPressed: onFit,
-                    child: Text(fitLabel),
-                  ),
-                ] else ...[
-                  TextButton(
-                    key: const Key('timeline-fit'),
-                    onPressed: onFit,
-                    child: Text(fitLabel),
-                  ),
-                  IconButton(
-                    key: const Key('timeline-zoom-in'),
-                    tooltip: 'Zoom in',
-                    onPressed: onIn,
-                    icon: const Icon(Icons.add),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
+        if (zoom == TimelineZoom.mid) ...[
+          controls,
+          const SizedBox(height: 8),
+          hintText,
+        ] else ...[
+          hintText,
+          const SizedBox(height: 8),
+          controls,
+        ],
       ],
     );
   }
@@ -882,6 +951,7 @@ class _MidRail extends StatelessWidget {
   const _MidRail({
     required this.stories,
     required this.decadeStart,
+    required this.focusedId,
     required this.child,
     required this.anchorFor,
     required this.onStub,
@@ -891,6 +961,7 @@ class _MidRail extends StatelessWidget {
 
   final List<Story> stories;
   final int decadeStart;
+  final String? focusedId;
   final MemberFamily? child;
   final GlobalKey Function(String id) anchorFor;
   final ValueChanged<Story> onStub;
@@ -903,84 +974,161 @@ class _MidRail extends StatelessWidget {
         ? -1
         : closestStoryIndex(stories, child!.createdAt);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 140),
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 160),
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.auto_stories, color: albumTerracotta),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Mid-Zoom Archive View',
-                    style: Theme.of(context).textTheme.labelLarge
-                        ?.copyWith(color: albumTerracotta),
-                  ),
-                  Text(
-                    midHeading(decadeStart),
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'Zoom Level: 45% (Stubs & Eras)',
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    TextButton(onPressed: onMacro, child: const Text('Macro')),
-                    TextButton(
-                      onPressed: () {},
-                      child: Text(
-                        'Mid',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: albumTerracotta,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: onFullCards,
-                      child: const Text('Full Cards'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
+        _MidContext(
+          heading: midHeading(decadeStart),
+          onMacro: onMacro,
+          onFullCards: onFullCards,
         ),
-        if (child != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text(
-              '${child!.name} Branch',
-              style: Theme.of(context).textTheme.labelLarge
-                  ?.copyWith(color: albumTerracotta),
-            ),
-          ),
-        const SizedBox(height: 16),
-        for (var i = 0; i < stories.length; i++) ...[
+        const SizedBox(height: 28),
+        for (var i = 0; i < stories.length; i++)
           _StubRow(
             key: anchorFor(stories[i].id),
             story: stories[i],
             cardOnLeft: i.isEven,
+            elevated:
+                stories[i].id == focusedId || (child != null && i == joinAt),
+            quiet: excerpt(stories[i].body, max: 88).isEmpty,
+            showBranchRail: child != null && i >= joinAt,
+            joinNote: child != null && i == joinAt
+                ? '← ${child!.name} union joined archive'
+                : null,
+            branchLabel: child != null && i == joinAt
+                ? '${child!.name} Branch'
+                : null,
             onTap: () => onStub(stories[i]),
           ),
-          if (i == joinAt && child != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text('← ${child!.name} joined archive'),
-            ),
-        ],
       ],
+    );
+  }
+}
+
+class _MidContext extends StatelessWidget {
+  const _MidContext({
+    required this.heading,
+    required this.onMacro,
+    required this.onFullCards,
+  });
+
+  final String heading;
+  final VoidCallback onMacro;
+  final VoidCallback onFullCards;
+
+  @override
+  Widget build(BuildContext context) {
+    final segment = DecoratedBox(
+      decoration: BoxDecoration(
+        color: albumParchment,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: albumInk.withValues(alpha: 0.15)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              onPressed: onMacro,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                foregroundColor: albumInk.withValues(alpha: 0.7),
+              ),
+              child: const Text('Macro'),
+            ),
+            TextButton(
+              onPressed: () {},
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                backgroundColor: albumTerracotta,
+                foregroundColor: albumParchment,
+              ),
+              child: const Text('Mid'),
+            ),
+            TextButton(
+              onPressed: onFullCards,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                foregroundColor: albumInk.withValues(alpha: 0.7),
+              ),
+              child: const Text('Full Cards'),
+            ),
+          ],
+        ),
+      ),
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: albumInk.withValues(alpha: 0.12)),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          runSpacing: 12,
+          spacing: 16,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.auto_stories,
+                      size: 16,
+                      color: albumTerracotta,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'MID-ZOOM ARCHIVE VIEW',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: albumTerracotta,
+                        letterSpacing: 1.1,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  heading,
+                  style: Theme.of(context).textTheme.headlineMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: albumTerracotta.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Zoom Level: 45% (Stubs & Eras)',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: albumTerracotta,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                segment,
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -990,70 +1138,427 @@ class _StubRow extends StatelessWidget {
     super.key,
     required this.story,
     required this.cardOnLeft,
+    required this.elevated,
+    required this.quiet,
+    required this.showBranchRail,
     required this.onTap,
+    this.joinNote,
+    this.branchLabel,
   });
 
   final Story story;
   final bool cardOnLeft;
+  final bool elevated;
+  final bool quiet;
+  final bool showBranchRail;
+  final String? joinNote;
+  final String? branchLabel;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final year = '${story.timeframeStart.year}';
+    final place = (story.placeLabel ?? '').trim();
+    final line = excerpt(story.body, max: 88);
+    final titleStyle = Theme.of(context).textTheme.titleLarge
+        ?.copyWith(fontWeight: FontWeight.w700, height: 1.2);
     final card = InkWell(
       key: Key('timeline-stub-${story.id}'),
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-        child: Column(
-          crossAxisAlignment: cardOnLeft
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              children: [
-                Text(
-                  '${story.timeframeStart.year}',
-                  style: Theme.of(context).textTheme.labelLarge,
+      borderRadius: BorderRadius.circular(elevated ? 12 : 4),
+      child: elevated
+          ? _ElevatedStub(
+              year: year,
+              place: place,
+              title: storyTitle(story),
+              line: line,
+              showPhoto: story.photoCount > 0,
+              alignEnd: cardOnLeft,
+              titleStyle: titleStyle,
+            )
+          : _PlainStub(
+              year: year,
+              place: place,
+              title: storyTitle(story),
+              line: quiet ? '' : line,
+              alignEnd: cardOnLeft,
+              titleStyle: quiet
+                  ? Theme.of(context).textTheme.titleMedium
+                  : titleStyle,
+            ),
+    );
+    final note = joinNote == null
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: EdgeInsets.only(
+              left: cardOnLeft ? 24 : 0,
+              right: cardOnLeft ? 0 : 24,
+              top: 28,
+            ),
+            child: Text(
+              joinNote!,
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(fontStyle: FontStyle.italic, color: albumSage),
+            ),
+          );
+    final label = branchLabel == null
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(left: 28, bottom: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: albumSage.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                if ((story.placeLabel ?? '').isNotEmpty)
-                  Text(story.placeLabel!),
-                if (story.photoCount > 0)
-                  const Icon(Icons.photo_library, size: 16),
-              ],
-            ),
-            Text(
-              storyTitle(story),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            if (excerpt(story.body, max: 88).isNotEmpty)
-              Text(
-                excerpt(story.body, max: 88),
-                style: Theme.of(context).textTheme.bodySmall,
+                child: Text(
+                  branchLabel!,
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: albumSage, fontWeight: FontWeight.w700),
+                ),
               ),
+            ),
+          );
+    final sideNote = cardOnLeft
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [label, note],
+          )
+        : note;
+    final sideLabel = cardOnLeft ? const SizedBox.shrink() : label;
+    return Opacity(
+      opacity: quiet && !elevated ? 0.75 : 1,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 36),
+        child: Column(
+          children: [
+            if (!cardOnLeft) sideLabel,
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: cardOnLeft ? card : const SizedBox.shrink(),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 56,
+                    child: _RailNode(
+                      elevated: elevated,
+                      quiet: quiet && !elevated,
+                      showBranchRail: showBranchRail,
+                    ),
+                  ),
+                  Expanded(child: cardOnLeft ? sideNote : card),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+  }
+}
+
+class _PlainStub extends StatelessWidget {
+  const _PlainStub({
+    required this.year,
+    required this.place,
+    required this.title,
+    required this.line,
+    required this.alignEnd,
+    required this.titleStyle,
+  });
+
+  final String year;
+  final String place;
+  final String title;
+  final String line;
+  final bool alignEnd;
+  final TextStyle? titleStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final yearChip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: albumInk.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        year,
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(fontWeight: FontWeight.w700),
+      ),
+    );
+    final placeText = place.isEmpty
+        ? null
+        : Text(
+            place,
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: albumInk.withValues(alpha: 0.55)),
+          );
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: Column(
+        crossAxisAlignment: alignEnd
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
-          Expanded(child: cardOnLeft ? card : const SizedBox.shrink()),
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: albumTerracotta,
-              shape: BoxShape.circle,
-              border: Border.all(color: albumParchment, width: 2),
-            ),
+          Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: alignEnd ? WrapAlignment.end : WrapAlignment.start,
+            children: [yearChip, ?placeText],
           ),
-          Expanded(child: cardOnLeft ? const SizedBox.shrink() : card),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+            style: titleStyle,
+          ),
+          if (line.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                line,
+                textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: albumInk.withValues(alpha: 0.62),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
+}
+
+class _ElevatedStub extends StatelessWidget {
+  const _ElevatedStub({
+    required this.year,
+    required this.place,
+    required this.title,
+    required this.line,
+    required this.showPhoto,
+    required this.alignEnd,
+    required this.titleStyle,
+  });
+
+  final String year;
+  final String place;
+  final String title;
+  final String line;
+  final bool showPhoto;
+  final bool alignEnd;
+  final TextStyle? titleStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 440),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF8F6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: albumInk.withValues(alpha: 0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: albumInk.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: alignEnd
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!alignEnd && showPhoto) ...[
+                    const Icon(
+                      Icons.photo_library,
+                      size: 16,
+                      color: albumTerracotta,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (alignEnd && place.isNotEmpty) ...[
+                    Text(
+                      place,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: albumTerracotta,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: albumTerracotta,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      year,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: albumParchment,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (!alignEnd && place.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      place,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: albumTerracotta,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  if (alignEnd && showPhoto) ...[
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.photo_library,
+                      size: 16,
+                      color: albumTerracotta,
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                title,
+                textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+                style: titleStyle,
+              ),
+              if (line.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    line,
+                    textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: albumInk.withValues(alpha: 0.7)),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RailNode extends StatelessWidget {
+  const _RailNode({
+    required this.elevated,
+    required this.quiet,
+    required this.showBranchRail,
+  });
+
+  final bool elevated;
+  final bool quiet;
+  final bool showBranchRail;
+
+  @override
+  Widget build(BuildContext context) {
+    final nodeSize = elevated
+        ? 20.0
+        : quiet
+        ? 12.0
+        : 16.0;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Positioned.fill(
+          child: Align(
+            alignment: Alignment.center,
+            child: Container(width: 2, color: albumInk.withValues(alpha: 0.16)),
+          ),
+        ),
+        if (showBranchRail)
+          Positioned(
+            top: 0,
+            bottom: 0,
+            left: 36,
+            child: CustomPaint(
+              painter: _DashPainter(color: albumSage.withValues(alpha: 0.7)),
+              child: const SizedBox(width: 2),
+            ),
+          ),
+        Container(
+          width: nodeSize,
+          height: nodeSize,
+          decoration: BoxDecoration(
+            color: quiet
+                ? albumInk.withValues(alpha: 0.28)
+                : elevated
+                ? albumTerracotta.withValues(alpha: 0.22)
+                : const Color(0xFFFFF8F6),
+            shape: BoxShape.circle,
+            border: quiet ? null : Border.all(color: albumTerracotta, width: 2),
+            boxShadow: elevated
+                ? [
+                    BoxShadow(
+                      color: albumInk.withValues(alpha: 0.12),
+                      blurRadius: 4,
+                    ),
+                  ]
+                : null,
+          ),
+          child: quiet
+              ? null
+              : Center(
+                  child: Container(
+                    width: elevated ? 8 : 6,
+                    height: elevated ? 8 : 6,
+                    decoration: const BoxDecoration(
+                      color: albumTerracotta,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DashPainter extends CustomPainter {
+  const _DashPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2;
+    var y = 0.0;
+    while (y < size.height) {
+      canvas.drawLine(Offset(1, y), Offset(1, y + 4), paint);
+      y += 8;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _NearRail extends StatelessWidget {
