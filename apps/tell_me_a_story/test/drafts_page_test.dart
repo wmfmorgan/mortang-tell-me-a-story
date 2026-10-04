@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
@@ -74,6 +76,7 @@ class _FakeStoriesApi implements StoriesGateway {
   final List<Story> drafts;
   final List<String> discarded = [];
   final List<String> callLog;
+  final familyLoads = <String>[];
 
   @override
   Future<Story> createDraft({
@@ -116,6 +119,7 @@ class _FakeStoriesApi implements StoriesGateway {
 
   @override
   Future<List<Story>> listMyDrafts(String familyId) async {
+    familyLoads.add(familyId);
     return drafts.where((s) => s.familyId == familyId).toList();
   }
 
@@ -251,12 +255,17 @@ class _FakePhotosApi implements PhotosGateway {
   Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }
 
-Widget _drafts({required StoriesGateway stories, PhotosGateway? photos}) {
+Widget _drafts({
+  required StoriesGateway stories,
+  PhotosGateway? photos,
+  FamiliesGateway? families,
+}) {
   return MaterialApp(
     home: DraftsPage(
       inviteApi: _FakeInviteApi(),
       storiesApi: stories,
       photosApi: photos ?? _FakePhotosApi(),
+      familiesApi: families,
     ),
   );
 }
@@ -447,4 +456,51 @@ void main() {
       );
     },
   );
+
+  testWidgets('drafts bar keeps Drafts and switches the family list', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    const otherId = '00000000-0000-0000-0000-000000000002';
+    final stories = _FakeStoriesApi(drafts: [_draft()]);
+    await tester.pumpWidget(
+      _drafts(
+        stories: stories,
+        families: _FakeFamilies([
+          MemberFamily(
+            id: _familyId,
+            name: 'Ada',
+            createdAt: DateTime.utc(2020),
+          ),
+          MemberFamily(id: otherId, name: 'Bea', createdAt: DateTime.utc(2021)),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Timeline'), findsOneWidget);
+    expect(find.text('Drafts'), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-drafts')), findsOneWidget);
+    expect(find.byKey(const Key('timeline-search')), findsOneWidget);
+    expect(find.text('Invite'), findsOneWidget);
+    expect(find.text('New story'), findsOneWidget);
+    expect(stories.familyLoads, [_familyId]);
+
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bea').last);
+    await tester.pumpAndSettle();
+
+    expect(stories.familyLoads.last, otherId);
+    expect(find.text('Drafts'), findsOneWidget);
+  });
+}
+
+class _FakeFamilies implements FamiliesGateway {
+  _FakeFamilies(this.rows);
+
+  final List<MemberFamily> rows;
+
+  @override
+  Future<List<MemberFamily>> listMine() async => rows;
 }

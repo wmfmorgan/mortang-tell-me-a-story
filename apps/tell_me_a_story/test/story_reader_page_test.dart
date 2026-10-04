@@ -759,11 +759,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('family-menu')), findsNothing);
     await tester.tap(find.widgetWithText(TextButton, 'Timeline'));
     await tester.pumpAndSettle();
 
     expect(find.text('timeline-dest'), findsOneWidget);
     expect(find.byKey(const Key('story-reader')), findsNothing);
+    expect(find.byKey(const Key('family-menu')), findsNothing);
   });
 
   testWidgets('+ Add your perspective pushes the overlay route', (

@@ -368,7 +368,9 @@ void main() {
       AppRoutes.newStory,
     );
     expect(find.byType(NewStoryPage), findsOneWidget);
-    expect(find.text('New story'), findsWidgets);
+    expect(find.text('Tell Me a Story'), findsOneWidget);
+    expect(find.text('Publish story'), findsOneWidget);
+    expect(find.text('New story'), findsNothing);
 
     auth.dispose();
   });
@@ -418,11 +420,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TimelinePage), findsOneWidget);
-    final publishButton = find.widgetWithText(FilledButton, 'Publish');
-    expect(publishButton, findsOneWidget);
+    final newStoryButton = find.widgetWithText(FilledButton, 'New story');
+    expect(newStoryButton, findsOneWidget);
     // Invoke directly: AppBar action hit-tests can miss in small surfaces;
     // push Future completes only when the route is popped.
-    tester.widget<FilledButton>(publishButton).onPressed!.call();
+    tester.widget<FilledButton>(newStoryButton).onPressed!.call();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -446,8 +448,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TimelinePage), findsOneWidget);
-    await tester.tap(find.byKey(const Key('timeline-more')));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Drafts'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));

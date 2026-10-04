@@ -3,10 +3,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/families_api.dart';
+import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
+import '../invites/invite_modal.dart';
 import '../stories/timeframe_chips.dart';
 
 enum _DraftsFilter {
@@ -25,11 +29,13 @@ class DraftsPage extends StatefulWidget {
     this.inviteApi,
     this.storiesApi,
     this.photosApi,
+    this.familiesApi,
   });
 
   final InviteGateway? inviteApi;
   final StoriesGateway? storiesApi;
   final PhotosGateway? photosApi;
+  final FamiliesGateway? familiesApi;
 
   @override
   State<DraftsPage> createState() => _DraftsPageState();
@@ -46,6 +52,7 @@ class _DraftsPageState extends State<DraftsPage> {
   String? _familyId;
   List<Story> _drafts = const [];
   var _filter = _DraftsFilter.all;
+  List<MemberFamily> _families = const [];
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
@@ -83,6 +90,7 @@ class _DraftsPageState extends State<DraftsPage> {
         _drafts = drafts;
         _loading = false;
       });
+      await _loadFamilies();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -90,6 +98,65 @@ class _DraftsPageState extends State<DraftsPage> {
         _loadError = true;
       });
     }
+  }
+
+  Future<void> _loadFamilies() async {
+    List<MemberFamily> rows = const [];
+    try {
+      if (widget.familiesApi != null) {
+        rows = await widget.familiesApi!.listMine();
+      } else if (widget.inviteApi != null || widget.storiesApi != null) {
+        final id = _familyId;
+        if (id != null) {
+          rows = [
+            MemberFamily(id: id, name: 'Family', createdAt: DateTime.utc(2020)),
+          ];
+        }
+      } else {
+        rows = await FamiliesApi().listMine();
+      }
+    } catch (_) {
+      rows = const [];
+    }
+    if (!mounted) return;
+    if (rows.isEmpty && _familyId != null) {
+      rows = [
+        MemberFamily(
+          id: _familyId!,
+          name: 'Family',
+          createdAt: DateTime.utc(2020),
+        ),
+      ];
+    }
+    setState(() => _families = rows);
+  }
+
+  Future<void> _selectFamily(String id) async {
+    FamilySelection.remember(id);
+    if (id == _familyId) return;
+    setState(() => _familyId = id);
+    await _reload();
+  }
+
+  String get _familyName {
+    for (final family in _families) {
+      if (family.id == _familyId) return family.name;
+    }
+    return 'Family';
+  }
+
+  Future<void> _openInvite() async {
+    var familyId = _familyId;
+    if (familyId == null) {
+      familyId = await _invite.currentFamilyId();
+    }
+    if (familyId == null) {
+      familyId = await _invite.createFamily('Family');
+      if (!mounted) return;
+      setState(() => _familyId = familyId);
+    }
+    if (!mounted) return;
+    await InviteModal.show(context, familyId: familyId, api: _invite);
   }
 
   List<Story> get _visible {
@@ -125,7 +192,14 @@ class _DraftsPageState extends State<DraftsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const AlbumTopBar(screenLabel: 'Drafts'),
+      appBar: AlbumHeader(
+        page: AlbumHeaderPage.drafts,
+        familyName: _familyName,
+        families: _families,
+        currentFamilyId: _familyId,
+        onFamilySelected: _selectFamily,
+        onInvite: _openInvite,
+      ),
       body: SafeArea(
         child: AlbumColumn(
           maxWidth: 1080,

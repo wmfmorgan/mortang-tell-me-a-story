@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'family_selection.dart';
+
 /// Invite data/API surface (M2). UI stays on timeline chrome.
 abstract class InviteGateway {
   Future<String?> currentFamilyId();
@@ -15,14 +17,22 @@ abstract class InviteGateway {
 /// Thin Edge client for Design Doc invite contracts.
 class InviteApi implements InviteGateway {
   InviteApi({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
 
   @override
   Future<String?> currentFamilyId() async {
     final uid = _client.auth.currentUser?.id;
-    if (uid == null) return null;
+    if (uid == null) {
+      FamilySelection.clear();
+      return resolveCurrentFamilyId(userId: null, remembered: null);
+    }
+    final remembered = FamilySelection.bindUser(uid);
+    if (remembered != null) {
+      final membershipIds = await _membershipFamilyIds(uid);
+      if (membershipIds.contains(remembered)) return remembered;
+    }
     final row = await _client
         .from('memberships')
         .select('family_id')
@@ -30,6 +40,19 @@ class InviteApi implements InviteGateway {
         .limit(1)
         .maybeSingle();
     return row?['family_id'] as String?;
+  }
+
+  Future<List<String>> _membershipFamilyIds(String uid) async {
+    final rows = await _client
+        .from('memberships')
+        .select('family_id')
+        .eq('user_id', uid);
+    final ids = <String>[];
+    for (final row in rows) {
+      final id = row['family_id'];
+      if (id is String) ids.add(id);
+    }
+    return ids;
   }
 
   /// Data/API create family (US-1). No dedicated Create Family screen in M2.
@@ -97,9 +120,8 @@ class InviteApi implements InviteGateway {
       final decoded = _asMap(e.details);
       throw InviteApiException(
         code: decoded['code'] as String? ?? 'VALIDATION',
-        message: decoded['message'] as String? ??
-            e.reasonPhrase ??
-            'Request failed',
+        message:
+            decoded['message'] as String? ?? e.reasonPhrase ?? 'Request failed',
       );
     }
   }
