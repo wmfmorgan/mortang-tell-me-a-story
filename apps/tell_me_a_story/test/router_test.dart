@@ -415,11 +415,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TimelinePage), findsOneWidget);
-    final newStoryButton = find.widgetWithText(TextButton, 'New story');
+    final newStoryButton = find.widgetWithText(FilledButton, 'New story');
     expect(newStoryButton, findsOneWidget);
     // Invoke directly: AppBar action hit-tests can miss in small surfaces;
     // push Future completes only when the route is popped.
-    tester.widget<TextButton>(newStoryButton).onPressed!.call();
+    tester.widget<FilledButton>(newStoryButton).onPressed!.call();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -443,9 +443,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TimelinePage), findsOneWidget);
-    final draftsButton = find.widgetWithText(TextButton, 'Drafts');
-    expect(draftsButton, findsOneWidget);
-    tester.widget<TextButton>(draftsButton).onPressed!.call();
+    await tester.tap(find.byKey(const Key('timeline-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Drafts'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 

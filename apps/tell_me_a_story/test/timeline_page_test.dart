@@ -7,8 +7,10 @@ import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -98,6 +100,31 @@ class _FakeStoriesApi implements StoriesGateway {
   Future<void> discard(String storyId) async {}
 }
 
+class _FakeFamilies implements FamiliesGateway {
+  _FakeFamilies(this.rows);
+
+  final List<MemberFamily> rows;
+
+  @override
+  Future<List<MemberFamily>> listMine() async => rows;
+}
+
+class _FakeLive implements TimelineLive {
+  void Function()? onChange;
+  String? familyId;
+
+  @override
+  void watch({required String familyId, required void Function() onChange}) {
+    this.familyId = familyId;
+    this.onChange = onChange;
+  }
+
+  @override
+  void dispose() {}
+
+  void emit() => onChange?.call();
+}
+
 class _SlowStoriesApi extends _FakeStoriesApi {
   _SlowStoriesApi() {
     _pending = Completer<List<Story>>();
@@ -132,11 +159,33 @@ Story _published({
   );
 }
 
-Widget _timeline({required StoriesGateway stories, ThemeData? theme}) {
+Widget _timeline({
+  required StoriesGateway stories,
+  ThemeData? theme,
+  FamiliesGateway? families,
+  TimelineLive? live,
+}) {
   return MaterialApp(
     theme: theme,
-    home: TimelinePage(api: _FakeInviteApi(), storiesApi: stories),
+    home: TimelinePage(
+      api: _FakeInviteApi(),
+      storiesApi: stories,
+      familiesApi: families,
+      live: live,
+    ),
   );
+}
+
+String _tooltipFor(WidgetTester tester, String storyId) {
+  return tester
+          .widget<Tooltip>(
+            find.ancestor(
+              of: find.byKey(Key('timeline-dot-$storyId')),
+              matching: find.byType(Tooltip),
+            ),
+          )
+          .message ??
+      '';
 }
 
 void main() {
@@ -162,7 +211,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Untitled'), findsOneWidget);
+    expect(_tooltipFor(tester, 's1'), 'Untitled (1980)');
     expect(find.text('Jam'), findsNothing);
     expect(find.text('1980s'), findsOneWidget);
   });
@@ -183,8 +232,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Making Blackberry Jam on the Back Porch'),
-      findsOneWidget,
+      _tooltipFor(tester, 's1'),
+      'Making Blackberry Jam on the Back Porch (1980)',
     );
     expect(find.text('We spent the afternoon.'), findsNothing);
   });
@@ -195,20 +244,20 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 
-  testWidgets('AppBar actions are New story, Drafts, + Invite', (tester) async {
+  testWidgets('far header has New story, Invite, and Drafts in More', (
+    tester,
+  ) async {
     await tester.pumpWidget(_timeline(stories: _FakeStoriesApi(published: [])));
     await tester.pumpAndSettle();
 
-    final labels = tester
-        .widgetList<TextButton>(
-          find.descendant(
-            of: find.byType(AppBar),
-            matching: find.byType(TextButton),
-          ),
-        )
-        .map((button) => (button.child as Text).data)
-        .toList();
-    expect(labels, ['New story', 'Drafts', '+ Invite']);
+    expect(find.text('New story'), findsOneWidget);
+    expect(find.text('Invite'), findsOneWidget);
+    expect(find.text('Tell Me a Story'), findsOneWidget);
+    expect(find.byKey(const Key('timeline-search')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-more')));
+    await tester.pumpAndSettle();
+    expect(find.text('Drafts'), findsOneWidget);
   });
 
   testWidgets('album AppBar fits at 320px without overflow', (tester) async {
@@ -225,8 +274,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('New story'), findsOneWidget);
-    expect(find.text('Drafts'), findsOneWidget);
-    expect(find.text('+ Invite'), findsOneWidget);
+    expect(find.text('Invite'), findsOneWidget);
   });
 
   testWidgets('returning to timeline after publish reloads published list', (
@@ -256,7 +304,12 @@ void main() {
     router.go(AppRoutes.timeline);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Jam'), findsOneWidget);
+    expect(
+      tester
+          .widgetList<Tooltip>(find.byType(Tooltip))
+          .any((tip) => tip.message?.contains('Jam') ?? false),
+      isTrue,
+    );
     expect(
       find.text('No stories yet. Capture the first one for this family.'),
       findsNothing,
@@ -279,10 +332,19 @@ void main() {
     await tester.pumpWidget(TellMeAStoryApp(router: router));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Jam'), findsOneWidget);
-    expect(find.byType(Card), findsOneWidget);
+    expect(_tooltipFor(tester, story.id), contains('Jam'));
 
-    await tester.tap(find.byType(Card));
+    await tester.tap(find.byKey(Key('timeline-dot-${story.id}')));
+    await tester.pumpAndSettle();
+    expect(find.text('Mid'), findsOneWidget);
+    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+
+    await tester.tap(find.byKey(Key('timeline-stub-${story.id}')));
+    await tester.pumpAndSettle();
+    expect(find.text('Currently Focused'), findsOneWidget);
+    expect(find.textContaining('photos · '), findsOneWidget);
+
+    await tester.tap(find.byKey(Key('timeline-card-${story.id}')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -293,5 +355,132 @@ void main() {
     expect(locations, contains(AppRoutes.storyPath(story.id)));
 
     auth.dispose();
+  });
+
+  testWidgets('Fit returns to the constellation from mid', (tester) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-dot-s1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Mid-1980s'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-fit')));
+    await tester.pumpAndSettle();
+    expect(find.text('Family Archive Constellation'), findsOneWidget);
+    expect(find.text('Fit'), findsOneWidget);
+  });
+
+  testWidgets('a draft in the gateway list stays off the rail', (tester) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(title: 'Jam'),
+            Story(
+              id: 'draft-1',
+              familyId: _familyId,
+              authorId: 'u1',
+              title: 'Secret draft',
+              body: 'hidden',
+              timeframeStart: DateTime(1990, 1, 1),
+              status: StoryStatus.draft,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('1990s'), findsNothing);
+    expect(find.text('Secret draft'), findsNothing);
+  });
+
+  testWidgets('branch chrome appears only when a child family is visible', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _FakeFamilies([
+          MemberFamily(
+            id: _familyId,
+            name: 'Jenkins',
+            createdAt: DateTime.utc(1970),
+          ),
+          MemberFamily(
+            id: 'child',
+            name: 'Martinez',
+            parentFamilyId: _familyId,
+            createdAt: DateTime.utc(1985),
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Martinez branch'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-dot-s1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Martinez Branch'), findsOneWidget);
+    expect(find.text('← Martinez joined archive'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-stub-s1')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Martinez branch fork & merge indicator active'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a published live event adds a dot', (tester) async {
+    final stories = _FakeStoriesApi(published: []);
+    final live = _FakeLive();
+    await tester.pumpWidget(_timeline(stories: stories, live: live));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsOneWidget,
+    );
+
+    stories.published.add(_published(title: 'Jam'));
+    live.emit();
+    await tester.pumpAndSettle();
+    expect(_tooltipFor(tester, 's1'), contains('Jam'));
+  });
+
+  test('other-family and draft events do not refresh the rail', () {
+    expect(
+      timelineEventMatters(
+        familyId: _familyId,
+        table: 'stories',
+        eventFamilyId: 'other',
+        status: 'published',
+        isDelete: false,
+      ),
+      isFalse,
+    );
+    expect(
+      timelineEventMatters(
+        familyId: _familyId,
+        table: 'stories',
+        eventFamilyId: _familyId,
+        status: 'draft',
+        isDelete: false,
+      ),
+      isFalse,
+    );
+    expect(
+      timelineEventMatters(
+        familyId: _familyId,
+        table: 'stories',
+        eventFamilyId: _familyId,
+        status: 'published',
+        isDelete: false,
+      ),
+      isTrue,
+    );
   });
 }
