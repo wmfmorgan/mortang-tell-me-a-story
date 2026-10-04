@@ -944,13 +944,15 @@ class _MidRailState extends State<_MidRail> {
     if (id == null) return;
     _centerId = id;
     _centerOn(id);
-    _measure();
   }
 
   void _centerOn(String id) {
     final target = widget.anchorFor(id).currentContext;
     if (target == null || !target.mounted) return;
     Scrollable.ensureVisible(target, alignment: 0.5, duration: Duration.zero);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _measure();
+    });
   }
 
   bool _sameOpacity(Map<String, double> next) {
@@ -1033,7 +1035,9 @@ class _MidRailState extends State<_MidRail> {
             onNotification: (notification) {
               if (notification is ScrollUpdateNotification ||
                   notification is ScrollEndNotification) {
-                _measure();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _measure();
+                });
               }
               return false;
             },
@@ -1044,7 +1048,7 @@ class _MidRailState extends State<_MidRail> {
                   builder: (context, constraints) {
                     final pad = constraints.maxHeight / 2;
                     return ListView(
-                      padding: EdgeInsets.fromLTRB(24, pad * 0.35, 24, pad),
+                      padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
                       children: [
                         for (var i = 0; i < widget.stories.length; i++)
                           _DialRow(

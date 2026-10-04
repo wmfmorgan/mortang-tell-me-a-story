@@ -431,6 +431,45 @@ void main() {
     expect(find.byKey(const Key('timeline-stub-mid')), findsOneWidget);
   });
 
+  testWidgets('oldest published story can sit at the dial center', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Arrival',
+              timeframeStart: DateTime(1954),
+            ),
+            _published(id: 'mid', title: 'Jam', timeframeStart: DateTime(1980)),
+            _published(
+              id: 'late',
+              title: 'Willow',
+              timeframeStart: DateTime(2024),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-dot-early')));
+    await tester.pumpAndSettle();
+
+    final early = find.byKey(const Key('timeline-stub-early'));
+    final row = tester.renderObject<RenderBox>(
+      find.ancestor(of: early, matching: find.byType(Opacity)).first,
+    );
+    final view = tester.renderObject<RenderBox>(
+      find.ancestor(of: early, matching: find.byType(Scrollable)).first,
+    );
+    final rowMid = row.localToGlobal(row.size.center(Offset.zero)).dy;
+    final viewMid = view.localToGlobal(view.size.center(Offset.zero)).dy;
+    expect((rowMid - viewMid).abs(), lessThan(1.5));
+    expect(find.text('1954 · IN FOCUS'), findsOneWidget);
+  });
+
   testWidgets('mid dial excerpt wraps without a paint overflow', (
     tester,
   ) async {
