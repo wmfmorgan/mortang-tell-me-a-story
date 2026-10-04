@@ -81,10 +81,10 @@ String farFooter({
   return '$familyName Archive · ${countWord(stories, 'heirloom story', 'heirloom stories')} preserved across ${countWord(decades, 'decade', 'decades')}';
 }
 
-/// Every published story, oldest year first. Mid scrolls this whole list.
+/// Every published story, newest year first. Mid scrolls this whole list.
 List<Story> dialStories(Iterable<Story> stories) {
   final rows = publishedStories(stories).toList();
-  rows.sort((a, b) => a.timeframeStart.compareTo(b.timeframeStart));
+  rows.sort((a, b) => b.timeframeStart.compareTo(a.timeframeStart));
   return rows;
 }
 

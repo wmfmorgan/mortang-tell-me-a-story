@@ -468,6 +468,10 @@ void main() {
     final viewMid = view.localToGlobal(view.size.center(Offset.zero)).dy;
     expect((rowMid - viewMid).abs(), lessThan(1.5));
     expect(find.text('1954 · IN FOCUS'), findsOneWidget);
+
+    final earlyTop = tester.getTopLeft(early).dy;
+    final lateTop = tester.getTopLeft(find.byKey(const Key('timeline-stub-late'))).dy;
+    expect(lateTop, lessThan(earlyTop));
   });
 
   testWidgets('mid dial excerpt wraps without a paint overflow', (

@@ -276,7 +276,7 @@ class _TimelinePageState extends State<TimelinePage> {
   void _zoomIn() {
     final rows = dialStories(_published);
     if (rows.isEmpty) return;
-    final focus = _storyById(_focusedStoryId) ?? rows.last;
+    final focus = _storyById(_focusedStoryId) ?? rows.first;
     final next = zoomIn(_zoom);
     setState(() {
       _focusedStoryId = focus.id;
@@ -940,7 +940,7 @@ class _MidRailState extends State<_MidRail> {
     if (!mounted || _centered) return;
     _centered = true;
     final id =
-        _centerId ?? (widget.stories.isEmpty ? null : widget.stories.last.id);
+        _centerId ?? (widget.stories.isEmpty ? null : widget.stories.first.id);
     if (id == null) return;
     _centerId = id;
     _centerOn(id);
@@ -1011,7 +1011,7 @@ class _MidRailState extends State<_MidRail> {
       if (story.id == id) return story.timeframeStart.year;
     }
     if (widget.stories.isEmpty) return 0;
-    return widget.stories.last.timeframeStart.year;
+    return widget.stories.first.timeframeStart.year;
   }
 
   @override
