@@ -1293,9 +1293,12 @@ class _MidRailState extends State<_MidRail> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-          child: _MidContext(
+          child: _DialSubheader(
             year: _focusYear(),
+            zoomLabel: 'Zoom Level: 45% (Stubs & Eras)',
+            selected: TimelineZoom.mid,
             onMacro: widget.onMacro,
+            onMid: () {},
             onFullCards: widget.onFullCards,
           ),
         ),
@@ -1386,16 +1389,30 @@ class _DialFade extends StatelessWidget {
   }
 }
 
-class _MidContext extends StatelessWidget {
-  const _MidContext({
+class _DialSubheader extends StatelessWidget {
+  const _DialSubheader({
     required this.year,
+    required this.zoomLabel,
+    required this.selected,
     required this.onMacro,
+    required this.onMid,
     required this.onFullCards,
   });
 
   final int year;
+  final String zoomLabel;
+  final TimelineZoom selected;
   final VoidCallback onMacro;
+  final VoidCallback onMid;
   final VoidCallback onFullCards;
+
+  ButtonStyle _segment(bool on) {
+    return TextButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      backgroundColor: on ? albumTerracotta : null,
+      foregroundColor: on ? albumParchment : albumInk.withValues(alpha: 0.7),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1484,49 +1501,54 @@ class _MidContext extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    'Zoom Level: 45% (Stubs & Eras)',
+                    zoomLabel,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: albumTerracotta,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: albumInk.withValues(alpha: 0.15)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextButton(
-                          onPressed: onMacro,
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            foregroundColor: albumInk.withValues(alpha: 0.7),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: albumInk.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton(
+                            key: const Key('timeline-zoom-macro'),
+                            onPressed: selected == TimelineZoom.far
+                                ? () {}
+                                : onMacro,
+                            style: _segment(selected == TimelineZoom.far),
+                            child: const Text('Macro'),
                           ),
-                          child: const Text('Macro'),
-                        ),
-                        TextButton(
-                          onPressed: () {},
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            backgroundColor: albumTerracotta,
-                            foregroundColor: albumParchment,
+                          TextButton(
+                            key: const Key('timeline-zoom-mid'),
+                            onPressed: selected == TimelineZoom.mid
+                                ? () {}
+                                : onMid,
+                            style: _segment(selected == TimelineZoom.mid),
+                            child: const Text('Mid'),
                           ),
-                          child: const Text('Mid'),
-                        ),
-                        TextButton(
-                          onPressed: onFullCards,
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            foregroundColor: albumInk.withValues(alpha: 0.7),
+                          TextButton(
+                            key: const Key('timeline-zoom-full'),
+                            onPressed: selected == TimelineZoom.near
+                                ? () {}
+                                : onFullCards,
+                            style: _segment(selected == TimelineZoom.near),
+                            child: const Text('Full Cards'),
                           ),
-                          child: const Text('Full Cards'),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1933,12 +1955,31 @@ class _FullCardRailState extends State<_FullCardRail> {
     }
   }
 
+  int _focusYear() {
+    final id = _centerId ?? widget.focusedId;
+    for (final story in widget.stories) {
+      if (story.id == id) return story.timeframeStart.year;
+    }
+    if (widget.stories.isEmpty) return 0;
+    return widget.stories.first.timeframeStart.year;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _FullCardZoomRow(onMacro: widget.onMacro, onMid: widget.onMid),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          child: _DialSubheader(
+            year: _focusYear(),
+            zoomLabel: 'Zoom Level: 100% (Full Cards)',
+            selected: TimelineZoom.near,
+            onMacro: widget.onMacro,
+            onMid: widget.onMid,
+            onFullCards: () {},
+          ),
+        ),
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
@@ -2021,123 +2062,6 @@ class _FullCardRailState extends State<_FullCardRail> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _FullCardZoomRow extends StatelessWidget {
-  const _FullCardZoomRow({required this.onMacro, required this.onMid});
-
-  final VoidCallback onMacro;
-  final VoidCallback onMid;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = Theme.of(context).textTheme.labelSmall?.copyWith(
-      fontSize: 12,
-      fontWeight: FontWeight.w600,
-      color: albumInk.withValues(alpha: 0.7),
-    );
-    final pill = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5ECE9),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        'Zoom Level: 100% (Full Cards)',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: label,
-      ),
-    );
-    final selected = TextButton.styleFrom(
-      visualDensity: VisualDensity.compact,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      backgroundColor: albumTerracotta,
-      foregroundColor: albumParchment,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-    );
-    final quiet = TextButton.styleFrom(
-      visualDensity: VisualDensity.compact,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      foregroundColor: albumInk.withValues(alpha: 0.7),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-    );
-    final switcher = DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5ECE9),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              key: const Key('timeline-zoom-macro'),
-              onPressed: onMacro,
-              style: quiet,
-              child: const Text('Macro'),
-            ),
-            TextButton(
-              key: const Key('timeline-zoom-mid'),
-              onPressed: onMid,
-              style: quiet,
-              child: const Text('Mid'),
-            ),
-            TextButton(
-              key: const Key('timeline-zoom-full'),
-              onPressed: () {},
-              style: selected,
-              child: const Text('Full Cards'),
-            ),
-          ],
-        ),
-      ),
-    );
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFAF2F0),
-        border: Border(
-          bottom: BorderSide(color: albumInk.withValues(alpha: 0.12)),
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final horizontal = constraints.maxWidth < 720 ? 8.0 : 32.0;
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: horizontal, vertical: 10),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1280),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: pill,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: switcher,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 }
