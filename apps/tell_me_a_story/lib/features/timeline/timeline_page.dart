@@ -947,8 +947,6 @@ class _FarRailState extends State<_FarRail> {
                     );
                   },
                 ),
-                const _DialFade(top: true),
-                const _DialFade(top: false),
               ],
             ),
           ),
