@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
@@ -742,6 +743,53 @@ void main() {
       find.text('Martinez branch fork & merge indicator active'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('search chip opens /search on far, mid, and near', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final router = GoRouter(
+      initialLocation: AppRoutes.timeline,
+      routes: [
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) => TimelinePage(
+            api: _FakeInviteApi(),
+            storiesApi: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.search,
+          builder: (context, state) => const Text('search-screen'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp.router(theme: albumTheme(), routerConfig: router),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> openAndBack() async {
+      expect(find.byKey(const Key('timeline-search')), findsOneWidget);
+      expect(find.text('Search archive...'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('timeline-search')));
+      await tester.tap(find.byKey(const Key('timeline-search')));
+      await tester.pumpAndSettle();
+      expect(find.text('search-screen'), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
+    }
+
+    await openAndBack();
+    await tester.tap(find.byKey(const Key('timeline-dot-s1')));
+    await tester.pumpAndSettle();
+    await openAndBack();
+    await tester.tap(find.byKey(const Key('timeline-stub-s1')));
+    await tester.pumpAndSettle();
+    await openAndBack();
   });
 
   testWidgets('a published live event adds a dot', (tester) async {

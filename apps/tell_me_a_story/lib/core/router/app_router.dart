@@ -13,8 +13,11 @@ import '../../features/auth/magic_link_page.dart';
 import '../../features/drafts/drafts_page.dart';
 import '../../features/perspectives/add_perspective_page.dart';
 import '../../features/stories/new_story_page.dart';
+import '../../features/search/search_page.dart';
+import '../../features/search/search_recents.dart';
 import '../../features/stories/story_reader_page.dart';
 import '../../features/timeline/timeline_page.dart';
+import '../../data/search_api.dart';
 import 'auth_refresh.dart';
 
 /// Chrome-lock paths: magic-link entry (signed-out), `/timeline` (signed-in).
@@ -25,6 +28,7 @@ abstract final class AppRoutes {
   static const story = '/stories/:storyId';
   static const storyPerspective = '/stories/:storyId/perspective';
   static const drafts = '/drafts';
+  static const search = '/search';
 
   static String storyPath(String id) => '/stories/$id';
 
@@ -41,7 +45,10 @@ GoRouter createAppRouter({
   PhotosGateway? photosApi,
   CommentsGateway? commentsApi,
   PerspectivesGateway? perspectivesApi,
+  SearchGateway? searchApi,
+  SearchRecents? searchRecents,
 }) {
+  final recents = searchRecents ?? SearchRecents();
   return GoRouter(
     initialLocation: AppRoutes.magicLink,
     refreshListenable: authRefresh,
@@ -110,6 +117,17 @@ GoRouter createAppRouter({
           photosApi: photosApi,
           commentsApi: commentsApi,
           perspectivesApi: perspectivesApi,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.search,
+        builder: (context, state) => SearchPage(
+          inviteApi: inviteApi,
+          peopleApi: peopleApi,
+          placesApi: placesApi,
+          searchApi: searchApi,
+          photosApi: photosApi,
+          recents: recents,
         ),
       ),
       GoRoute(

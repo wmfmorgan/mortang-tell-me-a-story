@@ -474,38 +474,10 @@ class _TimelineHeader extends StatelessWidget implements PreferredSizeWidget {
                             _NavLink(label: 'Stories'),
                             _NavLink(label: 'Family Members'),
                             _NavLink(label: 'Places'),
-                            if (zoom == TimelineZoom.far)
-                              const Padding(
-                                padding: EdgeInsets.only(left: 8),
-                                child: _SearchChip(key: Key('timeline-search')),
-                              ),
-                            if (zoom == TimelineZoom.mid)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: albumInk.withValues(alpha: 0.06),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.search, size: 16),
-                                        SizedBox(width: 6),
-                                        Text(
-                                          'Search archive...',
-                                          style: TextStyle(fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
+                            const Padding(
+                              padding: EdgeInsets.only(left: 8),
+                              child: _SearchChip(key: Key('timeline-search')),
+                            ),
                           ],
                         ),
                       ),
@@ -701,20 +673,23 @@ class _SearchChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: albumInk.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.search, size: 16),
-            SizedBox(width: 6),
-            Text('Search archive...', style: TextStyle(fontSize: 12)),
-          ],
+    return GestureDetector(
+      onTap: () => context.push(AppRoutes.search),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: albumInk.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.search, size: 16),
+              SizedBox(width: 6),
+              Text('Search archive...', style: TextStyle(fontSize: 12)),
+            ],
+          ),
         ),
       ),
     );

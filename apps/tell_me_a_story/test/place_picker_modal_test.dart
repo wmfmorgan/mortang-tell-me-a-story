@@ -64,6 +64,13 @@ class _FakePlacesGateway implements PlacesGateway {
   }
 
   @override
+  Future<List<Place>> listPlaces(String familyId) async {
+    final filtered = rows.where((p) => p.familyId == familyId).toList()
+      ..sort((a, b) => a.label.compareTo(b.label));
+    return filtered;
+  }
+
+  @override
   Future<Place> createPlace({
     required String familyId,
     required String label,

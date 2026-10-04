@@ -75,6 +75,7 @@ Map<String, dynamic> buildPlaceInsert({
 }
 
 abstract class PlacesGateway {
+  Future<List<Place>> listPlaces(String familyId);
   Future<List<Place>> listFavorites(String familyId);
   Future<List<Place>> listRecents(String familyId, {int limit = 10});
   Future<Place> createPlace({
@@ -104,6 +105,16 @@ class PlacesApi implements PlacesGateway {
 
   static const _columns =
       'id, family_id, label, address, lat, lng, mapbox_place_id, is_favorite, last_used_at';
+
+  @override
+  Future<List<Place>> listPlaces(String familyId) async {
+    final rows = await _client
+        .from('places')
+        .select(_columns)
+        .eq('family_id', familyId)
+        .order('label');
+    return rows.map(Place.fromJson).toList();
+  }
 
   @override
   Future<List<Place>> listFavorites(String familyId) async {

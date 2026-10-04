@@ -172,6 +172,9 @@ class _StubPlacesApi implements PlacesGateway {
       const [];
 
   @override
+  Future<List<Place>> listPlaces(String familyId) async => const [];
+
+  @override
   Future<Place> createPlace({
     required String familyId,
     required String label,
