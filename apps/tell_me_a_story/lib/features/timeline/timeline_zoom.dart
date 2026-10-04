@@ -104,6 +104,22 @@ double farEdgeOpacity({
   return nearest / band;
 }
 
+/// Full-card fade. Same band as [farEdgeOpacity]: sharp in the middle 10%,
+/// dimming through the top and bottom 45%.
+double fullCardOpacity({
+  required double rowTop,
+  required double rowHeight,
+  required double viewportTop,
+  required double viewportHeight,
+}) {
+  return farEdgeOpacity(
+    rowTop: rowTop,
+    rowHeight: rowHeight,
+    viewportTop: viewportTop,
+    viewportHeight: viewportHeight,
+  );
+}
+
 /// Fade from 1 at the dial center to 0.10 at the edge of the viewport.
 double dialOpacity({required double distance, required double halfExtent}) {
   if (halfExtent <= 0) return 1;
@@ -112,15 +128,6 @@ double dialOpacity({required double distance, required double halfExtent}) {
 }
 
 String dialFocusLabel(int year) => '$year · IN FOCUS';
-
-String nearHeading(Iterable<Story> stories) {
-  final years = stories.map((story) => story.timeframeStart.year).toList();
-  if (years.isEmpty) return 'Generational Chapters';
-  final first = years.reduce((a, b) => a < b ? a : b);
-  final last = years.reduce((a, b) => a > b ? a : b);
-  if (first == last) return 'Generational Chapters ($first)';
-  return 'Generational Chapters ($first–$last)';
-}
 
 TimelineZoom zoomIn(TimelineZoom zoom) {
   return switch (zoom) {
