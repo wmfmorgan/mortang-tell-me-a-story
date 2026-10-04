@@ -748,7 +748,6 @@ class _FarRailState extends State<_FarRail> {
   final _viewportKey = GlobalKey();
   final _rowKeys = <int, GlobalKey>{};
   int? _centerYear;
-  Map<int, double> _opacities = const {};
   var _centered = false;
 
   GlobalKey _rowKey(int year) => _rowKeys.putIfAbsent(year, GlobalKey.new);
@@ -816,10 +815,8 @@ class _FarRailState extends State<_FarRail> {
     final centerY = viewport
         .localToGlobal(Offset(0, viewport.size.height / 2))
         .dy;
-    final half = viewport.size.height / 2;
     int? bestYear;
     var best = double.infinity;
-    final opacities = <int, double>{};
     for (final band in widget.bands) {
       final row =
           _rowKey(band.startYear).currentContext?.findRenderObject()
@@ -827,21 +824,13 @@ class _FarRailState extends State<_FarRail> {
       if (row == null || !row.hasSize) continue;
       final mid = row.localToGlobal(Offset(0, row.size.height / 2)).dy;
       final distance = (mid - centerY).abs();
-      opacities[band.startYear] = dialOpacity(
-        distance: distance,
-        halfExtent: half,
-      );
       if (distance < best) {
         best = distance;
         bestYear = band.startYear;
       }
     }
-    final changed = bestYear != null && bestYear != _centerYear;
-    setState(() {
-      if (bestYear != null) _centerYear = bestYear;
-      _opacities = opacities;
-    });
-    if (!changed) return;
+    if (bestYear == null || bestYear == _centerYear) return;
+    setState(() => _centerYear = bestYear);
     DecadeBand? band;
     for (final candidate in widget.bands) {
       if (candidate.startYear == bestYear) band = candidate;
@@ -919,30 +908,37 @@ class _FarRailState extends State<_FarRail> {
                     return ListView(
                       padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
                       children: [
-                        for (final band in widget.bands)
+                        for (var i = 0; i < widget.bands.length; i++)
                           _FarDecadeRow(
-                            key: _rowKey(band.startYear),
-                            band: band,
-                            focused: band.startYear == _centerYear,
+                            key: _rowKey(widget.bands[i].startYear),
+                            band: widget.bands[i],
+                            focused: widget.bands[i].startYear == _centerYear,
                             opacity:
-                                _opacities[band.startYear] ??
-                                (band.startYear == _centerYear ? 1 : 0.4),
-                            highlight: _highlight(band),
+                                widget.bands.length > 1 &&
+                                    (i == 0 || i == widget.bands.length - 1)
+                                ? 0.4
+                                : 1,
+                            highlight: _highlight(widget.bands[i]),
                             showBranch:
-                                joinYear != null && band.startYear == joinYear,
+                                joinYear != null &&
+                                widget.bands[i].startYear == joinYear,
                             continueRail:
-                                joinYear != null && band.startYear >= joinYear,
+                                joinYear != null &&
+                                widget.bands[i].startYear >= joinYear,
                             railAbove:
                                 joinYear != null &&
                                 widget.bands.any(
-                                  (other) => other.startYear > band.startYear,
+                                  (other) =>
+                                      other.startYear >
+                                      widget.bands[i].startYear,
                                 ),
                             railBelow:
                                 joinYear != null &&
                                 widget.bands.any(
                                   (other) =>
                                       other.startYear >= joinYear &&
-                                      other.startYear < band.startYear,
+                                      other.startYear <
+                                          widget.bands[i].startYear,
                                 ),
                             branchName: widget.child?.name,
                             onDot: widget.onDot,
@@ -1341,39 +1337,7 @@ class _FarDot extends StatelessWidget {
         ),
       ),
     );
-    return Tooltip(
-      message: dotTooltip(story),
-      child: highlighted
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: albumInk,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    dotTooltip(story),
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: albumParchment,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                CustomPaint(
-                  size: const Size(8, 6),
-                  painter: _CaretPainter(color: albumInk),
-                ),
-                const SizedBox(height: 6),
-                dot,
-              ],
-            )
-          : dot,
-    );
+    return Tooltip(message: dotTooltip(story), child: dot);
   }
 }
 
@@ -1548,7 +1512,8 @@ class _MidRailState extends State<_MidRail> {
                             opacity:
                                 _opacities[widget.stories[i].id] ??
                                 (widget.stories[i].id == _centerId ? 1 : 0.35),
-                            showBranchRail: widget.child != null && i >= joinAt,
+                            showBranchRail: widget.child != null && i <= joinAt,
+                            railEndsAtJoin: widget.child != null && i == joinAt,
                             joinNote: widget.child != null && i == joinAt
                                 ? '← ${widget.child!.name} union joined archive'
                                 : null,
@@ -1766,6 +1731,7 @@ class _DialRow extends StatelessWidget {
     required this.focused,
     required this.opacity,
     required this.showBranchRail,
+    required this.railEndsAtJoin,
     required this.onTap,
     this.joinNote,
     this.branchLabel,
@@ -1776,6 +1742,7 @@ class _DialRow extends StatelessWidget {
   final bool focused;
   final double opacity;
   final bool showBranchRail;
+  final bool railEndsAtJoin;
   final String? joinNote;
   final String? branchLabel;
   final VoidCallback onTap;
@@ -1784,7 +1751,6 @@ class _DialRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final year = '${story.timeframeStart.year}';
     final place = (story.placeLabel ?? '').trim();
-    final line = excerpt(story.body, max: 120);
     final photos = story.photoCount > 0
         ? countWord(story.photoCount, 'photo', 'photos')
         : null;
@@ -1880,18 +1846,6 @@ class _DialRow extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
-                if (line.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      line,
-                      textAlign: cardOnLeft ? TextAlign.end : TextAlign.start,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontStyle: focused ? null : FontStyle.italic,
-                        color: albumInk.withValues(alpha: focused ? 0.8 : 0.62),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -1975,15 +1929,22 @@ class _DialRow extends StatelessWidget {
                         ),
                         if (showBranchRail)
                           Positioned(
+                            key: Key('timeline-branch-${story.id}'),
                             top: 0,
                             bottom: 0,
                             right: 0,
                             width: 2,
-                            child: CustomPaint(
-                              painter: _DashPainter(
-                                color: albumSage.withValues(alpha: 0.7),
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: FractionallySizedBox(
+                                heightFactor: railEndsAtJoin ? 0.5 : 1,
+                                child: CustomPaint(
+                                  painter: _DashPainter(
+                                    color: albumSage.withValues(alpha: 0.7),
+                                  ),
+                                  child: const SizedBox.expand(),
+                                ),
                               ),
-                              child: const SizedBox.expand(),
                             ),
                           ),
                       ],
@@ -2021,26 +1982,6 @@ class _DialRow extends StatelessWidget {
       ),
     );
   }
-}
-
-class _CaretPainter extends CustomPainter {
-  const _CaretPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..close();
-    canvas.drawPath(path, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CaretPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 class _DashPainter extends CustomPainter {
@@ -2207,13 +2148,6 @@ class _NearCard extends StatelessWidget {
                 storyTitle(story),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              if (excerpt(story.body).isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  excerpt(story.body),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
               if (story.photoPaths.isNotEmpty && photos != null)
                 _PhotoRow(
                   paths: story.photoPaths.take(2).toList(),

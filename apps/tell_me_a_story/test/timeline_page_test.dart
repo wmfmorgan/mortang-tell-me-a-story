@@ -411,6 +411,21 @@ void main() {
       tester.getTopLeft(find.text('2020s')).dy,
       lessThan(tester.getTopLeft(find.text('1950s')).dy),
     );
+    double decadeOpacity(String label) {
+      return tester
+          .widget<Opacity>(
+            find
+                .ancestor(of: find.text(label), matching: find.byType(Opacity))
+                .first,
+          )
+          .opacity;
+    }
+
+    expect(decadeOpacity('2020s'), 0.4);
+    expect(decadeOpacity('1980s'), 1);
+    expect(decadeOpacity('1950s'), 0.4);
+    expect(find.text('Jam (1980)'), findsNothing);
+    expect(_tooltipFor(tester, 'mid'), 'Jam (1980)');
     await tester.tap(find.byKey(const Key('timeline-dot-mid')));
     await tester.pumpAndSettle();
 
@@ -482,12 +497,10 @@ void main() {
     expect(lateTop, lessThan(earlyTop));
   });
 
-  testWidgets('mid dial excerpt wraps without a paint overflow', (
+  testWidgets('mid stubs and near cards show the title without the body', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(1100, 700));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final body = List.filled(30, 'dolore eum sint eligendi et').join(' ');
+    const body = 'We spent the afternoon stirring the pot.';
     await tester.pumpWidget(
       _timeline(
         stories: _FakeStoriesApi(
@@ -500,6 +513,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('title2'), findsOneWidget);
+    expect(find.text(body), findsNothing);
+
+    await tester.tap(find.byKey(const Key('timeline-stub-s1')));
+    await tester.pumpAndSettle();
+    expect(find.text('title2'), findsOneWidget);
+    expect(find.text(body), findsNothing);
+  });
+
+  testWidgets('mid branch rail runs from the join toward newer stories', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Arrival',
+              timeframeStart: DateTime(1954),
+            ),
+            _published(id: 'mid', title: 'Jam', timeframeStart: DateTime(1980)),
+            _published(
+              id: 'late',
+              title: 'Willow',
+              timeframeStart: DateTime(2024),
+            ),
+          ],
+        ),
+        families: _FakeFamilies([
+          MemberFamily(
+            id: _familyId,
+            name: 'Jenkins',
+            createdAt: DateTime.utc(1970),
+          ),
+          MemberFamily(
+            id: 'child',
+            name: 'Martinez',
+            parentFamilyId: _familyId,
+            createdAt: DateTime.utc(1985),
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-dot-mid')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('timeline-branch-late')), findsOneWidget);
+    expect(find.byKey(const Key('timeline-branch-mid')), findsOneWidget);
+    expect(find.byKey(const Key('timeline-branch-early')), findsNothing);
   });
 
   testWidgets('a draft in the gateway list stays off the rail', (tester) async {
