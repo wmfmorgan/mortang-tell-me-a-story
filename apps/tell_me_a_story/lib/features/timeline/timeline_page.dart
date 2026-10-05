@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
@@ -50,7 +51,6 @@ class _TimelinePageState extends State<TimelinePage> {
   var _loadingPublished = true;
   var _inviteHandled = false;
   var _zoom = TimelineZoom.far;
-  int? _decadeStart;
   String? _focusedStoryId;
   var _pinchLatched = false;
   final _anchorKeys = <String, GlobalKey>{};
@@ -217,7 +217,6 @@ class _TimelinePageState extends State<TimelinePage> {
     if (!still && previousFocus != null) {
       setState(() {
         _focusedStoryId = null;
-        _decadeStart = null;
         _zoom = TimelineZoom.far;
       });
     }
@@ -244,15 +243,6 @@ class _TimelinePageState extends State<TimelinePage> {
     return _families.isEmpty ? null : _families.first;
   }
 
-  int _activeDecade(List<DecadeBand> bands) {
-    if (bands.isEmpty) return 1900;
-    if (_decadeStart != null &&
-        bands.any((band) => band.startYear == _decadeStart)) {
-      return _decadeStart!;
-    }
-    return bands.first.startYear;
-  }
-
   Story? _storyById(String? id) {
     if (id == null) return null;
     for (final story in _published) {
@@ -264,17 +254,14 @@ class _TimelinePageState extends State<TimelinePage> {
   void _onDialFocus(String id) {
     final story = _storyById(id);
     if (story == null || id == _focusedStoryId) return;
-    setState(() {
-      _focusedStoryId = id;
-      _decadeStart = decadeStartYear(story.timeframeStart);
-    });
+    setState(() => _focusedStoryId = id);
   }
 
   void _reveal(String storyId) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final target = _anchorKeys[storyId]?.currentContext;
       if (target == null || !target.mounted) return;
-      Scrollable.ensureVisible(target, alignment: 0.3);
+      Scrollable.ensureVisible(target, alignment: 0.5);
     });
   }
 
@@ -283,7 +270,6 @@ class _TimelinePageState extends State<TimelinePage> {
   void _openMid(Story story) {
     setState(() {
       _zoom = TimelineZoom.mid;
-      _decadeStart = decadeStartYear(story.timeframeStart);
       _focusedStoryId = story.id;
     });
   }
@@ -291,7 +277,6 @@ class _TimelinePageState extends State<TimelinePage> {
   void _openNear(Story story) {
     setState(() {
       _zoom = TimelineZoom.near;
-      _decadeStart = decadeStartYear(story.timeframeStart);
       _focusedStoryId = story.id;
     });
     _reveal(story.id);
@@ -304,7 +289,6 @@ class _TimelinePageState extends State<TimelinePage> {
     final next = zoomIn(_zoom);
     setState(() {
       _focusedStoryId = focus.id;
-      _decadeStart = decadeStartYear(focus.timeframeStart);
       _zoom = next;
     });
     if (next == TimelineZoom.near) _reveal(focus.id);
@@ -316,7 +300,6 @@ class _TimelinePageState extends State<TimelinePage> {
     final focus = _storyById(_focusedStoryId) ?? rows.first;
     setState(() {
       _focusedStoryId = focus.id;
-      _decadeStart = decadeStartYear(focus.timeframeStart);
       _zoom = TimelineZoom.near;
     });
     _reveal(focus.id);
@@ -329,7 +312,6 @@ class _TimelinePageState extends State<TimelinePage> {
   void _fitAll() {
     setState(() {
       _zoom = TimelineZoom.far;
-      _decadeStart = null;
       _focusedStoryId = null;
     });
   }
@@ -349,7 +331,6 @@ class _TimelinePageState extends State<TimelinePage> {
   Widget build(BuildContext context) {
     final family = _currentFamily;
     final bands = decadeBands(_published);
-    final decade = _activeDecade(bands);
     final showRail = !_loadingFamily && !_loadingPublished && bands.isNotEmpty;
     return Scaffold(
       backgroundColor: albumParchment,
@@ -379,7 +360,7 @@ class _TimelinePageState extends State<TimelinePage> {
               children: [
                 Column(
                   children: [
-                    Expanded(child: _body(bands, decade)),
+                    Expanded(child: _body(bands)),
                     if (showFooter)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -397,7 +378,7 @@ class _TimelinePageState extends State<TimelinePage> {
                       ),
                   ],
                 ),
-                if (showRail)
+                if (showRail && _zoom != TimelineZoom.near)
                   Positioned(
                     left: 0,
                     right: 0,
@@ -423,7 +404,7 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 
-  Widget _body(List<DecadeBand> bands, int decade) {
+  Widget _body(List<DecadeBand> bands) {
     if (_loadingFamily || _loadingPublished) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -459,13 +440,15 @@ class _TimelinePageState extends State<TimelinePage> {
         onMacro: _fitAll,
         onFullCards: _zoomIn,
       ),
-      TimelineZoom.near => _NearRail(
-        stories: decadeNewestFirst(_published, decade),
+      TimelineZoom.near => _FullCardRail(
+        stories: dialStories(_published),
         focusedId: _focusedStoryId,
-        child: child,
         photos: _photos,
         anchorFor: _anchor,
         onOpen: (story) => context.push('/stories/${story.id}'),
+        onFocus: _onDialFocus,
+        onMacro: _fitAll,
+        onMid: () => setState(() => _zoom = TimelineZoom.mid),
       ),
     };
   }
@@ -489,7 +472,7 @@ class _ZoomCluster extends StatelessWidget {
     final hint = switch (zoom) {
       TimelineZoom.far => 'Pinch · tap decade dot to zoom in · − to pull back',
       TimelineZoom.mid => 'Pinch · tap stub to zoom in · − to pull back',
-      TimelineZoom.near => 'Pinch out · tap − · or Fit all to pull back',
+      TimelineZoom.near => 'Pinch · tap decade dot to zoom in · − to pull back',
     };
     const fitLabel = 'Fit all';
     final controls = Material(
@@ -531,25 +514,7 @@ class _ZoomCluster extends StatelessWidget {
     final hintText = Text(hint, style: Theme.of(context).textTheme.labelMedium);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (zoom == TimelineZoom.near)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              'Near · full cards',
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
-          ),
-        if (zoom != TimelineZoom.near) ...[
-          controls,
-          const SizedBox(height: 8),
-          hintText,
-        ] else ...[
-          hintText,
-          const SizedBox(height: 8),
-          controls,
-        ],
-      ],
+      children: [controls, const SizedBox(height: 8), hintText],
     );
   }
 }
@@ -1328,9 +1293,12 @@ class _MidRailState extends State<_MidRail> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-          child: _MidContext(
+          child: _DialSubheader(
             year: _focusYear(),
+            zoomLabel: 'Zoom Level: 45% (Stubs & Eras)',
+            selected: TimelineZoom.mid,
             onMacro: widget.onMacro,
+            onMid: () {},
             onFullCards: widget.onFullCards,
           ),
         ),
@@ -1421,16 +1389,30 @@ class _DialFade extends StatelessWidget {
   }
 }
 
-class _MidContext extends StatelessWidget {
-  const _MidContext({
+class _DialSubheader extends StatelessWidget {
+  const _DialSubheader({
     required this.year,
+    required this.zoomLabel,
+    required this.selected,
     required this.onMacro,
+    required this.onMid,
     required this.onFullCards,
   });
 
   final int year;
+  final String zoomLabel;
+  final TimelineZoom selected;
   final VoidCallback onMacro;
+  final VoidCallback onMid;
   final VoidCallback onFullCards;
+
+  ButtonStyle _segment(bool on) {
+    return TextButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      backgroundColor: on ? albumTerracotta : null,
+      foregroundColor: on ? albumParchment : albumInk.withValues(alpha: 0.7),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1519,49 +1501,54 @@ class _MidContext extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    'Zoom Level: 45% (Stubs & Eras)',
+                    zoomLabel,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: albumTerracotta,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: albumInk.withValues(alpha: 0.15)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextButton(
-                          onPressed: onMacro,
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            foregroundColor: albumInk.withValues(alpha: 0.7),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: albumInk.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton(
+                            key: const Key('timeline-zoom-macro'),
+                            onPressed: selected == TimelineZoom.far
+                                ? () {}
+                                : onMacro,
+                            style: _segment(selected == TimelineZoom.far),
+                            child: const Text('Macro'),
                           ),
-                          child: const Text('Macro'),
-                        ),
-                        TextButton(
-                          onPressed: () {},
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            backgroundColor: albumTerracotta,
-                            foregroundColor: albumParchment,
+                          TextButton(
+                            key: const Key('timeline-zoom-mid'),
+                            onPressed: selected == TimelineZoom.mid
+                                ? () {}
+                                : onMid,
+                            style: _segment(selected == TimelineZoom.mid),
+                            child: const Text('Mid'),
                           ),
-                          child: const Text('Mid'),
-                        ),
-                        TextButton(
-                          onPressed: onFullCards,
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            foregroundColor: albumInk.withValues(alpha: 0.7),
+                          TextButton(
+                            key: const Key('timeline-zoom-full'),
+                            onPressed: selected == TimelineZoom.near
+                                ? () {}
+                                : onFullCards,
+                            style: _segment(selected == TimelineZoom.near),
+                            child: const Text('Full Cards'),
                           ),
-                          child: const Text('Full Cards'),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1857,93 +1844,353 @@ class _DashPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-class _NearRail extends StatelessWidget {
-  const _NearRail({
+class _FullCardRail extends StatefulWidget {
+  const _FullCardRail({
     required this.stories,
     required this.focusedId,
-    required this.child,
     required this.photos,
     required this.anchorFor,
     required this.onOpen,
+    required this.onFocus,
+    required this.onMacro,
+    required this.onMid,
   });
 
   final List<Story> stories;
   final String? focusedId;
-  final MemberFamily? child;
   final PhotosGateway? photos;
   final GlobalKey Function(String id) anchorFor;
   final ValueChanged<Story> onOpen;
+  final ValueChanged<String> onFocus;
+  final VoidCallback onMacro;
+  final VoidCallback onMid;
+
+  @override
+  State<_FullCardRail> createState() => _FullCardRailState();
+}
+
+class _FullCardRailState extends State<_FullCardRail> {
+  final _viewportKey = GlobalKey();
+  String? _centerId;
+  Map<String, double> _opacities = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _centerId = widget.focusedId;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _centerThenMeasure());
+  }
+
+  void _centerThenMeasure() {
+    if (!mounted) return;
+    final id = _centerId;
+    final target = id == null ? null : widget.anchorFor(id).currentContext;
+    if (target != null && target.mounted) {
+      Scrollable.ensureVisible(target, alignment: 0.5, duration: Duration.zero);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _measure();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _FullCardRail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget.focusedId;
+    if (next != null && next != oldWidget.focusedId) {
+      _centerId = next;
+    }
+  }
+
+  bool _sameOpacity(Map<String, double> next) {
+    if (next.length != _opacities.length) return false;
+    for (final entry in next.entries) {
+      final previous = _opacities[entry.key];
+      if (previous == null || (previous - entry.value).abs() > 0.02) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _measure() {
+    if (!mounted) return;
+    final viewport =
+        _viewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (viewport == null || !viewport.hasSize) return;
+    final origin = viewport.localToGlobal(Offset.zero);
+    final centerY = origin.dy + viewport.size.height / 2;
+    String? bestId;
+    var best = double.infinity;
+    final opacities = <String, double>{};
+    for (final story in widget.stories) {
+      final row =
+          widget.anchorFor(story.id).currentContext?.findRenderObject()
+              as RenderBox?;
+      if (row == null || !row.hasSize) continue;
+      final top = row.localToGlobal(Offset.zero).dy;
+      opacities[story.id] = fullCardOpacity(
+        rowTop: top,
+        rowHeight: row.size.height,
+        viewportTop: origin.dy,
+        viewportHeight: viewport.size.height,
+      );
+      final distance = (top + row.size.height / 2 - centerY).abs();
+      if (distance < best) {
+        best = distance;
+        bestId = story.id;
+      }
+    }
+    final idChanged = bestId != null && bestId != _centerId;
+    if (!idChanged && _sameOpacity(opacities)) return;
+    setState(() {
+      if (bestId != null) _centerId = bestId;
+      _opacities = opacities;
+    });
+    final id = bestId;
+    if (idChanged && id != null && id != widget.focusedId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && id != widget.focusedId) widget.onFocus(id);
+      });
+    }
+  }
+
+  int _focusYear() {
+    final id = _centerId ?? widget.focusedId;
+    for (final story in widget.stories) {
+      if (story.id == id) return story.timeframeStart.year;
+    }
+    if (widget.stories.isEmpty) return 0;
+    return widget.stories.first.timeframeStart.year;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 140),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            const Icon(Icons.auto_stories, color: albumTerracotta, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              'Family Archive · Near Zoom View',
-              style: Theme.of(context).textTheme.labelLarge
-                  ?.copyWith(color: albumTerracotta),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          nearHeading(stories),
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Exploring detailed memories, photographs, and milestones from our family archives with full card layout.',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        const SizedBox(height: 20),
-        for (var i = 0; i < stories.length; i++) ...[
-          _NearCard(
-            key: anchorFor(stories[i].id),
-            story: stories[i],
-            cardOnLeft: i.isEven,
-            focused:
-                stories[i].id == focusedId || (focusedId == null && i == 0),
-            photos: photos,
-            onOpen: () => onOpen(stories[i]),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          child: _DialSubheader(
+            year: _focusYear(),
+            zoomLabel: 'Zoom Level: 100% (Full Cards)',
+            selected: TimelineZoom.near,
+            onMacro: widget.onMacro,
+            onMid: widget.onMid,
+            onFullCards: () {},
           ),
-          if (i == 0 && child != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.groups, size: 16, color: albumTerracotta),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '${child!.name} branch fork & merge indicator active',
+        ),
+        Expanded(
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollUpdateNotification ||
+                  notification is ScrollEndNotification) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _measure();
+                });
+              }
+              return false;
+            },
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final wide = constraints.maxWidth >= 800;
+                final pad = constraints.maxHeight / 2;
+                final gap = constraints.maxWidth < 720 ? 32.0 : 80.0;
+                return Stack(
+                  key: _viewportKey,
+                  children: [
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Align(
+                          alignment: wide
+                              ? Alignment.center
+                              : Alignment.centerLeft,
+                          child: Padding(
+                            padding: EdgeInsets.only(left: wide ? 0 : 13),
+                            child: Container(
+                              key: const Key('timeline-spine'),
+                              width: 2,
+                              color: albumInk.withValues(alpha: 0.2),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                    ListView(
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(100000),
+                      padding: EdgeInsets.fromLTRB(wide ? 24 : 8, pad, 24, pad),
+                      children: [
+                        for (var i = 0; i < widget.stories.length; i++)
+                          _FullCardRow(
+                            key: widget.anchorFor(widget.stories[i].id),
+                            story: widget.stories[i],
+                            cardOnLeft: i.isEven,
+                            wide: wide,
+                            focused: widget.stories[i].id == _centerId,
+                            opacity:
+                                _opacities[widget.stories[i].id] ??
+                                (widget.stories[i].id == _centerId ? 1 : 0.4),
+                            gap: gap,
+                            photos: widget.photos,
+                            onOpen: () => widget.onOpen(widget.stories[i]),
+                          ),
+                      ],
+                    ),
+                    const Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                albumParchment,
+                                Color(0x00FBF7F2),
+                                Color(0x00FBF7F2),
+                                albumParchment,
+                              ],
+                              stops: [0, 0.18, 0.82, 1],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
-        ],
+          ),
+        ),
       ],
     );
   }
 }
 
-class _NearCard extends StatelessWidget {
-  const _NearCard({
+class _FullCardRow extends StatelessWidget {
+  const _FullCardRow({
     super.key,
     required this.story,
     required this.cardOnLeft,
+    required this.wide,
     required this.focused,
+    required this.opacity,
+    required this.gap,
     required this.photos,
     required this.onOpen,
   });
 
   final Story story;
   final bool cardOnLeft;
+  final bool wide;
+  final bool focused;
+  final double opacity;
+  final double gap;
+  final PhotosGateway? photos;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final card = Opacity(
+      opacity: opacity.clamp(0, 1),
+      child: Transform.scale(
+        scale: focused ? 1.05 : 1,
+        child: _FullCard(
+          story: story,
+          focused: focused,
+          photos: photos,
+          onOpen: onOpen,
+        ),
+      ),
+    );
+    final dot = _FullCardDot(focused: focused);
+    if (!wide) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: gap),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(width: 28, child: Center(child: dot)),
+            Expanded(child: card),
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: EdgeInsets.only(bottom: gap),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FractionallySizedBox(
+                    widthFactor: 0.92,
+                    child: cardOnLeft ? card : const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 56),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: 0.92,
+                    child: cardOnLeft ? const SizedBox.shrink() : card,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          dot,
+        ],
+      ),
+    );
+  }
+}
+
+class _FullCardDot extends StatelessWidget {
+  const _FullCardDot({required this.focused});
+
+  final bool focused;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = focused ? 20.0 : 14.0;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: focused ? albumTerracotta : albumParchment,
+        border: focused
+            ? null
+            : Border.all(color: albumInk.withValues(alpha: 0.4), width: 2),
+        boxShadow: focused
+            ? const [
+                BoxShadow(
+                  color: Color(0xFFF5DED6),
+                  spreadRadius: 8,
+                  blurRadius: 0,
+                ),
+              ]
+            : null,
+      ),
+    );
+  }
+}
+
+class _FullCard extends StatelessWidget {
+  const _FullCard({
+    required this.story,
+    required this.focused,
+    required this.photos,
+    required this.onOpen,
+  });
+
+  final Story story;
   final bool focused;
   final PhotosGateway? photos;
   final VoidCallback onOpen;
@@ -1954,126 +2201,216 @@ class _NearCard extends StatelessWidget {
     final author = (story.authorDisplayName ?? '').trim().isEmpty
         ? 'Member'
         : story.authorDisplayName!.trim();
-    final card = Card(
-      key: Key('timeline-card-${story.id}'),
-      elevation: focused ? 3 : 0,
+    final paths = focused
+        ? (story.photoPaths.isEmpty
+              ? const <String>[]
+              : [story.photoPaths.first])
+        : story.photoPaths.take(2).toList();
+    return Material(
+      color: Colors.white,
+      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(albumCardRadius),
         side: BorderSide(
-          color: focused ? albumTerracotta : albumInk.withValues(alpha: 0.12),
+          color: focused ? albumTerracotta : albumInk.withValues(alpha: 0.2),
+          width: focused ? 2 : 1,
         ),
       ),
       child: InkWell(
+        key: Key('timeline-card-${story.id}'),
         onTap: onOpen,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        borderRadius: BorderRadius.circular(albumCardRadius),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(albumCardRadius),
+            boxShadow: [
+              BoxShadow(
+                color: albumInk.withValues(alpha: focused ? 0.08 : 0.04),
+                blurRadius: focused ? 24 : 8,
+                offset: Offset(0, focused ? 8 : 2),
+              ),
               if (focused)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    'Currently Focused',
-                    style: Theme.of(context).textTheme.labelMedium
-                        ?.copyWith(color: albumTerracotta),
-                  ),
+                BoxShadow(
+                  color: const Color(0xFFF5DED6).withValues(alpha: 0.3),
+                  spreadRadius: 4,
+                  blurRadius: 0,
                 ),
-              Text(
-                '${story.timeframeStart.year}',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  if (story.personNames.isNotEmpty)
-                    _Chip(icon: Icons.person, label: story.personNames.first),
-                  if ((story.placeLabel ?? '').isNotEmpty)
-                    _Chip(icon: Icons.location_on, label: story.placeLabel!),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                storyTitle(story),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              if (story.photoPaths.isNotEmpty && photos != null)
-                _PhotoRow(
-                  paths: story.photoPaths.take(2).toList(),
-                  photos: photos!,
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      '${story.timeframeStart.year}',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: albumTerracotta,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                        fontSize: 12,
+                      ),
+                    ),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        for (final name in story.personNames)
+                          _FullChip(
+                            icon: Icons.person,
+                            label: name,
+                            filled: focused,
+                          ),
+                        if ((story.placeLabel ?? '').isNotEmpty)
+                          _FullChip(
+                            icon: Icons.location_on,
+                            label: story.placeLabel!,
+                            filled: focused,
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
-              if (focused) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Added by $author',
-                  style: Theme.of(context).textTheme.labelMedium,
+                  story.title ?? '',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 24,
+                    height: 1.15,
+                  ),
                 ),
-                Text(
-                  '${story.photoCount} photos · $notes notes',
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
+                if (paths.isNotEmpty && photos != null)
+                  _CardPhotos(
+                    paths: paths,
+                    photos: photos!,
+                    height: focused ? 192 : 112,
+                  ),
+                if (focused) ...[
+                  const SizedBox(height: 12),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: albumInk.withValues(alpha: 0.12),
+                        ),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Text(
+                            'Added by $author',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  fontSize: 12,
+                                  color: albumInk.withValues(alpha: 0.7),
+                                ),
+                          ),
+                          Text(
+                            '${countWord(story.photoCount, 'photo', 'photos')} · ${countWord(notes, 'note', 'notes')}',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: albumTerracotta,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
     );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: cardOnLeft ? card : const SizedBox.shrink()),
-          Padding(
-            padding: const EdgeInsets.only(top: 22),
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: focused ? albumTerracotta : albumSage,
-                shape: BoxShape.circle,
+  }
+}
+
+class _FullChip extends StatelessWidget {
+  const _FullChip({
+    required this.icon,
+    required this.label,
+    required this.filled,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.labelSmall
+        ?.copyWith(fontSize: 12, color: albumInk.withValues(alpha: 0.75));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      decoration: BoxDecoration(
+        color: filled ? const Color(0xFFF5DED6) : const Color(0xFFF5ECE9),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final textMax = constraints.maxWidth.isFinite
+              ? (constraints.maxWidth - 26)
+                    .clamp(0.0, constraints.maxWidth)
+                    .toDouble()
+              : double.infinity;
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 12,
+                color: albumInk.withValues(alpha: filled ? 0.85 : 0.7),
               ),
-            ),
-          ),
-          Expanded(child: cardOnLeft ? const SizedBox.shrink() : card),
-        ],
+              const SizedBox(width: 4),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: textMax),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: style,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: albumInk.withValues(alpha: 0.7)),
-        const SizedBox(width: 4),
-        Text(label, style: Theme.of(context).textTheme.labelMedium),
-      ],
-    );
-  }
-}
-
-class _PhotoRow extends StatefulWidget {
-  const _PhotoRow({required this.paths, required this.photos});
+class _CardPhotos extends StatefulWidget {
+  const _CardPhotos({
+    required this.paths,
+    required this.photos,
+    required this.height,
+  });
 
   final List<String> paths;
   final PhotosGateway photos;
+  final double height;
 
   @override
-  State<_PhotoRow> createState() => _PhotoRowState();
+  State<_CardPhotos> createState() => _CardPhotosState();
 }
 
-class _PhotoRowState extends State<_PhotoRow> {
+class _CardPhotosState extends State<_CardPhotos> {
   final Map<String, Uint8List> _bytes = {};
 
   @override
@@ -2089,32 +2426,38 @@ class _PhotoRowState extends State<_PhotoRow> {
         if (!mounted) return;
         setState(() => _bytes[path] = bytes);
       } catch (_) {
-        // Skip a thumb that cannot be read.
+        // A photo that cannot be read stays out of the well.
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_bytes.isEmpty) return const SizedBox.shrink();
+    final ready = [
+      for (final path in widget.paths)
+        if (_bytes[path] != null) path,
+    ];
+    if (ready.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.only(top: 12),
       child: Row(
         children: [
-          for (final path in widget.paths)
-            if (_bytes[path] != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
+          for (var i = 0; i < ready.length; i++)
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(left: i == 0 ? 0 : 12),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Image.memory(
-                    _bytes[path]!,
-                    width: 96,
-                    height: 72,
+                    _bytes[ready[i]]!,
+                    height: widget.height,
+                    width: double.infinity,
                     fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),
                 ),
               ),
+            ),
         ],
       ),
     );

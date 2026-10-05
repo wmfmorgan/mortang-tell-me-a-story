@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,7 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
@@ -160,6 +162,12 @@ Story _published({
   String? body = 'Jam',
   DateTime? timeframeStart,
   DateTime? timeframeEnd,
+  String? placeLabel,
+  List<String> personNames = const [],
+  int photoCount = 0,
+  int commentCount = 0,
+  List<String> photoPaths = const [],
+  String? authorDisplayName,
 }) {
   return Story(
     id: id,
@@ -169,9 +177,15 @@ Story _published({
     body: body,
     timeframeStart: timeframeStart ?? DateTime(1980, 1, 1),
     timeframeEnd: timeframeEnd ?? DateTime(1989, 12, 31),
-    placeId: 'pl',
+    placeId: placeLabel == null ? 'pl' : 'pl',
     status: StoryStatus.published,
     personIds: const ['p'],
+    placeLabel: placeLabel,
+    personNames: personNames,
+    photoCount: photoCount,
+    commentCount: commentCount,
+    photoPaths: photoPaths,
+    authorDisplayName: authorDisplayName,
     publishedAt: DateTime(2026, 9, 27),
   );
 }
@@ -181,6 +195,7 @@ Widget _timeline({
   ThemeData? theme,
   FamiliesGateway? families,
   TimelineLive? live,
+  PhotosGateway? photos,
 }) {
   return MaterialApp(
     theme: theme,
@@ -189,6 +204,136 @@ Widget _timeline({
       storiesApi: stories,
       familiesApi: families,
       live: live,
+      photosApi: photos,
+    ),
+  );
+}
+
+class _FakePhotos implements PhotosGateway {
+  static final _png = Uint8List.fromList(const [
+    0x89,
+    0x50,
+    0x4E,
+    0x47,
+    0x0D,
+    0x0A,
+    0x1A,
+    0x0A,
+    0x00,
+    0x00,
+    0x00,
+    0x0D,
+    0x49,
+    0x48,
+    0x44,
+    0x52,
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x08,
+    0x06,
+    0x00,
+    0x00,
+    0x00,
+    0x1F,
+    0x15,
+    0xC4,
+    0x89,
+    0x00,
+    0x00,
+    0x00,
+    0x0A,
+    0x49,
+    0x44,
+    0x41,
+    0x54,
+    0x78,
+    0x9C,
+    0x63,
+    0x00,
+    0x01,
+    0x00,
+    0x00,
+    0x05,
+    0x00,
+    0x01,
+    0x0D,
+    0x0A,
+    0x2D,
+    0xB4,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x49,
+    0x45,
+    0x4E,
+    0x44,
+    0xAE,
+    0x42,
+    0x60,
+    0x82,
+  ]);
+
+  @override
+  Future<void> deleteAllForStory({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  @override
+  Future<void> deletePhoto(Photo photo) async {}
+
+  @override
+  Future<Uint8List> downloadBytes(String storagePath) async => _png;
+
+  @override
+  Future<List<Photo>> listPhotos(String storyId) async => const [];
+
+  @override
+  Future<Photo> uploadPhoto({
+    required String familyId,
+    required String storyId,
+    required Uint8List bytes,
+    required int sortOrder,
+  }) {
+    throw UnimplementedError();
+  }
+}
+
+Future<void> _openFullCards(WidgetTester tester, String storyId) async {
+  await tester.tap(find.byKey(Key('timeline-dot-$storyId')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(Key('timeline-stub-$storyId')));
+  await tester.pumpAndSettle();
+}
+
+void _pinch(WidgetTester tester, double scale) {
+  final detector = tester.widget<GestureDetector>(
+    find.byWidgetPredicate(
+      (widget) => widget is GestureDetector && widget.onScaleUpdate != null,
+    ),
+  );
+  detector.onScaleStart?.call(
+    ScaleStartDetails(
+      focalPoint: Offset.zero,
+      localFocalPoint: Offset.zero,
+      pointerCount: 2,
+    ),
+  );
+  detector.onScaleUpdate?.call(
+    ScaleUpdateDetails(
+      focalPoint: Offset.zero,
+      localFocalPoint: Offset.zero,
+      scale: scale,
+      horizontalScale: scale,
+      verticalScale: scale,
+      pointerCount: 2,
     ),
   );
 }
@@ -502,7 +647,10 @@ void main() {
 
     await tester.tap(find.byKey(Key('timeline-stub-${story.id}')));
     await tester.pumpAndSettle();
-    expect(find.text('Currently Focused'), findsOneWidget);
+    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+    expect(find.text('Jam'), findsOneWidget);
+    expect(find.text('Currently Focused'), findsNothing);
+    expect(find.text('Family Archive · Near Zoom View'), findsNothing);
     expect(find.textContaining('photos · '), findsOneWidget);
 
     await tester.tap(find.byKey(Key('timeline-card-${story.id}')));
@@ -647,6 +795,39 @@ void main() {
         viewportHeight: viewportHeight,
       ),
       0,
+    );
+  });
+
+  test('full cards fade with the same band as the far rail', () {
+    const viewportHeight = 400.0;
+    const band = viewportHeight * farFadeBand;
+
+    expect(
+      fullCardOpacity(
+        rowTop: viewportHeight / 2 - 40,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: viewportHeight,
+      ),
+      1,
+    );
+    expect(
+      fullCardOpacity(
+        rowTop: -40,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: viewportHeight,
+      ),
+      0,
+    );
+    expect(
+      fullCardOpacity(
+        rowTop: band / 2 - 40,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: viewportHeight,
+      ),
+      closeTo(0.5, 0.001),
     );
   });
 
@@ -892,10 +1073,13 @@ void main() {
 
     await tester.tap(find.byKey(const Key('timeline-stub-s1')));
     await tester.pumpAndSettle();
+    expect(find.text('Martinez Branch'), findsNothing);
+    expect(find.text('← Martinez union joined archive'), findsNothing);
     expect(
       find.text('Martinez branch fork & merge indicator active'),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(find.byKey(const Key('timeline-spine')), findsOneWidget);
   });
 
   testWidgets('search chip opens /search on far, mid, and near', (
@@ -959,6 +1143,263 @@ void main() {
     live.emit();
     await tester.pumpAndSettle();
     expect(_tooltipFor(tester, 's1'), contains('Jam'));
+  });
+
+  testWidgets('full cards list the whole family newest first', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const body = 'secret body line';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'wagon',
+              title: 'Wagon',
+              body: body,
+              timeframeStart: DateTime(1989),
+            ),
+            _published(
+              id: 'lawn',
+              title: 'Lawn',
+              body: body,
+              timeframeStart: DateTime(1990),
+            ),
+            _published(
+              id: 'canning',
+              title: 'Canning',
+              body: body,
+              timeframeStart: DateTime(1991),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'lawn');
+
+    expect(
+      tester.getTopLeft(find.text('Canning')).dy,
+      lessThan(tester.getTopLeft(find.text('Wagon')).dy),
+    );
+    expect(find.text(body), findsNothing);
+  });
+
+  testWidgets('full cards show people and place chips from stored fields', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'placed',
+              title: 'Lawn',
+              personNames: const ['Aunt Clara', 'Uncle Arthur'],
+              placeLabel: 'University Lawn',
+            ),
+            _published(id: 'plain', title: 'Wagon'),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'placed');
+    expect(find.text('Aunt Clara'), findsOneWidget);
+    expect(find.text('Uncle Arthur'), findsOneWidget);
+    expect(find.text('University Lawn'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('timeline-card-plain')),
+        matching: find.byIcon(Icons.location_on),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('the viewport center card is sharp and carries the byline', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Wagon',
+              timeframeStart: DateTime(1989),
+              authorDisplayName: 'Aunt Sarah',
+            ),
+            _published(
+              id: 'mid',
+              title: 'Lawn',
+              timeframeStart: DateTime(1990),
+              authorDisplayName: 'Aunt Sarah',
+            ),
+            _published(
+              id: 'late',
+              title: 'Canning',
+              timeframeStart: DateTime(1991),
+              authorDisplayName: 'Aunt Sarah',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'mid');
+
+    double opacityFor(String id) {
+      return tester
+          .widget<Opacity>(
+            find
+                .ancestor(
+                  of: find.byKey(Key('timeline-card-$id')),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity;
+    }
+
+    expect(opacityFor('mid'), greaterThan(opacityFor('late')));
+    expect(opacityFor('mid'), greaterThan(opacityFor('early')));
+    expect(find.text('Added by Aunt Sarah'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('timeline-card-late')),
+        matching: find.textContaining('Added by'),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('the center card paints the first photo and the stored count', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        photos: _FakePhotos(),
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'lawn',
+              title: 'Lawn',
+              photoCount: 4,
+              commentCount: 1,
+              photoPaths: const ['families/a.jpg', 'families/b.jpg'],
+            ),
+            _published(id: 'plain', title: 'Wagon', photoCount: 0),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'lawn');
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('timeline-card-lawn')),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('4 photos · 1 note'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('timeline-card-plain')),
+        matching: find.byType(Image),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('full cards drop the zoom cluster and stay on one line at 320', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _FakeFamilies([
+          MemberFamily(
+            id: _familyId,
+            name: 'Jenkins',
+            createdAt: DateTime.utc(1970),
+          ),
+          MemberFamily(
+            id: 'child',
+            name: 'Martinez',
+            parentFamilyId: _familyId,
+            createdAt: DateTime.utc(1985),
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 's1');
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+    expect(find.text('Macro'), findsOneWidget);
+    expect(find.text('Mid'), findsOneWidget);
+    expect(find.text('Full Cards'), findsOneWidget);
+    expect(find.byKey(const Key('timeline-zoom-in')), findsNothing);
+    expect(find.byKey(const Key('timeline-fit')), findsNothing);
+    expect(find.textContaining('union joined archive'), findsNothing);
+    expect(find.textContaining('Branch'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint &&
+            (widget.painter?.runtimeType.toString().contains('Dash') ?? false),
+      ),
+      findsNothing,
+    );
+
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
+    await tester.pumpAndSettle();
+    expect(find.text('CONTINUOUS FAMILY DIAL'), findsOneWidget);
+    expect(find.text('MARTINEZ BRANCH'), findsOneWidget);
+  });
+
+  testWidgets('pinch uses the existing handler and the 0.5 reveal', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-dot-s1')));
+    await tester.pumpAndSettle();
+
+    _pinch(tester, 1.1);
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+
+    final card = find.byKey(const Key('timeline-card-s1'));
+    final scrollable = find
+        .ancestor(of: card, matching: find.byType(Scrollable))
+        .first;
+    final delta =
+        (tester.getRect(card).center.dy - tester.getRect(scrollable).center.dy)
+            .abs();
+    expect(delta, lessThan(48));
+
+    _pinch(tester, 0.9);
+    await tester.pumpAndSettle();
+    expect(find.text('Continuous Family Dial'), findsOneWidget);
+    expect(find.text('Zoom Level: 100% (Full Cards)'), findsNothing);
   });
 
   test('other-family and draft events do not refresh the rail', () {
