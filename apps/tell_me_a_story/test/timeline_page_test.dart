@@ -683,10 +683,51 @@ void main() {
 
     await tester.tap(find.byKey(const Key('timeline-fit')));
     await tester.pumpAndSettle();
-    expect(find.text('CONTINUOUS FAMILY DIAL'), findsOneWidget);
-    expect(find.text('1980s · IN FOCUS'), findsOneWidget);
+    expect(find.text('Continuous Family Dial'), findsOneWidget);
+    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('CONTINUOUS FAMILY DIAL'), findsNothing);
+    expect(find.text('1980s · IN FOCUS'), findsNothing);
     expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
     expect(find.text('Fit all'), findsWidgets);
+  });
+
+  testWidgets('the zoom pill slides from Macro to Mid to Full Cards', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    double leftOf(Key key) => tester.getTopLeft(find.byKey(key)).dx;
+    final pill = const Key('timeline-zoom-pill');
+    final macro = const Key('timeline-zoom-macro');
+    final mid = const Key('timeline-zoom-mid');
+    final full = const Key('timeline-zoom-full');
+
+    expect(leftOf(pill), closeTo(leftOf(macro), 1));
+
+    await tester.tap(find.byKey(mid));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(leftOf(pill), greaterThan(leftOf(macro) + 8));
+    expect(leftOf(pill), lessThan(leftOf(mid)));
+    await tester.pumpAndSettle();
+    expect(leftOf(pill), closeTo(leftOf(mid), 1));
+
+    await tester.tap(find.byKey(full));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(leftOf(pill), greaterThan(leftOf(mid) + 8));
+    expect(leftOf(pill), lessThan(leftOf(full)));
+    await tester.pumpAndSettle();
+    expect(leftOf(pill), closeTo(leftOf(full), 1));
   });
 
   testWidgets('mid dial keeps the center year sharp and fades the edges', (
@@ -1367,7 +1408,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
     await tester.pumpAndSettle();
-    expect(find.text('CONTINUOUS FAMILY DIAL'), findsOneWidget);
+    expect(find.text('Continuous Family Dial'), findsOneWidget);
+    expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
+    expect(find.text('CONTINUOUS FAMILY DIAL'), findsNothing);
     expect(find.text('MARTINEZ BRANCH'), findsOneWidget);
   });
 
