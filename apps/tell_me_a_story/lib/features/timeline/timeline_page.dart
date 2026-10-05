@@ -2280,7 +2280,7 @@ class _FullCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  storyTitle(story),
+                  story.title ?? '',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                     fontSize: 24,

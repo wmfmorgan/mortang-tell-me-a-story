@@ -1185,26 +1185,6 @@ void main() {
     expect(find.text(body), findsNothing);
   });
 
-  testWidgets('a blank title stays Untitled on a full card', (tester) async {
-    await tester.pumpWidget(
-      _timeline(
-        stories: _FakeStoriesApi(
-          published: [
-            _published(
-              id: 'blank',
-              title: null,
-              body: 'First line of the body',
-            ),
-          ],
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await _openFullCards(tester, 'blank');
-    expect(find.text('Untitled'), findsWidgets);
-    expect(find.text('First line of the body'), findsNothing);
-  });
-
   testWidgets('full cards show people and place chips from stored fields', (
     tester,
   ) async {

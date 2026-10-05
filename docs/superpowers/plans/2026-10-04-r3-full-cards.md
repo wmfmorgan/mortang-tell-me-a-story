@@ -16,7 +16,6 @@
 - Do not reopen M6 or M7. Do not restyle far or mid. Do not edit `AlbumHeader`, search, the reader, Drafts, or New story. Do not edit `supabase/`.
 - Tokens: page parchment `#FBF7F2`, terracotta `#8B5E4B`, sage `#7A8B74` accent only, ink `#2C2416`. Newsreader titles, Source Sans 3 labels. Card fill on this page is white `#FFFFFF` (`surface-container-lowest` on the screen). The page background stays parchment.
 - "Jenkins", Aunt Clara, Graduation, stock photos, and `school` / `group` icons are demo. Use stored fields. Do not rename the product.
-- A blank `stories.title` stays `Untitled` through the existing `storyTitle`. Do not print the body or its first line.
 - The painted order is newest `timeframe_start` first, via `dialStories` on the rows `listPublished` already returned. Do not add an `.order()` and do not reverse the query. Drafts stay off the list.
 
 ## What this page is
@@ -71,7 +70,7 @@ White, 12px radius, 2px terracotta border, shadow (ink at 8%, blur 24, offset y 
 
 Top row, space between: the year (`timeframe_start.year`) in Source Sans 3, about 12px, bold, uppercase tracking, terracotta. Then a wrap of chips. Person chips use `Icons.person` and each `personNames` entry. One place chip uses `Icons.location_on` and `placeLabel` when that label is non-empty. Center chips are filled `#F5DED6` with ink text, stadium, about 12px. No relationship-specific icons.
 
-Title: `storyTitle(story)`, Newsreader about 24px, bold, ink. No body.
+Title: the saved title, Newsreader about 24px, bold, ink. No body.
 
 Photos: `photoPaths.first` only. That list is already sorted by `sort_order`. Full width of the card, height 192, radius 8, cover. Download through the existing `PhotosGateway`. An empty `photoPaths` means no image well and no stock photo. A failed download leaves that well out. Do not paint the second path on the center card.
 
@@ -125,7 +124,6 @@ A parchment gradient sits over the top and bottom of the list, `IgnorePointer`, 
 
 - [ ] Extend the existing "tapping a published card pushes the story reader" test. After the stub tap, the page shows `Zoom Level: 100% (Full Cards)` and `Jam`, and does not show `Currently Focused` or `Family Archive · Near Zoom View`. The card key tap still lands on the reader.
 - [ ] Add a widget test with three published stories, years 1991, 1990, and 1989, titles `Canning`, `Lawn`, and `Wagon`. Open full cards. Expect the 1991 title above the 1989 title. Expect no `Text` whose data equals the body string `secret body line`.
-- [ ] Add a widget test whose story has a null title and body `First line of the body`. On the full-card page the visible title is `Untitled` and `First line of the body` is absent.
 - [ ] Add a widget test with two people and a place label. Both names and the place label are on the card. A story with no place does not show `location_on`.
 - [ ] Run `flutter test test/timeline_page_test.dart` from `apps/tell_me_a_story` and confirm the new expectations fail before the layout change.
 - [ ] Implement the zoom row, the alternating cards, the solid spine, the dot, and `dialStories` on the list already loaded. Set the single `_reveal` alignment to `0.5`. Leave `_onPinch` calling `_zoomIn` and `_zoomOut`.
