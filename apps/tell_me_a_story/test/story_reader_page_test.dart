@@ -760,6 +760,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('family-menu')), findsNothing);
+    expect(find.byKey(const Key('header-avatar')), findsNothing);
     await tester.tap(find.widgetWithText(TextButton, 'Timeline'));
     await tester.pumpAndSettle();
 

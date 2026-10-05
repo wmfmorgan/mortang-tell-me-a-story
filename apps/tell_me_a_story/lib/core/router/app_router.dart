@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/comments_api.dart';
+import '../../data/families_api.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
 import '../../data/perspectives_api.dart' hide displayNameOrMember;
 import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
+import '../../data/profile_api.dart';
 import '../../data/stories_api.dart';
 import '../../features/auth/magic_link_page.dart';
+import '../../features/settings/settings_page.dart';
 import '../../features/drafts/drafts_page.dart';
 import '../../features/perspectives/add_perspective_page.dart';
 import '../../features/stories/new_story_page.dart';
@@ -29,6 +32,7 @@ abstract final class AppRoutes {
   static const storyPerspective = '/stories/:storyId/perspective';
   static const drafts = '/drafts';
   static const search = '/search';
+  static const settings = '/settings';
 
   static String storyPath(String id) => '/stories/$id';
 
@@ -47,6 +51,9 @@ GoRouter createAppRouter({
   PerspectivesGateway? perspectivesApi,
   SearchGateway? searchApi,
   SearchRecents? searchRecents,
+  ProfileGateway? profileApi,
+  FamiliesGateway? familiesApi,
+  Future<void> Function()? onLogout,
 }) {
   final recents = searchRecents ?? SearchRecents();
   return GoRouter(
@@ -128,6 +135,15 @@ GoRouter createAppRouter({
           searchApi: searchApi,
           photosApi: photosApi,
           recents: recents,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.settings,
+        builder: (context, state) => SettingsPage(
+          profileApi: profileApi,
+          familiesApi: familiesApi,
+          inviteApi: inviteApi,
+          onLogout: onLogout,
         ),
       ),
       GoRoute(

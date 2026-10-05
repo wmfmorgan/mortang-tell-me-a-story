@@ -437,6 +437,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Save draft'), findsOneWidget);
     expect(find.text('Publish story'), findsOneWidget);
+    expect(find.byKey(const Key('header-avatar')), findsOneWidget);
     expect(find.text('Capture fields arrive in M4.'), findsNothing);
   });
 

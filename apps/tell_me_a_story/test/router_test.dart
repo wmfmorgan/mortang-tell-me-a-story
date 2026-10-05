@@ -481,6 +481,27 @@ void main() {
     auth.dispose();
   });
 
+  testWidgets('signed-out user is redirected from /settings to magic-link', (
+    tester,
+  ) async {
+    final auth = AuthRefresh(initiallySignedIn: false);
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.settings);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.magicLink,
+    );
+    expect(find.byType(MagicLinkPage), findsOneWidget);
+
+    auth.dispose();
+  });
+
   testWidgets('signed-out user is redirected from /drafts to magic-link', (
     tester,
   ) async {

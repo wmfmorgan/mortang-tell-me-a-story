@@ -419,6 +419,7 @@ void main() {
     expect(find.text('New story'), findsOneWidget);
     expect(find.text('Family'), findsOneWidget);
     expect(find.byKey(const Key('timeline-search')), findsOneWidget);
+    expect(find.byKey(const Key('header-avatar')), findsOneWidget);
     expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
     expect(find.text('Save draft'), findsNothing);
     expect(find.text('Publish'), findsNothing);
@@ -446,6 +447,7 @@ void main() {
     expect(find.text('Drafts'), findsOneWidget);
     expect(find.text('Invite'), findsOneWidget);
     expect(find.text('New story'), findsOneWidget);
+    expect(find.byKey(const Key('header-avatar')), findsOneWidget);
   });
 
   testWidgets('1px layout pass does not overflow the timeline column', (
