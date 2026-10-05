@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/families_api.dart';
+import '../../data/profile_session.dart';
 import '../router/app_router.dart';
 import 'album_theme.dart';
+import 'profile_avatar.dart';
 
 /// Which signed-in screen is showing the shared bar.
-enum AlbumHeaderPage { timeline, drafts, capture }
+enum AlbumHeaderPage { timeline, drafts, capture, settings }
 
 /// Stitch screen `703158c2c064414883d9d1c1dff8902a` header only.
 class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
@@ -21,6 +24,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
     this.onInvite,
     this.onSaveDraft,
     this.onPublish,
+    this.onLogout,
   });
 
   final AlbumHeaderPage page;
@@ -31,6 +35,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
+  final Future<void> Function()? onLogout;
 
   static const height = 72.0;
 
@@ -66,6 +71,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               onInvite: onInvite,
               onSaveDraft: onSaveDraft,
               onPublish: onPublish,
+              onLogout: onLogout,
               onTimeline: () => _openTimeline(context),
               onDrafts: () => _openDrafts(context),
               onNewStory: () => _openNewStory(context),
@@ -114,6 +120,7 @@ class _HeaderBar extends StatelessWidget {
     required this.onInvite,
     required this.onSaveDraft,
     required this.onPublish,
+    required this.onLogout,
     required this.onTimeline,
     required this.onDrafts,
     required this.onNewStory,
@@ -128,6 +135,7 @@ class _HeaderBar extends StatelessWidget {
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
+  final Future<void> Function()? onLogout;
   final VoidCallback onTimeline;
   final VoidCallback onDrafts;
   final VoidCallback onNewStory;
@@ -233,6 +241,8 @@ class _HeaderBar extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(width: 12),
+          _HeaderAvatar(page: page, onLogout: onLogout),
         ],
       ),
     );
@@ -368,7 +378,8 @@ class _HeaderMetrics {
             'Publish story',
             GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
           ) +
-          48;
+          48 +
+          _avatarSlot;
     }
     return _textWidth(
           'Invite',
@@ -380,8 +391,12 @@ class _HeaderMetrics {
           'New story',
           GoogleFonts.sourceSans3(fontSize: 14, fontWeight: FontWeight.w500),
         ) +
-        57;
+        57 +
+        _avatarSlot;
   }
+
+  /// Gap plus the 32px circle. Both action clusters end with the avatar.
+  static const _avatarSlot = 44.0;
 
   static final TextStyle _wordStyle = GoogleFonts.newsreader(
     fontSize: 24,
@@ -594,6 +609,106 @@ class _SearchChip extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _HeaderAvatar extends StatefulWidget {
+  const _HeaderAvatar({required this.page, required this.onLogout});
+
+  final AlbumHeaderPage page;
+  final Future<void> Function()? onLogout;
+
+  @override
+  State<_HeaderAvatar> createState() => _HeaderAvatarState();
+}
+
+class _HeaderAvatarState extends State<_HeaderAvatar> {
+  static const _menuStyle = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    ProfileSession.instance.addListener(_onProfile);
+    ProfileSession.instance.ensureLoaded();
+  }
+
+  @override
+  void dispose() {
+    ProfileSession.instance.removeListener(_onProfile);
+    super.dispose();
+  }
+
+  void _onProfile() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _logout() async {
+    final callback = widget.onLogout;
+    if (callback != null) {
+      await callback();
+      return;
+    }
+    await Supabase.instance.client.auth.signOut();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = ProfileSession.instance;
+    return PopupMenuButton<String>(
+      key: const Key('header-avatar'),
+      padding: EdgeInsets.zero,
+      offset: const Offset(0, 40),
+      constraints: const BoxConstraints(minWidth: 176, maxWidth: 176),
+      color: const Color(0xFFFFFDF9),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE6DCD1)),
+      ),
+      onSelected: (value) async {
+        if (value == 'settings') {
+          if (widget.page == AlbumHeaderPage.settings) return;
+          GoRouter.of(context).push(AppRoutes.settings);
+          return;
+        }
+        await _logout();
+      },
+      itemBuilder: (context) {
+        return [
+          PopupMenuItem<String>(
+            key: const Key('header-menu-settings'),
+            value: 'settings',
+            child: Text(
+              'Settings',
+              style: GoogleFonts.sourceSans3(
+                color: albumInk,
+                fontSize: _menuStyle.fontSize,
+                fontWeight: _menuStyle.fontWeight,
+              ),
+            ),
+          ),
+          PopupMenuItem<String>(
+            key: const Key('header-menu-logout'),
+            value: 'logout',
+            child: Text(
+              'Logout',
+              style: GoogleFonts.sourceSans3(
+                color: albumInk,
+                fontSize: _menuStyle.fontSize,
+                fontWeight: _menuStyle.fontWeight,
+              ),
+            ),
+          ),
+        ];
+      },
+      child: ProfileAvatar(
+        size: 32,
+        displayName: session.displayName,
+        bytes: session.avatarBytes,
       ),
     );
   }

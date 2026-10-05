@@ -280,6 +280,7 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('header-avatar')), findsOneWidget);
   });
 
   testWidgets('list load failure is not empty copy', (tester) async {

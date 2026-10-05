@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'family_selection.dart';
+import 'profile_session.dart';
 
 /// Invite data/API surface (M2). UI stays on timeline chrome.
 abstract class InviteGateway {
@@ -26,8 +27,10 @@ class InviteApi implements InviteGateway {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) {
       FamilySelection.clear();
+      ProfileSession.instance.clear();
       return resolveCurrentFamilyId(userId: null, remembered: null);
     }
+    ProfileSession.instance.bindUser(uid);
     final remembered = FamilySelection.bindUser(uid);
     if (remembered != null) {
       final membershipIds = await _membershipFamilyIds(uid);

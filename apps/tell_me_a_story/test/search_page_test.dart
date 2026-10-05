@@ -260,6 +260,7 @@ void main() {
       findsNothing,
     );
     expect(find.text('Recent Searches'), findsOneWidget);
+    expect(find.byKey(const Key('header-avatar')), findsNothing);
     expect(find.text('Suggested Family Members & Places'), findsOneWidget);
     expect(find.text('Clara'), findsWidgets);
     expect(find.text('Back Porch'), findsOneWidget);
