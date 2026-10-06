@@ -19,6 +19,7 @@ class Story {
     this.placeLabel,
     this.personNames = const [],
     this.authorDisplayName,
+    this.authorAvatarPath,
     this.commentCount = 0,
     this.perspectiveCount = 0,
     this.photoPaths = const [],
@@ -38,6 +39,7 @@ class Story {
   final String? placeLabel;
   final List<String> personNames;
   final String? authorDisplayName;
+  final String? authorAvatarPath;
   final int commentCount;
   final int perspectiveCount;
   final List<String> photoPaths;
@@ -67,6 +69,7 @@ class Story {
       placeLabel: _embedLabel(json['places']),
       personNames: _personNames(people),
       authorDisplayName: _authorName(json['profiles']),
+      authorAvatarPath: _authorAvatarPath(json['profiles']),
       commentCount: _rowCount(json['comments']),
       perspectiveCount: _rowCount(json['perspectives']),
       photoPaths: _photoPaths(photos),
@@ -96,15 +99,30 @@ List<String> _personNames(Object? people) {
   return names;
 }
 
+Map<String, dynamic>? _authorProfile(Object? profiles) {
+  if (profiles is Map) {
+    return profiles.map((key, value) => MapEntry(key.toString(), value));
+  }
+  if (profiles is List && profiles.isNotEmpty && profiles.first is Map) {
+    final first = profiles.first as Map;
+    return first.map((key, value) => MapEntry(key.toString(), value));
+  }
+  return null;
+}
+
 String? _authorName(Object? profiles) {
-  final map = profiles is Map
-      ? profiles
-      : (profiles is List && profiles.isNotEmpty && profiles.first is Map
-            ? profiles.first as Map
-            : null);
+  final map = _authorProfile(profiles);
   if (map == null) return null;
   final name = map['display_name'];
   if (name is String && name.trim().isNotEmpty) return name.trim();
+  return null;
+}
+
+String? _authorAvatarPath(Object? profiles) {
+  final map = _authorProfile(profiles);
+  if (map == null) return null;
+  final path = map['avatar_path'];
+  if (path is String && path.trim().isNotEmpty) return path.trim();
   return null;
 }
 
@@ -209,10 +227,10 @@ class StoriesApi implements StoriesGateway {
   final SupabaseClient _client;
 
   static const _storySelect =
-      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, place_id, status, published_at, story_people(person_id), photos(id)';
+      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, place_id, status, published_at, story_people(person_id), photos(id), profiles!author_id(display_name, avatar_path)';
 
   static const _publishedSelect =
-      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, place_id, status, published_at, places(label), story_people(person_id, people(name)), profiles!author_id(display_name), photos(id, storage_path, sort_order), comments(id), perspectives(id)';
+      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, place_id, status, published_at, places(label), story_people(person_id, people(name)), profiles!author_id(display_name, avatar_path), photos(id, storage_path, sort_order), comments(id), perspectives(id)';
 
   @override
   Future<Story> createDraft({

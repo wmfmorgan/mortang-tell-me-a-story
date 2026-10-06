@@ -1,33 +1,35 @@
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/config/env.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
+import '../../core/theme/profile_avatar.dart';
 import '../../data/comments_api.dart';
 import '../../data/people_api.dart';
 import '../../data/perspectives_api.dart' hide displayNameOrMember;
 import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
+import '../../data/profile_api.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../comments/comment_composer.dart';
 import '../perspectives/add_perspective_page.dart';
-import '../places/place_map.dart';
-import '../places/place_picker_modal.dart';
 import 'photo_strip.dart';
-import 'timeframe_chips.dart';
+import 'reader_meta.dart';
+
+enum ReaderPresentation { page, modal }
 
 /// Large reader headline. Only a saved title is used.
 String readerHeadline({String? title}) {
   final saved = title?.trim() ?? '';
   if (saved.isNotEmpty) return saved;
-  return 'Untitled';
+  return '';
 }
 
 /// Article under the headline. The full body stays, including its first line.
@@ -46,11 +48,11 @@ class StoryReaderPage extends StatefulWidget {
     this.photosApi,
     this.commentsApi,
     this.perspectivesApi,
+    this.profileApi,
     this.pickImageBytes,
     this.currentUserId,
-    this.hasMapboxToken,
-    this.mapBuilder,
     this.live,
+    this.presentation = ReaderPresentation.page,
   });
 
   final String storyId;
@@ -60,6 +62,7 @@ class StoryReaderPage extends StatefulWidget {
   final PhotosGateway? photosApi;
   final CommentsGateway? commentsApi;
   final PerspectivesGateway? perspectivesApi;
+  final ProfileGateway? profileApi;
 
   /// Gallery picker override so widget tests never open the system picker.
   final Future<Uint8List?> Function()? pickImageBytes;
@@ -67,14 +70,10 @@ class StoryReaderPage extends StatefulWidget {
   /// Session uid for author-only comment delete. Tests inject this.
   final String? currentUserId;
 
-  /// Defaults to [Env.hasMapboxToken].
-  final bool? hasMapboxToken;
-
-  /// When set, used instead of [PlaceMap] (widget tests).
-  final PlaceMapBuilder? mapBuilder;
-
   /// Family-scoped story feed. Tests omit this. Production subscribes.
   final TimelineLive? live;
+
+  final ReaderPresentation presentation;
 
   @override
   State<StoryReaderPage> createState() => _StoryReaderPageState();
@@ -93,8 +92,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   var _loading = true;
   var _notFound = false;
-  var _mapFailed = false;
   Story? _story;
+  Uint8List? _authorBytes;
   List<Person> _peopleOnStory = const [];
   Place? _place;
   List<Photo> _photos = const [];
@@ -107,8 +106,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   Uint8List? _pendingPhotoBytes;
   final _composerFocus = FocusNode();
   final _composerKey = GlobalKey();
-
-  bool get _tokenOk => widget.hasMapboxToken ?? Env.hasMapboxToken;
 
   String? get _currentUserId {
     if (widget.currentUserId != null) return widget.currentUserId;
@@ -137,6 +134,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   PerspectivesGateway get _perspectivesApi =>
       widget.perspectivesApi ?? (_perspectivesOverride ??= PerspectivesApi());
 
+  ProfileGateway get _profile => widget.profileApi ?? ProfileApi();
+
   TimelineLive? get _live {
     if (widget.live != null) return widget.live;
     if (widget.storiesApi != null) return null;
@@ -146,7 +145,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   @override
   void initState() {
     super.initState();
-    _mapFailed = !_tokenOk;
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
@@ -280,9 +278,20 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         loadError = true;
       }
 
+      Uint8List? authorBytes;
+      final avatarPath = story.authorAvatarPath;
+      if (avatarPath != null) {
+        try {
+          authorBytes = await _profile.downloadAvatar(avatarPath);
+        } catch (_) {
+          authorBytes = null;
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _story = story;
+        _authorBytes = authorBytes;
         _peopleOnStory = people;
         _place = place;
         _photos = photos;
@@ -306,10 +315,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Try again')));
     }
-  }
-
-  void _retryMap() {
-    setState(() => _mapFailed = !_tokenOk);
   }
 
   void _openComposer() {
@@ -445,6 +450,48 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.presentation == ReaderPresentation.modal) {
+      final height = MediaQuery.sizeOf(context).height;
+      return Material(
+        type: MaterialType.transparency,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: const ColoredBox(color: Color(0x661C140C)),
+              ),
+            ),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: 1040,
+                    maxHeight: height - 48,
+                  ),
+                  child: Material(
+                    key: const Key('story-reader-modal'),
+                    color: albumParchment,
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: const BorderSide(color: Color(0xFFE6DCD1)),
+                    ),
+                    child: Column(
+                      children: [
+                        _modalBar(context),
+                        Expanded(child: _body(context)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Scaffold(
       key: const Key('story-reader'),
       appBar: AlbumTopBar(
@@ -455,6 +502,31 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         ),
       ),
       body: SafeArea(child: AlbumColumn(maxWidth: 1080, child: _body(context))),
+    );
+  }
+
+  Widget _modalBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+      child: Row(
+        children: [
+          Text(
+            'Family Keepsake',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: albumTerracotta,
+              fontSize: 12,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            key: const Key('story-reader-close'),
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
     );
   }
 
@@ -483,35 +555,27 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     );
     final rest = readerArticleBody(body: story.body);
     final canAddPhoto = _photos.length < maxPhotosPerStory;
+    final headlineText = readerHeadline(title: story.title);
+    final hero = _heroPhoto();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFE7DECE)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(readerHeadline(title: story.title), style: headline),
-              if (story.publishedAt != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Documented ${_albumMonthYear(story.publishedAt!)}',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: const Color(0xFF6B5E55),
-                  ),
-                ),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (headlineText.isNotEmpty)
+              Text(headlineText, style: headline),
+            const SizedBox(height: 8),
+            _metaLine(story),
+            const SizedBox(height: 16),
+            _chipRow(story, place),
+            if (hero != null) ...[
               const SizedBox(height: 20),
-              const Divider(height: 1, color: Color(0xFFE7DECE)),
-              const SizedBox(height: 16),
-              _metaRow(story, place),
-              if (rest.isNotEmpty) ...[
+              hero,
+            ],
+            if (rest.isNotEmpty) ...[
                 const SizedBox(height: 28),
                 Align(
                   alignment: Alignment.topCenter,
@@ -619,39 +683,73 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             ],
           ),
         ),
+    );
+  }
+
+  Widget _metaLine(Story story) {
+    final documented = story.publishedAt == null
+        ? ''
+        : ' · Documented ${albumMonthYear(story.publishedAt!)} by ${displayNameOrMember(story.authorDisplayName)}';
+    final style = Theme.of(context).textTheme.labelMedium?.copyWith(
+      color: const Color(0xFF6B5E55),
+    );
+    return Text.rich(
+      TextSpan(
+        style: style,
+        children: [
+          TextSpan(
+            text:
+                'Recorded event: ${recordedEventLabel(start: story.timeframeStart, end: story.timeframeEnd)}$documented ',
+          ),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: ProfileAvatar(
+              size: 20,
+              displayName: story.authorDisplayName,
+              bytes: _authorBytes,
+            ),
+          ),
+          TextSpan(text: ' · ${minutesToRead(story.body)} min read'),
+        ],
       ),
     );
   }
 
-  Widget _metaRow(Story story, Place? place) {
-    final chips = Wrap(
+  Widget _chipRow(Story story, Place? place) {
+    final placeText = place == null
+        ? null
+        : placeChipText(label: place.label, address: place.address);
+    return Wrap(
       spacing: 8,
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _timeframePill(_timeframeLabel(story)),
         for (final person in _peopleOnStory) _personChip(person),
+        if (placeText != null) _timeframePill(placeText),
+        _timeframePill(decadeChipLabel(story.timeframeStart)),
       ],
     );
-    if (place == null) return chips;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final location = _locationCard(place);
-        if (constraints.maxWidth < 680) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [chips, const SizedBox(height: 12), location],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: chips),
-            const SizedBox(width: 16),
-            SizedBox(width: 280, child: location),
-          ],
-        );
-      },
+  }
+
+  Widget? _heroPhoto() {
+    if (_photos.isEmpty) return null;
+    final sorted = [..._photos]..sort((a, b) {
+      final order = a.sortOrder.compareTo(b.sortOrder);
+      if (order != 0) return order;
+      return a.id.compareTo(b.id);
+    });
+    final first = sorted.first;
+    final bytes = _previews[first.id];
+    final hasImage = bytes != null && bytes.isNotEmpty;
+    return AspectRatio(
+      key: Key('story-hero-${first.id}'),
+      aspectRatio: 16 / 9,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: hasImage
+            ? Image.memory(bytes, fit: BoxFit.cover)
+            : const ColoredBox(color: albumParchment),
+      ),
     );
   }
 
@@ -708,78 +806,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     );
   }
 
-  Widget _locationCard(Place place) {
-    final failed = _mapFailed || !_tokenOk;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF6F1EB),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE7DECE)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!failed)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(width: 96, child: _buildPlaceMap(place)),
-              ),
-            if (!failed) const SizedBox(width: 10),
-            Expanded(child: _locationCopy(place, failed: failed)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _locationCopy(Place place, {required bool failed}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.pin_drop_outlined, size: 14, color: albumSage),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                'Story Location',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall
-                    ?.copyWith(color: albumSage, fontWeight: FontWeight.w700),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(
-          place.label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelLarge
-              ?.copyWith(fontWeight: FontWeight.w600),
-        ),
-        Text(
-          place.address,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall
-              ?.copyWith(color: const Color(0xFF6B5E55)),
-        ),
-        if (failed) ...[
-          const SizedBox(height: 8),
-          const Text(placeMapFailureCopy),
-          TextButton(
-            onPressed: _retryMap,
-            child: const Text(placeMapRetryLabel),
-          ),
-        ],
-      ],
-    );
-  }
-
   Widget _perspectiveCard(Perspective row) {
     final theme = Theme.of(context);
     return DecoratedBox(
@@ -809,7 +835,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                         ),
                       ),
                       Text(
-                        'Recorded ${_albumDate(row.createdAt)}',
+                        'Recorded ${albumDate(row.createdAt)}',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: const Color(0xFF6B5E55),
                         ),
@@ -964,82 +990,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     );
   }
 
-  Widget _buildPlaceMap(Place place) {
-    if (_mapFailed || !_tokenOk) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(placeMapFailureCopy),
-          TextButton(
-            onPressed: _retryMap,
-            child: const Text(placeMapRetryLabel),
-          ),
-        ],
-      );
-    }
-
-    final builder = widget.mapBuilder;
-    if (builder != null) {
-      return builder(lat: place.lat, lng: place.lng);
-    }
-    return PlaceMap(
-      lat: place.lat,
-      lng: place.lng,
-      height: 72,
-      onTileError: (error, stackTrace) {
-        if (!mounted) return;
-        setState(() => _mapFailed = true);
-      },
-    );
-  }
-}
-
-String _timeframeLabel(Story story) {
-  final end = story.timeframeEnd;
-  if (end != null) {
-    for (final decade in decadeChips) {
-      if (_sameDay(story.timeframeStart, decade.start) &&
-          _sameDay(end, decade.end)) {
-        return decade.label;
-      }
-    }
-  }
-  return _ymd(story.timeframeStart);
-}
-
-bool _sameDay(DateTime a, DateTime b) =>
-    a.year == b.year && a.month == b.month && a.day == b.day;
-
-String _ymd(DateTime value) {
-  final y = value.year.toString().padLeft(4, '0');
-  final m = value.month.toString().padLeft(2, '0');
-  final d = value.day.toString().padLeft(2, '0');
-  return '$y-$m-$d';
-}
-
-const _monthShort = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
-String _albumDate(DateTime value) {
-  final local = value.toLocal();
-  return '${_monthShort[local.month - 1]} ${local.day}, ${local.year}';
-}
-
-String _albumMonthYear(DateTime value) {
-  final local = value.toLocal();
-  return '${_monthShort[local.month - 1]} ${local.year}';
 }
 
 String _photoCountLine(int count) {

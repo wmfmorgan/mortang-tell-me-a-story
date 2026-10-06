@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
@@ -15,6 +16,7 @@ import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
+import '../stories/story_reader_page.dart';
 import 'timeline_zoom.dart';
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
@@ -233,7 +235,12 @@ class _TimelinePageState extends State<TimelinePage> {
       setState(() => _familyId = familyId);
     }
     if (!mounted) return;
-    await InviteModal.show(context, familyId: familyId, api: _api);
+    await InviteModal.show(
+      context,
+      familyId: familyId,
+      familyName: _currentFamily?.name ?? 'Family',
+      api: _api,
+    );
   }
 
   MemberFamily? get _currentFamily {
@@ -267,6 +274,13 @@ class _TimelinePageState extends State<TimelinePage> {
 
   GlobalKey _anchor(String id) => _anchorKeys.putIfAbsent(id, GlobalKey.new);
 
+  void _openStory(Story story) {
+    context.push(
+      AppRoutes.storyPath(story.id),
+      extra: ReaderPresentation.modal,
+    );
+  }
+
   void _openMid(Story story) {
     setState(() {
       _zoom = TimelineZoom.mid;
@@ -280,6 +294,25 @@ class _TimelinePageState extends State<TimelinePage> {
       _focusedStoryId = story.id;
     });
     _reveal(story.id);
+  }
+
+  void _openMidOnYear(int year) {
+    final rows = dialStories(_published);
+    if (rows.isEmpty) return;
+    var best = rows.first;
+    var bestDelta = (best.timeframeStart.year - year).abs();
+    for (final story in rows.skip(1)) {
+      final delta = (story.timeframeStart.year - year).abs();
+      if (delta < bestDelta) {
+        best = story;
+        bestDelta = delta;
+      }
+    }
+    setState(() {
+      _zoom = TimelineZoom.mid;
+      _focusedStoryId = best.id;
+    });
+    _reveal(best.id);
   }
 
   void _zoomIn() {
@@ -426,6 +459,7 @@ class _TimelinePageState extends State<TimelinePage> {
         focusedId: _focusedStoryId,
         child: child,
         onDot: _openMid,
+        onYear: _openMidOnYear,
         onFocus: _onDialFocus,
         onMid: _zoomIn,
         onFullCards: _openFullCards,
@@ -435,7 +469,8 @@ class _TimelinePageState extends State<TimelinePage> {
         focusedId: _focusedStoryId,
         child: child,
         anchorFor: _anchor,
-        onStub: _openNear,
+        onStub: _openStory,
+        onNode: _openNear,
         onFocus: _onDialFocus,
         onMacro: _fitAll,
         onFullCards: _zoomIn,
@@ -445,7 +480,7 @@ class _TimelinePageState extends State<TimelinePage> {
         focusedId: _focusedStoryId,
         photos: _photos,
         anchorFor: _anchor,
-        onOpen: (story) => context.push('/stories/${story.id}'),
+        onOpen: _openStory,
         onFocus: _onDialFocus,
         onMacro: _fitAll,
         onMid: () => setState(() => _zoom = TimelineZoom.mid),
@@ -519,12 +554,89 @@ class _ZoomCluster extends StatelessWidget {
   }
 }
 
+void scrollDialStep({
+  required ScrollController controller,
+  required int direction,
+  required BuildContext? target,
+}) {
+  if (target != null && target.mounted) {
+    Scrollable.ensureVisible(
+      target,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
+    return;
+  }
+  if (!controller.hasClients) return;
+  final position = controller.position;
+  final delta = direction * position.viewportDimension * 0.45;
+  final next = (position.pixels + delta).clamp(
+    position.minScrollExtent,
+    position.maxScrollExtent,
+  );
+  position.animateTo(
+    next,
+    duration: const Duration(milliseconds: 200),
+    curve: Curves.easeOut,
+  );
+}
+
+class _ArrowKeys extends StatefulWidget {
+  const _ArrowKeys({required this.onStep, required this.child});
+
+  final ValueChanged<int> onStep;
+  final Widget child;
+
+  @override
+  State<_ArrowKeys> createState() => _ArrowKeysState();
+}
+
+class _ArrowKeysState extends State<_ArrowKeys> {
+  final _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      widget.onStep(1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      widget.onStep(-1);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      focusNode: _focus,
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: Listener(
+        onPointerDown: (_) => _focus.requestFocus(),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 class _FarRail extends StatefulWidget {
   const _FarRail({
     required this.bands,
     required this.focusedId,
     required this.child,
     required this.onDot,
+    required this.onYear,
     required this.onFocus,
     required this.onMid,
     required this.onFullCards,
@@ -534,6 +646,7 @@ class _FarRail extends StatefulWidget {
   final String? focusedId;
   final MemberFamily? child;
   final ValueChanged<Story> onDot;
+  final ValueChanged<int> onYear;
   final ValueChanged<String> onFocus;
   final VoidCallback onMid;
   final VoidCallback onFullCards;
@@ -544,6 +657,7 @@ class _FarRail extends StatefulWidget {
 
 class _FarRailState extends State<_FarRail> {
   final _viewportKey = GlobalKey();
+  final _scroll = ScrollController();
   final _rowKeys = <int, GlobalKey>{};
   int? _centerYear;
   Map<int, double> _opacities = const {};
@@ -556,6 +670,25 @@ class _FarRailState extends State<_FarRail> {
     super.initState();
     _centerYear = _yearOf(widget.focusedId);
     WidgetsBinding.instance.addPostFrameCallback((_) => _centerInitial());
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _step(int direction) {
+    final bands = widget.bands;
+    if (bands.isEmpty) return;
+    final current = _centerYear ?? bands[bands.length ~/ 2].startYear;
+    var index = bands.indexWhere((band) => band.startYear == current);
+    if (index < 0) index = 0;
+    final next = index + direction;
+    final target = next < 0 || next >= bands.length
+        ? null
+        : _rowKey(bands[next].startYear).currentContext;
+    scrollDialStep(controller: _scroll, direction: direction, target: target);
   }
 
   @override
@@ -689,90 +822,97 @@ class _FarRailState extends State<_FarRail> {
         (widget.bands.isEmpty
             ? 0
             : widget.bands[widget.bands.length ~/ 2].startYear);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-          child: _DialSubheader(
-            year: year,
-            zoomLabel: 'Zoom Level: Far (Decade dots)',
-            selected: TimelineZoom.far,
-            onMacro: () {},
-            onMid: widget.onMid,
-            onFullCards: widget.onFullCards,
+    return _ArrowKeys(
+      onStep: _step,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            child: _DialSubheader(
+              year: year,
+              zoomLabel: 'Zoom Level: Far (Decade dots)',
+              selected: TimelineZoom.far,
+              onYear: () => widget.onYear(year),
+              onMacro: () {},
+              onMid: widget.onMid,
+              onFullCards: widget.onFullCards,
+            ),
           ),
-        ),
-        Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification ||
-                  notification is ScrollEndNotification) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _measure();
-                });
-              }
-              return false;
-            },
-            child: Stack(
-              key: _viewportKey,
-              children: [
-                const Positioned.fill(
-                  child: IgnorePointer(
-                    child: Center(
-                      child: SizedBox(
-                        width: 2,
-                        child: ColoredBox(color: Color(0x332C2416)),
+          Expanded(
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollUpdateNotification ||
+                    notification is ScrollEndNotification) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _measure();
+                  });
+                }
+                return false;
+              },
+              child: Stack(
+                key: _viewportKey,
+                children: [
+                  const Positioned.fill(
+                    child: IgnorePointer(
+                      child: Center(
+                        child: SizedBox(
+                          width: 2,
+                          child: ColoredBox(color: Color(0x332C2416)),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final pad = constraints.maxHeight / 2;
-                    return ListView(
-                      padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                      children: [
-                        for (var i = 0; i < widget.bands.length; i++)
-                          _FarDecadeRow(
-                            key: _rowKey(widget.bands[i].startYear),
-                            band: widget.bands[i],
-                            focused: widget.bands[i].startYear == _centerYear,
-                            opacity: _opacities[widget.bands[i].startYear] ?? 1,
-                            highlight: _highlight(widget.bands[i]),
-                            showBranch:
-                                joinYear != null &&
-                                widget.bands[i].startYear == joinYear,
-                            continueRail:
-                                joinYear != null &&
-                                widget.bands[i].startYear >= joinYear,
-                            railAbove:
-                                joinYear != null &&
-                                widget.bands.any(
-                                  (other) =>
-                                      other.startYear >
-                                      widget.bands[i].startYear,
-                                ),
-                            railBelow:
-                                joinYear != null &&
-                                widget.bands.any(
-                                  (other) =>
-                                      other.startYear >= joinYear &&
-                                      other.startYear <
-                                          widget.bands[i].startYear,
-                                ),
-                            branchName: widget.child?.name,
-                            onDot: widget.onDot,
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final pad = constraints.maxHeight / 2;
+                      return ListView(
+                        controller: _scroll,
+                        padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
+                        children: [
+                          for (var i = 0; i < widget.bands.length; i++)
+                            _FarDecadeRow(
+                              key: _rowKey(widget.bands[i].startYear),
+                              band: widget.bands[i],
+                              focused: widget.bands[i].startYear == _centerYear,
+                              opacity:
+                                  _opacities[widget.bands[i].startYear] ?? 1,
+                              highlight: _highlight(widget.bands[i]),
+                              showBranch:
+                                  joinYear != null &&
+                                  widget.bands[i].startYear == joinYear,
+                              continueRail:
+                                  joinYear != null &&
+                                  widget.bands[i].startYear >= joinYear,
+                              railAbove:
+                                  joinYear != null &&
+                                  widget.bands.any(
+                                    (other) =>
+                                        other.startYear >
+                                        widget.bands[i].startYear,
+                                  ),
+                              railBelow:
+                                  joinYear != null &&
+                                  widget.bands.any(
+                                    (other) =>
+                                        other.startYear >= joinYear &&
+                                        other.startYear <
+                                            widget.bands[i].startYear,
+                                  ),
+                              branchName: widget.child?.name,
+                              onDot: widget.onDot,
+                              onYear: widget.onYear,
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -790,6 +930,7 @@ class _FarDecadeRow extends StatelessWidget {
     required this.railBelow,
     required this.branchName,
     required this.onDot,
+    required this.onYear,
   });
 
   final DecadeBand band;
@@ -802,6 +943,7 @@ class _FarDecadeRow extends StatelessWidget {
   final bool railBelow;
   final String? branchName;
   final ValueChanged<Story> onDot;
+  final ValueChanged<int> onYear;
 
   @override
   Widget build(BuildContext context) {
@@ -811,13 +953,20 @@ class _FarDecadeRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          band.label,
-          style: focused
-              ? Theme.of(context).textTheme.headlineMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)
-              : Theme.of(context).textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w500),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            key: Key('timeline-decade-${band.startYear}'),
+            onTap: () => onYear(band.startYear),
+            child: Text(
+              band.label,
+              style: focused
+                  ? Theme.of(context).textTheme.headlineMedium
+                        ?.copyWith(fontWeight: FontWeight.w700)
+                  : Theme.of(context).textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w500),
+            ),
+          ),
         ),
         const SizedBox(height: 2),
         Row(
@@ -871,34 +1020,42 @@ class _FarDecadeRow extends StatelessWidget {
             ),
             SizedBox(
               width: 48,
-              child: Center(
-                child: Container(
-                  width: focused ? 28 : 14,
-                  height: focused ? 28 : 14,
-                  decoration: BoxDecoration(
-                    color: focused
-                        ? albumTerracotta.withValues(alpha: 0.2)
-                        : const Color(0xFFFFF8F6),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: focused
-                          ? albumTerracotta
-                          : albumInk.withValues(alpha: 0.35),
-                      width: focused ? 1.5 : 2,
+              child: GestureDetector(
+                key: Key('timeline-decade-node-${band.startYear}'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onYear(band.startYear),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Center(
+                    child: Container(
+                      width: focused ? 28 : 14,
+                      height: focused ? 28 : 14,
+                      decoration: BoxDecoration(
+                        color: focused
+                            ? albumTerracotta.withValues(alpha: 0.2)
+                            : const Color(0xFFFFF8F6),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: focused
+                              ? albumTerracotta
+                              : albumInk.withValues(alpha: 0.35),
+                          width: focused ? 1.5 : 2,
+                        ),
+                      ),
+                      child: focused
+                          ? Center(
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: const BoxDecoration(
+                                  color: albumTerracotta,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            )
+                          : null,
                     ),
                   ),
-                  child: focused
-                      ? Center(
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: const BoxDecoration(
-                              color: albumTerracotta,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        )
-                      : null,
                 ),
               ),
             ),
@@ -1007,24 +1164,27 @@ class _FarDot extends StatelessWidget {
     final dot = GestureDetector(
       key: Key('timeline-dot-${story.id}'),
       onTap: onTap,
-      child: Container(
-        width: highlighted ? 14 : 12,
-        height: highlighted ? 14 : 12,
-        decoration: BoxDecoration(
-          color: albumTerracotta,
-          shape: BoxShape.circle,
-          border: highlighted
-              ? Border.all(color: albumTerracotta, width: 2)
-              : null,
-          boxShadow: highlighted
-              ? [
-                  BoxShadow(
-                    color: albumTerracotta.withValues(alpha: 0.35),
-                    blurRadius: 0,
-                    spreadRadius: 3,
-                  ),
-                ]
-              : null,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          width: highlighted ? 14 : 12,
+          height: highlighted ? 14 : 12,
+          decoration: BoxDecoration(
+            color: albumTerracotta,
+            shape: BoxShape.circle,
+            border: highlighted
+                ? Border.all(color: albumTerracotta, width: 2)
+                : null,
+            boxShadow: highlighted
+                ? [
+                    BoxShadow(
+                      color: albumTerracotta.withValues(alpha: 0.35),
+                      blurRadius: 0,
+                      spreadRadius: 3,
+                    ),
+                  ]
+                : null,
+          ),
         ),
       ),
     );
@@ -1039,6 +1199,7 @@ class _MidRail extends StatefulWidget {
     required this.child,
     required this.anchorFor,
     required this.onStub,
+    required this.onNode,
     required this.onFocus,
     required this.onMacro,
     required this.onFullCards,
@@ -1049,6 +1210,7 @@ class _MidRail extends StatefulWidget {
   final MemberFamily? child;
   final GlobalKey Function(String id) anchorFor;
   final ValueChanged<Story> onStub;
+  final ValueChanged<Story> onNode;
   final ValueChanged<String> onFocus;
   final VoidCallback onMacro;
   final VoidCallback onFullCards;
@@ -1059,6 +1221,7 @@ class _MidRail extends StatefulWidget {
 
 class _MidRailState extends State<_MidRail> {
   final _viewportKey = GlobalKey();
+  final _scroll = ScrollController();
   String? _centerId;
   Map<String, double> _opacities = const {};
   var _centered = false;
@@ -1068,6 +1231,25 @@ class _MidRailState extends State<_MidRail> {
     super.initState();
     _centerId = widget.focusedId;
     WidgetsBinding.instance.addPostFrameCallback((_) => _centerInitial());
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _step(int direction) {
+    final stories = widget.stories;
+    if (stories.isEmpty) return;
+    final current = _centerId ?? widget.focusedId ?? stories.first.id;
+    var index = stories.indexWhere((story) => story.id == current);
+    if (index < 0) index = 0;
+    final next = index + direction;
+    final target = next < 0 || next >= stories.length
+        ? null
+        : widget.anchorFor(stories[next].id).currentContext;
+    scrollDialStep(controller: _scroll, direction: direction, target: target);
   }
 
   @override
@@ -1163,70 +1345,79 @@ class _MidRailState extends State<_MidRail> {
     final joinAt = widget.child == null
         ? -1
         : closestStoryIndex(widget.stories, widget.child!.createdAt);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-          child: _DialSubheader(
-            year: _focusYear(),
-            zoomLabel: 'Zoom Level: 45% (Stubs & Eras)',
-            selected: TimelineZoom.mid,
-            onMacro: widget.onMacro,
-            onMid: () {},
-            onFullCards: widget.onFullCards,
-          ),
-        ),
-        Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification ||
-                  notification is ScrollEndNotification) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _measure();
-                });
-              }
-              return false;
-            },
-            child: Stack(
-              key: _viewportKey,
-              children: [
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final pad = constraints.maxHeight / 2;
-                    return ListView(
-                      padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                      children: [
-                        for (var i = 0; i < widget.stories.length; i++)
-                          _DialRow(
-                            key: widget.anchorFor(widget.stories[i].id),
-                            story: widget.stories[i],
-                            cardOnLeft: i.isEven,
-                            focused: widget.stories[i].id == _centerId,
-                            opacity:
-                                _opacities[widget.stories[i].id] ??
-                                (widget.stories[i].id == _centerId ? 1 : 0.35),
-                            showBranchRail: widget.child != null && i <= joinAt,
-                            railEndsAtJoin: widget.child != null && i == joinAt,
-                            joinNote: widget.child != null && i == joinAt
-                                ? '← ${widget.child!.name} union joined archive'
-                                : null,
-                            branchLabel: widget.child != null && i == joinAt
-                                ? '${widget.child!.name} Branch'
-                                : null,
-                            onTap: () => widget.onStub(widget.stories[i]),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-                const _DialFade(top: true),
-                const _DialFade(top: false),
-              ],
+    return _ArrowKeys(
+      onStep: _step,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            child: _DialSubheader(
+              year: _focusYear(),
+              zoomLabel: 'Zoom Level: 45% (Stubs & Eras)',
+              selected: TimelineZoom.mid,
+              onMacro: widget.onMacro,
+              onMid: () {},
+              onFullCards: widget.onFullCards,
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollUpdateNotification ||
+                    notification is ScrollEndNotification) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _measure();
+                  });
+                }
+                return false;
+              },
+              child: Stack(
+                key: _viewportKey,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final pad = constraints.maxHeight / 2;
+                      return ListView(
+                        controller: _scroll,
+                        padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
+                        children: [
+                          for (var i = 0; i < widget.stories.length; i++)
+                            _DialRow(
+                              key: widget.anchorFor(widget.stories[i].id),
+                              story: widget.stories[i],
+                              cardOnLeft: i.isEven,
+                              focused: widget.stories[i].id == _centerId,
+                              opacity:
+                                  _opacities[widget.stories[i].id] ??
+                                  (widget.stories[i].id == _centerId
+                                      ? 1
+                                      : 0.35),
+                              showBranchRail:
+                                  widget.child != null && i <= joinAt,
+                              railEndsAtJoin:
+                                  widget.child != null && i == joinAt,
+                              joinNote: widget.child != null && i == joinAt
+                                  ? '← ${widget.child!.name} union joined archive'
+                                  : null,
+                              branchLabel: widget.child != null && i == joinAt
+                                  ? '${widget.child!.name} Branch'
+                                  : null,
+                              onTap: () => widget.onStub(widget.stories[i]),
+                              onNode: () => widget.onNode(widget.stories[i]),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                  const _DialFade(top: true),
+                  const _DialFade(top: false),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1468,6 +1659,7 @@ class _DialSubheader extends StatelessWidget {
     required this.onMacro,
     required this.onMid,
     required this.onFullCards,
+    this.onYear,
   });
 
   final int year;
@@ -1476,6 +1668,7 @@ class _DialSubheader extends StatelessWidget {
   final VoidCallback onMacro;
   final VoidCallback onMid;
   final VoidCallback onFullCards;
+  final VoidCallback? onYear;
 
   @override
   Widget build(BuildContext context) {
@@ -1515,38 +1708,7 @@ class _DialSubheader extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelMedium
                       ?.copyWith(color: albumInk.withValues(alpha: 0.35)),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: albumInk.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: albumInk.withValues(alpha: 0.12)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: albumTerracotta,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        dialFocusLabel(year),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _yearChip(context),
               ],
             ),
             Wrap(
@@ -1588,6 +1750,43 @@ class _DialSubheader extends StatelessWidget {
       ),
     );
   }
+
+  Widget _yearChip(BuildContext context) {
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: albumInk.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: albumInk.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: albumTerracotta,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            dialFocusLabel(year),
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.6),
+          ),
+        ],
+      ),
+    );
+    final tap = onYear;
+    if (tap == null) return chip;
+    return GestureDetector(
+      key: const Key('timeline-year-chip'),
+      onTap: tap,
+      child: chip,
+    );
+  }
 }
 
 class _DialRow extends StatelessWidget {
@@ -1600,6 +1799,7 @@ class _DialRow extends StatelessWidget {
     required this.showBranchRail,
     required this.railEndsAtJoin,
     required this.onTap,
+    required this.onNode,
     this.joinNote,
     this.branchLabel,
   });
@@ -1613,6 +1813,7 @@ class _DialRow extends StatelessWidget {
   final String? joinNote;
   final String? branchLabel;
   final VoidCallback onTap;
+  final VoidCallback onNode;
 
   @override
   Widget build(BuildContext context) {
@@ -1749,23 +1950,37 @@ class _DialRow extends StatelessWidget {
               ),
             ),
           );
-    final node = Container(
-      width: focused ? 22 : 16,
-      height: focused ? 22 : 16,
-      decoration: BoxDecoration(
-        color: focused
-            ? albumTerracotta.withValues(alpha: 0.22)
-            : const Color(0xFFFFF8F6),
-        shape: BoxShape.circle,
-        border: Border.all(color: albumTerracotta, width: focused ? 2 : 1.5),
-      ),
-      child: Center(
-        child: Container(
-          width: focused ? 8 : 6,
-          height: focused ? 8 : 6,
-          decoration: const BoxDecoration(
-            color: albumTerracotta,
-            shape: BoxShape.circle,
+    final node = GestureDetector(
+      key: Key('timeline-mid-node-${story.id}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onNode,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Container(
+            width: focused ? 22 : 16,
+            height: focused ? 22 : 16,
+            decoration: BoxDecoration(
+              color: focused
+                  ? albumTerracotta.withValues(alpha: 0.22)
+                  : const Color(0xFFFFF8F6),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: albumTerracotta,
+                width: focused ? 2 : 1.5,
+              ),
+            ),
+            child: Center(
+              child: Container(
+                width: focused ? 8 : 6,
+                height: focused ? 8 : 6,
+                decoration: const BoxDecoration(
+                  color: albumTerracotta,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -1900,6 +2115,7 @@ class _FullCardRail extends StatefulWidget {
 
 class _FullCardRailState extends State<_FullCardRail> {
   final _viewportKey = GlobalKey();
+  final _scroll = ScrollController();
   String? _centerId;
   Map<String, double> _opacities = const {};
 
@@ -1908,6 +2124,25 @@ class _FullCardRailState extends State<_FullCardRail> {
     super.initState();
     _centerId = widget.focusedId;
     WidgetsBinding.instance.addPostFrameCallback((_) => _centerThenMeasure());
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _step(int direction) {
+    final stories = widget.stories;
+    if (stories.isEmpty) return;
+    final current = _centerId ?? widget.focusedId ?? stories.first.id;
+    var index = stories.indexWhere((story) => story.id == current);
+    if (index < 0) index = 0;
+    final next = index + direction;
+    final target = next < 0 || next >= stories.length
+        ? null
+        : widget.anchorFor(stories[next].id).currentContext;
+    scrollDialStep(controller: _scroll, direction: direction, target: target);
   }
 
   void _centerThenMeasure() {
@@ -1995,102 +2230,113 @@ class _FullCardRailState extends State<_FullCardRail> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-          child: _DialSubheader(
-            year: _focusYear(),
-            zoomLabel: 'Zoom Level: 100% (Full Cards)',
-            selected: TimelineZoom.near,
-            onMacro: widget.onMacro,
-            onMid: widget.onMid,
-            onFullCards: () {},
-          ),
-        ),
-        Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification ||
-                  notification is ScrollEndNotification) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _measure();
-                });
-              }
-              return false;
-            },
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 800;
-                final pad = constraints.maxHeight / 2;
-                final gap = constraints.maxWidth < 720 ? 32.0 : 80.0;
-                return Stack(
-                  key: _viewportKey,
-                  children: [
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: Align(
-                          alignment: wide
-                              ? Alignment.center
-                              : Alignment.centerLeft,
-                          child: Padding(
-                            padding: EdgeInsets.only(left: wide ? 0 : 13),
-                            child: Container(
-                              key: const Key('timeline-spine'),
-                              width: 2,
-                              color: albumInk.withValues(alpha: 0.2),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    ListView(
-                      scrollCacheExtent: const ScrollCacheExtent.pixels(100000),
-                      padding: EdgeInsets.fromLTRB(wide ? 24 : 8, pad, 24, pad),
-                      children: [
-                        for (var i = 0; i < widget.stories.length; i++)
-                          _FullCardRow(
-                            key: widget.anchorFor(widget.stories[i].id),
-                            story: widget.stories[i],
-                            cardOnLeft: i.isEven,
-                            wide: wide,
-                            focused: widget.stories[i].id == _centerId,
-                            opacity:
-                                _opacities[widget.stories[i].id] ??
-                                (widget.stories[i].id == _centerId ? 1 : 0.4),
-                            gap: gap,
-                            photos: widget.photos,
-                            onOpen: () => widget.onOpen(widget.stories[i]),
-                          ),
-                      ],
-                    ),
-                    const Positioned.fill(
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                albumParchment,
-                                Color(0x00FBF7F2),
-                                Color(0x00FBF7F2),
-                                albumParchment,
-                              ],
-                              stops: [0, 0.18, 0.82, 1],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
+    return _ArrowKeys(
+      onStep: _step,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            child: _DialSubheader(
+              year: _focusYear(),
+              zoomLabel: 'Zoom Level: 100% (Full Cards)',
+              selected: TimelineZoom.near,
+              onMacro: widget.onMacro,
+              onMid: widget.onMid,
+              onFullCards: () {},
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollUpdateNotification ||
+                    notification is ScrollEndNotification) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _measure();
+                  });
+                }
+                return false;
+              },
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth >= 800;
+                  final pad = constraints.maxHeight / 2;
+                  final gap = constraints.maxWidth < 720 ? 32.0 : 80.0;
+                  return Stack(
+                    key: _viewportKey,
+                    children: [
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Align(
+                            alignment: wide
+                                ? Alignment.center
+                                : Alignment.centerLeft,
+                            child: Padding(
+                              padding: EdgeInsets.only(left: wide ? 0 : 13),
+                              child: Container(
+                                key: const Key('timeline-spine'),
+                                width: 2,
+                                color: albumInk.withValues(alpha: 0.2),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      ListView(
+                        controller: _scroll,
+                        scrollCacheExtent: const ScrollCacheExtent.pixels(
+                          100000,
+                        ),
+                        padding: EdgeInsets.fromLTRB(
+                          wide ? 24 : 8,
+                          pad,
+                          24,
+                          pad,
+                        ),
+                        children: [
+                          for (var i = 0; i < widget.stories.length; i++)
+                            _FullCardRow(
+                              key: widget.anchorFor(widget.stories[i].id),
+                              story: widget.stories[i],
+                              cardOnLeft: i.isEven,
+                              wide: wide,
+                              focused: widget.stories[i].id == _centerId,
+                              opacity:
+                                  _opacities[widget.stories[i].id] ??
+                                  (widget.stories[i].id == _centerId ? 1 : 0.4),
+                              gap: gap,
+                              photos: widget.photos,
+                              onOpen: () => widget.onOpen(widget.stories[i]),
+                            ),
+                        ],
+                      ),
+                      const Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  albumParchment,
+                                  Color(0x00FBF7F2),
+                                  Color(0x00FBF7F2),
+                                  albumParchment,
+                                ],
+                                stops: [0, 0.18, 0.82, 1],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

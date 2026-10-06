@@ -15,7 +15,6 @@ import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';
-import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 
@@ -407,10 +406,6 @@ class _FakePerspectivesApi implements PerspectivesGateway {
   Future<void> delete(String id) async {}
 }
 
-Widget _defaultStubMap({double? lat, double? lng}) {
-  return const SizedBox(key: Key('stub-map'), height: 120);
-}
-
 Widget _readerApp({
   required StoriesGateway stories,
   PeopleGateway? people,
@@ -421,8 +416,7 @@ Widget _readerApp({
   Future<Uint8List?> Function()? pickImageBytes,
   String storyId = _storyId,
   String? currentUserId,
-  bool? hasMapboxToken,
-  PlaceMapBuilder? mapBuilder,
+  ReaderPresentation presentation = ReaderPresentation.page,
 }) {
   final perspectivesApi = perspectives ?? _FakePerspectivesApi();
   final router = GoRouter(
@@ -456,8 +450,7 @@ Widget _readerApp({
           perspectivesApi: perspectivesApi,
           pickImageBytes: pickImageBytes,
           currentUserId: currentUserId,
-          hasMapboxToken: hasMapboxToken ?? true,
-          mapBuilder: mapBuilder ?? _defaultStubMap,
+          presentation: presentation,
         ),
       ),
     ],
@@ -480,8 +473,8 @@ void main() {
       readerArticleBody(body: 'Picnic at the lake\nWe brought pie.'),
       'Picnic at the lake\nWe brought pie.',
     );
-    expect(readerHeadline(title: '   '), 'Untitled');
-    expect(readerHeadline(title: null), 'Untitled');
+    expect(readerHeadline(title: '   '), '');
+    expect(readerHeadline(title: null), '');
     expect(
       readerArticleBody(body: 'Picnic at the lake\nWe brought pie.'),
       'Picnic at the lake\nWe brought pie.',
@@ -540,14 +533,21 @@ void main() {
 
     expect(find.byKey(const Key('story-reader')), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'Timeline'), findsOneWidget);
-    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.text('Untitled'), findsNothing);
+    expect(
+      find.textContaining('Recorded event: Jan 1, 1980 – Dec 31, 1989'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Documented Sep 2026'), findsOneWidget);
+    expect(find.textContaining('1 min read'), findsOneWidget);
     expect(find.textContaining('Picnic at the lake'), findsOneWidget);
     expect(find.textContaining('We brought pie.'), findsOneWidget);
     expect(find.text('1980s'), findsOneWidget);
     expect(find.text('Ada'), findsOneWidget);
     expect(find.text('Bob'), findsNothing);
     expect(find.text('Central Park'), findsOneWidget);
-    expect(find.byKey(const Key('stub-map')), findsOneWidget);
+    expect(find.byKey(const Key('story-hero-ph1')), findsOneWidget);
+    expect(find.byKey(const Key('stub-map')), findsNothing);
     expect(find.byType(PhotoStrip), findsOneWidget);
     expect(find.text('Add photos'), findsOneWidget);
     expect(find.text('Perspectives'), findsOneWidget);
@@ -712,7 +712,71 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.text('Untitled'), findsNothing);
+    expect(find.textContaining('1 min read'), findsOneWidget);
+  });
+
+  testWidgets('a blank place label uses the address chip', (tester) async {
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        places: _FakePlacesApi(
+          seed: [
+            Place(
+              id: 'pl1',
+              familyId: _familyId,
+              label: '   ',
+              address: 'New York, NY',
+              lat: 40.78,
+              lng: -73.96,
+              isFavorite: false,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('New York, NY'), findsOneWidget);
+    expect(find.text('Central Park'), findsNothing);
+  });
+
+  testWidgets('modal shell closes without a Timeline back link', (
+    tester,
+  ) async {
+    final nav = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: nav,
+        home: const Scaffold(body: Text('under-page')),
+      ),
+    );
+    nav.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (context) => StoryReaderPage(
+          storyId: _storyId,
+          presentation: ReaderPresentation.modal,
+          storiesApi: _FakeStoriesApi(story: _published(title: 'Jam')),
+          peopleApi: _FakePeopleApi(),
+          placesApi: _FakePlacesApi(),
+          photosApi: _FakePhotosApi(),
+          commentsApi: _FakeCommentsApi(),
+          perspectivesApi: _FakePerspectivesApi(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Family Keepsake'), findsOneWidget);
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
+    expect(find.byKey(const Key('story-reader-close')), findsOneWidget);
+    expect(find.byKey(const Key('story-reader')), findsNothing);
+    expect(find.widgetWithText(TextButton, 'Timeline'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('story-reader-close')));
+    await tester.pumpAndSettle();
+    expect(find.text('under-page'), findsOneWidget);
+    expect(find.byKey(const Key('story-reader-modal')), findsNothing);
   });
 
   testWidgets('loading shows a spinner before the published body', (
@@ -731,7 +795,7 @@ void main() {
 
     delay.complete();
     await tester.pumpAndSettle();
-    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.text('Untitled'), findsNothing);
     expect(find.textContaining('Picnic at the lake'), findsOneWidget);
   });
 
@@ -748,7 +812,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(SnackBar), findsOneWidget);
-    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.text('Untitled'), findsNothing);
     expect(find.textContaining('Picnic at the lake'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
   });
