@@ -235,7 +235,12 @@ class _TimelinePageState extends State<TimelinePage> {
       setState(() => _familyId = familyId);
     }
     if (!mounted) return;
-    await InviteModal.show(context, familyId: familyId, api: _api);
+    await InviteModal.show(
+      context,
+      familyId: familyId,
+      familyName: _currentFamily?.name ?? 'Family',
+      api: _api,
+    );
   }
 
   MemberFamily? get _currentFamily {
@@ -827,84 +832,85 @@ class _FarRailState extends State<_FarRail> {
             child: _DialSubheader(
               year: year,
               zoomLabel: 'Zoom Level: Far (Decade dots)',
-            selected: TimelineZoom.far,
-            onYear: () => widget.onYear(year),
-            onMacro: () {},
-            onMid: widget.onMid,
-            onFullCards: widget.onFullCards,
+              selected: TimelineZoom.far,
+              onYear: () => widget.onYear(year),
+              onMacro: () {},
+              onMid: widget.onMid,
+              onFullCards: widget.onFullCards,
+            ),
           ),
-        ),
-        Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification ||
-                  notification is ScrollEndNotification) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _measure();
-                });
-              }
-              return false;
-            },
-            child: Stack(
-              key: _viewportKey,
-              children: [
-                const Positioned.fill(
-                  child: IgnorePointer(
-                    child: Center(
-                      child: SizedBox(
-                        width: 2,
-                        child: ColoredBox(color: Color(0x332C2416)),
+          Expanded(
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollUpdateNotification ||
+                    notification is ScrollEndNotification) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _measure();
+                  });
+                }
+                return false;
+              },
+              child: Stack(
+                key: _viewportKey,
+                children: [
+                  const Positioned.fill(
+                    child: IgnorePointer(
+                      child: Center(
+                        child: SizedBox(
+                          width: 2,
+                          child: ColoredBox(color: Color(0x332C2416)),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final pad = constraints.maxHeight / 2;
-                    return ListView(
-                      controller: _scroll,
-                      padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                      children: [
-                        for (var i = 0; i < widget.bands.length; i++)
-                          _FarDecadeRow(
-                            key: _rowKey(widget.bands[i].startYear),
-                            band: widget.bands[i],
-                            focused: widget.bands[i].startYear == _centerYear,
-                            opacity: _opacities[widget.bands[i].startYear] ?? 1,
-                            highlight: _highlight(widget.bands[i]),
-                            showBranch:
-                                joinYear != null &&
-                                widget.bands[i].startYear == joinYear,
-                            continueRail:
-                                joinYear != null &&
-                                widget.bands[i].startYear >= joinYear,
-                            railAbove:
-                                joinYear != null &&
-                                widget.bands.any(
-                                  (other) =>
-                                      other.startYear >
-                                      widget.bands[i].startYear,
-                                ),
-                            railBelow:
-                                joinYear != null &&
-                                widget.bands.any(
-                                  (other) =>
-                                      other.startYear >= joinYear &&
-                                      other.startYear <
-                                          widget.bands[i].startYear,
-                                ),
-                            branchName: widget.child?.name,
-                            onDot: widget.onDot,
-                            onYear: widget.onYear,
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final pad = constraints.maxHeight / 2;
+                      return ListView(
+                        controller: _scroll,
+                        padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
+                        children: [
+                          for (var i = 0; i < widget.bands.length; i++)
+                            _FarDecadeRow(
+                              key: _rowKey(widget.bands[i].startYear),
+                              band: widget.bands[i],
+                              focused: widget.bands[i].startYear == _centerYear,
+                              opacity:
+                                  _opacities[widget.bands[i].startYear] ?? 1,
+                              highlight: _highlight(widget.bands[i]),
+                              showBranch:
+                                  joinYear != null &&
+                                  widget.bands[i].startYear == joinYear,
+                              continueRail:
+                                  joinYear != null &&
+                                  widget.bands[i].startYear >= joinYear,
+                              railAbove:
+                                  joinYear != null &&
+                                  widget.bands.any(
+                                    (other) =>
+                                        other.startYear >
+                                        widget.bands[i].startYear,
+                                  ),
+                              railBelow:
+                                  joinYear != null &&
+                                  widget.bands.any(
+                                    (other) =>
+                                        other.startYear >= joinYear &&
+                                        other.startYear <
+                                            widget.bands[i].startYear,
+                                  ),
+                              branchName: widget.child?.name,
+                              onDot: widget.onDot,
+                              onYear: widget.onYear,
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
         ],
       ),
     );
@@ -1349,63 +1355,67 @@ class _MidRailState extends State<_MidRail> {
             child: _DialSubheader(
               year: _focusYear(),
               zoomLabel: 'Zoom Level: 45% (Stubs & Eras)',
-            selected: TimelineZoom.mid,
-            onMacro: widget.onMacro,
-            onMid: () {},
-            onFullCards: widget.onFullCards,
-          ),
-        ),
-        Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification ||
-                  notification is ScrollEndNotification) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _measure();
-                });
-              }
-              return false;
-            },
-            child: Stack(
-              key: _viewportKey,
-              children: [
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final pad = constraints.maxHeight / 2;
-                    return ListView(
-                      controller: _scroll,
-                      padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                      children: [
-                        for (var i = 0; i < widget.stories.length; i++)
-                          _DialRow(
-                            key: widget.anchorFor(widget.stories[i].id),
-                            story: widget.stories[i],
-                            cardOnLeft: i.isEven,
-                            focused: widget.stories[i].id == _centerId,
-                            opacity:
-                                _opacities[widget.stories[i].id] ??
-                                (widget.stories[i].id == _centerId ? 1 : 0.35),
-                            showBranchRail: widget.child != null && i <= joinAt,
-                            railEndsAtJoin: widget.child != null && i == joinAt,
-                            joinNote: widget.child != null && i == joinAt
-                                ? '← ${widget.child!.name} union joined archive'
-                                : null,
-                            branchLabel: widget.child != null && i == joinAt
-                                ? '${widget.child!.name} Branch'
-                                : null,
-                            onTap: () => widget.onStub(widget.stories[i]),
-                            onNode: () => widget.onNode(widget.stories[i]),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-                const _DialFade(top: true),
-                const _DialFade(top: false),
-              ],
+              selected: TimelineZoom.mid,
+              onMacro: widget.onMacro,
+              onMid: () {},
+              onFullCards: widget.onFullCards,
             ),
           ),
-        ),
+          Expanded(
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollUpdateNotification ||
+                    notification is ScrollEndNotification) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _measure();
+                  });
+                }
+                return false;
+              },
+              child: Stack(
+                key: _viewportKey,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final pad = constraints.maxHeight / 2;
+                      return ListView(
+                        controller: _scroll,
+                        padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
+                        children: [
+                          for (var i = 0; i < widget.stories.length; i++)
+                            _DialRow(
+                              key: widget.anchorFor(widget.stories[i].id),
+                              story: widget.stories[i],
+                              cardOnLeft: i.isEven,
+                              focused: widget.stories[i].id == _centerId,
+                              opacity:
+                                  _opacities[widget.stories[i].id] ??
+                                  (widget.stories[i].id == _centerId
+                                      ? 1
+                                      : 0.35),
+                              showBranchRail:
+                                  widget.child != null && i <= joinAt,
+                              railEndsAtJoin:
+                                  widget.child != null && i == joinAt,
+                              joinNote: widget.child != null && i == joinAt
+                                  ? '← ${widget.child!.name} union joined archive'
+                                  : null,
+                              branchLabel: widget.child != null && i == joinAt
+                                  ? '${widget.child!.name} Branch'
+                                  : null,
+                              onTap: () => widget.onStub(widget.stories[i]),
+                              onNode: () => widget.onNode(widget.stories[i]),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                  const _DialFade(top: true),
+                  const _DialFade(top: false),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1763,10 +1773,8 @@ class _DialSubheader extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             dialFocusLabel(year),
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-            ),
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.6),
           ),
         ],
       ),
@@ -2232,94 +2240,101 @@ class _FullCardRailState extends State<_FullCardRail> {
             child: _DialSubheader(
               year: _focusYear(),
               zoomLabel: 'Zoom Level: 100% (Full Cards)',
-            selected: TimelineZoom.near,
-            onMacro: widget.onMacro,
-            onMid: widget.onMid,
-            onFullCards: () {},
-          ),
-        ),
-        Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification ||
-                  notification is ScrollEndNotification) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _measure();
-                });
-              }
-              return false;
-            },
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 800;
-                final pad = constraints.maxHeight / 2;
-                final gap = constraints.maxWidth < 720 ? 32.0 : 80.0;
-                return Stack(
-                  key: _viewportKey,
-                  children: [
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: Align(
-                          alignment: wide
-                              ? Alignment.center
-                              : Alignment.centerLeft,
-                          child: Padding(
-                            padding: EdgeInsets.only(left: wide ? 0 : 13),
-                            child: Container(
-                              key: const Key('timeline-spine'),
-                              width: 2,
-                              color: albumInk.withValues(alpha: 0.2),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    ListView(
-                      controller: _scroll,
-                      scrollCacheExtent: const ScrollCacheExtent.pixels(100000),
-                      padding: EdgeInsets.fromLTRB(wide ? 24 : 8, pad, 24, pad),
-                      children: [
-                        for (var i = 0; i < widget.stories.length; i++)
-                          _FullCardRow(
-                            key: widget.anchorFor(widget.stories[i].id),
-                            story: widget.stories[i],
-                            cardOnLeft: i.isEven,
-                            wide: wide,
-                            focused: widget.stories[i].id == _centerId,
-                            opacity:
-                                _opacities[widget.stories[i].id] ??
-                                (widget.stories[i].id == _centerId ? 1 : 0.4),
-                            gap: gap,
-                            photos: widget.photos,
-                            onOpen: () => widget.onOpen(widget.stories[i]),
-                          ),
-                      ],
-                    ),
-                    const Positioned.fill(
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                albumParchment,
-                                Color(0x00FBF7F2),
-                                Color(0x00FBF7F2),
-                                albumParchment,
-                              ],
-                              stops: [0, 0.18, 0.82, 1],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
+              selected: TimelineZoom.near,
+              onMacro: widget.onMacro,
+              onMid: widget.onMid,
+              onFullCards: () {},
             ),
           ),
-        ),
+          Expanded(
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollUpdateNotification ||
+                    notification is ScrollEndNotification) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _measure();
+                  });
+                }
+                return false;
+              },
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth >= 800;
+                  final pad = constraints.maxHeight / 2;
+                  final gap = constraints.maxWidth < 720 ? 32.0 : 80.0;
+                  return Stack(
+                    key: _viewportKey,
+                    children: [
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Align(
+                            alignment: wide
+                                ? Alignment.center
+                                : Alignment.centerLeft,
+                            child: Padding(
+                              padding: EdgeInsets.only(left: wide ? 0 : 13),
+                              child: Container(
+                                key: const Key('timeline-spine'),
+                                width: 2,
+                                color: albumInk.withValues(alpha: 0.2),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      ListView(
+                        controller: _scroll,
+                        scrollCacheExtent: const ScrollCacheExtent.pixels(
+                          100000,
+                        ),
+                        padding: EdgeInsets.fromLTRB(
+                          wide ? 24 : 8,
+                          pad,
+                          24,
+                          pad,
+                        ),
+                        children: [
+                          for (var i = 0; i < widget.stories.length; i++)
+                            _FullCardRow(
+                              key: widget.anchorFor(widget.stories[i].id),
+                              story: widget.stories[i],
+                              cardOnLeft: i.isEven,
+                              wide: wide,
+                              focused: widget.stories[i].id == _centerId,
+                              opacity:
+                                  _opacities[widget.stories[i].id] ??
+                                  (widget.stories[i].id == _centerId ? 1 : 0.4),
+                              gap: gap,
+                              photos: widget.photos,
+                              onOpen: () => widget.onOpen(widget.stories[i]),
+                            ),
+                        ],
+                      ),
+                      const Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  albumParchment,
+                                  Color(0x00FBF7F2),
+                                  Color(0x00FBF7F2),
+                                  albumParchment,
+                                ],
+                                stops: [0, 0.18, 0.82, 1],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
         ],
       ),
     );

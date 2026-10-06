@@ -156,7 +156,12 @@ class _DraftsPageState extends State<DraftsPage> {
       setState(() => _familyId = familyId);
     }
     if (!mounted) return;
-    await InviteModal.show(context, familyId: familyId, api: _invite);
+    await InviteModal.show(
+      context,
+      familyId: familyId,
+      familyName: _familyName,
+      api: _invite,
+    );
   }
 
   List<Story> get _visible {

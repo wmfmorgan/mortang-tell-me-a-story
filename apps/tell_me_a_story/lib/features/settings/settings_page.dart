@@ -136,7 +136,12 @@ class _SettingsPageState extends State<SettingsPage> {
     var familyId = _familyId ?? await _invite.currentFamilyId();
     if (familyId == null) return;
     if (!mounted) return;
-    await InviteModal.show(context, familyId: familyId, api: _invite);
+    await InviteModal.show(
+      context,
+      familyId: familyId,
+      familyName: _familyName,
+      api: _invite,
+    );
   }
 
   Future<void> _pick() async {
