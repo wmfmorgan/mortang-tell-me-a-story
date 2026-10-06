@@ -15,6 +15,7 @@ import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
+import '../stories/story_reader_page.dart';
 import 'timeline_zoom.dart';
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
@@ -267,19 +268,30 @@ class _TimelinePageState extends State<TimelinePage> {
 
   GlobalKey _anchor(String id) => _anchorKeys.putIfAbsent(id, GlobalKey.new);
 
-  void _openMid(Story story) {
-    setState(() {
-      _zoom = TimelineZoom.mid;
-      _focusedStoryId = story.id;
-    });
+  void _openStory(Story story) {
+    context.push(
+      AppRoutes.storyPath(story.id),
+      extra: ReaderPresentation.modal,
+    );
   }
 
-  void _openNear(Story story) {
+  void _openMidOnYear(int year) {
+    final rows = dialStories(_published);
+    if (rows.isEmpty) return;
+    var best = rows.first;
+    var bestDelta = (best.timeframeStart.year - year).abs();
+    for (final story in rows.skip(1)) {
+      final delta = (story.timeframeStart.year - year).abs();
+      if (delta < bestDelta) {
+        best = story;
+        bestDelta = delta;
+      }
+    }
     setState(() {
-      _zoom = TimelineZoom.near;
-      _focusedStoryId = story.id;
+      _zoom = TimelineZoom.mid;
+      _focusedStoryId = best.id;
     });
-    _reveal(story.id);
+    _reveal(best.id);
   }
 
   void _zoomIn() {
@@ -425,7 +437,8 @@ class _TimelinePageState extends State<TimelinePage> {
         bands: bands,
         focusedId: _focusedStoryId,
         child: child,
-        onDot: _openMid,
+        onDot: _openStory,
+        onYear: _openMidOnYear,
         onFocus: _onDialFocus,
         onMid: _zoomIn,
         onFullCards: _openFullCards,
@@ -435,7 +448,7 @@ class _TimelinePageState extends State<TimelinePage> {
         focusedId: _focusedStoryId,
         child: child,
         anchorFor: _anchor,
-        onStub: _openNear,
+        onStub: _openStory,
         onFocus: _onDialFocus,
         onMacro: _fitAll,
         onFullCards: _zoomIn,
@@ -445,7 +458,7 @@ class _TimelinePageState extends State<TimelinePage> {
         focusedId: _focusedStoryId,
         photos: _photos,
         anchorFor: _anchor,
-        onOpen: (story) => context.push('/stories/${story.id}'),
+        onOpen: _openStory,
         onFocus: _onDialFocus,
         onMacro: _fitAll,
         onMid: () => setState(() => _zoom = TimelineZoom.mid),
@@ -525,6 +538,7 @@ class _FarRail extends StatefulWidget {
     required this.focusedId,
     required this.child,
     required this.onDot,
+    required this.onYear,
     required this.onFocus,
     required this.onMid,
     required this.onFullCards,
@@ -534,6 +548,7 @@ class _FarRail extends StatefulWidget {
   final String? focusedId;
   final MemberFamily? child;
   final ValueChanged<Story> onDot;
+  final ValueChanged<int> onYear;
   final ValueChanged<String> onFocus;
   final VoidCallback onMid;
   final VoidCallback onFullCards;
@@ -698,6 +713,7 @@ class _FarRailState extends State<_FarRail> {
             year: year,
             zoomLabel: 'Zoom Level: Far (Decade dots)',
             selected: TimelineZoom.far,
+            onYear: () => widget.onYear(year),
             onMacro: () {},
             onMid: widget.onMid,
             onFullCards: widget.onFullCards,
@@ -763,6 +779,7 @@ class _FarRailState extends State<_FarRail> {
                                 ),
                             branchName: widget.child?.name,
                             onDot: widget.onDot,
+                            onYear: widget.onYear,
                           ),
                       ],
                     );
@@ -790,6 +807,7 @@ class _FarDecadeRow extends StatelessWidget {
     required this.railBelow,
     required this.branchName,
     required this.onDot,
+    required this.onYear,
   });
 
   final DecadeBand band;
@@ -802,6 +820,7 @@ class _FarDecadeRow extends StatelessWidget {
   final bool railBelow;
   final String? branchName;
   final ValueChanged<Story> onDot;
+  final ValueChanged<int> onYear;
 
   @override
   Widget build(BuildContext context) {
@@ -811,13 +830,17 @@ class _FarDecadeRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          band.label,
-          style: focused
-              ? Theme.of(context).textTheme.headlineMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)
-              : Theme.of(context).textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w500),
+        GestureDetector(
+          key: Key('timeline-decade-${band.startYear}'),
+          onTap: () => onYear(band.startYear),
+          child: Text(
+            band.label,
+            style: focused
+                ? Theme.of(context).textTheme.headlineMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)
+                : Theme.of(context).textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w500),
+          ),
         ),
         const SizedBox(height: 2),
         Row(
@@ -1468,6 +1491,7 @@ class _DialSubheader extends StatelessWidget {
     required this.onMacro,
     required this.onMid,
     required this.onFullCards,
+    this.onYear,
   });
 
   final int year;
@@ -1476,6 +1500,7 @@ class _DialSubheader extends StatelessWidget {
   final VoidCallback onMacro;
   final VoidCallback onMid;
   final VoidCallback onFullCards;
+  final VoidCallback? onYear;
 
   @override
   Widget build(BuildContext context) {
@@ -1515,38 +1540,7 @@ class _DialSubheader extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelMedium
                       ?.copyWith(color: albumInk.withValues(alpha: 0.35)),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: albumInk.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: albumInk.withValues(alpha: 0.12)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: albumTerracotta,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        dialFocusLabel(year),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _yearChip(context),
               ],
             ),
             Wrap(
@@ -1586,6 +1580,45 @@ class _DialSubheader extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _yearChip(BuildContext context) {
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: albumInk.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: albumInk.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: albumTerracotta,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            dialFocusLabel(year),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
+      ),
+    );
+    final tap = onYear;
+    if (tap == null) return chip;
+    return GestureDetector(
+      key: const Key('timeline-year-chip'),
+      onTap: tap,
+      child: chip,
     );
   }
 }

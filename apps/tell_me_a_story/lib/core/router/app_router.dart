@@ -56,6 +56,9 @@ GoRouter createAppRouter({
   Future<void> Function()? onLogout,
 }) {
   final recents = searchRecents ?? SearchRecents();
+  // context.push keeps the page under it. The address bar still shows the
+  // pushed path, including the reader modal.
+  GoRouter.optionURLReflectsImperativeAPIs = true;
   return GoRouter(
     initialLocation: AppRoutes.magicLink,
     refreshListenable: authRefresh,
@@ -116,15 +119,35 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRoutes.story,
-        builder: (context, state) => StoryReaderPage(
-          storyId: state.pathParameters['storyId']!,
-          storiesApi: storiesApi,
-          peopleApi: peopleApi,
-          placesApi: placesApi,
-          photosApi: photosApi,
-          commentsApi: commentsApi,
-          perspectivesApi: perspectivesApi,
-        ),
+        pageBuilder: (context, state) {
+          final modal = state.extra == ReaderPresentation.modal;
+          final page = StoryReaderPage(
+            storyId: state.pathParameters['storyId']!,
+            storiesApi: storiesApi,
+            peopleApi: peopleApi,
+            placesApi: placesApi,
+            photosApi: photosApi,
+            commentsApi: commentsApi,
+            perspectivesApi: perspectivesApi,
+            profileApi: profileApi,
+            presentation: modal
+                ? ReaderPresentation.modal
+                : ReaderPresentation.page,
+          );
+          if (!modal) {
+            return MaterialPage<void>(key: state.pageKey, child: page);
+          }
+          return CustomTransitionPage<void>(
+            key: state.pageKey,
+            opaque: false,
+            barrierDismissible: false,
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            transitionsBuilder: (context, animation, secondary, child) =>
+                child,
+            child: page,
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.search,

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'photos_api.dart';
@@ -127,7 +128,14 @@ class ProfileApi implements ProfileGateway {
   @override
   Future<Uint8List?> downloadAvatar(String path) async {
     if (_downloadAvatar != null) return _downloadAvatar(path);
-    return _supabase.storage.from(avatarsBucket).download(path);
+    final signedUrl = await _supabase.storage
+        .from(avatarsBucket)
+        .createSignedUrl(path, 3600);
+    final response = await http.get(Uri.parse(signedUrl));
+    if (response.statusCode != 200) {
+      throw StateError('avatar download failed');
+    }
+    return response.bodyBytes;
   }
 
   @override
