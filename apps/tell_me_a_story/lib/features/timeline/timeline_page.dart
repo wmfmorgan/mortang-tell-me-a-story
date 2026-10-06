@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
@@ -275,6 +276,21 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 
+  void _openMid(Story story) {
+    setState(() {
+      _zoom = TimelineZoom.mid;
+      _focusedStoryId = story.id;
+    });
+  }
+
+  void _openNear(Story story) {
+    setState(() {
+      _zoom = TimelineZoom.near;
+      _focusedStoryId = story.id;
+    });
+    _reveal(story.id);
+  }
+
   void _openMidOnYear(int year) {
     final rows = dialStories(_published);
     if (rows.isEmpty) return;
@@ -437,7 +453,7 @@ class _TimelinePageState extends State<TimelinePage> {
         bands: bands,
         focusedId: _focusedStoryId,
         child: child,
-        onDot: _openStory,
+        onDot: _openMid,
         onYear: _openMidOnYear,
         onFocus: _onDialFocus,
         onMid: _zoomIn,
@@ -449,6 +465,7 @@ class _TimelinePageState extends State<TimelinePage> {
         child: child,
         anchorFor: _anchor,
         onStub: _openStory,
+        onNode: _openNear,
         onFocus: _onDialFocus,
         onMacro: _fitAll,
         onFullCards: _zoomIn,
@@ -532,6 +549,82 @@ class _ZoomCluster extends StatelessWidget {
   }
 }
 
+void scrollDialStep({
+  required ScrollController controller,
+  required int direction,
+  required BuildContext? target,
+}) {
+  if (target != null && target.mounted) {
+    Scrollable.ensureVisible(
+      target,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
+    return;
+  }
+  if (!controller.hasClients) return;
+  final position = controller.position;
+  final delta = direction * position.viewportDimension * 0.45;
+  final next = (position.pixels + delta).clamp(
+    position.minScrollExtent,
+    position.maxScrollExtent,
+  );
+  position.animateTo(
+    next,
+    duration: const Duration(milliseconds: 200),
+    curve: Curves.easeOut,
+  );
+}
+
+class _ArrowKeys extends StatefulWidget {
+  const _ArrowKeys({required this.onStep, required this.child});
+
+  final ValueChanged<int> onStep;
+  final Widget child;
+
+  @override
+  State<_ArrowKeys> createState() => _ArrowKeysState();
+}
+
+class _ArrowKeysState extends State<_ArrowKeys> {
+  final _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      widget.onStep(1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      widget.onStep(-1);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      focusNode: _focus,
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: Listener(
+        onPointerDown: (_) => _focus.requestFocus(),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 class _FarRail extends StatefulWidget {
   const _FarRail({
     required this.bands,
@@ -559,6 +652,7 @@ class _FarRail extends StatefulWidget {
 
 class _FarRailState extends State<_FarRail> {
   final _viewportKey = GlobalKey();
+  final _scroll = ScrollController();
   final _rowKeys = <int, GlobalKey>{};
   int? _centerYear;
   Map<int, double> _opacities = const {};
@@ -571,6 +665,25 @@ class _FarRailState extends State<_FarRail> {
     super.initState();
     _centerYear = _yearOf(widget.focusedId);
     WidgetsBinding.instance.addPostFrameCallback((_) => _centerInitial());
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _step(int direction) {
+    final bands = widget.bands;
+    if (bands.isEmpty) return;
+    final current = _centerYear ?? bands[bands.length ~/ 2].startYear;
+    var index = bands.indexWhere((band) => band.startYear == current);
+    if (index < 0) index = 0;
+    final next = index + direction;
+    final target = next < 0 || next >= bands.length
+        ? null
+        : _rowKey(bands[next].startYear).currentContext;
+    scrollDialStep(controller: _scroll, direction: direction, target: target);
   }
 
   @override
@@ -704,14 +817,16 @@ class _FarRailState extends State<_FarRail> {
         (widget.bands.isEmpty
             ? 0
             : widget.bands[widget.bands.length ~/ 2].startYear);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-          child: _DialSubheader(
-            year: year,
-            zoomLabel: 'Zoom Level: Far (Decade dots)',
+    return _ArrowKeys(
+      onStep: _step,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            child: _DialSubheader(
+              year: year,
+              zoomLabel: 'Zoom Level: Far (Decade dots)',
             selected: TimelineZoom.far,
             onYear: () => widget.onYear(year),
             onMacro: () {},
@@ -747,6 +862,7 @@ class _FarRailState extends State<_FarRail> {
                   builder: (context, constraints) {
                     final pad = constraints.maxHeight / 2;
                     return ListView(
+                      controller: _scroll,
                       padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
                       children: [
                         for (var i = 0; i < widget.bands.length; i++)
@@ -789,7 +905,8 @@ class _FarRailState extends State<_FarRail> {
             ),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -830,16 +947,19 @@ class _FarDecadeRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
-          key: Key('timeline-decade-${band.startYear}'),
-          onTap: () => onYear(band.startYear),
-          child: Text(
-            band.label,
-            style: focused
-                ? Theme.of(context).textTheme.headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)
-                : Theme.of(context).textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w500),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            key: Key('timeline-decade-${band.startYear}'),
+            onTap: () => onYear(band.startYear),
+            child: Text(
+              band.label,
+              style: focused
+                  ? Theme.of(context).textTheme.headlineMedium
+                        ?.copyWith(fontWeight: FontWeight.w700)
+                  : Theme.of(context).textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w500),
+            ),
           ),
         ),
         const SizedBox(height: 2),
@@ -894,34 +1014,42 @@ class _FarDecadeRow extends StatelessWidget {
             ),
             SizedBox(
               width: 48,
-              child: Center(
-                child: Container(
-                  width: focused ? 28 : 14,
-                  height: focused ? 28 : 14,
-                  decoration: BoxDecoration(
-                    color: focused
-                        ? albumTerracotta.withValues(alpha: 0.2)
-                        : const Color(0xFFFFF8F6),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: focused
-                          ? albumTerracotta
-                          : albumInk.withValues(alpha: 0.35),
-                      width: focused ? 1.5 : 2,
+              child: GestureDetector(
+                key: Key('timeline-decade-node-${band.startYear}'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onYear(band.startYear),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Center(
+                    child: Container(
+                      width: focused ? 28 : 14,
+                      height: focused ? 28 : 14,
+                      decoration: BoxDecoration(
+                        color: focused
+                            ? albumTerracotta.withValues(alpha: 0.2)
+                            : const Color(0xFFFFF8F6),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: focused
+                              ? albumTerracotta
+                              : albumInk.withValues(alpha: 0.35),
+                          width: focused ? 1.5 : 2,
+                        ),
+                      ),
+                      child: focused
+                          ? Center(
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: const BoxDecoration(
+                                  color: albumTerracotta,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            )
+                          : null,
                     ),
                   ),
-                  child: focused
-                      ? Center(
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: const BoxDecoration(
-                              color: albumTerracotta,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        )
-                      : null,
                 ),
               ),
             ),
@@ -1030,24 +1158,27 @@ class _FarDot extends StatelessWidget {
     final dot = GestureDetector(
       key: Key('timeline-dot-${story.id}'),
       onTap: onTap,
-      child: Container(
-        width: highlighted ? 14 : 12,
-        height: highlighted ? 14 : 12,
-        decoration: BoxDecoration(
-          color: albumTerracotta,
-          shape: BoxShape.circle,
-          border: highlighted
-              ? Border.all(color: albumTerracotta, width: 2)
-              : null,
-          boxShadow: highlighted
-              ? [
-                  BoxShadow(
-                    color: albumTerracotta.withValues(alpha: 0.35),
-                    blurRadius: 0,
-                    spreadRadius: 3,
-                  ),
-                ]
-              : null,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          width: highlighted ? 14 : 12,
+          height: highlighted ? 14 : 12,
+          decoration: BoxDecoration(
+            color: albumTerracotta,
+            shape: BoxShape.circle,
+            border: highlighted
+                ? Border.all(color: albumTerracotta, width: 2)
+                : null,
+            boxShadow: highlighted
+                ? [
+                    BoxShadow(
+                      color: albumTerracotta.withValues(alpha: 0.35),
+                      blurRadius: 0,
+                      spreadRadius: 3,
+                    ),
+                  ]
+                : null,
+          ),
         ),
       ),
     );
@@ -1062,6 +1193,7 @@ class _MidRail extends StatefulWidget {
     required this.child,
     required this.anchorFor,
     required this.onStub,
+    required this.onNode,
     required this.onFocus,
     required this.onMacro,
     required this.onFullCards,
@@ -1072,6 +1204,7 @@ class _MidRail extends StatefulWidget {
   final MemberFamily? child;
   final GlobalKey Function(String id) anchorFor;
   final ValueChanged<Story> onStub;
+  final ValueChanged<Story> onNode;
   final ValueChanged<String> onFocus;
   final VoidCallback onMacro;
   final VoidCallback onFullCards;
@@ -1082,6 +1215,7 @@ class _MidRail extends StatefulWidget {
 
 class _MidRailState extends State<_MidRail> {
   final _viewportKey = GlobalKey();
+  final _scroll = ScrollController();
   String? _centerId;
   Map<String, double> _opacities = const {};
   var _centered = false;
@@ -1091,6 +1225,25 @@ class _MidRailState extends State<_MidRail> {
     super.initState();
     _centerId = widget.focusedId;
     WidgetsBinding.instance.addPostFrameCallback((_) => _centerInitial());
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _step(int direction) {
+    final stories = widget.stories;
+    if (stories.isEmpty) return;
+    final current = _centerId ?? widget.focusedId ?? stories.first.id;
+    var index = stories.indexWhere((story) => story.id == current);
+    if (index < 0) index = 0;
+    final next = index + direction;
+    final target = next < 0 || next >= stories.length
+        ? null
+        : widget.anchorFor(stories[next].id).currentContext;
+    scrollDialStep(controller: _scroll, direction: direction, target: target);
   }
 
   @override
@@ -1186,14 +1339,16 @@ class _MidRailState extends State<_MidRail> {
     final joinAt = widget.child == null
         ? -1
         : closestStoryIndex(widget.stories, widget.child!.createdAt);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-          child: _DialSubheader(
-            year: _focusYear(),
-            zoomLabel: 'Zoom Level: 45% (Stubs & Eras)',
+    return _ArrowKeys(
+      onStep: _step,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            child: _DialSubheader(
+              year: _focusYear(),
+              zoomLabel: 'Zoom Level: 45% (Stubs & Eras)',
             selected: TimelineZoom.mid,
             onMacro: widget.onMacro,
             onMid: () {},
@@ -1218,6 +1373,7 @@ class _MidRailState extends State<_MidRail> {
                   builder: (context, constraints) {
                     final pad = constraints.maxHeight / 2;
                     return ListView(
+                      controller: _scroll,
                       padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
                       children: [
                         for (var i = 0; i < widget.stories.length; i++)
@@ -1238,6 +1394,7 @@ class _MidRailState extends State<_MidRail> {
                                 ? '${widget.child!.name} Branch'
                                 : null,
                             onTap: () => widget.onStub(widget.stories[i]),
+                            onNode: () => widget.onNode(widget.stories[i]),
                           ),
                       ],
                     );
@@ -1249,7 +1406,8 @@ class _MidRailState extends State<_MidRail> {
             ),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1633,6 +1791,7 @@ class _DialRow extends StatelessWidget {
     required this.showBranchRail,
     required this.railEndsAtJoin,
     required this.onTap,
+    required this.onNode,
     this.joinNote,
     this.branchLabel,
   });
@@ -1646,6 +1805,7 @@ class _DialRow extends StatelessWidget {
   final String? joinNote;
   final String? branchLabel;
   final VoidCallback onTap;
+  final VoidCallback onNode;
 
   @override
   Widget build(BuildContext context) {
@@ -1782,23 +1942,37 @@ class _DialRow extends StatelessWidget {
               ),
             ),
           );
-    final node = Container(
-      width: focused ? 22 : 16,
-      height: focused ? 22 : 16,
-      decoration: BoxDecoration(
-        color: focused
-            ? albumTerracotta.withValues(alpha: 0.22)
-            : const Color(0xFFFFF8F6),
-        shape: BoxShape.circle,
-        border: Border.all(color: albumTerracotta, width: focused ? 2 : 1.5),
-      ),
-      child: Center(
-        child: Container(
-          width: focused ? 8 : 6,
-          height: focused ? 8 : 6,
-          decoration: const BoxDecoration(
-            color: albumTerracotta,
-            shape: BoxShape.circle,
+    final node = GestureDetector(
+      key: Key('timeline-mid-node-${story.id}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onNode,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Container(
+            width: focused ? 22 : 16,
+            height: focused ? 22 : 16,
+            decoration: BoxDecoration(
+              color: focused
+                  ? albumTerracotta.withValues(alpha: 0.22)
+                  : const Color(0xFFFFF8F6),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: albumTerracotta,
+                width: focused ? 2 : 1.5,
+              ),
+            ),
+            child: Center(
+              child: Container(
+                width: focused ? 8 : 6,
+                height: focused ? 8 : 6,
+                decoration: const BoxDecoration(
+                  color: albumTerracotta,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -1933,6 +2107,7 @@ class _FullCardRail extends StatefulWidget {
 
 class _FullCardRailState extends State<_FullCardRail> {
   final _viewportKey = GlobalKey();
+  final _scroll = ScrollController();
   String? _centerId;
   Map<String, double> _opacities = const {};
 
@@ -1941,6 +2116,25 @@ class _FullCardRailState extends State<_FullCardRail> {
     super.initState();
     _centerId = widget.focusedId;
     WidgetsBinding.instance.addPostFrameCallback((_) => _centerThenMeasure());
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _step(int direction) {
+    final stories = widget.stories;
+    if (stories.isEmpty) return;
+    final current = _centerId ?? widget.focusedId ?? stories.first.id;
+    var index = stories.indexWhere((story) => story.id == current);
+    if (index < 0) index = 0;
+    final next = index + direction;
+    final target = next < 0 || next >= stories.length
+        ? null
+        : widget.anchorFor(stories[next].id).currentContext;
+    scrollDialStep(controller: _scroll, direction: direction, target: target);
   }
 
   void _centerThenMeasure() {
@@ -2028,14 +2222,16 @@ class _FullCardRailState extends State<_FullCardRail> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-          child: _DialSubheader(
-            year: _focusYear(),
-            zoomLabel: 'Zoom Level: 100% (Full Cards)',
+    return _ArrowKeys(
+      onStep: _step,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            child: _DialSubheader(
+              year: _focusYear(),
+              zoomLabel: 'Zoom Level: 100% (Full Cards)',
             selected: TimelineZoom.near,
             onMacro: widget.onMacro,
             onMid: widget.onMid,
@@ -2079,6 +2275,7 @@ class _FullCardRailState extends State<_FullCardRail> {
                       ),
                     ),
                     ListView(
+                      controller: _scroll,
                       scrollCacheExtent: const ScrollCacheExtent.pixels(100000),
                       padding: EdgeInsets.fromLTRB(wide ? 24 : 8, pad, 24, pad),
                       children: [
@@ -2123,7 +2320,8 @@ class _FullCardRailState extends State<_FullCardRail> {
             ),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 }

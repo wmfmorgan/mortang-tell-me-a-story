@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -366,6 +367,66 @@ void main() {
     expect(find.text('Timeline'), findsWidgets);
   });
 
+  testWidgets('a decade uses the click pointer and arrows scroll each rail', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Arrival',
+              timeframeStart: DateTime(1954),
+            ),
+            _published(id: 'mid', title: 'Jam', timeframeStart: DateTime(1980)),
+            _published(
+              id: 'late',
+              title: 'Willow',
+              timeframeStart: DateTime(2024),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final decade = tester.widget<MouseRegion>(
+      find
+          .ancestor(of: find.text('1980s'), matching: find.byType(MouseRegion))
+          .first,
+    );
+    expect(decade.cursor, SystemMouseCursors.click);
+
+    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.text('1950 · IN FOCUS'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-decade-1980')));
+    await tester.pumpAndSettle();
+    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.text('1954 · IN FOCUS'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(find.text('2024 · IN FOCUS'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+  });
+
   testWidgets('published story preview appears after listPublished', (
     tester,
   ) async {
@@ -648,6 +709,17 @@ void main() {
       AppRoutes.timeline,
     );
 
+    await tester.tap(find.byKey(Key('timeline-mid-node-${story.id}')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+    expect(find.byKey(const Key('story-reader-modal')), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.timeline,
+    );
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(Key('timeline-stub-${story.id}')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
@@ -681,13 +753,21 @@ void main() {
 
     await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-decade-node-1980')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    expect(find.byKey(const Key('story-reader-modal')), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.timeline,
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('timeline-dot-${story.id}')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
-    expect(find.text('Family Keepsake'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('story-reader-close')));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
+    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    expect(find.byKey(const Key('story-reader-modal')), findsNothing);
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
       AppRoutes.timeline,
