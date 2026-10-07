@@ -150,9 +150,7 @@ void main() {
 
   testWidgets('a pending picture uploads on save', (tester) async {
     final profile = _Profile();
-    await tester.pumpWidget(
-      _app(profile, pick: () async => _jpeg()),
-    );
+    await tester.pumpWidget(_app(profile, pick: () async => _jpeg()));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('settings-upload')));
@@ -183,7 +181,7 @@ void main() {
     expect(find.byKey(const Key('profile-avatar-image')), findsWidgets);
   });
 
-  testWidgets('the avatar opens Settings then Logout and does not navigate', (
+  testWidgets('the avatar opens Settings, Manage families, then Logout', (
     tester,
   ) async {
     for (final page in AlbumHeaderPage.values) {
@@ -195,10 +193,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Settings'), findsOneWidget);
+      expect(find.text('Manage families'), findsOneWidget);
       expect(find.text('Logout'), findsOneWidget);
       final settingsY = tester.getTopLeft(find.text('Settings')).dy;
+      final manageY = tester.getTopLeft(find.text('Manage families')).dy;
       final logoutY = tester.getTopLeft(find.text('Logout')).dy;
-      expect(settingsY, lessThan(logoutY));
+      expect(settingsY, lessThan(manageY));
+      expect(manageY, lessThan(logoutY));
       expect(find.byKey(const Key('settings-name')), findsNothing);
 
       await tester.pumpWidget(const SizedBox.shrink());

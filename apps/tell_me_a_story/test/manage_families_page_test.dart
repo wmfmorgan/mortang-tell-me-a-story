@@ -1,0 +1,392 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/features/family/manage_families_page.dart';
+import 'package:tell_me_a_story/features/family/manage_family_page.dart';
+
+void main() {
+  late _Directory directory;
+  late _Manage manage;
+  late GoRouter router;
+
+  setUp(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    FamilySelection.clear();
+    directory = _Directory();
+    manage = _Manage(directory);
+    router = GoRouter(
+      initialLocation: AppRoutes.manageFamilies,
+      routes: [
+        GoRoute(
+          path: AppRoutes.manageFamilies,
+          builder: (context, state) =>
+              ManageFamiliesPage(directoryApi: directory, manageApi: manage),
+        ),
+        GoRoute(
+          path: AppRoutes.manageFamily,
+          builder: (context, state) => ManageFamilyPage(
+            familyId: state.pathParameters['familyId']!,
+            directoryApi: directory,
+            manageApi: manage,
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) =>
+              const Scaffold(body: Text('timeline-landed')),
+        ),
+        GoRoute(
+          path: AppRoutes.drafts,
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+        GoRoute(
+          path: AppRoutes.newStory,
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+        GoRoute(
+          path: AppRoutes.search,
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+        GoRoute(
+          path: AppRoutes.settings,
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+      ],
+    );
+  });
+
+  tearDown(() {
+    router.dispose();
+    FamilySelection.clear();
+  });
+
+  Future<void> show(WidgetTester tester, {String? location}) async {
+    await tester.binding.setSurfaceSize(const Size(900, 2200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    if (location != null) router.go(location);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('hub lists active families and hides an empty recover section', (
+    tester,
+  ) async {
+    await show(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Manage families'), findsOneWidget);
+    expect(find.text('North Archive'), findsOneWidget);
+    expect(find.text('Owner'), findsOneWidget);
+    expect(find.text('3 members · 2 stories'), findsOneWidget);
+    expect(find.text('Recoverable (60 days)'), findsNothing);
+    expect(find.textContaining('Available for recovery'), findsNothing);
+  });
+
+  testWidgets('recover shows the window and returns the family to active', (
+    tester,
+  ) async {
+    directory.directory = FamilyDirectory(
+      active: const [],
+      recoverable: [
+        FamilyRoster(
+          id: 'old-1',
+          name: 'West Archive',
+          role: 'co_owner',
+          memberCount: 1,
+          publishedCount: 0,
+          deletedAt: DateTime.now().toUtc().subtract(const Duration(days: 4)),
+        ),
+      ],
+    );
+
+    await show(tester);
+
+    expect(find.text('Recoverable (60 days)'), findsOneWidget);
+    expect(find.textContaining('Available for recovery for'), findsOneWidget);
+    expect(find.text('0 active'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('manage-family-recover-old-1')));
+    await tester.pumpAndSettle();
+
+    expect(manage.recovered, ['old-1']);
+    expect(find.text('Recoverable (60 days)'), findsNothing);
+    expect(find.text('West Archive'), findsOneWidget);
+    expect(find.text('1 active'), findsOneWidget);
+  });
+
+  testWidgets('Enter opens detail and does not remember the family', (
+    tester,
+  ) async {
+    await show(tester);
+
+    await tester.tap(find.byKey(const Key('manage-family-enter-fam-1')));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/manage-families/fam-1');
+    expect(FamilySelection.id, isNull);
+    expect(find.byKey(const Key('manage-family-detail')), findsOneWidget);
+  });
+
+  testWidgets('Start a family remembers the new id and opens the timeline', (
+    tester,
+  ) async {
+    await show(tester);
+
+    await tester.tap(find.byKey(const Key('manage-families-start')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('start-family-dialog')), findsOneWidget);
+    expect(
+      find.text('Create a new root family archive. You become the owner.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('start-family-create')))
+          .onPressed,
+      isNull,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('start-family-name')),
+      '  North Archive  ',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('start-family-create')));
+    await tester.pumpAndSettle();
+
+    expect(manage.createdNames, ['North Archive']);
+    expect(FamilySelection.id, 'created-1');
+    expect(router.state.uri.path, AppRoutes.timeline);
+    expect(find.text('timeline-landed'), findsOneWidget);
+  });
+
+  testWidgets('a member does not see rename, transfer, or delete', (
+    tester,
+  ) async {
+    directory.detail = _detail(role: 'member');
+    await show(tester, location: '/manage-families/fam-1');
+
+    expect(find.byKey(const Key('manage-family-detail')), findsOneWidget);
+    expect(
+      find.text(
+        'Family members with access to read and contribute stories to the album.',
+      ),
+      findsWidgets,
+    );
+    expect(find.byKey(const Key('manage-family-rename')), findsNothing);
+    expect(find.byKey(const Key('manage-family-add-co-owner')), findsNothing);
+    expect(find.byKey(const Key('manage-family-transfer')), findsNothing);
+    expect(find.byKey(const Key('manage-family-delete')), findsNothing);
+    expect(find.byKey(const Key('manage-family-remove-co-1')), findsNothing);
+    expect(find.byKey(const Key('manage-family-remove-mem-1')), findsNothing);
+  });
+
+  testWidgets('a co-owner can rename and remove a member only', (tester) async {
+    directory.detail = _detail(role: 'co_owner');
+    await show(tester, location: '/manage-families/fam-1');
+
+    expect(find.byKey(const Key('manage-family-detail')), findsOneWidget);
+    expect(
+      find.text('Co-owners have the same powers as the owner.'),
+      findsWidgets,
+    );
+    expect(find.byKey(const Key('manage-family-rename')), findsOneWidget);
+    expect(find.byKey(const Key('manage-family-remove-mem-1')), findsOneWidget);
+    expect(find.byKey(const Key('manage-family-remove-co-1')), findsNothing);
+    expect(find.byKey(const Key('manage-family-transfer')), findsNothing);
+    expect(find.byKey(const Key('manage-family-delete')), findsNothing);
+    expect(find.text('Delete family…'), findsNothing);
+  });
+
+  testWidgets('transfer stays disabled until both choices are set', (
+    tester,
+  ) async {
+    directory.detail = _detail(role: 'owner');
+    await show(tester, location: '/manage-families/fam-1');
+
+    expect(find.byKey(const Key('manage-family-detail')), findsOneWidget);
+    expect(find.byKey(const Key('manage-family-delete')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('manage-family-transfer')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Transfer ownership'), findsWidgets);
+    expect(find.textContaining('confirm acceptance'), findsNothing);
+    expect(find.textContaining('Added'), findsNothing);
+    final submit = find.byKey(const Key('transfer-ownership-submit'));
+    expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+
+    await tester.tap(find.byKey(const Key('transfer-owner-co-1')));
+    await tester.pump();
+    expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+
+    await tester.tap(find.byKey(const Key('transfer-become-member')));
+    await tester.pump();
+    expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
+
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+
+    expect(manage.transfers, [
+      (familyId: 'fam-1', newOwner: 'co-1', former: 'member'),
+    ]);
+  });
+
+  testWidgets('delete confirms only when the typed name matches', (
+    tester,
+  ) async {
+    directory.detail = _detail(role: 'owner');
+    FamilySelection.remember('fam-1');
+    await show(tester, location: '/manage-families/fam-1');
+
+    await tester.tap(find.byKey(const Key('manage-family-delete')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete North Archive?'), findsOneWidget);
+    expect(
+      find.text(
+        'Hidden for 60 days, then permanently removed. Owner/co-owner can Recover from Manage families. Story tags stay if people are tagged elsewhere.',
+      ),
+      findsOneWidget,
+    );
+    final submit = find.byKey(const Key('delete-family-submit'));
+    expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('delete-family-confirm')),
+      'North',
+    );
+    await tester.pump();
+    expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('delete-family-confirm')),
+      '  North Archive  ',
+    );
+    await tester.pump();
+    expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
+
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+
+    expect(manage.deleted, ['fam-1']);
+    expect(FamilySelection.id, isNull);
+    expect(router.state.uri.path, AppRoutes.manageFamilies);
+  });
+}
+
+FamilyDetail _detail({required String role}) {
+  return FamilyDetail(
+    id: 'fam-1',
+    name: 'North Archive',
+    myRole: role,
+    people: const [
+      FamilyPerson(userId: 'me', role: 'owner', displayName: 'Ada North'),
+      FamilyPerson(userId: 'co-1', role: 'co_owner', displayName: 'Bea North'),
+      FamilyPerson(userId: 'mem-1', role: 'member', displayName: 'Cara North'),
+    ],
+  );
+}
+
+class _Directory implements FamilyDirectoryGateway {
+  FamilyDirectory directory = const FamilyDirectory(
+    active: [
+      FamilyRoster(
+        id: 'fam-1',
+        name: 'North Archive',
+        role: 'owner',
+        memberCount: 3,
+        publishedCount: 2,
+      ),
+    ],
+    recoverable: [],
+  );
+
+  FamilyDetail? detail = _detail(role: 'owner');
+
+  @override
+  Future<FamilyDirectory> listDirectory() async => directory;
+
+  @override
+  Future<FamilyDetail?> loadDetail(String familyId) async => detail;
+}
+
+class _Manage implements ManageFamiliesGateway {
+  _Manage(this.directory);
+
+  final _Directory directory;
+  final createdNames = <String>[];
+  final recovered = <String>[];
+  final deleted = <String>[];
+  final transfers = <({String familyId, String newOwner, String former})>[];
+
+  @override
+  Future<String> createRootFamily(String name) async {
+    createdNames.add(name);
+    return 'created-1';
+  }
+
+  @override
+  Future<void> renameFamily({
+    required String familyId,
+    required String name,
+  }) async {}
+
+  @override
+  Future<void> addCoOwner({
+    required String familyId,
+    required String userId,
+  }) async {}
+
+  @override
+  Future<void> removeCoOwner({
+    required String familyId,
+    required String userId,
+  }) async {}
+
+  @override
+  Future<void> removeMember({
+    required String familyId,
+    required String userId,
+  }) async {}
+
+  @override
+  Future<void> transferOwnership({
+    required String familyId,
+    required String newOwnerUserId,
+    required String formerOwnerBecomes,
+  }) async {
+    transfers.add((
+      familyId: familyId,
+      newOwner: newOwnerUserId,
+      former: formerOwnerBecomes,
+    ));
+  }
+
+  @override
+  Future<void> softDeleteFamily(String familyId) async {
+    deleted.add(familyId);
+  }
+
+  @override
+  Future<void> recoverFamily(String familyId) async {
+    recovered.add(familyId);
+    directory.directory = const FamilyDirectory(
+      active: [
+        FamilyRoster(
+          id: 'old-1',
+          name: 'West Archive',
+          role: 'co_owner',
+          memberCount: 1,
+          publishedCount: 0,
+        ),
+      ],
+      recoverable: [],
+    );
+  }
+}

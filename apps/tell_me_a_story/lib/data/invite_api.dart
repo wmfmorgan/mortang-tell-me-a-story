@@ -38,8 +38,9 @@ class InviteApi implements InviteGateway {
     }
     final row = await _client
         .from('memberships')
-        .select('family_id')
+        .select('family_id, families!inner(deleted_at)')
         .eq('user_id', uid)
+        .isFilter('families.deleted_at', null)
         .limit(1)
         .maybeSingle();
     return row?['family_id'] as String?;
@@ -48,8 +49,9 @@ class InviteApi implements InviteGateway {
   Future<List<String>> _membershipFamilyIds(String uid) async {
     final rows = await _client
         .from('memberships')
-        .select('family_id')
-        .eq('user_id', uid);
+        .select('family_id, families!inner(deleted_at)')
+        .eq('user_id', uid)
+        .isFilter('families.deleted_at', null);
     final ids = <String>[];
     for (final row in rows) {
       final id = row['family_id'];

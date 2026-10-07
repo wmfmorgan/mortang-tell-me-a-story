@@ -663,7 +663,7 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
       key: const Key('header-avatar'),
       padding: EdgeInsets.zero,
       offset: const Offset(0, 40),
-      constraints: const BoxConstraints(minWidth: 176, maxWidth: 176),
+      constraints: const BoxConstraints(minWidth: 240, maxWidth: 260),
       color: const Color(0xFFFFFDF9),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -673,6 +673,10 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
         if (value == 'settings') {
           if (widget.page == AlbumHeaderPage.settings) return;
           GoRouter.of(context).push(AppRoutes.settings);
+          return;
+        }
+        if (value == 'manage-families') {
+          GoRouter.of(context).push(AppRoutes.manageFamilies);
           return;
         }
         await _logout();
@@ -689,6 +693,24 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
                 fontSize: _menuStyle.fontSize,
                 fontWeight: _menuStyle.fontWeight,
               ),
+            ),
+          ),
+          PopupMenuItem<String>(
+            key: const Key('header-menu-manage-families'),
+            value: 'manage-families',
+            child: Row(
+              children: [
+                Icon(Icons.diversity_3, size: 18, color: albumInk),
+                const SizedBox(width: 8),
+                Text(
+                  'Manage families',
+                  style: GoogleFonts.sourceSans3(
+                    color: albumInk,
+                    fontSize: _menuStyle.fontSize,
+                    fontWeight: _menuStyle.fontWeight,
+                  ),
+                ),
+              ],
             ),
           ),
           PopupMenuItem<String>(

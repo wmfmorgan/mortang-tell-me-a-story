@@ -17,6 +17,9 @@ import '../../features/drafts/drafts_page.dart';
 import '../../features/perspectives/add_perspective_page.dart';
 import '../../features/stories/new_story_page.dart';
 import '../../features/search/search_page.dart';
+import '../../data/manage_families_api.dart';
+import '../../features/family/manage_families_page.dart';
+import '../../features/family/manage_family_page.dart';
 import '../../features/search/search_recents.dart';
 import '../../features/stories/story_reader_page.dart';
 import '../../features/timeline/timeline_page.dart';
@@ -33,8 +36,12 @@ abstract final class AppRoutes {
   static const drafts = '/drafts';
   static const search = '/search';
   static const settings = '/settings';
+  static const manageFamilies = '/manage-families';
+  static const manageFamily = '/manage-families/:familyId';
 
   static String storyPath(String id) => '/stories/$id';
+
+  static String manageFamilyPath(String id) => '/manage-families/$id';
 
   static String storyPerspectivePath(String id) => '/stories/$id/perspective';
 }
@@ -53,6 +60,8 @@ GoRouter createAppRouter({
   SearchRecents? searchRecents,
   ProfileGateway? profileApi,
   FamiliesGateway? familiesApi,
+  FamilyDirectoryGateway? directoryApi,
+  ManageFamiliesGateway? manageApi,
   Future<void> Function()? onLogout,
 }) {
   final recents = searchRecents ?? SearchRecents();
@@ -143,8 +152,7 @@ GoRouter createAppRouter({
             barrierDismissible: false,
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
-            transitionsBuilder: (context, animation, secondary, child) =>
-                child,
+            transitionsBuilder: (context, animation, secondary, child) => child,
             child: page,
           );
         },
@@ -165,6 +173,27 @@ GoRouter createAppRouter({
         builder: (context, state) => SettingsPage(
           profileApi: profileApi,
           familiesApi: familiesApi,
+          inviteApi: inviteApi,
+          onLogout: onLogout,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.manageFamilies,
+        builder: (context, state) => ManageFamiliesPage(
+          directoryApi: directoryApi,
+          familiesApi: familiesApi,
+          manageApi: manageApi,
+          inviteApi: inviteApi,
+          onLogout: onLogout,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.manageFamily,
+        builder: (context, state) => ManageFamilyPage(
+          familyId: state.pathParameters['familyId']!,
+          directoryApi: directoryApi,
+          familiesApi: familiesApi,
+          manageApi: manageApi,
           inviteApi: inviteApi,
           onLogout: onLogout,
         ),
