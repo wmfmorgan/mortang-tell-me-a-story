@@ -1,10 +1,6 @@
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
-import {
-  bearerToken,
-  buildInviteUrl,
-  serviceClient,
-  userClient,
-} from "../_shared/supabase.ts";
+import { sendInviteEmail } from "../_shared/invite_email.ts";
+import { bearerToken, serviceClient, userClient } from "../_shared/supabase.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -71,58 +67,14 @@ Deno.serve(async (req) => {
     );
   }
 
-  const resendKey = Deno.env.get("RESEND_API_KEY")?.trim();
-  if (!resendKey) {
-    return errorResponse(
-      "VALIDATION",
-      "RESEND_API_KEY is not configured (OPEN Bill)",
-      503,
-    );
-  }
-
   const familyName = Array.isArray(invite.families)
     ? invite.families[0]?.name
     : (invite.families as { name?: string } | null)?.name;
-  const inviteUrl = buildInviteUrl(invite.token);
-  const from = Deno.env.get("RESEND_FROM")?.trim() ||
-    "Tell Me a Story <onboarding@resend.dev>";
-
-  const html = `
-    <p>You're invited to join <strong>${escapeHtml(familyName ?? "a family")}</strong> on Tell Me a Story.</p>
-    <p><a href="${inviteUrl}">Accept the invite</a></p>
-    <p>This link expires in 7 days and can only be used once.</p>
-  `;
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [invite.email],
-      subject: `Invite to ${familyName ?? "the family"}`,
-      html,
-    }),
+  const failed = await sendInviteEmail({
+    to: invite.email,
+    familyName: familyName ?? "a family",
+    token: invite.token,
   });
-
-  if (!res.ok) {
-    const detail = await res.text();
-    return errorResponse(
-      "VALIDATION",
-      `Could not send invite email: ${detail}`,
-      502,
-    );
-  }
-
+  if (failed) return failed;
   return jsonResponse({ sent: true });
 });
-
-function escapeHtml(s: string): string {
-  return s
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}

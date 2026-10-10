@@ -13,6 +13,7 @@ import '../../data/manage_families_api.dart';
 import '../invites/invite_modal.dart';
 import 'add_co_owner_dialog.dart';
 import 'delete_family_dialog.dart';
+import 'family_blur_dialog.dart';
 import 'family_role.dart';
 import 'transfer_ownership_dialog.dart';
 
@@ -51,6 +52,8 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
   var _loading = true;
   var _missing = false;
   final _name = TextEditingController();
+  final _resendNotes = <String, String>{};
+  String? _resendBusyId;
 
   FamilyDirectoryGateway get _directoryApi =>
       widget.directoryApi ?? FamiliesApi();
@@ -168,27 +171,16 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
   Future<void> _makeMember(FamilyPerson person) async {
     final detail = _detail;
     if (detail == null || !_isOwner || !_canActOn(person)) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        key: const Key('make-member-dialog'),
-        title: Text(
+    final confirmed = await showFamilyBlurDialog(
+      context,
+      dialogKey: const Key('make-member-dialog'),
+      title:
           'Make ${_personName(person)} a member? They keep their stories and access but lose co-owner powers.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            key: const Key('make-member-confirm'),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Make member'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Make member',
+      confirmKey: const Key('make-member-confirm'),
+      confirmColor: albumTerracotta,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     try {
       await _manage.removeCoOwner(familyId: detail.id, userId: person.userId);
       await _load();
@@ -200,8 +192,67 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
   Future<void> _removeMember(FamilyPerson person) async {
     final detail = _detail;
     if (detail == null) return;
+    final name = _personName(person);
+    final confirmed = await showFamilyBlurDialog(
+      context,
+      dialogKey: const Key('remove-member-dialog'),
+      title: 'Remove $name from ${detail.name}?',
+      body:
+          'They lose access to ${detail.name} and its branches. Their stories stay.',
+      confirmLabel: 'Remove',
+      confirmKey: const Key('remove-member-confirm'),
+      confirmColor: _detailError,
+    );
+    if (!confirmed || !mounted) return;
     try {
       await _manage.removeMember(familyId: detail.id, userId: person.userId);
+      await _load();
+    } on ManageFamiliesException catch (e) {
+      _snack(e.message);
+    }
+  }
+
+  Future<void> _resendInvite(FamilyInvite invite) async {
+    final email = invite.email?.trim() ?? '';
+    if (email.isEmpty || _resendBusyId != null) return;
+    setState(() => _resendBusyId = invite.id);
+    try {
+      await _manage.resendInvite(invite.id);
+      if (!mounted) return;
+      setState(() {
+        _resendNotes[invite.id] =
+            'Invite sent again to $email. The old link no longer works.';
+      });
+      await _load();
+    } on ManageFamiliesException catch (e) {
+      _snack(e.message);
+      if (mounted) await _load();
+    } finally {
+      if (mounted) setState(() => _resendBusyId = null);
+    }
+  }
+
+  Future<void> _cancelInvite(FamilyInvite invite) async {
+    final detail = _detail;
+    if (detail == null || _resendBusyId != null) return;
+    final email = invite.email?.trim() ?? '';
+    final body = email.isEmpty
+        ? "This invite link won't work for anyone anymore. You can make a new one any time."
+        : "$email won't be able to join ${detail.name} with this link. You can invite them again any time.";
+    final confirmed = await showFamilyBlurDialog(
+      context,
+      dialogKey: const Key('cancel-invite-dialog'),
+      title: 'Cancel this invite?',
+      body: body,
+      confirmLabel: 'Cancel invite',
+      confirmKey: const Key('cancel-invite-confirm'),
+      confirmColor: _detailError,
+      cancelLabel: 'Keep invite',
+      cancelKey: const Key('cancel-invite-keep'),
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await _manage.revokeInvite(invite.id);
       await _load();
     } on ManageFamiliesException catch (e) {
       _snack(e.message);
@@ -515,15 +566,58 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
                                     ),
                                 ],
                               ),
-                              if (detail.pendingInvites.isNotEmpty) ...[
-                                const SizedBox(height: 20),
-                                Text('PENDING INVITES', style: _kicker),
+                              if (_canAdmin &&
+                                  detail.pendingInvites.isNotEmpty) ...[
+                                const SizedBox(height: 24),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Pending Invites',
+                                      style: GoogleFonts.sourceSans3(
+                                        color: _detailVariant,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.6,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '${detail.pendingInvites.length} waiting',
+                                      key: const Key(
+                                        'manage-family-pending-count',
+                                      ),
+                                      style: GoogleFonts.sourceSans3(
+                                        color: _detailVariant,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 const SizedBox(height: 8),
                                 _PeopleList(
                                   children: [
                                     for (final invite in detail.pendingInvites)
-                                      _PendingInviteRow(invite: invite),
+                                      _PendingInviteRow(
+                                        invite: invite,
+                                        note: _resendNotes[invite.id],
+                                        busy: _resendBusyId == invite.id,
+                                        onResend:
+                                            invite.email?.trim().isNotEmpty ==
+                                                true
+                                            ? () => _resendInvite(invite)
+                                            : null,
+                                        onCancel: () => _cancelInvite(invite),
+                                      ),
                                   ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Resend emails the invite again and gives it 7 more days. Cancel stops the link from working.',
+                                  style: GoogleFonts.sourceSans3(
+                                    color: _detailVariant,
+                                    fontSize: 12,
+                                    fontStyle: FontStyle.italic,
+                                  ),
                                 ),
                               ],
                             ],
@@ -796,21 +890,33 @@ class _PeopleList extends StatelessWidget {
 }
 
 class _PendingInviteRow extends StatelessWidget {
-  const _PendingInviteRow({required this.invite});
+  const _PendingInviteRow({
+    required this.invite,
+    required this.note,
+    required this.busy,
+    required this.onResend,
+    required this.onCancel,
+  });
 
   final FamilyInvite invite;
+  final String? note;
+  final bool busy;
+  final VoidCallback? onResend;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
     final email = invite.email?.trim() ?? '';
     final label = email.isEmpty ? 'Invite link' : email;
-    final status = invite.isExpired ? 'Expired' : 'Pending';
+    final expired = invite.isExpired;
+    final status = expired ? 'Expired' : 'Pending';
     return Padding(
       key: Key('manage-family-pending-${invite.id}'),
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          ProfileAvatar(size: 40, displayName: label),
+          _InviteMark(email: email),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -825,26 +931,78 @@ class _PendingInviteRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Invited',
+                  _inviteWhen(invite),
                   style: GoogleFonts.sourceSans3(
                     color: _detailVariant,
                     fontSize: 12,
                   ),
                 ),
+                if (note != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      note!,
+                      key: Key('manage-family-resend-note-${invite.id}'),
+                      style: GoogleFonts.sourceSans3(
+                        color: _detailVariant,
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFF5ECE9),
+              color: expired
+                  ? _detailError.withValues(alpha: 0.1)
+                  : const Color(0xFFF5ECE9),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               status,
               style: GoogleFonts.sourceSans3(
-                color: _detailVariant,
+                color: expired ? _detailError : _detailVariant,
                 fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          if (onResend != null)
+            busy
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: SizedBox(
+                      key: Key('manage-family-resend-busy-${invite.id}'),
+                      width: 16,
+                      height: 16,
+                      child: const CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : TextButton(
+                    key: Key('manage-family-resend-${invite.id}'),
+                    onPressed: onResend,
+                    style: TextButton.styleFrom(foregroundColor: albumInk),
+                    child: Text(
+                      'Resend',
+                      style: GoogleFonts.sourceSans3(
+                        color: albumInk,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+          TextButton(
+            key: Key('manage-family-cancel-invite-${invite.id}'),
+            onPressed: busy ? null : onCancel,
+            style: TextButton.styleFrom(foregroundColor: _detailError),
+            child: Text(
+              'Cancel invite',
+              style: GoogleFonts.sourceSans3(
+                color: _detailError,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -853,6 +1011,58 @@ class _PendingInviteRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _InviteMark extends StatelessWidget {
+  const _InviteMark({required this.email});
+
+  final String email;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 40,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF5ECE9),
+        shape: BoxShape.circle,
+      ),
+      child: email.isEmpty
+          ? const Icon(Icons.link, size: 18, color: albumInk)
+          : Text(
+              _inviteInitials(email),
+              style: GoogleFonts.newsreader(
+                color: albumInk,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+    );
+  }
+}
+
+String _inviteInitials(String email) {
+  final local = email.split('@').first;
+  final parts = local
+      .split(RegExp(r'[._+\-]+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (parts.length >= 2) {
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+  if (local.length >= 2) return local.substring(0, 2).toUpperCase();
+  return local.toUpperCase();
+}
+
+String _inviteWhen(FamilyInvite invite) {
+  final sent = invite.sentAt;
+  final expiry = invite.expiresAt;
+  final verb = (invite.email?.trim().isNotEmpty ?? false) ? 'Sent' : 'Created';
+  final sentLabel = sent == null ? '' : albumMonthDay(sent);
+  if (expiry == null) return '$verb $sentLabel'.trim();
+  final expWord = invite.isExpired ? 'Expired' : 'Expires';
+  return '$verb $sentLabel · $expWord ${albumMonthDay(expiry)}'.trim();
 }
 
 class _PersonRow extends StatelessWidget {

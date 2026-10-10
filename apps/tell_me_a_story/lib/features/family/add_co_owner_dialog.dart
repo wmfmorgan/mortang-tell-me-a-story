@@ -60,11 +60,16 @@ class _AddCoOwnerDialogState extends State<_AddCoOwnerDialog> {
 
   void _close() => Navigator.pop(context);
 
+  List<FamilyPerson> get _candidates => [
+    for (final person in widget.members)
+      if (person.role == 'member') person,
+  ];
+
   List<FamilyPerson> get _visible {
     final query = _search.text.trim().toLowerCase();
-    if (query.isEmpty) return widget.members;
+    if (query.isEmpty) return _candidates;
     return [
-      for (final person in widget.members)
+      for (final person in _candidates)
         if (_label(person).toLowerCase().contains(query)) person,
     ];
   }
@@ -299,6 +304,7 @@ class _AddCoOwnerDialogState extends State<_AddCoOwnerDialog> {
                             top: -8,
                             right: -8,
                             child: IconButton(
+                              key: const Key('add-co-owner-close'),
                               onPressed: _close,
                               icon: const Icon(Icons.close, size: 20),
                               color: const Color(0xFF655E5B),

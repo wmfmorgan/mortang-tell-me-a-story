@@ -16,6 +16,8 @@ abstract class ManageFamiliesGateway {
   });
   Future<void> softDeleteFamily(String familyId);
   Future<void> recoverFamily(String familyId);
+  Future<DateTime> resendInvite(String inviteId);
+  Future<void> revokeInvite(String inviteId);
 }
 
 class ManageFamiliesApi implements ManageFamiliesGateway {
@@ -89,6 +91,25 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
   @override
   Future<void> recoverFamily(String familyId) {
     return _invoke('recover-family', {'family_id': familyId});
+  }
+
+  @override
+  Future<DateTime> resendInvite(String inviteId) async {
+    final json = await _invoke('resend-invite', {'invite_id': inviteId});
+    final raw = json['expires_at'];
+    final expires = raw is String ? DateTime.tryParse(raw) : null;
+    if (expires == null) {
+      throw ManageFamiliesException(
+        code: 'VALIDATION',
+        message: 'resend_invite returned no expires_at',
+      );
+    }
+    return expires;
+  }
+
+  @override
+  Future<void> revokeInvite(String inviteId) {
+    return _invoke('revoke-invite', {'invite_id': inviteId});
   }
 
   Future<Map<String, dynamic>> _invoke(

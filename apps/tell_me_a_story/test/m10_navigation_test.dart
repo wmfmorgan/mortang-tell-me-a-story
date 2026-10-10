@@ -659,4 +659,11 @@ class _Manage implements ManageFamiliesGateway {
 
   @override
   Future<void> recoverFamily(String familyId) async {}
+
+  @override
+  Future<DateTime> resendInvite(String inviteId) async =>
+      DateTime.utc(2026, 10, 17);
+
+  @override
+  Future<void> revokeInvite(String inviteId) async {}
 }

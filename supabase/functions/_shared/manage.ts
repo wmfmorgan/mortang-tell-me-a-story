@@ -9,6 +9,7 @@ export function mapRpcError(message: string): Response {
   const rules: Array<[string, string, number]> = [
     ["NOT_FOUND:", "NOT_FOUND", 404],
     ["FORBIDDEN:", "FORBIDDEN", 403],
+    ["INVITE_INVALID:", "INVITE_INVALID", 400],
     ["VALIDATION:", "VALIDATION", 400],
   ];
   for (const [prefix, code, status] of rules) {

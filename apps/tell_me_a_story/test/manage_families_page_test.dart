@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -210,6 +211,8 @@ void main() {
 
     await tester.tap(find.byKey(const Key('manage-family-make-member-co-1')));
     await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(BackdropFilter), findsOneWidget);
     expect(
       find.text(
         'Make Bea North a member? They keep their stories and access but lose co-owner powers.',
@@ -248,7 +251,9 @@ void main() {
     expect(find.byKey(const Key('manage-family-remove-mem-1')), findsOneWidget);
   });
 
-  testWidgets('remove on a co-owner row calls remove-member', (tester) async {
+  testWidgets('remove on a co-owner row confirms before remove-member', (
+    tester,
+  ) async {
     directory.detail = _detail(role: 'owner');
     await show(tester, location: '/manage-families/fam-1');
 
@@ -258,30 +263,218 @@ void main() {
     await tester.tap(find.byKey(const Key('manage-family-remove-co-1')));
     await tester.pumpAndSettle();
 
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.text('Remove Bea North from North Archive?'), findsOneWidget);
+    expect(
+      find.text(
+        'They lose access to North Archive and its branches. Their stories stay.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(manage.removed, isEmpty);
+
+    await tester.tap(find.byKey(const Key('manage-family-remove-co-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('remove-member-confirm')));
+    await tester.pumpAndSettle();
+
     expect(manage.removed, [(familyId: 'fam-1', userId: 'co-1')]);
     expect(manage.demoted, isEmpty);
   });
 
-  testWidgets('detail lists pending invites under members', (tester) async {
+  testWidgets('remove on a member row confirms before remove-member', (
+    tester,
+  ) async {
+    directory.detail = _detail(role: 'co_owner');
+    await show(tester, location: '/manage-families/fam-1');
+
+    await tester.ensureVisible(
+      find.byKey(const Key('manage-family-remove-mem-1')),
+    );
+    await tester.tap(find.byKey(const Key('manage-family-remove-mem-1')));
+    await tester.pumpAndSettle();
+    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.text('Remove Cara North from North Archive?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(manage.removed, isEmpty);
+
+    await tester.tap(find.byKey(const Key('manage-family-remove-mem-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('remove-member-confirm')));
+    await tester.pumpAndSettle();
+    expect(manage.removed, [(familyId: 'fam-1', userId: 'mem-1')]);
+  });
+
+  testWidgets('add co-owner cancel and close make no call', (tester) async {
+    directory.detail = _detail(role: 'owner');
+    await show(tester, location: '/manage-families/fam-1');
+
+    Future<void> open() async {
+      final button = find.byKey(const Key('manage-family-add-co-owner'));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    await open();
+    expect(find.byKey(const Key('add-co-owner-me')), findsNothing);
+    expect(find.byKey(const Key('add-co-owner-co-1')), findsNothing);
+    expect(find.byKey(const Key('add-co-owner-mem-1')), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('add-co-owner-dialog')), findsNothing);
+    expect(manage.added, isEmpty);
+
+    await open();
+    await tester.tap(find.byKey(const Key('add-co-owner-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('add-co-owner-dialog')), findsNothing);
+    expect(manage.added, isEmpty);
+  });
+
+  testWidgets('pending invites stay hidden without rows or for a member', (
+    tester,
+  ) async {
+    directory.detail = _detail(role: 'owner');
+    await show(tester, location: '/manage-families/fam-1');
+    expect(find.text('Pending Invites'), findsNothing);
+
+    directory.detail = _detail(
+      role: 'member',
+      pendingInvites: [
+        FamilyInvite(
+          id: 'inv-1',
+          email: 't.biggums@x.com',
+          createdAt: DateTime(2026, 10, 8),
+          expiresAt: DateTime(2026, 10, 15),
+        ),
+      ],
+    );
+    router.go(AppRoutes.manageFamilies);
+    await tester.pumpAndSettle();
+    router.go('/manage-families/fam-1');
+    await tester.pumpAndSettle();
+    expect(find.text('Pending Invites'), findsNothing);
+    expect(find.text('t.biggums@x.com'), findsNothing);
+  });
+
+  testWidgets('pending invites resend and cancel', (tester) async {
+    final sent = DateTime(2026, 10, 8);
+    final expires = DateTime(2026, 10, 15);
+    final expiredSent = DateTime(2020, 9, 20);
+    final expiredOn = DateTime(2020, 9, 27);
+    final created = DateTime(2026, 10, 9);
+    final linkExpires = DateTime(2026, 10, 16);
     directory.detail = _detail(
       role: 'owner',
       pendingInvites: [
         FamilyInvite(
           id: 'inv-1',
-          email: 't.biggums@x.com',
-          expiresAt: DateTime.now().toUtc().add(const Duration(days: 6)),
+          email: 'james.carter@gmail.com',
+          createdAt: sent,
+          expiresAt: expires,
+        ),
+        FamilyInvite(
+          id: 'inv-2',
+          email: 'pat.morgan@yahoo.com',
+          createdAt: expiredSent,
+          expiresAt: expiredOn,
+        ),
+        FamilyInvite(
+          id: 'inv-3',
+          email: null,
+          createdAt: created,
+          expiresAt: linkExpires,
         ),
       ],
     );
     await show(tester, location: '/manage-families/fam-1');
 
-    expect(find.text('PENDING INVITES'), findsOneWidget);
-    expect(find.text('t.biggums@x.com'), findsOneWidget);
-    expect(find.text('Pending'), findsOneWidget);
+    expect(find.text('Pending Invites'), findsOneWidget);
+    expect(find.text('3 waiting'), findsOneWidget);
+    expect(find.text('james.carter@gmail.com'), findsOneWidget);
+    expect(find.text('Invite link'), findsOneWidget);
     expect(
-      find.byKey(const Key('manage-family-pending-inv-1')),
+      find.text(
+        'Sent ${albumMonthDay(sent)} · Expires ${albumMonthDay(expires)}',
+      ),
       findsOneWidget,
     );
+    expect(
+      find.text(
+        'Sent ${albumMonthDay(expiredSent)} · Expired ${albumMonthDay(expiredOn)}',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Created ${albumMonthDay(created)} · Expires ${albumMonthDay(linkExpires)}',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Pending'), findsNWidgets(2));
+    expect(find.text('Expired'), findsOneWidget);
+    expect(find.byKey(const Key('manage-family-resend-inv-1')), findsOneWidget);
+    expect(find.byKey(const Key('manage-family-resend-inv-2')), findsOneWidget);
+    expect(find.byKey(const Key('manage-family-resend-inv-3')), findsNothing);
+    expect(
+      find.text(
+        'Resend emails the invite again and gives it 7 more days. Cancel stops the link from working.',
+      ),
+      findsOneWidget,
+    );
+
+    final gate = Completer<void>();
+    manage.resendGate = gate;
+    await tester.tap(find.byKey(const Key('manage-family-resend-inv-1')));
+    await tester.pump();
+    expect(
+      find.byKey(const Key('manage-family-resend-busy-inv-1')),
+      findsOneWidget,
+    );
+    expect(manage.resent, isEmpty);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(manage.resent, ['inv-1']);
+    expect(
+      find.text(
+        'Invite sent again to james.carter@gmail.com. The old link no longer works.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('manage-family-cancel-invite-inv-3')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(
+      find.text(
+        "This invite link won't work for anyone anymore. You can make a new one any time.",
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('cancel-invite-keep')));
+    await tester.pumpAndSettle();
+    expect(manage.revoked, isEmpty);
+
+    await tester.tap(
+      find.byKey(const Key('manage-family-cancel-invite-inv-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        "james.carter@gmail.com won't be able to join North Archive with this link. You can invite them again any time.",
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('cancel-invite-confirm')));
+    await tester.pumpAndSettle();
+    expect(manage.revoked, ['inv-1']);
   });
 
   testWidgets('a member does not see rename, transfer, or delete', (
@@ -515,6 +708,9 @@ class _Manage implements ManageFamiliesGateway {
   final demoted = <({String familyId, String userId})>[];
   final removed = <({String familyId, String userId})>[];
   final transfers = <({String familyId, String newOwner, String former})>[];
+  final resent = <String>[];
+  final revoked = <String>[];
+  Completer<void>? resendGate;
 
   @override
   Future<String> createRootFamily(String name) async {
@@ -586,6 +782,20 @@ class _Manage implements ManageFamiliesGateway {
   @override
   Future<void> softDeleteFamily(String familyId) async {
     deleted.add(familyId);
+  }
+
+  @override
+  Future<DateTime> resendInvite(String inviteId) async {
+    final gate = resendGate;
+    resendGate = null;
+    if (gate != null) await gate.future;
+    resent.add(inviteId);
+    return DateTime(2026, 10, 17);
+  }
+
+  @override
+  Future<void> revokeInvite(String inviteId) async {
+    revoked.add(inviteId);
   }
 
   @override

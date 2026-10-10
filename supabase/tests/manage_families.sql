@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(30);
+select plan(44);
 
 create temporary table m10_ctx (
   user_a uuid primary key,
@@ -338,7 +338,254 @@ select is(
   'an unknown email does not create an auth user'
 );
 
+-- Co-owner remove rules, demote, and invite resend/revoke.
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+
+insert into public.invites (id, family_id, invited_by, email, token, status, expires_at)
+select
+  'a1000000-0000-4000-8000-000000000001'::uuid,
+  family_a,
+  user_a,
+  'resend@test.local',
+  'tok-resend-old',
+  'pending'::public.invite_status,
+  now() - interval '1 day'
+from m10_ctx
+union all
+select
+  'a1000000-0000-4000-8000-000000000002'::uuid,
+  family_a,
+  user_a,
+  'accepted@test.local',
+  'tok-accepted',
+  'accepted'::public.invite_status,
+  now() + interval '7 days'
+from m10_ctx
+union all
+select
+  'a1000000-0000-4000-8000-000000000003'::uuid,
+  family_a,
+  user_a,
+  'revoked@test.local',
+  'tok-revoked',
+  'revoked'::public.invite_status,
+  now() + interval '7 days'
+from m10_ctx
+union all
+select
+  'a1000000-0000-4000-8000-000000000004'::uuid,
+  family_a,
+  user_a,
+  null,
+  'tok-link-only',
+  'pending'::public.invite_status,
+  now() + interval '7 days'
+from m10_ctx
+union all
+select
+  'a1000000-0000-4000-8000-000000000005'::uuid,
+  family_a,
+  user_a,
+  'revoke@test.local',
+  'tok-revoke-me',
+  'pending'::public.invite_status,
+  now() + interval '7 days'
+from m10_ctx;
+
 set local role authenticated;
+set local request.jwt.claim.sub = 'c10c0000-0000-4000-8000-00000000000c';
+set local request.jwt.claim.role = 'authenticated';
+
+select throws_ok(
+  $$ select public.remove_member(
+    (select family_a from m10_ctx),
+    (select user_a from m10_ctx)
+  ) $$,
+  'P0001',
+  'FORBIDDEN: cannot remove an owner',
+  'a co-owner cannot remove the owner'
+);
+
+select throws_ok(
+  $$ select public.remove_member(
+    (select family_a from m10_ctx),
+    (select user_b from m10_ctx)
+  ) $$,
+  'P0001',
+  'FORBIDDEN: cannot remove a co-owner',
+  'a co-owner cannot remove a co-owner'
+);
+
+select throws_ok(
+  $$ select public.remove_member(
+    (select family_a from m10_ctx),
+    (select user_c from m10_ctx)
+  ) $$,
+  'P0001',
+  'FORBIDDEN: cannot remove yourself',
+  'a co-owner cannot remove themselves'
+);
+
+select throws_ok(
+  $$ select public.remove_co_owner(
+    (select family_a from m10_ctx),
+    (select user_b from m10_ctx)
+  ) $$,
+  'P0001',
+  'FORBIDDEN: owner only',
+  'a non-owner cannot call remove_co_owner'
+);
+
+set local request.jwt.claim.sub = 'a10a0000-0000-4000-8000-00000000000a';
+
+select throws_ok(
+  $$ select public.remove_member(
+    (select family_a from m10_ctx),
+    (select user_a from m10_ctx)
+  ) $$,
+  'P0001',
+  'FORBIDDEN: cannot remove yourself',
+  'an owner cannot remove themselves'
+);
+
+select throws_ok(
+  $$ select public.remove_co_owner(
+    (select family_a from m10_ctx),
+    (select user_m from m10_ctx)
+  ) $$,
+  'P0001',
+  'VALIDATION: target must be a co-owner',
+  'remove_co_owner rejects a non-co-owner'
+);
+
+select lives_ok(
+  $$
+    do $do$
+    begin
+      perform public.remove_co_owner(
+        (select family_a from m10_ctx),
+        (select user_b from m10_ctx)
+      );
+      if (
+        select role::text from public.memberships
+        where family_id = (select family_a from m10_ctx)
+          and user_id = (select user_b from m10_ctx)
+      ) is distinct from 'member' then
+        raise exception 'co-owner was not demoted';
+      end if;
+    end
+    $do$;
+  $$,
+  'the owner demotes a co-owner'
+);
+
+set local request.jwt.claim.sub = '11111111-1111-4111-8111-000000000011';
+
+select throws_ok(
+  $$ select public.resend_invite('a1000000-0000-4000-8000-000000000001') $$,
+  'P0001',
+  'FORBIDDEN: owner or co-owner only',
+  'a plain member cannot resend an invite'
+);
+
+select throws_ok(
+  $$ select public.revoke_invite('a1000000-0000-4000-8000-000000000005') $$,
+  'P0001',
+  'FORBIDDEN: owner or co-owner only',
+  'a plain member cannot revoke an invite'
+);
+
+set local request.jwt.claim.sub = 'c10c0000-0000-4000-8000-00000000000c';
+
+select throws_ok(
+  $$ select public.resend_invite('a1000000-0000-4000-8000-000000000002') $$,
+  'P0001',
+  'INVITE_INVALID: invite is not pending',
+  'resend rejects an accepted invite'
+);
+
+select throws_ok(
+  $$ select public.resend_invite('a1000000-0000-4000-8000-000000000003') $$,
+  'P0001',
+  'INVITE_INVALID: invite is not pending',
+  'resend rejects a revoked invite'
+);
+
+select throws_ok(
+  $$ select public.resend_invite('a1000000-0000-4000-8000-000000000004') $$,
+  'P0001',
+  'VALIDATION: invite has no email address',
+  'resend rejects a link-only invite'
+);
+
+select lives_ok(
+  $$
+    do $do$
+    declare
+      old_token text;
+      old_exp timestamptz;
+      new_token text;
+      new_exp timestamptz;
+    begin
+      select token, expires_at into old_token, old_exp
+      from public.invites
+      where id = 'a1000000-0000-4000-8000-000000000001';
+      perform public.resend_invite('a1000000-0000-4000-8000-000000000001');
+      select token, expires_at into new_token, new_exp
+      from public.invites
+      where id = 'a1000000-0000-4000-8000-000000000001';
+      if new_token is not distinct from old_token then
+        raise exception 'token did not change';
+      end if;
+      if new_exp <= now() or new_exp <= old_exp then
+        raise exception 'expires_at did not move';
+      end if;
+      if (
+        select status::text from public.invites
+        where id = 'a1000000-0000-4000-8000-000000000001'
+      ) is distinct from 'pending' then
+        raise exception 'status is not pending';
+      end if;
+    end
+    $do$;
+  $$,
+  'a co-owner resend moves expires_at and rotates the token'
+);
+
+select lives_ok(
+  $$
+    do $do$
+    declare
+      tok text;
+    begin
+      perform public.revoke_invite('a1000000-0000-4000-8000-000000000005');
+      perform public.revoke_invite('a1000000-0000-4000-8000-000000000005');
+      select token into tok
+      from public.invites
+      where id = 'a1000000-0000-4000-8000-000000000005';
+      if tok is distinct from 'tok-revoke-me' then
+        raise exception 'revoke deleted or replaced the token';
+      end if;
+      if exists (
+        select 1 from public.invites
+        where token = tok
+          and status = 'pending'
+          and expires_at > now()
+      ) then
+        raise exception 'accept would succeed';
+      end if;
+      if (
+        select status::text from public.invites where token = tok
+      ) is distinct from 'revoked' then
+        raise exception 'invite row was not kept as revoked';
+      end if;
+    end
+    $do$;
+  $$,
+  'revoke keeps the row and accept fails on that token'
+);
+
 set local request.jwt.claim.sub = 'c10c0000-0000-4000-8000-00000000000c';
 set local request.jwt.claim.role = 'authenticated';
 

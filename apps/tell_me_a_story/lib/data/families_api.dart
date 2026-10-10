@@ -108,14 +108,47 @@ class FamilyInvite {
     required this.id,
     required this.email,
     required this.expiresAt,
+    this.createdAt,
   });
 
   final String id;
   final String? email;
   final DateTime? expiresAt;
 
+  /// Invites have no created_at column. Callers may pass one for display.
+  /// Otherwise the sent date is [expiresAt] minus the 7-day invite window.
+  final DateTime? createdAt;
+
   bool get isExpired =>
       expiresAt != null && expiresAt!.isBefore(DateTime.now());
+
+  DateTime? get sentAt {
+    if (createdAt != null) return createdAt;
+    final expiry = expiresAt;
+    if (expiry == null) return null;
+    return expiry.subtract(const Duration(days: 7));
+  }
+}
+
+const _albumMonths = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/// Month and day, for invite sent and expiry lines. No new package.
+String albumMonthDay(DateTime value) {
+  final local = value.toLocal();
+  return '${_albumMonths[local.month - 1]} ${local.day}';
 }
 
 class FamilyDetail {
