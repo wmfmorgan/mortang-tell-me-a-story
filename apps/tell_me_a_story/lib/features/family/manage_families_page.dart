@@ -131,65 +131,160 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 56, 24, 56),
               children: [
-                Text(
-                  'Manage families',
-                  style: GoogleFonts.newsreader(
-                    color: albumInk,
-                    fontSize: 40,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Switch between your active family archives or create a new shared space.',
-                  style: GoogleFonts.literata(color: albumInk, fontSize: 16),
-                ),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.icon(
-                    key: const Key('manage-families-start'),
-                    onPressed: _start,
-                    icon: const Icon(Icons.add_circle_outline),
-                    label: const Text('+ Start a family'),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Your families',
-                  style: GoogleFonts.newsreader(
-                    color: albumInk,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  '${_rows.active.length} active',
-                  style: GoogleFonts.sourceSans3(color: albumInk),
-                ),
-                const SizedBox(height: 12),
-                for (final family in _rows.active) _ActiveCard(family: family),
-                if (_rows.recoverable.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Text(
-                    'Recoverable (60 days)',
-                    style: GoogleFonts.newsreader(
-                      color: albumInk,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1024),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Manage families',
+                                    style: GoogleFonts.newsreader(
+                                      color: albumInk,
+                                      fontSize: 48,
+                                      fontWeight: FontWeight.w400,
+                                      letterSpacing: -0.6,
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Switch between your active family archives or create a new shared space.',
+                                    style: GoogleFonts.literata(
+                                      color: _hubVariant,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            FilledButton.icon(
+                              key: const Key('manage-families-start'),
+                              onPressed: _start,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: albumTerracotta,
+                                foregroundColor: const Color(0xFFFFF6F3),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                textStyle: GoogleFonts.sourceSans3(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              icon: const Icon(Icons.add_circle, size: 20),
+                              label: const Text('+ Start a family'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 48),
+                        Row(
+                          children: [
+                            Text(
+                              'Your families',
+                              style: GoogleFonts.newsreader(
+                                color: albumInk,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _hubHigh,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                '${_rows.active.length} active',
+                                style: GoogleFonts.sourceSans3(
+                                  color: _hubVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        for (final family in _rows.active) ...[
+                          _ActiveCard(family: family),
+                          const SizedBox(height: 16),
+                        ],
+                        if (_rows.recoverable.isNotEmpty) ...[
+                          const SizedBox(height: 32),
+                          Text(
+                            'Recoverable (60 days)',
+                            style: GoogleFonts.newsreader(
+                              color: albumInk,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          for (final family in _rows.recoverable) ...[
+                            _RecoverCard(
+                              family: family,
+                              onRecover: () => _recover(family),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ],
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  for (final family in _rows.recoverable)
-                    _RecoverCard(
-                      family: family,
-                      onRecover: () => _recover(family),
-                    ),
-                ],
+                ),
               ],
             ),
+    );
+  }
+}
+
+const _hubVariant = Color(0xFF655E5B);
+const _hubLine = Color(0xFFB9B0AD);
+const _hubHigh = Color(0xFFF0E6E3);
+const _hubContainer = Color(0xFFF5ECE9);
+const _hubBlush = Color(0xFFF5DED6);
+const _hubBlushInk = Color(0xFF5E4E48);
+const _hubError = Color(0xFF9F403D);
+
+class _Mark extends StatelessWidget {
+  const _Mark({
+    required this.icon,
+    required this.background,
+    required this.color,
+  });
+
+  final IconData icon;
+  final Color background;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, size: 24, color: color),
     );
   }
 }
@@ -201,36 +296,106 @@ class _ActiveCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        title: Text(
-          family.name,
-          style: GoogleFonts.newsreader(
-            color: albumInk,
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
+    final owner = family.role == 'owner';
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _hubLine.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: albumInk.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 1),
           ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Wrap(
-            spacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              FamilyRoleChip(role: family.role),
-              Text(
-                '${family.memberCount} members · ${family.publishedCount} stories',
-                style: GoogleFonts.sourceSans3(color: albumInk),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Row(
+          children: [
+            _Mark(
+              icon: switch (family.role) {
+                'owner' => Icons.diversity_3,
+                'co_owner' => Icons.cottage,
+                _ => Icons.park,
+              },
+              background: owner ? _hubBlush : _hubContainer,
+              color: owner ? _hubBlushInk : _hubVariant,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 12,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        family.name,
+                        style: GoogleFonts.newsreader(
+                          color: albumInk,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _hubContainer,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          familyRoleLabel(family.role),
+                          style: GoogleFonts.sourceSans3(
+                            color: _hubVariant,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${family.memberCount} members · ${family.publishedCount} stories',
+                    style: GoogleFonts.literata(
+                      color: _hubVariant,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        trailing: TextButton(
-          key: Key('manage-family-enter-${family.id}'),
-          onPressed: () => context.push(AppRoutes.manageFamilyPath(family.id)),
-          child: const Text('Enter'),
+            ),
+            TextButton(
+              key: Key('manage-family-enter-${family.id}'),
+              onPressed: () =>
+                  context.push(AppRoutes.manageFamilyPath(family.id)),
+              style: TextButton.styleFrom(
+                foregroundColor: albumTerracotta,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Enter',
+                    style: GoogleFonts.sourceSans3(
+                      color: albumTerracotta,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward, size: 16),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -246,22 +411,67 @@ class _RecoverCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final deleted = family.deletedAt;
-    return Card(
-      color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        title: Text(
-          family.name,
-          style: GoogleFonts.newsreader(color: albumInk, fontSize: 22),
-        ),
-        subtitle: Text(
-          deleted == null ? '' : deletedRecoveryLine(deleted),
-          style: GoogleFonts.sourceSans3(color: albumInk),
-        ),
-        trailing: TextButton(
-          key: Key('manage-family-recover-${family.id}'),
-          onPressed: onRecover,
-          child: const Text('Recover'),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAF2F0),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _hubLine.withValues(alpha: 0.3)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Row(
+          children: [
+            const _Mark(
+              icon: Icons.folder_delete,
+              background: _hubHigh,
+              color: _hubError,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    family.name,
+                    style: GoogleFonts.newsreader(
+                      color: albumInk,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    deleted == null ? '' : deletedRecoveryLine(deleted),
+                    style: GoogleFonts.literata(
+                      color: _hubVariant,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            FilledButton.icon(
+              key: Key('manage-family-recover-${family.id}'),
+              onPressed: onRecover,
+              style: FilledButton.styleFrom(
+                backgroundColor: albumSage,
+                foregroundColor: const Color(0xFFFFF7F5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: GoogleFonts.sourceSans3(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              icon: const Icon(Icons.settings_backup_restore, size: 16),
+              label: const Text('Recover'),
+            ),
+          ],
         ),
       ),
     );

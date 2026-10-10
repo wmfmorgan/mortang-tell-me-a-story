@@ -625,10 +625,8 @@ class _HeaderAvatar extends StatefulWidget {
 }
 
 class _HeaderAvatarState extends State<_HeaderAvatar> {
-  static const _menuStyle = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w500,
-  );
+  /// Stitch avatar menu `6b07fcdcaa204d028e79ab4494ca975a`: outlined 19px.
+  static const _menuIcon = Color(0xFF817976);
 
   @override
   void initState() {
@@ -647,6 +645,24 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
     if (mounted) setState(() {});
   }
 
+  Widget _menuRow(IconData icon, String label) {
+    return Row(
+      children: [
+        Icon(icon, size: 19, color: _menuIcon),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: GoogleFonts.sourceSans3(
+            color: albumInk,
+            fontSize: 14.5,
+            fontWeight: FontWeight.w400,
+            letterSpacing: -0.15,
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _logout() async {
     final callback = widget.onLogout;
     if (callback != null) {
@@ -663,8 +679,8 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
       key: const Key('header-avatar'),
       padding: EdgeInsets.zero,
       offset: const Offset(0, 40),
-      constraints: const BoxConstraints(minWidth: 240, maxWidth: 260),
-      color: const Color(0xFFFFFDF9),
+      constraints: const BoxConstraints(minWidth: 224, maxWidth: 280),
+      color: const Color(0xFFFCF9F5),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: Color(0xFFE6DCD1)),
@@ -686,44 +702,18 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
           PopupMenuItem<String>(
             key: const Key('header-menu-settings'),
             value: 'settings',
-            child: Text(
-              'Settings',
-              style: GoogleFonts.sourceSans3(
-                color: albumInk,
-                fontSize: _menuStyle.fontSize,
-                fontWeight: _menuStyle.fontWeight,
-              ),
-            ),
+            child: _menuRow(Icons.settings, 'Settings'),
           ),
           PopupMenuItem<String>(
             key: const Key('header-menu-manage-families'),
             value: 'manage-families',
-            child: Row(
-              children: [
-                Icon(Icons.diversity_3, size: 18, color: albumInk),
-                const SizedBox(width: 8),
-                Text(
-                  'Manage families',
-                  style: GoogleFonts.sourceSans3(
-                    color: albumInk,
-                    fontSize: _menuStyle.fontSize,
-                    fontWeight: _menuStyle.fontWeight,
-                  ),
-                ),
-              ],
-            ),
+            child: _menuRow(Icons.diversity_3, 'Manage families'),
           ),
+          const PopupMenuDivider(),
           PopupMenuItem<String>(
             key: const Key('header-menu-logout'),
             value: 'logout',
-            child: Text(
-              'Logout',
-              style: GoogleFonts.sourceSans3(
-                color: albumInk,
-                fontSize: _menuStyle.fontSize,
-                fontWeight: _menuStyle.fontWeight,
-              ),
-            ),
+            child: _menuRow(Icons.logout, 'Logout'),
           ),
         ];
       },

@@ -641,6 +641,61 @@ void main() {
     expect(find.text('new-story-screen'), findsOneWidget);
   });
 
+  testWidgets('returning to timeline opens the family remembered at create', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    const otherId = '00000000-0000-0000-0000-000000000002';
+    final stories = _FakeStoriesApi(
+      published: [
+        _published(id: 'old', title: 'Old', familyId: _familyId),
+        _published(id: 'new', title: 'New', familyId: otherId),
+      ],
+    );
+    final router = GoRouter(
+      initialLocation: AppRoutes.timeline,
+      routes: [
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) => TimelinePage(
+            api: _FakeInviteApi(),
+            storiesApi: stories,
+            familiesApi: _FakeFamilies([
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(2020),
+              ),
+              MemberFamily(
+                id: otherId,
+                name: 'Bea',
+                createdAt: DateTime.utc(2021),
+              ),
+            ]),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.manageFamilies,
+          builder: (context, state) => const Text('manage-screen'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('Ada'), findsWidgets);
+    expect(_tooltipFor(tester, 'old'), contains('Old'));
+
+    router.push(AppRoutes.manageFamilies);
+    await tester.pumpAndSettle();
+    FamilySelection.remember(otherId);
+    router.go(AppRoutes.timeline);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bea'), findsWidgets);
+    expect(_tooltipFor(tester, 'new'), contains('New'));
+    expect(find.byKey(const Key('timeline-dot-old')), findsNothing);
+  });
+
   testWidgets('returning to timeline after publish reloads published list', (
     tester,
   ) async {

@@ -100,6 +100,15 @@ class _TimelinePageState extends State<TimelinePage> {
     if (!mounted) return;
     final path = _router?.routerDelegate.currentConfiguration.uri.path;
     if (path != AppRoutes.timeline) return;
+    // go() back to /timeline keeps this State. A family created from Manage
+    // families is remembered before navigation and has to replace the one
+    // that was open when the user left.
+    final remembered = FamilySelection.id;
+    if (remembered != null && remembered != _familyId) {
+      _selectFamily(remembered);
+      _loadFamilies();
+      return;
+    }
     _loadPublished();
   }
 
