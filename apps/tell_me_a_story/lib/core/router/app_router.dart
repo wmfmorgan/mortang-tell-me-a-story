@@ -119,7 +119,7 @@ GoRouter createAppRouter({
               return AppRoutes.timeline;
             }
           } catch (_) {
-            return null;
+            return AppRoutes.timeline;
           }
         }
       }

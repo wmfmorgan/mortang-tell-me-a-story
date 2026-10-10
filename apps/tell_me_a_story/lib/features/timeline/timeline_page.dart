@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -2243,6 +2244,37 @@ class _DashPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
+/// Circular _DashPainter: 2px sage stroke, 4px dash, 4px gap, transparent fill.
+class _RingDashPainter extends CustomPainter {
+  const _RingDashPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final radius = (size.shortestSide - paint.strokeWidth) / 2;
+    final center = Offset(size.width / 2, size.height / 2);
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    const dash = 4.0;
+    const gap = 4.0;
+    final circumference = 2 * math.pi * radius;
+    var traveled = 0.0;
+    while (traveled < circumference) {
+      final length = math.min(dash, circumference - traveled);
+      canvas.drawArc(rect, traveled / radius, length / radius, false, paint);
+      traveled += dash + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingDashPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
 class _FullCardRail extends StatefulWidget {
   const _FullCardRail({
     required this.stories,
@@ -2555,13 +2587,11 @@ class _BranchMark extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
+                const SizedBox(
                   width: 16,
                   height: 16,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.transparent,
-                    border: Border.all(color: albumSage, width: 2),
+                  child: CustomPaint(
+                    painter: _RingDashPainter(color: albumSage),
                   ),
                 ),
                 const SizedBox(width: 8),

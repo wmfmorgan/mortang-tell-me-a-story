@@ -106,7 +106,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   var _busy = false;
   var _photoError = false;
   var _composingComment = false;
-  var _canWrite = true;
+  var _canWrite = false;
   Uint8List? _pendingPhotoBytes;
   final _composerFocus = FocusNode();
   final _composerKey = GlobalKey();
