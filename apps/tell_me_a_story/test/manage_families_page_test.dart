@@ -213,10 +213,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
     expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.text('Make Bea North a member?'), findsOneWidget);
     expect(
-      find.text(
-        'Make Bea North a member? They keep their stories and access but lose co-owner powers.',
-      ),
+      find.text('They keep their stories and access but lose co-owner powers.'),
       findsOneWidget,
     );
     await tester.tap(find.text('Cancel'));
@@ -341,7 +340,7 @@ void main() {
   ) async {
     directory.detail = _detail(role: 'owner');
     await show(tester, location: '/manage-families/fam-1');
-    expect(find.text('Pending Invites'), findsNothing);
+    expect(find.text('PENDING INVITES'), findsNothing);
 
     directory.detail = _detail(
       role: 'member',
@@ -358,7 +357,7 @@ void main() {
     await tester.pumpAndSettle();
     router.go('/manage-families/fam-1');
     await tester.pumpAndSettle();
-    expect(find.text('Pending Invites'), findsNothing);
+    expect(find.text('PENDING INVITES'), findsNothing);
     expect(find.text('t.biggums@x.com'), findsNothing);
   });
 
@@ -394,7 +393,7 @@ void main() {
     );
     await show(tester, location: '/manage-families/fam-1');
 
-    expect(find.text('Pending Invites'), findsOneWidget);
+    expect(find.text('PENDING INVITES'), findsOneWidget);
     expect(find.text('3 waiting'), findsOneWidget);
     expect(find.text('james.carter@gmail.com'), findsOneWidget);
     expect(find.text('Invite link'), findsOneWidget);

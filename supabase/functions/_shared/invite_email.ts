@@ -7,9 +7,21 @@ export type InviteMail = {
   token: string;
 };
 
-/// Resend when RESEND_API_KEY is set. Local stacks without a key deliver
-/// to Mailpit. A hosted project without a key fails closed.
-export async function sendInviteEmail(mail: InviteMail): Promise<Response | null> {
+const emailNotConfiguredMessage = "Email is not configured";
+const emailSendFailedMessage = "Could not send invite email";
+
+/// True when Resend or a local Mailpit URL is configured.
+export function emailConfigured(): boolean {
+  return resendKey().length > 0 || mailpitUrl().length > 0;
+}
+
+/// Resend when RESEND_API_KEY is set. Mailpit only when MAILPIT_URL is set.
+/// Neither fails closed. No hostname guess and no default Mailpit URL.
+export async function sendInviteEmail(
+  mail: InviteMail,
+): Promise<Response | null> {
+  if (!emailConfigured()) return emailNotConfiguredResponse();
+
   const inviteUrl = buildInviteUrl(mail.token);
   const subject = `Invite to ${mail.familyName}`;
   const html = `
@@ -18,14 +30,14 @@ export async function sendInviteEmail(mail: InviteMail): Promise<Response | null
     <p>This link expires in 7 days and can only be used once.</p>
   `;
 
-  const resendKey = Deno.env.get("RESEND_API_KEY")?.trim();
-  if (resendKey) {
+  const key = resendKey();
+  if (key) {
     const from = Deno.env.get("RESEND_FROM")?.trim() ||
       "Tell Me a Story <onboarding@resend.dev>";
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${resendKey}`,
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -37,23 +49,13 @@ export async function sendInviteEmail(mail: InviteMail): Promise<Response | null
     });
     if (!res.ok) {
       const detail = await res.text();
-      return errorResponse(
-        "VALIDATION",
-        `Could not send invite email: ${detail}`,
-        502,
-      );
+      console.error("invite email provider failed", detail);
+      return errorResponse("VALIDATION", emailSendFailedMessage, 502);
     }
     return null;
   }
 
-  const mailpit = localMailpitUrl();
-  if (!mailpit) {
-    return errorResponse(
-      "VALIDATION",
-      "RESEND_API_KEY is not configured (OPEN Bill)",
-      503,
-    );
-  }
+  const mailpit = mailpitUrl();
   try {
     const res = await fetch(`${mailpit}/api/v1/send`, {
       method: "POST",
@@ -66,36 +68,27 @@ export async function sendInviteEmail(mail: InviteMail): Promise<Response | null
       }),
     });
     if (!res.ok) {
-      return errorResponse(
-        "VALIDATION",
-        "Could not deliver invite email to local Mailpit",
-        502,
-      );
+      const detail = await res.text();
+      console.error("invite email provider failed", detail);
+      return errorResponse("VALIDATION", emailSendFailedMessage, 502);
     }
-  } catch {
-    return errorResponse(
-      "VALIDATION",
-      "Could not deliver invite email to local Mailpit",
-      502,
-    );
+  } catch (error) {
+    console.error("invite email provider failed", error);
+    return errorResponse("VALIDATION", emailSendFailedMessage, 502);
   }
   return null;
 }
 
-function localMailpitUrl(): string | null {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  let host = "";
-  try {
-    host = new URL(supabaseUrl).hostname;
-  } catch {
-    return null;
-  }
-  if (host !== "kong" && host !== "127.0.0.1" && host !== "localhost") {
-    return null;
-  }
-  const override = Deno.env.get("MAILPIT_URL")?.trim();
-  if (override) return override.replace(/\/$/, "");
-  return "http://host.docker.internal:57324";
+export function emailNotConfiguredResponse(): Response {
+  return errorResponse("VALIDATION", emailNotConfiguredMessage, 503);
+}
+
+function resendKey(): string {
+  return Deno.env.get("RESEND_API_KEY")?.trim() ?? "";
+}
+
+function mailpitUrl(): string {
+  return Deno.env.get("MAILPIT_URL")?.trim().replace(/\/$/, "") ?? "";
 }
 
 function escapeHtml(s: string): string {

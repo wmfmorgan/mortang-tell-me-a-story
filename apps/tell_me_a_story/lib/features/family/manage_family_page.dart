@@ -174,8 +174,8 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     final confirmed = await showFamilyBlurDialog(
       context,
       dialogKey: const Key('make-member-dialog'),
-      title:
-          'Make ${_personName(person)} a member? They keep their stories and access but lose co-owner powers.',
+      title: 'Make ${_personName(person)} a member?',
+      body: 'They keep their stories and access but lose co-owner powers.',
       confirmLabel: 'Make member',
       confirmKey: const Key('make-member-confirm'),
       confirmColor: albumTerracotta,
@@ -572,7 +572,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
                                 Row(
                                   children: [
                                     Text(
-                                      'Pending Invites',
+                                      'PENDING INVITES',
                                       style: GoogleFonts.sourceSans3(
                                         color: _detailVariant,
                                         fontSize: 12,

@@ -1,4 +1,8 @@
-import { sendInviteEmail } from "../_shared/invite_email.ts";
+import {
+  emailConfigured,
+  emailNotConfiguredResponse,
+  sendInviteEmail,
+} from "../_shared/invite_email.ts";
 import {
   errorResponse,
   handleManage,
@@ -13,6 +17,7 @@ Deno.serve((req) =>
     if (!inviteId) {
       return errorResponse("VALIDATION", "invite_id is required", 400);
     }
+    if (!emailConfigured()) return emailNotConfiguredResponse();
     const { data, error } = await userSb.rpc("resend_invite", {
       iid: inviteId,
     });

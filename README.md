@@ -150,7 +150,7 @@ supabase start
 supabase functions serve --env-file supabase/.env.local
 # Optional in .env.local (never commit secrets):
 # INVITE_APP_ORIGIN=http://127.0.0.1:3000
-# RESEND_API_KEY=...   # OPEN (Bill) — without it send-invite-email returns structured failure
+# RESEND_API_KEY=...   # OPEN (Bill). Local only: MAILPIT_URL in supabase/functions/.env.example. Without either, send returns 503.
 ```
 
 Family create is **data/API** (`create_family` RPC) — no Create Family screen in M2. First invite may bootstrap a family via API when none exists. Joining is via invite accept on `/timeline?invite=`.

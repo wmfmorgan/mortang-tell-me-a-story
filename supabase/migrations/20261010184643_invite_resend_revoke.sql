@@ -13,7 +13,7 @@ declare
   new_token text;
   new_exp timestamptz;
 begin
-  select * into invite from public.invites where id = iid;
+  select * into invite from public.invites where id = iid for update;
   if not found then
     raise exception 'NOT_FOUND: invite not found';
   end if;
@@ -38,7 +38,11 @@ begin
   set token = new_token,
       expires_at = new_exp,
       status = 'pending'
-  where id = iid;
+  where id = iid
+    and status = 'pending';
+  if not found then
+    raise exception 'INVITE_INVALID: invite is not pending';
+  end if;
 
   select name into fam_name from public.families where id = invite.family_id;
 
