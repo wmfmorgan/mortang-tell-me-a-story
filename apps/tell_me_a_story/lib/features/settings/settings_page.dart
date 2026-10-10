@@ -50,6 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Uint8List? _savedBytes;
   Uint8List? _pending;
   List<MemberFamily> _families = const [];
+  List<StewardFamily> _stewarded = const [];
 
   @override
   void initState() {
@@ -99,10 +100,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadFamilies() async {
     List<MemberFamily> rows = const [];
+    List<StewardFamily> stewarded = const [];
     try {
       _familyId ??= await _invite.currentFamilyId();
       if (widget.familiesApi != null) {
         rows = await widget.familiesApi!.listMine();
+        stewarded = await widget.familiesApi!.listStewarded();
       } else if (widget.inviteApi != null) {
         final id = _familyId;
         if (id != null) {
@@ -111,13 +114,19 @@ class _SettingsPageState extends State<SettingsPage> {
           ];
         }
       } else {
-        rows = await FamiliesApi().listMine();
+        final live = FamiliesApi();
+        rows = await live.listMine();
+        stewarded = await live.listStewarded();
       }
     } catch (_) {
       rows = const [];
+      stewarded = const [];
     }
     if (!mounted) return;
-    setState(() => _families = rows);
+    setState(() {
+      _families = rows;
+      _stewarded = stewarded;
+    });
   }
 
   void _selectFamily(String id) {
@@ -215,6 +224,7 @@ class _SettingsPageState extends State<SettingsPage> {
         families: _families,
         currentFamilyId: _familyId,
         onFamilySelected: _selectFamily,
+        stewarded: _stewarded,
         onInvite: _openInvite,
         onLogout: widget.onLogout,
       ),

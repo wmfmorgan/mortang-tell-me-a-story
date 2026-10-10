@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/comments_api.dart';
 import '../../data/families_api.dart';
@@ -17,6 +18,9 @@ import '../../features/drafts/drafts_page.dart';
 import '../../features/perspectives/add_perspective_page.dart';
 import '../../features/stories/new_story_page.dart';
 import '../../features/search/search_page.dart';
+import '../../data/manage_families_api.dart';
+import '../../features/family/manage_families_page.dart';
+import '../../features/family/manage_family_page.dart';
 import '../../features/search/search_recents.dart';
 import '../../features/stories/story_reader_page.dart';
 import '../../features/timeline/timeline_page.dart';
@@ -33,10 +37,34 @@ abstract final class AppRoutes {
   static const drafts = '/drafts';
   static const search = '/search';
   static const settings = '/settings';
+  static const manageFamilies = '/manage-families';
+  static const manageFamily = '/manage-families/:familyId';
 
   static String storyPath(String id) => '/stories/$id';
 
+  static String manageFamilyPath(String id) => '/manage-families/$id';
+
   static String storyPerspectivePath(String id) => '/stories/$id/perspective';
+}
+
+/// Where a signed-in session opens from the magic-link route.
+///
+/// A live family lands on the timeline. No live family, with a soft-deleted
+/// family the caller still owns or co-owns, lands on the manage hub. Neither
+/// lands on the timeline empty Start state.
+Future<String> appStartPath(FamiliesGateway? families) async {
+  if (families == null) return AppRoutes.timeline;
+  try {
+    final live = await families.listMine();
+    if (live.isNotEmpty) return AppRoutes.timeline;
+    final stewarded = await families.listStewarded();
+    if (stewarded.any((family) => family.countsForManage())) {
+      return AppRoutes.manageFamilies;
+    }
+  } catch (_) {
+    return AppRoutes.timeline;
+  }
+  return AppRoutes.timeline;
 }
 
 GoRouter createAppRouter({
@@ -53,6 +81,8 @@ GoRouter createAppRouter({
   SearchRecents? searchRecents,
   ProfileGateway? profileApi,
   FamiliesGateway? familiesApi,
+  FamilyDirectoryGateway? directoryApi,
+  ManageFamiliesGateway? manageApi,
   Future<void> Function()? onLogout,
 }) {
   final recents = searchRecents ?? SearchRecents();
@@ -62,7 +92,7 @@ GoRouter createAppRouter({
   return GoRouter(
     initialLocation: AppRoutes.magicLink,
     refreshListenable: authRefresh,
-    redirect: (BuildContext context, GoRouterState state) {
+    redirect: (BuildContext context, GoRouterState state) async {
       final signedIn = authRefresh.isSignedIn;
       final loc = state.matchedLocation;
       final onMagicLink = loc == AppRoutes.magicLink;
@@ -76,7 +106,8 @@ GoRouter createAppRouter({
         return '${AppRoutes.magicLink}$inviteSuffix';
       }
       if (signedIn && onMagicLink) {
-        return '${AppRoutes.timeline}$inviteSuffix';
+        final landing = await appStartPath(familiesApi);
+        return '$landing$inviteSuffix';
       }
       return null;
     },
@@ -87,8 +118,11 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRoutes.timeline,
-        builder: (context, state) =>
-            TimelinePage(api: inviteApi, storiesApi: storiesApi),
+        builder: (context, state) => TimelinePage(
+          api: inviteApi,
+          storiesApi: storiesApi,
+          familiesApi: familiesApi,
+        ),
       ),
       GoRoute(
         path: AppRoutes.newStory,
@@ -101,6 +135,7 @@ GoRouter createAppRouter({
             mapboxSearch: mapboxSearch,
             storiesApi: storiesApi,
             photosApi: photosApi,
+            familiesApi: familiesApi,
             draftId: (draft != null && draft.isNotEmpty) ? draft : null,
           );
         },
@@ -143,8 +178,7 @@ GoRouter createAppRouter({
             barrierDismissible: false,
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
-            transitionsBuilder: (context, animation, secondary, child) =>
-                child,
+            transitionsBuilder: (context, animation, secondary, child) => child,
             child: page,
           );
         },
@@ -170,13 +204,44 @@ GoRouter createAppRouter({
         ),
       ),
       GoRoute(
+        path: AppRoutes.manageFamilies,
+        builder: (context, state) => ManageFamiliesPage(
+          directoryApi: directoryApi,
+          familiesApi: familiesApi,
+          manageApi: manageApi,
+          inviteApi: inviteApi,
+          onLogout: onLogout,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.manageFamily,
+        builder: (context, state) => ManageFamilyPage(
+          familyId: state.pathParameters['familyId']!,
+          directoryApi: directoryApi,
+          familiesApi: familiesApi,
+          manageApi: manageApi,
+          inviteApi: inviteApi,
+          onLogout: onLogout,
+          currentUserId: _signedInUserId(),
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.drafts,
         builder: (context, state) => DraftsPage(
           inviteApi: inviteApi,
           storiesApi: storiesApi,
           photosApi: photosApi,
+          familiesApi: familiesApi,
         ),
       ),
     ],
   );
+}
+
+String? _signedInUserId() {
+  try {
+    return Supabase.instance.client.auth.currentUser?.id;
+  } catch (_) {
+    return null;
+  }
 }

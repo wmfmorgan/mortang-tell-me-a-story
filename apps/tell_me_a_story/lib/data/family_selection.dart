@@ -14,6 +14,11 @@ class FamilySelection {
     _userId = null;
   }
 
+  /// Drops the remembered id when it is the family that was just soft-deleted.
+  static void forget(String familyId) {
+    if (_familyId == familyId) _familyId = null;
+  }
+
   /// Binds [userId] as the signed-in user.
   ///
   /// A different user clears the remembered family. The same user keeps it.

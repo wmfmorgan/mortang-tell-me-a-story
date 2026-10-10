@@ -48,6 +48,7 @@ class _TimelinePageState extends State<TimelinePage> {
   GoRouter? _router;
   String? _familyId;
   List<MemberFamily> _families = const [];
+  List<StewardFamily> _stewarded = const [];
   List<Story> _published = const [];
   var _loadingFamily = true;
   var _loadingPublished = true;
@@ -100,6 +101,15 @@ class _TimelinePageState extends State<TimelinePage> {
     if (!mounted) return;
     final path = _router?.routerDelegate.currentConfiguration.uri.path;
     if (path != AppRoutes.timeline) return;
+    // go() back to /timeline keeps this State. A family created from Manage
+    // families is remembered before navigation and has to replace the one
+    // that was open when the user left.
+    final remembered = FamilySelection.id;
+    if (remembered != null && remembered != _familyId) {
+      _selectFamily(remembered);
+      _loadFamilies();
+      return;
+    }
     _loadPublished();
   }
 
@@ -127,9 +137,11 @@ class _TimelinePageState extends State<TimelinePage> {
   Future<void> _loadFamilies() async {
     final familyId = _familyId;
     List<MemberFamily> rows = const [];
+    List<StewardFamily> stewarded = const [];
     try {
       if (widget.familiesApi != null) {
         rows = await widget.familiesApi!.listMine();
+        stewarded = await widget.familiesApi!.listStewarded();
       } else if (widget.storiesApi != null) {
         rows = familyId == null
             ? const []
@@ -141,10 +153,13 @@ class _TimelinePageState extends State<TimelinePage> {
                 ),
               ];
       } else {
-        rows = await FamiliesApi().listMine();
+        final live = FamiliesApi();
+        rows = await live.listMine();
+        stewarded = await live.listStewarded();
       }
     } catch (_) {
       rows = const [];
+      stewarded = const [];
     }
     if (!mounted) return;
     if (rows.isEmpty && familyId != null) {
@@ -156,7 +171,10 @@ class _TimelinePageState extends State<TimelinePage> {
         ),
       ];
     }
-    setState(() => _families = rows);
+    setState(() {
+      _families = rows;
+      _stewarded = stewarded;
+    });
   }
 
   void _watchLive() {
@@ -373,6 +391,7 @@ class _TimelinePageState extends State<TimelinePage> {
         families: _families,
         currentFamilyId: _familyId,
         onFamilySelected: _selectFamily,
+        stewarded: _stewarded,
         onInvite: _openInvite,
       ),
       body: LayoutBuilder(
