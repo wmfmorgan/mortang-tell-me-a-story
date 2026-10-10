@@ -103,18 +103,35 @@ class FamilyPerson {
   final Uint8List? avatarBytes;
 }
 
+class FamilyInvite {
+  const FamilyInvite({
+    required this.id,
+    required this.email,
+    required this.expiresAt,
+  });
+
+  final String id;
+  final String? email;
+  final DateTime? expiresAt;
+
+  bool get isExpired =>
+      expiresAt != null && expiresAt!.isBefore(DateTime.now());
+}
+
 class FamilyDetail {
   const FamilyDetail({
     required this.id,
     required this.name,
     required this.myRole,
     required this.people,
+    this.pendingInvites = const [],
   });
 
   final String id;
   final String name;
   final String myRole;
   final List<FamilyPerson> people;
+  final List<FamilyInvite> pendingInvites;
 }
 
 abstract class FamilyDirectoryGateway {
@@ -252,6 +269,25 @@ class FamiliesApi implements FamiliesGateway, FamilyDirectoryGateway {
         ),
       );
     }
+    final inviteRows = await _client
+        .from('invites')
+        .select('id, email, expires_at')
+        .eq('family_id', familyId)
+        .eq('status', 'pending')
+        .order('email');
+    final pendingInvites = <FamilyInvite>[];
+    for (final row in inviteRows) {
+      final id = row['id'] as String?;
+      if (id == null) continue;
+      final rawExpiry = row['expires_at'];
+      pendingInvites.add(
+        FamilyInvite(
+          id: id,
+          email: (row['email'] as String?)?.trim(),
+          expiresAt: rawExpiry is String ? DateTime.tryParse(rawExpiry) : null,
+        ),
+      );
+    }
     return FamilyDetail(
       id: family['id'] as String,
       name: (family['name'] as String?)?.trim().isNotEmpty == true
@@ -259,6 +295,7 @@ class FamiliesApi implements FamiliesGateway, FamilyDirectoryGateway {
           : 'Family',
       myRole: myRole,
       people: people,
+      pendingInvites: pendingInvites,
     );
   }
 

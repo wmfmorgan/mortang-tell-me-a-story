@@ -11,6 +11,7 @@ import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/manage_families_api.dart';
 import '../invites/invite_modal.dart';
+import 'add_co_owner_dialog.dart';
 import 'delete_family_dialog.dart';
 import 'family_role.dart';
 import 'transfer_ownership_dialog.dart';
@@ -25,6 +26,7 @@ class ManageFamilyPage extends StatefulWidget {
     this.manageApi,
     this.inviteApi,
     this.onLogout,
+    this.currentUserId,
   });
 
   final String familyId;
@@ -33,6 +35,9 @@ class ManageFamilyPage extends StatefulWidget {
   final ManageFamiliesGateway? manageApi;
   final InviteGateway? inviteApi;
   final Future<void> Function()? onLogout;
+
+  /// Signed-in user. Their own row never shows Make member or Remove.
+  final String? currentUserId;
 
   @override
   State<ManageFamilyPage> createState() => _ManageFamilyPageState();
@@ -133,24 +138,11 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
   Future<void> _addCoOwner() async {
     final detail = _detail;
     if (detail == null || _coOwners.length >= 2) return;
-    final picked = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        key: const Key('add-co-owner-dialog'),
-        title: const Text('Add co-owner'),
-        children: [
-          for (final person in _members)
-            SimpleDialogOption(
-              key: Key('add-co-owner-${person.userId}'),
-              onPressed: () => Navigator.pop(context, person.userId),
-              child: Text(
-                person.displayName?.trim().isNotEmpty == true
-                    ? person.displayName!.trim()
-                    : 'Member',
-              ),
-            ),
-        ],
-      ),
+    final picked = await showAddCoOwnerDialog(
+      context,
+      familyName: detail.name,
+      coOwnerCount: _coOwners.length,
+      members: _members,
     );
     if (picked == null) return;
     try {
@@ -161,9 +153,42 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     }
   }
 
-  Future<void> _removeCoOwner(FamilyPerson person) async {
+  bool _canActOn(FamilyPerson person) {
+    if (person.role == 'owner') return false;
+    final self = widget.currentUserId;
+    if (self != null && person.userId == self) return false;
+    return true;
+  }
+
+  String _personName(FamilyPerson person) {
+    final name = person.displayName?.trim() ?? '';
+    return name.isEmpty ? 'Member' : name;
+  }
+
+  Future<void> _makeMember(FamilyPerson person) async {
     final detail = _detail;
-    if (detail == null) return;
+    if (detail == null || !_isOwner || !_canActOn(person)) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        key: const Key('make-member-dialog'),
+        title: Text(
+          'Make ${_personName(person)} a member? They keep their stories and access but lose co-owner powers.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            key: const Key('make-member-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Make member'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     try {
       await _manage.removeCoOwner(familyId: detail.id, userId: person.userId);
       await _load();
@@ -231,6 +256,8 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
       familyName: detail.name,
       api: widget.inviteApi,
     );
+    if (!mounted) return;
+    await _load();
   }
 
   Future<void> _inviteSession() async {
@@ -398,14 +425,24 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
                                       )
                                     : const SizedBox.shrink(),
                               ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${_coOwners.length} of 2',
+                                key: const Key('manage-family-co-owner-count'),
+                                style: _helper,
+                              ),
                               const SizedBox(height: 16),
                               _PeopleList(
                                 children: [
                                   for (final person in _coOwners)
                                     _PersonRow(
                                       person: person,
-                                      onRemove: _isOwner
-                                          ? () => _removeCoOwner(person)
+                                      onMakeMember:
+                                          _isOwner && _canActOn(person)
+                                          ? () => _makeMember(person)
+                                          : null,
+                                      onRemove: _isOwner && _canActOn(person)
+                                          ? () => _removeMember(person)
                                           : null,
                                     ),
                                 ],
@@ -470,12 +507,25 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
                                           ? 'Co-owner'
                                           : null,
                                       onRemove:
-                                          person.role == 'member' && _canAdmin
+                                          person.role == 'member' &&
+                                              _canAdmin &&
+                                              _canActOn(person)
                                           ? () => _removeMember(person)
                                           : null,
                                     ),
                                 ],
                               ),
+                              if (detail.pendingInvites.isNotEmpty) ...[
+                                const SizedBox(height: 20),
+                                Text('PENDING INVITES', style: _kicker),
+                                const SizedBox(height: 8),
+                                _PeopleList(
+                                  children: [
+                                    for (final invite in detail.pendingInvites)
+                                      _PendingInviteRow(invite: invite),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -745,10 +795,76 @@ class _PeopleList extends StatelessWidget {
   }
 }
 
+class _PendingInviteRow extends StatelessWidget {
+  const _PendingInviteRow({required this.invite});
+
+  final FamilyInvite invite;
+
+  @override
+  Widget build(BuildContext context) {
+    final email = invite.email?.trim() ?? '';
+    final label = email.isEmpty ? 'Invite link' : email;
+    final status = invite.isExpired ? 'Expired' : 'Pending';
+    return Padding(
+      key: Key('manage-family-pending-${invite.id}'),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        children: [
+          ProfileAvatar(size: 40, displayName: label),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.literata(
+                    color: albumInk,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  'Invited',
+                  style: GoogleFonts.sourceSans3(
+                    color: _detailVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5ECE9),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              status,
+              style: GoogleFonts.sourceSans3(
+                color: _detailVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PersonRow extends StatelessWidget {
-  const _PersonRow({required this.person, this.onRemove, this.trailing});
+  const _PersonRow({
+    required this.person,
+    this.onMakeMember,
+    this.onRemove,
+    this.trailing,
+  });
 
   final FamilyPerson person;
+  final VoidCallback? onMakeMember;
   final VoidCallback? onRemove;
   final String? trailing;
 
@@ -789,6 +905,20 @@ class _PersonRow extends StatelessWidget {
               ],
             ),
           ),
+          if (onMakeMember != null)
+            TextButton(
+              key: Key('manage-family-make-member-${person.userId}'),
+              onPressed: onMakeMember,
+              style: TextButton.styleFrom(foregroundColor: albumInk),
+              child: Text(
+                'Make member',
+                style: GoogleFonts.sourceSans3(
+                  color: albumInk,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
           if (onRemove != null)
             TextButton(
               key: Key('manage-family-remove-${person.userId}'),
@@ -803,7 +933,7 @@ class _PersonRow extends StatelessWidget {
                 ),
               ),
             )
-          else if (trailing != null)
+          else if (onMakeMember == null && trailing != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(

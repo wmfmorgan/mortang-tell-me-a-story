@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -13,10 +15,12 @@ void main() {
   late _Directory directory;
   late _Manage manage;
   late GoRouter router;
+  String? viewerId = 'me';
 
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
     FamilySelection.clear();
+    viewerId = 'me';
     directory = _Directory();
     manage = _Manage(directory);
     router = GoRouter(
@@ -33,6 +37,7 @@ void main() {
             familyId: state.pathParameters['familyId']!,
             directoryApi: directory,
             manageApi: manage,
+            currentUserId: viewerId,
           ),
         ),
         GoRoute(
@@ -166,6 +171,119 @@ void main() {
     expect(find.text('timeline-landed'), findsOneWidget);
   });
 
+  testWidgets('owner sees make member and remove on co-owner rows', (
+    tester,
+  ) async {
+    directory.detail = _detail(
+      role: 'owner',
+      people: const [
+        FamilyPerson(userId: 'me', role: 'owner', displayName: 'Ada North'),
+        FamilyPerson(
+          userId: 'co-1',
+          role: 'co_owner',
+          displayName: 'Bea North',
+        ),
+        FamilyPerson(
+          userId: 'co-2',
+          role: 'co_owner',
+          displayName: 'Cam North',
+        ),
+        FamilyPerson(
+          userId: 'mem-1',
+          role: 'member',
+          displayName: 'Cara North',
+        ),
+      ],
+    );
+    await show(tester, location: '/manage-families/fam-1');
+
+    expect(find.text('2 of 2'), findsOneWidget);
+    expect(find.byKey(const Key('manage-family-add-co-owner')), findsNothing);
+    expect(
+      find.byKey(const Key('manage-family-make-member-co-1')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('manage-family-remove-co-1')), findsOneWidget);
+    expect(find.byKey(const Key('manage-family-make-member-me')), findsNothing);
+    expect(find.byKey(const Key('manage-family-remove-me')), findsNothing);
+    expect(find.byKey(const Key('manage-family-remove-mem-1')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('manage-family-make-member-co-1')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Make Bea North a member? They keep their stories and access but lose co-owner powers.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(manage.demoted, isEmpty);
+
+    await tester.tap(find.byKey(const Key('manage-family-make-member-co-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Make member').last);
+    await tester.pumpAndSettle();
+
+    expect(manage.demoted, [(familyId: 'fam-1', userId: 'co-1')]);
+    expect(manage.removed, isEmpty);
+    expect(find.text('1 of 2'), findsOneWidget);
+    expect(find.byKey(const Key('manage-family-add-co-owner')), findsOneWidget);
+  });
+
+  testWidgets('co-owner sees no actions on co-owner or owner rows', (
+    tester,
+  ) async {
+    viewerId = 'co-1';
+    directory.detail = _detail(role: 'co_owner');
+    await show(tester, location: '/manage-families/fam-1');
+
+    expect(
+      find.byKey(const Key('manage-family-make-member-co-1')),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('manage-family-remove-co-1')), findsNothing);
+    expect(find.byKey(const Key('manage-family-make-member-me')), findsNothing);
+    expect(find.byKey(const Key('manage-family-remove-me')), findsNothing);
+    expect(find.byKey(const Key('manage-family-remove-mem-1')), findsOneWidget);
+  });
+
+  testWidgets('remove on a co-owner row calls remove-member', (tester) async {
+    directory.detail = _detail(role: 'owner');
+    await show(tester, location: '/manage-families/fam-1');
+
+    await tester.ensureVisible(
+      find.byKey(const Key('manage-family-remove-co-1')),
+    );
+    await tester.tap(find.byKey(const Key('manage-family-remove-co-1')));
+    await tester.pumpAndSettle();
+
+    expect(manage.removed, [(familyId: 'fam-1', userId: 'co-1')]);
+    expect(manage.demoted, isEmpty);
+  });
+
+  testWidgets('detail lists pending invites under members', (tester) async {
+    directory.detail = _detail(
+      role: 'owner',
+      pendingInvites: [
+        FamilyInvite(
+          id: 'inv-1',
+          email: 't.biggums@x.com',
+          expiresAt: DateTime.now().toUtc().add(const Duration(days: 6)),
+        ),
+      ],
+    );
+    await show(tester, location: '/manage-families/fam-1');
+
+    expect(find.text('PENDING INVITES'), findsOneWidget);
+    expect(find.text('t.biggums@x.com'), findsOneWidget);
+    expect(find.text('Pending'), findsOneWidget);
+    expect(
+      find.byKey(const Key('manage-family-pending-inv-1')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a member does not see rename, transfer, or delete', (
     tester,
   ) async {
@@ -202,6 +320,61 @@ void main() {
     expect(find.byKey(const Key('manage-family-transfer')), findsNothing);
     expect(find.byKey(const Key('manage-family-delete')), findsNothing);
     expect(find.text('Delete family…'), findsNothing);
+  });
+
+  testWidgets('add co-owner confirms the selected member', (tester) async {
+    directory.detail = _detail(role: 'owner');
+    await show(tester, location: '/manage-families/fam-1');
+
+    final open = find.byKey(const Key('manage-family-add-co-owner'));
+    await tester.ensureVisible(open);
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('add-co-owner-dialog')), findsOneWidget);
+    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.text('Add a co-owner'), findsOneWidget);
+    expect(
+      find.text(
+        'Co-owners have the same powers as you. North Archive can have up to two.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('1 OF 2 CO-OWNER SPOTS USED'), findsOneWidget);
+    expect(find.text('Search members'), findsOneWidget);
+    expect(
+      find.text(
+        'Only people already in this family can be co-owners. To add someone new, invite them first.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('add-co-owner-mem-1')), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('add-co-owner-submit')))
+          .onPressed,
+      isNull,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('add-co-owner-search')),
+      'nobody',
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('add-co-owner-mem-1')), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('add-co-owner-search')),
+      'cara',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('add-co-owner-mem-1')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('add-co-owner-submit')));
+    await tester.pumpAndSettle();
+
+    expect(manage.added, [(familyId: 'fam-1', userId: 'mem-1')]);
+    expect(find.byKey(const Key('add-co-owner-dialog')), findsNothing);
   });
 
   testWidgets('transfer stays disabled until both choices are set', (
@@ -280,16 +453,31 @@ void main() {
   });
 }
 
-FamilyDetail _detail({required String role}) {
+FamilyDetail _detail({
+  required String role,
+  List<FamilyInvite> pendingInvites = const [],
+  List<FamilyPerson>? people,
+}) {
   return FamilyDetail(
     id: 'fam-1',
     name: 'North Archive',
     myRole: role,
-    people: const [
-      FamilyPerson(userId: 'me', role: 'owner', displayName: 'Ada North'),
-      FamilyPerson(userId: 'co-1', role: 'co_owner', displayName: 'Bea North'),
-      FamilyPerson(userId: 'mem-1', role: 'member', displayName: 'Cara North'),
-    ],
+    people:
+        people ??
+        const [
+          FamilyPerson(userId: 'me', role: 'owner', displayName: 'Ada North'),
+          FamilyPerson(
+            userId: 'co-1',
+            role: 'co_owner',
+            displayName: 'Bea North',
+          ),
+          FamilyPerson(
+            userId: 'mem-1',
+            role: 'member',
+            displayName: 'Cara North',
+          ),
+        ],
+    pendingInvites: pendingInvites,
   );
 }
 
@@ -323,6 +511,9 @@ class _Manage implements ManageFamiliesGateway {
   final createdNames = <String>[];
   final recovered = <String>[];
   final deleted = <String>[];
+  final added = <({String familyId, String userId})>[];
+  final demoted = <({String familyId, String userId})>[];
+  final removed = <({String familyId, String userId})>[];
   final transfers = <({String familyId, String newOwner, String former})>[];
 
   @override
@@ -341,19 +532,43 @@ class _Manage implements ManageFamiliesGateway {
   Future<void> addCoOwner({
     required String familyId,
     required String userId,
-  }) async {}
+  }) async {
+    added.add((familyId: familyId, userId: userId));
+  }
 
   @override
   Future<void> removeCoOwner({
     required String familyId,
     required String userId,
-  }) async {}
+  }) async {
+    demoted.add((familyId: familyId, userId: userId));
+    final current = directory.detail;
+    if (current == null) return;
+    directory.detail = FamilyDetail(
+      id: current.id,
+      name: current.name,
+      myRole: current.myRole,
+      people: [
+        for (final person in current.people)
+          person.userId == userId
+              ? FamilyPerson(
+                  userId: person.userId,
+                  role: 'member',
+                  displayName: person.displayName,
+                )
+              : person,
+      ],
+      pendingInvites: current.pendingInvites,
+    );
+  }
 
   @override
   Future<void> removeMember({
     required String familyId,
     required String userId,
-  }) async {}
+  }) async {
+    removed.add((familyId: familyId, userId: userId));
+  }
 
   @override
   Future<void> transferOwnership({

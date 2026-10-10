@@ -329,6 +329,77 @@ void main() {
     );
   });
 
+  testWidgets('picking a family on Manage opens that timeline', (tester) async {
+    final router = GoRouter(
+      initialLocation: AppRoutes.manageFamilies,
+      routes: [
+        GoRoute(
+          path: AppRoutes.manageFamilies,
+          builder: (context, state) => Scaffold(
+            appBar: AlbumHeader(
+              page: AlbumHeaderPage.manageFamilies,
+              familyName: 'Ada Archive',
+              families: [
+                _live('ada', 'Ada Archive'),
+                _live('bea', 'Bea Archive'),
+              ],
+              currentFamilyId: 'ada',
+              onFamilySelected: FamilySelection.remember,
+              stewarded: const [],
+              manageApi: _Manage(),
+            ),
+            body: const Text('hub-screen'),
+          ),
+        ),
+        GoRoute(
+          path: '/manage-families/:familyId',
+          builder: (context, state) => Scaffold(
+            appBar: AlbumHeader(
+              page: AlbumHeaderPage.manageFamilies,
+              familyName: 'Ada Archive',
+              families: [
+                _live('ada', 'Ada Archive'),
+                _live('bea', 'Bea Archive'),
+              ],
+              currentFamilyId: 'ada',
+              onFamilySelected: FamilySelection.remember,
+              stewarded: const [],
+              manageApi: _Manage(),
+            ),
+            body: const Text('detail-screen'),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) =>
+              const Scaffold(body: Text('timeline-screen')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu-item-bea')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('timeline-screen'), findsOneWidget);
+    expect(find.text('hub-screen'), findsNothing);
+    expect(FamilySelection.id, 'bea');
+
+    router.go('/manage-families/ada');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu-item-ada')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('timeline-screen'), findsOneWidget);
+    expect(FamilySelection.id, 'ada');
+  });
+
   testWidgets('a live family lands on the timeline', (tester) async {
     final path = await _land(
       tester,

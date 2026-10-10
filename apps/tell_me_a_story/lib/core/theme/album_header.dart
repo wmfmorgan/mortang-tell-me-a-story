@@ -483,6 +483,19 @@ class _FamilyMenu extends StatelessWidget {
   final ManageFamiliesGateway? manageApi;
   final bool active;
 
+  /// Manage hub and detail keep their own screens. A picked family is the
+  /// session family, and the timeline is where that family is read.
+  void _openFamilyTimeline(BuildContext context) {
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return;
+    final path = router.routerDelegate.currentConfiguration.uri.path;
+    final onManage =
+        path == AppRoutes.manageFamilies ||
+        path.startsWith('${AppRoutes.manageFamilies}/');
+    if (!onManage) return;
+    router.go(AppRoutes.timeline);
+  }
+
   Future<void> _start(BuildContext context) async {
     final id = await showStartFamilyDialog(
       context,
@@ -519,6 +532,7 @@ class _FamilyMenu extends StatelessWidget {
           return;
         }
         onSelected(value);
+        _openFamilyTimeline(context);
       },
       itemBuilder: (context) {
         return [

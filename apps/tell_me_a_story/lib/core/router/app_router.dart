@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/comments_api.dart';
 import '../../data/families_api.dart';
@@ -221,6 +222,7 @@ GoRouter createAppRouter({
           manageApi: manageApi,
           inviteApi: inviteApi,
           onLogout: onLogout,
+          currentUserId: _signedInUserId(),
         ),
       ),
       GoRoute(
@@ -234,4 +236,12 @@ GoRouter createAppRouter({
       ),
     ],
   );
+}
+
+String? _signedInUserId() {
+  try {
+    return Supabase.instance.client.auth.currentUser?.id;
+  } catch (_) {
+    return null;
+  }
 }
