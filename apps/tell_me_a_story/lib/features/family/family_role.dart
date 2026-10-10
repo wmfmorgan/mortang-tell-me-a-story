@@ -3,6 +3,47 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/album_theme.dart';
 
+/// First letter of [name], skipping a leading "The ", uppercased.
+String familyMonogram(String name) {
+  var trimmed = name.trim();
+  if (trimmed.length >= 4 && trimmed.substring(0, 4).toLowerCase() == 'the ') {
+    trimmed = trimmed.substring(4).trim();
+  }
+  if (trimmed.isEmpty) return '';
+  return trimmed[0].toUpperCase();
+}
+
+/// Parchment circle with [familyMonogram].
+class FamilyMonogram extends StatelessWidget {
+  const FamilyMonogram({super.key, required this.name, this.size = 28});
+
+  final String name;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: albumParchment,
+        shape: BoxShape.circle,
+        border: Border.all(color: albumInk.withValues(alpha: 0.12)),
+      ),
+      child: Text(
+        familyMonogram(name),
+        style: GoogleFonts.newsreader(
+          color: albumInk,
+          fontSize: size * 0.46,
+          fontWeight: FontWeight.w500,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
 String familyRoleLabel(String role) {
   return switch (role) {
     'owner' => 'Owner',

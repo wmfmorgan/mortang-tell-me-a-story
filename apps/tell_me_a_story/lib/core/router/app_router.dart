@@ -46,6 +46,26 @@ abstract final class AppRoutes {
   static String storyPerspectivePath(String id) => '/stories/$id/perspective';
 }
 
+/// Where a signed-in session opens from the magic-link route.
+///
+/// A live family lands on the timeline. No live family, with a soft-deleted
+/// family the caller still owns or co-owns, lands on the manage hub. Neither
+/// lands on the timeline empty Start state.
+Future<String> appStartPath(FamiliesGateway? families) async {
+  if (families == null) return AppRoutes.timeline;
+  try {
+    final live = await families.listMine();
+    if (live.isNotEmpty) return AppRoutes.timeline;
+    final stewarded = await families.listStewarded();
+    if (stewarded.any((family) => family.countsForManage())) {
+      return AppRoutes.manageFamilies;
+    }
+  } catch (_) {
+    return AppRoutes.timeline;
+  }
+  return AppRoutes.timeline;
+}
+
 GoRouter createAppRouter({
   required AuthRefresh authRefresh,
   InviteGateway? inviteApi,
@@ -71,7 +91,7 @@ GoRouter createAppRouter({
   return GoRouter(
     initialLocation: AppRoutes.magicLink,
     refreshListenable: authRefresh,
-    redirect: (BuildContext context, GoRouterState state) {
+    redirect: (BuildContext context, GoRouterState state) async {
       final signedIn = authRefresh.isSignedIn;
       final loc = state.matchedLocation;
       final onMagicLink = loc == AppRoutes.magicLink;
@@ -85,7 +105,8 @@ GoRouter createAppRouter({
         return '${AppRoutes.magicLink}$inviteSuffix';
       }
       if (signedIn && onMagicLink) {
-        return '${AppRoutes.timeline}$inviteSuffix';
+        final landing = await appStartPath(familiesApi);
+        return '$landing$inviteSuffix';
       }
       return null;
     },
@@ -96,8 +117,11 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRoutes.timeline,
-        builder: (context, state) =>
-            TimelinePage(api: inviteApi, storiesApi: storiesApi),
+        builder: (context, state) => TimelinePage(
+          api: inviteApi,
+          storiesApi: storiesApi,
+          familiesApi: familiesApi,
+        ),
       ),
       GoRoute(
         path: AppRoutes.newStory,
@@ -110,6 +134,7 @@ GoRouter createAppRouter({
             mapboxSearch: mapboxSearch,
             storiesApi: storiesApi,
             photosApi: photosApi,
+            familiesApi: familiesApi,
             draftId: (draft != null && draft.isNotEmpty) ? draft : null,
           );
         },
@@ -204,6 +229,7 @@ GoRouter createAppRouter({
           inviteApi: inviteApi,
           storiesApi: storiesApi,
           photosApi: photosApi,
+          familiesApi: familiesApi,
         ),
       ),
     ],

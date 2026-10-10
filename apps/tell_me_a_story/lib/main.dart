@@ -5,6 +5,7 @@ import 'app.dart';
 import 'core/router/app_router.dart';
 import 'core/router/auth_refresh.dart';
 import 'core/supabase/supabase_init.dart';
+import 'data/families_api.dart';
 import 'data/profile_api.dart';
 import 'data/profile_session.dart';
 
@@ -21,5 +22,12 @@ Future<void> main() async {
     initiallySignedIn: Supabase.instance.client.auth.currentSession != null,
   );
 
-  runApp(TellMeAStoryApp(router: createAppRouter(authRefresh: authRefresh)));
+  runApp(
+    TellMeAStoryApp(
+      router: createAppRouter(
+        authRefresh: authRefresh,
+        familiesApi: FamiliesApi(),
+      ),
+    ),
+  );
 }

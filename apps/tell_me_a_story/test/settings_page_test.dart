@@ -181,9 +181,7 @@ void main() {
     expect(find.byKey(const Key('profile-avatar-image')), findsWidgets);
   });
 
-  testWidgets('the avatar opens Settings, Manage families, then Logout', (
-    tester,
-  ) async {
+  testWidgets('the avatar opens Settings, then Logout', (tester) async {
     for (final page in AlbumHeaderPage.values) {
       await tester.pumpWidget(_bar(page));
       await tester.pumpAndSettle();
@@ -193,13 +191,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Settings'), findsOneWidget);
-      expect(find.text('Manage families'), findsOneWidget);
+      expect(find.text('Manage families'), findsNothing);
       expect(find.text('Logout'), findsOneWidget);
+      expect(find.byType(PopupMenuItem<String>), findsNWidgets(2));
       final settingsY = tester.getTopLeft(find.text('Settings')).dy;
-      final manageY = tester.getTopLeft(find.text('Manage families')).dy;
       final logoutY = tester.getTopLeft(find.text('Logout')).dy;
-      expect(settingsY, lessThan(manageY));
-      expect(manageY, lessThan(logoutY));
+      expect(settingsY, lessThan(logoutY));
       expect(find.byKey(const Key('settings-name')), findsNothing);
 
       await tester.pumpWidget(const SizedBox.shrink());

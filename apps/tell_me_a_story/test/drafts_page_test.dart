@@ -504,4 +504,7 @@ class _FakeFamilies implements FamiliesGateway {
 
   @override
   Future<List<MemberFamily>> listMine() async => rows;
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => const [];
 }

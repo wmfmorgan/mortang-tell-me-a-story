@@ -41,6 +41,7 @@ class ManageFamilyPage extends StatefulWidget {
 class _ManageFamilyPageState extends State<ManageFamilyPage> {
   FamilyDetail? _detail;
   List<MemberFamily> _families = const [];
+  List<StewardFamily> _stewarded = const [];
   String? _sessionFamilyId;
   var _loading = true;
   var _missing = false;
@@ -82,6 +83,9 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
       final families = widget.familiesApi == null
           ? const <MemberFamily>[]
           : await widget.familiesApi!.listMine();
+      final stewarded = widget.familiesApi == null
+          ? const <StewardFamily>[]
+          : await widget.familiesApi!.listStewarded();
       final session = widget.inviteApi == null
           ? FamilySelection.id
           : await widget.inviteApi!.currentFamilyId();
@@ -97,6 +101,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
       setState(() {
         _detail = detail;
         _families = families;
+        _stewarded = stewarded;
         _sessionFamilyId = session ?? FamilySelection.id;
         _loading = false;
         _missing = false;
@@ -252,7 +257,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
       key: const Key('manage-family-detail'),
       backgroundColor: albumParchment,
       appBar: AlbumHeader(
-        page: AlbumHeaderPage.timeline,
+        page: AlbumHeaderPage.manageFamilies,
         familyName: _sessionName,
         families: _families,
         currentFamilyId: _sessionFamilyId,
@@ -260,6 +265,8 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
           FamilySelection.remember(id);
           setState(() => _sessionFamilyId = id);
         },
+        stewarded: _stewarded,
+        manageApi: widget.manageApi,
         onInvite: _inviteSession,
         onLogout: widget.onLogout,
       ),

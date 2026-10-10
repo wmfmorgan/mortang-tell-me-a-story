@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'recovery_window.dart';
+
 /// A family the signed-in member can already read.
 class MemberFamily {
   const MemberFamily({
@@ -30,8 +32,35 @@ class MemberFamily {
   }
 }
 
+/// A family the caller owns or co-owns. [deletedAt] is set while it is
+/// soft-deleted. The manage gate keeps rows still inside the 60-day window.
+class StewardFamily {
+  const StewardFamily({
+    required this.id,
+    required this.name,
+    required this.role,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String name;
+  final String role;
+  final DateTime? deletedAt;
+
+  bool countsForManage([DateTime? now]) {
+    if (role != 'owner' && role != 'co_owner') return false;
+    final deleted = deletedAt;
+    if (deleted == null) return true;
+    return isInsideRecoveryWindow(deleted, now);
+  }
+}
+
 abstract class FamiliesGateway {
   Future<List<MemberFamily>> listMine();
+
+  /// Owner and co-owner families, including soft-deleted rows still inside
+  /// the 60-day window. Live member-only families are not included.
+  Future<List<StewardFamily>> listStewarded();
 }
 
 /// Hub card. Active rows have a null [deletedAt].
@@ -124,17 +153,41 @@ class FamiliesApi implements FamiliesGateway, FamilyDirectoryGateway {
   }
 
   @override
+  Future<List<StewardFamily>> listStewarded() async {
+    final uid = _client.auth.currentUser!.id;
+    final rows = await _membershipRows(uid, deleted: null, stewardOnly: true);
+    final stewarded = <StewardFamily>[];
+    for (final roster in _rosters(rows)) {
+      final family = StewardFamily(
+        id: roster.id,
+        name: roster.name,
+        role: roster.role,
+        deletedAt: roster.deletedAt,
+      );
+      if (family.countsForManage()) stewarded.add(family);
+    }
+    return stewarded;
+  }
+
+  @override
   Future<FamilyDirectory> listDirectory() async {
     final uid = _client.auth.currentUser!.id;
-    final activeRows = await _membershipRows(uid, deleted: false);
-    final recoverableRows = await _client
-        .from('memberships')
-        .select('role, families!inner(id, name, deleted_at)')
-        .eq('user_id', uid)
-        .inFilter('role', ['owner', 'co_owner'])
-        .not('families.deleted_at', 'is', null);
+    final activeRows = await _membershipRows(
+      uid,
+      deleted: false,
+      stewardOnly: true,
+    );
+    final recoverableRows = await _membershipRows(
+      uid,
+      deleted: true,
+      stewardOnly: true,
+    );
     final active = _rosters(activeRows);
-    final recoverable = _rosters(recoverableRows);
+    final recoverable = [
+      for (final row in _rosters(recoverableRows))
+        if (row.deletedAt != null && isInsideRecoveryWindow(row.deletedAt!))
+          row,
+    ];
     final ids = [...active, ...recoverable].map((row) => row.id).toList();
     final members = await _counts('memberships', ids);
     final stories = await _publishedCounts(ids);
@@ -211,16 +264,25 @@ class FamiliesApi implements FamiliesGateway, FamilyDirectoryGateway {
 
   Future<List<Map<String, dynamic>>> _membershipRows(
     String uid, {
-    required bool deleted,
+    required bool? deleted,
+    bool stewardOnly = false,
   }) async {
-    final query = _client
+    var query = _client
         .from('memberships')
         .select('role, families!inner(id, name, deleted_at)')
         .eq('user_id', uid);
-    final rows = deleted
-        ? await query.not('families.deleted_at', 'is', null)
-        : await query.isFilter('families.deleted_at', null);
-    return [for (final row in rows) Map<String, dynamic>.from(row)];
+    if (stewardOnly) {
+      query = query.inFilter('role', ['owner', 'co_owner']);
+    }
+    final List<dynamic> rows;
+    if (deleted == null) {
+      rows = await query;
+    } else if (deleted) {
+      rows = await query.not('families.deleted_at', 'is', null);
+    } else {
+      rows = await query.isFilter('families.deleted_at', null);
+    }
+    return [for (final row in rows) Map<String, dynamic>.from(row as Map)];
   }
 
   List<FamilyRoster> _rosters(List<dynamic> rows) {

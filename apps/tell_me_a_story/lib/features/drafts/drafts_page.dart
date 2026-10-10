@@ -53,6 +53,7 @@ class _DraftsPageState extends State<DraftsPage> {
   List<Story> _drafts = const [];
   var _filter = _DraftsFilter.all;
   List<MemberFamily> _families = const [];
+  List<StewardFamily> _stewarded = const [];
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
@@ -81,6 +82,7 @@ class _DraftsPageState extends State<DraftsPage> {
           _drafts = const [];
           _loading = false;
         });
+        await _loadFamilies();
         return;
       }
       final drafts = await _stories.listMyDrafts(familyId);
@@ -102,9 +104,11 @@ class _DraftsPageState extends State<DraftsPage> {
 
   Future<void> _loadFamilies() async {
     List<MemberFamily> rows = const [];
+    List<StewardFamily> stewarded = const [];
     try {
       if (widget.familiesApi != null) {
         rows = await widget.familiesApi!.listMine();
+        stewarded = await widget.familiesApi!.listStewarded();
       } else if (widget.inviteApi != null || widget.storiesApi != null) {
         final id = _familyId;
         if (id != null) {
@@ -113,10 +117,13 @@ class _DraftsPageState extends State<DraftsPage> {
           ];
         }
       } else {
-        rows = await FamiliesApi().listMine();
+        final live = FamiliesApi();
+        rows = await live.listMine();
+        stewarded = await live.listStewarded();
       }
     } catch (_) {
       rows = const [];
+      stewarded = const [];
     }
     if (!mounted) return;
     if (rows.isEmpty && _familyId != null) {
@@ -128,7 +135,10 @@ class _DraftsPageState extends State<DraftsPage> {
         ),
       ];
     }
-    setState(() => _families = rows);
+    setState(() {
+      _families = rows;
+      _stewarded = stewarded;
+    });
   }
 
   Future<void> _selectFamily(String id) async {
@@ -203,6 +213,7 @@ class _DraftsPageState extends State<DraftsPage> {
         families: _families,
         currentFamilyId: _familyId,
         onFamilySelected: _selectFamily,
+        stewarded: _stewarded,
         onInvite: _openInvite,
       ),
       body: SafeArea(

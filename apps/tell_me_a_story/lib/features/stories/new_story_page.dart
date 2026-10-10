@@ -79,6 +79,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
   String? _familyId;
   String? _menuFamilyId;
   List<MemberFamily> _families = const [];
+  List<StewardFamily> _stewarded = const [];
   String? _storyId;
   var _loadingFamily = true;
   var _busy = false;
@@ -492,9 +493,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   Future<void> _loadFamilies() async {
     List<MemberFamily> rows = const [];
+    List<StewardFamily> stewarded = const [];
     try {
       if (widget.familiesApi != null) {
         rows = await widget.familiesApi!.listMine();
+        stewarded = await widget.familiesApi!.listStewarded();
       } else if (widget.inviteApi != null || widget.storiesApi != null) {
         final id = _familyId;
         if (id != null) {
@@ -503,13 +506,19 @@ class _NewStoryPageState extends State<NewStoryPage> {
           ];
         }
       } else {
-        rows = await FamiliesApi().listMine();
+        final live = FamiliesApi();
+        rows = await live.listMine();
+        stewarded = await live.listStewarded();
       }
     } catch (_) {
       rows = const [];
+      stewarded = const [];
     }
     if (!mounted) return;
-    setState(() => _families = rows);
+    setState(() {
+      _families = rows;
+      _stewarded = stewarded;
+    });
   }
 
   void _selectFamily(String id) {
@@ -537,6 +546,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         families: _families,
         currentFamilyId: _shownFamilyId,
         onFamilySelected: _selectFamily,
+        stewarded: _stewarded,
         onSaveDraft: _canSaveDraft ? _onSaveDraft : null,
         onPublish: _actionsEnabled ? _onPublish : null,
       ),

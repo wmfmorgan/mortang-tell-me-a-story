@@ -9,11 +9,12 @@ import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/manage_families_api.dart';
+import '../../data/recovery_window.dart';
 import '../invites/invite_modal.dart';
 import 'family_role.dart';
 import 'start_family_dialog.dart';
 
-/// Stitch hub `b429823c1f6a44aea297aaeef195bedd`.
+/// Stitch hub `622ceebb3b434b6c88143f888cca8ef9`.
 class ManageFamiliesPage extends StatefulWidget {
   const ManageFamiliesPage({
     super.key,
@@ -37,6 +38,7 @@ class ManageFamiliesPage extends StatefulWidget {
 class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
   FamilyDirectory _rows = const FamilyDirectory(active: [], recoverable: []);
   List<MemberFamily> _families = const [];
+  List<StewardFamily> _stewarded = const [];
   String? _sessionFamilyId;
   var _loading = true;
 
@@ -54,16 +56,15 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
   Future<void> _load() async {
     try {
       final directory = await _directoryApi.listDirectory();
-      final families = widget.familiesApi == null
-          ? const <MemberFamily>[]
-          : await widget.familiesApi!.listMine();
+      final menu = await _loadMenu();
       final session = widget.inviteApi == null
           ? FamilySelection.id
           : await widget.inviteApi!.currentFamilyId();
       if (!mounted) return;
       setState(() {
         _rows = directory;
-        _families = families;
+        _families = menu.families;
+        _stewarded = menu.stewarded;
         _sessionFamilyId = session ?? FamilySelection.id;
         _loading = false;
       });
@@ -72,6 +73,41 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
       setState(() => _loading = false);
     }
   }
+
+  Future<({List<MemberFamily> families, List<StewardFamily> stewarded})>
+  _loadMenu() async {
+    final api = widget.familiesApi;
+    if (api != null) {
+      return (
+        families: await api.listMine(),
+        stewarded: await api.listStewarded(),
+      );
+    }
+    if (widget.directoryApi != null) {
+      return (
+        families: const <MemberFamily>[],
+        stewarded: const <StewardFamily>[],
+      );
+    }
+    final live = FamiliesApi();
+    return (
+      families: await live.listMine(),
+      stewarded: await live.listStewarded(),
+    );
+  }
+
+  List<FamilyRoster> get _ownedActive => [
+    for (final family in _rows.active)
+      if (family.role == 'owner' || family.role == 'co_owner') family,
+  ];
+
+  List<FamilyRoster> get _recoverableNow => [
+    for (final family in _rows.recoverable)
+      if ((family.role == 'owner' || family.role == 'co_owner') &&
+          family.deletedAt != null &&
+          isInsideRecoveryWindow(family.deletedAt!))
+        family,
+  ];
 
   String get _sessionName {
     for (final family in _families) {
@@ -117,7 +153,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
     return Scaffold(
       backgroundColor: albumParchment,
       appBar: AlbumHeader(
-        page: AlbumHeaderPage.timeline,
+        page: AlbumHeaderPage.manageFamilies,
         familyName: _sessionName,
         families: _families,
         currentFamilyId: _sessionFamilyId,
@@ -125,6 +161,8 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
           FamilySelection.remember(id);
           setState(() => _sessionFamilyId = id);
         },
+        stewarded: _stewarded,
+        manageApi: widget.manageApi,
         onInvite: _invite,
         onLogout: widget.onLogout,
       ),
@@ -213,7 +251,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
-                                '${_rows.active.length} active',
+                                '${_ownedActive.length} active',
                                 style: GoogleFonts.sourceSans3(
                                   color: _hubVariant,
                                   fontSize: 12,
@@ -223,11 +261,11 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        for (final family in _rows.active) ...[
+                        for (final family in _ownedActive) ...[
                           _ActiveCard(family: family),
                           const SizedBox(height: 16),
                         ],
-                        if (_rows.recoverable.isNotEmpty) ...[
+                        if (_recoverableNow.isNotEmpty) ...[
                           const SizedBox(height: 32),
                           Text(
                             'Recoverable (60 days)',
@@ -238,7 +276,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          for (final family in _rows.recoverable) ...[
+                          for (final family in _recoverableNow) ...[
                             _RecoverCard(
                               family: family,
                               onRecover: () => _recover(family),
@@ -260,34 +298,6 @@ const _hubVariant = Color(0xFF655E5B);
 const _hubLine = Color(0xFFB9B0AD);
 const _hubHigh = Color(0xFFF0E6E3);
 const _hubContainer = Color(0xFFF5ECE9);
-const _hubBlush = Color(0xFFF5DED6);
-const _hubBlushInk = Color(0xFF5E4E48);
-const _hubError = Color(0xFF9F403D);
-
-class _Mark extends StatelessWidget {
-  const _Mark({
-    required this.icon,
-    required this.background,
-    required this.color,
-  });
-
-  final IconData icon;
-  final Color background;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(icon, size: 24, color: color),
-    );
-  }
-}
 
 class _ActiveCard extends StatelessWidget {
   const _ActiveCard({required this.family});
@@ -296,7 +306,6 @@ class _ActiveCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final owner = family.role == 'owner';
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -314,14 +323,10 @@ class _ActiveCard extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Row(
           children: [
-            _Mark(
-              icon: switch (family.role) {
-                'owner' => Icons.diversity_3,
-                'co_owner' => Icons.cottage,
-                _ => Icons.park,
-              },
-              background: owner ? _hubBlush : _hubContainer,
-              color: owner ? _hubBlushInk : _hubVariant,
+            FamilyMonogram(
+              key: Key('hub-monogram-${family.id}'),
+              name: family.name,
+              size: 48,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -421,10 +426,10 @@ class _RecoverCard extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Row(
           children: [
-            const _Mark(
-              icon: Icons.folder_delete,
-              background: _hubHigh,
-              color: _hubError,
+            FamilyMonogram(
+              key: Key('hub-monogram-${family.id}'),
+              name: family.name,
+              size: 48,
             ),
             const SizedBox(width: 16),
             Expanded(

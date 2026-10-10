@@ -4,13 +4,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/families_api.dart';
+import '../../data/family_selection.dart';
+import '../../data/manage_families_api.dart';
 import '../../data/profile_session.dart';
+import '../../features/family/family_role.dart';
+import '../../features/family/start_family_dialog.dart';
 import '../router/app_router.dart';
 import 'album_theme.dart';
 import 'profile_avatar.dart';
 
 /// Which signed-in screen is showing the shared bar.
-enum AlbumHeaderPage { timeline, drafts, capture, settings }
+enum AlbumHeaderPage { timeline, drafts, capture, settings, manageFamilies }
 
 /// Stitch screen `703158c2c064414883d9d1c1dff8902a` header only.
 class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
@@ -21,6 +25,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
     required this.families,
     required this.currentFamilyId,
     required this.onFamilySelected,
+    this.stewarded = const [],
+    this.manageApi,
     this.onInvite,
     this.onSaveDraft,
     this.onPublish,
@@ -32,6 +38,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   final List<MemberFamily> families;
   final String? currentFamilyId;
   final ValueChanged<String> onFamilySelected;
+  final List<StewardFamily> stewarded;
+  final ManageFamiliesGateway? manageApi;
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
@@ -68,6 +76,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               families: families,
               currentFamilyId: currentFamilyId,
               onFamilySelected: onFamilySelected,
+              stewarded: stewarded,
+              manageApi: manageApi,
               onInvite: onInvite,
               onSaveDraft: onSaveDraft,
               onPublish: onPublish,
@@ -117,6 +127,8 @@ class _HeaderBar extends StatelessWidget {
     required this.families,
     required this.currentFamilyId,
     required this.onFamilySelected,
+    required this.stewarded,
+    required this.manageApi,
     required this.onInvite,
     required this.onSaveDraft,
     required this.onPublish,
@@ -132,6 +144,8 @@ class _HeaderBar extends StatelessWidget {
   final List<MemberFamily> families;
   final String? currentFamilyId;
   final ValueChanged<String> onFamilySelected;
+  final List<StewardFamily> stewarded;
+  final ManageFamiliesGateway? manageApi;
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
@@ -163,6 +177,9 @@ class _HeaderBar extends StatelessWidget {
               families: families,
               currentFamilyId: currentFamilyId,
               onSelected: onFamilySelected,
+              showManage: stewarded.any((family) => family.countsForManage()),
+              manageApi: manageApi,
+              active: page == AlbumHeaderPage.manageFamilies,
             ),
           ),
           SizedBox(width: metrics.gaps[2]),
@@ -450,24 +467,64 @@ class _FamilyMenu extends StatelessWidget {
     required this.families,
     required this.currentFamilyId,
     required this.onSelected,
+    required this.showManage,
+    required this.manageApi,
+    required this.active,
   });
+
+  static const _startValue = 'start-family';
+  static const _manageValue = 'manage-families';
 
   final String familyName;
   final List<MemberFamily> families;
   final String? currentFamilyId;
   final ValueChanged<String> onSelected;
+  final bool showManage;
+  final ManageFamiliesGateway? manageApi;
+  final bool active;
+
+  Future<void> _start(BuildContext context) async {
+    final id = await showStartFamilyDialog(
+      context,
+      api: manageApi ?? ManageFamiliesApi(),
+    );
+    if (id == null || !context.mounted) return;
+    FamilySelection.remember(id);
+    GoRouter.of(context).go(AppRoutes.timeline);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final style = GoogleFonts.newsreader(
+      color: albumInk,
+      fontSize: 18,
+      fontWeight: FontWeight.w500,
+    );
+    final painter = TextPainter(
+      text: TextSpan(text: familyName, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
     return PopupMenuButton<String>(
       key: const Key('family-menu'),
       tooltip: familyName,
       padding: EdgeInsets.zero,
-      onSelected: onSelected,
+      onSelected: (value) {
+        if (value == _startValue) {
+          _start(context);
+          return;
+        }
+        if (value == _manageValue) {
+          GoRouter.of(context).go(AppRoutes.manageFamilies);
+          return;
+        }
+        onSelected(value);
+      },
       itemBuilder: (context) {
         return [
           for (final family in families)
             PopupMenuItem<String>(
+              key: Key('family-menu-item-${family.id}'),
               value: family.id,
               child: Row(
                 children: [
@@ -477,6 +534,11 @@ class _FamilyMenu extends StatelessWidget {
                         ? const Icon(Icons.check, size: 16)
                         : null,
                   ),
+                  FamilyMonogram(
+                    key: Key('family-monogram-${family.id}'),
+                    name: family.name,
+                  ),
+                  const SizedBox(width: 8),
                   Flexible(
                     child: Text(
                       family.name,
@@ -487,29 +549,53 @@ class _FamilyMenu extends StatelessWidget {
                 ],
               ),
             ),
+          const PopupMenuDivider(key: Key('family-menu-divider')),
+          const PopupMenuItem<String>(
+            key: Key('family-menu-start'),
+            value: _startValue,
+            child: Text('+ Start a family'),
+          ),
+          if (showManage)
+            const PopupMenuItem<String>(
+              key: Key('family-menu-manage'),
+              value: _manageValue,
+              child: Text('Manage families'),
+            ),
         ];
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Flexible(
-              child: Text(
-                familyName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.newsreader(
-                  color: albumInk,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
+            Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    familyName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: style,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.expand_more,
+                  size: 18,
+                  color: albumInk.withValues(alpha: 0.7),
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.expand_more,
-              size: 18,
-              color: albumInk.withValues(alpha: 0.7),
+            const SizedBox(height: 6),
+            Container(
+              key: active ? const Key('header-underline-family') : null,
+              width: painter.width,
+              height: 2,
+              decoration: BoxDecoration(
+                color: active ? albumInk : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+              ),
             ),
           ],
         ),
@@ -691,10 +777,6 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
           GoRouter.of(context).push(AppRoutes.settings);
           return;
         }
-        if (value == 'manage-families') {
-          GoRouter.of(context).push(AppRoutes.manageFamilies);
-          return;
-        }
         await _logout();
       },
       itemBuilder: (context) {
@@ -704,12 +786,6 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
             value: 'settings',
             child: _menuRow(Icons.settings, 'Settings'),
           ),
-          PopupMenuItem<String>(
-            key: const Key('header-menu-manage-families'),
-            value: 'manage-families',
-            child: _menuRow(Icons.diversity_3, 'Manage families'),
-          ),
-          const PopupMenuDivider(),
           PopupMenuItem<String>(
             key: const Key('header-menu-logout'),
             value: 'logout',
