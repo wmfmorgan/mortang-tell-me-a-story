@@ -43,7 +43,7 @@ class _FakeInviteApi implements InviteGateway {
   Future<void> sendInviteEmail({required String inviteId}) async {}
 }
 
-class _FakePeopleApi implements PeopleGateway {
+class _FakePeopleApi extends PeopleGateway {
   _FakePeopleApi({List<Person>? seed}) : rows = [...?seed];
 
   final List<Person> rows;

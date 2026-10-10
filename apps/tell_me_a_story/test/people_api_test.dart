@@ -156,7 +156,7 @@ void main() {
 }
 
 /// In-memory [PeopleGateway] that mirrors PeopleApi create validation rules.
-class FakePeopleGateway implements PeopleGateway {
+class FakePeopleGateway extends PeopleGateway {
   FakePeopleGateway({required this.createdBy});
 
   final String createdBy;

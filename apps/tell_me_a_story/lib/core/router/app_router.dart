@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/comments_api.dart';
 import '../../data/families_api.dart';
+import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
@@ -109,6 +110,19 @@ GoRouter createAppRouter({
         final landing = await appStartPath(familiesApi);
         return '$landing$inviteSuffix';
       }
+      if (signedIn && loc == AppRoutes.newStory && familiesApi != null) {
+        final familyId = FamilySelection.id;
+        if (familyId != null) {
+          try {
+            final mine = await familiesApi.listMine();
+            if (!mine.any((family) => family.id == familyId)) {
+              return AppRoutes.timeline;
+            }
+          } catch (_) {
+            return null;
+          }
+        }
+      }
       return null;
     },
     routes: [
@@ -165,6 +179,7 @@ GoRouter createAppRouter({
             commentsApi: commentsApi,
             perspectivesApi: perspectivesApi,
             profileApi: profileApi,
+            familiesApi: familiesApi,
             presentation: modal
                 ? ReaderPresentation.modal
                 : ReaderPresentation.page,

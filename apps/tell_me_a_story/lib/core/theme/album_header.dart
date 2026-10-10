@@ -26,6 +26,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
     required this.currentFamilyId,
     required this.onFamilySelected,
     this.stewarded = const [],
+    this.relatedFamilies = const [],
+    this.canWrite = true,
     this.manageApi,
     this.onInvite,
     this.onSaveDraft,
@@ -39,6 +41,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   final String? currentFamilyId;
   final ValueChanged<String> onFamilySelected;
   final List<StewardFamily> stewarded;
+  final List<TreeFamily> relatedFamilies;
+  final bool canWrite;
   final ManageFamiliesGateway? manageApi;
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
@@ -77,6 +81,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               currentFamilyId: currentFamilyId,
               onFamilySelected: onFamilySelected,
               stewarded: stewarded,
+              relatedFamilies: relatedFamilies,
+              canWrite: canWrite,
               manageApi: manageApi,
               onInvite: onInvite,
               onSaveDraft: onSaveDraft,
@@ -128,6 +134,8 @@ class _HeaderBar extends StatelessWidget {
     required this.currentFamilyId,
     required this.onFamilySelected,
     required this.stewarded,
+    required this.relatedFamilies,
+    required this.canWrite,
     required this.manageApi,
     required this.onInvite,
     required this.onSaveDraft,
@@ -145,6 +153,8 @@ class _HeaderBar extends StatelessWidget {
   final String? currentFamilyId;
   final ValueChanged<String> onFamilySelected;
   final List<StewardFamily> stewarded;
+  final List<TreeFamily> relatedFamilies;
+  final bool canWrite;
   final ManageFamiliesGateway? manageApi;
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
@@ -178,6 +188,7 @@ class _HeaderBar extends StatelessWidget {
               currentFamilyId: currentFamilyId,
               onSelected: onFamilySelected,
               showManage: stewarded.any((family) => family.countsForManage()),
+              relatedFamilies: relatedFamilies,
               manageApi: manageApi,
               active: page == AlbumHeaderPage.manageFamilies,
             ),
@@ -222,7 +233,7 @@ class _HeaderBar extends StatelessWidget {
               ),
               child: const Text('Publish story'),
             ),
-          ] else ...[
+          ] else if (canWrite) ...[
             TextButton(
               key: const Key('header-invite'),
               onPressed: onInvite,
@@ -468,6 +479,7 @@ class _FamilyMenu extends StatelessWidget {
     required this.currentFamilyId,
     required this.onSelected,
     required this.showManage,
+    required this.relatedFamilies,
     required this.manageApi,
     required this.active,
   });
@@ -480,6 +492,7 @@ class _FamilyMenu extends StatelessWidget {
   final String? currentFamilyId;
   final ValueChanged<String> onSelected;
   final bool showManage;
+  final List<TreeFamily> relatedFamilies;
   final ManageFamiliesGateway? manageApi;
   final bool active;
 
@@ -575,6 +588,40 @@ class _FamilyMenu extends StatelessWidget {
               value: _manageValue,
               child: Text('Manage families'),
             ),
+          if (relatedFamilies.isNotEmpty) ...[
+            const PopupMenuDivider(key: Key('family-menu-related-divider')),
+            const PopupMenuItem<String>(
+              enabled: false,
+              child: Text('Related families'),
+            ),
+            for (final family in relatedFamilies)
+              PopupMenuItem<String>(
+                key: Key('family-menu-related-${family.id}'),
+                value: family.id,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      child: family.id == currentFamilyId
+                          ? const Icon(Icons.check, size: 16)
+                          : null,
+                    ),
+                    FamilyMonogram(
+                      key: Key('family-monogram-related-${family.id}'),
+                      name: family.name,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        family.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ];
       },
       child: Padding(

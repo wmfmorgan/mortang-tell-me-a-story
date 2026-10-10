@@ -2,9 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/config/env.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
+
+class _MemberOf extends FamiliesGateway {
+  _MemberOf(this.id);
+
+  final String id;
+
+  @override
+  Future<List<MemberFamily>> listMine() async {
+    return [MemberFamily(id: id, name: 'Ada', createdAt: DateTime.utc(2020))];
+  }
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => const [];
+}
 
 class _StubInviteApi implements InviteGateway {
   int creates = 0;
@@ -53,7 +68,12 @@ void main() {
 
   testWidgets('timeline header shows Invite and New story', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(home: TimelinePage(api: _StubInviteApi())),
+      MaterialApp(
+        home: TimelinePage(
+          api: _StubInviteApi(),
+          familiesApi: _MemberOf('family-1'),
+        ),
+      ),
     );
     await tester.pumpAndSettle();
     expect(find.text('Invite'), findsOneWidget);
