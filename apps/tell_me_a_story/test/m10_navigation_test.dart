@@ -545,7 +545,7 @@ Future<String> _land(
   return router.routerDelegate.currentConfiguration.uri.path;
 }
 
-class _Families implements FamiliesGateway {
+class _Families extends FamiliesGateway {
   _Families({this.live = const [], this.stewarded = const []});
 
   final List<MemberFamily> live;

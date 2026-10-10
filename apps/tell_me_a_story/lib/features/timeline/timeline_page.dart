@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -49,6 +50,8 @@ class _TimelinePageState extends State<TimelinePage> {
   String? _familyId;
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
+  List<TreeFamily> _tree = const [];
+  Set<String> _memberIds = const {};
   List<Story> _published = const [];
   var _loadingFamily = true;
   var _loadingPublished = true;
@@ -138,31 +141,51 @@ class _TimelinePageState extends State<TimelinePage> {
     final familyId = _familyId;
     List<MemberFamily> rows = const [];
     List<StewardFamily> stewarded = const [];
+    List<TreeFamily> tree = const [];
+    var memberIds = <String>{};
+    final gateway = widget.familiesApi;
     try {
-      if (widget.familiesApi != null) {
-        rows = await widget.familiesApi!.listMine();
-        stewarded = await widget.familiesApi!.listStewarded();
+      if (gateway != null) {
+        rows = await gateway.listMine();
+        stewarded = await gateway.listStewarded();
+        memberIds = rows.map((row) => row.id).toSet();
       } else if (widget.storiesApi != null) {
-        rows = familyId == null
-            ? const []
-            : [
-                MemberFamily(
-                  id: familyId,
-                  name: 'Family',
-                  createdAt: DateTime.utc(2020),
-                ),
-              ];
+        if (familyId != null) {
+          rows = [
+            MemberFamily(
+              id: familyId,
+              name: 'Family',
+              createdAt: DateTime.utc(2020),
+            ),
+          ];
+          memberIds = {familyId};
+          tree = [TreeFamily(id: familyId, name: 'Family')];
+        }
       } else {
         final live = FamiliesApi();
         rows = await live.listMine();
         stewarded = await live.listStewarded();
+        memberIds = rows.map((row) => row.id).toSet();
+        if (familyId != null) {
+          tree = await live.listFamilyTree(familyId);
+        }
       }
     } catch (_) {
       rows = const [];
       stewarded = const [];
+      tree = const [];
+      memberIds = {};
+    }
+    if (gateway != null && familyId != null) {
+      try {
+        tree = await gateway.listFamilyTree(familyId);
+      } catch (_) {
+        tree = const [];
+      }
     }
     if (!mounted) return;
-    if (rows.isEmpty && familyId != null) {
+    // A name for the header only. This row is not a membership.
+    if (rows.isEmpty && familyId != null && memberIds.isEmpty) {
       rows = [
         MemberFamily(
           id: familyId,
@@ -174,6 +197,8 @@ class _TimelinePageState extends State<TimelinePage> {
     setState(() {
       _families = rows;
       _stewarded = stewarded;
+      _tree = tree;
+      _memberIds = memberIds;
     });
   }
 
@@ -227,8 +252,10 @@ class _TimelinePageState extends State<TimelinePage> {
     setState(() {
       _familyId = id;
       _loadingPublished = true;
+      _tree = const [];
     });
     _watchLive();
+    await _loadFamilies();
     await _loadPublished();
     if (!mounted) return;
     final still =
@@ -262,10 +289,41 @@ class _TimelinePageState extends State<TimelinePage> {
   }
 
   MemberFamily? get _currentFamily {
+    final id = _familyId;
     for (final family in _families) {
-      if (family.id == _familyId) return family;
+      if (family.id == id) return family;
+    }
+    for (final family in _tree) {
+      if (family.id == id) {
+        return MemberFamily(
+          id: family.id,
+          name: family.name,
+          createdAt: DateTime.utc(2020),
+          parentFamilyId: family.parentFamilyId,
+        );
+      }
     }
     return _families.isEmpty ? null : _families.first;
+  }
+
+  bool get _canWrite {
+    final id = _familyId;
+    if (id == null) return false;
+    if (_memberIds.contains(id)) return true;
+    return widget.familiesApi == null && widget.storiesApi != null;
+  }
+
+  List<TreeFamily> get _relatedMenu {
+    return [
+      for (final row in _tree)
+        if (!_memberIds.contains(row.id)) row,
+    ];
+  }
+
+  List<TreeFamily> get _marks {
+    final id = _familyId;
+    if (id == null) return const [];
+    return relatedMarks(_tree, id);
   }
 
   Story? _storyById(String? id) {
@@ -392,7 +450,9 @@ class _TimelinePageState extends State<TimelinePage> {
         currentFamilyId: _familyId,
         onFamilySelected: _selectFamily,
         stewarded: _stewarded,
-        onInvite: _openInvite,
+        relatedFamilies: _relatedMenu,
+        canWrite: _canWrite,
+        onInvite: _canWrite ? _openInvite : null,
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -477,9 +537,11 @@ class _TimelinePageState extends State<TimelinePage> {
         bands: bands,
         focusedId: _focusedStoryId,
         child: child,
+        marks: _marks,
         onDot: _openMid,
         onYear: _openMidOnYear,
         onFocus: _onDialFocus,
+        onMark: (family) => _selectFamily(family.id),
         onMid: _zoomIn,
         onFullCards: _openFullCards,
       ),
@@ -487,10 +549,12 @@ class _TimelinePageState extends State<TimelinePage> {
         stories: dialStories(_published),
         focusedId: _focusedStoryId,
         child: child,
+        marks: _marks,
         anchorFor: _anchor,
         onStub: _openStory,
         onNode: _openNear,
         onFocus: _onDialFocus,
+        onMark: (family) => _selectFamily(family.id),
         onMacro: _fitAll,
         onFullCards: _zoomIn,
       ),
@@ -498,9 +562,11 @@ class _TimelinePageState extends State<TimelinePage> {
         stories: dialStories(_published),
         focusedId: _focusedStoryId,
         photos: _photos,
+        marks: _marks,
         anchorFor: _anchor,
         onOpen: _openStory,
         onFocus: _onDialFocus,
+        onMark: (family) => _selectFamily(family.id),
         onMacro: _fitAll,
         onMid: () => setState(() => _zoom = TimelineZoom.mid),
       ),
@@ -654,9 +720,11 @@ class _FarRail extends StatefulWidget {
     required this.bands,
     required this.focusedId,
     required this.child,
+    required this.marks,
     required this.onDot,
     required this.onYear,
     required this.onFocus,
+    required this.onMark,
     required this.onMid,
     required this.onFullCards,
   });
@@ -664,9 +732,11 @@ class _FarRail extends StatefulWidget {
   final List<DecadeBand> bands;
   final String? focusedId;
   final MemberFamily? child;
+  final List<TreeFamily> marks;
   final ValueChanged<Story> onDot;
   final ValueChanged<int> onYear;
   final ValueChanged<String> onFocus;
+  final ValueChanged<TreeFamily> onMark;
   final VoidCallback onMid;
   final VoidCallback onFullCards;
 
@@ -889,10 +959,21 @@ class _FarRailState extends State<_FarRail> {
                         controller: _scroll,
                         padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
                         children: [
+                          for (final mark in widget.marks)
+                            if (mark.branchYear == null)
+                              _BranchMark(
+                                family: mark,
+                                onTap: () => widget.onMark(mark),
+                              ),
                           for (var i = 0; i < widget.bands.length; i++)
                             _FarDecadeRow(
                               key: _rowKey(widget.bands[i].startYear),
                               band: widget.bands[i],
+                              marks: marksOnDecade(
+                                widget.marks,
+                                widget.bands[i].startYear,
+                              ),
+                              onMark: widget.onMark,
                               focused: widget.bands[i].startYear == _centerYear,
                               opacity:
                                   _opacities[widget.bands[i].startYear] ?? 1,
@@ -948,8 +1029,10 @@ class _FarDecadeRow extends StatelessWidget {
     required this.railAbove,
     required this.railBelow,
     required this.branchName,
+    required this.marks,
     required this.onDot,
     required this.onYear,
+    required this.onMark,
   });
 
   final DecadeBand band;
@@ -961,8 +1044,10 @@ class _FarDecadeRow extends StatelessWidget {
   final bool railAbove;
   final bool railBelow;
   final String? branchName;
+  final List<TreeFamily> marks;
   final ValueChanged<Story> onDot;
   final ValueChanged<int> onYear;
+  final ValueChanged<TreeFamily> onMark;
 
   @override
   Widget build(BuildContext context) {
@@ -1014,16 +1099,27 @@ class _FarDecadeRow extends StatelessWidget {
         ),
       ],
     );
-    final dots = Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    final dots = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        for (final story in stories)
-          _FarDot(
-            story: story,
-            highlighted: focused && story.id == highlight?.id,
-            onTap: () => onDot(story),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            for (final story in stories)
+              _FarDot(
+                story: story,
+                highlighted: focused && story.id == highlight?.id,
+                onTap: () => onDot(story),
+              ),
+          ],
+        ),
+        for (final mark in marks)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: _BranchMark(family: mark, onTap: () => onMark(mark)),
           ),
       ],
     );
@@ -1216,10 +1312,12 @@ class _MidRail extends StatefulWidget {
     required this.stories,
     required this.focusedId,
     required this.child,
+    required this.marks,
     required this.anchorFor,
     required this.onStub,
     required this.onNode,
     required this.onFocus,
+    required this.onMark,
     required this.onMacro,
     required this.onFullCards,
   });
@@ -1227,10 +1325,12 @@ class _MidRail extends StatefulWidget {
   final List<Story> stories;
   final String? focusedId;
   final MemberFamily? child;
+  final List<TreeFamily> marks;
   final GlobalKey Function(String id) anchorFor;
   final ValueChanged<Story> onStub;
   final ValueChanged<Story> onNode;
   final ValueChanged<String> onFocus;
+  final ValueChanged<TreeFamily> onMark;
   final VoidCallback onMacro;
   final VoidCallback onFullCards;
 
@@ -1397,14 +1497,33 @@ class _MidRailState extends State<_MidRail> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final pad = constraints.maxHeight / 2;
+                      final beside = <String, List<TreeFamily>>{};
+                      for (final mark in widget.marks) {
+                        final year = mark.branchYear;
+                        if (year == null || widget.stories.isEmpty) continue;
+                        final index = closestNewerStoryIndex(
+                          widget.stories,
+                          year,
+                        );
+                        final id = widget.stories[index].id;
+                        (beside[id] ??= []).add(mark);
+                      }
                       return ListView(
                         controller: _scroll,
                         padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
                         children: [
+                          for (final mark in widget.marks)
+                            if (mark.branchYear == null)
+                              _BranchMark(
+                                family: mark,
+                                onTap: () => widget.onMark(mark),
+                              ),
                           for (var i = 0; i < widget.stories.length; i++)
                             _DialRow(
                               key: widget.anchorFor(widget.stories[i].id),
                               story: widget.stories[i],
+                              marks: beside[widget.stories[i].id] ?? const [],
+                              onMark: widget.onMark,
                               cardOnLeft: i.isEven,
                               focused: widget.stories[i].id == _centerId,
                               opacity:
@@ -1819,12 +1938,16 @@ class _DialRow extends StatelessWidget {
     required this.railEndsAtJoin,
     required this.onTap,
     required this.onNode,
+    this.marks = const [],
+    this.onMark,
     this.joinNote,
     this.branchLabel,
   });
 
   final Story story;
   final bool cardOnLeft;
+  final List<TreeFamily> marks;
+  final ValueChanged<TreeFamily>? onMark;
   final bool focused;
   final double opacity;
   final bool showBranchRail;
@@ -2008,76 +2131,90 @@ class _DialRow extends StatelessWidget {
       opacity: opacity,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 28),
-        child: Stack(
-          alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Positioned.fill(
-              child: Row(
-                children: [
-                  const Expanded(child: SizedBox.shrink()),
-                  SizedBox(
-                    width: 56,
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          top: 0,
-                          bottom: 0,
-                          left: 27,
-                          width: 2,
-                          child: ColoredBox(
-                            color: albumInk.withValues(alpha: 0.16),
-                          ),
-                        ),
-                        if (showBranchRail)
-                          Positioned(
-                            key: Key('timeline-branch-${story.id}'),
-                            top: 0,
-                            bottom: 0,
-                            right: 0,
-                            width: 2,
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: FractionallySizedBox(
-                                heightFactor: railEndsAtJoin ? 0.5 : 1,
-                                child: CustomPaint(
-                                  painter: _DashPainter(
-                                    color: albumSage.withValues(alpha: 0.7),
-                                  ),
-                                  child: const SizedBox.expand(),
-                                ),
+            for (final mark in marks)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _BranchMark(
+                  family: mark,
+                  onTap: () => onMark?.call(mark),
+                ),
+              ),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned.fill(
+                  child: Row(
+                    children: [
+                      const Expanded(child: SizedBox.shrink()),
+                      SizedBox(
+                        width: 56,
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              top: 0,
+                              bottom: 0,
+                              left: 27,
+                              width: 2,
+                              child: ColoredBox(
+                                color: albumInk.withValues(alpha: 0.16),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const Expanded(child: SizedBox.shrink()),
-                ],
-              ),
-            ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: cardOnLeft ? card : note,
+                            if (showBranchRail)
+                              Positioned(
+                                key: Key('timeline-branch-${story.id}'),
+                                top: 0,
+                                bottom: 0,
+                                right: 0,
+                                width: 2,
+                                child: Align(
+                                  alignment: Alignment.topCenter,
+                                  child: FractionallySizedBox(
+                                    heightFactor: railEndsAtJoin ? 0.5 : 1,
+                                    child: CustomPaint(
+                                      painter: _DashPainter(
+                                        color: albumSage.withValues(alpha: 0.7),
+                                      ),
+                                      child: const SizedBox.expand(),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const Expanded(child: SizedBox.shrink()),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 56),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [label, cardOnLeft ? note : card],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: cardOnLeft ? card : note,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 56),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [label, cardOnLeft ? note : card],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                node,
               ],
             ),
-            node,
           ],
         ),
       ),
@@ -2107,14 +2244,47 @@ class _DashPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
+/// Circular _DashPainter: 2px sage stroke, 4px dash, 4px gap, transparent fill.
+class _RingDashPainter extends CustomPainter {
+  const _RingDashPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final radius = (size.shortestSide - paint.strokeWidth) / 2;
+    final center = Offset(size.width / 2, size.height / 2);
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    const dash = 4.0;
+    const gap = 4.0;
+    final circumference = 2 * math.pi * radius;
+    var traveled = 0.0;
+    while (traveled < circumference) {
+      final length = math.min(dash, circumference - traveled);
+      canvas.drawArc(rect, traveled / radius, length / radius, false, paint);
+      traveled += dash + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingDashPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
 class _FullCardRail extends StatefulWidget {
   const _FullCardRail({
     required this.stories,
     required this.focusedId,
     required this.photos,
+    required this.marks,
     required this.anchorFor,
     required this.onOpen,
     required this.onFocus,
+    required this.onMark,
     required this.onMacro,
     required this.onMid,
   });
@@ -2122,9 +2292,11 @@ class _FullCardRail extends StatefulWidget {
   final List<Story> stories;
   final String? focusedId;
   final PhotosGateway? photos;
+  final List<TreeFamily> marks;
   final GlobalKey Function(String id) anchorFor;
   final ValueChanged<Story> onOpen;
   final ValueChanged<String> onFocus;
+  final ValueChanged<TreeFamily> onMark;
   final VoidCallback onMacro;
   final VoidCallback onMid;
 
@@ -2313,8 +2485,11 @@ class _FullCardRailState extends State<_FullCardRail> {
                           pad,
                         ),
                         children: [
-                          for (var i = 0; i < widget.stories.length; i++)
-                            _FullCardRow(
+                          ..._fullCardChildren(
+                            stories: widget.stories,
+                            marks: widget.marks,
+                            onMark: widget.onMark,
+                            cardAt: (i) => _FullCardRow(
                               key: widget.anchorFor(widget.stories[i].id),
                               story: widget.stories[i],
                               cardOnLeft: i.isEven,
@@ -2327,6 +2502,7 @@ class _FullCardRailState extends State<_FullCardRail> {
                               photos: widget.photos,
                               onOpen: () => widget.onOpen(widget.stories[i]),
                             ),
+                          ),
                         ],
                       ),
                       const Positioned.fill(
@@ -2355,6 +2531,79 @@ class _FullCardRailState extends State<_FullCardRail> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+List<Widget> _fullCardChildren({
+  required List<Story> stories,
+  required List<TreeFamily> marks,
+  required ValueChanged<TreeFamily> onMark,
+  required Widget Function(int index) cardAt,
+}) {
+  final dated = <int, List<TreeFamily>>{};
+  final children = <Widget>[
+    for (final mark in marks)
+      if (mark.branchYear == null)
+        _BranchMark(family: mark, onTap: () => onMark(mark)),
+  ];
+  for (final mark in marks) {
+    final year = mark.branchYear;
+    if (year == null) continue;
+    final index = fullCardMarkIndex(stories, year);
+    (dated[index] ??= []).add(mark);
+  }
+  for (var i = 0; i < stories.length; i++) {
+    for (final mark in dated[i] ?? const <TreeFamily>[]) {
+      children.add(_BranchMark(family: mark, onTap: () => onMark(mark)));
+    }
+    children.add(cardAt(i));
+  }
+  for (final mark in dated[stories.length] ?? const <TreeFamily>[]) {
+    children.add(_BranchMark(family: mark, onTap: () => onMark(mark)));
+  }
+  return children;
+}
+
+class _BranchMark extends StatelessWidget {
+  const _BranchMark({required this.family, required this.onTap});
+
+  final TreeFamily family;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = branchMarkLabel(family);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          key: Key('timeline-branch-mark-${family.id}'),
+          onTap: onTap,
+          child: Tooltip(
+            message: label,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CustomPaint(
+                    painter: _RingDashPainter(color: albumSage),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge
+                      ?.copyWith(color: albumSage, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

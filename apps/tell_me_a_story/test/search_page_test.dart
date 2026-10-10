@@ -47,7 +47,7 @@ class _Invite implements InviteGateway {
   Future<void> sendInviteEmail({required String inviteId}) async {}
 }
 
-class _People implements PeopleGateway {
+class _People extends PeopleGateway {
   @override
   Future<Person> createPerson({
     required String familyId,

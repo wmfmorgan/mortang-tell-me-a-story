@@ -55,12 +55,58 @@ class StewardFamily {
   }
 }
 
+/// One live family from `list_family_tree`. [branchYear] stays null until M11.
+class TreeFamily {
+  const TreeFamily({
+    required this.id,
+    required this.name,
+    this.parentFamilyId,
+    this.branchYear,
+  });
+
+  final String id;
+  final String name;
+  final String? parentFamilyId;
+  final int? branchYear;
+
+  factory TreeFamily.fromJson(Map<String, dynamic> json) {
+    final rawYear = json['branch_year'];
+    return TreeFamily(
+      id: json['id'] as String,
+      name: (json['name'] as String?)?.trim().isNotEmpty == true
+          ? (json['name'] as String).trim()
+          : 'Family',
+      parentFamilyId: json['parent_family_id'] as String?,
+      branchYear: rawYear is num ? rawYear.toInt() : null,
+    );
+  }
+}
+
 abstract class FamiliesGateway {
   Future<List<MemberFamily>> listMine();
 
   /// Owner and co-owner families, including soft-deleted rows still inside
   /// the 60-day window. Live member-only families are not included.
   Future<List<StewardFamily>> listStewarded();
+
+  /// Live families in the session family's tree. The default is the current
+  /// family only, so marks and the related menu stay empty until a caller
+  /// returns the rest of the tree.
+  Future<List<TreeFamily>> listFamilyTree(String familyId) async {
+    final mine = await listMine();
+    for (final row in mine) {
+      if (row.id == familyId) {
+        return [
+          TreeFamily(
+            id: row.id,
+            name: row.name,
+            parentFamilyId: row.parentFamilyId,
+          ),
+        ];
+      }
+    }
+    return const [];
+  }
 }
 
 /// Hub card. Active rows have a null [deletedAt].
@@ -197,6 +243,24 @@ class FamiliesApi implements FamiliesGateway, FamilyDirectoryGateway {
         families.add(
           MemberFamily.fromJson(Map<String, dynamic>.from(embedded)),
         );
+      }
+    }
+    return families;
+  }
+
+  @override
+  Future<List<TreeFamily>> listFamilyTree(String familyId) async {
+    final rows = await _client.rpc(
+      'list_family_tree',
+      params: {'fid': familyId},
+    );
+    if (rows is! List) return const [];
+    final families = <TreeFamily>[];
+    for (final row in rows) {
+      if (row is Map<String, dynamic>) {
+        families.add(TreeFamily.fromJson(row));
+      } else if (row is Map) {
+        families.add(TreeFamily.fromJson(Map<String, dynamic>.from(row)));
       }
     }
     return families;
