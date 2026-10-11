@@ -7,6 +7,8 @@ import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
@@ -49,7 +51,7 @@ class _StubInviteApi implements InviteGateway {
   Future<void> sendInviteEmail({required String inviteId}) async {}
 }
 
-class _StubPeopleApi implements PeopleGateway {
+class _StubPeopleApi extends PeopleGateway {
   @override
   Future<List<Person>> listPeople(String familyId) async => const [];
 
@@ -375,6 +377,36 @@ void main() {
     auth.dispose();
   });
 
+  testWidgets('a non-member /stories/new returns to the timeline', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    FamilySelection.remember('other-family');
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: _StubInviteApi(),
+      familiesApi: _MemberOf(['ada']),
+      peopleApi: _StubPeopleApi(),
+      placesApi: _StubPlacesApi(),
+      mapboxSearch: _StubMapboxSearch(),
+    );
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.newStory);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.timeline,
+    );
+    expect(find.byType(NewStoryPage), findsNothing);
+
+    auth.dispose();
+  });
+
   testWidgets('signed-out user is redirected from /stories/new to magic-link', (
     tester,
   ) async {
@@ -408,6 +440,7 @@ void main() {
     final router = createAppRouter(
       authRefresh: auth,
       inviteApi: _StubInviteApi(),
+      familiesApi: _MemberOf(['family-1']),
       peopleApi: _StubPeopleApi(),
       placesApi: _StubPlacesApi(),
       mapboxSearch: _StubMapboxSearch(),
@@ -611,4 +644,21 @@ void main() {
 
     auth.dispose();
   });
+}
+
+class _MemberOf extends FamiliesGateway {
+  _MemberOf(this.ids);
+
+  final List<String> ids;
+
+  @override
+  Future<List<MemberFamily>> listMine() async {
+    return [
+      for (final id in ids)
+        MemberFamily(id: id, name: id, createdAt: DateTime.utc(2020)),
+    ];
+  }
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => const [];
 }

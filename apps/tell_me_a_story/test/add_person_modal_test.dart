@@ -5,7 +5,7 @@ import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
-class _FakePeopleGateway implements PeopleGateway {
+class _FakePeopleGateway extends PeopleGateway {
   _FakePeopleGateway({List<Person>? seed}) : rows = [...?seed];
 
   final List<Person> rows;

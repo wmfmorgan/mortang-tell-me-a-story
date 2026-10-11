@@ -152,7 +152,7 @@ class _SlowStoriesApi extends _FakeStoriesApi {
   Future<List<Story>> listMyDrafts(String familyId) => _pending.future;
 }
 
-class _StubPeopleApi implements PeopleGateway {
+class _StubPeopleApi extends PeopleGateway {
   @override
   Future<List<Person>> listPeople(String familyId) async => const [];
 
@@ -497,7 +497,7 @@ void main() {
   });
 }
 
-class _FakeFamilies implements FamiliesGateway {
+class _FakeFamilies extends FamiliesGateway {
   _FakeFamilies(this.rows);
 
   final List<MemberFamily> rows;

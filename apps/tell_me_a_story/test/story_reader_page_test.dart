@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart'
     hide displayNameOrMember;
@@ -141,7 +142,7 @@ class _FakeStoriesApi implements StoriesGateway {
   Future<void> discard(String storyId) async {}
 }
 
-class _FakePeopleApi implements PeopleGateway {
+class _FakePeopleApi extends PeopleGateway {
   _FakePeopleApi({List<Person>? seed}) : rows = [...?seed];
 
   final List<Person> rows;
@@ -413,6 +414,7 @@ Widget _readerApp({
   PhotosGateway? photos,
   CommentsGateway? comments,
   PerspectivesGateway? perspectives,
+  FamiliesGateway? families,
   Future<Uint8List?> Function()? pickImageBytes,
   String storyId = _storyId,
   String? currentUserId,
@@ -448,6 +450,7 @@ Widget _readerApp({
           photosApi: photos ?? _FakePhotosApi(),
           commentsApi: comments ?? _FakeCommentsApi(),
           perspectivesApi: perspectivesApi,
+          familiesApi: families,
           pickImageBytes: pickImageBytes,
           currentUserId: currentUserId,
           presentation: presentation,
@@ -1145,4 +1148,48 @@ void main() {
     expect(photos.deleted, isNotEmpty);
     expect(find.byKey(const Key('photo-thumb')), findsNothing);
   });
+
+  testWidgets('a non-member reader hides write controls', (tester) async {
+    final people = _TreePeople(seed: const [_ada]);
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published(title: 'Jam')),
+        people: people,
+        families: _NoMembership(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Jam'), findsOneWidget);
+    expect(find.text('Ada'), findsWidgets);
+    expect(people.treeCalls, 1);
+    expect(find.text('Add photos'), findsNothing);
+    expect(find.text('+ Add your perspective'), findsNothing);
+    expect(find.text('+ Add comment'), findsNothing);
+  });
+}
+
+class _NoMembership extends FamiliesGateway {
+  @override
+  Future<List<MemberFamily>> listMine() async => const [];
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => const [];
+}
+
+class _TreePeople extends _FakePeopleApi {
+  _TreePeople({super.seed});
+
+  var treeCalls = 0;
+
+  @override
+  Future<List<Person>> listPeople(String familyId) {
+    throw StateError('members only');
+  }
+
+  @override
+  Future<List<Person>> listTreePeople(String familyId) async {
+    treeCalls++;
+    return rows.where((person) => person.familyId == familyId).toList();
+  }
 }
