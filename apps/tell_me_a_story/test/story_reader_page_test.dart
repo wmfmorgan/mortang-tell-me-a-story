@@ -50,6 +50,8 @@ final _park = Place(
 
 Story _published({
   String id = _storyId,
+  String familyId = _familyId,
+  String authorId = 'u1',
   String? title,
   String? body = 'Picnic at the lake\nWe brought pie.',
   DateTime? timeframeStart,
@@ -60,8 +62,8 @@ Story _published({
 }) {
   return Story(
     id: id,
-    familyId: _familyId,
-    authorId: 'u1',
+    familyId: familyId,
+    authorId: authorId,
     title: title,
     body: body,
     timeframeStart: timeframeStart ?? DateTime(1980, 1, 1),
@@ -138,8 +140,12 @@ class _FakeStoriesApi implements StoriesGateway {
   @override
   Future<List<Story>> listPublished(String familyId) async => const [];
 
+  final List<String> discarded = [];
+
   @override
-  Future<void> discard(String storyId) async {}
+  Future<void> discard(String storyId) async {
+    discarded.add(storyId);
+  }
 }
 
 class _FakePeopleApi extends PeopleGateway {
@@ -1167,6 +1173,390 @@ void main() {
     expect(find.text('+ Add your perspective'), findsNothing);
     expect(find.text('+ Add comment'), findsNothing);
   });
+
+  test('origin menu is empty for a draft and labels name the family', () {
+    const ada = TreeFamily(id: 'ada', name: 'Ada');
+    const bea = TreeFamily(id: 'bea', name: 'Bea', parentFamilyId: 'ada');
+    expect(
+      originMenuEntries(
+        published: false,
+        storyFamilyId: 'ada',
+        tree: const [ada],
+        stewardRoles: const {'ada': 'owner'},
+      ),
+      isEmpty,
+    );
+    final labels = [
+      for (final entry in originMenuEntries(
+        published: true,
+        storyFamilyId: 'ada',
+        tree: const [ada, bea],
+        stewardRoles: const {'ada': 'owner', 'bea': 'co_owner'},
+      ))
+        entry.label,
+    ];
+    expect(labels, ['Set as origin for Ada', 'Set as origin for Bea']);
+    expect(labels, isNot(contains('Set as origin')));
+    expect(
+      originDeleteBody(const ['Ada']),
+      'This story starts the Ada timeline. Delete anyway?',
+    );
+    expect(
+      originDeleteBody(const ['Ada', 'Bea']),
+      'This story starts the Ada and Bea timelines. Delete anyway?',
+    );
+    expect(
+      originDeleteBody(const ['Ada', 'Bea', 'Cara']),
+      'This story starts the Ada, Bea, and Cara timelines. Delete anyway?',
+    );
+  });
+
+  testWidgets(
+    'overflow lists Set as origin for {Family} only for a root the viewer stewards',
+    (tester) async {
+      const ada = 'ada';
+      Future<void> pump(String role) async {
+        await tester.pumpWidget(
+          _readerApp(
+            stories: _FakeStoriesApi(
+              story: _published(familyId: ada, title: 'Jam'),
+            ),
+            currentUserId: 'u-member',
+            families: _OriginFamilies(
+              tree: const [TreeFamily(id: ada, name: 'Ada')],
+              stewarded: [StewardFamily(id: ada, name: 'Ada', role: role)],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pump('owner');
+      await tester.tap(find.byKey(const Key('reader-overflow')));
+      await tester.pumpAndSettle();
+      expect(find.text('Set as origin for Ada'), findsOneWidget);
+      expect(find.text('Set as origin'), findsNothing);
+
+      await pump('co_owner');
+      await tester.tap(find.byKey(const Key('reader-overflow')));
+      await tester.pumpAndSettle();
+      expect(find.text('Set as origin for Ada'), findsOneWidget);
+      expect(find.text('Set as origin'), findsNothing);
+
+      await pump('member');
+      expect(find.byKey(const Key('reader-overflow')), findsNothing);
+      expect(find.text('Set as origin for Ada'), findsNothing);
+      expect(find.text('Set as origin'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'overflow lists one Set as origin for each child the viewer stewards',
+    (tester) async {
+      const parent = 'parent';
+      await tester.pumpWidget(
+        _readerApp(
+          stories: _FakeStoriesApi(
+            story: _published(familyId: parent, title: 'Jam'),
+          ),
+          currentUserId: 'u-member',
+          families: _OriginFamilies(
+            tree: const [
+              TreeFamily(id: parent, name: 'Parent'),
+              TreeFamily(id: 'ada', name: 'Ada', parentFamilyId: parent),
+              TreeFamily(id: 'bea', name: 'Bea', parentFamilyId: parent),
+              TreeFamily(id: 'cara', name: 'Cara', parentFamilyId: 'other'),
+            ],
+            stewarded: const [
+              StewardFamily(id: 'ada', name: 'Ada', role: 'owner'),
+              StewardFamily(id: 'bea', name: 'Bea', role: 'member'),
+              StewardFamily(id: 'cara', name: 'Cara', role: 'owner'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('reader-overflow')));
+      await tester.pumpAndSettle();
+      expect(find.text('Set as origin for Ada'), findsOneWidget);
+      expect(find.text('Set as origin for Bea'), findsNothing);
+      expect(find.text('Set as origin for Cara'), findsNothing);
+      expect(find.text('Set as origin'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Set as origin confirms, calls set_family_origin, and maps errors',
+    (tester) async {
+      const ada = 'ada';
+      final families = _OriginFamilies(
+        tree: const [TreeFamily(id: ada, name: 'Ada')],
+        stewarded: const [StewardFamily(id: ada, name: 'Ada', role: 'owner')],
+      );
+      await tester.pumpWidget(
+        _readerApp(
+          stories: _FakeStoriesApi(
+            story: _published(familyId: ada, title: 'Jam'),
+          ),
+          currentUserId: 'u-member',
+          families: families,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('reader-overflow')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('set-origin-ada')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('set-origin-confirm')), findsOneWidget);
+      expect(find.text('Set as the origin of Ada?'), findsOneWidget);
+      expect(
+        find.text('This story will appear first on the Ada timeline.'),
+        findsOneWidget,
+      );
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Set origin'), findsOneWidget);
+      expect(find.textContaining('Candidate beginning'), findsNothing);
+      expect(find.textContaining('Only owners and co-owners'), findsNothing);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(families.originCalls, isEmpty);
+      expect(find.text('Jam'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('reader-overflow')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('set-origin-ada')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('set-origin-go')));
+      await tester.pumpAndSettle();
+      expect(families.originCalls, [(familyId: ada, storyId: _storyId)]);
+      expect(find.text('Jam'), findsOneWidget);
+
+      families.originError = const OriginRpcException(
+        'VALIDATION',
+        'origin must be published',
+      );
+      await tester.tap(find.byKey(const Key('reader-overflow')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('set-origin-ada')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('set-origin-go')));
+      await tester.pumpAndSettle();
+      expect(find.text('origin must be published'), findsOneWidget);
+      expect(find.text('Jam'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+
+      families.originError = const OriginRpcException(
+        'FORBIDDEN',
+        'You do not have permission to do that.',
+      );
+      await tester.tap(find.byKey(const Key('reader-overflow')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('set-origin-ada')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('set-origin-go')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('You do not have permission to do that.'),
+        findsOneWidget,
+      );
+      expect(find.text('Jam'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'delete with dependents shows the warning, without shows the normal dialog',
+    (tester) async {
+      final stories = _FakeStoriesApi(story: _published(title: 'Jam'));
+      final families = _OriginFamilies(
+        tree: const [TreeFamily(id: _familyId, name: 'Jenkins')],
+        dependents: const [OriginDependent(familyId: 'ada', name: 'Ada')],
+      );
+      await tester.pumpWidget(
+        _readerApp(stories: stories, currentUserId: 'u1', families: families),
+      );
+      await tester.pumpAndSettle();
+
+      Future<void> openDelete() async {
+        await tester.tap(find.byKey(const Key('reader-overflow')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('delete-story')));
+        await tester.pumpAndSettle();
+      }
+
+      await openDelete();
+      expect(find.byKey(const Key('delete-origin-warning')), findsOneWidget);
+      expect(
+        find.text('This story starts the Ada timeline. Delete anyway?'),
+        findsOneWidget,
+      );
+      expect(find.text('Delete this story?'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Delete story'), findsOneWidget);
+      expect(find.textContaining('new origin'), findsNothing);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(stories.discarded, isEmpty);
+
+      families.dependents = const [
+        OriginDependent(familyId: 'ada', name: 'Ada'),
+        OriginDependent(familyId: 'bea', name: 'Bea'),
+      ];
+      await openDelete();
+      expect(
+        find.text(
+          'This story starts the Ada and Bea timelines. Delete anyway?',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      families.dependents = const [
+        OriginDependent(familyId: 'ada', name: 'Ada'),
+        OriginDependent(familyId: 'bea', name: 'Bea'),
+        OriginDependent(familyId: 'cara', name: 'Cara'),
+      ];
+      await openDelete();
+      expect(
+        find.text(
+          'This story starts the Ada, Bea, and Cara timelines. Delete anyway?',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      families.dependents = const [];
+      await openDelete();
+      expect(find.byKey(const Key('delete-story-dialog')), findsOneWidget);
+      expect(find.text('Delete this story?'), findsOneWidget);
+      expect(find.textContaining('starts the'), findsNothing);
+      await tester.tap(find.byKey(const Key('delete-story-go')));
+      await tester.pumpAndSettle();
+      expect(stories.discarded, [_storyId]);
+
+      await tester.pumpWidget(
+        _readerApp(
+          stories: _FakeStoriesApi(story: _published(title: 'Jam')),
+          currentUserId: 'u-member',
+          families: _OriginFamilies(
+            tree: const [TreeFamily(id: _familyId, name: 'Jenkins')],
+            stewarded: const [
+              StewardFamily(id: _familyId, name: 'Jenkins', role: 'owner'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('reader-overflow')));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete story'), findsNothing);
+      expect(find.text('Set as origin for Jenkins'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a child member sees add comment, add perspective, and add photos on the origin',
+    (tester) async {
+      const parent = '00000000-0000-0000-0000-0000000000aa';
+      const child = '00000000-0000-0000-0000-0000000000bb';
+      final photos = _FakePhotosApi();
+      final picker = _FakePicker(bytes: _tinyJpeg);
+
+      Future<void> pump(String? originId) async {
+        await tester.pumpWidget(
+          _readerApp(
+            stories: _FakeStoriesApi(
+              story: _published(familyId: parent, title: 'The beginning'),
+            ),
+            photos: photos,
+            pickImageBytes: picker.call,
+            currentUserId: 'u-child',
+            families: _OriginFamilies(
+              mine: [
+                MemberFamily(
+                  id: child,
+                  name: 'Ada',
+                  createdAt: DateTime.utc(1990),
+                ),
+              ],
+              tree: [
+                const TreeFamily(id: parent, name: 'Parent'),
+                TreeFamily(
+                  id: child,
+                  name: 'Ada',
+                  parentFamilyId: parent,
+                  originStoryId: originId,
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pump(_storyId);
+      expect(find.text('Add photos'), findsOneWidget);
+      expect(find.text('+ Add your perspective'), findsOneWidget);
+      expect(find.text('+ Add comment'), findsOneWidget);
+
+      final add = find.widgetWithText(TextButton, 'Add photos');
+      await tester.ensureVisible(add);
+      await tester.pumpAndSettle();
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      expect(photos.lastFamilyId, parent);
+      expect(photos.lastFamilyId, isNot(child));
+
+      await pump('other-story');
+      expect(find.text('Add photos'), findsNothing);
+      expect(find.text('+ Add your perspective'), findsNothing);
+      expect(find.text('+ Add comment'), findsNothing);
+    },
+  );
+}
+
+class _OriginFamilies extends FamiliesGateway {
+  _OriginFamilies({
+    this.mine = const [],
+    this.tree = const [],
+    this.stewarded = const [],
+    this.dependents = const [],
+    this.originError,
+  });
+
+  final List<MemberFamily> mine;
+  final List<TreeFamily> tree;
+  final List<StewardFamily> stewarded;
+  List<OriginDependent> dependents;
+  OriginRpcException? originError;
+  final List<({String familyId, String storyId})> originCalls = [];
+
+  @override
+  Future<List<MemberFamily>> listMine() async => mine;
+
+  @override
+  Future<List<TreeFamily>> listFamilyTree(String familyId) async => tree;
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => stewarded;
+
+  @override
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {
+    originCalls.add((familyId: familyId, storyId: storyId));
+    final error = originError;
+    if (error != null) throw error;
+  }
+
+  @override
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    return dependents;
+  }
 }
 
 class _NoMembership extends FamiliesGateway {

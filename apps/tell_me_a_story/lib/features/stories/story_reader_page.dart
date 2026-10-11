@@ -20,6 +20,7 @@ import '../../data/profile_api.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../comments/comment_composer.dart';
+import '../family/family_blur_dialog.dart';
 import '../perspectives/add_perspective_page.dart';
 import 'photo_strip.dart';
 import 'reader_meta.dart';
@@ -36,6 +37,65 @@ String readerHeadline({String? title}) {
 /// Article under the headline. The full body stays, including its first line.
 String readerArticleBody({String? body}) {
   return (body ?? '').trim();
+}
+
+class OriginMenuEntry {
+  const OriginMenuEntry({required this.familyId, required this.label});
+
+  final String familyId;
+  final String label;
+}
+
+bool originSteward(String? role) => role == 'owner' || role == 'co_owner';
+
+/// Published stories only. The label is always `Set as origin for {Family}`.
+List<OriginMenuEntry> originMenuEntries({
+  required bool published,
+  required String storyFamilyId,
+  required List<TreeFamily> tree,
+  required Map<String, String> stewardRoles,
+}) {
+  if (!published) return const [];
+  final storyFamily = tree.cast<TreeFamily?>().firstWhere(
+    (row) => row?.id == storyFamilyId,
+    orElse: () => null,
+  );
+  final entries = <OriginMenuEntry>[];
+  if (storyFamily?.parentFamilyId == null &&
+      originSteward(stewardRoles[storyFamilyId])) {
+    entries.add(
+      OriginMenuEntry(
+        familyId: storyFamilyId,
+        label: 'Set as origin for ${storyFamily!.name}',
+      ),
+    );
+  }
+  final children = [
+    for (final row in tree)
+      if (row.parentFamilyId == storyFamilyId &&
+          originSteward(stewardRoles[row.id]))
+        row,
+  ]..sort((a, b) => a.name.compareTo(b.name));
+  for (final child in children) {
+    entries.add(
+      OriginMenuEntry(
+        familyId: child.id,
+        label: 'Set as origin for ${child.name}',
+      ),
+    );
+  }
+  return entries;
+}
+
+String originDeleteBody(List<String> names) {
+  if (names.length == 1) {
+    return 'This story starts the ${names.single} timeline. Delete anyway?';
+  }
+  if (names.length == 2) {
+    return 'This story starts the ${names[0]} and ${names[1]} timelines. Delete anyway?';
+  }
+  final head = names.sublist(0, names.length - 1).join(', ');
+  return 'This story starts the $head, and ${names.last} timelines. Delete anyway?';
 }
 
 /// Published-only reader at `/stories/:storyId`.
@@ -91,7 +151,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   PerspectivesGateway? _perspectivesOverride;
   GoRouter? _router;
   TimelineLive? _ownedLive;
-  String? _watchedFamily;
+  String? _watchedStory;
+  List<TreeFamily> _tree = const [];
+  List<StewardFamily> _stewarded = const [];
 
   var _loading = true;
   var _notFound = false;
@@ -170,11 +232,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     super.dispose();
   }
 
-  void _watchFamily(String familyId) {
-    if (_watchedFamily == familyId) return;
-    _watchedFamily = familyId;
-    _live?.watch(
-      familyId: familyId,
+  void _watchStory(String storyId) {
+    if (_watchedStory == storyId) return;
+    _watchedStory = storyId;
+    _live?.watchStory(
+      storyId: storyId,
       onChange: () {
         if (!mounted || _busy || _composingComment) return;
         _load();
@@ -231,13 +293,26 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         });
         return;
       }
-      _watchFamily(story.familyId);
+      _watchStory(story.id);
 
       var canWrite = widget.familiesApi == null;
+      var tree = const <TreeFamily>[];
+      var stewarded = const <StewardFamily>[];
       if (widget.familiesApi != null) {
         try {
           final mine = await widget.familiesApi!.listMine();
+          tree = await widget.familiesApi!.listFamilyTree(story.familyId);
+          stewarded = await widget.familiesApi!.listStewarded();
           canWrite = mine.any((family) => family.id == story.familyId);
+          if (!canWrite) {
+            final mineIds = mine.map((family) => family.id).toSet();
+            canWrite = tree.any(
+              (row) =>
+                  row.parentFamilyId == story.familyId &&
+                  row.originStoryId == story.id &&
+                  mineIds.contains(row.id),
+            );
+          }
         } catch (_) {
           canWrite = false;
         }
@@ -315,6 +390,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _comments = comments;
         _perspectives = perspectives;
         _canWrite = canWrite;
+        _tree = tree;
+        _stewarded = stewarded;
         _loading = false;
         _notFound = false;
       });
@@ -332,6 +409,118 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Try again')));
     }
+  }
+
+  List<OriginMenuEntry> get _originEntries {
+    final story = _story;
+    if (story == null) return const [];
+    return originMenuEntries(
+      published: story.status == StoryStatus.published,
+      storyFamilyId: story.familyId,
+      tree: _tree,
+      stewardRoles: {
+        for (final row in _stewarded)
+          if (row.deletedAt == null) row.id: row.role,
+      },
+    );
+  }
+
+  bool get _canDeleteStory {
+    final story = _story;
+    final uid = _currentUserId;
+    return story != null && uid != null && uid == story.authorId;
+  }
+
+  Widget _overflow() {
+    final entries = _originEntries;
+    if (entries.isEmpty && !_canDeleteStory) return const SizedBox.shrink();
+    return PopupMenuButton<String>(
+      key: const Key('reader-overflow'),
+      tooltip: 'Story actions',
+      onSelected: (value) {
+        final story = _story;
+        if (story == null) return;
+        if (value == 'delete') {
+          _confirmDelete(story);
+          return;
+        }
+        for (final entry in entries) {
+          if (entry.familyId == value) {
+            _confirmOrigin(story, entry);
+            return;
+          }
+        }
+      },
+      itemBuilder: (context) => [
+        for (final entry in entries)
+          PopupMenuItem<String>(
+            key: Key('set-origin-${entry.familyId}'),
+            value: entry.familyId,
+            child: Text(entry.label),
+          ),
+        if (_canDeleteStory)
+          const PopupMenuItem<String>(
+            key: Key('delete-story'),
+            value: 'delete',
+            child: Text('Delete story'),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _confirmOrigin(Story story, OriginMenuEntry entry) async {
+    final family = _tree.cast<TreeFamily?>().firstWhere(
+      (row) => row?.id == entry.familyId,
+      orElse: () => null,
+    );
+    final name = family?.name ?? 'Family';
+    final confirmed = await showFamilyBlurDialog(
+      context,
+      dialogKey: const Key('set-origin-confirm'),
+      title: 'Set as the origin of $name?',
+      body: 'This story will appear first on the $name timeline.',
+      confirmLabel: 'Set origin',
+      confirmKey: const Key('set-origin-go'),
+      confirmColor: albumTerracotta,
+    );
+    if (!confirmed || !mounted) return;
+    final families = widget.familiesApi;
+    if (families == null) return;
+    try {
+      await families.setFamilyOrigin(
+        familyId: entry.familyId,
+        storyId: story.id,
+      );
+      if (!mounted) return;
+      if (context.canPop()) context.pop(true);
+    } on OriginRpcException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _confirmDelete(Story story) async {
+    final families = widget.familiesApi;
+    final dependents = families == null
+        ? const <OriginDependent>[]
+        : await families.listOriginDependents(story.id);
+    if (!mounted) return;
+    final names = [for (final row in dependents) row.name];
+    final warning = names.isNotEmpty;
+    final confirmed = await showFamilyBlurDialog(
+      context,
+      dialogKey: Key(warning ? 'delete-origin-warning' : 'delete-story-dialog'),
+      title: 'Delete this story?',
+      body: warning ? originDeleteBody(names) : null,
+      confirmLabel: 'Delete story',
+      confirmKey: const Key('delete-story-go'),
+      confirmColor: albumTerracotta,
+    );
+    if (!confirmed || !mounted) return;
+    await _stories.discard(story.id);
+    if (!mounted) return;
+    if (context.canPop()) context.pop(true);
   }
 
   void _openComposer() {
@@ -517,6 +706,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           icon: const Icon(Icons.arrow_back, size: 18),
           label: const Text('Timeline'),
         ),
+        actions: [_overflow()],
       ),
       body: SafeArea(child: AlbumColumn(maxWidth: 1080, child: _body(context))),
     );
@@ -537,6 +727,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             ),
           ),
           const Spacer(),
+          _overflow(),
           IconButton(
             key: const Key('story-reader-close'),
             onPressed: () => Navigator.of(context).pop(),

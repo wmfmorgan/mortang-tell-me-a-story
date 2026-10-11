@@ -26,6 +26,14 @@ bool timelineEventMatters({
 
 abstract class TimelineLive {
   void watch({required String familyId, required void Function() onChange});
+
+  /// Reader feed for one story. The default does nothing so existing fakes
+  /// keep compiling. The timeline [watch] stays on `family_id`.
+  void watchStory({
+    required String storyId,
+    required void Function() onChange,
+  }) {}
+
   void dispose();
 }
 
@@ -35,8 +43,11 @@ class SupabaseTimelineLive implements TimelineLive {
 
   final SupabaseClient _client;
   RealtimeChannel? _channel;
+  RealtimeChannel? _storyChannel;
   Timer? _debounce;
+  Timer? _storyDebounce;
   String? _familyId;
+  String? _storyId;
 
   @override
   void watch({required String familyId, required void Function() onChange}) {
@@ -76,6 +87,45 @@ class SupabaseTimelineLive implements TimelineLive {
     _channel = channel;
   }
 
+  @override
+  void watchStory({
+    required String storyId,
+    required void Function() onChange,
+  }) {
+    if (_storyId == storyId && _storyChannel != null) return;
+    _stopStory();
+    _storyId = storyId;
+    final channel = _client.channel('public:comments');
+    for (final table in const ['comments', 'perspectives', 'photos']) {
+      channel.onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: table,
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'story_id',
+          value: storyId,
+        ),
+        callback: (_) {
+          _storyDebounce?.cancel();
+          _storyDebounce = Timer(const Duration(milliseconds: 200), onChange);
+        },
+      );
+    }
+    channel.subscribe();
+    _storyChannel = channel;
+  }
+
+  void _stopStory() {
+    _storyDebounce?.cancel();
+    _storyDebounce = null;
+    final channel = _storyChannel;
+    _storyChannel = null;
+    if (channel != null) {
+      _client.removeChannel(channel);
+    }
+  }
+
   void _stop() {
     _debounce?.cancel();
     _debounce = null;
@@ -89,6 +139,8 @@ class SupabaseTimelineLive implements TimelineLive {
   @override
   void dispose() {
     _familyId = null;
+    _storyId = null;
     _stop();
+    _stopStory();
   }
 }
