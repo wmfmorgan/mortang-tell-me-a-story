@@ -215,7 +215,7 @@ select throws_ok(
     (select draft_id from m11_ctx)
   )$$,
   'P0001',
-  'VALIDATION: origin must be published',
+  'NOT_FOUND',
   'a draft cannot be an origin'
 );
 
@@ -226,7 +226,7 @@ select throws_ok(
     (select other_story from m11_ctx)
   )$$,
   'P0001',
-  'VALIDATION: origin must be in parent family',
+  'NOT_FOUND',
   'a child origin must be in the parent family'
 );
 
@@ -239,7 +239,7 @@ select throws_ok(
     (select other_story from m11_ctx)
   )$$,
   'P0001',
-  'VALIDATION: origin must be in this family',
+  'NOT_FOUND',
   'a root origin must be in this family'
 );
 

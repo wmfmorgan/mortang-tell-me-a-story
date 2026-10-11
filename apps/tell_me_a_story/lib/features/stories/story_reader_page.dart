@@ -296,13 +296,17 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       }
       _watchStory(story.id);
 
+      var memberOfStoryFamily = widget.familiesApi == null;
       var canWrite = widget.familiesApi == null;
       var tree = const <TreeFamily>[];
       var stewarded = const <StewardFamily>[];
       if (widget.familiesApi != null) {
         try {
           final mine = await widget.familiesApi!.listMine();
-          canWrite = mine.any((family) => family.id == story.familyId);
+          memberOfStoryFamily = mine.any(
+            (family) => family.id == story.familyId,
+          );
+          canWrite = memberOfStoryFamily;
           try {
             tree = await widget.familiesApi!.listFamilyTree(story.familyId);
           } catch (_) {
@@ -324,12 +328,13 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           }
         } catch (_) {
           canWrite = false;
+          memberOfStoryFamily = false;
         }
       }
 
       List<Person> people = const [];
       try {
-        final all = canWrite
+        final all = memberOfStoryFamily
             ? await _people.listPeople(story.familyId)
             : await _people.listTreePeople(story.familyId);
         people = all.where((p) => story.personIds.contains(p.id)).toList();
@@ -848,6 +853,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                   previews: _previews,
                   onAdd: _onAddPhoto,
                   onRemove: _onRemovePhoto,
+                  canRemove: (photo) =>
+                      _canWrite &&
+                      _currentUserId != null &&
+                      (photo.uploaderId == _currentUserId ||
+                          story.authorId == _currentUserId),
                   onRetry: _onRetryPhoto,
                   uploadFailed: _photoError,
                   canAdd: canAddPhoto,
@@ -907,8 +917,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             for (final row in _comments)
               CommentTile(
                 comment: row,
-                canDelete:
-                    _currentUserId != null && row.authorId == _currentUserId,
+                canDelete: _canWrite &&
+                    _currentUserId != null &&
+                    row.authorId == _currentUserId,
                 onDelete: () => _deleteComment(row),
               ),
             if (_composingComment)

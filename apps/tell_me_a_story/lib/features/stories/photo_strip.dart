@@ -28,6 +28,7 @@ class PhotoStrip extends StatelessWidget {
     this.addHint,
     this.columns,
     this.addEnabled = true,
+    this.canRemove,
   });
 
   final List<Photo> photos;
@@ -57,6 +58,9 @@ class PhotoStrip extends StatelessWidget {
 
   /// When false the add tile is dimmed. It still accepts taps.
   final bool addEnabled;
+
+  /// When null, every thumb shows Remove. When set, only a true result does.
+  final bool Function(Photo)? canRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +111,7 @@ class PhotoStrip extends StatelessWidget {
           photo: photo,
           preview: previews[photo.id],
           onRemove: onRemove,
+          showRemove: canRemove?.call(photo) ?? true,
           width: width,
           height: height,
           padRight: padRight,
@@ -223,6 +228,7 @@ class _Thumb extends StatelessWidget {
   const _Thumb({
     required this.photo,
     required this.onRemove,
+    required this.showRemove,
     required this.width,
     required this.height,
     this.preview,
@@ -232,6 +238,7 @@ class _Thumb extends StatelessWidget {
   final Photo photo;
   final Uint8List? preview;
   final ValueChanged<Photo> onRemove;
+  final bool showRemove;
   final double width;
   final double height;
   final bool padRight;
@@ -275,22 +282,26 @@ class _Thumb extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned(
-              top: 4,
-              right: 4,
-              child: IconButton(
-                key: const Key('photo-remove'),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                iconSize: 18,
-                style: IconButton.styleFrom(
-                  backgroundColor: albumParchment.withValues(alpha: 0.92),
-                  foregroundColor: albumInk,
+            if (showRemove)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IconButton(
+                  key: const Key('photo-remove'),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  iconSize: 18,
+                  style: IconButton.styleFrom(
+                    backgroundColor: albumParchment.withValues(alpha: 0.92),
+                    foregroundColor: albumInk,
+                  ),
+                  onPressed: () => onRemove(photo),
+                  icon: const Icon(Icons.close),
                 ),
-                onPressed: () => onRemove(photo),
-                icon: const Icon(Icons.close),
               ),
-            ),
           ],
         ),
       ),
