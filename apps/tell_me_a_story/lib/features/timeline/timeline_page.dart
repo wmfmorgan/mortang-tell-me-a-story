@@ -1517,6 +1517,7 @@ class _MidRailState extends State<_MidRail> {
                               _BranchMark(
                                 family: mark,
                                 onTap: () => widget.onMark(mark),
+                                onRail: true,
                               ),
                           for (var i = 0; i < widget.stories.length; i++)
                             _DialRow(
@@ -2141,6 +2142,8 @@ class _DialRow extends StatelessWidget {
                 child: _BranchMark(
                   family: mark,
                   onTap: () => onMark?.call(mark),
+                  onRail: true,
+                  labelOnRight: cardOnLeft,
                 ),
               ),
             Stack(
@@ -2489,6 +2492,7 @@ class _FullCardRailState extends State<_FullCardRail> {
                             stories: widget.stories,
                             marks: widget.marks,
                             onMark: widget.onMark,
+                            wide: wide,
                             cardAt: (i) => _FullCardRow(
                               key: widget.anchorFor(widget.stories[i].id),
                               story: widget.stories[i],
@@ -2540,13 +2544,19 @@ List<Widget> _fullCardChildren({
   required List<Story> stories,
   required List<TreeFamily> marks,
   required ValueChanged<TreeFamily> onMark,
+  required bool wide,
   required Widget Function(int index) cardAt,
 }) {
   final dated = <int, List<TreeFamily>>{};
   final children = <Widget>[
     for (final mark in marks)
       if (mark.branchYear == null)
-        _BranchMark(family: mark, onTap: () => onMark(mark)),
+        _BranchMark(
+          family: mark,
+          onTap: () => onMark(mark),
+          onRail: true,
+          wide: wide,
+        ),
   ];
   for (final mark in marks) {
     final year = mark.branchYear;
@@ -2556,53 +2566,105 @@ List<Widget> _fullCardChildren({
   }
   for (var i = 0; i < stories.length; i++) {
     for (final mark in dated[i] ?? const <TreeFamily>[]) {
-      children.add(_BranchMark(family: mark, onTap: () => onMark(mark)));
+      children.add(
+        _BranchMark(
+          family: mark,
+          onTap: () => onMark(mark),
+          onRail: true,
+          wide: wide,
+          labelOnRight: i.isEven,
+        ),
+      );
     }
     children.add(cardAt(i));
   }
   for (final mark in dated[stories.length] ?? const <TreeFamily>[]) {
-    children.add(_BranchMark(family: mark, onTap: () => onMark(mark)));
+    children.add(
+      _BranchMark(
+        family: mark,
+        onTap: () => onMark(mark),
+        onRail: true,
+        wide: wide,
+      ),
+    );
   }
   return children;
 }
 
 class _BranchMark extends StatelessWidget {
-  const _BranchMark({required this.family, required this.onTap});
+  const _BranchMark({
+    required this.family,
+    required this.onTap,
+    this.onRail = false,
+    this.wide = true,
+    this.labelOnRight = true,
+  });
 
   final TreeFamily family;
   final VoidCallback onTap;
 
+  /// Mid and Full Cards center the ring on the story rail. Macro stays in the gutter.
+  final bool onRail;
+  final bool wide;
+
+  /// Wide rail: the label sits on the side with no card. Right when that side is unknown.
+  final bool labelOnRight;
+
   @override
   Widget build(BuildContext context) {
     final label = branchMarkLabel(family);
+    final ring = const SizedBox(
+      width: 16,
+      height: 16,
+      child: CustomPaint(painter: _RingDashPainter(color: albumSage)),
+    );
+    final name = Text(
+      label,
+      style: Theme.of(context).textTheme.labelLarge
+          ?.copyWith(color: albumSage, fontWeight: FontWeight.w600),
+    );
+    final Widget body;
+    if (!onRail) {
+      body = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [ring, const SizedBox(width: 8), name],
+      );
+    } else if (!wide) {
+      body = Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(width: 28, child: Center(child: ring)),
+          Expanded(
+            child: Align(alignment: Alignment.centerLeft, child: name),
+          ),
+        ],
+      );
+    } else {
+      body = Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: labelOnRight
+                ? const SizedBox.shrink()
+                : Align(alignment: Alignment.centerRight, child: name),
+          ),
+          SizedBox(width: 56, child: Center(child: ring)),
+          Expanded(
+            child: labelOnRight
+                ? Align(alignment: Alignment.centerLeft, child: name)
+                : const SizedBox.shrink(),
+          ),
+        ],
+      );
+    }
     return Align(
-      alignment: Alignment.centerLeft,
+      alignment: onRail ? Alignment.center : Alignment.centerLeft,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
           key: Key('timeline-branch-mark-${family.id}'),
           onTap: onTap,
-          child: Tooltip(
-            message: label,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CustomPaint(
-                    painter: _RingDashPainter(color: albumSage),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelLarge
-                      ?.copyWith(color: albumSage, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
+          child: Tooltip(message: label, child: body),
         ),
       ),
     );

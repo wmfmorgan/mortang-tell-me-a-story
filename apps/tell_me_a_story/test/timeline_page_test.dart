@@ -355,6 +355,18 @@ String _tooltipFor(WidgetTester tester, String storyId) {
       '';
 }
 
+Rect _ringRect(WidgetTester tester, String familyId) {
+  final ring = find.descendant(
+    of: find.byKey(Key('timeline-branch-mark-$familyId')),
+    matching: find.byWidgetPredicate(
+      (widget) =>
+          widget is SizedBox && widget.width == 16 && widget.height == 16,
+    ),
+  );
+  expect(ring, findsOneWidget);
+  return tester.getRect(ring);
+}
+
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -1816,6 +1828,117 @@ void main() {
       expect(texts.indexOf('Bea · 1972'), lessThan(texts.indexOf('Older')));
     },
   );
+
+  testWidgets('mid and full-card marks center the ring on a story dot', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'mid',
+              title: 'Close',
+              timeframeStart: DateTime(1975),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: bea, name: 'Bea', branchYear: 1972),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.pumpAndSettle();
+    expect(
+      (_ringRect(tester, bea).center.dx -
+              tester
+                  .getRect(find.byKey(const Key('timeline-mid-node-mid')))
+                  .center
+                  .dx)
+          .abs(),
+      lessThanOrEqualTo(1),
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    final circles = find.byWidgetPredicate((widget) {
+      if (widget is! Container) return false;
+      final decoration = widget.decoration;
+      return decoration is BoxDecoration && decoration.shape == BoxShape.circle;
+    });
+    final storyDots = circles.evaluate().where((element) {
+      final width = element.size?.width;
+      return width == 14 || width == 20;
+    }).toList();
+    expect(storyDots, hasLength(1));
+    final box = storyDots.single.renderObject! as RenderBox;
+    final dotCenter = box.localToGlobal(box.size.center(Offset.zero)).dx;
+    expect(
+      (_ringRect(tester, bea).center.dx - dotCenter).abs(),
+      lessThanOrEqualTo(1),
+    );
+  });
+
+  testWidgets('a no-year mark sits above the first mid and full card', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [_published(id: 'first', title: 'First tale')],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: bea, name: 'Bea'),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.pumpAndSettle();
+    expect(
+      _ringRect(tester, bea).bottom,
+      lessThan(
+        tester.getRect(find.byKey(const Key('timeline-mid-node-first'))).top,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    expect(
+      _ringRect(tester, bea).bottom,
+      lessThan(tester.getTopLeft(find.text('First tale')).dy),
+    );
+  });
 
   testWidgets('tapping a mark opens that family timeline', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
