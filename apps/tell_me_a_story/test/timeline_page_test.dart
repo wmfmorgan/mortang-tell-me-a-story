@@ -200,10 +200,12 @@ Widget _timeline({
   FamiliesGateway? families,
   TimelineLive? live,
   PhotosGateway? photos,
+  Key? pageKey,
 }) {
   return MaterialApp(
     theme: theme,
     home: TimelinePage(
+      key: pageKey,
       api: _FakeInviteApi(),
       storiesApi: stories,
       familiesApi: families,
@@ -2103,6 +2105,261 @@ void main() {
     );
     expect(start.dy, lessThan(manage.dy));
   });
+
+  testWidgets(
+    'origin banner shows for an owner and a co-owner, not a member, and not a root with no published stories',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const parent = '00000000-0000-0000-0000-0000000000aa';
+      const sentence =
+          'Every timeline starts with a story. Set the origin story for Ada.';
+
+      Future<void> pumpRole(String role) async {
+        await tester.pumpWidget(
+          _timeline(
+            pageKey: ValueKey('banner-$role'),
+            stories: _FakeStoriesApi(),
+            families: _TreeFamilies(
+              mine: [
+                MemberFamily(
+                  id: _familyId,
+                  name: 'Ada',
+                  createdAt: DateTime.utc(1970),
+                  parentFamilyId: parent,
+                ),
+              ],
+              tree: const [
+                TreeFamily(id: parent, name: 'Parent'),
+                TreeFamily(id: _familyId, name: 'Ada', parentFamilyId: parent),
+              ],
+              stewarded: [
+                StewardFamily(id: _familyId, name: 'Ada', role: role),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pumpRole('owner');
+      expect(find.text(sentence), findsOneWidget);
+      expect(find.text('Choose from Parent'), findsOneWidget);
+
+      await pumpRole('co_owner');
+      expect(find.text(sentence), findsOneWidget);
+      expect(find.text('Choose from Parent'), findsOneWidget);
+
+      await pumpRole('member');
+      expect(find.text(sentence), findsNothing);
+      expect(find.text('Choose from Parent'), findsNothing);
+
+      await tester.pumpWidget(
+        _timeline(
+          pageKey: const ValueKey('banner-root-empty'),
+          stories: _FakeStoriesApi(),
+          families: _TreeFamilies(
+            mine: [
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(1970),
+              ),
+            ],
+            tree: const [TreeFamily(id: _familyId, name: 'Ada')],
+            stewarded: const [
+              StewardFamily(id: _familyId, name: 'Ada', role: 'owner'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('timeline-origin-banner')), findsNothing);
+
+      await tester.pumpWidget(
+        _timeline(
+          pageKey: const ValueKey('banner-root-story'),
+          stories: _FakeStoriesApi(published: [_published(title: 'Ada tale')]),
+          families: _TreeFamilies(
+            mine: [
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(1970),
+              ),
+            ],
+            tree: const [TreeFamily(id: _familyId, name: 'Ada')],
+            stewarded: const [
+              StewardFamily(id: _familyId, name: 'Ada', role: 'owner'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(sentence), findsOneWidget);
+      expect(find.textContaining('Choose from'), findsNothing);
+      expect(
+        find.text('Open one of your stories and choose Set as origin for Ada.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('origin dot keeps its mark and the parent ring sits beside it', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    const origin = 'origin-story';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: origin,
+              familyId: parent,
+              title: 'The beginning',
+              timeframeStart: DateTime(1974),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Ada',
+              createdAt: DateTime.utc(1970),
+              parentFamilyId: parent,
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: parent, name: 'Parent', branchYear: 1990),
+            TreeFamily(
+              id: _familyId,
+              name: 'Ada',
+              parentFamilyId: parent,
+              originStoryId: origin,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('The beginning'), findsOneWidget);
+    expect(find.text('Origin · from Parent'), findsOneWidget);
+    expect(
+      _containsFinder(
+        tester,
+        find.byKey(const Key('timeline-decade-row-1970')),
+        find.byKey(const Key('timeline-branch-mark-$parent')),
+      ),
+      isTrue,
+    );
+    expect(
+      _containsFinder(
+        tester,
+        find.byKey(const Key('timeline-decade-row-1990')),
+        find.byKey(const Key('timeline-branch-mark-$parent')),
+      ),
+      isFalse,
+    );
+  });
+
+  testWidgets('a null origin leaves the parent ring on the M12 year', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(title: 'Child tale', timeframeStart: DateTime(1992)),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Ada',
+              createdAt: DateTime.utc(1970),
+              parentFamilyId: parent,
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: parent, name: 'Parent', branchYear: 1990),
+            TreeFamily(id: _familyId, name: 'Ada', parentFamilyId: parent),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Origin · from'), findsNothing);
+    expect(
+      _containsFinder(
+        tester,
+        find.byKey(const Key('timeline-decade-row-1990')),
+        find.byKey(const Key('timeline-branch-mark-$parent')),
+      ),
+      isTrue,
+    );
+  });
+
+  testWidgets('a root origin uses a plain Origin tag', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const origin = 'root-origin';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: origin,
+              title: 'Root tale',
+              timeframeStart: DateTime(1980),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Ada',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Ada', originStoryId: origin),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Origin'), findsOneWidget);
+    expect(find.textContaining('Origin · from'), findsNothing);
+  });
+}
+
+bool _containsFinder(WidgetTester tester, Finder ancestor, Finder descendant) {
+  if (ancestor.evaluate().isEmpty || descendant.evaluate().isEmpty) {
+    return false;
+  }
+  final root = tester.element(ancestor);
+  final target = tester.element(descendant);
+  var found = false;
+  void walk(Element element) {
+    if (found) return;
+    if (element == target) {
+      found = true;
+      return;
+    }
+    element.visitChildren(walk);
+  }
+
+  walk(root);
+  return found;
 }
 
 Finder _branchMarks() {
