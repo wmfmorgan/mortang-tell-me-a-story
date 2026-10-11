@@ -2903,6 +2903,9 @@ class _FullCardRow extends StatelessWidget {
       opacity: opacity.clamp(0, 1),
       child: Transform.scale(
         scale: focused ? 1.05 : 1,
+        // Narrow cards sit against the rail. Anchor the edge beside the rail
+        // so the 1.05 scale grows into the card, not over the ring.
+        alignment: wide ? Alignment.center : Alignment.centerLeft,
         child: _FullCard(
           story: story,
           focused: focused,
@@ -2926,6 +2929,9 @@ class _FullCardRow extends StatelessWidget {
             labelOnRight: cardOnLeft,
           );
     if (!wide) {
+      // The row centers this slot on the card. Keep it the dot's height so
+      // the dot stays on the card's centre, and let the ring hang 8px below.
+      final dotSize = focused ? 20.0 : 14.0;
       return Padding(
         padding: EdgeInsets.only(bottom: gap),
         child: Row(
@@ -2933,28 +2939,35 @@ class _FullCardRow extends StatelessWidget {
           children: [
             SizedBox(
               width: 28,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Center(child: dot),
-                  if (moved != null) ...[
-                    const SizedBox(height: 8),
-                    _BranchMark(
-                      family: moved,
-                      onTap: () => onMark?.call(moved),
-                      inline: true,
-                      showLabel: false,
+              height: moved == null ? null : dotSize,
+              child: moved == null
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [Center(child: dot)],
+                    )
+                  : Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Center(child: dot),
+                        Positioned(
+                          top: dotSize + 8,
+                          left: 0,
+                          width: 28,
+                          height: 16,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: _BranchMark(
+                              family: moved,
+                              onTap: () => onMark?.call(moved),
+                              inline: true,
+                              showLabel: false,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ],
-              ),
             ),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(left: moved == null ? 0 : 24),
-                child: card,
-              ),
-            ),
+            Expanded(child: card),
           ],
         ),
       );

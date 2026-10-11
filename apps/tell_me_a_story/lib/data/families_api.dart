@@ -142,9 +142,6 @@ abstract class FamiliesGateway {
   /// the 60-day window. Live member-only families are not included.
   Future<List<StewardFamily>> listStewarded();
 
-  /// Live families in the session family's tree. The default is the current
-  /// family only, so marks and the related menu stay empty until a caller
-  /// returns the rest of the tree.
   Future<void> setFamilyOrigin({
     required String familyId,
     required String storyId,
@@ -154,6 +151,9 @@ abstract class FamiliesGateway {
     return const [];
   }
 
+  /// Live families in the session family's tree. The default is the current
+  /// family only, so marks and the related menu stay empty until a caller
+  /// returns the rest of the tree.
   Future<List<TreeFamily>> listFamilyTree(String familyId) async {
     final mine = await listMine();
     for (final row in mine) {
