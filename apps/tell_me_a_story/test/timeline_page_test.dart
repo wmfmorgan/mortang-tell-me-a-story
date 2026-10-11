@@ -1877,20 +1877,13 @@ void main() {
 
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
-    final circles = find.byWidgetPredicate((widget) {
-      if (widget is! Container) return false;
-      final decoration = widget.decoration;
-      return decoration is BoxDecoration && decoration.shape == BoxShape.circle;
-    });
-    final storyDots = circles.evaluate().where((element) {
-      final width = element.size?.width;
-      return width == 14 || width == 20;
-    }).toList();
-    expect(storyDots, hasLength(1));
-    final box = storyDots.single.renderObject! as RenderBox;
-    final dotCenter = box.localToGlobal(box.size.center(Offset.zero)).dx;
     expect(
-      (_ringRect(tester, bea).center.dx - dotCenter).abs(),
+      (_ringRect(tester, bea).center.dx -
+              tester
+                  .getRect(find.byKey(const Key('timeline-full-dot-mid')))
+                  .center
+                  .dx)
+          .abs(),
       lessThanOrEqualTo(1),
     );
   });
@@ -1923,6 +1916,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final decadeNode = find.byKey(const Key('timeline-decade-node-1980'));
+    final decadeRow = find
+        .ancestor(of: decadeNode, matching: find.byType(Opacity))
+        .first;
+    expect(
+      (_ringRect(tester, bea).center.dx - tester.getRect(decadeNode).center.dx)
+          .abs(),
+      lessThanOrEqualTo(1),
+    );
+    expect(
+      _ringRect(tester, bea).bottom,
+      lessThan(tester.getRect(decadeRow).top),
+    );
+
     await tester.tap(find.byKey(const Key('timeline-year-chip')));
     await tester.pumpAndSettle();
     expect(
@@ -1931,12 +1938,73 @@ void main() {
         tester.getRect(find.byKey(const Key('timeline-mid-node-first'))).top,
       ),
     );
+    expect(
+      (_ringRect(tester, bea).center.dx -
+              tester
+                  .getRect(find.byKey(const Key('timeline-mid-node-first')))
+                  .center
+                  .dx)
+          .abs(),
+      lessThanOrEqualTo(1),
+    );
 
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
     expect(
       _ringRect(tester, bea).bottom,
       lessThan(tester.getTopLeft(find.text('First tale')).dy),
+    );
+    expect(
+      (_ringRect(tester, bea).center.dx -
+              tester
+                  .getRect(find.byKey(const Key('timeline-full-dot-first')))
+                  .center
+                  .dx)
+          .abs(),
+      lessThanOrEqualTo(1),
+    );
+  });
+
+  testWidgets('a no-year mark centers on the narrow full-card dot', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(700, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [_published(id: 'first', title: 'First tale')],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: bea, name: 'Bea'),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    expect(
+      (_ringRect(tester, bea).center.dx -
+              tester
+                  .getRect(find.byKey(const Key('timeline-full-dot-first')))
+                  .center
+                  .dx)
+          .abs(),
+      lessThanOrEqualTo(1),
     );
   });
 

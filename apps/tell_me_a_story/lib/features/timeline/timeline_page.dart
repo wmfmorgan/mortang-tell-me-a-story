@@ -964,6 +964,7 @@ class _FarRailState extends State<_FarRail> {
                               _BranchMark(
                                 family: mark,
                                 onTap: () => widget.onMark(mark),
+                                onRail: true,
                               ),
                           for (var i = 0; i < widget.bands.length; i++)
                             _FarDecadeRow(
@@ -2603,7 +2604,6 @@ class _BranchMark extends StatelessWidget {
   final TreeFamily family;
   final VoidCallback onTap;
 
-  /// Mid and Full Cards center the ring on the story rail. Macro stays in the gutter.
   final bool onRail;
   final bool wide;
 
@@ -2616,57 +2616,77 @@ class _BranchMark extends StatelessWidget {
     final ring = const SizedBox(
       width: 16,
       height: 16,
-      child: CustomPaint(painter: _RingDashPainter(color: albumSage)),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: albumParchment,
+            ),
+            child: SizedBox.expand(),
+          ),
+          CustomPaint(
+            painter: _RingDashPainter(color: albumSage),
+            child: SizedBox.expand(),
+          ),
+        ],
+      ),
     );
     final name = Text(
       label,
       style: Theme.of(context).textTheme.labelLarge
           ?.copyWith(color: albumSage, fontWeight: FontWeight.w600),
     );
-    final Widget body;
-    if (!onRail) {
-      body = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [ring, const SizedBox(width: 8), name],
-      );
-    } else if (!wide) {
-      body = Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(width: 28, child: Center(child: ring)),
-          Expanded(
-            child: Align(alignment: Alignment.centerLeft, child: name),
+    final cluster = MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        key: Key('timeline-branch-mark-${family.id}'),
+        onTap: onTap,
+        child: Tooltip(
+          message: label,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (onRail && wide && !labelOnRight) ...[
+                name,
+                const SizedBox(width: 8),
+              ],
+              ring,
+              if (!onRail || !wide || labelOnRight) ...[
+                const SizedBox(width: 8),
+                name,
+              ],
+            ],
           ),
-        ],
-      );
-    } else {
-      body = Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: labelOnRight
-                ? const SizedBox.shrink()
-                : Align(alignment: Alignment.centerRight, child: name),
-          ),
-          SizedBox(width: 56, child: Center(child: ring)),
-          Expanded(
-            child: labelOnRight
-                ? Align(alignment: Alignment.centerLeft, child: name)
-                : const SizedBox.shrink(),
-          ),
-        ],
-      );
-    }
-    return Align(
-      alignment: onRail ? Alignment.center : Alignment.centerLeft,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          key: Key('timeline-branch-mark-${family.id}'),
-          onTap: onTap,
-          child: Tooltip(message: label, child: body),
         ),
       ),
+    );
+    if (!onRail) {
+      return Align(alignment: Alignment.centerLeft, child: cluster);
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final ringCenter = wide ? constraints.maxWidth / 2 : 14.0;
+        final labelOnLeft = wide && !labelOnRight;
+        if (labelOnLeft) {
+          return Row(
+            children: [
+              const Spacer(),
+              cluster,
+              SizedBox(width: constraints.maxWidth - (ringCenter + 8)),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            SizedBox(width: ringCenter - 8),
+            cluster,
+            const Spacer(),
+          ],
+        );
+      },
     );
   }
 }
@@ -2707,7 +2727,10 @@ class _FullCardRow extends StatelessWidget {
         ),
       ),
     );
-    final dot = _FullCardDot(focused: focused);
+    final dot = _FullCardDot(
+      key: Key('timeline-full-dot-${story.id}'),
+      focused: focused,
+    );
     if (!wide) {
       return Padding(
         padding: EdgeInsets.only(bottom: gap),
@@ -2757,7 +2780,7 @@ class _FullCardRow extends StatelessWidget {
 }
 
 class _FullCardDot extends StatelessWidget {
-  const _FullCardDot({required this.focused});
+  const _FullCardDot({super.key, required this.focused});
 
   final bool focused;
 
