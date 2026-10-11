@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(54);
+select plan(57);
 
 create temporary table m11_ctx (
   user_a uuid primary key,
@@ -400,6 +400,41 @@ select is(
   'an unpublished origin reads as unset'
 );
 
+-- The story row is still there, so a child owner cannot clear the stored id.
+set local role authenticated;
+set local request.jwt.claim.sub = 'c11c0000-0000-4000-8000-0000000000c1';
+set local request.jwt.claim.role = 'authenticated';
+
+select throws_ok(
+  $$
+    update public.families
+    set origin_story_id = null
+    where id = (select child_id from m11_ctx)
+  $$,
+  'P0001',
+  'FORBIDDEN: field is locked',
+  'a child owner cannot clear the origin after it is drafted'
+);
+
+set local request.jwt.claim.sub = 'a11a0000-0000-4000-8000-0000000000a1';
+select public.soft_delete_family((select parent_id from m11_ctx));
+
+set local request.jwt.claim.sub = 'c11c0000-0000-4000-8000-0000000000c1';
+
+select throws_ok(
+  $$
+    update public.families
+    set origin_story_id = null
+    where id = (select child_id from m11_ctx)
+  $$,
+  'P0001',
+  'FORBIDDEN: field is locked',
+  'a child owner cannot clear the origin while the parent is soft-deleted'
+);
+
+set local request.jwt.claim.sub = 'a11a0000-0000-4000-8000-0000000000a1';
+select public.recover_family((select parent_id from m11_ctx));
+
 set local role authenticated;
 set local request.jwt.claim.sub = 'a11a0000-0000-4000-8000-0000000000a1';
 set local request.jwt.claim.role = 'authenticated';
@@ -521,6 +556,34 @@ select
   parent_id::text || '/' || s2::text || '/parent.jpg',
   user_a::text
 from m11_ctx;
+
+set local role authenticated;
+set local request.jwt.claim.sub = 'b11b0000-0000-4000-8000-0000000000b1';
+set local request.jwt.claim.role = 'authenticated';
+
+update storage.objects
+set metadata = '{"touched": true}'::jsonb
+where bucket_id = 'story-photos'
+  and name = (
+    select parent_id::text || '/' || s2::text || '/parent.jpg' from m11_ctx
+  );
+
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+
+select is(
+  (
+    select count(*)
+    from storage.objects
+    where bucket_id = 'story-photos'
+      and name = (
+        select parent_id::text || '/' || s2::text || '/parent.jpg' from m11_ctx
+      )
+      and metadata = '{"touched": true}'::jsonb
+  ),
+  0::bigint,
+  'a child member storage update on a parent member file changes 0 rows'
+);
 
 set local role authenticated;
 set local request.jwt.claim.sub = 'b11b0000-0000-4000-8000-0000000000b1';

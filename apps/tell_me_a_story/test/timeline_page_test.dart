@@ -2346,6 +2346,132 @@ void main() {
     expect(find.text('Origin'), findsOneWidget);
     expect(find.textContaining('Origin · from'), findsNothing);
   });
+
+  testWidgets(
+    'a wide full card on the right puts the origin label left of the ring',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const parent = '00000000-0000-0000-0000-0000000000aa';
+      const origin = 'origin-story';
+      await tester.pumpWidget(
+        _timeline(
+          stories: _FakeStoriesApi(
+            published: [
+              _published(
+                id: 'child-story',
+                title: 'Later tale',
+                timeframeStart: DateTime(1992),
+              ),
+              _published(
+                id: origin,
+                familyId: parent,
+                title: 'The beginning',
+                timeframeStart: DateTime(1974),
+              ),
+            ],
+          ),
+          families: _TreeFamilies(
+            mine: [
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(1970),
+                parentFamilyId: parent,
+              ),
+            ],
+            tree: const [
+              TreeFamily(id: parent, name: 'Parent'),
+              TreeFamily(
+                id: _familyId,
+                name: 'Ada',
+                parentFamilyId: parent,
+                originStoryId: origin,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('timeline-year-chip')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+      await tester.pumpAndSettle();
+
+      final ring = find.descendant(
+        of: find.byKey(const Key('timeline-branch-mark-$parent')),
+        matching: find.byType(CustomPaint),
+      );
+      expect(
+        tester.getCenter(find.text('Parent')).dx,
+        lessThan(tester.getCenter(ring).dx),
+      );
+    },
+  );
+
+  testWidgets('a narrow full card centers the origin ring under the dot', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(700, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    const origin = 'origin-story';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: origin,
+              familyId: parent,
+              title: 'The beginning',
+              timeframeStart: DateTime(1974),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Ada',
+              createdAt: DateTime.utc(1970),
+              parentFamilyId: parent,
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: parent, name: 'Parent'),
+            TreeFamily(
+              id: _familyId,
+              name: 'Ada',
+              parentFamilyId: parent,
+              originStoryId: origin,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+
+    final ring = find.descendant(
+      of: find.byKey(const Key('timeline-branch-mark-$parent')),
+      matching: find.byType(CustomPaint),
+    );
+    final dot = find.byKey(const Key('timeline-full-dot-$origin'));
+    final card = find.byKey(const Key('timeline-card-$origin'));
+    expect(
+      (tester.getCenter(ring).dx - tester.getCenter(dot).dx).abs(),
+      lessThanOrEqualTo(1),
+    );
+    expect(
+      (tester.getRect(ring).top - tester.getRect(dot).bottom - 8).abs(),
+      lessThanOrEqualTo(1),
+    );
+    expect(find.text('Parent'), findsNothing);
+    expect(tester.getRect(ring).overlaps(tester.getRect(card)), isFalse);
+  });
 }
 
 bool _containsFinder(WidgetTester tester, Finder ancestor, Finder descendant) {

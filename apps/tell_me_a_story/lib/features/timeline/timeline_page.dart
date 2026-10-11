@@ -2766,6 +2766,7 @@ class _BranchMark extends StatelessWidget {
     this.wide = true,
     this.labelOnRight = true,
     this.inline = false,
+    this.showLabel = true,
   });
 
   final TreeFamily family;
@@ -2776,6 +2777,9 @@ class _BranchMark extends StatelessWidget {
 
   /// Compact ring plus label, used beside an origin dot. Skips the rail offset.
   final bool inline;
+
+  /// Narrow full cards draw the ring alone, centered under the dot.
+  final bool showLabel;
 
   /// Wide rail: the label sits on the side with no card. Right when that side is unknown.
   final bool labelOnRight;
@@ -2822,9 +2826,15 @@ class _BranchMark extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (labelBeforeRing) ...[name, const SizedBox(width: 8)],
+              if (showLabel && labelBeforeRing) ...[
+                name,
+                const SizedBox(width: 8),
+              ],
               ring,
-              if (!labelBeforeRing) ...[const SizedBox(width: 8), name],
+              if (showLabel && !labelBeforeRing) ...[
+                const SizedBox(width: 8),
+                name,
+              ],
             ],
           ),
         ),
@@ -2923,21 +2933,28 @@ class _FullCardRow extends StatelessWidget {
           children: [
             SizedBox(
               width: 28,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Center(child: dot),
-                  if (originRing != null)
-                    Positioned(
-                      left: cardOnLeft ? 24 : null,
-                      right: cardOnLeft ? null : 24,
-                      child: originRing,
+                  if (moved != null) ...[
+                    const SizedBox(height: 8),
+                    _BranchMark(
+                      family: moved,
+                      onTap: () => onMark?.call(moved),
+                      inline: true,
+                      showLabel: false,
                     ),
+                  ],
                 ],
               ),
             ),
-            Expanded(child: card),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(left: moved == null ? 0 : 24),
+                child: card,
+              ),
+            ),
           ],
         ),
       );

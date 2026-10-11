@@ -95,7 +95,7 @@ class SupabaseTimelineLive implements TimelineLive {
     if (_storyId == storyId && _storyChannel != null) return;
     _stopStory();
     _storyId = storyId;
-    final channel = _client.channel('public:comments');
+    final channel = _client.channel('story:$storyId');
     for (final table in const ['comments', 'perspectives', 'photos']) {
       channel.onPostgresChanges(
         event: PostgresChangeEvent.all,

@@ -9,9 +9,21 @@ alter table public.families
 create index families_origin_story_id_idx
   on public.families (origin_story_id);
 
+-- Sees past RLS. The guard stays invoker so its current_user check is the caller.
+create or replace function public.story_row_exists(sid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.stories where id = sid);
+$$;
+
 create or replace function public.families_guard_update()
 returns trigger
 language plpgsql
+security invoker
 set search_path = public
 as $$
 begin
@@ -38,9 +50,7 @@ begin
      and current_setting('app.family_origin', true) is distinct from 'on' then
     if not (
       new.origin_story_id is null
-      and not exists (
-        select 1 from public.stories s where s.id = old.origin_story_id
-      )
+      and not public.story_row_exists(old.origin_story_id)
     ) then
       raise exception 'FORBIDDEN: field is locked';
     end if;
@@ -162,7 +172,8 @@ set search_path = public
 as $$
   select f.id, f.name
   from public.families f
-  where public.family_origin(f.id) = p_story_id
+  where f.origin_story_id = p_story_id
+    and public.family_origin(f.id) = p_story_id
     and exists (
       select 1
       from public.stories s
@@ -221,6 +232,9 @@ as $$
   from down
   where public.is_family_tree_readable(fid);
 $$;
+
+revoke all on function public.story_row_exists(uuid) from public, anon;
+grant execute on function public.story_row_exists(uuid) to authenticated;
 
 revoke all on function public.family_origin(uuid) from public, anon, authenticated;
 revoke all on function public.can_contribute_to_story(uuid, uuid) from public, anon;
@@ -437,15 +451,26 @@ create policy story_photos_update_member
   using (
     bucket_id = 'story-photos'
     and array_length(storage.foldername(storage.objects.name), 1) = 2
-    and public.can_contribute_to_story(
-      case
-        when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        then (storage.foldername(storage.objects.name))[1]::uuid
-      end,
-      case
-        when (storage.foldername(storage.objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        then (storage.foldername(storage.objects.name))[2]::uuid
-      end
+    and (
+      public.is_live_family_member(
+        case
+          when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          then (storage.foldername(storage.objects.name))[1]::uuid
+        end
+      )
+      or (
+        owner_id = (select auth.uid())::text
+        and public.can_contribute_to_story(
+          case
+            when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (storage.foldername(storage.objects.name))[1]::uuid
+          end,
+          case
+            when (storage.foldername(storage.objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (storage.foldername(storage.objects.name))[2]::uuid
+          end
+        )
+      )
     )
     and exists (
       select 1
@@ -463,15 +488,26 @@ create policy story_photos_update_member
   with check (
     bucket_id = 'story-photos'
     and array_length(storage.foldername(storage.objects.name), 1) = 2
-    and public.can_contribute_to_story(
-      case
-        when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        then (storage.foldername(storage.objects.name))[1]::uuid
-      end,
-      case
-        when (storage.foldername(storage.objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        then (storage.foldername(storage.objects.name))[2]::uuid
-      end
+    and (
+      public.is_live_family_member(
+        case
+          when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          then (storage.foldername(storage.objects.name))[1]::uuid
+        end
+      )
+      or (
+        owner_id = (select auth.uid())::text
+        and public.can_contribute_to_story(
+          case
+            when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (storage.foldername(storage.objects.name))[1]::uuid
+          end,
+          case
+            when (storage.foldername(storage.objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (storage.foldername(storage.objects.name))[2]::uuid
+          end
+        )
+      )
     )
     and exists (
       select 1

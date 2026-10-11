@@ -1331,7 +1331,18 @@ void main() {
       await tester.tap(find.byKey(const Key('set-origin-go')));
       await tester.pumpAndSettle();
       expect(families.originCalls, [(familyId: ada, storyId: _storyId)]);
-      expect(find.text('Jam'), findsOneWidget);
+      expect(find.text('timeline-dest'), findsOneWidget);
+
+      await tester.pumpWidget(
+        _readerApp(
+          stories: _FakeStoriesApi(
+            story: _published(familyId: ada, title: 'Jam'),
+          ),
+          currentUserId: 'u-member',
+          families: families,
+        ),
+      );
+      await tester.pumpAndSettle();
 
       families.originError = const OriginRpcException(
         'VALIDATION',
@@ -1524,7 +1535,6 @@ class _OriginFamilies extends FamiliesGateway {
     this.tree = const [],
     this.stewarded = const [],
     this.dependents = const [],
-    this.originError,
   });
 
   final List<MemberFamily> mine;

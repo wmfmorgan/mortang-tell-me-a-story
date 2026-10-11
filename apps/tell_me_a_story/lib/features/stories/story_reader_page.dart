@@ -166,6 +166,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   List<Comment> _comments = const [];
   List<Perspective> _perspectives = const [];
   var _busy = false;
+  var _confirming = false;
   var _photoError = false;
   var _composingComment = false;
   var _canWrite = false;
@@ -301,9 +302,17 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       if (widget.familiesApi != null) {
         try {
           final mine = await widget.familiesApi!.listMine();
-          tree = await widget.familiesApi!.listFamilyTree(story.familyId);
-          stewarded = await widget.familiesApi!.listStewarded();
           canWrite = mine.any((family) => family.id == story.familyId);
+          try {
+            tree = await widget.familiesApi!.listFamilyTree(story.familyId);
+          } catch (_) {
+            tree = const [];
+          }
+          try {
+            stewarded = await widget.familiesApi!.listStewarded();
+          } catch (_) {
+            stewarded = const [];
+          }
           if (!canWrite) {
             final mineIds = mine.map((family) => family.id).toSet();
             canWrite = tree.any(
@@ -492,35 +501,56 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         storyId: story.id,
       );
       if (!mounted) return;
-      if (context.canPop()) context.pop(true);
-    } on OriginRpcException catch (error) {
+      if (context.canPop()) {
+        context.pop(true);
+      } else {
+        context.go(AppRoutes.timeline);
+      }
+    } catch (error) {
       if (!mounted) return;
+      final message = error is OriginRpcException ? error.message : 'Try again';
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+          .showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
   Future<void> _confirmDelete(Story story) async {
-    final families = widget.familiesApi;
-    final dependents = families == null
-        ? const <OriginDependent>[]
-        : await families.listOriginDependents(story.id);
-    if (!mounted) return;
-    final names = [for (final row in dependents) row.name];
-    final warning = names.isNotEmpty;
-    final confirmed = await showFamilyBlurDialog(
-      context,
-      dialogKey: Key(warning ? 'delete-origin-warning' : 'delete-story-dialog'),
-      title: 'Delete this story?',
-      body: warning ? originDeleteBody(names) : null,
-      confirmLabel: 'Delete story',
-      confirmKey: const Key('delete-story-go'),
-      confirmColor: albumTerracotta,
-    );
-    if (!confirmed || !mounted) return;
-    await _stories.discard(story.id);
-    if (!mounted) return;
-    if (context.canPop()) context.pop(true);
+    if (_confirming) return;
+    _confirming = true;
+    try {
+      final families = widget.familiesApi;
+      final dependents = families == null
+          ? const <OriginDependent>[]
+          : await families.listOriginDependents(story.id);
+      if (!mounted) return;
+      final names = [for (final row in dependents) row.name];
+      final warning = names.isNotEmpty;
+      final confirmed = await showFamilyBlurDialog(
+        context,
+        dialogKey: Key(
+          warning ? 'delete-origin-warning' : 'delete-story-dialog',
+        ),
+        title: 'Delete this story?',
+        body: warning ? originDeleteBody(names) : null,
+        confirmLabel: 'Delete story',
+        confirmKey: const Key('delete-story-go'),
+        confirmColor: albumTerracotta,
+      );
+      if (!confirmed || !mounted) return;
+      await _stories.discard(story.id);
+      if (!mounted) return;
+      if (context.canPop()) {
+        context.pop(true);
+      } else {
+        context.go(AppRoutes.timeline);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+    } finally {
+      _confirming = false;
+    }
   }
 
   void _openComposer() {
