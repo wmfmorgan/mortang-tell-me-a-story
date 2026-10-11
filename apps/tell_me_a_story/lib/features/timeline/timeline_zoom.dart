@@ -184,6 +184,33 @@ int _nullsFirst(int? a, int? b) {
   return a.compareTo(b);
 }
 
+/// Sage label for the story that starts [open]. Null when [storyId] is not it.
+String? originTag({
+  required TreeFamily open,
+  required List<TreeFamily> tree,
+  required String storyId,
+}) {
+  if (open.originStoryId != storyId) return null;
+  final parentId = open.parentFamilyId;
+  if (parentId == null) return 'Origin';
+  for (final row in tree) {
+    if (row.id == parentId) return 'Origin · from ${row.name}';
+  }
+  return 'Origin';
+}
+
+/// Parent mark to draw beside the origin story. Null when the open family
+/// has no effective origin. Other marks stay on the M12 year rules.
+TreeFamily? originParentMark(TreeFamily? open, List<TreeFamily> marks) {
+  final parentId = open?.parentFamilyId;
+  final originId = open?.originStoryId;
+  if (parentId == null || originId == null) return null;
+  for (final mark in marks) {
+    if (mark.id == parentId) return mark;
+  }
+  return null;
+}
+
 String branchMarkLabel(TreeFamily family) {
   final year = family.branchYear;
   if (year == null) return family.name;

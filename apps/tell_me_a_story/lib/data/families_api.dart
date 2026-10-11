@@ -55,13 +55,15 @@ class StewardFamily {
   }
 }
 
-/// One live family from `list_family_tree`. [branchYear] stays null until M11.
+/// One live family from `list_family_tree`.
+/// [branchYear] and [originStoryId] are whatever the server returns.
 class TreeFamily {
   const TreeFamily({
     required this.id,
     required this.name,
     this.parentFamilyId,
     this.branchYear,
+    this.originStoryId,
   });
 
   final String id;
@@ -69,8 +71,12 @@ class TreeFamily {
   final String? parentFamilyId;
   final int? branchYear;
 
+  /// Effective origin from `family_origin`. Null when the timeline has none.
+  final String? originStoryId;
+
   factory TreeFamily.fromJson(Map<String, dynamic> json) {
     final rawYear = json['branch_year'];
+    final rawOrigin = json['origin_story_id'];
     return TreeFamily(
       id: json['id'] as String,
       name: (json['name'] as String?)?.trim().isNotEmpty == true
@@ -78,8 +84,55 @@ class TreeFamily {
           : 'Family',
       parentFamilyId: json['parent_family_id'] as String?,
       branchYear: rawYear is num ? rawYear.toInt() : null,
+      originStoryId: rawOrigin is String && rawOrigin.isNotEmpty
+          ? rawOrigin
+          : null,
     );
   }
+}
+
+/// A live family whose effective origin is [storyId].
+class OriginDependent {
+  const OriginDependent({required this.familyId, required this.name});
+
+  final String familyId;
+  final String name;
+}
+
+/// Mapped from `set_family_origin` and `list_origin_dependents`.
+class OriginRpcException implements Exception {
+  const OriginRpcException(this.code, this.message);
+
+  /// `FORBIDDEN`, `NOT_FOUND`, or `VALIDATION`.
+  final String code;
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+/// §12 catalog text for an origin RPC failure. Null when [error] is not one.
+OriginRpcException? originRpcException(Object error) {
+  if (error is! PostgrestException) return null;
+  final raw = error.message;
+  if (raw.contains('FORBIDDEN')) {
+    return const OriginRpcException(
+      'FORBIDDEN',
+      'You do not have permission to do that.',
+    );
+  }
+  if (raw.contains('NOT_FOUND')) {
+    return const OriginRpcException('NOT_FOUND', 'Not found.');
+  }
+  if (raw.contains('VALIDATION')) {
+    const marker = 'VALIDATION: ';
+    final index = raw.indexOf(marker);
+    final detail = index >= 0
+        ? raw.substring(index + marker.length).trim()
+        : raw;
+    return OriginRpcException('VALIDATION', detail);
+  }
+  return null;
 }
 
 abstract class FamiliesGateway {
@@ -88,6 +141,15 @@ abstract class FamiliesGateway {
   /// Owner and co-owner families, including soft-deleted rows still inside
   /// the 60-day window. Live member-only families are not included.
   Future<List<StewardFamily>> listStewarded();
+
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    return const [];
+  }
 
   /// Live families in the session family's tree. The default is the current
   /// family only, so marks and the related menu stay empty until a caller
@@ -264,6 +326,53 @@ class FamiliesApi implements FamiliesGateway, FamilyDirectoryGateway {
       }
     }
     return families;
+  }
+
+  @override
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {
+    try {
+      await _client.rpc(
+        'set_family_origin',
+        params: {'p_family_id': familyId, 'p_story_id': storyId},
+      );
+    } catch (error) {
+      final mapped = originRpcException(error);
+      if (mapped != null) throw mapped;
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    final Object rows;
+    try {
+      rows = await _client.rpc(
+        'list_origin_dependents',
+        params: {'p_story_id': storyId},
+      );
+    } catch (error) {
+      final mapped = originRpcException(error);
+      if (mapped != null) throw mapped;
+      rethrow;
+    }
+    if (rows is! List) return const [];
+    final dependents = <OriginDependent>[];
+    for (final row in rows) {
+      final map = row is Map<String, dynamic>
+          ? row
+          : row is Map
+          ? Map<String, dynamic>.from(row)
+          : null;
+      if (map == null) continue;
+      final id = map['family_id'];
+      final name = map['name'];
+      if (id is! String || name is! String) continue;
+      dependents.add(OriginDependent(familyId: id, name: name));
+    }
+    return dependents;
   }
 
   @override
