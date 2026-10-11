@@ -52,6 +52,7 @@ void main() {
     expect(beaY, lessThan(dividerY));
     expect(dividerY, lessThan(startY));
     expect(startY, lessThan(manageY));
+    expect(find.text('Start a new timeline'), findsNothing);
     expect(find.byIcon(Icons.check), findsOneWidget);
   });
 
@@ -622,6 +623,16 @@ class _Directory implements FamilyDirectoryGateway {
 class _Manage implements ManageFamiliesGateway {
   @override
   Future<String> createRootFamily(String name) async => 'created-1';
+
+  @override
+  Future<String> createBranchFamily({
+    required String parentFamilyId,
+    required String originStoryId,
+    required String name,
+    required int branchYear,
+    required String ownerUserId,
+    List<String> personIds = const [],
+  }) async => 'unused';
 
   @override
   Future<void> renameFamily({

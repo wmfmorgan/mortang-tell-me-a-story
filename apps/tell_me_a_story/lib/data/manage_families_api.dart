@@ -2,6 +2,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class ManageFamiliesGateway {
   Future<String> createRootFamily(String name);
+
+  Future<String> createBranchFamily({
+    required String parentFamilyId,
+    required String originStoryId,
+    required String name,
+    required int branchYear,
+    required String ownerUserId,
+    List<String> personIds = const [],
+  });
   Future<void> renameFamily({required String familyId, required String name});
   Future<void> addCoOwner({required String familyId, required String userId});
   Future<void> removeCoOwner({
@@ -36,6 +45,33 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
       throw ManageFamiliesException(
         code: 'VALIDATION',
         message: 'create_family returned no id',
+      );
+    }
+    return id;
+  }
+
+  @override
+  Future<String> createBranchFamily({
+    required String parentFamilyId,
+    required String originStoryId,
+    required String name,
+    required int branchYear,
+    required String ownerUserId,
+    List<String> personIds = const [],
+  }) async {
+    final json = await _invoke('create-branch-family', {
+      'parent_family_id': parentFamilyId,
+      'origin_story_id': originStoryId,
+      'name': name,
+      'branch_year': branchYear,
+      'owner_user_id': ownerUserId,
+      'person_ids': personIds,
+    }, expectStatus: 201);
+    final id = json['family_id'];
+    if (id is! String || id.isEmpty) {
+      throw ManageFamiliesException(
+        code: 'VALIDATION',
+        message: 'create_branch_family returned no id',
       );
     }
     return id;

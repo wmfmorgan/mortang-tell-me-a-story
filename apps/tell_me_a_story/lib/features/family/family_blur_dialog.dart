@@ -5,6 +5,14 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/album_theme.dart';
 
+/// Shared sigma-4 scrim. Start-a-family keeps its own sigma-5 blur.
+Widget familyBlurShell({required Widget child}) {
+  return BackdropFilter(
+    filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+    child: ColoredBox(color: const Color(0x662C2416), child: child),
+  );
+}
+
 /// Full-page blur confirm. Stitch `e37136c3a1734a30ac5487b42cd91f42`.
 /// True only when the confirm button is pressed.
 Future<bool> showFamilyBlurDialog(
@@ -66,11 +74,8 @@ class _FamilyBlurDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-      child: ColoredBox(
-        color: const Color(0x662C2416),
-        child: GestureDetector(
+    return familyBlurShell(
+      child: GestureDetector(
           onTap: () => Navigator.pop(context, false),
           behavior: HitTestBehavior.opaque,
           child: Center(
@@ -191,7 +196,6 @@ class _FamilyBlurDialog extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 }

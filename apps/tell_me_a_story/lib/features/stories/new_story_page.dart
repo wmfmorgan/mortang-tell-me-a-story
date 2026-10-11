@@ -479,7 +479,12 @@ class _NewStoryPageState extends State<NewStoryPage> {
       if (!mounted) return;
       final router = GoRouter.maybeOf(context);
       if (router != null) {
-        context.go(AppRoutes.timeline);
+        final from = GoRouterState.of(context).uri.queryParameters['newTimelineFrom'];
+        if (from != null && from.isNotEmpty) {
+          context.go('${AppRoutes.timeline}?newTimelineOrigin=${story.id}');
+        } else {
+          context.go(AppRoutes.timeline);
+        }
       }
     } catch (_) {
       if (!mounted) return;

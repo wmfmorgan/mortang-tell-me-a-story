@@ -151,6 +151,10 @@ abstract class FamiliesGateway {
     return const [];
   }
 
+  /// Live members of [familyId], with accounts. The default is empty so
+  /// callers that do not open the create form stay quiet.
+  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
+
   /// Live families in the session family's tree. The default is the current
   /// family only, so marks and the related menu stay empty until a caller
   /// returns the rest of the tree.
@@ -432,25 +436,16 @@ class FamiliesApi implements FamiliesGateway, FamilyDirectoryGateway {
   }
 
   @override
-  Future<FamilyDetail?> loadDetail(String familyId) async {
-    final uid = _client.auth.currentUser?.id;
-    final family = await _client
-        .from('families')
-        .select('id, name')
-        .eq('id', familyId)
-        .maybeSingle();
-    if (family == null) return null;
+  Future<List<FamilyPerson>> listMembers(String familyId) async {
     final rows = await _client
         .from('memberships')
         .select('user_id, role, profiles(display_name, avatar_path)')
         .eq('family_id', familyId);
     final people = <FamilyPerson>[];
-    var myRole = 'member';
     for (final row in rows) {
       final userId = row['user_id'] as String?;
       final role = row['role'] as String? ?? 'member';
       if (userId == null) continue;
-      if (userId == uid) myRole = role;
       final profile = row['profiles'];
       String? displayName;
       String? avatarPath;
@@ -474,6 +469,23 @@ class FamiliesApi implements FamiliesGateway, FamilyDirectoryGateway {
           avatarBytes: bytes,
         ),
       );
+    }
+    return people;
+  }
+
+  @override
+  Future<FamilyDetail?> loadDetail(String familyId) async {
+    final uid = _client.auth.currentUser?.id;
+    final family = await _client
+        .from('families')
+        .select('id, name')
+        .eq('id', familyId)
+        .maybeSingle();
+    if (family == null) return null;
+    final people = await listMembers(familyId);
+    var myRole = 'member';
+    for (final person in people) {
+      if (person.userId == uid) myRole = person.role;
     }
     final inviteRows = await _client
         .from('invites')

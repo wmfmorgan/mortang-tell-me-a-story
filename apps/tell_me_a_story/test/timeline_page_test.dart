@@ -2479,7 +2479,6 @@ void main() {
       find.byKey(const Key('timeline-branch-mark-$parent')).hitTestable(),
       findsOneWidget,
     );
-    expect(tester.getRect(card).right, lessThanOrEqualTo(700));
   });
 
   testWidgets('a narrow origin ring opens the parent timeline', (tester) async {
@@ -2541,12 +2540,55 @@ void main() {
     expect(FamilySelection.id, parent);
     expect(find.text('Child tale'), findsNothing);
     expect(find.byKey(const Key('timeline-dot-child-story')), findsNothing);
-    final parentDot = find.byKey(const Key('timeline-dot-$origin'));
-    if (parentDot.evaluate().isNotEmpty) {
-      expect(_tooltipFor(tester, origin), contains('The beginning'));
-    } else {
-      expect(find.text('The beginning'), findsOneWidget);
-    }
+    expect(find.text('The beginning'), findsOneWidget);
+  });
+
+  testWidgets('a narrow origin card stays inside the right edge', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(700, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    const origin = 'origin-story';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: origin,
+              familyId: parent,
+              title: 'The beginning',
+              timeframeStart: DateTime(1974),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Ada',
+              createdAt: DateTime.utc(1970),
+              parentFamilyId: parent,
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: parent, name: 'Parent'),
+            TreeFamily(
+              id: _familyId,
+              name: 'Ada',
+              parentFamilyId: parent,
+              originStoryId: origin,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const Key('timeline-card-$origin'));
+    expect(tester.getRect(card).right, lessThanOrEqualTo(700));
   });
 
   testWidgets(

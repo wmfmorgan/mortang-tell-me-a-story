@@ -33,6 +33,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
     this.onSaveDraft,
     this.onPublish,
     this.onLogout,
+    this.onStartTimeline,
   });
 
   final AlbumHeaderPage page;
@@ -48,6 +49,9 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
   final Future<void> Function()? onLogout;
+
+  /// Timeline page only. Null hides "Start a new timeline".
+  final VoidCallback? onStartTimeline;
 
   static const height = 72.0;
 
@@ -88,6 +92,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               onSaveDraft: onSaveDraft,
               onPublish: onPublish,
               onLogout: onLogout,
+              onStartTimeline: onStartTimeline,
               onTimeline: () => _openTimeline(context),
               onDrafts: () => _openDrafts(context),
               onNewStory: () => _openNewStory(context),
@@ -141,6 +146,7 @@ class _HeaderBar extends StatelessWidget {
     required this.onSaveDraft,
     required this.onPublish,
     required this.onLogout,
+    required this.onStartTimeline,
     required this.onTimeline,
     required this.onDrafts,
     required this.onNewStory,
@@ -160,6 +166,7 @@ class _HeaderBar extends StatelessWidget {
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
   final Future<void> Function()? onLogout;
+  final VoidCallback? onStartTimeline;
   final VoidCallback onTimeline;
   final VoidCallback onDrafts;
   final VoidCallback onNewStory;
@@ -190,6 +197,7 @@ class _HeaderBar extends StatelessWidget {
               showManage: stewarded.any((family) => family.countsForManage()),
               relatedFamilies: relatedFamilies,
               manageApi: manageApi,
+              onStartTimeline: onStartTimeline,
               active: page == AlbumHeaderPage.manageFamilies,
             ),
           ),
@@ -481,10 +489,12 @@ class _FamilyMenu extends StatelessWidget {
     required this.showManage,
     required this.relatedFamilies,
     required this.manageApi,
+    required this.onStartTimeline,
     required this.active,
   });
 
   static const _startValue = 'start-family';
+  static const _timelineValue = 'start-timeline';
   static const _manageValue = 'manage-families';
 
   final String familyName;
@@ -494,6 +504,7 @@ class _FamilyMenu extends StatelessWidget {
   final bool showManage;
   final List<TreeFamily> relatedFamilies;
   final ManageFamiliesGateway? manageApi;
+  final VoidCallback? onStartTimeline;
   final bool active;
 
   /// Manage hub and detail keep their own screens. A picked family is the
@@ -540,6 +551,10 @@ class _FamilyMenu extends StatelessWidget {
           _start(context);
           return;
         }
+        if (value == _timelineValue) {
+          onStartTimeline?.call();
+          return;
+        }
         if (value == _manageValue) {
           GoRouter.of(context).go(AppRoutes.manageFamilies);
           return;
@@ -582,6 +597,12 @@ class _FamilyMenu extends StatelessWidget {
             value: _startValue,
             child: Text('+ Start a family'),
           ),
+          if (onStartTimeline != null)
+            const PopupMenuItem<String>(
+              key: Key('family-menu-start-timeline'),
+              value: _timelineValue,
+              child: Text('Start a new timeline'),
+            ),
           if (showManage)
             const PopupMenuItem<String>(
               key: Key('family-menu-manage'),
