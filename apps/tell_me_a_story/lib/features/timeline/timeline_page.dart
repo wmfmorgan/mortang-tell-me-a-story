@@ -2902,10 +2902,9 @@ class _FullCardRow extends StatelessWidget {
     final card = Opacity(
       opacity: opacity.clamp(0, 1),
       child: Transform.scale(
-        scale: focused ? 1.05 : 1,
-        // Narrow cards sit against the rail. Anchor the edge beside the rail
-        // so the 1.05 scale grows into the card, not over the ring.
-        alignment: wide ? Alignment.center : Alignment.centerLeft,
+        // Narrow rows skip the scale. A 1.05 card overflows the right edge,
+        // and focus there is the 20px dot plus the focused card chrome.
+        scale: wide && focused ? 1.05 : 1,
         child: _FullCard(
           story: story,
           focused: focused,
@@ -2929,8 +2928,8 @@ class _FullCardRow extends StatelessWidget {
             labelOnRight: cardOnLeft,
           );
     if (!wide) {
-      // The row centers this slot on the card. Keep it the dot's height so
-      // the dot stays on the card's centre, and let the ring hang 8px below.
+      // The slot includes the ring so it hit-tests. The dot stays at the
+      // slot centre, which the row lines up with the card.
       final dotSize = focused ? 20.0 : 14.0;
       return Padding(
         padding: EdgeInsets.only(bottom: gap),
@@ -2939,7 +2938,7 @@ class _FullCardRow extends StatelessWidget {
           children: [
             SizedBox(
               width: 28,
-              height: moved == null ? null : dotSize,
+              height: moved == null ? null : dotSize + 2 * (8 + 16),
               child: moved == null
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
@@ -2950,7 +2949,7 @@ class _FullCardRow extends StatelessWidget {
                       children: [
                         Center(child: dot),
                         Positioned(
-                          top: dotSize + 8,
+                          top: (dotSize + 2 * (8 + 16)) / 2 + dotSize / 2 + 8,
                           left: 0,
                           width: 28,
                           height: 16,
