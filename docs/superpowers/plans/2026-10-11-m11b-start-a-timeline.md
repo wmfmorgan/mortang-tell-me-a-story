@@ -25,24 +25,12 @@
 | T1 | **RESOLVED.** `create_branch_family` body as specified below. `search_path = ''`. Every table and function name schema-qualified. |
 | T2 | **RESOLVED.** Same Deno case as item 3. One test. |
 | T3 | **RESOLVED.** Three pgTAP order tests: non-member plus a bad origin raises `FORBIDDEN`; a null parent raises `FORBIDDEN`; a bad origin plus a blank name raises `NOT_FOUND`. |
-| T4 | **RESOLVED**, except the generic sentence, which is still open (below). Validate every UUID and each `person_ids` entry before the RPC. `mapRpcError` passes through only messages that start with `VALIDATION:`, `NOT_FOUND:`, or `FORBIDDEN:`. Anything else becomes the generic error. The client shows the message field only. |
+| T4 | **RESOLVED.** Validate every UUID and each `person_ids` entry before the RPC. `mapRpcError` passes through only when the trimmed message starts with `VALIDATION:`, `NOT_FOUND:`, or `FORBIDDEN:`. Anything else, including a prefix in the middle, becomes `Try again`. The client shows the message field only. |
 | T5 | **RESOLVED.** No `FOR SHARE` on the parent or origin rows. Foreign keys are enough. Add no locking. |
 
 ## Still open
 
-**Generic error sentence, for Mugatu.** §15 says an unprefixed database error uses the app's existing generic error string, inline, with the modal left open, and that no new sentence may be written. There is no shared generic string.
-
-What exists today is per screen, not one app string:
-
-- Start a family, inline catch-all: `Couldn't create the family. Try again.`
-- Reader and several saves: `Try again`
-- Other screens name the action (`Couldn't publish story. Try again.`, and the same shape for drafts, profile, place, person, invite)
-
-None of those is a shared sentence for an unexpected database error on this form. The plan does not pick one.
-
-Until Mugatu names it, the Edge fallback and the flutter generic test have no locked message. They can still assert that the raw Postgres text is absent, that the message field has no `VALIDATION:` prefix, and that the modal stays open.
-
-**Malformed UUID message, for Mugatu.** T4 says the Edge rejects a bad `parent_family_id`, `origin_story_id`, `owner_user_id`, or `person_ids` entry before the RPC. §15 does not give that sentence. Do not reuse `parent_family_id is required` for a present-but-invalid id unless Mugatu says so. Status stays 400 `VALIDATION`. No new error code. The RPC is not called.
+**Malformed UUID message, for Mugatu.** T4 says the Edge rejects a bad `parent_family_id`, `origin_story_id`, `owner_user_id`, or `person_ids` entry before the RPC. §15 does not give that sentence. The code uses `That id is not valid.` Status stays 400 `VALIDATION`. No new error code. The RPC is not called. Do not treat that sentence as renamed.
 
 ## Unchanged locks
 
@@ -84,7 +72,7 @@ Edge `POST /create-branch-family` uses `handleManage` and one user-scoped `rpc('
 
 A JSON integer outside 1000–9999, including 999, is sent to the RPC. `mapRpcError` returns code `VALIDATION` and message `attach year must be four digits`. The message field does not contain `VALIDATION:`.
 
-`mapRpcError` in `supabase/functions/_shared/manage.ts`: if the message contains a prefix `NOT_FOUND:`, `FORBIDDEN:`, `INVITE_INVALID:`, or `VALIDATION:`, keep today's split (code from the prefix, message is the text after it). The `NOT_FOUND:` colon match stays. If none of those prefixes is present, do not return the raw database text. Return the generic error (sentence still open). No new error code.
+`mapRpcError` in `supabase/functions/_shared/manage.ts`: pass a message through only when the trimmed message starts with `VALIDATION:`, `NOT_FOUND:`, or `FORBIDDEN:` (`startsWith`, not `indexOf`). The split stays today's split (code from the prefix, message is the text after it). The `NOT_FOUND:` colon match stays. A prefix in the middle of the message, an unprefixed message, and `INVITE_INVALID:` all return the generic `Try again`. No new error code.
 
 That fallback is the only output change. These functions call `mapRpcError`, so an unprefixed database error from any of them changes. A prefixed error from them does not:
 

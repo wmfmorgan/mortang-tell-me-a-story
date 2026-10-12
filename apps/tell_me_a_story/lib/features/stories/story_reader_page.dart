@@ -513,10 +513,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     final families = widget.familiesApi;
     final userId = _currentUserId;
     if (families == null || userId == null) return;
-    var parentName = 'Family';
-    for (final row in _tree) {
-      if (row.id == story.familyId) parentName = row.name;
-    }
+    final parentName = await _parentName(story.familyId);
+    if (parentName == null || !mounted) return;
     final created = await showStartTimelineDialog(
       context,
       parentId: story.familyId,
@@ -530,9 +528,37 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       allowChange: false,
     );
     if (created == null || !mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${created.name} timeline created')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${created.name} timeline created')));
+  }
+
+  Future<String?> _parentName(String familyId) async {
+    final loaded = _namedFamily(familyId, _tree);
+    if (loaded != null) return loaded;
+    final families = widget.familiesApi;
+    if (families == null) return null;
+    try {
+      final mine = await families.listMine();
+      for (final row in mine) {
+        final name = row.name.trim();
+        if (row.id == familyId && name.isNotEmpty) return row.name;
+      }
+    } catch (_) {}
+    try {
+      final tree = await families.listFamilyTree(familyId);
+      return _namedFamily(familyId, tree);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _namedFamily(String familyId, List<TreeFamily> tree) {
+    for (final row in tree) {
+      final name = row.name.trim();
+      if (row.id == familyId && name.isNotEmpty) return row.name;
+    }
+    return null;
   }
 
   Future<void> _confirmOrigin(Story story, OriginMenuEntry entry) async {
@@ -970,7 +996,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             for (final row in _comments)
               CommentTile(
                 comment: row,
-                canDelete: _canWrite &&
+                canDelete:
+                    _canWrite &&
                     _currentUserId != null &&
                     row.authorId == _currentUserId,
                 onDelete: () => _deleteComment(row),

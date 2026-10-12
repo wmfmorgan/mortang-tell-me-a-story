@@ -5,24 +5,21 @@ import { bearerToken, userClient } from "./supabase.ts";
 
 export type ManageBody = Record<string, unknown>;
 
-// Mugatu has not named the shared fallback. Do not treat this wording as locked.
-export const UNNAMED_GENERIC_ERROR = "Try again";
+export const GENERIC_ERROR = "Try again";
 
 export function mapRpcError(message: string): Response {
+  const trimmed = message.trim();
   const rules: Array<[string, string, number]> = [
     ["NOT_FOUND:", "NOT_FOUND", 404],
     ["FORBIDDEN:", "FORBIDDEN", 403],
-    ["INVITE_INVALID:", "INVITE_INVALID", 400],
     ["VALIDATION:", "VALIDATION", 400],
   ];
   for (const [prefix, code, status] of rules) {
-    const at = message.indexOf(prefix);
-    if (at >= 0) {
-      const detail = message.slice(at + prefix.length).trim();
-      return errorResponse(code, detail.length > 0 ? detail : message, status);
-    }
+    if (!trimmed.startsWith(prefix)) continue;
+    const detail = trimmed.slice(prefix.length).trim();
+    return errorResponse(code, detail.length > 0 ? detail : trimmed, status);
   }
-  return errorResponse("VALIDATION", UNNAMED_GENERIC_ERROR, 400);
+  return errorResponse("VALIDATION", GENERIC_ERROR, 400);
 }
 
 export async function handleManage(

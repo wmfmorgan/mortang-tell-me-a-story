@@ -222,7 +222,42 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
     if (error.code == 'FORBIDDEN') {
       return "You're not a member of ${widget.parentName} anymore.";
     }
+    if (_isInternal(error.message)) return 'Try again';
     return error.message;
+  }
+
+  bool _isInternal(String message) {
+    const hidden = {
+      'create_branch_family returned no id',
+      'Request failed',
+      'Bad Request',
+      'Unauthorized',
+      'Payment Required',
+      'Forbidden',
+      'Not Found',
+      'Method Not Allowed',
+      'Not Acceptable',
+      'Proxy Authentication Required',
+      'Request Timeout',
+      'Conflict',
+      'Gone',
+      'Length Required',
+      'Precondition Failed',
+      'Payload Too Large',
+      'URI Too Long',
+      'Unsupported Media Type',
+      'Range Not Satisfiable',
+      'Expectation Failed',
+      'Unprocessable Entity',
+      'Too Many Requests',
+      'Internal Server Error',
+      'Not Implemented',
+      'Bad Gateway',
+      'Service Unavailable',
+      'Gateway Timeout',
+      'HTTP Version Not Supported',
+    };
+    return hidden.contains(message.trim());
   }
 
   @override
@@ -352,23 +387,55 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
           ),
           if (origin != null) ...[
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${storyTitle(origin)} · ${origin.timeframeStart.year}',
-                  ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: albumInk.withValues(alpha: 0.12)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Origin story',
+                            style: GoogleFonts.sourceSans3(
+                              color: const Color(0xFF655E5B),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${storyTitle(origin)} · ${origin.timeframeStart.year}',
+                            style: GoogleFonts.literata(
+                              color: albumInk,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (widget.allowChange)
+                      TextButton(
+                        key: const Key('start-timeline-change'),
+                        onPressed: () => setState(() => _picking = true),
+                        child: const Text('Change'),
+                      ),
+                  ],
                 ),
-                if (widget.allowChange)
-                  TextButton(
-                    key: const Key('start-timeline-change'),
-                    onPressed: () => setState(() => _picking = true),
-                    child: const Text('Change'),
-                  ),
-              ],
+              ),
             ),
           ],
           const SizedBox(height: 12),
+          Text(
+            'Timeline name',
+            style: GoogleFonts.sourceSans3(fontSize: 14, color: albumInk),
+          ),
+          const SizedBox(height: 4),
           TextField(
             key: const Key('start-timeline-name'),
             controller: _name,
@@ -399,6 +466,11 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
                 : null,
           ),
           const SizedBox(height: 12),
+          Text(
+            'Members',
+            style: GoogleFonts.sourceSans3(fontSize: 14, color: albumInk),
+          ),
+          const SizedBox(height: 4),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -406,9 +478,19 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
               for (final person in _people)
                 FilterChip(
                   key: Key('start-timeline-member-${person.id}'),
-                  label: Text(displayNameOrMember(person.name)),
+                  showCheckmark: false,
+                  label: Text(
+                    displayNameOrMember(person.name),
+                    style: GoogleFonts.sourceSans3(
+                      color: _pickedPeople.contains(person.id)
+                          ? Colors.white
+                          : albumInk,
+                      fontSize: 14,
+                    ),
+                  ),
                   selected: _pickedPeople.contains(person.id),
-                  selectedColor: albumSage.withValues(alpha: 0.35),
+                  selectedColor: albumSage,
+                  backgroundColor: Colors.white,
                   side: BorderSide(
                     color: _pickedPeople.contains(person.id)
                         ? albumSage
@@ -433,7 +515,10 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
             controller: _year,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(filled: true, fillColor: Colors.white),
+            decoration: const InputDecoration(
+              filled: true,
+              fillColor: Colors.white,
+            ),
           ),
           const SizedBox(height: 12),
           Text("You'll stay in ${widget.parentName}."),
@@ -467,7 +552,9 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
                 onPressed: _canCreate ? _create : null,
                 style: FilledButton.styleFrom(
                   backgroundColor: albumTerracotta,
-                  disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.4),
+                  disabledBackgroundColor: albumTerracotta.withValues(
+                    alpha: 0.4,
+                  ),
                 ),
                 child: const Text('Create timeline'),
               ),

@@ -17,8 +17,8 @@ import '../../data/manage_families_api.dart';
 import '../../data/people_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
-import '../family/start_timeline_dialog.dart';
 import '../../data/timeline_live.dart';
+import '../family/start_timeline_dialog.dart';
 import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
 import '../stories/story_reader_page.dart';
@@ -122,11 +122,14 @@ class _TimelinePageState extends State<TimelinePage> {
     final remembered = FamilySelection.id;
     if (remembered != null && remembered != _familyId) {
       _selectFamily(remembered);
-      _loadFamilies();
       return;
     }
-    _loadFamilies();
-    _loadPublished();
+    _reloadOpenTimeline();
+  }
+
+  Future<void> _reloadOpenTimeline() async {
+    await _loadPublished();
+    await _loadFamilies();
   }
 
   Future<void> _bootstrap() async {
@@ -161,7 +164,8 @@ class _TimelinePageState extends State<TimelinePage> {
     if (id == null) return const [];
     return [
       for (final story in _published)
-        if (story.familyId == id && story.status == StoryStatus.published) story,
+        if (story.familyId == id && story.status == StoryStatus.published)
+          story,
     ];
   }
 
@@ -193,24 +197,25 @@ class _TimelinePageState extends State<TimelinePage> {
       origin: origin,
       allowChange: allowChange,
       onWriteStory: () {
-        GoRouter.of(context).go(
-          '${AppRoutes.newStory}?newTimelineFrom=${parent.id}',
-        );
+        GoRouter.of(context)
+            .go('${AppRoutes.newStory}?newTimelineFrom=${parent.id}');
       },
     );
     if (created == null || !mounted) return;
     await _loadFamilies();
     await _loadPublished();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${created.name} timeline created')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${created.name} timeline created')));
   }
 
   Future<void> _maybeOpenNewTimelineOrigin() async {
     if (_originQueryHandled || !mounted) return;
-    final uri = _router?.routerDelegate.currentConfiguration.uri;
-    final storyId = uri?.queryParameters['newTimelineOrigin'];
+    final router = _router;
+    if (router == null) return;
+    final uri = router.routerDelegate.currentConfiguration.uri;
+    final storyId = uri.queryParameters['newTimelineOrigin'];
     if (storyId == null || storyId.isEmpty) return;
     _originQueryHandled = true;
     Story? origin;
@@ -221,9 +226,9 @@ class _TimelinePageState extends State<TimelinePage> {
       await _startTimeline(origin: origin, allowChange: true);
     }
     if (!mounted) return;
-    final path = GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
+    final path = router.routerDelegate.currentConfiguration.uri.path;
     if (path == AppRoutes.timeline) {
-      GoRouter.of(context).go(AppRoutes.timeline);
+      router.go(AppRoutes.timeline);
     }
   }
 
@@ -1075,6 +1080,85 @@ class _FarRailState extends State<_FarRail> {
     return true;
   }
 
+  List<Widget> _farChildren(int? joinYear) {
+    final rows = <Widget>[
+      for (final mark in widget.marks)
+        if (mark.branchYear == null)
+          _BranchMark(
+            family: mark,
+            onTap: () => widget.onMark(mark),
+            onRail: true,
+          ),
+    ];
+    final orphans =
+        [
+          for (final mark in widget.marks)
+            if (branchDecadeStart(mark.branchYear) case final start?
+                when !widget.bands.any((band) => band.startYear == start))
+              mark,
+        ]..sort(
+          (a, b) =>
+              branchDecadeStart(a.branchYear)!
+                  .compareTo(branchDecadeStart(b.branchYear)!),
+        );
+    var orphanIndex = 0;
+    for (var i = 0; i < widget.bands.length; i++) {
+      final band = widget.bands[i];
+      while (orphanIndex < orphans.length &&
+          branchDecadeStart(orphans[orphanIndex].branchYear)! <
+              band.startYear) {
+        final mark = orphans[orphanIndex++];
+        rows.add(
+          _BranchMark(
+            family: mark,
+            onTap: () => widget.onMark(mark),
+            onRail: true,
+          ),
+        );
+      }
+      rows.add(
+        _FarDecadeRow(
+          key: _rowKey(band.startYear),
+          band: band,
+          marks: marksOnDecade(widget.marks, band.startYear),
+          originStoryId: widget.originStoryId,
+          originTag: widget.originTag,
+          originMark: widget.originMark,
+          onMark: widget.onMark,
+          focused: band.startYear == _centerYear,
+          opacity: _opacities[band.startYear] ?? 1,
+          highlight: _highlight(band),
+          showBranch: joinYear != null && band.startYear == joinYear,
+          continueRail: joinYear != null && band.startYear >= joinYear,
+          railAbove:
+              joinYear != null &&
+              widget.bands.any((other) => other.startYear > band.startYear),
+          railBelow:
+              joinYear != null &&
+              widget.bands.any(
+                (other) =>
+                    other.startYear >= joinYear &&
+                    other.startYear < band.startYear,
+              ),
+          branchName: widget.child?.name,
+          onDot: widget.onDot,
+          onYear: widget.onYear,
+        ),
+      );
+    }
+    while (orphanIndex < orphans.length) {
+      final mark = orphans[orphanIndex++];
+      rows.add(
+        _BranchMark(
+          family: mark,
+          onTap: () => widget.onMark(mark),
+          onRail: true,
+        ),
+      );
+    }
+    return rows;
+  }
+
   int? _joinYear() {
     final child = widget.child;
     if (child == null || widget.bands.isEmpty) return null;
@@ -1145,68 +1229,7 @@ class _FarRailState extends State<_FarRail> {
                       return ListView(
                         controller: _scroll,
                         padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                        children: [
-                          for (final mark in widget.marks)
-                            if (mark.branchYear == null)
-                              _BranchMark(
-                                family: mark,
-                                onTap: () => widget.onMark(mark),
-                                onRail: true,
-                              ),
-                          for (final mark in widget.marks)
-                            if (branchDecadeStart(mark.branchYear) != null &&
-                                !widget.bands.any(
-                                  (band) =>
-                                      band.startYear ==
-                                      branchDecadeStart(mark.branchYear),
-                                ))
-                              _BranchMark(
-                                family: mark,
-                                onTap: () => widget.onMark(mark),
-                                onRail: true,
-                              ),
-                          for (var i = 0; i < widget.bands.length; i++)
-                            _FarDecadeRow(
-                              key: _rowKey(widget.bands[i].startYear),
-                              band: widget.bands[i],
-                              marks: marksOnDecade(
-                                widget.marks,
-                                widget.bands[i].startYear,
-                              ),
-                              originStoryId: widget.originStoryId,
-                              originTag: widget.originTag,
-                              originMark: widget.originMark,
-                              onMark: widget.onMark,
-                              focused: widget.bands[i].startYear == _centerYear,
-                              opacity:
-                                  _opacities[widget.bands[i].startYear] ?? 1,
-                              highlight: _highlight(widget.bands[i]),
-                              showBranch:
-                                  joinYear != null &&
-                                  widget.bands[i].startYear == joinYear,
-                              continueRail:
-                                  joinYear != null &&
-                                  widget.bands[i].startYear >= joinYear,
-                              railAbove:
-                                  joinYear != null &&
-                                  widget.bands.any(
-                                    (other) =>
-                                        other.startYear >
-                                        widget.bands[i].startYear,
-                                  ),
-                              railBelow:
-                                  joinYear != null &&
-                                  widget.bands.any(
-                                    (other) =>
-                                        other.startYear >= joinYear &&
-                                        other.startYear <
-                                            widget.bands[i].startYear,
-                                  ),
-                              branchName: widget.child?.name,
-                              onDot: widget.onDot,
-                              onYear: widget.onYear,
-                            ),
-                        ],
+                        children: _farChildren(joinYear),
                       );
                     },
                   ),
@@ -2952,40 +2975,51 @@ class _BranchMark extends StatelessWidget {
       builder: (context, constraints) {
         final ringCenter = wide ? constraints.maxWidth / 2 : 14.0;
         final labelOnLeft = wide && !labelOnRight;
-        // The label uses the space already beside the ring. No new width cap.
-        final mark = MouseRegion(
+        // Ring and label only. Spacers stay outside the tap target.
+        final cluster = MouseRegion(
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             key: Key('timeline-branch-mark-${family.id}'),
             onTap: onTap,
             child: Tooltip(
               message: label,
-              child: labelOnLeft
-                  ? Row(
-                      children: [
-                        Expanded(child: name),
-                        const SizedBox(width: 8),
-                        ring,
-                        SizedBox(
-                          width: math.max(
-                            0,
-                            constraints.maxWidth - (ringCenter + 8),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        SizedBox(width: math.max(0, ringCenter - 8)),
-                        ring,
-                        const SizedBox(width: 8),
-                        Expanded(child: name),
-                      ],
-                    ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showLabel && labelOnLeft) ...[
+                    Flexible(fit: FlexFit.loose, child: name),
+                    const SizedBox(width: 8),
+                  ],
+                  ring,
+                  if (showLabel && !labelOnLeft) ...[
+                    const SizedBox(width: 8),
+                    Flexible(fit: FlexFit.loose, child: name),
+                  ],
+                ],
+              ),
             ),
           ),
         );
-        return mark;
+        if (labelOnLeft) {
+          final tail = math.max(0.0, constraints.maxWidth - (ringCenter + 8));
+          return Row(
+            children: [
+              Expanded(
+                child: Align(alignment: Alignment.centerRight, child: cluster),
+              ),
+              SizedBox(width: tail),
+            ],
+          );
+        }
+        final lead = math.max(0.0, ringCenter - 8);
+        return Row(
+          children: [
+            SizedBox(width: lead),
+            Expanded(
+              child: Align(alignment: Alignment.centerLeft, child: cluster),
+            ),
+          ],
+        );
       },
     );
   }

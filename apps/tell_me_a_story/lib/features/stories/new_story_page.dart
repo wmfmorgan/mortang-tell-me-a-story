@@ -454,6 +454,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       if (story == null) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Draft saved')));
+      _clearNewTimelineFrom();
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -462,6 +463,16 @@ class _NewStoryPageState extends State<NewStoryPage> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _clearNewTimelineFrom() {
+    final router = GoRouter.maybeOf(context);
+    if (router == null || !mounted) return;
+    final uri = GoRouterState.of(context).uri;
+    if (!uri.queryParameters.containsKey('newTimelineFrom')) return;
+    final params = Map<String, String>.from(uri.queryParameters)
+      ..remove('newTimelineFrom');
+    router.go(uri.replace(queryParameters: params).toString());
   }
 
   Future<void> _onPublish() async {
@@ -479,7 +490,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
       if (!mounted) return;
       final router = GoRouter.maybeOf(context);
       if (router != null) {
-        final from = GoRouterState.of(context).uri.queryParameters['newTimelineFrom'];
+        final from = GoRouterState.of(context)
+            .uri
+            .queryParameters['newTimelineFrom'];
         if (from != null && from.isNotEmpty) {
           context.go('${AppRoutes.timeline}?newTimelineOrigin=${story.id}');
         } else {

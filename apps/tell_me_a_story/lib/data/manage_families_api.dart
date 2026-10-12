@@ -69,10 +69,7 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     }, expectStatus: 201);
     final id = json['family_id'];
     if (id is! String || id.isEmpty) {
-      throw ManageFamiliesException(
-        code: 'VALIDATION',
-        message: 'create_branch_family returned no id',
-      );
+      throw ManageFamiliesException(code: 'VALIDATION', message: 'Try again');
     }
     return id;
   }
@@ -165,7 +162,7 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
       if (res.status != expectStatus) {
         throw ManageFamiliesException(
           code: decoded['code'] as String? ?? 'VALIDATION',
-          message: decoded['message'] as String? ?? 'Request failed',
+          message: decoded['message'] as String? ?? 'Try again',
         );
       }
       return decoded;
@@ -175,8 +172,7 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
       final decoded = _asMap(e.details);
       throw ManageFamiliesException(
         code: decoded['code'] as String? ?? 'VALIDATION',
-        message:
-            decoded['message'] as String? ?? e.reasonPhrase ?? 'Request failed',
+        message: decoded['message'] as String? ?? 'Try again',
       );
     }
   }

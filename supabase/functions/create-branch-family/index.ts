@@ -2,6 +2,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 import {
   errorResponse,
+  GENERIC_ERROR,
   handleManage,
   jsonResponse,
   type ManageBody,
@@ -98,7 +99,7 @@ export function createBranchFamily(
     if (error) return mapRpcError(error.message);
     const familyId = data?.id;
     if (!familyId) {
-      return errorResponse("VALIDATION", "create_branch_family returned no id", 400);
+      return errorResponse("VALIDATION", GENERIC_ERROR, 400);
     }
     return jsonResponse({ family_id: familyId }, 201);
   });

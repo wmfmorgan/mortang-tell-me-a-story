@@ -459,6 +459,14 @@ Future<void> _openForm(
   await tester.pumpAndSettle();
 }
 
+Future<void> _tapCreate(WidgetTester tester) async {
+  final button = find.byKey(const Key('start-timeline-create'));
+  await tester.ensureVisible(button);
+  await tester.pumpAndSettle();
+  await tester.tap(button);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -472,17 +480,17 @@ void main() {
   ) async {
     final families = _Families(
       mine: [
-        MemberFamily(id: _parent, name: 'Parent', createdAt: DateTime.utc(1970)),
+        MemberFamily(
+          id: _parent,
+          name: 'Parent',
+          createdAt: DateTime.utc(1970),
+        ),
       ],
       tree: const [TreeFamily(id: _parent, name: 'Parent')],
       members: [_member(_me, name: 'Bill')],
     );
     await tester.pumpWidget(
-      _reader(
-        story: _story(),
-        families: families,
-        manage: _Manage(),
-      ),
+      _reader(story: _story(), families: families, manage: _Manage()),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('reader-overflow')));
@@ -493,7 +501,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('start-timeline-change')), findsNothing);
     expect(
-      tester.widget<TextField>(find.byKey(const Key('start-timeline-year'))).controller!.text,
+      tester
+          .widget<TextField>(find.byKey(const Key('start-timeline-year')))
+          .controller!
+          .text,
       '1974',
     );
   });
@@ -528,7 +539,11 @@ void main() {
         story: _story(),
         families: _Families(
           mine: [
-            MemberFamily(id: child, name: 'Child', createdAt: DateTime.utc(1990)),
+            MemberFamily(
+              id: child,
+              name: 'Child',
+              createdAt: DateTime.utc(1990),
+            ),
           ],
           tree: const [
             TreeFamily(id: _parent, name: 'Parent'),
@@ -585,7 +600,11 @@ void main() {
           ),
           familiesApi: _Families(
             mine: [
-              MemberFamily(id: _parent, name: 'Parent', createdAt: DateTime.utc(1970)),
+              MemberFamily(
+                id: _parent,
+                name: 'Parent',
+                createdAt: DateTime.utc(1970),
+              ),
             ],
             tree: const [
               TreeFamily(id: _parent, name: 'Parent'),
@@ -621,7 +640,10 @@ void main() {
     await _openForm(
       tester,
       stories: stories,
-      families: _Families(mine: const [], members: [_member(_me, name: 'Bill')]),
+      families: _Families(
+        mine: const [],
+        members: [_member(_me, name: 'Bill')],
+      ),
       people: _People(const []),
       manage: manage,
       onWriteStory: () => wrote = true,
@@ -633,7 +655,10 @@ void main() {
     expect(find.text('Still drafting'), findsNothing);
     expect(find.text('Elsewhere'), findsNothing);
 
-    await tester.enterText(find.byKey(const Key('start-timeline-search')), 'JAM');
+    await tester.enterText(
+      find.byKey(const Key('start-timeline-search')),
+      'JAM',
+    );
     await tester.pump();
     expect(find.text('Blackberry Jam'), findsOneWidget);
     expect(find.text('The park'), findsNothing);
@@ -663,12 +688,18 @@ void main() {
       tester,
       origin: first,
       stories: [first, second],
-      families: _Families(mine: const [], members: [_member(_me, name: 'Bill')]),
+      families: _Families(
+        mine: const [],
+        members: [_member(_me, name: 'Bill')],
+      ),
       people: _People(const []),
       manage: _Manage(),
     );
     expect(
-      tester.widget<TextField>(find.byKey(const Key('start-timeline-year'))).controller!.text,
+      tester
+          .widget<TextField>(find.byKey(const Key('start-timeline-year')))
+          .controller!
+          .text,
       '1962',
     );
     await tester.tap(find.byKey(const Key('start-timeline-change')));
@@ -676,102 +707,139 @@ void main() {
     await tester.tap(find.byKey(const Key('start-timeline-story-b')));
     await tester.pumpAndSettle();
     expect(
-      tester.widget<TextField>(find.byKey(const Key('start-timeline-year'))).controller!.text,
+      tester
+          .widget<TextField>(find.byKey(const Key('start-timeline-year')))
+          .controller!
+          .text,
       '1988',
     );
-    await tester.enterText(find.byKey(const Key('start-timeline-year')), '2099');
+    await tester.enterText(
+      find.byKey(const Key('start-timeline-year')),
+      '2099',
+    );
     await tester.pump();
     expect(
-      tester.widget<TextField>(find.byKey(const Key('start-timeline-year'))).controller!.text,
+      tester
+          .widget<TextField>(find.byKey(const Key('start-timeline-year')))
+          .controller!
+          .text,
       '2099',
     );
   });
 
-  testWidgets('create stays disabled until name, owner, and a four-digit year', (
-    tester,
-  ) async {
-    final manage = _Manage();
-    await _openForm(
-      tester,
-      origin: _story(),
-      families: _Families(
-        mine: const [],
-        members: [
-          _member(_me, name: 'Bill'),
-          _member(_other, name: '   '),
-        ],
-      ),
-      people: _People(const [
-        Person(
-          id: 'p-blank',
-          familyId: _parent,
-          name: ' ',
-          relationship: 'Cousin',
-          createdBy: _me,
+  testWidgets(
+    'create stays disabled until name, owner, and a four-digit year',
+    (tester) async {
+      final manage = _Manage();
+      await _openForm(
+        tester,
+        origin: _story(),
+        families: _Families(
+          mine: const [],
+          members: [
+            _member(_me, name: 'Bill'),
+            _member(_other, name: '   '),
+          ],
         ),
-      ]),
-      manage: manage,
-    );
-    expect(find.text('You'), findsWidgets);
-    expect(find.text('Member'), findsWidgets);
-    expect(
-      tester.widget<FilledButton>(find.byKey(const Key('start-timeline-create'))).onPressed,
-      isNull,
-    );
+        people: _People(const [
+          Person(
+            id: 'p-blank',
+            familyId: _parent,
+            name: ' ',
+            relationship: 'Cousin',
+            createdBy: _me,
+          ),
+        ]),
+        manage: manage,
+      );
+      expect(find.text('You'), findsWidgets);
+      expect(find.text('Member'), findsWidgets);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('start-timeline-create')),
+            )
+            .onPressed,
+        isNull,
+      );
 
-    await tester.enterText(find.byKey(const Key('start-timeline-name')), '  Side line  ');
-    await tester.enterText(find.byKey(const Key('start-timeline-year')), '987');
-    await tester.pump();
-    expect(
-      tester.widget<FilledButton>(find.byKey(const Key('start-timeline-create'))).onPressed,
-      isNull,
-    );
+      await tester.enterText(
+        find.byKey(const Key('start-timeline-name')),
+        '  Side line  ',
+      );
+      await tester.enterText(
+        find.byKey(const Key('start-timeline-year')),
+        '987',
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('start-timeline-create')),
+            )
+            .onPressed,
+        isNull,
+      );
 
-    await tester.enterText(find.byKey(const Key('start-timeline-year')), '2099');
-    await tester.pump();
-    expect(
-      tester.widget<FilledButton>(find.byKey(const Key('start-timeline-create'))).onPressed,
-      isNotNull,
-    );
+      await tester.enterText(
+        find.byKey(const Key('start-timeline-year')),
+        '2099',
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('start-timeline-create')),
+            )
+            .onPressed,
+        isNotNull,
+      );
 
-    await tester.tap(find.byKey(const Key('start-timeline-owner')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Member').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('start-timeline-create')));
-    await tester.pumpAndSettle();
-    expect(manage.parentFamilyId, _parent);
-    expect(manage.originStoryId, 'origin');
-    expect(manage.name, 'Side line');
-    expect(manage.branchYear, 2099);
-    expect(manage.ownerUserId, _other);
-    expect(manage.personIds, isEmpty);
-  });
+      await tester.tap(find.byKey(const Key('start-timeline-owner')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Member').last);
+      await tester.pumpAndSettle();
+      await _tapCreate(tester);
+      await tester.pumpAndSettle();
+      expect(manage.parentFamilyId, _parent);
+      expect(manage.originStoryId, 'origin');
+      expect(manage.name, 'Side line');
+      expect(manage.branchYear, 2099);
+      expect(manage.ownerUserId, _other);
+      expect(manage.personIds, isEmpty);
+    },
+  );
 
   testWidgets('errors stay inline and the modal stays open', (tester) async {
     final manage = _Manage();
     await _openForm(
       tester,
       origin: _story(),
-      families: _Families(mine: const [], members: [_member(_me, name: 'Bill')]),
+      families: _Families(
+        mine: const [],
+        members: [_member(_me, name: 'Bill')],
+      ),
       people: _People(const []),
       manage: manage,
     );
-    await tester.enterText(find.byKey(const Key('start-timeline-name')), 'Side');
+    await tester.enterText(
+      find.byKey(const Key('start-timeline-name')),
+      'Side',
+    );
     await tester.pump();
 
     manage.error = ManageFamiliesException(
       code: 'VALIDATION',
       message: 'too many levels',
     );
-    await tester.tap(find.byKey(const Key('start-timeline-create')));
+    await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text('too many levels'), findsOneWidget);
     expect(find.textContaining('VALIDATION:'), findsNothing);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
     manage.error = ManageFamiliesException(code: 'NOT_FOUND', message: 'story');
-    await tester.tap(find.byKey(const Key('start-timeline-create')));
+    await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(
       find.text("That story isn't available anymore. Pick another one."),
@@ -783,21 +851,49 @@ void main() {
       code: 'FORBIDDEN',
       message: 'member only',
     );
-    await tester.tap(find.byKey(const Key('start-timeline-create')));
+    await _tapCreate(tester);
     await tester.pumpAndSettle();
-    expect(
-      find.text("You're not a member of Parent anymore."),
-      findsOneWidget,
-    );
+    expect(find.text("You're not a member of Parent anymore."), findsOneWidget);
     expect(find.text('member only'), findsNothing);
 
     manage.error = Exception(
       'duplicate key value violates unique constraint "families_pkey"',
     );
-    await tester.tap(find.byKey(const Key('start-timeline-create')));
+    await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.textContaining('duplicate key'), findsNothing);
     expect(find.textContaining('families_pkey'), findsNothing);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
+
+    manage.error = ManageFamiliesException(
+      code: 'VALIDATION',
+      message: 'create_branch_family returned no id',
+    );
+    await _tapCreate(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('create_branch_family returned no id'), findsNothing);
+    expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
+
+    manage.error = ManageFamiliesException(
+      code: 'VALIDATION',
+      message: 'Request failed',
+    );
+    await _tapCreate(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('Request failed'), findsNothing);
+    expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
+
+    manage.error = ManageFamiliesException(
+      code: 'VALIDATION',
+      message: 'Internal Server Error',
+    );
+    await _tapCreate(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('Internal Server Error'), findsNothing);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
   });
 
@@ -810,13 +906,19 @@ void main() {
       tester,
       origin: _story(),
       allowChange: false,
-      families: _Families(mine: const [], members: [_member(_me, name: 'Bill')]),
+      families: _Families(
+        mine: const [],
+        members: [_member(_me, name: 'Bill')],
+      ),
       people: _People(const []),
       manage: manage,
     );
-    await tester.enterText(find.byKey(const Key('start-timeline-name')), 'Side');
+    await tester.enterText(
+      find.byKey(const Key('start-timeline-name')),
+      'Side',
+    );
     await tester.pump();
-    await tester.tap(find.byKey(const Key('start-timeline-create')));
+    await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text("That story isn't available anymore."), findsOneWidget);
     expect(find.textContaining('Pick another'), findsNothing);
@@ -829,7 +931,11 @@ void main() {
     FamilySelection.remember(_parent);
     final families = _Families(
       mine: [
-        MemberFamily(id: _parent, name: 'Parent', createdAt: DateTime.utc(1970)),
+        MemberFamily(
+          id: _parent,
+          name: 'Parent',
+          createdAt: DateTime.utc(1970),
+        ),
       ],
       tree: const [TreeFamily(id: _parent, name: 'Parent')],
       members: [_member(_me, name: 'Bill')],
@@ -860,12 +966,18 @@ void main() {
     await tester.tap(find.byKey(const Key('start-timeline-story-origin')));
     await tester.pumpAndSettle();
     expect(
-      tester.widget<TextField>(find.byKey(const Key('start-timeline-year'))).controller!.text,
+      tester
+          .widget<TextField>(find.byKey(const Key('start-timeline-year')))
+          .controller!
+          .text,
       '1974',
     );
-    await tester.enterText(find.byKey(const Key('start-timeline-name')), 'Side line');
+    await tester.enterText(
+      find.byKey(const Key('start-timeline-name')),
+      'Side line',
+    );
     await tester.pump();
-    await tester.tap(find.byKey(const Key('start-timeline-create')));
+    await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text('Side line timeline created'), findsOneWidget);
     expect(FamilySelection.id, _parent);
@@ -880,7 +992,11 @@ void main() {
       story: _story(),
       families: _Families(
         mine: [
-          MemberFamily(id: _parent, name: 'Parent', createdAt: DateTime.utc(1970)),
+          MemberFamily(
+            id: _parent,
+            name: 'Parent',
+            createdAt: DateTime.utc(1970),
+          ),
         ],
         tree: const [TreeFamily(id: _parent, name: 'Parent')],
         members: [_member(_me, name: 'Bill')],
@@ -893,16 +1009,127 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('reader-start-timeline')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('start-timeline-name')), 'Side line');
+    await tester.enterText(
+      find.byKey(const Key('start-timeline-name')),
+      'Side line',
+    );
     await tester.pump();
-    await tester.tap(find.byKey(const Key('start-timeline-create')));
+    await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text('Side line timeline created'), findsOneWidget);
     expect(FamilySelection.id, _parent);
-    expect(router.routerDelegate.currentConfiguration.uri.path, '/stories/origin');
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      '/stories/origin',
+    );
   });
 
-  testWidgets('publish with newTimelineFrom reopens the form, then clears it', (
+  testWidgets(
+    'save draft clears newTimelineFrom so a later publish stays closed',
+    (tester) async {
+      final stories = _Stories(
+        draft: _story(
+          id: 'draft-1',
+          title: 'Written origin',
+          year: 1970,
+          status: StoryStatus.draft,
+          personIds: const ['p1'],
+          placeId: 'pl1',
+        ),
+      );
+      final manage = _Manage();
+      final families = _Families(
+        mine: [
+          MemberFamily(
+            id: _parent,
+            name: 'Parent',
+            createdAt: DateTime.utc(1970),
+          ),
+        ],
+        members: [_member(_me, name: 'Bill')],
+      );
+      final router = GoRouter(
+        initialLocation: '/stories/new?newTimelineFrom=$_parent&draft=draft-1',
+        routes: [
+          GoRoute(
+            path: AppRoutes.newStory,
+            builder: (context, state) => NewStoryPage(
+              inviteApi: _Invite(_parent),
+              peopleApi: _People(const [
+                Person(
+                  id: 'p1',
+                  familyId: _parent,
+                  name: 'Ada',
+                  relationship: 'Aunt',
+                  createdBy: _me,
+                ),
+              ]),
+              placesApi: _Places(const [
+                Place(
+                  id: 'pl1',
+                  familyId: _parent,
+                  label: 'Park',
+                  address: 'Town',
+                  lat: 1,
+                  lng: 2,
+                  isFavorite: true,
+                ),
+              ]),
+              storiesApi: stories,
+              photosApi: _Photos(),
+              familiesApi: families,
+              hasMapboxToken: false,
+              draftId: state.uri.queryParameters['draft'],
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.timeline,
+            builder: (context, state) => TimelinePage(
+              api: _Invite(_parent),
+              storiesApi: stories,
+              familiesApi: families,
+              peopleApi: _People(const []),
+              manageApi: manage,
+              currentUserId: _me,
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(TellMeAStoryApp(router: router));
+      await tester.pumpAndSettle();
+      expect(find.text('Cancel'), findsNothing);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
+      await tester.pumpAndSettle();
+      expect(stories.publishCalls, 0);
+      expect(manage.calls, 0);
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        AppRoutes.newStory,
+      );
+      expect(
+        router
+            .routerDelegate
+            .currentConfiguration
+            .uri
+            .queryParameters['newTimelineFrom'],
+        isNull,
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
+      await tester.pumpAndSettle();
+      expect(stories.publishCalls, 1);
+      expect(manage.calls, 0);
+      expect(find.byKey(const Key('start-timeline-change')), findsNothing);
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        AppRoutes.timeline,
+      );
+    },
+  );
+
+  testWidgets('publish with newTimelineFrom still opens the form', (
     tester,
   ) async {
     final stories = _Stories(
@@ -918,7 +1145,11 @@ void main() {
     final manage = _Manage();
     final families = _Families(
       mine: [
-        MemberFamily(id: _parent, name: 'Parent', createdAt: DateTime.utc(1970)),
+        MemberFamily(
+          id: _parent,
+          name: 'Parent',
+          createdAt: DateTime.utc(1970),
+        ),
       ],
       members: [_member(_me, name: 'Bill')],
     );
@@ -972,53 +1203,54 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(TellMeAStoryApp(router: router));
     await tester.pumpAndSettle();
-    expect(find.text('Cancel'), findsNothing);
-
-    await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
-    await tester.pumpAndSettle();
-    expect(stories.publishCalls, 0);
-    expect(manage.calls, 0);
-    expect(router.routerDelegate.currentConfiguration.uri.path, AppRoutes.newStory);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
     await tester.pumpAndSettle();
     expect(stories.publishCalls, 1);
     expect(find.byKey(const Key('start-timeline-change')), findsOneWidget);
     expect(
-      tester.widget<TextField>(find.byKey(const Key('start-timeline-year'))).controller!.text,
+      tester
+          .widget<TextField>(find.byKey(const Key('start-timeline-year')))
+          .controller!
+          .text,
       '1970',
     );
     await tester.tap(find.byKey(const Key('start-timeline-cancel')));
     await tester.pumpAndSettle();
     expect(manage.calls, 0);
     expect(
-      router.routerDelegate.currentConfiguration.uri.queryParameters['newTimelineOrigin'],
+      router
+          .routerDelegate
+          .currentConfiguration
+          .uri
+          .queryParameters['newTimelineOrigin'],
       isNull,
     );
   });
 
-  testWidgets('leaving new story without publishing does not create a timeline', (
-    tester,
-  ) async {
-    final manage = _Manage();
-    final stories = _Stories();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: NewStoryPage(
-          inviteApi: _Invite(_parent),
-          storiesApi: stories,
-          peopleApi: _People(const []),
-          placesApi: _Places(const []),
-          photosApi: _Photos(),
-          hasMapboxToken: false,
+  testWidgets(
+    'leaving new story without publishing does not create a timeline',
+    (tester) async {
+      final manage = _Manage();
+      final stories = _Stories();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NewStoryPage(
+            inviteApi: _Invite(_parent),
+            storiesApi: stories,
+            peopleApi: _People(const []),
+            placesApi: _Places(const []),
+            photosApi: _Photos(),
+            hasMapboxToken: false,
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.pumpWidget(const SizedBox.shrink());
-    expect(manage.calls, 0);
-    expect(stories.publishCalls, 0);
-  });
+      );
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(manage.calls, 0);
+      expect(stories.publishCalls, 0);
+    },
+  );
 
   testWidgets('a dated mark in an empty decade still shows on the far rail', (
     tester,
@@ -1030,10 +1262,16 @@ void main() {
       MaterialApp(
         home: TimelinePage(
           api: _Invite(_parent),
-          storiesApi: _Stories(published: [_story(year: 1984, title: 'Eighties')]),
+          storiesApi: _Stories(
+            published: [_story(year: 1984, title: 'Eighties')],
+          ),
           familiesApi: _Families(
             mine: [
-              MemberFamily(id: _parent, name: 'Parent', createdAt: DateTime.utc(1970)),
+              MemberFamily(
+                id: _parent,
+                name: 'Parent',
+                createdAt: DateTime.utc(1970),
+              ),
             ],
             tree: const [
               TreeFamily(id: _parent, name: 'Parent'),
@@ -1060,6 +1298,105 @@ void main() {
     expect(label.maxLines, 1);
     expect(label.overflow, TextOverflow.ellipsis);
   });
+
+  testWidgets('a 1990 branch sits below the 1950s band', (tester) async {
+    const later = '00000000-0000-0000-0000-0000000000ee';
+    await tester.binding.setSurfaceSize(const Size(900, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelinePage(
+          api: _Invite(_parent),
+          storiesApi: _Stories(
+            published: [_story(year: 1952, title: 'Fifties')],
+          ),
+          familiesApi: _Families(
+            mine: [
+              MemberFamily(
+                id: _parent,
+                name: 'Parent',
+                createdAt: DateTime.utc(1970),
+              ),
+            ],
+            tree: const [
+              TreeFamily(id: _parent, name: 'Parent'),
+              TreeFamily(
+                id: later,
+                name: 'Later line',
+                parentFamilyId: _parent,
+                branchYear: 1990,
+              ),
+            ],
+          ),
+          currentUserId: _me,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final band = find.byKey(const Key('timeline-decade-row-1950'));
+    final mark = find.byKey(const Key('timeline-branch-mark-$later'));
+    await tester.ensureVisible(band);
+    await tester.ensureVisible(mark);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(mark).dy, greaterThan(tester.getTopLeft(band).dy));
+  });
+
+  testWidgets('tapping the far end of a rail slot does nothing', (
+    tester,
+  ) async {
+    const side = '00000000-0000-0000-0000-0000000000ff';
+    await tester.binding.setSurfaceSize(const Size(900, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    FamilySelection.remember(_parent);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelinePage(
+          api: _Invite(_parent),
+          storiesApi: _Stories(
+            published: [_story(year: 1984, title: 'Eighties')],
+          ),
+          familiesApi: _Families(
+            mine: [
+              MemberFamily(
+                id: _parent,
+                name: 'Parent',
+                createdAt: DateTime.utc(1970),
+              ),
+              MemberFamily(
+                id: side,
+                name: 'Side',
+                createdAt: DateTime.utc(1990),
+              ),
+            ],
+            tree: const [
+              TreeFamily(id: _parent, name: 'Parent'),
+              TreeFamily(
+                id: side,
+                name: 'Side',
+                parentFamilyId: _parent,
+                branchYear: 1955,
+              ),
+            ],
+          ),
+          currentUserId: _me,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final mark = find.byKey(const Key('timeline-branch-mark-$side'));
+    await tester.ensureVisible(mark);
+    await tester.pumpAndSettle();
+    final markRect = tester.getRect(mark);
+    final label = tester.getRect(find.text('Side · 1955'));
+    expect(label.left, greaterThan(markRect.left));
+    expect(label.left, lessThan(markRect.left + 40));
+    final slot = find.ancestor(of: mark, matching: find.byType(Row)).last;
+    final slotRect = tester.getRect(slot);
+    expect(label.right, lessThan(slotRect.right - 40));
+    await tester.tapAt(Offset(slotRect.right - 4, markRect.center.dy));
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, _parent);
+  });
 }
 
 Widget _header({
@@ -1072,7 +1409,11 @@ Widget _header({
         page: page,
         familyName: 'Parent',
         families: [
-          MemberFamily(id: _parent, name: 'Parent', createdAt: DateTime.utc(1970)),
+          MemberFamily(
+            id: _parent,
+            name: 'Parent',
+            createdAt: DateTime.utc(1970),
+          ),
         ],
         currentFamilyId: _parent,
         onFamilySelected: (_) {},

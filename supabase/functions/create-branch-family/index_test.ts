@@ -223,28 +223,45 @@ Deno.test("success is 201 and calls the RPC once", async () => {
   assertEquals(args?.["p_person_ids"], [person]);
 });
 
-Deno.test("prefixed mapRpcError results stay the same", async () => {
-  const notFound = await mapRpcError("NOT_FOUND: story").json();
-  assertEquals(notFound, { code: "NOT_FOUND", message: "story" });
-  const forbidden = await mapRpcError("FORBIDDEN: member only").json();
-  assertEquals(forbidden, { code: "FORBIDDEN", message: "member only" });
-  const validation = await mapRpcError(
-    "VALIDATION: attach year must be four digits",
-  ).json();
-  assertEquals(validation, {
+Deno.test("a prefix at the start passes through", async () => {
+  const notFound = mapRpcError("NOT_FOUND: story");
+  assertEquals(notFound.status, 404);
+  assertEquals(await notFound.json(), { code: "NOT_FOUND", message: "story" });
+  const forbidden = mapRpcError("  FORBIDDEN: member only");
+  assertEquals(forbidden.status, 403);
+  assertEquals(await forbidden.json(), {
+    code: "FORBIDDEN",
+    message: "member only",
+  });
+  const validation = mapRpcError("VALIDATION: attach year must be four digits");
+  assertEquals(validation.status, 400);
+  assertEquals(await validation.json(), {
     code: "VALIDATION",
     message: "attach year must be four digits",
   });
-  const invite = await mapRpcError("INVITE_INVALID: used").json();
-  assertEquals(invite, { code: "INVITE_INVALID", message: "used" });
 });
 
-Deno.test("mapRpcError hides an unprefixed database message", async () => {
+Deno.test("a prefix in the middle of the message is generic", async () => {
+  const raw = "constraint failed NOT_FOUND: story";
+  const res = mapRpcError(raw);
+  const json = await res.json();
+  assertEquals(res.status, 400);
+  assertEquals(json, { code: "VALIDATION", message: "Try again" });
+  assertEquals(json.message.includes("NOT_FOUND:"), false);
+  assertEquals(json.message.includes(raw), false);
+});
+
+Deno.test("an unprefixed message is generic", async () => {
   const raw = "new row violates check constraint";
   const res = mapRpcError(raw);
   const json = await res.json();
   assertEquals(res.status, 400);
-  assertEquals(json.code, "VALIDATION");
+  assertEquals(json, { code: "VALIDATION", message: "Try again" });
   assertEquals(json.message.includes(raw), false);
   assertEquals(json.message.includes("VALIDATION:"), false);
+});
+
+Deno.test("INVITE_INVALID is not a pass-through prefix", async () => {
+  const invite = await mapRpcError("INVITE_INVALID: used").json();
+  assertEquals(invite, { code: "VALIDATION", message: "Try again" });
 });
