@@ -13,6 +13,7 @@ export function mapRpcError(message: string): Response {
     ["NOT_FOUND:", "NOT_FOUND", 404],
     ["FORBIDDEN:", "FORBIDDEN", 403],
     ["VALIDATION:", "VALIDATION", 400],
+    ["INVITE_INVALID:", "INVITE_INVALID", 400],
   ];
   for (const [prefix, code, status] of rules) {
     if (!trimmed.startsWith(prefix)) continue;

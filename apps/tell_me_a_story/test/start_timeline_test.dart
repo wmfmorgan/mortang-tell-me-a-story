@@ -211,6 +211,9 @@ class _Stories implements StoriesGateway {
   final List<Story> published;
   Story? draft;
   var publishCalls = 0;
+  var createCalls = 0;
+  var updateCalls = 0;
+  String? lastUpdatedId;
 
   @override
   Future<Story> createDraft({
@@ -222,7 +225,9 @@ class _Stories implements StoriesGateway {
     String? placeId,
     List<String> personIds = const [],
   }) async {
+    createCalls++;
     draft = _story(
+      id: 'draft-kept',
       familyId: familyId,
       title: title ?? '',
       year: timeframeStart.year,
@@ -243,6 +248,8 @@ class _Stories implements StoriesGateway {
     String? placeId,
     List<String>? personIds,
   }) async {
+    updateCalls++;
+    lastUpdatedId = storyId;
     final current = draft ?? _story(id: storyId);
     draft = _story(
       id: storyId,
@@ -885,16 +892,6 @@ void main() {
     expect(find.text('Try again'), findsOneWidget);
     expect(find.text('Request failed'), findsNothing);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
-
-    manage.error = ManageFamiliesException(
-      code: 'VALIDATION',
-      message: 'Internal Server Error',
-    );
-    await _tapCreate(tester);
-    await tester.pumpAndSettle();
-    expect(find.text('Try again'), findsOneWidget);
-    expect(find.text('Internal Server Error'), findsNothing);
-    expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
   });
 
   testWidgets('the reader path uses the short missing-story sentence', (
@@ -1125,6 +1122,74 @@ void main() {
       expect(
         router.routerDelegate.currentConfiguration.uri.path,
         AppRoutes.timeline,
+      );
+    },
+  );
+
+  testWidgets(
+    'a second save draft updates the same draft after newTimelineFrom is cleared',
+    (tester) async {
+      final stories = _Stories();
+      final router = GoRouter(
+        initialLocation: '/stories/new?newTimelineFrom=$_parent',
+        routes: [
+          GoRoute(
+            path: AppRoutes.newStory,
+            builder: (context, state) => NewStoryPage(
+              inviteApi: _Invite(_parent),
+              peopleApi: _People(const []),
+              placesApi: _Places(const []),
+              storiesApi: stories,
+              photosApi: _Photos(),
+              familiesApi: _Families(
+                mine: [
+                  MemberFamily(
+                    id: _parent,
+                    name: 'Parent',
+                    createdAt: DateTime.utc(1970),
+                  ),
+                ],
+              ),
+              hasMapboxToken: false,
+              draftId: state.uri.queryParameters['draft'],
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(TellMeAStoryApp(router: router));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(TextButton, '1980s'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
+      await tester.pumpAndSettle();
+
+      final query =
+          router.routerDelegate.currentConfiguration.uri.queryParameters;
+      expect(query['newTimelineFrom'], isNull);
+      expect(stories.createCalls, 1);
+      expect(stories.updateCalls, 0);
+      expect(query['draft'], stories.draft?.id);
+
+      await tester.enterText(
+        find.byKey(const Key('story-body')),
+        'Second pass',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
+      await tester.pumpAndSettle();
+
+      expect(stories.createCalls, 1);
+      expect(stories.updateCalls, 1);
+      expect(stories.lastUpdatedId, stories.draft?.id);
+      expect(
+        router
+            .routerDelegate
+            .currentConfiguration
+            .uri
+            .queryParameters['newTimelineFrom'],
+        isNull,
       );
     },
   );

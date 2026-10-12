@@ -472,6 +472,13 @@ class _NewStoryPageState extends State<NewStoryPage> {
     if (!uri.queryParameters.containsKey('newTimelineFrom')) return;
     final params = Map<String, String>.from(uri.queryParameters)
       ..remove('newTimelineFrom');
+    final storyId = _storyId;
+    final keptDraft = params['draft'];
+    if (storyId != null &&
+        storyId.isNotEmpty &&
+        (keptDraft == null || keptDraft.isEmpty)) {
+      params['draft'] = storyId;
+    }
     router.go(uri.replace(queryParameters: params).toString());
   }
 

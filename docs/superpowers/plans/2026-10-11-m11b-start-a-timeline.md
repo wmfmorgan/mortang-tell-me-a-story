@@ -25,7 +25,7 @@
 | T1 | **RESOLVED.** `create_branch_family` body as specified below. `search_path = ''`. Every table and function name schema-qualified. |
 | T2 | **RESOLVED.** Same Deno case as item 3. One test. |
 | T3 | **RESOLVED.** Three pgTAP order tests: non-member plus a bad origin raises `FORBIDDEN`; a null parent raises `FORBIDDEN`; a bad origin plus a blank name raises `NOT_FOUND`. |
-| T4 | **RESOLVED.** Validate every UUID and each `person_ids` entry before the RPC. `mapRpcError` passes through only when the trimmed message starts with `VALIDATION:`, `NOT_FOUND:`, or `FORBIDDEN:`. Anything else, including a prefix in the middle, becomes `Try again`. The client shows the message field only. |
+| T4 | **RESOLVED.** Validate every UUID and each `person_ids` entry before the RPC. `mapRpcError` passes through only when the trimmed message starts with `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, or `INVITE_INVALID:`. Anything else, including a prefix in the middle, becomes `Try again`. The client shows the message field only. |
 | T5 | **RESOLVED.** No `FOR SHARE` on the parent or origin rows. Foreign keys are enough. Add no locking. |
 
 ## Still open
@@ -72,7 +72,7 @@ Edge `POST /create-branch-family` uses `handleManage` and one user-scoped `rpc('
 
 A JSON integer outside 1000–9999, including 999, is sent to the RPC. `mapRpcError` returns code `VALIDATION` and message `attach year must be four digits`. The message field does not contain `VALIDATION:`.
 
-`mapRpcError` in `supabase/functions/_shared/manage.ts`: pass a message through only when the trimmed message starts with `VALIDATION:`, `NOT_FOUND:`, or `FORBIDDEN:` (`startsWith`, not `indexOf`). The split stays today's split (code from the prefix, message is the text after it). The `NOT_FOUND:` colon match stays. A prefix in the middle of the message, an unprefixed message, and `INVITE_INVALID:` all return the generic `Try again`. No new error code.
+`mapRpcError` in `supabase/functions/_shared/manage.ts`: pass a message through only when the trimmed message starts with `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, or `INVITE_INVALID:` (`startsWith`, not `indexOf`). The split stays today's split (code from the prefix, message is the text after it). The `NOT_FOUND:` colon match stays. A prefix in the middle of the message, and an unprefixed message, return the generic `Try again`. No new error code.
 
 That fallback is the only output change. These functions call `mapRpcError`, so an unprefixed database error from any of them changes. A prefixed error from them does not:
 

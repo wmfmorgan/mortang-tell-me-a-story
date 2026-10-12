@@ -261,7 +261,8 @@ Deno.test("an unprefixed message is generic", async () => {
   assertEquals(json.message.includes("VALIDATION:"), false);
 });
 
-Deno.test("INVITE_INVALID is not a pass-through prefix", async () => {
-  const invite = await mapRpcError("INVITE_INVALID: used").json();
-  assertEquals(invite, { code: "VALIDATION", message: "Try again" });
+Deno.test("INVITE_INVALID: used passes through", async () => {
+  const res = mapRpcError("INVITE_INVALID: used");
+  assertEquals(res.status, 400);
+  assertEquals(await res.json(), { code: "INVITE_INVALID", message: "used" });
 });
