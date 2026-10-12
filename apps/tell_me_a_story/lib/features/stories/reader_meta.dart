@@ -32,12 +32,6 @@ String recordedEventLabel({required DateTime start, DateTime? end}) {
   return '$startLabel – ${albumDate(end)}';
 }
 
-/// Decade from the start year. 1974 is `1970s`.
-String decadeChipLabel(DateTime start) {
-  final decade = (start.year ~/ 10) * 10;
-  return '${decade}s';
-}
-
 /// Ceil(words / 200), minimum 1. Nothing is stored.
 int minutesToRead(String? body) {
   final words = (body ?? '')

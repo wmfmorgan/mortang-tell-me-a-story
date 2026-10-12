@@ -26,10 +26,6 @@ void main() {
     );
   });
 
-  test('decadeChipLabel uses the start year decade', () {
-    expect(decadeChipLabel(DateTime(1974, 7, 24)), '1970s');
-  });
-
   test('placeChipText prefers a label and falls back to the address', () {
     expect(placeChipText(label: 'Oak Street', address: '1 Oak'), 'Oak Street');
     expect(placeChipText(label: '  ', address: '1 Oak'), '1 Oak');

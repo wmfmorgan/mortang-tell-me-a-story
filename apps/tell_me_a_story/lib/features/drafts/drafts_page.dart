@@ -11,7 +11,7 @@ import '../../data/invite_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import '../invites/invite_modal.dart';
-import '../stories/timeframe_chips.dart';
+import '../stories/story_date.dart';
 
 enum _DraftsFilter {
   all,
@@ -444,25 +444,4 @@ String _bodyExcerpt(Story story) {
   return title.isEmpty ? 'Untitled' : title;
 }
 
-String _timeframeLabel(Story story) {
-  final end = story.timeframeEnd;
-  if (end != null) {
-    for (final decade in decadeChips) {
-      if (_sameDay(story.timeframeStart, decade.start) &&
-          _sameDay(end, decade.end)) {
-        return decade.label;
-      }
-    }
-  }
-  return _ymd(story.timeframeStart);
-}
-
-bool _sameDay(DateTime a, DateTime b) =>
-    a.year == b.year && a.month == b.month && a.day == b.day;
-
-String _ymd(DateTime value) {
-  final y = value.year.toString().padLeft(4, '0');
-  final m = value.month.toString().padLeft(2, '0');
-  final d = value.day.toString().padLeft(2, '0');
-  return '$y-$m-$d';
-}
+String _timeframeLabel(Story story) => storyDateLabelFor(story);

@@ -309,7 +309,8 @@ void main() {
   });
 
   testWidgets('add person, decade span, and clear filters', (tester) async {
-    await tester.pumpWidget(_app(search: _Search([_hit()])));
+    final search = _Search([_hit()]);
+    await tester.pumpWidget(_app(search: search));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('search-add-person')));
@@ -327,6 +328,9 @@ void main() {
     await tester.tap(find.text('1990s'));
     await tester.pumpAndSettle();
     expect(find.text('1980s–1990s'), findsOneWidget);
+    expect(search.last?.decades, [1980, 1990]);
+    expect(search.last?.rangeStart, isNull);
+    expect(search.last?.rangeEnd, isNull);
 
     await tester.tap(find.byKey(const Key('search-clear')));
     await tester.pumpAndSettle();
@@ -414,7 +418,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('search-photo-s1')), findsOneWidget);
-    expect(find.text('1984'), findsOneWidget);
+    expect(find.text('June 1, 1984'), findsOneWidget);
     expect(find.byType(Image), findsOneWidget);
   });
 

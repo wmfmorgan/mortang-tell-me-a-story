@@ -261,6 +261,12 @@ Deno.test("an unprefixed message is generic", async () => {
   assertEquals(json.message.includes("VALIDATION:"), false);
 });
 
+Deno.test("mapRpcError has exactly four prefixes", async () => {
+  const rate = mapRpcError("RATE_LIMITED: slow down");
+  assertEquals(rate.status, 400);
+  assertEquals(await rate.json(), { code: "VALIDATION", message: "Try again" });
+});
+
 Deno.test("INVITE_INVALID: used passes through", async () => {
   const res = mapRpcError("INVITE_INVALID: used");
   assertEquals(res.status, 400);

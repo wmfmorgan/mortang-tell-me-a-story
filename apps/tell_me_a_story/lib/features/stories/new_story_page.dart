@@ -21,7 +21,8 @@ import '../people/add_person_modal.dart';
 import '../places/place_map.dart';
 import '../places/place_picker_modal.dart';
 import 'photo_strip.dart';
-import 'timeframe_chips.dart';
+import 'story_date.dart';
+import 'story_date_picker.dart';
 
 /// Capture form for `/stories/new` — timeframe, people, place, title, body, persist.
 class NewStoryPage extends StatefulWidget {
@@ -37,6 +38,7 @@ class NewStoryPage extends StatefulWidget {
     this.hasMapboxToken,
     this.mapBuilder,
     this.draftId,
+    this.editStoryId,
     this.familiesApi,
   });
 
@@ -59,6 +61,9 @@ class NewStoryPage extends StatefulWidget {
   /// Resume a draft via `/stories/new?draft=`.
   final String? draftId;
 
+  /// Published or draft edit at `/stories/:storyId/edit`.
+  final String? editStoryId;
+
   final FamiliesGateway? familiesApi;
 
   @override
@@ -75,6 +80,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   final _title = TextEditingController();
   final _body = TextEditingController();
+  final _year = TextEditingController();
 
   String? _familyId;
   String? _menuFamilyId;
@@ -91,8 +97,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
   final List<Photo> _storyPhotos = [];
   final Map<String, Uint8List> _photoPreviews = {};
 
-  DateTime? _timeframeStart;
-  DateTime? _timeframeEnd;
+  int? _month;
+  int? _day;
   final List<Person> _selectedPeople = [];
   Place? _selectedPlace;
   String? _placeId;
@@ -106,17 +112,25 @@ class _NewStoryPageState extends State<NewStoryPage> {
   PhotosGateway get _photos =>
       widget.photosApi ?? (_photosOverride ??= PhotosApi());
 
+  bool get _editing => widget.editStoryId != null;
+
+  StoryDate? get _storyDate => storyDateFromFields(
+    yearText: _year.text,
+    month: _month,
+    day: _day,
+  );
+
   PublishReadiness get _readiness => publishReadiness(
     title: _title.text,
     body: _body.text,
-    timeframeStart: _timeframeStart,
+    timeframeStart: _storyDate?.toRange().start,
     personIds: _selectedPeople.map((p) => p.id),
     placeId: _selectedPlace?.id ?? _placeId,
   );
 
   bool get _actionsEnabled => !_loadingFamily && !_busy;
 
-  bool get _canSaveDraft => _actionsEnabled && _timeframeStart != null;
+  bool get _canSaveDraft => _actionsEnabled && _storyDate != null;
 
   @override
   void initState() {
@@ -133,6 +147,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
   void dispose() {
     _title.dispose();
     _body.dispose();
+    _year.dispose();
     super.dispose();
   }
 
@@ -142,8 +157,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
       if (!mounted) return;
       setState(() => _familyId = id);
       await _loadFamilies();
+      final editId = widget.editStoryId;
       final draftId = widget.draftId;
-      if (draftId != null) {
+      if (editId != null) {
+        await _hydrateDraft(editId);
+      } else if (draftId != null) {
         await _hydrateDraft(draftId);
       }
     } catch (_) {
@@ -166,12 +184,18 @@ class _NewStoryPageState extends State<NewStoryPage> {
     }
     if (!mounted) return;
     final familyId = story.familyId;
-    final decade = DecadeRange.containing(story.timeframeStart);
+    final parsed = StoryDate.fromRow(
+      story.timeframeStart,
+      story.timeframeEnd,
+      story.datePrecision,
+    );
+    final legacy = parsed.legacyDecade;
+    _year.text = legacy ? '' : '${parsed.year}';
     setState(() {
       _storyId = story.id;
       _familyId = familyId;
-      _timeframeStart = decade?.start ?? story.timeframeStart;
-      _timeframeEnd = decade?.end ?? story.timeframeEnd;
+      _month = legacy ? null : parsed.month;
+      _day = legacy ? null : parsed.day;
       _title.text = story.title ?? '';
       _body.text = story.body ?? '';
       _placeId = story.placeId;
@@ -297,12 +321,23 @@ class _NewStoryPageState extends State<NewStoryPage> {
     setState(() => _shellMapFailed = !_tokenOk);
   }
 
-  void _selectDecade(DecadeRange decade) {
+  void _onMonth(int? month) {
     setState(() {
-      _timeframeStart = decade.start;
-      _timeframeEnd = decade.end;
+      _month = month;
+      if (month == null) _day = null;
       _highlightTimeframeForPhoto = false;
     });
+  }
+
+  void _onDay(int? day) {
+    setState(() {
+      _day = day;
+      _highlightTimeframeForPhoto = false;
+    });
+  }
+
+  void _onYearChanged() {
+    setState(() => _highlightTimeframeForPhoto = false);
   }
 
   Future<Uint8List?> _pickFromGallery() async {
@@ -317,7 +352,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
   Future<void> _onAddPhoto() async {
     if (_busy || _loadingFamily || _picking) return;
     if (_storyPhotos.length >= maxPhotosPerStory) return;
-    if (_timeframeStart == null) {
+    if (_storyDate == null) {
       setState(() => _highlightTimeframeForPhoto = true);
       return;
     }
@@ -337,7 +372,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
   }
 
   Future<void> _savePendingPhoto() async {
-    if (_busy || _pendingPhotoBytes == null || _timeframeStart == null) return;
+    if (_busy || _pendingPhotoBytes == null || _storyDate == null) return;
     setState(() => _busy = true);
     try {
       final story = await _persistDraft();
@@ -414,8 +449,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   Future<Story?> _persistDraft() async {
     final familyId = await _ensureFamilyId();
-    final start = _timeframeStart;
-    if (!mounted || familyId == null || start == null) return null;
+    final date = _storyDate;
+    if (!mounted || familyId == null || date == null) return null;
+    final range = date.toRange();
     final personIds = _selectedPeople.map((p) => p.id).toList();
     final placeId = _selectedPlace?.id ?? _placeId;
     final title = _title.text;
@@ -424,8 +460,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
     final story = existingId == null
         ? await _stories.createDraft(
             familyId: familyId,
-            timeframeStart: start,
-            timeframeEnd: _timeframeEnd,
+            timeframeStart: range.start,
+            timeframeEnd: range.end,
+            datePrecision: range.precision.name,
             title: title,
             body: body,
             placeId: placeId,
@@ -433,8 +470,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
           )
         : await _stories.updateDraft(
             storyId: existingId,
-            timeframeStart: start,
-            timeframeEnd: _timeframeEnd,
+            timeframeStart: range.start,
+            timeframeEnd: range.end,
+            datePrecision: range.precision.name,
             title: title,
             body: body,
             placeId: placeId,
@@ -480,6 +518,39 @@ class _NewStoryPageState extends State<NewStoryPage> {
       params['draft'] = storyId;
     }
     router.go(uri.replace(queryParameters: params).toString());
+  }
+
+  void _returnToReader(bool saved) {
+    final id = _storyId ?? widget.editStoryId;
+    if (context.canPop()) {
+      context.pop(saved);
+      return;
+    }
+    if (id != null && id.isNotEmpty) {
+      context.go(AppRoutes.storyPath(id));
+    }
+  }
+
+  void _onCancel() {
+    if (!_actionsEnabled) return;
+    _returnToReader(false);
+  }
+
+  Future<void> _onSaveChanges() async {
+    if (!_canSaveDraft) return;
+    setState(() => _busy = true);
+    try {
+      final story = await _persistDraft();
+      if (!mounted || story == null) return;
+      _returnToReader(true);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save draft. Try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _onPublish() async {
@@ -572,8 +643,14 @@ class _NewStoryPageState extends State<NewStoryPage> {
         currentFamilyId: _shownFamilyId,
         onFamilySelected: _selectFamily,
         stewarded: _stewarded,
-        onSaveDraft: _canSaveDraft ? _onSaveDraft : null,
-        onPublish: _actionsEnabled ? _onPublish : null,
+        onSaveDraft: !_actionsEnabled
+            ? null
+            : (_editing ? _onCancel : (_canSaveDraft ? _onSaveDraft : null)),
+        onPublish: !_actionsEnabled
+            ? null
+            : (_editing ? (_canSaveDraft ? _onSaveChanges : null) : _onPublish),
+        captureSecondaryLabel: _editing ? 'Cancel' : 'Save draft',
+        capturePrimaryLabel: _editing ? 'Save changes' : 'Publish story',
       ),
       body: SafeArea(
         child: AlbumColumn(
@@ -583,6 +660,15 @@ class _NewStoryPageState extends State<NewStoryPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_editing) ...[
+                  Text(
+                    'Edit story',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 if (_showPublishBanner) ...[
                   const Text('Finish the highlighted fields to publish.'),
                   const SizedBox(height: 12),
@@ -766,9 +852,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
                   columns: 3,
                   addLabel: 'Add photo',
                   addHint: 'Up to $maxPhotosPerStory photos',
-                  addEnabled: _timeframeStart != null,
+                  addEnabled: _storyDate != null,
                 ),
-                if (_highlightTimeframeForPhoto && _timeframeStart == null) ...[
+                if (_highlightTimeframeForPhoto && _storyDate == null) ...[
                   const SizedBox(height: 8),
                   Text(
                     'A Timeframe is required before adding a photo.',
@@ -792,7 +878,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         _highlightIfMissing(
           missing:
               (_showPublishBanner && !readiness.hasTimeframe) ||
-              (_highlightTimeframeForPhoto && _timeframeStart == null),
+              (_highlightTimeframeForPhoto && _storyDate == null),
           child: _paperCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -802,11 +888,13 @@ class _NewStoryPageState extends State<NewStoryPage> {
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
-                TimeframeChips(
-                  selectedStartYear: _timeframeStart == null
-                      ? null
-                      : DecadeRange.containing(_timeframeStart!)?.startYear,
-                  onSelected: _selectDecade,
+                StoryDatePicker(
+                  year: _year,
+                  month: _month,
+                  day: _day,
+                  onMonth: _onMonth,
+                  onDay: _onDay,
+                  onYearChanged: _onYearChanged,
                 ),
               ],
             ),
@@ -849,7 +937,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
                       ),
                     TextButton(
                       onPressed: _actionsEnabled ? _openAddPerson : null,
-                      child: const Text('Add person'),
+                      child: const PlusLabel(label: 'Add person'),
                     ),
                   ],
                 ),

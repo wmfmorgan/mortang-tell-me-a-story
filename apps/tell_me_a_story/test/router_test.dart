@@ -125,6 +125,7 @@ class _StubStoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -138,6 +139,7 @@ class _StubStoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -327,9 +329,7 @@ void main() {
     auth.dispose();
   });
 
-  testWidgets('invite query is preserved when redirecting to timeline', (
-    tester,
-  ) async {
+  testWidgets('invite query rewrites to /invite/:token', (tester) async {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
@@ -340,11 +340,12 @@ void main() {
     await tester.pumpAndSettle();
 
     router.go('/?invite=abc123');
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
     final uri = router.routerDelegate.currentConfiguration.uri;
-    expect(uri.path, AppRoutes.timeline);
-    expect(uri.queryParameters['invite'], 'abc123');
+    expect(uri.path, '/invite/abc123');
+    expect(uri.queryParameters['invite'], isNull);
 
     auth.dispose();
   });

@@ -220,6 +220,7 @@ class _Stories implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -243,6 +244,7 @@ class _Stories implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -576,7 +578,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
-    final start = tester.getTopLeft(find.text('+ Start a family')).dy;
+    final start = tester.getTopLeft(find.text('Start a family')).dy;
     final timeline = tester.getTopLeft(find.text('Start a new timeline')).dy;
     final manage = tester.getTopLeft(find.text('Manage families')).dy;
     expect(start, lessThan(timeline));
@@ -594,7 +596,7 @@ void main() {
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
     expect(find.text('Start a new timeline'), findsNothing);
-    expect(find.text('+ Start a family'), findsOneWidget);
+    expect(find.text('Start a family'), findsOneWidget);
   });
 
   testWidgets('a tree-read open family hides the timeline row', (tester) async {
@@ -628,7 +630,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
-    expect(find.text('+ Start a family'), findsOneWidget);
+    expect(find.text('Start a family'), findsOneWidget);
     expect(find.text('Manage families'), findsOneWidget);
     expect(find.text('Start a new timeline'), findsNothing);
   });
@@ -1160,7 +1162,7 @@ void main() {
       await tester.pumpWidget(TellMeAStoryApp(router: router));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(TextButton, '1980s'));
+      await tester.enterText(find.byKey(const Key('story-date-year')), '1980');
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
       await tester.pumpAndSettle();
@@ -1559,6 +1561,7 @@ class _ReaderStories implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -1572,6 +1575,7 @@ class _ReaderStories implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,

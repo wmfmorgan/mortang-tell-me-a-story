@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../features/family/family_blur_dialog.dart';
 import 'album_theme.dart';
 
 /// Centered Stitch content column. The scaffold behind it stays parchment.
@@ -156,30 +157,69 @@ class AlbumPanel extends StatelessWidget {
   }
 }
 
-/// Centered parchment dialog. Callers keep their existing [show] signatures.
+/// Filled circle with a plus. Terracotta on parchment or outline.
+/// Parchment circle when the control itself is filled terracotta.
+class PlusLabel extends StatelessWidget {
+  const PlusLabel({
+    super.key,
+    required this.label,
+    this.size = 20,
+    this.onTerracotta = false,
+    this.style,
+  });
+
+  final String label;
+  final double size;
+  final bool onTerracotta;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final circle = onTerracotta ? albumParchment : albumTerracotta;
+    final plus = onTerracotta ? albumTerracotta : Colors.white;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: size,
+          height: size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: circle, shape: BoxShape.circle),
+          child: Icon(Icons.add, size: size * 0.72, color: plus),
+        ),
+        SizedBox(width: size >= 28 ? 8 : 6),
+        Text(label, style: style, textAlign: TextAlign.center),
+      ],
+    );
+  }
+}
+
+/// Centered parchment dialog on the sigma-4 blur shell.
+/// Callers keep their existing [show] signatures. Menus do not use this.
 Future<T?> showAlbumDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   double maxWidth = 640,
 }) {
-  return showDialog<T>(
+  return showBlurredCard<T>(
     context: context,
-    barrierColor: const Color(0x992C2416),
     builder: (ctx) {
       final height = MediaQuery.sizeOf(ctx).height;
-      return Dialog(
-        backgroundColor: albumParchment,
-        surfaceTintColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: albumSage.withValues(alpha: 0.35)),
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+          maxHeight: height * 0.9,
         ),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: maxWidth,
-            maxHeight: height * 0.9,
+        child: Material(
+          color: albumParchment,
+          surfaceTintColor: Colors.transparent,
+          elevation: 8,
+          shadowColor: const Color(0x332C2416),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: albumSage.withValues(alpha: 0.35)),
           ),
+          clipBehavior: Clip.antiAlias,
           child: builder(ctx),
         ),
       );

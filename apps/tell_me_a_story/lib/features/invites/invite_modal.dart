@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/invite_api.dart';
+import '../family/family_blur_dialog.dart';
 
 /// Invite dialog matching the Stitch Email, Link, and SMS screens.
 /// SMS is visual only until a later milestone.
@@ -24,22 +25,20 @@ class InviteModal extends StatefulWidget {
     String familyName = 'Family',
     InviteGateway? api,
   }) {
-    return showDialog<void>(
+    return showBlurredCard<void>(
       context: context,
-      barrierColor: const Color(0x80000000),
-      builder: (ctx) => Dialog(
-        backgroundColor: _InviteColors.card,
-        surfaceTintColor: Colors.transparent,
-        clipBehavior: Clip.antiAlias,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: _InviteColors.border),
+      builder: (ctx) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 512,
+          maxHeight: MediaQuery.sizeOf(ctx).height * 0.9,
         ),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 512,
-            maxHeight: MediaQuery.sizeOf(ctx).height * 0.9,
+        child: Material(
+          color: _InviteColors.card,
+          surfaceTintColor: Colors.transparent,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: _InviteColors.border),
           ),
           child: InviteModal(
             familyId: familyId,

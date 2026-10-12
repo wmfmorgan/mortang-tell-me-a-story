@@ -13,6 +13,7 @@ import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/profile_api.dart';
 import '../../data/stories_api.dart';
+import '../../features/auth/invite_sign_in_page.dart';
 import '../../features/auth/magic_link_page.dart';
 import '../../features/settings/settings_page.dart';
 import '../../features/drafts/drafts_page.dart';
@@ -34,7 +35,9 @@ abstract final class AppRoutes {
   static const timeline = '/timeline';
   static const newStory = '/stories/new';
   static const story = '/stories/:storyId';
+  static const storyEdit = '/stories/:storyId/edit';
   static const storyPerspective = '/stories/:storyId/perspective';
+  static const invite = '/invite/:token';
   static const drafts = '/drafts';
   static const search = '/search';
   static const settings = '/settings';
@@ -42,6 +45,10 @@ abstract final class AppRoutes {
   static const manageFamily = '/manage-families/:familyId';
 
   static String storyPath(String id) => '/stories/$id';
+
+  static String storyEditPath(String id) => '/stories/$id/edit';
+
+  static String invitePath(String token) => '/invite/$token';
 
   static String manageFamilyPath(String id) => '/manage-families/$id';
 
@@ -97,18 +104,17 @@ GoRouter createAppRouter({
       final signedIn = authRefresh.isSignedIn;
       final loc = state.matchedLocation;
       final onMagicLink = loc == AppRoutes.magicLink;
-      final invite = state.uri.queryParameters['invite'];
-      final inviteSuffix = (invite != null && invite.isNotEmpty)
-          ? '?invite=$invite'
-          : '';
+      final onInvite = loc.startsWith('/invite/');
+      final inviteToken = state.uri.queryParameters['invite'];
+      if (inviteToken != null && inviteToken.isNotEmpty && !onInvite) {
+        return AppRoutes.invitePath(inviteToken);
+      }
 
-      if (!signedIn && !onMagicLink) {
-        // Preserve invite token across auth (no dedicated /invite route).
-        return '${AppRoutes.magicLink}$inviteSuffix';
+      if (!signedIn && !onMagicLink && !onInvite) {
+        return AppRoutes.magicLink;
       }
       if (signedIn && onMagicLink) {
-        final landing = await appStartPath(familiesApi);
-        return '$landing$inviteSuffix';
+        return appStartPath(familiesApi);
       }
       if (signedIn && loc == AppRoutes.newStory && familiesApi != null) {
         final familyId = FamilySelection.id;
@@ -153,6 +159,28 @@ GoRouter createAppRouter({
             draftId: (draft != null && draft.isNotEmpty) ? draft : null,
           );
         },
+      ),
+      GoRoute(
+        path: AppRoutes.invite,
+        builder: (context, state) => InviteSignInPage(
+          token: Uri.decodeComponent(state.pathParameters['token']!),
+          inviteApi: inviteApi,
+          authRefresh: authRefresh,
+          signedIn: () => authRefresh.isSignedIn,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.storyEdit,
+        builder: (context, state) => NewStoryPage(
+          inviteApi: inviteApi,
+          peopleApi: peopleApi,
+          placesApi: placesApi,
+          mapboxSearch: mapboxSearch,
+          storiesApi: storiesApi,
+          photosApi: photosApi,
+          familiesApi: familiesApi,
+          editStoryId: state.pathParameters['storyId'],
+        ),
       ),
       GoRoute(
         path: AppRoutes.storyPerspective,

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/families_api.dart';
@@ -206,7 +207,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
                               ),
                             ),
                             const SizedBox(width: 16),
-                            FilledButton.icon(
+                            FilledButton(
                               key: const Key('manage-families-start'),
                               onPressed: _start,
                               style: FilledButton.styleFrom(
@@ -224,8 +225,15 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              icon: const Icon(Icons.add_circle, size: 20),
-                              label: const Text('+ Start a family'),
+                              child: PlusLabel(
+                                label: 'Start a family',
+                                onTerracotta: true,
+                                style: GoogleFonts.sourceSans3(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFFFFF6F3),
+                                ),
+                              ),
                             ),
                           ],
                         ),

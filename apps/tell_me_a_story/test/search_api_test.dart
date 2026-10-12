@@ -89,6 +89,19 @@ void main() {
     expect(ranged.map((r) => r.story.id), ['all']);
   });
 
+  test('selected decades match the start year, not the span between chips', () {
+    final rows = [
+      _record(id: 'eighties', timeframeStart: DateTime(1984, 6, 1)),
+      _record(id: 'nineties', timeframeStart: DateTime(1995, 3, 1)),
+      _record(id: 'two-thousands', timeframeStart: DateTime(2002, 1, 1)),
+    ];
+    final matched = filterSearchRecords(
+      rows,
+      const SearchRequest(familyId: _family, decades: [1980, 2000]),
+    );
+    expect(matched.map((r) => r.story.id), ['two-thousands', 'eighties']);
+  });
+
   test('text matches title, body, person, place, year, and decade', () {
     final row = _record(
       title: 'Lemonade',

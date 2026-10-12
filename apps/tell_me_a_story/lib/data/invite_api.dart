@@ -1,7 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/config/env.dart';
 import 'family_selection.dart';
 import 'profile_session.dart';
+
+/// Shareable invite path. Old `?invite=` links still rewrite in the router.
+String buildInviteUrl(String token, {String? origin}) {
+  final base = (origin ?? Env.inviteAppOrigin).replaceAll(RegExp(r'/+$'), '');
+  return '$base/invite/${Uri.encodeComponent(token)}';
+}
 
 /// Invite data/API surface (M2). UI stays on timeline chrome.
 abstract class InviteGateway {
@@ -162,6 +169,50 @@ class AcceptInviteResult {
 
   final String familyId;
   final String membershipId;
+}
+
+class InvitePreview {
+  const InvitePreview({
+    required this.valid,
+    this.familyId,
+    this.familyName,
+    this.inviterName,
+  });
+
+  final bool valid;
+  final String? familyId;
+  final String? familyName;
+  final String? inviterName;
+}
+
+/// Unauthenticated GET of validate-invite-token. Not part of [InviteGateway].
+abstract class InviteLinkGateway {
+  Future<InvitePreview> validateInviteToken(String token);
+}
+
+class InviteLinkApi implements InviteLinkGateway {
+  InviteLinkApi({SupabaseClient? client})
+    : _client = client ?? Supabase.instance.client;
+
+  final SupabaseClient _client;
+
+  @override
+  Future<InvitePreview> validateInviteToken(String token) async {
+    final res = await _client.functions.invoke(
+      'validate-invite-token',
+      method: HttpMethod.get,
+      queryParameters: {'token': token},
+    );
+    final data = res.data;
+    if (data is! Map) return const InvitePreview(valid: false);
+    final map = Map<String, dynamic>.from(data);
+    return InvitePreview(
+      valid: map['valid'] == true,
+      familyId: map['family_id'] as String?,
+      familyName: map['family_name'] as String?,
+      inviterName: map['inviter_name'] as String?,
+    );
+  }
 }
 
 class InviteApiException implements Exception {

@@ -212,8 +212,9 @@ class _AddPersonModalState extends State<AddPersonModal> {
             _modeButton(
               mode: _AddPersonMode.createNew,
               icon: Icons.person_add,
-              label: '+ Create new person',
+              label: 'Create new person',
               solid: true,
+              plus: true,
             ),
           ],
         ),
@@ -227,6 +228,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
     required String label,
     String? badge,
     bool solid = false,
+    bool plus = false,
   }) {
     final selected = _mode == mode;
     final Color background;
@@ -264,20 +266,42 @@ class _AddPersonModalState extends State<AddPersonModal> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 18, color: iconColor),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontSize: 13,
-                      color: foreground,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                if (plus)
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: PlusLabel(
+                        label: label,
+                        size: 16,
+                        onTerracotta: selected && solid,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontSize: 13,
+                          color: foreground,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  )
+                else ...[
+                  Icon(icon, size: 18, color: iconColor),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontSize: 13,
+                        color: foreground,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
+                ],
                 if (badge != null) ...[
                   const SizedBox(width: 6),
                   DecoratedBox(
@@ -346,7 +370,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
             label: const Text('Add to story'),
           )
         else
-          FilledButton.icon(
+          FilledButton(
             onPressed: _busy ? null : _saveCreate,
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, 48),
@@ -356,8 +380,14 @@ class _AddPersonModalState extends State<AddPersonModal> {
               shape: buttonShape,
               padding: const EdgeInsets.symmetric(horizontal: 28),
             ),
-            icon: const Icon(Icons.person_add, size: 18),
-            label: Text(_busy ? 'Adding…' : 'Add person'),
+            child: PlusLabel(
+              label: _busy ? 'Adding…' : 'Add person',
+              onTerracotta: true,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
       ],
     );

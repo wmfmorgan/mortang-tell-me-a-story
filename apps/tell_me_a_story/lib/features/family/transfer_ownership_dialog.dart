@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
 import '../../data/families_api.dart';
+import 'family_blur_dialog.dart';
 import 'family_role.dart';
 
 class TransferChoice {
@@ -22,7 +23,7 @@ Future<TransferChoice?> showTransferOwnershipDialog(
   required String familyName,
   required List<FamilyPerson> coOwners,
 }) {
-  return showDialog<TransferChoice>(
+  return showBlurredCard<TransferChoice>(
     context: context,
     builder: (context) =>
         _TransferDialog(familyName: familyName, coOwners: coOwners),
@@ -46,9 +47,11 @@ class _TransferDialogState extends State<_TransferDialog> {
   @override
   Widget build(BuildContext context) {
     final ready = _ownerId != null && _former != null;
-    return Dialog(
+    return Material(
       key: const Key('transfer-ownership-dialog'),
-      backgroundColor: albumParchment,
+      color: albumParchment,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
         child: SingleChildScrollView(

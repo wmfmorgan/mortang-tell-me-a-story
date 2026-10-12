@@ -10,6 +10,7 @@ import '../../data/profile_session.dart';
 import '../../features/family/family_role.dart';
 import '../../features/family/start_family_dialog.dart';
 import '../router/app_router.dart';
+import 'album_chrome.dart';
 import 'album_theme.dart';
 import 'profile_avatar.dart';
 
@@ -32,6 +33,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
     this.onInvite,
     this.onSaveDraft,
     this.onPublish,
+    this.captureSecondaryLabel = 'Save draft',
+    this.capturePrimaryLabel = 'Publish story',
     this.onLogout,
     this.onStartTimeline,
   });
@@ -48,6 +51,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
+  final String captureSecondaryLabel;
+  final String capturePrimaryLabel;
   final Future<void> Function()? onLogout;
 
   /// Timeline page only. Null hides "Start a new timeline".
@@ -91,6 +96,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               onInvite: onInvite,
               onSaveDraft: onSaveDraft,
               onPublish: onPublish,
+              captureSecondaryLabel: captureSecondaryLabel,
+              capturePrimaryLabel: capturePrimaryLabel,
               onLogout: onLogout,
               onStartTimeline: onStartTimeline,
               onTimeline: () => _openTimeline(context),
@@ -145,6 +152,8 @@ class _HeaderBar extends StatelessWidget {
     required this.onInvite,
     required this.onSaveDraft,
     required this.onPublish,
+    required this.captureSecondaryLabel,
+    required this.capturePrimaryLabel,
     required this.onLogout,
     required this.onStartTimeline,
     required this.onTimeline,
@@ -165,6 +174,8 @@ class _HeaderBar extends StatelessWidget {
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
+  final String captureSecondaryLabel;
+  final String capturePrimaryLabel;
   final Future<void> Function()? onLogout;
   final VoidCallback? onStartTimeline;
   final VoidCallback onTimeline;
@@ -224,7 +235,7 @@ class _HeaderBar extends StatelessWidget {
             TextButton(
               onPressed: onSaveDraft,
               child: Text(
-                'Save draft',
+                captureSecondaryLabel,
                 style: GoogleFonts.sourceSans3(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
@@ -239,7 +250,7 @@ class _HeaderBar extends StatelessWidget {
                 foregroundColor: albumParchment,
                 shape: const StadiumBorder(),
               ),
-              child: const Text('Publish story'),
+              child: Text(capturePrimaryLabel),
             ),
           ] else if (canWrite) ...[
             TextButton(
@@ -255,7 +266,7 @@ class _HeaderBar extends StatelessWidget {
               child: const Text('Invite'),
             ),
             const SizedBox(width: 8),
-            FilledButton.icon(
+            FilledButton(
               onPressed: () => onNewStory(),
               style: FilledButton.styleFrom(
                 backgroundColor: albumTerracotta,
@@ -267,12 +278,13 @@ class _HeaderBar extends StatelessWidget {
                   vertical: 10,
                 ),
               ),
-              icon: const Icon(Icons.add, size: 17),
-              label: Text(
-                'New story',
+              child: PlusLabel(
+                label: 'New story',
+                onTerracotta: true,
                 style: GoogleFonts.sourceSans3(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
+                  color: albumParchment,
                 ),
               ),
             ),
@@ -595,7 +607,7 @@ class _FamilyMenu extends StatelessWidget {
           const PopupMenuItem<String>(
             key: Key('family-menu-start'),
             value: _startValue,
-            child: Text('+ Start a family'),
+            child: PlusLabel(label: 'Start a family'),
           ),
           if (onStartTimeline != null)
             const PopupMenuItem<String>(

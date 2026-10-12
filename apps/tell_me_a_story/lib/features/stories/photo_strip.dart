@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/photos_api.dart';
 
@@ -196,23 +197,11 @@ class _AddTile extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                color: Color(0xFFF4EFEA),
-                shape: BoxShape.circle,
-              ),
-              child: SizedBox(
-                width: 36,
-                height: 36,
-                child: Icon(
-                  Icons.add_a_photo_outlined,
-                  color: albumTerracotta,
-                  size: 20,
-                ),
-              ),
+            PlusLabel(
+              label: label!,
+              size: 32,
+              style: labelStyle,
             ),
-            const SizedBox(height: 6),
-            Text(label!, textAlign: TextAlign.center, style: labelStyle),
             if (hint != null) ...[
               const SizedBox(height: 2),
               Text(hint!, textAlign: TextAlign.center, style: hintStyle),

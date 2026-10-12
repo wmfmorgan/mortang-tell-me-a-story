@@ -46,7 +46,7 @@ void main() {
     final dividerY = tester
         .getTopLeft(find.byKey(const Key('family-menu-divider')))
         .dy;
-    final startY = tester.getTopLeft(find.text('+ Start a family')).dy;
+    final startY = tester.getTopLeft(find.text('Start a family')).dy;
     final manageY = tester.getTopLeft(find.text('Manage families')).dy;
     expect(adaY, lessThan(beaY));
     expect(beaY, lessThan(dividerY));
@@ -70,7 +70,7 @@ void main() {
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
 
-    expect(find.text('+ Start a family'), findsOneWidget);
+    expect(find.text('Start a family'), findsOneWidget);
     expect(find.text('Manage families'), findsNothing);
     await tester.tap(find.byKey(const Key('family-menu-start')));
     await tester.pumpAndSettle();
@@ -116,13 +116,13 @@ void main() {
     );
     expect(find.byKey(const Key('family-menu-manage')), findsOneWidget);
     expect(find.text('Gone Archive'), findsNothing);
-    expect(find.text('+ Start a family'), findsOneWidget);
+    expect(find.text('Start a family'), findsOneWidget);
   });
 
   testWidgets('Manage is hidden for a members-only user', (tester) async {
     await _openMenu(tester, stewarded: const []);
     expect(find.byKey(const Key('family-menu-manage')), findsNothing);
-    expect(find.text('+ Start a family'), findsOneWidget);
+    expect(find.text('Start a family'), findsOneWidget);
   });
 
   testWidgets('Manage stays visible after switching to a member family', (

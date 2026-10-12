@@ -2,6 +2,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum StoryStatus { draft, published }
 
+/// Declaration order matches Postgres `story_date_precision`.
+enum StoryDatePrecision { decade, year, month, day }
+
+StoryDatePrecision storyDatePrecisionFrom(String? raw) {
+  for (final value in StoryDatePrecision.values) {
+    if (value.name == raw) return value;
+  }
+  return StoryDatePrecision.day;
+}
+
 class Story {
   const Story({
     required this.id,
@@ -11,6 +21,8 @@ class Story {
     this.body,
     required this.timeframeStart,
     this.timeframeEnd,
+    this.datePrecision = StoryDatePrecision.day,
+    this.createdAt,
     this.placeId,
     required this.status,
     this.publishedAt,
@@ -31,6 +43,8 @@ class Story {
   final String? body;
   final DateTime timeframeStart; // date only
   final DateTime? timeframeEnd;
+  final StoryDatePrecision datePrecision;
+  final DateTime? createdAt;
   final String? placeId;
   final StoryStatus status;
   final DateTime? publishedAt;
@@ -56,6 +70,10 @@ class Story {
       timeframeStart: _parseDate(json['timeframe_start'] as String),
       timeframeEnd: json['timeframe_end'] != null
           ? _parseDate(json['timeframe_end'] as String)
+          : null,
+      datePrecision: storyDatePrecisionFrom(json['date_precision'] as String?),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
           : null,
       placeId: json['place_id'] as String?,
       status: _storyStatusFrom(json['status'] as String),
@@ -197,6 +215,7 @@ abstract class StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -206,6 +225,7 @@ abstract class StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -227,16 +247,17 @@ class StoriesApi implements StoriesGateway {
   final SupabaseClient _client;
 
   static const _storySelect =
-      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, place_id, status, published_at, story_people(person_id), photos(id), profiles!author_id(display_name, avatar_path)';
+      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, story_people(person_id), photos(id), profiles!author_id(display_name, avatar_path)';
 
   static const _publishedSelect =
-      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, place_id, status, published_at, places(label), story_people(person_id, people(name)), profiles!author_id(display_name, avatar_path), photos(id, storage_path, sort_order), comments(id), perspectives(id)';
+      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, places(label), story_people(person_id, people(name)), profiles!author_id(display_name, avatar_path), photos(id, storage_path, sort_order), comments(id), perspectives(id)';
 
   @override
   Future<Story> createDraft({
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -253,6 +274,7 @@ class StoriesApi implements StoriesGateway {
           'body': body?.trim(),
           'timeframe_start': _date(timeframeStart),
           'timeframe_end': timeframeEnd == null ? null : _date(timeframeEnd),
+          if (datePrecision != null) 'date_precision': datePrecision,
           'place_id': placeId,
           'status': 'draft',
         })
@@ -268,6 +290,7 @@ class StoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -282,6 +305,9 @@ class StoriesApi implements StoriesGateway {
     }
     if (timeframeEnd != null) {
       patch['timeframe_end'] = _date(timeframeEnd);
+    }
+    if (datePrecision != null) {
+      patch['date_precision'] = datePrecision;
     }
     // Null leaves the column alone. A blank string clears a saved title.
     if (title != null) {
@@ -355,7 +381,10 @@ class StoriesApi implements StoriesGateway {
         .eq('family_id', familyId)
         .eq('status', 'draft')
         .eq('author_id', uid)
-        .order('timeframe_start');
+        .order('timeframe_start')
+        .order('date_precision')
+        .order('created_at')
+        .order('id');
     return rows.map(Story.fromJson).toList();
   }
 
@@ -366,7 +395,10 @@ class StoriesApi implements StoriesGateway {
         .select(_publishedSelect)
         .eq('family_id', familyId)
         .eq('status', 'published')
-        .order('timeframe_start');
+        .order('timeframe_start')
+        .order('date_precision')
+        .order('created_at')
+        .order('id');
     return rows.map(Story.fromJson).toList();
   }
 
@@ -391,6 +423,31 @@ String _date(DateTime value) {
   final m = value.month.toString().padLeft(2, '0');
   final d = value.day.toString().padLeft(2, '0');
   return '$y-$m-$d';
+}
+
+int decadeStartYear(DateTime start) => (start.year ~/ 10) * 10;
+
+/// Oldest first: start, precision, created_at, id. Newest-first is the reverse.
+int compareStories(Story a, Story b) {
+  final start = DateTime(
+    a.timeframeStart.year,
+    a.timeframeStart.month,
+    a.timeframeStart.day,
+  ).compareTo(
+    DateTime(
+      b.timeframeStart.year,
+      b.timeframeStart.month,
+      b.timeframeStart.day,
+    ),
+  );
+  if (start != 0) return start;
+  final precision = a.datePrecision.index.compareTo(b.datePrecision.index);
+  if (precision != 0) return precision;
+  final aCreated = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  final bCreated = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  final created = aCreated.compareTo(bCreated);
+  if (created != 0) return created;
+  return a.id.compareTo(b.id);
 }
 
 DateTime _parseDate(String raw) {

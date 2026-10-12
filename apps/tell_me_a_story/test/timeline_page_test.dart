@@ -57,6 +57,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -70,6 +71,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -178,6 +180,7 @@ Story _published({
   int commentCount = 0,
   List<String> photoPaths = const [],
   String? authorDisplayName,
+  DateTime? createdAt,
 }) {
   return Story(
     id: id,
@@ -197,6 +200,7 @@ Story _published({
     photoPaths: photoPaths,
     authorDisplayName: authorDisplayName,
     publishedAt: DateTime(2026, 9, 27),
+    createdAt: createdAt,
   );
 }
 
@@ -458,7 +462,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(_tooltipFor(tester, 's1'), 'Untitled (1980)');
+    expect(_tooltipFor(tester, 's1'), 'Untitled (January 1, 1980)');
     expect(find.text('Jam'), findsNothing);
     expect(find.text('1980s'), findsOneWidget);
   });
@@ -480,7 +484,7 @@ void main() {
 
     expect(
       _tooltipFor(tester, 's1'),
-      'Making Blackberry Jam on the Back Porch (1980)',
+      'Making Blackberry Jam on the Back Porch (January 1, 1980)',
     );
     expect(find.text('We spent the afternoon.'), findsNothing);
   });
@@ -844,14 +848,62 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('timeline-dot-${story.id}')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
-    expect(find.byKey(const Key('story-reader-modal')), findsNothing);
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('story-reader-close')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
       AppRoutes.timeline,
     );
 
     auth.dispose();
+  });
+
+  testWidgets('empty space steps out and controls do not', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(stories: _FakeStoriesApi(published: [_published(title: 'Jam')])),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-card-s1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-empty')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-stub-s1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-empty')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-empty')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-decade-1980')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
   });
 
   testWidgets('Fit returns to the constellation from mid', (tester) async {
@@ -957,7 +1009,7 @@ void main() {
     expect(decadeOpacity('2020s'), lessThan(1));
     expect(decadeOpacity('1950s'), lessThan(1));
     expect(find.text('Jam (1980)'), findsNothing);
-    expect(_tooltipFor(tester, 'mid'), 'Jam (1980)');
+    expect(_tooltipFor(tester, 'mid'), 'Jam (January 1, 1980)');
     await tester.tap(find.byKey(const Key('timeline-decade-1980')));
     await tester.pumpAndSettle();
 
@@ -1522,8 +1574,14 @@ void main() {
               photoCount: 4,
               commentCount: 1,
               photoPaths: const ['families/a.jpg', 'families/b.jpg'],
+              createdAt: DateTime(2026, 2, 1),
             ),
-            _published(id: 'plain', title: 'Wagon', photoCount: 0),
+            _published(
+              id: 'plain',
+              title: 'Wagon',
+              photoCount: 0,
+              createdAt: DateTime(2026, 1, 1),
+            ),
           ],
         ),
       ),

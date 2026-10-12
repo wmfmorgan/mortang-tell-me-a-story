@@ -85,7 +85,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Choose existing'), findsOneWidget);
-    expect(find.text('+ Create new person'), findsOneWidget);
+    expect(find.text('Create new person'), findsOneWidget);
     expect(find.text('Cancel'), findsOneWidget);
     expect(find.text('Add to story'), findsOneWidget);
   });
@@ -154,7 +154,7 @@ void main() {
     final api = _FakePeopleGateway();
     await _openModal(tester, api: api);
 
-    await tester.tap(find.text('+ Create new person'));
+    await tester.tap(find.text('Create new person'));
     await tester.pumpAndSettle();
 
     expect(find.text('FULL NAME'), findsOneWidget);
@@ -214,7 +214,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('+ Create new person'));
+    await tester.tap(find.text('Create new person'));
     await tester.pumpAndSettle();
 
     final name = find.widgetWithText(TextField, 'Enter first and last name');

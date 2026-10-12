@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
@@ -463,7 +464,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
                                   ],
                                 ),
                                 right: _canAdmin && _coOwners.length < 2
-                                    ? OutlinedButton.icon(
+                                    ? OutlinedButton(
                                         key: const Key(
                                           'manage-family-add-co-owner',
                                         ),
@@ -471,8 +472,9 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
                                             ? null
                                             : _addCoOwner,
                                         style: _quietButton,
-                                        icon: const Icon(Icons.add, size: 16),
-                                        label: const Text('Add co-owner'),
+                                        child: const PlusLabel(
+                                          label: 'Add co-owner',
+                                        ),
                                       )
                                     : const SizedBox.shrink(),
                               ),
