@@ -1754,6 +1754,144 @@ void main() {
       expect(find.text('+ Add comment'), findsNothing);
     },
   );
+
+  testWidgets(
+    'a parent owner or co-owner can remove a child member photo on the origin',
+    (tester) async {
+      const parent = '00000000-0000-0000-0000-0000000000aa';
+      const child = '00000000-0000-0000-0000-0000000000bb';
+      const photos = [
+        Photo(
+          id: 'ph-child',
+          storyId: _storyId,
+          familyId: parent,
+          uploaderId: 'u-child-member',
+          storagePath: 'p/s/child.jpg',
+          sortOrder: 0,
+        ),
+      ];
+
+      Future<void> pump({
+        required String uid,
+        required List<StewardFamily> stewarded,
+        required List<MemberFamily> mine,
+      }) async {
+        await tester.pumpWidget(
+          _readerApp(
+            stories: _FakeStoriesApi(
+              story: _published(
+                familyId: parent,
+                authorId: 'u-author',
+                title: 'The beginning',
+              ),
+            ),
+            currentUserId: uid,
+            photos: _FakePhotosApi(seed: photos),
+            families: _OriginFamilies(
+              mine: mine,
+              tree: [
+                const TreeFamily(id: parent, name: 'Parent'),
+                const TreeFamily(
+                  id: child,
+                  name: 'Ada',
+                  parentFamilyId: parent,
+                  originStoryId: _storyId,
+                ),
+              ],
+              stewarded: stewarded,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      final childMine = [
+        MemberFamily(id: child, name: 'Ada', createdAt: DateTime.utc(1990)),
+      ];
+
+      await pump(
+        uid: 'u-parent-owner',
+        mine: const [],
+        stewarded: const [
+          StewardFamily(id: parent, name: 'Parent', role: 'owner'),
+        ],
+      );
+      expect(find.byKey(const Key('photo-remove')), findsOneWidget);
+
+      await pump(
+        uid: 'u-parent-co',
+        mine: const [],
+        stewarded: const [
+          StewardFamily(id: parent, name: 'Parent', role: 'co_owner'),
+        ],
+      );
+      expect(find.byKey(const Key('photo-remove')), findsOneWidget);
+
+      await pump(
+        uid: 'u-child-owner',
+        mine: childMine,
+        stewarded: const [StewardFamily(id: child, name: 'Ada', role: 'owner')],
+      );
+      expect(find.byKey(const Key('photo-remove')), findsNothing);
+    },
+  );
+
+  testWidgets('a co-owner sees Edit and a child-timeline owner does not', (
+    tester,
+  ) async {
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    const child = '00000000-0000-0000-0000-0000000000bb';
+
+    Future<void> pump({
+      required String uid,
+      required List<StewardFamily> stewarded,
+      List<MemberFamily> mine = const [],
+    }) async {
+      await tester.pumpWidget(
+        _readerApp(
+          stories: _FakeStoriesApi(
+            story: _published(
+              familyId: parent,
+              authorId: 'u-author',
+              title: 'The beginning',
+            ),
+          ),
+          currentUserId: uid,
+          families: _OriginFamilies(
+            mine: mine,
+            tree: const [
+              TreeFamily(id: parent, name: 'Parent'),
+              TreeFamily(
+                id: child,
+                name: 'Ada',
+                parentFamilyId: parent,
+                originStoryId: _storyId,
+              ),
+            ],
+            stewarded: stewarded,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pump(
+      uid: 'u-co',
+      stewarded: const [
+        StewardFamily(id: parent, name: 'Parent', role: 'co_owner'),
+      ],
+    );
+    expect(find.byKey(const Key('story-edit')), findsOneWidget);
+
+    await pump(
+      uid: 'u-child-owner',
+      mine: [
+        MemberFamily(id: child, name: 'Ada', createdAt: DateTime.utc(1990)),
+      ],
+      stewarded: const [StewardFamily(id: child, name: 'Ada', role: 'owner')],
+    );
+    expect(find.byKey(const Key('story-edit')), findsNothing);
+  });
 }
 
 class _OriginFamilies extends FamiliesGateway {

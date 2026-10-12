@@ -13,7 +13,7 @@ import 'magic_link_page.dart';
 import 'magic_link_redirect.dart';
 
 const _inviteSage = Color(0xFF7A8B74);
-const _inviteOutline = Color(0xFF817976);
+const _inviteOutline = albumSage;
 const _inviteLine = Color(0xFFB9B0AD);
 const _inviteCard = Color(0xFFF5DED6);
 const _inviteOnPrimary = Color(0xFFFFFFFF);

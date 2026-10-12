@@ -504,7 +504,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Publish story'), findsOneWidget);
-    expect(find.text('New story'), findsOneWidget);
+    expect(find.text('New story'), findsNothing);
     expect(find.text('Invite'), findsNothing);
   });
 
@@ -532,8 +532,8 @@ void main() {
     expect(find.text('Story'), findsNothing);
     expect(find.byKey(const Key('story-title')), findsOneWidget);
     expect(find.byKey(const Key('story-body')), findsOneWidget);
-    expect(find.text('Story title...'), findsOneWidget);
-    expect(find.text('STORY ENTRY'), findsOneWidget);
+    expect(find.text('Give your memory a title...'), findsOneWidget);
+    expect(find.text('Write the story'), findsOneWidget);
     expect(find.text('Title'), findsNothing);
   });
 
@@ -594,7 +594,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Publish story'), findsOneWidget);
-    expect(find.text('New story'), findsOneWidget);
+    expect(find.text('New story'), findsNothing);
     expect(find.text('Invite'), findsNothing);
   });
 
@@ -1084,24 +1084,16 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('story-date-legacy')), findsOneWidget);
+    expect(find.byKey(const Key('story-date-legacy')), findsNothing);
     final year = tester.widget<TextField>(
       find.byKey(const Key('story-date-year')),
     );
-    expect(year.controller?.text, '1980');
+    expect(year.controller?.text, '');
     final save = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Save changes'),
     );
-    expect(save.onPressed, isNotNull);
-
-    await tester.enterText(find.byKey(const Key('story-title')), 'Jam night');
-    await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
-    await tester.pumpAndSettle();
-    expect(stories.updateDraftCalls, 1);
-    expect(stories.lastTitle, 'Jam night');
-    expect(stories.lastTimeframeStart, isNull);
-    expect(stories.lastDatePrecision, isNull);
-    expect(find.text('reader-s1'), findsOneWidget);
+    expect(save.onPressed, isNull);
+    expect(stories.updateDraftCalls, 0);
   });
 
   testWidgets('edit saves a changed year with month and day', (tester) async {

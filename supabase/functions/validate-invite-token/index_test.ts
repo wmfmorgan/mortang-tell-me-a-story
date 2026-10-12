@@ -59,3 +59,29 @@ Deno.test("invalid results use the locked codes", () => {
   assertEquals(past.code, "INVITE_EXPIRED");
   assertEquals(past.valid, false);
 });
+
+Deno.test("invalid invites hide family and inviter", () => {
+  const cases = [
+    decideInvite({ ...live, family_deleted: true }),
+    decideInvite({ ...live, status: "revoked" }),
+    decideInvite({ ...live, status: "accepted" }),
+    decideInvite({ ...live, status: "expired" }),
+    decideInvite(
+      { ...live, expires_at: "2000-01-01T00:00:00.000Z" },
+      Date.parse("2020-01-01T00:00:00.000Z"),
+    ),
+  ];
+  for (const body of cases) {
+    assertEquals(body.valid, false);
+    assertEquals(body.family_id, null);
+    assertEquals(body.family_name, null);
+    assertEquals(body.inviter_name, null);
+    assertEquals(Object.keys(body).sort(), [...keys].sort());
+  }
+  assertEquals(cases[1].status, "revoked");
+  assertEquals(cases[2].status, "accepted");
+  assertEquals(cases[3].status, "expired");
+  assertEquals(cases[3].expires_at, live.expires_at);
+  assertEquals(cases[4].expires_at, "2000-01-01T00:00:00.000Z");
+  assertEquals(cases[0].status, "pending");
+});

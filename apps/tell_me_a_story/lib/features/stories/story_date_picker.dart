@@ -5,9 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/album_theme.dart';
 import 'story_date.dart';
 
-const _dateFill = Color(0xFFFAF2F0);
-const _dateOutline = Color(0xFF817976);
-const _dateMuted = Color(0xFF655E5B);
+const _dateFill = albumParchment;
+const _dateOutline = albumSage;
+const _dateMuted = albumInk;
 
 /// Year, month, and day boxes. Precision comes from whichever boxes are filled.
 class StoryDatePicker extends StatelessWidget {
@@ -61,7 +61,7 @@ class StoryDatePicker extends StatelessWidget {
                 child: TextField(
                   key: const Key('story-date-year'),
                   controller: year,
-                  textAlign: TextAlign.center,
+                  textAlign: TextAlign.left,
                   style: valueStyle,
                   keyboardType: TextInputType.number,
                   inputFormatters: [
@@ -121,7 +121,6 @@ class StoryDatePicker extends StatelessWidget {
                     if (month != null)
                       IconButton(
                         key: const Key('story-date-clear-month'),
-                        tooltip: 'Clear month',
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
@@ -144,7 +143,7 @@ class StoryDatePicker extends StatelessWidget {
                   key: const Key('story-date-day'),
                   value: day != null && day! >= 1 && day! <= 31 ? day : null,
                   isExpanded: true,
-                  alignment: Alignment.center,
+                  alignment: Alignment.centerLeft,
                   hint: Text('Day', style: valueStyle),
                   style: valueStyle,
                   underline: const SizedBox.shrink(),
@@ -155,7 +154,7 @@ class StoryDatePicker extends StatelessWidget {
                         value: i,
                         child: Text(
                           '$i',
-                          textAlign: TextAlign.center,
+                          textAlign: TextAlign.left,
                           style: valueStyle,
                         ),
                       ),

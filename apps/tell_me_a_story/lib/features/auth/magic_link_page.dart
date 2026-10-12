@@ -7,9 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/album_theme.dart';
 import 'magic_link_redirect.dart';
 
-const _landingInkMuted = Color(0xFF655E5B);
+const _landingInkMuted = albumInk;
 const _landingLine = Color(0xFFB9B0AD);
-const _landingField = Color(0xFFFAF2F0);
+const _landingField = albumParchment;
 const _landingOnPrimary = Color(0xFFFFF6F3);
 
 const landingHeadline = 'Your family’s stories, kept together.';
@@ -369,7 +369,7 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
           decoration: InputDecoration(
             hintText: 'you@example.com',
             hintStyle: GoogleFonts.literata(
-              color: const Color(0xFF817976).withValues(alpha: 0.7),
+              color: albumSage.withValues(alpha: 0.7),
               fontSize: 16,
             ),
             filled: true,

@@ -383,10 +383,8 @@ class _AddPersonModalState extends State<AddPersonModal> {
             child: PlusLabel(
               label: _busy ? 'Adding…' : 'Add person',
               onTerracotta: true,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(context).textTheme.labelLarge
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
             ),
           ),
       ],
@@ -793,7 +791,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
           trailing: Text(
             'optional',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: const Color(0xFF817976),
+              color: albumSage,
               fontWeight: FontWeight.w400,
               fontSize: 11,
             ),

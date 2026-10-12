@@ -822,7 +822,7 @@ class _HeaderAvatar extends StatefulWidget {
 
 class _HeaderAvatarState extends State<_HeaderAvatar> {
   /// Stitch avatar menu `6b07fcdcaa204d028e79ab4494ca975a`: outlined 19px.
-  static const _menuIcon = Color(0xFF817976);
+  static const _menuIcon = albumSage;
 
   @override
   void initState() {

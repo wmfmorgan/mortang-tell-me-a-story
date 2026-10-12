@@ -634,10 +634,8 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
                   else
                     Text(
                       'Select',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: const Color(0xFF817976),
-                        fontSize: 11,
-                      ),
+                      style: Theme.of(context).textTheme.labelSmall
+                          ?.copyWith(color: albumSage, fontSize: 11),
                     ),
                 ],
               ),

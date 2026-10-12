@@ -2,11 +2,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/config/env.dart';
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/families_api.dart';
@@ -23,12 +23,6 @@ import '../places/place_picker_modal.dart';
 import 'photo_strip.dart';
 import 'story_date.dart';
 import 'story_date_picker.dart';
-
-const _storyOutline = Color(0xFFB9B0AD);
-const _storyBlush = Color(0xFFF5DED6);
-const _storyLow = Color(0xFFFAF2F0);
-const _storyMuted = Color(0xFF655E5B);
-const _storyHigh = Color(0xFFF0E6E3);
 
 /// Capture form for `/stories/new` — timeframe, people, place, title, body, persist.
 class NewStoryPage extends StatefulWidget {
@@ -106,9 +100,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
   int? _month;
   int? _day;
 
-  /// Decade-dated row. The year box shows that decade's start year so it can
-  /// be edited. Save leaves the decade in place until the year, month, or day
-  /// changes.
+  /// Decade-dated row loaded for edit. The year box stays empty. Saving the
+  /// same year leaves the decade in place.
   StoryDate? _loadedLegacy;
   final List<Person> _selectedPeople = [];
   Place? _selectedPlace;
@@ -140,10 +133,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   bool get _canSaveDraft => _actionsEnabled && _storyDate != null;
 
-  /// Edit of a decade-dated story can save title and body before the date changes.
-  bool get _canSaveChanges =>
-      _actionsEnabled &&
-      (_storyDate != null || (_editing && _loadedLegacy != null));
+  bool get _canSaveChanges => _actionsEnabled && _storyDate != null;
 
   /// True when the boxes differ from a loaded decade row, or this is any other story.
   bool get _shouldWriteDate {
@@ -212,9 +202,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
       story.datePrecision,
     );
     final legacy = parsed.legacyDecade;
-    // Draft capture still opens a decade row empty. Edit shows the decade's
-    // start year so it can be changed, and shows any month and day.
-    final keepDecadeBlank = legacy && !_editing;
+    // A decade row opens with an empty year, including edit.
+    final keepDecadeBlank = legacy;
     _year.text = keepDecadeBlank ? '' : '${parsed.year}';
     setState(() {
       _storyId = story.id;
@@ -665,12 +654,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
     return 'Family';
   }
 
-  int _wordCount(String text) {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return 0;
-    return trimmed.split(RegExp(r'\s+')).length;
-  }
-
   @override
   Widget build(BuildContext context) {
     final place = _selectedPlace;
@@ -695,42 +678,47 @@ class _NewStoryPageState extends State<NewStoryPage> {
         capturePrimaryLabel: _editing ? 'Save changes' : 'Publish story',
       ),
       body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 32, 16, 48),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+        child: AlbumColumn(
+          maxWidth: 1080,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_editing) ...[
                   Text(
-                    _editing ? 'Edit story' : 'New story',
-                    style: GoogleFonts.newsreader(
-                      fontSize: 36,
-                      height: 1.1,
-                      fontWeight: FontWeight.w700,
-                      color: albumInk,
-                    ),
+                    'Edit story',
+                    style: Theme.of(context).textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
-                  if (_showPublishBanner) ...[
-                    const SizedBox(height: 12),
-                    const Text('Finish the highlighted fields to publish.'),
-                  ],
-                  const SizedBox(height: 24),
-                  _storyCard(),
-                  const SizedBox(height: 24),
-                  _photosCard(),
-                  const SizedBox(height: 32),
-                  _timeframeCard(),
-                  const SizedBox(height: 32),
-                  _peopleCard(),
-                  const SizedBox(height: 32),
-                  _placeCard(place),
-                  const SizedBox(height: 24),
-                  _privacyFooter(),
+                  const SizedBox(height: 12),
                 ],
-              ),
+                if (_showPublishBanner) ...[
+                  const Text('Finish the highlighted fields to publish.'),
+                  const SizedBox(height: 12),
+                ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final storyColumn = _storyColumn();
+                    final contextColumn = _contextColumn(place);
+                    if (constraints.maxWidth < 680) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [storyColumn, contextColumn],
+                      );
+                    }
+                    final contextWidth = constraints.maxWidth * 0.52;
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: storyColumn),
+                        const SizedBox(width: 24),
+                        SizedBox(width: contextWidth, child: contextColumn),
+                      ],
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         ),
@@ -738,532 +726,298 @@ class _NewStoryPageState extends State<NewStoryPage> {
     );
   }
 
-  Widget _storyCard() {
-    final words = _wordCount(_body.text);
-    final titleStyle = GoogleFonts.newsreader(
-      fontSize: 30,
-      height: 1.2,
-      fontWeight: FontWeight.w700,
-      color: albumInk,
-    );
-    return _sectionCard(
-      padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.menu_book, color: albumTerracotta, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                'STORY ENTRY',
-                style: GoogleFonts.sourceSans3(
-                  color: albumTerracotta,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
-                ),
+  Widget _storyColumn() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x142C2416),
+                blurRadius: 24,
+                offset: Offset(0, 10),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _highlightIfMissing(
-            missing: _showPublishBanner && !_readiness.hasTitle,
-            child: TextField(
-              key: const Key('story-title'),
-              controller: _title,
-              minLines: 1,
-              maxLines: 3,
-              textCapitalization: TextCapitalization.sentences,
-              cursorColor: albumTerracotta,
-              onChanged: (_) => setState(() {}),
-              style: titleStyle,
-              decoration: InputDecoration(
-                hintText: 'Story title...',
-                hintStyle: titleStyle.copyWith(color: _storyOutline),
-                border: InputBorder.none,
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(
-                    color: _storyOutline.withValues(alpha: 0.2),
-                  ),
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: albumTerracotta),
-                ),
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                filled: false,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _highlightIfMissing(
-            missing: _showPublishBanner && !_readiness.hasBody,
-            child: TextField(
-              key: const Key('story-body'),
-              controller: _body,
-              minLines: 8,
-              maxLines: null,
-              cursorColor: albumTerracotta,
-              onChanged: (_) => setState(() {}),
-              style: GoogleFonts.literata(
-                fontSize: 16,
-                height: 1.6,
-                color: albumInk.withValues(alpha: 0.9),
-              ),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                filled: false,
-                contentPadding: EdgeInsets.symmetric(vertical: 8),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.only(top: 16),
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: _storyOutline.withValues(alpha: 0.2)),
-              ),
-            ),
-            child: Row(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  words == 1 ? '1 word' : '$words words',
-                  style: GoogleFonts.sourceSans3(
-                    fontSize: 12,
-                    color: const Color(0xFF817976),
+                _highlightIfMissing(
+                  missing: _showPublishBanner && !_readiness.hasTitle,
+                  child: TextField(
+                    key: const Key('story-title'),
+                    controller: _title,
+                    minLines: 1,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                    cursorColor: albumTerracotta,
+                    onChanged: (_) => setState(() {}),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontSize: 30,
+                      height: 1.2,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Give your memory a title...',
+                      hintStyle: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontSize: 30,
+                            height: 1.2,
+                            fontWeight: FontWeight.w700,
+                            color: albumInk.withValues(alpha: 0.38),
+                          ),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: albumTerracotta),
+                      ),
+                      disabledBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
                   ),
                 ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _storyLow,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.lock, size: 14, color: _storyMuted),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Visible to immediate family',
-                        style: GoogleFonts.sourceSans3(
-                          fontSize: 12,
-                          color: _storyMuted,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 8),
+                _highlightIfMissing(
+                  missing: _showPublishBanner && !_readiness.hasBody,
+                  child: TextField(
+                    key: const Key('story-body'),
+                    controller: _body,
+                    minLines: 8,
+                    maxLines: null,
+                    cursorColor: albumTerracotta,
+                    onChanged: (_) => setState(() {}),
+                    style: Theme.of(context).textTheme.bodyLarge
+                        ?.copyWith(fontSize: 22, height: 1.55),
+                    decoration: InputDecoration(
+                      hintText: 'Write the story',
+                      hintStyle: Theme.of(context).textTheme.bodyLarge
+                          ?.copyWith(
+                            fontSize: 22,
+                            height: 1.55,
+                            color: albumInk.withValues(alpha: 0.38),
+                          ),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _photosCard() {
-    return _sectionCard(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Photos & Keepsakes',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.newsreader(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: albumInk,
-                  ),
-                ),
-              ),
-              Text(
-                '${_storyPhotos.length} of $maxPhotosPerStory added',
-                style: GoogleFonts.sourceSans3(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: albumTerracotta,
-                ),
+        ),
+        const SizedBox(height: 20),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x142C2416),
+                blurRadius: 24,
+                offset: Offset(0, 10),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          PhotoStrip(
-            photos: _storyPhotos,
-            previews: _photoPreviews,
-            onAdd: _onAddPhoto,
-            onRemove: _onRemovePhoto,
-            onRetry: _onRetryPhoto,
-            uploadFailed: _photoError,
-            canAdd: _storyPhotos.length < maxPhotosPerStory,
-            columns: 3,
-            addLabel: 'Add photo',
-            addHint: 'Up to $maxPhotosPerStory photos',
-            addEnabled: _storyDate != null,
-          ),
-          if (_highlightTimeframeForPhoto && _storyDate == null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'A Timeframe is required before adding a photo.',
-              style: Theme.of(context).textTheme.labelSmall
-                  ?.copyWith(color: albumTerracotta),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.photo_library_outlined,
+                      color: albumTerracotta,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Photos & Keepsakes',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                    Text(
+                      '${_storyPhotos.length} of $maxPhotosPerStory added',
+                      style: Theme.of(context).textTheme.labelSmall
+                          ?.copyWith(color: albumInk.withValues(alpha: 0.55)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                PhotoStrip(
+                  photos: _storyPhotos,
+                  previews: _photoPreviews,
+                  onAdd: _onAddPhoto,
+                  onRemove: _onRemovePhoto,
+                  onRetry: _onRetryPhoto,
+                  uploadFailed: _photoError,
+                  canAdd: _storyPhotos.length < maxPhotosPerStory,
+                  columns: 3,
+                  addLabel: 'Add photo',
+                  addHint: 'Up to $maxPhotosPerStory photos',
+                  addEnabled: _storyDate != null,
+                ),
+                if (_highlightTimeframeForPhoto && _storyDate == null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'A Timeframe is required before adding a photo.',
+                    style: Theme.of(context).textTheme.labelSmall
+                        ?.copyWith(color: albumTerracotta),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _timeframeCard() {
+  Widget _contextColumn(Place? place) {
     final readiness = _readiness;
-    return _highlightIfMissing(
-      missing:
-          (_showPublishBanner && !readiness.hasTimeframe) ||
-          (_highlightTimeframeForPhoto && _storyDate == null),
-      child: _sectionCard(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _highlightIfMissing(
+          missing:
+              (_showPublishBanner && !readiness.hasTimeframe) ||
+              (_highlightTimeframeForPhoto && _storyDate == null),
+          child: _paperCard(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _iconBadge(Icons.schedule),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'When did this happen?',
-                        style: GoogleFonts.newsreader(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: albumInk,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Add the approximate or exact date',
-                        style: GoogleFonts.literata(
-                          fontSize: 14,
-                          color: _storyMuted,
-                        ),
-                      ),
-                    ],
-                  ),
+                Text(
+                  'Timeframe',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                StoryDatePicker(
+                  year: _year,
+                  month: _month,
+                  day: _day,
+                  onMonth: _onMonth,
+                  onDay: _onDay,
+                  onYearChanged: _onYearChanged,
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            StoryDatePicker(
-              year: _year,
-              month: _month,
-              day: _day,
-              onMonth: _onMonth,
-              onDay: _onDay,
-              onYearChanged: _onYearChanged,
-            ),
-            if (_loadedLegacy != null && !_shouldWriteDate) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Saved as the ${storyDateLabel(_loadedLegacy!)}. Change the year, or add a month and day.',
-                key: const Key('story-date-legacy'),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _peopleCard() {
-    final count = _selectedPeople.length;
-    return _highlightIfMissing(
-      missing: _showPublishBanner && !_readiness.hasPerson,
-      child: _sectionCard(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _iconBadge(Icons.group),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    'People in this story',
-                    style: GoogleFonts.newsreader(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: albumInk,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _storyBlush.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '$count tagged',
-                    style: GoogleFonts.sourceSans3(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: albumTerracotta,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final person in _selectedPeople)
-                  Chip(
-                    label: Text(
-                      person.name,
-                      style: GoogleFonts.sourceSans3(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF5E4E48),
-                      ),
-                    ),
-                    backgroundColor: _storyBlush,
-                    side: BorderSide(
-                      color: albumTerracotta.withValues(alpha: 0.2),
-                    ),
-                    shape: const StadiumBorder(),
-                    deleteIcon: const Icon(
-                      Icons.check,
-                      size: 16,
-                      color: Color(0xFF5E4E48),
-                    ),
-                    onDeleted: _actionsEnabled
-                        ? () => _removePerson(person)
-                        : null,
-                  ),
-                TextButton(
-                  onPressed: _actionsEnabled ? _openAddPerson : null,
-                  style: TextButton.styleFrom(
-                    foregroundColor: _storyMuted,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    side: BorderSide(
-                      color: _storyOutline.withValues(alpha: 0.9),
-                    ),
-                    shape: const StadiumBorder(),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.add, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Add person',
-                        style: GoogleFonts.sourceSans3(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionCard({required EdgeInsets padding, required Widget child}) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _storyOutline.withValues(alpha: 0.2)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 2,
-            offset: Offset(0, 1),
           ),
-        ],
-      ),
-      child: Padding(padding: padding, child: child),
+        ),
+        _highlightIfMissing(
+          missing: _showPublishBanner && !readiness.hasPerson,
+          child: _paperCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'People',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                    Text(
+                      '${_selectedPeople.length}',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final person in _selectedPeople)
+                      Chip(
+                        label: Text(person.name),
+                        labelStyle: Theme.of(context).textTheme.titleMedium,
+                        labelPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        onDeleted: () => _removePerson(person),
+                      ),
+                    TextButton(
+                      onPressed: _actionsEnabled ? _openAddPerson : null,
+                      child: const PlusLabel(label: 'Add person'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        _highlightIfMissing(
+          missing: _showPublishBanner && !readiness.hasPlace,
+          child: _placeCard(place),
+        ),
+      ],
     );
   }
 
-  Widget _iconBadge(IconData icon) {
-    return Container(
-      width: 48,
-      height: 48,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: _storyBlush.withValues(alpha: 0.6),
-        shape: BoxShape.circle,
+  Widget _paperCard({required Widget child}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFFFF),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x142C2416),
+              blurRadius: 24,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: child,
+        ),
       ),
-      child: Icon(icon, color: albumTerracotta, size: 24),
     );
   }
 
   Widget _placeCard(Place? place) {
-    final placeLabel = place == null ? 'Choose place' : 'Change place';
-    return _highlightIfMissing(
-      missing: _showPublishBanner && !_readiness.hasPlace,
-      child: _sectionCard(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _iconBadge(Icons.location_on),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    'Place & Setting',
-                    style: GoogleFonts.newsreader(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: albumInk,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _actionsEnabled ? _openChoosePlace : null,
-                  style: TextButton.styleFrom(
-                    foregroundColor: albumTerracotta,
-                    textStyle: GoogleFonts.sourceSans3(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  child: Text(placeLabel),
-                ),
-              ],
-            ),
-            if (place != null) ...[
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: _storyLow,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFF817976).withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      'LOCATION',
-                      style: GoogleFonts.sourceSans3(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
-                        color: _storyMuted,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        place.address.isEmpty ? place.label : place.address,
-                        style: GoogleFonts.literata(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: albumInk,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Edit location',
-                      onPressed: _actionsEnabled ? _openChoosePlace : null,
-                      icon: const Icon(
-                        Icons.edit,
-                        size: 18,
-                        color: _storyMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (place.label.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  place.label,
-                  style: GoogleFonts.sourceSans3(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: albumInk,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: _buildSelectedPlaceMap(place),
-              ),
-            ],
+    return _paperCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Place', style: Theme.of(context).textTheme.titleSmall),
+          if (place != null) ...[
+            const SizedBox(height: 8),
+            Text(place.label, style: Theme.of(context).textTheme.titleSmall),
+            Text(place.address, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 8),
+            _buildSelectedPlaceMap(place),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _privacyFooter() {
-    return Align(
-      alignment: Alignment.center,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: _storyHigh.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: _storyOutline.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.lock, size: 16, color: albumTerracotta),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                "Drafts stay private until you publish. Only you edit this story's core.",
-                style: GoogleFonts.literata(fontSize: 12, color: _storyMuted),
-              ),
-            ),
-          ],
-        ),
+          TextButton(
+            onPressed: _actionsEnabled ? _openChoosePlace : null,
+            child: const Text('Choose place'),
+          ),
+        ],
       ),
     );
   }
@@ -1301,7 +1055,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
     return PlaceMap(
       lat: place.lat,
       lng: place.lng,
-      height: 256,
+      height: 200,
       onTileError: (error, stackTrace) {
         if (!mounted) return;
         setState(() => _shellMapFailed = true);

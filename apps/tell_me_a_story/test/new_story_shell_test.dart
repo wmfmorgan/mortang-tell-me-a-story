@@ -182,7 +182,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Tell Me a Story'), findsOneWidget);
-    expect(find.text('New story'), findsOneWidget);
+    expect(find.text('New story'), findsNothing);
     expect(find.text('Invite'), findsNothing);
     expect(find.text('Add person'), findsOneWidget);
     expect(find.text('Choose place'), findsOneWidget);

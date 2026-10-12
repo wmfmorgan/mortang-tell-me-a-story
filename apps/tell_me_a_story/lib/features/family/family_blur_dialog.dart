@@ -154,7 +154,7 @@ class _FamilyBlurDialog extends StatelessWidget {
                                 Text(
                                   body!,
                                   style: GoogleFonts.literata(
-                                    color: const Color(0xFF655E5B),
+                                    color: albumInk,
                                     fontSize: 14,
                                     height: 1.45,
                                   ),
@@ -218,7 +218,7 @@ class _FamilyBlurDialog extends StatelessWidget {
                             child: IconButton(
                               onPressed: () => Navigator.pop(context, false),
                               icon: const Icon(Icons.close, size: 20),
-                              color: const Color(0xFF655E5B),
+                              color: albumInk,
                             ),
                           ),
                         ],

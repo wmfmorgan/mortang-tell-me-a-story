@@ -134,7 +134,7 @@ select public.set_family_origin(
 reset role;
 select set_config('request.jwt.claim.sub', '', true);
 
-select plan(58);
+select plan(60);
 
 -- Null end fills to start and day. A decade-shaped row stays decade.
 insert into public.stories (
@@ -594,6 +594,19 @@ select throws_ok(
 );
 
 reset role;
+select has_index(
+  'public',
+  'stories',
+  'stories_family_id_order_idx',
+  'stories_family_id_order_idx exists'
+);
+select hasnt_index(
+  'public',
+  'stories',
+  'stories_family_id_timeframe_idx',
+  'stories_family_id_timeframe_idx is gone'
+);
+
 select is(
   (select count(*)::int from pg_policies),
   44,

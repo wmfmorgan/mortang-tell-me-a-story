@@ -313,7 +313,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
   }
 }
 
-const _hubVariant = Color(0xFF655E5B);
+const _hubVariant = albumInk;
 const _hubLine = Color(0xFFB9B0AD);
 const _hubHigh = Color(0xFFF0E6E3);
 const _hubContainer = Color(0xFFF5ECE9);
@@ -437,7 +437,7 @@ class _RecoverCard extends StatelessWidget {
     final deleted = family.deletedAt;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFFAF2F0),
+        color: albumParchment,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _hubLine.withValues(alpha: 0.3)),
       ),

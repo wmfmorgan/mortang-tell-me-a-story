@@ -191,10 +191,7 @@ class _AddTile extends StatelessWidget {
       fontSize: 12,
       fontWeight: FontWeight.w600,
     );
-    final hintStyle = GoogleFonts.sourceSans3(
-      color: const Color(0xFF817976),
-      fontSize: 10,
-    );
+    final hintStyle = GoogleFonts.sourceSans3(color: albumSage, fontSize: 10);
     return Padding(
       padding: const EdgeInsets.all(8),
       child: FittedBox(
@@ -203,14 +200,14 @@ class _AddTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 32,
+              height: 32,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: albumSage.withValues(alpha: 0.1),
+              decoration: const BoxDecoration(
+                color: albumTerracotta,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.add, color: albumSage, size: 22),
+              child: const Icon(Icons.add, color: Colors.white, size: 18),
             ),
             const SizedBox(height: 8),
             Text(label!, textAlign: TextAlign.center, style: labelStyle),

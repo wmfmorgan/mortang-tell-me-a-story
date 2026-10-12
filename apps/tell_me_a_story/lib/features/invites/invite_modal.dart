@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
 import '../family/family_blur_dialog.dart';
 
@@ -597,7 +598,7 @@ abstract final class _InviteColors {
   static const primary = Color(0xFF6B5B55);
   static const onPrimary = Color(0xFFFFF6F3);
   static const ink = Color(0xFF37312F);
-  static const muted = Color(0xFF655E5B);
+  static const muted = albumInk;
   static const secondary = Color(0xFF665D5A);
   static const chip = Color(0xFFEDE0DC);
   static const chipInk = Color(0xFF58504D);

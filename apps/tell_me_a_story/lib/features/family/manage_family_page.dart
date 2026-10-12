@@ -747,7 +747,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
 
 const _detailError = Color(0xFF9F403D);
 const _detailLine = Color(0xFFB9B0AD);
-const _detailVariant = Color(0xFF655E5B);
+const _detailVariant = albumInk;
 
 TextStyle get _label => GoogleFonts.sourceSans3(
   color: albumInk,
@@ -774,7 +774,7 @@ TextStyle get _section => GoogleFonts.newsreader(
 InputDecoration get _field => InputDecoration(
   isDense: true,
   filled: true,
-  fillColor: const Color(0xFFFAF2F0),
+  fillColor: albumParchment,
   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
   border: OutlineInputBorder(
     borderRadius: BorderRadius.circular(12),

@@ -373,7 +373,7 @@ void main() {
     expect(find.byType(NewStoryPage), findsOneWidget);
     expect(find.text('Tell Me a Story'), findsOneWidget);
     expect(find.text('Publish story'), findsOneWidget);
-    expect(find.text('New story'), findsOneWidget);
+    expect(find.text('New story'), findsNothing);
 
     auth.dispose();
   });

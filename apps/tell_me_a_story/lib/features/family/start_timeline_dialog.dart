@@ -282,10 +282,7 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
         const SizedBox(height: 8),
         Text(
           'Published stories from ${widget.parentName}',
-          style: GoogleFonts.literata(
-            color: const Color(0xFF655E5B),
-            fontSize: 14,
-          ),
+          style: GoogleFonts.literata(color: albumInk, fontSize: 14),
         ),
         const SizedBox(height: 16),
         TextField(
@@ -375,7 +372,7 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
                           Text(
                             'Origin story',
                             style: GoogleFonts.sourceSans3(
-                              color: const Color(0xFF655E5B),
+                              color: albumInk,
                               fontSize: 12,
                             ),
                           ),
