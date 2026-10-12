@@ -718,6 +718,16 @@ class _Manage implements ManageFamiliesGateway {
   }
 
   @override
+  Future<String> createBranchFamily({
+    required String parentFamilyId,
+    required String originStoryId,
+    required String name,
+    required int branchYear,
+    required String ownerUserId,
+    List<String> personIds = const [],
+  }) async => 'unused';
+
+  @override
   Future<void> renameFamily({
     required String familyId,
     required String name,

@@ -12,6 +12,7 @@ import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
 import '../../data/comments_api.dart';
 import '../../data/families_api.dart';
+import '../../data/manage_families_api.dart';
 import '../../data/people_api.dart';
 import '../../data/perspectives_api.dart' hide displayNameOrMember;
 import '../../data/photos_api.dart';
@@ -21,6 +22,7 @@ import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../comments/comment_composer.dart';
 import '../family/family_blur_dialog.dart';
+import '../family/start_timeline_dialog.dart';
 import '../perspectives/add_perspective_page.dart';
 import 'photo_strip.dart';
 import 'reader_meta.dart';
@@ -111,6 +113,7 @@ class StoryReaderPage extends StatefulWidget {
     this.perspectivesApi,
     this.profileApi,
     this.familiesApi,
+    this.manageApi,
     this.pickImageBytes,
     this.currentUserId,
     this.live,
@@ -126,6 +129,7 @@ class StoryReaderPage extends StatefulWidget {
   final PerspectivesGateway? perspectivesApi;
   final ProfileGateway? profileApi;
   final FamiliesGateway? familiesApi;
+  final ManageFamiliesGateway? manageApi;
 
   /// Gallery picker override so widget tests never open the system picker.
   final Future<Uint8List?> Function()? pickImageBytes;
@@ -170,6 +174,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   var _photoError = false;
   var _composingComment = false;
   var _canWrite = false;
+  var _memberOfStoryFamily = false;
   Uint8List? _pendingPhotoBytes;
   final _composerFocus = FocusNode();
   final _composerKey = GlobalKey();
@@ -404,6 +409,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _comments = comments;
         _perspectives = perspectives;
         _canWrite = canWrite;
+        _memberOfStoryFamily =
+            widget.familiesApi != null && memberOfStoryFamily;
         _tree = tree;
         _stewarded = stewarded;
         _loading = false;
@@ -445,15 +452,29 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     return story != null && uid != null && uid == story.authorId;
   }
 
+  bool get _showStartTimeline {
+    final story = _story;
+    return story != null &&
+        story.status == StoryStatus.published &&
+        widget.familiesApi != null &&
+        _memberOfStoryFamily;
+  }
+
   Widget _overflow() {
     final entries = _originEntries;
-    if (entries.isEmpty && !_canDeleteStory) return const SizedBox.shrink();
+    if (entries.isEmpty && !_canDeleteStory && !_showStartTimeline) {
+      return const SizedBox.shrink();
+    }
     return PopupMenuButton<String>(
       key: const Key('reader-overflow'),
       tooltip: 'Story actions',
       onSelected: (value) {
         final story = _story;
         if (story == null) return;
+        if (value == 'start-timeline') {
+          _startNewTimeline(story);
+          return;
+        }
         if (value == 'delete') {
           _confirmDelete(story);
           return;
@@ -466,6 +487,12 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         }
       },
       itemBuilder: (context) => [
+        if (_showStartTimeline)
+          const PopupMenuItem<String>(
+            key: Key('reader-start-timeline'),
+            value: 'start-timeline',
+            child: Text('Start a new timeline from this story'),
+          ),
         for (final entry in entries)
           PopupMenuItem<String>(
             key: Key('set-origin-${entry.familyId}'),
@@ -480,6 +507,58 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           ),
       ],
     );
+  }
+
+  Future<void> _startNewTimeline(Story story) async {
+    final families = widget.familiesApi;
+    final userId = _currentUserId;
+    if (families == null || userId == null) return;
+    final parentName = await _parentName(story.familyId);
+    if (parentName == null || !mounted) return;
+    final created = await showStartTimelineDialog(
+      context,
+      parentId: story.familyId,
+      parentName: parentName,
+      stories: const [],
+      familiesApi: families,
+      peopleApi: widget.peopleApi ?? PeopleApi(),
+      manageApi: widget.manageApi ?? ManageFamiliesApi(),
+      currentUserId: userId,
+      origin: story,
+      allowChange: false,
+    );
+    if (created == null || !mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${created.name} timeline created')));
+  }
+
+  Future<String?> _parentName(String familyId) async {
+    final loaded = _namedFamily(familyId, _tree);
+    if (loaded != null) return loaded;
+    final families = widget.familiesApi;
+    if (families == null) return null;
+    try {
+      final mine = await families.listMine();
+      for (final row in mine) {
+        final name = row.name.trim();
+        if (row.id == familyId && name.isNotEmpty) return row.name;
+      }
+    } catch (_) {}
+    try {
+      final tree = await families.listFamilyTree(familyId);
+      return _namedFamily(familyId, tree);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _namedFamily(String familyId, List<TreeFamily> tree) {
+    for (final row in tree) {
+      final name = row.name.trim();
+      if (row.id == familyId && name.isNotEmpty) return row.name;
+    }
+    return null;
   }
 
   Future<void> _confirmOrigin(Story story, OriginMenuEntry entry) async {
@@ -917,7 +996,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             for (final row in _comments)
               CommentTile(
                 comment: row,
-                canDelete: _canWrite &&
+                canDelete:
+                    _canWrite &&
                     _currentUserId != null &&
                     row.authorId == _currentUserId,
                 onDelete: () => _deleteComment(row),

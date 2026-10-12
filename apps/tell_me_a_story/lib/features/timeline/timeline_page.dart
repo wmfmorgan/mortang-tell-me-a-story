@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_header.dart';
@@ -12,9 +13,12 @@ import '../../core/theme/album_theme.dart';
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
+import '../../data/manage_families_api.dart';
+import '../../data/people_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
+import '../family/start_timeline_dialog.dart';
 import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
 import '../stories/story_reader_page.dart';
@@ -29,6 +33,9 @@ class TimelinePage extends StatefulWidget {
     this.familiesApi,
     this.photosApi,
     this.live,
+    this.manageApi,
+    this.peopleApi,
+    this.currentUserId,
   });
 
   final InviteGateway? api;
@@ -36,6 +43,9 @@ class TimelinePage extends StatefulWidget {
   final FamiliesGateway? familiesApi;
   final PhotosGateway? photosApi;
   final TimelineLive? live;
+  final ManageFamiliesGateway? manageApi;
+  final PeopleGateway? peopleApi;
+  final String? currentUserId;
 
   @override
   State<TimelinePage> createState() => _TimelinePageState();
@@ -60,6 +70,7 @@ class _TimelinePageState extends State<TimelinePage> {
   var _originBannerHidden = false;
   String? _focusedStoryId;
   var _pinchLatched = false;
+  var _originQueryHandled = false;
   final _anchorKeys = <String, GlobalKey>{};
 
   StoriesGateway get _stories =>
@@ -111,10 +122,14 @@ class _TimelinePageState extends State<TimelinePage> {
     final remembered = FamilySelection.id;
     if (remembered != null && remembered != _familyId) {
       _selectFamily(remembered);
-      _loadFamilies();
       return;
     }
-    _loadPublished();
+    _reloadOpenTimeline();
+  }
+
+  Future<void> _reloadOpenTimeline() async {
+    await _loadPublished();
+    await _loadFamilies();
   }
 
   Future<void> _bootstrap() async {
@@ -129,12 +144,91 @@ class _TimelinePageState extends State<TimelinePage> {
       _watchLive();
       await _loadPublished();
       await _maybeAcceptInvite();
+      await _maybeOpenNewTimelineOrigin();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loadingFamily = false;
         _loadingPublished = false;
       });
+    }
+  }
+
+  bool get _canStartTimeline {
+    final id = _familyId;
+    return id != null && _memberIds.contains(id);
+  }
+
+  List<Story> get _parentStories {
+    final id = _familyId;
+    if (id == null) return const [];
+    return [
+      for (final story in _published)
+        if (story.familyId == id && story.status == StoryStatus.published)
+          story,
+    ];
+  }
+
+  String? _sessionUserId() {
+    if (widget.currentUserId != null) return widget.currentUserId;
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _startTimeline({Story? origin, bool allowChange = true}) async {
+    final parent = _currentFamily;
+    final userId = _sessionUserId();
+    if (parent == null || userId == null) return;
+    final manage = widget.manageApi ?? ManageFamiliesApi();
+    final people = widget.peopleApi ?? PeopleApi();
+    final families = widget.familiesApi ?? FamiliesApi();
+    final created = await showStartTimelineDialog(
+      context,
+      parentId: parent.id,
+      parentName: parent.name,
+      stories: _parentStories,
+      familiesApi: families,
+      peopleApi: people,
+      manageApi: manage,
+      currentUserId: userId,
+      origin: origin,
+      allowChange: allowChange,
+      onWriteStory: () {
+        GoRouter.of(context)
+            .go('${AppRoutes.newStory}?newTimelineFrom=${parent.id}');
+      },
+    );
+    if (created == null || !mounted) return;
+    await _loadFamilies();
+    await _loadPublished();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${created.name} timeline created')));
+  }
+
+  Future<void> _maybeOpenNewTimelineOrigin() async {
+    if (_originQueryHandled || !mounted) return;
+    final router = _router;
+    if (router == null) return;
+    final uri = router.routerDelegate.currentConfiguration.uri;
+    final storyId = uri.queryParameters['newTimelineOrigin'];
+    if (storyId == null || storyId.isEmpty) return;
+    _originQueryHandled = true;
+    Story? origin;
+    for (final story in _published) {
+      if (story.id == storyId) origin = story;
+    }
+    if (origin != null) {
+      await _startTimeline(origin: origin, allowChange: true);
+    }
+    if (!mounted) return;
+    final path = router.routerDelegate.currentConfiguration.uri.path;
+    if (path == AppRoutes.timeline) {
+      router.go(AppRoutes.timeline);
     }
   }
 
@@ -519,6 +613,7 @@ class _TimelinePageState extends State<TimelinePage> {
         relatedFamilies: _relatedMenu,
         canWrite: _canWrite,
         onInvite: _canWrite ? _openInvite : null,
+        onStartTimeline: _canStartTimeline ? _startTimeline : null,
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -985,6 +1080,85 @@ class _FarRailState extends State<_FarRail> {
     return true;
   }
 
+  List<Widget> _farChildren(int? joinYear) {
+    final rows = <Widget>[
+      for (final mark in widget.marks)
+        if (mark.branchYear == null)
+          _BranchMark(
+            family: mark,
+            onTap: () => widget.onMark(mark),
+            onRail: true,
+          ),
+    ];
+    final orphans =
+        [
+          for (final mark in widget.marks)
+            if (branchDecadeStart(mark.branchYear) case final start?
+                when !widget.bands.any((band) => band.startYear == start))
+              mark,
+        ]..sort(
+          (a, b) =>
+              branchDecadeStart(a.branchYear)!
+                  .compareTo(branchDecadeStart(b.branchYear)!),
+        );
+    var orphanIndex = 0;
+    for (var i = 0; i < widget.bands.length; i++) {
+      final band = widget.bands[i];
+      while (orphanIndex < orphans.length &&
+          branchDecadeStart(orphans[orphanIndex].branchYear)! <
+              band.startYear) {
+        final mark = orphans[orphanIndex++];
+        rows.add(
+          _BranchMark(
+            family: mark,
+            onTap: () => widget.onMark(mark),
+            onRail: true,
+          ),
+        );
+      }
+      rows.add(
+        _FarDecadeRow(
+          key: _rowKey(band.startYear),
+          band: band,
+          marks: marksOnDecade(widget.marks, band.startYear),
+          originStoryId: widget.originStoryId,
+          originTag: widget.originTag,
+          originMark: widget.originMark,
+          onMark: widget.onMark,
+          focused: band.startYear == _centerYear,
+          opacity: _opacities[band.startYear] ?? 1,
+          highlight: _highlight(band),
+          showBranch: joinYear != null && band.startYear == joinYear,
+          continueRail: joinYear != null && band.startYear >= joinYear,
+          railAbove:
+              joinYear != null &&
+              widget.bands.any((other) => other.startYear > band.startYear),
+          railBelow:
+              joinYear != null &&
+              widget.bands.any(
+                (other) =>
+                    other.startYear >= joinYear &&
+                    other.startYear < band.startYear,
+              ),
+          branchName: widget.child?.name,
+          onDot: widget.onDot,
+          onYear: widget.onYear,
+        ),
+      );
+    }
+    while (orphanIndex < orphans.length) {
+      final mark = orphans[orphanIndex++];
+      rows.add(
+        _BranchMark(
+          family: mark,
+          onTap: () => widget.onMark(mark),
+          onRail: true,
+        ),
+      );
+    }
+    return rows;
+  }
+
   int? _joinYear() {
     final child = widget.child;
     if (child == null || widget.bands.isEmpty) return null;
@@ -1055,56 +1229,7 @@ class _FarRailState extends State<_FarRail> {
                       return ListView(
                         controller: _scroll,
                         padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                        children: [
-                          for (final mark in widget.marks)
-                            if (mark.branchYear == null)
-                              _BranchMark(
-                                family: mark,
-                                onTap: () => widget.onMark(mark),
-                                onRail: true,
-                              ),
-                          for (var i = 0; i < widget.bands.length; i++)
-                            _FarDecadeRow(
-                              key: _rowKey(widget.bands[i].startYear),
-                              band: widget.bands[i],
-                              marks: marksOnDecade(
-                                widget.marks,
-                                widget.bands[i].startYear,
-                              ),
-                              originStoryId: widget.originStoryId,
-                              originTag: widget.originTag,
-                              originMark: widget.originMark,
-                              onMark: widget.onMark,
-                              focused: widget.bands[i].startYear == _centerYear,
-                              opacity:
-                                  _opacities[widget.bands[i].startYear] ?? 1,
-                              highlight: _highlight(widget.bands[i]),
-                              showBranch:
-                                  joinYear != null &&
-                                  widget.bands[i].startYear == joinYear,
-                              continueRail:
-                                  joinYear != null &&
-                                  widget.bands[i].startYear >= joinYear,
-                              railAbove:
-                                  joinYear != null &&
-                                  widget.bands.any(
-                                    (other) =>
-                                        other.startYear >
-                                        widget.bands[i].startYear,
-                                  ),
-                              railBelow:
-                                  joinYear != null &&
-                                  widget.bands.any(
-                                    (other) =>
-                                        other.startYear >= joinYear &&
-                                        other.startYear <
-                                            widget.bands[i].startYear,
-                                  ),
-                              branchName: widget.child?.name,
-                              onDot: widget.onDot,
-                              onYear: widget.onYear,
-                            ),
-                        ],
+                        children: _farChildren(joinYear),
                       );
                     },
                   ),
@@ -2809,6 +2934,8 @@ class _BranchMark extends StatelessWidget {
     );
     final name = Text(
       label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.labelLarge
           ?.copyWith(color: albumSage, fontWeight: FontWeight.w600),
     );
@@ -2848,20 +2975,49 @@ class _BranchMark extends StatelessWidget {
       builder: (context, constraints) {
         final ringCenter = wide ? constraints.maxWidth / 2 : 14.0;
         final labelOnLeft = wide && !labelOnRight;
+        // Ring and label only. Spacers stay outside the tap target.
+        final cluster = MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            key: Key('timeline-branch-mark-${family.id}'),
+            onTap: onTap,
+            child: Tooltip(
+              message: label,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showLabel && labelOnLeft) ...[
+                    Flexible(fit: FlexFit.loose, child: name),
+                    const SizedBox(width: 8),
+                  ],
+                  ring,
+                  if (showLabel && !labelOnLeft) ...[
+                    const SizedBox(width: 8),
+                    Flexible(fit: FlexFit.loose, child: name),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
         if (labelOnLeft) {
+          final tail = math.max(0.0, constraints.maxWidth - (ringCenter + 8));
           return Row(
             children: [
-              const Spacer(),
-              cluster,
-              SizedBox(width: constraints.maxWidth - (ringCenter + 8)),
+              Expanded(
+                child: Align(alignment: Alignment.centerRight, child: cluster),
+              ),
+              SizedBox(width: tail),
             ],
           );
         }
+        final lead = math.max(0.0, ringCenter - 8);
         return Row(
           children: [
-            SizedBox(width: ringCenter - 8),
-            cluster,
-            const Spacer(),
+            SizedBox(width: lead),
+            Expanded(
+              child: Align(alignment: Alignment.centerLeft, child: cluster),
+            ),
           ],
         );
       },
@@ -2930,7 +3086,10 @@ class _FullCardRow extends StatelessWidget {
     if (!wide) {
       // The slot includes the ring so it hit-tests. The dot stays at the
       // slot centre, which the row lines up with the card.
+      const slotPad = 8.0;
+      const ringSize = 16.0;
       final dotSize = focused ? 20.0 : 14.0;
+      final slotHeight = dotSize + 2 * (slotPad + ringSize);
       return Padding(
         padding: EdgeInsets.only(bottom: gap),
         child: Row(
@@ -2938,7 +3097,7 @@ class _FullCardRow extends StatelessWidget {
           children: [
             SizedBox(
               width: 28,
-              height: moved == null ? null : dotSize + 2 * (8 + 16),
+              height: moved == null ? null : slotHeight,
               child: moved == null
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
@@ -2949,10 +3108,10 @@ class _FullCardRow extends StatelessWidget {
                       children: [
                         Center(child: dot),
                         Positioned(
-                          top: (dotSize + 2 * (8 + 16)) / 2 + dotSize / 2 + 8,
+                          top: slotHeight / 2 + dotSize / 2 + slotPad,
                           left: 0,
                           width: 28,
-                          height: 16,
+                          height: ringSize,
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             child: _BranchMark(
