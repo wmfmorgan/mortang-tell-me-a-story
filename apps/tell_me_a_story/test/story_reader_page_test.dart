@@ -87,6 +87,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -100,6 +101,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -544,21 +546,21 @@ void main() {
     expect(find.widgetWithText(TextButton, 'Timeline'), findsOneWidget);
     expect(find.text('Untitled'), findsNothing);
     expect(
-      find.textContaining('Recorded event: Jan 1, 1980 – Dec 31, 1989'),
+      find.textContaining('Recorded event: January 1, 1980'),
       findsOneWidget,
     );
     expect(find.textContaining('Documented Sep 2026'), findsOneWidget);
-    expect(find.textContaining('1 min read'), findsOneWidget);
+    expect(find.textContaining('min read'), findsNothing);
     expect(find.textContaining('Picnic at the lake'), findsOneWidget);
     expect(find.textContaining('We brought pie.'), findsOneWidget);
-    expect(find.text('1980s'), findsOneWidget);
+    expect(find.text('1980s'), findsNothing);
     expect(find.text('Ada'), findsOneWidget);
     expect(find.text('Bob'), findsNothing);
     expect(find.text('Central Park'), findsOneWidget);
     expect(find.byKey(const Key('story-hero-ph1')), findsOneWidget);
     expect(find.byKey(const Key('stub-map')), findsNothing);
     expect(find.byType(PhotoStrip), findsOneWidget);
-    expect(find.text('Add photos'), findsOneWidget);
+    expect(find.text('Add photo'), findsNWidgets(2));
     expect(find.text('Perspectives'), findsOneWidget);
     expect(find.text('+ Add your perspective'), findsOneWidget);
     expect(find.text('From the porch it looked different.'), findsOneWidget);
@@ -607,7 +609,7 @@ void main() {
     expect(find.textContaining('DRAFT_SECRET_BODY'), findsNothing);
     expect(find.text('Perspectives'), findsNothing);
     expect(find.text('Comments'), findsNothing);
-    expect(find.text('Add photos'), findsNothing);
+    expect(find.text('Add photo'), findsNothing);
   });
 
   testWidgets('missing story shows Not found without loading comments', (
@@ -722,7 +724,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Untitled'), findsNothing);
-    expect(find.textContaining('1 min read'), findsOneWidget);
+    expect(find.textContaining('min read'), findsNothing);
   });
 
   testWidgets('a blank place label uses the address chip', (tester) async {
@@ -1034,7 +1036,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final add = find.widgetWithText(TextButton, 'Add photos');
+    final add = find.widgetWithText(TextButton, 'Add photo');
     await tester.ensureVisible(add);
     await tester.pumpAndSettle();
     await tester.tap(add);
@@ -1073,7 +1075,7 @@ void main() {
 
     expect(find.byKey(const Key('photo-add')), findsNothing);
     expect(find.byKey(const Key('photo-thumb')), findsNWidgets(20));
-    final addCta = find.widgetWithText(TextButton, 'Add photos');
+    final addCta = find.widgetWithText(TextButton, 'Add photo');
     if (addCta.evaluate().isNotEmpty) {
       expect(tester.widget<TextButton>(addCta).onPressed, isNull);
     }
@@ -1094,7 +1096,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final add = find.widgetWithText(TextButton, 'Add photos');
+    final add = find.widgetWithText(TextButton, 'Add photo');
     await tester.ensureVisible(add);
     await tester.tap(add);
     await tester.pumpAndSettle();
@@ -1170,7 +1172,7 @@ void main() {
     expect(find.text('Jam'), findsOneWidget);
     expect(find.text('Ada'), findsWidgets);
     expect(people.treeCalls, 1);
-    expect(find.text('Add photos'), findsNothing);
+    expect(find.text('Add photo'), findsNothing);
     expect(find.text('+ Add your perspective'), findsNothing);
     expect(find.text('+ Add comment'), findsNothing);
   });
@@ -1350,6 +1352,53 @@ void main() {
 
     await pump('u-author');
     expect(find.byKey(const Key('photo-remove')), findsNWidgets(2));
+  });
+
+  testWidgets('edit button follows author and steward rules', (tester) async {
+    Future<void> pump({
+      required String uid,
+      String authorId = 'author',
+      List<StewardFamily> stewarded = const [],
+    }) async {
+      await tester.pumpWidget(
+        _readerApp(
+          stories: _FakeStoriesApi(
+            story: _published(authorId: authorId, title: 'Jam'),
+          ),
+          currentUserId: uid,
+          families: _OriginFamilies(
+            tree: const [TreeFamily(id: _familyId, name: 'Family')],
+            stewarded: stewarded,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pump(uid: 'author', authorId: 'author');
+    expect(find.byKey(const Key('story-edit')), findsOneWidget);
+
+    await pump(uid: 'reader', authorId: 'author');
+    expect(find.byKey(const Key('story-edit')), findsNothing);
+
+    await pump(
+      uid: 'owner',
+      authorId: 'author',
+      stewarded: [
+        StewardFamily(id: _familyId, name: 'Family', role: 'owner'),
+      ],
+    );
+    expect(find.byKey(const Key('story-edit')), findsOneWidget);
+
+    await pump(
+      uid: 'parent',
+      authorId: 'author',
+      stewarded: [
+        const StewardFamily(id: 'other', name: 'Other', role: 'owner'),
+      ],
+    );
+    expect(find.byKey(const Key('story-edit')), findsNothing);
+
   });
 
   test('origin menu is empty for a draft and labels name the family', () {
@@ -1687,11 +1736,11 @@ void main() {
       }
 
       await pump(_storyId);
-      expect(find.text('Add photos'), findsOneWidget);
+      expect(find.text('Add photo'), findsNWidgets(2));
       expect(find.text('+ Add your perspective'), findsOneWidget);
       expect(find.text('+ Add comment'), findsOneWidget);
 
-      final add = find.widgetWithText(TextButton, 'Add photos');
+      final add = find.widgetWithText(TextButton, 'Add photo');
       await tester.ensureVisible(add);
       await tester.pumpAndSettle();
       await tester.tap(add);
@@ -1700,11 +1749,149 @@ void main() {
       expect(photos.lastFamilyId, isNot(child));
 
       await pump('other-story');
-      expect(find.text('Add photos'), findsNothing);
+      expect(find.text('Add photo'), findsNothing);
       expect(find.text('+ Add your perspective'), findsNothing);
       expect(find.text('+ Add comment'), findsNothing);
     },
   );
+
+  testWidgets(
+    'a parent owner or co-owner can remove a child member photo on the origin',
+    (tester) async {
+      const parent = '00000000-0000-0000-0000-0000000000aa';
+      const child = '00000000-0000-0000-0000-0000000000bb';
+      const photos = [
+        Photo(
+          id: 'ph-child',
+          storyId: _storyId,
+          familyId: parent,
+          uploaderId: 'u-child-member',
+          storagePath: 'p/s/child.jpg',
+          sortOrder: 0,
+        ),
+      ];
+
+      Future<void> pump({
+        required String uid,
+        required List<StewardFamily> stewarded,
+        required List<MemberFamily> mine,
+      }) async {
+        await tester.pumpWidget(
+          _readerApp(
+            stories: _FakeStoriesApi(
+              story: _published(
+                familyId: parent,
+                authorId: 'u-author',
+                title: 'The beginning',
+              ),
+            ),
+            currentUserId: uid,
+            photos: _FakePhotosApi(seed: photos),
+            families: _OriginFamilies(
+              mine: mine,
+              tree: [
+                const TreeFamily(id: parent, name: 'Parent'),
+                const TreeFamily(
+                  id: child,
+                  name: 'Ada',
+                  parentFamilyId: parent,
+                  originStoryId: _storyId,
+                ),
+              ],
+              stewarded: stewarded,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      final childMine = [
+        MemberFamily(id: child, name: 'Ada', createdAt: DateTime.utc(1990)),
+      ];
+
+      await pump(
+        uid: 'u-parent-owner',
+        mine: const [],
+        stewarded: const [
+          StewardFamily(id: parent, name: 'Parent', role: 'owner'),
+        ],
+      );
+      expect(find.byKey(const Key('photo-remove')), findsOneWidget);
+
+      await pump(
+        uid: 'u-parent-co',
+        mine: const [],
+        stewarded: const [
+          StewardFamily(id: parent, name: 'Parent', role: 'co_owner'),
+        ],
+      );
+      expect(find.byKey(const Key('photo-remove')), findsOneWidget);
+
+      await pump(
+        uid: 'u-child-owner',
+        mine: childMine,
+        stewarded: const [StewardFamily(id: child, name: 'Ada', role: 'owner')],
+      );
+      expect(find.byKey(const Key('photo-remove')), findsNothing);
+    },
+  );
+
+  testWidgets('a co-owner sees Edit and a child-timeline owner does not', (
+    tester,
+  ) async {
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    const child = '00000000-0000-0000-0000-0000000000bb';
+
+    Future<void> pump({
+      required String uid,
+      required List<StewardFamily> stewarded,
+      List<MemberFamily> mine = const [],
+    }) async {
+      await tester.pumpWidget(
+        _readerApp(
+          stories: _FakeStoriesApi(
+            story: _published(
+              familyId: parent,
+              authorId: 'u-author',
+              title: 'The beginning',
+            ),
+          ),
+          currentUserId: uid,
+          families: _OriginFamilies(
+            mine: mine,
+            tree: const [
+              TreeFamily(id: parent, name: 'Parent'),
+              TreeFamily(
+                id: child,
+                name: 'Ada',
+                parentFamilyId: parent,
+                originStoryId: _storyId,
+              ),
+            ],
+            stewarded: stewarded,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pump(
+      uid: 'u-co',
+      stewarded: const [
+        StewardFamily(id: parent, name: 'Parent', role: 'co_owner'),
+      ],
+    );
+    expect(find.byKey(const Key('story-edit')), findsOneWidget);
+
+    await pump(
+      uid: 'u-child-owner',
+      mine: [
+        MemberFamily(id: child, name: 'Ada', createdAt: DateTime.utc(1990)),
+      ],
+      stewarded: const [StewardFamily(id: child, name: 'Ada', role: 'owner')],
+    );
+    expect(find.byKey(const Key('story-edit')), findsNothing);
+  });
 }
 
 class _OriginFamilies extends FamiliesGateway {

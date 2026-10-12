@@ -1,7 +1,108 @@
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import { bearerToken, serviceClient, userClient } from "../_shared/supabase.ts";
 
-Deno.serve(async (req) => {
+const MEMBERSHIP_CHECK_FAILED = "Could not check membership";
+const MEMBERSHIP_CREATE_FAILED = "Could not create membership";
+
+type InviteRow = {
+  id: string;
+  family_id: string;
+  status: string;
+  expires_at: string;
+};
+
+export type AcceptInviteDb = {
+  userId: () => Promise<string | null>;
+  inviteByToken: (
+    token: string,
+  ) => Promise<{ row: InviteRow | null; error: string | null }>;
+  membershipId: (
+    familyId: string,
+    userId: string,
+  ) => Promise<{ id: string | null; error: string | null }>;
+  insertMember: (
+    familyId: string,
+    userId: string,
+  ) => Promise<{ id: string | null; error: string | null }>;
+  markAccepted: (inviteId: string, userId: string) => Promise<string | null>;
+};
+
+function liveDb(auth: string): AcceptInviteDb {
+  const userSb = userClient(auth);
+  const admin = serviceClient();
+  return {
+    async userId() {
+      const {
+        data: { user },
+        error,
+      } = await userSb.auth.getUser();
+      if (error || !user) return null;
+      return user.id;
+    },
+    async inviteByToken(token) {
+      const { data, error } = await admin
+        .from("invites")
+        .select("id, family_id, status, expires_at")
+        .eq("token", token)
+        .maybeSingle();
+      return {
+        row: (data as InviteRow | null) ?? null,
+        error: error?.message ?? null,
+      };
+    },
+    async membershipId(familyId, userId) {
+      const { data, error } = await admin
+        .from("memberships")
+        .select("id")
+        .eq("family_id", familyId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      return {
+        id: (data?.id as string | undefined) ?? null,
+        error: error?.message ?? null,
+      };
+    },
+    async insertMember(familyId, userId) {
+      const { data, error } = await admin
+        .from("memberships")
+        .insert({
+          family_id: familyId,
+          user_id: userId,
+          role: "member",
+        })
+        .select("id")
+        .single();
+      return {
+        id: (data?.id as string | undefined) ?? null,
+        error: error?.message ?? null,
+      };
+    },
+    async markAccepted(inviteId, userId) {
+      const { error } = await admin
+        .from("invites")
+        .update({
+          status: "accepted",
+          accepted_by: userId,
+          accepted_at: new Date().toISOString(),
+        })
+        .eq("id", inviteId)
+        .eq("status", "pending");
+      return error?.message ?? null;
+    },
+  };
+}
+
+export function acceptInvite(
+  req: Request,
+  options?: { db?: AcceptInviteDb },
+): Promise<Response> {
+  return handleAcceptInvite(req, options?.db);
+}
+
+async function handleAcceptInvite(
+  req: Request,
+  db?: AcceptInviteDb,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -25,24 +126,15 @@ Deno.serve(async (req) => {
     return errorResponse("VALIDATION", "token is required", 400);
   }
 
-  const userSb = userClient(auth);
-  const {
-    data: { user },
-    error: userErr,
-  } = await userSb.auth.getUser();
-  if (userErr || !user) {
+  const store = db ?? liveDb(auth);
+  const userId = await store.userId();
+  if (!userId) {
     return errorResponse("AUTH_REQUIRED", "Sign-in required", 401);
   }
 
-  const admin = serviceClient();
-  const { data: invite, error: inviteErr } = await admin
-    .from("invites")
-    .select("id, family_id, status, expires_at")
-    .eq("token", token)
-    .maybeSingle();
-
+  const { row: invite, error: inviteErr } = await store.inviteByToken(token);
   if (inviteErr) {
-    return errorResponse("VALIDATION", inviteErr.message, 400);
+    return errorResponse("VALIDATION", inviteErr, 400);
   }
   if (!invite) {
     return errorResponse("INVITE_INVALID", "Invite is not valid", 400);
@@ -57,45 +149,33 @@ Deno.serve(async (req) => {
     return errorResponse("INVITE_EXPIRED", "Invite link expired", 400);
   }
 
-  // 3. Upsert membership role=member
-  const { data: membership, error: memErr } = await admin
-    .from("memberships")
-    .upsert(
-      {
-        family_id: invite.family_id,
-        user_id: user.id,
-        role: "member",
-      },
-      { onConflict: "family_id,user_id" },
-    )
-    .select("id")
-    .single();
-
-  if (memErr || !membership) {
-    return errorResponse(
-      "VALIDATION",
-      memErr?.message ?? "Could not create membership",
-      400,
-    );
+  // Keep an existing role. Inserting role=member demotes an owner who
+  // opens their own invite.
+  const existing = await store.membershipId(invite.family_id, userId);
+  if (existing.error) {
+    return errorResponse("VALIDATION", MEMBERSHIP_CHECK_FAILED, 400);
   }
 
-  // 4. Mark invite accepted (single-use)
-  const { error: updErr } = await admin
-    .from("invites")
-    .update({
-      status: "accepted",
-      accepted_by: user.id,
-      accepted_at: new Date().toISOString(),
-    })
-    .eq("id", invite.id)
-    .eq("status", "pending");
+  let membershipId = existing.id ?? undefined;
+  if (!membershipId) {
+    const created = await store.insertMember(invite.family_id, userId);
+    if (created.error || !created.id) {
+      return errorResponse("VALIDATION", MEMBERSHIP_CREATE_FAILED, 400);
+    }
+    membershipId = created.id;
+  }
 
+  const updErr = await store.markAccepted(invite.id, userId);
   if (updErr) {
-    return errorResponse("VALIDATION", updErr.message, 400);
+    return errorResponse("VALIDATION", updErr, 400);
   }
 
   return jsonResponse({
     family_id: invite.family_id,
-    membership_id: membership.id,
+    membership_id: membershipId,
   });
-});
+}
+
+if (import.meta.main) {
+  Deno.serve((req) => acceptInvite(req));
+}

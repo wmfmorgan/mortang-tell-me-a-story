@@ -143,7 +143,7 @@ class _AddCoOwnerDialogState extends State<_AddCoOwnerDialog> {
                               Text(
                                 'Co-owners have the same powers as you. ${widget.familyName} can have up to two.',
                                 style: GoogleFonts.literata(
-                                  color: const Color(0xFF655E5B),
+                                  color: albumInk,
                                   fontSize: 14,
                                   height: 1.45,
                                 ),
@@ -152,7 +152,7 @@ class _AddCoOwnerDialogState extends State<_AddCoOwnerDialog> {
                               Text(
                                 '$used OF 2 CO-OWNER SPOTS USED',
                                 style: GoogleFonts.sourceSans3(
-                                  color: const Color(0xFF655E5B),
+                                  color: albumInk,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.6,
@@ -170,16 +170,16 @@ class _AddCoOwnerDialogState extends State<_AddCoOwnerDialog> {
                                 decoration: InputDecoration(
                                   isDense: true,
                                   filled: true,
-                                  fillColor: const Color(0xFFFAF2F0),
+                                  fillColor: albumParchment,
                                   hintText: 'Search members',
                                   hintStyle: GoogleFonts.literata(
-                                    color: const Color(0xFF655E5B),
+                                    color: albumInk,
                                     fontSize: 14,
                                   ),
                                   prefixIcon: const Icon(
                                     Icons.search,
                                     size: 18,
-                                    color: Color(0xFF655E5B),
+                                    color: albumInk,
                                   ),
                                   prefixIconConstraints: const BoxConstraints(
                                     minWidth: 40,
@@ -239,7 +239,7 @@ class _AddCoOwnerDialogState extends State<_AddCoOwnerDialog> {
                               Text(
                                 'Only people already in this family can be co-owners. To add someone new, invite them first.',
                                 style: GoogleFonts.sourceSans3(
-                                  color: const Color(0xFF655E5B),
+                                  color: albumInk,
                                   fontSize: 12,
                                   fontStyle: FontStyle.italic,
                                   height: 1.4,
@@ -307,7 +307,7 @@ class _AddCoOwnerDialogState extends State<_AddCoOwnerDialog> {
                               key: const Key('add-co-owner-close'),
                               onPressed: _close,
                               icon: const Icon(Icons.close, size: 20),
-                              color: const Color(0xFF655E5B),
+                              color: albumInk,
                               style: IconButton.styleFrom(
                                 fixedSize: const Size(32, 32),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -398,7 +398,7 @@ class _MemberRow extends StatelessWidget {
                       Text(
                         'Member',
                         style: GoogleFonts.sourceSans3(
-                          color: const Color(0xFF655E5B),
+                          color: albumInk,
                           fontSize: 12,
                           height: 1.3,
                         ),

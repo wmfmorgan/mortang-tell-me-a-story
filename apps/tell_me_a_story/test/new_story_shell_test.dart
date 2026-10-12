@@ -205,6 +205,7 @@ void main() {
     await tester.pumpWidget(_shell(people: people));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
     await tester.pumpAndSettle();
 
@@ -233,6 +234,7 @@ void main() {
     await tester.pumpWidget(_shell(places: places));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Choose place'));
     await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
     await tester.pumpAndSettle();
 
@@ -257,6 +259,7 @@ void main() {
     await tester.pumpWidget(_shell(people: people));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ListTile, 'Ada'));
@@ -289,6 +292,7 @@ void main() {
     await tester.pumpWidget(_shell(places: places));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Choose place'));
     await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Central Park'));
@@ -324,6 +328,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(
+        find.widgetWithText(TextButton, 'Choose place'),
+      );
       await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Central Park'));
@@ -350,6 +357,7 @@ void main() {
     await tester.pumpWidget(_shell(invite: invite, people: people));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
     await tester.pumpAndSettle();
 

@@ -1,5 +1,6 @@
 import '../../data/families_api.dart';
 import '../../data/stories_api.dart';
+import '../stories/story_date.dart';
 
 enum TimelineZoom { far, mid, near }
 
@@ -32,8 +33,7 @@ List<DecadeBand> decadeBands(Iterable<Story> stories) {
     for (final year in years)
       DecadeBand(
         startYear: year,
-        stories: [...grouped[year]!]
-          ..sort((a, b) => b.timeframeStart.compareTo(a.timeframeStart)),
+        stories: [...grouped[year]!]..sort((a, b) => compareStories(b, a)),
       ),
   ];
 }
@@ -43,7 +43,7 @@ List<Story> decadeOldestFirst(Iterable<Story> stories, int startYear) {
   final rows = publishedStories(stories)
       .where((story) => decadeStartYear(story.timeframeStart) == startYear)
       .toList();
-  rows.sort((a, b) => a.timeframeStart.compareTo(b.timeframeStart));
+  rows.sort(compareStories);
   return rows;
 }
 
@@ -58,7 +58,7 @@ String storyTitle(Story story) {
 }
 
 String dotTooltip(Story story) =>
-    '${storyTitle(story)} (${story.timeframeStart.year})';
+    '${storyTitle(story)} (${storyDateLabelFor(story)})';
 
 String excerpt(String? body, {int max = 180}) {
   final flat = (body ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -76,7 +76,7 @@ String farFooter({required String familyName}) =>
 /// Every published story, newest year first. Mid scrolls this whole list.
 List<Story> dialStories(Iterable<Story> stories) {
   final rows = publishedStories(stories).toList();
-  rows.sort((a, b) => b.timeframeStart.compareTo(a.timeframeStart));
+  rows.sort((a, b) => compareStories(b, a));
   return rows;
 }
 

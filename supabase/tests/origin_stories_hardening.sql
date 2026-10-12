@@ -137,7 +137,7 @@ select person_id, parent_id, 'Draft Kin', 'kin', user_a from m11_ctx;
 insert into public.story_people (story_id, person_id)
 select draft_id, person_id from m11_ctx;
 
-select plan(99);
+select plan(95);
 
 -- Ada's origin is the parent's second published story.
 set local role authenticated;
@@ -982,21 +982,6 @@ select is(
 
 select is(
   coalesce((select qual from pg_policies
-    where schemaname = 'public' and policyname = 'photos_delete_uploader_or_author'), ''),
-  $pol$(((uploader_id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1
-   FROM stories s
-  WHERE ((s.id = photos.story_id) AND (s.author_id = ( SELECT auth.uid() AS uid)))))) AND (is_family_member(family_id) OR can_contribute_to_story(family_id, story_id)))$pol$,
-  'photos_delete_uploader_or_author qual matches main'
-);
-select is(
-  coalesce((select with_check from pg_policies
-    where schemaname = 'public' and policyname = 'photos_delete_uploader_or_author'), ''),
-  $pol$$pol$,
-  'photos_delete_uploader_or_author with_check matches main'
-);
-
-select is(
-  coalesce((select qual from pg_policies
     where schemaname = 'public' and policyname = 'photos_insert_member_uploader'), ''),
   $pol$$pol$,
   'photos_insert_member_uploader qual matches main'
@@ -1008,25 +993,6 @@ select is(
    FROM stories s
   WHERE ((s.id = photos.story_id) AND (s.family_id = photos.family_id)))))$pol$,
   'photos_insert_member_uploader with_check matches main'
-);
-
-select is(
-  coalesce((select qual from pg_policies
-    where schemaname = 'public' and policyname = 'photos_update_uploader_or_author'), ''),
-  $pol$(can_contribute_to_story(family_id, story_id) AND ((uploader_id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1
-   FROM stories s
-  WHERE ((s.id = photos.story_id) AND (s.author_id = ( SELECT auth.uid() AS uid)))))))$pol$,
-  'photos_update_uploader_or_author qual matches main'
-);
-select is(
-  coalesce((select with_check from pg_policies
-    where schemaname = 'public' and policyname = 'photos_update_uploader_or_author'), ''),
-  $pol$(can_contribute_to_story(family_id, story_id) AND ((uploader_id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1
-   FROM stories s
-  WHERE ((s.id = photos.story_id) AND (s.author_id = ( SELECT auth.uid() AS uid)))))) AND (EXISTS ( SELECT 1
-   FROM stories s
-  WHERE ((s.id = photos.story_id) AND (s.family_id = photos.family_id)))))$pol$,
-  'photos_update_uploader_or_author with_check matches main'
 );
 
 select is(

@@ -12,6 +12,7 @@ class SearchRequest {
     this.placeId,
     this.rangeStart,
     this.rangeEnd,
+    this.decades = const [],
     this.sort = SearchSort.relevant,
   });
 
@@ -21,6 +22,7 @@ class SearchRequest {
   final String? placeId;
   final DateTime? rangeStart;
   final DateTime? rangeEnd;
+  final List<int> decades;
   final SearchSort sort;
 }
 
@@ -109,7 +111,7 @@ int _relevanceTier(SearchRecord record, String needle) {
 }
 
 int _newestTimeframe(SearchRecord a, SearchRecord b) {
-  return b.story.timeframeStart.compareTo(a.story.timeframeStart);
+  return compareStories(b.story, a.story);
 }
 
 /// Published stories in [familyId] that match every active chip and the text.
@@ -129,7 +131,14 @@ List<SearchRecord> filterSearchRecords(
     }
     final start = request.rangeStart;
     final end = request.rangeEnd;
-    if (start != null && end != null && !timeframeOverlaps(story, start, end)) {
+    if (request.decades.isNotEmpty &&
+        !request.decades.contains(decadeStartYear(story.timeframeStart))) {
+      return false;
+    }
+    if (request.decades.isEmpty &&
+        start != null &&
+        end != null &&
+        !timeframeOverlaps(story, start, end)) {
       return false;
     }
     return searchTextMatches(record, request.text);
@@ -175,7 +184,7 @@ class SearchApi implements SearchGateway {
 
   static const _select =
       'id, family_id, author_id, title, body, timeframe_start, timeframe_end, '
-      'place_id, status, published_at, places(label, address), '
+      'date_precision, created_at, place_id, status, published_at, places(label, address), '
       'story_people(person_id, people(name)), profiles!author_id(display_name), '
       'photos(id, storage_path, sort_order)';
 

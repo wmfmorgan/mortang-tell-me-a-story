@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/album_theme.dart';
+import 'family_blur_dialog.dart';
 
 /// Stitch `505fa619379b4ca797208e8087ccf630`. True when the name matches.
 Future<bool> showDeleteFamilyDialog(
   BuildContext context, {
   required String familyName,
 }) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showBlurredCard<bool>(
     context: context,
     builder: (context) => _DeleteFamilyDialog(familyName: familyName),
   );
@@ -36,9 +37,11 @@ class _DeleteFamilyDialogState extends State<_DeleteFamilyDialog> {
   @override
   Widget build(BuildContext context) {
     final matches = _typed.text.trim() == widget.familyName;
-    return Dialog(
+    return Material(
       key: const Key('delete-family-dialog'),
-      backgroundColor: albumParchment,
+      color: albumParchment,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
         child: Padding(

@@ -26,6 +26,7 @@ import '../family/start_timeline_dialog.dart';
 import '../perspectives/add_perspective_page.dart';
 import 'photo_strip.dart';
 import 'reader_meta.dart';
+import 'story_date.dart';
 
 enum ReaderPresentation { page, modal }
 
@@ -63,12 +64,13 @@ List<OriginMenuEntry> originMenuEntries({
     orElse: () => null,
   );
   final entries = <OriginMenuEntry>[];
-  if (storyFamily?.parentFamilyId == null &&
+  if (storyFamily != null &&
+      storyFamily.parentFamilyId == null &&
       originSteward(stewardRoles[storyFamilyId])) {
     entries.add(
       OriginMenuEntry(
         familyId: storyFamilyId,
-        label: 'Set as origin for ${storyFamily!.name}',
+        label: 'Set as origin for ${storyFamily.name}',
       ),
     );
   }
@@ -179,6 +181,22 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   final _composerFocus = FocusNode();
   final _composerKey = GlobalKey();
 
+  bool get _canEditStory {
+    final story = _story;
+    final uid = _currentUserId;
+    if (story == null || uid == null) return false;
+    if (uid == story.authorId) return true;
+    if (story.status != StoryStatus.published) return false;
+    for (final row in _stewarded) {
+      if (row.id == story.familyId &&
+          row.deletedAt == null &&
+          (row.role == 'owner' || row.role == 'co_owner')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   String? get _currentUserId {
     if (widget.currentUserId != null) return widget.currentUserId;
     try {
@@ -255,6 +273,14 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     final path = _router?.routerDelegate.currentConfiguration.uri.path;
     if (path != AppRoutes.storyPath(widget.storyId)) return;
     _reloadPerspectives();
+  }
+
+  Future<void> _openEdit() async {
+    final id = _story?.id;
+    if (id == null || GoRouter.maybeOf(context) == null) return;
+    final saved = await context.push<bool>(AppRoutes.storyEditPath(id));
+    if (!mounted || saved != true) return;
+    await _load();
   }
 
   Future<void> _openPerspective() async {
@@ -887,7 +913,23 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (headlineText.isNotEmpty) Text(headlineText, style: headline),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: headlineText.isEmpty
+                      ? const SizedBox.shrink()
+                      : Text(headlineText, style: headline),
+                ),
+                if (_canEditStory)
+                  OutlinedButton.icon(
+                    key: const Key('story-edit'),
+                    onPressed: _busy ? null : _openEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('Edit'),
+                  ),
+              ],
+            ),
             const SizedBox(height: 8),
             _metaLine(story),
             const SizedBox(height: 16),
@@ -912,13 +954,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
               title: 'Keepsake Photos & Artifacts',
               subtitle: _photoCountLine(_photos.length),
               trailing: _canWrite
-                  ? TextButton.icon(
+                  ? TextButton(
                       onPressed: canAddPhoto ? _onAddPhoto : null,
-                      icon: const Icon(
-                        Icons.add_photo_alternate_outlined,
-                        size: 18,
-                      ),
-                      label: const Text('Add photos'),
+                      child: const PlusLabel(label: 'Add photo'),
                     )
                   : null,
             ),
@@ -933,15 +971,14 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                   onAdd: _onAddPhoto,
                   onRemove: _onRemovePhoto,
                   canRemove: (photo) =>
-                      _canWrite &&
                       _currentUserId != null &&
-                      (photo.uploaderId == _currentUserId ||
-                          story.authorId == _currentUserId),
+                      (_canEditStory ||
+                          (_canWrite && photo.uploaderId == _currentUserId)),
                   onRetry: _onRetryPhoto,
                   uploadFailed: _photoError,
                   canAdd: canAddPhoto,
                   columns: columns,
-                  addLabel: 'Add photos to story',
+                  addLabel: 'Add photo',
                   addHint: 'Up to $maxPhotosPerStory photos',
                 );
               },
@@ -1028,7 +1065,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         children: [
           TextSpan(
             text:
-                'Recorded event: ${recordedEventLabel(start: story.timeframeStart, end: story.timeframeEnd)}$documented ',
+                'Recorded event: ${storyDateLabelFor(story)}$documented ',
           ),
           WidgetSpan(
             alignment: PlaceholderAlignment.middle,
@@ -1038,7 +1075,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
               bytes: _authorBytes,
             ),
           ),
-          TextSpan(text: ' · ${minutesToRead(story.body)} min read'),
         ],
       ),
     );
@@ -1055,7 +1091,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       children: [
         for (final person in _peopleOnStory) _personChip(person),
         if (placeText != null) _timeframePill(placeText),
-        _timeframePill(decadeChipLabel(story.timeframeStart)),
       ],
     );
   }
@@ -1274,7 +1309,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(child: titleBlock),
-            if (trailing != null) trailing,
+            ?trailing,
           ],
         );
       },

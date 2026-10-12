@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
+import '../family/family_blur_dialog.dart';
 
 /// Invite dialog matching the Stitch Email, Link, and SMS screens.
 /// SMS is visual only until a later milestone.
@@ -24,22 +26,20 @@ class InviteModal extends StatefulWidget {
     String familyName = 'Family',
     InviteGateway? api,
   }) {
-    return showDialog<void>(
+    return showBlurredCard<void>(
       context: context,
-      barrierColor: const Color(0x80000000),
-      builder: (ctx) => Dialog(
-        backgroundColor: _InviteColors.card,
-        surfaceTintColor: Colors.transparent,
-        clipBehavior: Clip.antiAlias,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: _InviteColors.border),
+      builder: (ctx) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 512,
+          maxHeight: MediaQuery.sizeOf(ctx).height * 0.9,
         ),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 512,
-            maxHeight: MediaQuery.sizeOf(ctx).height * 0.9,
+        child: Material(
+          color: _InviteColors.card,
+          surfaceTintColor: Colors.transparent,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: _InviteColors.border),
           ),
           child: InviteModal(
             familyId: familyId,
@@ -598,7 +598,7 @@ abstract final class _InviteColors {
   static const primary = Color(0xFF6B5B55);
   static const onPrimary = Color(0xFFFFF6F3);
   static const ink = Color(0xFF37312F);
-  static const muted = Color(0xFF655E5B);
+  static const muted = albumInk;
   static const secondary = Color(0xFF665D5A);
   static const chip = Color(0xFFEDE0DC);
   static const chipInk = Color(0xFF58504D);

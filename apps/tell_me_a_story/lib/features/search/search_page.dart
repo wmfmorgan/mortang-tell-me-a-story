@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
@@ -14,6 +15,7 @@ import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/search_api.dart';
 import '../../data/stories_api.dart';
+import '../stories/story_date.dart';
 import '../stories/timeframe_chips.dart';
 import 'search_recents.dart';
 
@@ -161,7 +163,6 @@ class _SearchPageState extends State<SearchPage> {
       return;
     }
     setState(() => _searching = true);
-    final bounds = decadeBounds(_decades);
     try {
       final rows = await _searchApi.search(
         SearchRequest(
@@ -169,8 +170,7 @@ class _SearchPageState extends State<SearchPage> {
           text: _field.text,
           personIds: List<String>.from(_personIds),
           placeId: _placeId,
-          rangeStart: bounds?.$1,
-          rangeEnd: bounds?.$2,
+          decades: List<int>.from(_decades),
           sort: _sort,
         ),
       );
@@ -223,25 +223,38 @@ class _SearchPageState extends State<SearchPage> {
 
   Future<void> _pickPerson() async {
     final available = _people.where((p) => !_personIds.contains(p.id)).toList();
-    final picked = await showDialog<String>(
+    final picked = await showAlbumDialog<String>(
       context: context,
+      maxWidth: 420,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Add Person'),
-          content: SizedBox(
-            width: 360,
-            child: available.isEmpty
-                ? const Text('No more people in this family.')
-                : ListView(
-                    shrinkWrap: true,
-                    children: [
-                      for (final person in available)
-                        ListTile(
-                          title: Text(person.name),
-                          onTap: () => Navigator.pop(context, person.id),
-                        ),
-                    ],
-                  ),
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Add Person',
+                style: GoogleFonts.newsreader(
+                  color: albumInk,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              available.isEmpty
+                  ? const Text('No more people in this family.')
+                  : ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final person in available)
+                          ListTile(
+                            title: Text(person.name),
+                            onTap: () => Navigator.pop(context, person.id),
+                          ),
+                      ],
+                    ),
+            ],
           ),
         );
       },
@@ -250,21 +263,38 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Future<void> _pickDecade() async {
-    final picked = await showDialog<int>(
+    final picked = await showAlbumDialog<int>(
       context: context,
+      maxWidth: 420,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Decade'),
-          content: Wrap(
-            spacing: 8,
-            runSpacing: 8,
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final decade in decadeChips)
-                if (!_decades.contains(decade.startYear))
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, decade.startYear),
-                    child: Text(decade.label),
-                  ),
+              Text(
+                'Decade',
+                style: GoogleFonts.newsreader(
+                  color: albumInk,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final decade in decadeChips)
+                    if (!_decades.contains(decade.startYear))
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pop(context, decade.startYear),
+                        child: Text(decade.label),
+                      ),
+                ],
+              ),
             ],
           ),
         );
@@ -697,7 +727,7 @@ class _ResultCard extends StatelessWidget {
     final story = record.story;
     final title = storedStoryTitle(story.title);
     final body = (story.body ?? '').trim();
-    final year = '${story.timeframeStart.year}';
+    final year = storyDateLabelFor(story);
     final photoPath = story.photoPaths.isEmpty ? null : story.photoPaths.first;
     return Material(
       key: Key('search-result-${story.id}'),

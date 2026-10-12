@@ -169,7 +169,7 @@ class _StartFamilyDialogState extends State<_StartFamilyDialog> {
                                   Text(
                                     'Required',
                                     style: GoogleFonts.sourceSans3(
-                                      color: const Color(0xFF655E5B),
+                                      color: albumInk,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -210,7 +210,7 @@ class _StartFamilyDialogState extends State<_StartFamilyDialog> {
                               Text(
                                 "You'll land on this family's empty timeline after create.",
                                 style: GoogleFonts.literata(
-                                  color: const Color(0xFF655E5B),
+                                  color: albumInk,
                                   fontSize: 14,
                                 ),
                               ),
@@ -293,7 +293,7 @@ class _StartFamilyDialogState extends State<_StartFamilyDialog> {
                             child: IconButton(
                               onPressed: _busy ? null : _close,
                               icon: const Icon(Icons.close, size: 22),
-                              color: const Color(0xFF655E5B),
+                              color: albumInk,
                             ),
                           ),
                         ],

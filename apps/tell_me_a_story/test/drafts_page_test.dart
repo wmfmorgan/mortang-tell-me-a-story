@@ -83,6 +83,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String familyId,
     required DateTime timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -96,6 +97,7 @@ class _FakeStoriesApi implements StoriesGateway {
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
+    String? datePrecision,
     String? title,
     String? body,
     String? placeId,
@@ -328,7 +330,7 @@ void main() {
     expect(find.widgetWithText(FilterChip, 'Missing photos'), findsOneWidget);
     expect(find.widgetWithText(FilterChip, 'Ready to publish'), findsOneWidget);
 
-    expect(find.text('1980s'), findsWidgets);
+    expect(find.text('January 1, 1980'), findsWidgets);
     expect(find.text('Untitled'), findsOneWidget);
     expect(find.text('Jam'), findsOneWidget);
     expect(find.text('Missing text'), findsWidgets);

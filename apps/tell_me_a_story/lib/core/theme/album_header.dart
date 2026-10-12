@@ -10,6 +10,7 @@ import '../../data/profile_session.dart';
 import '../../features/family/family_role.dart';
 import '../../features/family/start_family_dialog.dart';
 import '../router/app_router.dart';
+import 'album_chrome.dart';
 import 'album_theme.dart';
 import 'profile_avatar.dart';
 
@@ -32,6 +33,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
     this.onInvite,
     this.onSaveDraft,
     this.onPublish,
+    this.captureSecondaryLabel = 'Save draft',
+    this.capturePrimaryLabel = 'Publish story',
     this.onLogout,
     this.onStartTimeline,
   });
@@ -48,6 +51,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
+  final String captureSecondaryLabel;
+  final String capturePrimaryLabel;
   final Future<void> Function()? onLogout;
 
   /// Timeline page only. Null hides "Start a new timeline".
@@ -91,6 +96,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               onInvite: onInvite,
               onSaveDraft: onSaveDraft,
               onPublish: onPublish,
+              captureSecondaryLabel: captureSecondaryLabel,
+              capturePrimaryLabel: capturePrimaryLabel,
               onLogout: onLogout,
               onStartTimeline: onStartTimeline,
               onTimeline: () => _openTimeline(context),
@@ -145,6 +152,8 @@ class _HeaderBar extends StatelessWidget {
     required this.onInvite,
     required this.onSaveDraft,
     required this.onPublish,
+    required this.captureSecondaryLabel,
+    required this.capturePrimaryLabel,
     required this.onLogout,
     required this.onStartTimeline,
     required this.onTimeline,
@@ -165,6 +174,8 @@ class _HeaderBar extends StatelessWidget {
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
+  final String captureSecondaryLabel;
+  final String capturePrimaryLabel;
   final Future<void> Function()? onLogout;
   final VoidCallback? onStartTimeline;
   final VoidCallback onTimeline;
@@ -223,23 +234,39 @@ class _HeaderBar extends StatelessWidget {
           if (page == AlbumHeaderPage.capture) ...[
             TextButton(
               onPressed: onSaveDraft,
-              child: Text(
-                'Save draft',
-                style: GoogleFonts.sourceSans3(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
+              style: TextButton.styleFrom(
+                foregroundColor: albumInk,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 10,
+                ),
+                side: BorderSide(color: albumInk.withValues(alpha: 0.3)),
+                shape: const StadiumBorder(),
+                textStyle: GoogleFonts.sourceSans3(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+              child: Text(captureSecondaryLabel),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             FilledButton(
               onPressed: onPublish,
               style: FilledButton.styleFrom(
                 backgroundColor: albumTerracotta,
-                foregroundColor: albumParchment,
+                foregroundColor: const Color(0xFFFFF6F3),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 10,
+                ),
                 shape: const StadiumBorder(),
+                textStyle: GoogleFonts.sourceSans3(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              child: const Text('Publish story'),
+              child: Text(capturePrimaryLabel),
             ),
           ] else if (canWrite) ...[
             TextButton(
@@ -255,7 +282,7 @@ class _HeaderBar extends StatelessWidget {
               child: const Text('Invite'),
             ),
             const SizedBox(width: 8),
-            FilledButton.icon(
+            FilledButton(
               onPressed: () => onNewStory(),
               style: FilledButton.styleFrom(
                 backgroundColor: albumTerracotta,
@@ -267,12 +294,13 @@ class _HeaderBar extends StatelessWidget {
                   vertical: 10,
                 ),
               ),
-              icon: const Icon(Icons.add, size: 17),
-              label: Text(
-                'New story',
+              child: PlusLabel(
+                label: 'New story',
+                onTerracotta: true,
                 style: GoogleFonts.sourceSans3(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
+                  color: albumParchment,
                 ),
               ),
             ),
@@ -406,15 +434,15 @@ class _HeaderMetrics {
       // Keep this in sync with the capture buttons in [_HeaderBar].
       return _textWidth(
             'Save draft',
-            GoogleFonts.sourceSans3(fontSize: 15, fontWeight: FontWeight.w500),
+            GoogleFonts.sourceSans3(fontSize: 14, fontWeight: FontWeight.w600),
           ) +
-          24 +
-          between +
+          40 +
+          12 +
           _textWidth(
             'Publish story',
-            GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
+            GoogleFonts.sourceSans3(fontSize: 14, fontWeight: FontWeight.w600),
           ) +
-          48 +
+          40 +
           _avatarSlot;
     }
     return _textWidth(
@@ -595,7 +623,7 @@ class _FamilyMenu extends StatelessWidget {
           const PopupMenuItem<String>(
             key: Key('family-menu-start'),
             value: _startValue,
-            child: Text('+ Start a family'),
+            child: PlusLabel(label: 'Start a family'),
           ),
           if (onStartTimeline != null)
             const PopupMenuItem<String>(
@@ -794,7 +822,7 @@ class _HeaderAvatar extends StatefulWidget {
 
 class _HeaderAvatarState extends State<_HeaderAvatar> {
   /// Stitch avatar menu `6b07fcdcaa204d028e79ab4494ca975a`: outlined 19px.
-  static const _menuIcon = Color(0xFF817976);
+  static const _menuIcon = albumSage;
 
   @override
   void initState() {

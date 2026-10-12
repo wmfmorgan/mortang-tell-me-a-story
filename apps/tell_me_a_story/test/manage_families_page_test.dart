@@ -8,9 +8,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/manage_family_page.dart';
+import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 
 void main() {
   late _Directory directory;
@@ -123,6 +125,32 @@ void main() {
     expect(find.text('Recoverable (60 days)'), findsNothing);
     expect(find.text('West Archive'), findsOneWidget);
     expect(find.text('1 active'), findsOneWidget);
+  });
+
+  testWidgets('header invite opens for the current family', (tester) async {
+    FamilySelection.clear();
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ManageFamiliesPage(
+          directoryApi: directory,
+          manageApi: manage,
+          inviteApi: _HubInvite('fam-1'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('North Archive'), findsWidgets);
+    await tester.tap(find.byKey(const Key('header-invite')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(InviteModal), findsOneWidget);
+    expect(
+      tester.widget<InviteModal>(find.byType(InviteModal)).familyId,
+      'fam-1',
+    );
   });
 
   testWidgets('Enter opens detail and does not remember the family', (
@@ -823,4 +851,37 @@ class _Manage implements ManageFamiliesGateway {
       recoverable: [],
     );
   }
+}
+
+class _HubInvite implements InviteGateway {
+  _HubInvite(this.familyId);
+
+  final String familyId;
+
+  @override
+  Future<AcceptInviteResult> acceptInvite({required String token}) async {
+    return const AcceptInviteResult(familyId: 'fam-1', membershipId: 'm');
+  }
+
+  @override
+  Future<String> createFamily(String name) async => familyId;
+
+  @override
+  Future<CreateInviteResult> createInvite({
+    required String familyId,
+    String? email,
+  }) async {
+    return const CreateInviteResult(
+      inviteId: 'i',
+      token: 't',
+      expiresAt: '2099-01-01T00:00:00Z',
+      inviteUrl: 'http://127.0.0.1:3000/invite/t',
+    );
+  }
+
+  @override
+  Future<String?> currentFamilyId() async => familyId;
+
+  @override
+  Future<void> sendInviteEmail({required String inviteId}) async {}
 }

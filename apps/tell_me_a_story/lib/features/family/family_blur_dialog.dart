@@ -13,6 +13,40 @@ Widget familyBlurShell({required Widget child}) {
   );
 }
 
+/// Full-viewport blur with a centered card. Dropdowns stay on their own routes.
+Future<T?> showBlurredCard<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+}) {
+  return showGeneralDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: 'Dismiss',
+    barrierColor: Colors.transparent,
+    transitionDuration: const Duration(milliseconds: 200),
+    pageBuilder: (dialogContext, animation, secondaryAnimation) {
+      return familyBlurShell(
+        child: GestureDetector(
+          onTap: barrierDismissible
+              ? () => Navigator.pop(dialogContext)
+              : null,
+          behavior: HitTestBehavior.opaque,
+          child: Center(
+            child: GestureDetector(
+              onTap: () {},
+              child: builder(dialogContext),
+            ),
+          ),
+        ),
+      );
+    },
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(opacity: animation, child: child);
+    },
+  );
+}
+
 /// Full-page blur confirm. Stitch `e37136c3a1734a30ac5487b42cd91f42`.
 /// True only when the confirm button is pressed.
 Future<bool> showFamilyBlurDialog(
@@ -120,7 +154,7 @@ class _FamilyBlurDialog extends StatelessWidget {
                                 Text(
                                   body!,
                                   style: GoogleFonts.literata(
-                                    color: const Color(0xFF655E5B),
+                                    color: albumInk,
                                     fontSize: 14,
                                     height: 1.45,
                                   ),
@@ -184,7 +218,7 @@ class _FamilyBlurDialog extends StatelessWidget {
                             child: IconButton(
                               onPressed: () => Navigator.pop(context, false),
                               icon: const Icon(Icons.close, size: 20),
-                              color: const Color(0xFF655E5B),
+                              color: albumInk,
                             ),
                           ),
                         ],

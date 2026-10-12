@@ -21,6 +21,7 @@ import '../../data/timeline_live.dart';
 import '../family/start_timeline_dialog.dart';
 import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
+import '../stories/story_date.dart';
 import '../stories/story_reader_page.dart';
 import 'timeline_zoom.dart';
 
@@ -517,13 +518,6 @@ class _TimelinePageState extends State<TimelinePage> {
     await _loadPublished();
   }
 
-  void _openMid(Story story) {
-    setState(() {
-      _zoom = TimelineZoom.mid;
-      _focusedStoryId = story.id;
-    });
-  }
-
   void _openNear(Story story) {
     setState(() {
       _zoom = TimelineZoom.near;
@@ -718,7 +712,8 @@ class _TimelinePageState extends State<TimelinePage> {
         originStoryId: originId,
         originTag: originLabel,
         originMark: _originMark,
-        onDot: _openMid,
+        onDot: _openStory,
+        onEmpty: _zoomOut,
         onYear: _openMidOnYear,
         onFocus: _onDialFocus,
         onMark: (family) => _selectFamily(family.id),
@@ -736,6 +731,7 @@ class _TimelinePageState extends State<TimelinePage> {
         anchorFor: _anchor,
         onStub: _openStory,
         onNode: _openNear,
+        onEmpty: _zoomOut,
         onFocus: _onDialFocus,
         onMark: (family) => _selectFamily(family.id),
         onMacro: _fitAll,
@@ -751,6 +747,7 @@ class _TimelinePageState extends State<TimelinePage> {
         originMark: _originMark,
         anchorFor: _anchor,
         onOpen: _openStory,
+        onEmpty: _zoomOut,
         onFocus: _onDialFocus,
         onMark: (family) => _selectFamily(family.id),
         onMacro: _fitAll,
@@ -911,6 +908,7 @@ class _FarRail extends StatefulWidget {
     this.originTag,
     this.originMark,
     required this.onDot,
+    required this.onEmpty,
     required this.onYear,
     required this.onFocus,
     required this.onMark,
@@ -926,6 +924,7 @@ class _FarRail extends StatefulWidget {
   final String? originTag;
   final TreeFamily? originMark;
   final ValueChanged<Story> onDot;
+  final VoidCallback onEmpty;
   final ValueChanged<int> onYear;
   final ValueChanged<String> onFocus;
   final ValueChanged<TreeFamily> onMark;
@@ -1200,7 +1199,9 @@ class _FarRailState extends State<_FarRail> {
             ),
           ),
           Expanded(
-            child: NotificationListener<ScrollNotification>(
+            child: _EmptyTap(
+              onTap: widget.onEmpty,
+              child: NotificationListener<ScrollNotification>(
               onNotification: (notification) {
                 if (notification is ScrollUpdateNotification ||
                     notification is ScrollEndNotification) {
@@ -1236,9 +1237,37 @@ class _FarRailState extends State<_FarRail> {
                 ],
               ),
             ),
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Small empty target at the top-left of a rail. Interactive children stay above it.
+class _EmptyTap extends StatelessWidget {
+  const _EmptyTap({required this.onTap, required this.child});
+
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        child,
+        Positioned(
+          top: 0,
+          left: 0,
+          child: GestureDetector(
+            key: const Key('timeline-empty'),
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: const SizedBox(width: 48, height: 24),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1570,6 +1599,7 @@ class _MidRail extends StatefulWidget {
     required this.anchorFor,
     required this.onStub,
     required this.onNode,
+    required this.onEmpty,
     required this.onFocus,
     required this.onMark,
     required this.onMacro,
@@ -1586,6 +1616,7 @@ class _MidRail extends StatefulWidget {
   final GlobalKey Function(String id) anchorFor;
   final ValueChanged<Story> onStub;
   final ValueChanged<Story> onNode;
+  final VoidCallback onEmpty;
   final ValueChanged<String> onFocus;
   final ValueChanged<TreeFamily> onMark;
   final VoidCallback onMacro;
@@ -1738,7 +1769,9 @@ class _MidRailState extends State<_MidRail> {
             ),
           ),
           Expanded(
-            child: NotificationListener<ScrollNotification>(
+            child: _EmptyTap(
+              onTap: widget.onEmpty,
+              child: NotificationListener<ScrollNotification>(
               onNotification: (notification) {
                 if (notification is ScrollUpdateNotification ||
                     notification is ScrollEndNotification) {
@@ -1819,6 +1852,7 @@ class _MidRailState extends State<_MidRail> {
                   const _DialFade(top: false),
                 ],
               ),
+            ),
             ),
           ),
         ],
@@ -2228,7 +2262,7 @@ class _DialRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final year = '${story.timeframeStart.year}';
+    final year = storyDateLabelFor(story);
     final place = (story.placeLabel ?? '').trim();
     final photos = story.photoCount > 0
         ? countWord(story.photoCount, 'photo', 'photos')
@@ -2566,6 +2600,7 @@ class _FullCardRail extends StatefulWidget {
     this.originMark,
     required this.anchorFor,
     required this.onOpen,
+    required this.onEmpty,
     required this.onFocus,
     required this.onMark,
     required this.onMacro,
@@ -2581,6 +2616,7 @@ class _FullCardRail extends StatefulWidget {
   final TreeFamily? originMark;
   final GlobalKey Function(String id) anchorFor;
   final ValueChanged<Story> onOpen;
+  final VoidCallback onEmpty;
   final ValueChanged<String> onFocus;
   final ValueChanged<TreeFamily> onMark;
   final VoidCallback onMacro;
@@ -2724,7 +2760,9 @@ class _FullCardRailState extends State<_FullCardRail> {
             ),
           ),
           Expanded(
-            child: NotificationListener<ScrollNotification>(
+            child: _EmptyTap(
+              onTap: widget.onEmpty,
+              child: NotificationListener<ScrollNotification>(
               onNotification: (notification) {
                 if (notification is ScrollUpdateNotification ||
                     notification is ScrollEndNotification) {
@@ -2824,6 +2862,7 @@ class _FullCardRailState extends State<_FullCardRail> {
                   );
                 },
               ),
+            ),
             ),
           ),
         ],
@@ -3288,7 +3327,7 @@ class _FullCard extends StatelessWidget {
                   runSpacing: 4,
                   children: [
                     Text(
-                      '${story.timeframeStart.year}',
+                      storyDateLabelFor(story),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: albumTerracotta,
                         fontWeight: FontWeight.w700,

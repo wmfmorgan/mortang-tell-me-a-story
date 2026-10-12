@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../data/photos_api.dart';
@@ -164,7 +165,7 @@ class _AddTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: CustomPaint(
               painter: _DashedCardPainter(
-                color: labeled ? albumInk.withValues(alpha: 0.28) : albumSage,
+                color: labeled ? albumSage.withValues(alpha: 0.6) : albumSage,
               ),
               child: SizedBox(
                 width: width,
@@ -185,10 +186,12 @@ class _AddTile extends StatelessWidget {
   }
 
   Widget _labeledBody(BuildContext context) {
-    final labelStyle = Theme.of(context).textTheme.labelSmall
-        ?.copyWith(color: albumInk, fontWeight: FontWeight.w600);
-    final hintStyle = Theme.of(context).textTheme.labelSmall
-        ?.copyWith(color: albumInk.withValues(alpha: 0.55), fontSize: 11);
+    final labelStyle = GoogleFonts.sourceSans3(
+      color: albumInk,
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+    );
+    final hintStyle = GoogleFonts.sourceSans3(color: albumSage, fontSize: 10);
     return Padding(
       padding: const EdgeInsets.all(8),
       child: FittedBox(
@@ -196,22 +199,17 @@ class _AddTile extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                color: Color(0xFFF4EFEA),
+            Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: albumTerracotta,
                 shape: BoxShape.circle,
               ),
-              child: SizedBox(
-                width: 36,
-                height: 36,
-                child: Icon(
-                  Icons.add_a_photo_outlined,
-                  color: albumTerracotta,
-                  size: 20,
-                ),
-              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 18),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(label!, textAlign: TextAlign.center, style: labelStyle),
             if (hint != null) ...[
               const SizedBox(height: 2),

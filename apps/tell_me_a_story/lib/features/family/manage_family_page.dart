@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
@@ -312,8 +313,14 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
   }
 
   Future<void> _inviteSession() async {
-    final id = _sessionFamilyId;
-    if (id == null) return;
+    var id = _sessionFamilyId;
+    if (id == null) {
+      final api = widget.inviteApi;
+      id = api == null
+          ? await InviteApi().currentFamilyId()
+          : await api.currentFamilyId();
+    }
+    if (id == null || !mounted) return;
     await InviteModal.show(
       context,
       familyId: id,
@@ -463,7 +470,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
                                   ],
                                 ),
                                 right: _canAdmin && _coOwners.length < 2
-                                    ? OutlinedButton.icon(
+                                    ? OutlinedButton(
                                         key: const Key(
                                           'manage-family-add-co-owner',
                                         ),
@@ -471,8 +478,9 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
                                             ? null
                                             : _addCoOwner,
                                         style: _quietButton,
-                                        icon: const Icon(Icons.add, size: 16),
-                                        label: const Text('Add co-owner'),
+                                        child: const PlusLabel(
+                                          label: 'Add co-owner',
+                                        ),
                                       )
                                     : const SizedBox.shrink(),
                               ),
@@ -739,7 +747,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
 
 const _detailError = Color(0xFF9F403D);
 const _detailLine = Color(0xFFB9B0AD);
-const _detailVariant = Color(0xFF655E5B);
+const _detailVariant = albumInk;
 
 TextStyle get _label => GoogleFonts.sourceSans3(
   color: albumInk,
@@ -766,7 +774,7 @@ TextStyle get _section => GoogleFonts.newsreader(
 InputDecoration get _field => InputDecoration(
   isDense: true,
   filled: true,
-  fillColor: const Color(0xFFFAF2F0),
+  fillColor: albumParchment,
   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
   border: OutlineInputBorder(
     borderRadius: BorderRadius.circular(12),
