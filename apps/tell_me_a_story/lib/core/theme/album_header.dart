@@ -234,21 +234,37 @@ class _HeaderBar extends StatelessWidget {
           if (page == AlbumHeaderPage.capture) ...[
             TextButton(
               onPressed: onSaveDraft,
-              child: Text(
-                captureSecondaryLabel,
-                style: GoogleFonts.sourceSans3(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
+              style: TextButton.styleFrom(
+                foregroundColor: albumInk,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 10,
+                ),
+                side: BorderSide(color: albumInk.withValues(alpha: 0.3)),
+                shape: const StadiumBorder(),
+                textStyle: GoogleFonts.sourceSans3(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+              child: Text(captureSecondaryLabel),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             FilledButton(
               onPressed: onPublish,
               style: FilledButton.styleFrom(
                 backgroundColor: albumTerracotta,
-                foregroundColor: albumParchment,
+                foregroundColor: const Color(0xFFFFF6F3),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 10,
+                ),
                 shape: const StadiumBorder(),
+                textStyle: GoogleFonts.sourceSans3(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               child: Text(capturePrimaryLabel),
             ),
@@ -418,15 +434,15 @@ class _HeaderMetrics {
       // Keep this in sync with the capture buttons in [_HeaderBar].
       return _textWidth(
             'Save draft',
-            GoogleFonts.sourceSans3(fontSize: 15, fontWeight: FontWeight.w500),
+            GoogleFonts.sourceSans3(fontSize: 14, fontWeight: FontWeight.w600),
           ) +
-          24 +
-          between +
+          40 +
+          12 +
           _textWidth(
             'Publish story',
-            GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
+            GoogleFonts.sourceSans3(fontSize: 14, fontWeight: FontWeight.w600),
           ) +
-          48 +
+          40 +
           _avatarSlot;
     }
     return _textWidth(

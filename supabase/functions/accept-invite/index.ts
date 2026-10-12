@@ -57,26 +57,39 @@ Deno.serve(async (req) => {
     return errorResponse("INVITE_EXPIRED", "Invite link expired", 400);
   }
 
-  // 3. Upsert membership role=member
-  const { data: membership, error: memErr } = await admin
+  // Keep an existing role. Upserting role=member demotes an owner who
+  // opens their own invite.
+  const { data: existing, error: existingErr } = await admin
     .from("memberships")
-    .upsert(
-      {
+    .select("id")
+    .eq("family_id", invite.family_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingErr) {
+    return errorResponse("VALIDATION", existingErr.message, 400);
+  }
+
+  let membershipId = existing?.id as string | undefined;
+  if (!membershipId) {
+    const { data: membership, error: memErr } = await admin
+      .from("memberships")
+      .insert({
         family_id: invite.family_id,
         user_id: user.id,
         role: "member",
-      },
-      { onConflict: "family_id,user_id" },
-    )
-    .select("id")
-    .single();
+      })
+      .select("id")
+      .single();
 
-  if (memErr || !membership) {
-    return errorResponse(
-      "VALIDATION",
-      memErr?.message ?? "Could not create membership",
-      400,
-    );
+    if (memErr || !membership) {
+      return errorResponse(
+        "VALIDATION",
+        memErr?.message ?? "Could not create membership",
+        400,
+      );
+    }
+    membershipId = membership.id;
   }
 
   // 4. Mark invite accepted (single-use)
@@ -96,6 +109,6 @@ Deno.serve(async (req) => {
 
   return jsonResponse({
     family_id: invite.family_id,
-    membership_id: membership.id,
+    membership_id: membershipId,
   });
 });

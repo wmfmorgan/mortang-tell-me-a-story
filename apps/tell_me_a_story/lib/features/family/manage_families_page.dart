@@ -139,14 +139,25 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
   }
 
   Future<void> _invite() async {
-    final id = _sessionFamilyId;
-    if (id == null) return;
+    final id = await _familyIdForInvite();
+    if (id == null || !mounted) return;
+    if (_sessionFamilyId != id) {
+      setState(() => _sessionFamilyId = id);
+    }
     await InviteModal.show(
       context,
       familyId: id,
       familyName: _sessionName,
       api: widget.inviteApi,
     );
+  }
+
+  Future<String?> _familyIdForInvite() async {
+    final current = _sessionFamilyId;
+    if (current != null) return current;
+    final api = widget.inviteApi;
+    if (api != null) return api.currentFamilyId();
+    return InviteApi().currentFamilyId();
   }
 
   @override

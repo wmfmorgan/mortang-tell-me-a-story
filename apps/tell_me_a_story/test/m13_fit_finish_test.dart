@@ -29,16 +29,26 @@ void main() {
     tester,
   ) async {
     final sender = _Sender();
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(home: MagicLinkPage(sender: sender)),
     );
-    expect(find.text("Your family's stories, kept together."), findsOneWidget);
+    expect(find.text('Tell Me a Story'), findsOneWidget);
+    expect(find.text(landingHeadline), findsOneWidget);
+    expect(find.text(landingSubhead), findsOneWidget);
+    expect(find.text('blackberry picking at the farm'), findsOneWidget);
+    expect(find.text('summer, 1974'), findsOneWidget);
     expect(find.text('Sign in or get started'), findsOneWidget);
     expect(
       find.text('Enter your email to access your family archive.'),
       findsOneWidget,
     );
+    expect(find.text('Email address'), findsOneWidget);
     expect(find.text('Email me a sign-in link'), findsOneWidget);
+    expect(find.text(landingPasswordNote), findsOneWidget);
     expect(
       find.text(
         'Private to your family. Stories stay inside the family you share them with.',
@@ -48,6 +58,7 @@ void main() {
     expect(find.text('Forgot password'), findsNothing);
 
     await tester.enterText(find.byKey(const Key('magic-link-email')), 'nope');
+    await tester.ensureVisible(find.text('Email me a sign-in link'));
     await tester.tap(find.text('Email me a sign-in link'));
     await tester.pump();
     expect(find.text('Please enter a full email address.'), findsOneWidget);
@@ -57,6 +68,7 @@ void main() {
       find.byKey(const Key('magic-link-email')),
       'a@b.co',
     );
+    await tester.ensureVisible(find.text('Email me a sign-in link'));
     await tester.tap(find.text('Email me a sign-in link'));
     await tester.pumpAndSettle();
     expect(find.text('Check your email'), findsOneWidget);
@@ -64,12 +76,14 @@ void main() {
     expect(sender.redirectTo, isNot(contains('invite')));
 
     sender.error = AuthException('Request failed', statusCode: '429');
+    await tester.ensureVisible(find.text('Send it again'));
     await tester.tap(find.text('Send it again'));
     await tester.pumpAndSettle();
     expect(find.text('Check your email'), findsOneWidget);
     expect(find.text('Request failed'), findsOneWidget);
     expect(sender.calls, 2);
 
+    await tester.ensureVisible(find.text('Use a different email'));
     await tester.tap(find.text('Use a different email'));
     await tester.pump();
     expect(find.text('Sign in or get started'), findsOneWidget);
@@ -110,7 +124,7 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
-    expect(find.text("YOU'RE INVITED"), findsOneWidget);
+    expect(find.text('YOU’RE INVITED'), findsOneWidget);
     expect(find.text('Join Ada'), findsOneWidget);
     expect(
       find.text(
@@ -121,7 +135,9 @@ void main() {
     expect(find.text('Bea invited you to Ada.'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('invite-email')), 'a@b.co');
-    await tester.tap(find.text('Email me a sign-in link'));
+    final send = find.text('Email me a sign-in link');
+    await tester.ensureVisible(send);
+    await tester.tap(send);
     await tester.pumpAndSettle();
     expect(
       find.text('We sent a sign-in link to a@b.co. Tap it to join Ada.'),

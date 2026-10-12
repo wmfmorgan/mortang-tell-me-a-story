@@ -504,7 +504,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Publish story'), findsOneWidget);
-    expect(find.text('New story'), findsNothing);
+    expect(find.text('New story'), findsOneWidget);
     expect(find.text('Invite'), findsNothing);
   });
 
@@ -532,8 +532,8 @@ void main() {
     expect(find.text('Story'), findsNothing);
     expect(find.byKey(const Key('story-title')), findsOneWidget);
     expect(find.byKey(const Key('story-body')), findsOneWidget);
-    expect(find.text('Give your memory a title...'), findsOneWidget);
-    expect(find.text('Write the story'), findsOneWidget);
+    expect(find.text('Story title...'), findsOneWidget);
+    expect(find.text('STORY ENTRY'), findsOneWidget);
     expect(find.text('Title'), findsNothing);
   });
 
@@ -564,6 +564,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('story-date-year')), '1980');
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ListTile, 'Ada'));
@@ -571,6 +572,7 @@ void main() {
     await tester.tap(find.text('Add to story'));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Choose place'));
     await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Central Park'));
@@ -592,7 +594,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Publish story'), findsOneWidget);
-    expect(find.text('New story'), findsNothing);
+    expect(find.text('New story'), findsOneWidget);
     expect(find.text('Invite'), findsNothing);
   });
 
@@ -894,7 +896,9 @@ void main() {
   });
 
   testWidgets('date boxes derive precision and preview', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: _DateHarness())));
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: _DateHarness())),
+    );
     expect(find.textContaining('Year is required.'), findsOneWidget);
     expect(find.textContaining('Shows as:'), findsNothing);
     expect(find.byType(BackdropFilter), findsNothing);
@@ -1035,5 +1039,132 @@ void main() {
     await tester.pumpAndSettle();
     expect(stories.updateDraftCalls, 1);
     expect(find.text('reader-s1'), findsOneWidget);
+  });
+
+  testWidgets('published decade edit can save without replacing the date', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(
+      story: Story(
+        id: 's1',
+        familyId: _familyId,
+        authorId: 'u1',
+        title: 'Jam',
+        body: 'Porch',
+        timeframeStart: DateTime(1980, 1, 1),
+        timeframeEnd: DateTime(1989, 12, 31),
+        datePrecision: StoryDatePrecision.decade,
+        status: StoryStatus.published,
+      ),
+    );
+    final router = GoRouter(
+      initialLocation: '/stories/s1/edit',
+      routes: [
+        GoRoute(
+          path: '/stories/:storyId/edit',
+          builder: (context, state) => NewStoryPage(
+            inviteApi: _FakeInviteApi(),
+            peopleApi: _FakePeopleApi(seed: const [_ada]),
+            placesApi: _FakePlacesApi(seed: [_park]),
+            mapboxSearch: _FakeMapboxSearch(),
+            storiesApi: stories,
+            photosApi: _FakePhotosApi(),
+            hasMapboxToken: true,
+            mapBuilder: _defaultStubMap,
+            editStoryId: 's1',
+          ),
+        ),
+        GoRoute(
+          path: '/stories/:storyId',
+          builder: (context, state) =>
+              Text('reader-${state.pathParameters['storyId']}'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-date-legacy')), findsOneWidget);
+    final year = tester.widget<TextField>(
+      find.byKey(const Key('story-date-year')),
+    );
+    expect(year.controller?.text, '1980');
+    final save = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save changes'),
+    );
+    expect(save.onPressed, isNotNull);
+
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam night');
+    await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
+    await tester.pumpAndSettle();
+    expect(stories.updateDraftCalls, 1);
+    expect(stories.lastTitle, 'Jam night');
+    expect(stories.lastTimeframeStart, isNull);
+    expect(stories.lastDatePrecision, isNull);
+    expect(find.text('reader-s1'), findsOneWidget);
+  });
+
+  testWidgets('edit saves a changed year with month and day', (tester) async {
+    final stories = _FakeStoriesApi(
+      story: Story(
+        id: 's1',
+        familyId: _familyId,
+        authorId: 'u1',
+        title: 'Jam',
+        body: 'Porch',
+        timeframeStart: DateTime(1980, 1, 1),
+        timeframeEnd: DateTime(1989, 12, 31),
+        datePrecision: StoryDatePrecision.decade,
+        status: StoryStatus.published,
+      ),
+    );
+    final router = GoRouter(
+      initialLocation: '/stories/s1/edit',
+      routes: [
+        GoRoute(
+          path: '/stories/:storyId/edit',
+          builder: (context, state) => NewStoryPage(
+            inviteApi: _FakeInviteApi(),
+            peopleApi: _FakePeopleApi(seed: const [_ada]),
+            placesApi: _FakePlacesApi(seed: [_park]),
+            mapboxSearch: _FakeMapboxSearch(),
+            storiesApi: stories,
+            photosApi: _FakePhotosApi(),
+            hasMapboxToken: true,
+            mapBuilder: _defaultStubMap,
+            editStoryId: 's1',
+          ),
+        ),
+        GoRoute(
+          path: '/stories/:storyId',
+          builder: (context, state) =>
+              Text('reader-${state.pathParameters['storyId']}'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('story-date-year')), '1994');
+    await tester.pump();
+    tester
+        .widget<DropdownButton<int>>(find.byKey(const Key('story-date-month')))
+        .onChanged!(3);
+    await tester.pump();
+    tester
+        .widget<DropdownButton<int>>(find.byKey(const Key('story-date-day')))
+        .onChanged!(2);
+    await tester.pump();
+    expect(find.text('Shows as: March 2, 1994'), findsOneWidget);
+
+    final save = find.widgetWithText(FilledButton, 'Save changes');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(stories.updateDraftCalls, 1);
+    expect(stories.lastTimeframeStart, DateTime(1994, 3, 2));
+    expect(stories.lastTimeframeEnd, DateTime(1994, 3, 2));
+    expect(stories.lastDatePrecision, 'day');
   });
 }

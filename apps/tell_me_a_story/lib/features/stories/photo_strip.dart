@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/photos_api.dart';
 
@@ -165,7 +165,7 @@ class _AddTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: CustomPaint(
               painter: _DashedCardPainter(
-                color: labeled ? albumInk.withValues(alpha: 0.28) : albumSage,
+                color: labeled ? albumSage.withValues(alpha: 0.6) : albumSage,
               ),
               child: SizedBox(
                 width: width,
@@ -186,10 +186,15 @@ class _AddTile extends StatelessWidget {
   }
 
   Widget _labeledBody(BuildContext context) {
-    final labelStyle = Theme.of(context).textTheme.labelSmall
-        ?.copyWith(color: albumInk, fontWeight: FontWeight.w600);
-    final hintStyle = Theme.of(context).textTheme.labelSmall
-        ?.copyWith(color: albumInk.withValues(alpha: 0.55), fontSize: 11);
+    final labelStyle = GoogleFonts.sourceSans3(
+      color: albumInk,
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+    );
+    final hintStyle = GoogleFonts.sourceSans3(
+      color: const Color(0xFF817976),
+      fontSize: 10,
+    );
     return Padding(
       padding: const EdgeInsets.all(8),
       child: FittedBox(
@@ -197,11 +202,18 @@ class _AddTile extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            PlusLabel(
-              label: label!,
-              size: 32,
-              style: labelStyle,
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: albumSage.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add, color: albumSage, size: 22),
             ),
+            const SizedBox(height: 8),
+            Text(label!, textAlign: TextAlign.center, style: labelStyle),
             if (hint != null) ...[
               const SizedBox(height: 2),
               Text(hint!, textAlign: TextAlign.center, style: hintStyle),
