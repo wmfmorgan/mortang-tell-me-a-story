@@ -10,6 +10,7 @@ const pending = {
   family_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   status: "pending",
   expires_at: "2099-01-01T00:00:00.000Z",
+  person_id: null as string | null,
 };
 
 function post(body: unknown): Request {
@@ -27,11 +28,19 @@ function dbWith(opts: {
   membershipId?: string | null;
   membershipError?: string | null;
   insertError?: string | null;
+  personId?: string | null;
+  linkError?: string | null;
   onInsert?: () => void;
+  onLink?: (personId: string) => void;
+  onAccept?: () => void;
 }): AcceptInviteDb {
   return {
     userId: () => Promise.resolve("user-owner"),
-    inviteByToken: () => Promise.resolve({ row: pending, error: null }),
+    inviteByToken: () =>
+      Promise.resolve({
+        row: { ...pending, person_id: opts.personId ?? null },
+        error: null,
+      }),
     membershipId: () =>
       Promise.resolve({
         id: opts.membershipId ?? null,
@@ -44,7 +53,14 @@ function dbWith(opts: {
         error: opts.insertError ?? null,
       });
     },
-    markAccepted: () => Promise.resolve(null),
+    linkPerson: (personId) => {
+      opts.onLink?.(personId);
+      return Promise.resolve(opts.linkError ?? null);
+    },
+    markAccepted: () => {
+      opts.onAccept?.();
+      return Promise.resolve(null);
+    },
   };
 }
 
@@ -63,6 +79,58 @@ Deno.test("an owner who opens their own invite stays owner", async () => {
   assertEquals(json.membership_id, "mem-owner");
   assertEquals(json.family_id, pending.family_id);
   assertEquals(inserted, false);
+});
+
+Deno.test("an unlinked person_id is linked before the invite is accepted", async () => {
+  const order: string[] = [];
+  const res = await acceptInvite(post({ token: "abc" }), {
+    db: dbWith({
+      personId: "person-1",
+      onLink: () => order.push("link"),
+      onAccept: () => order.push("accept"),
+    }),
+  });
+  assertEquals(res.status, 200);
+  assertEquals(order, ["link", "accept"]);
+});
+
+Deno.test("a null person_id does not link", async () => {
+  let linked = false;
+  const res = await acceptInvite(post({ token: "abc" }), {
+    db: dbWith({
+      onLink: () => {
+        linked = true;
+      },
+    }),
+  });
+  assertEquals(res.status, 200);
+  assertEquals(linked, false);
+});
+
+Deno.test("an already linked person still accepts", async () => {
+  const res = await acceptInvite(post({ token: "abc" }), {
+    db: dbWith({ personId: "person-1", linkError: null }),
+  });
+  const json = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(json.membership_id, "mem-new");
+});
+
+Deno.test("a missing uid while linking is 401 and does not accept", async () => {
+  let accepted = false;
+  const res = await acceptInvite(post({ token: "abc" }), {
+    db: dbWith({
+      personId: "person-1",
+      linkError: "NOT_FOUND:",
+      onAccept: () => {
+        accepted = true;
+      },
+    }),
+  });
+  const json = await res.json();
+  assertEquals(res.status, 401);
+  assertEquals(json.code, "AUTH_REQUIRED");
+  assertEquals(accepted, false);
 });
 
 Deno.test("membership failures hide raw database text", async () => {

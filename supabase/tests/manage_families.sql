@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(46);
+select plan(47);
 
 create temporary table m10_ctx (
   user_a uuid primary key,
@@ -234,6 +234,14 @@ values (
   '61000000-0000-4000-8000-000000000061'
 );
 
+reset role;
+update public.people
+set user_id = null
+where user_id = (select user_d from m10_ctx);
+update public.people
+set user_id = (select user_d from m10_ctx)
+where id = '61000000-0000-4000-8000-000000000061';
+
 set local role authenticated;
 set local request.jwt.claim.sub = 'a10a0000-0000-4000-8000-00000000000a';
 set local request.jwt.claim.role = 'authenticated';
@@ -244,6 +252,12 @@ select lives_ok(
     (select user_d from m10_ctx)
   ) $$,
   'owner removes a member from the tree'
+);
+
+select is(
+  (select user_id from public.people where id = '61000000-0000-4000-8000-000000000061'),
+  null,
+  'remove-member unlinks that user in the tree'
 );
 
 select is(

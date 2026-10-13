@@ -1,4 +1,5 @@
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
+import { mapRpcError } from "../_shared/manage.ts";
 import { bearerToken, serviceClient, userClient } from "../_shared/supabase.ts";
 
 const MEMBERSHIP_CHECK_FAILED = "Could not check membership";
@@ -9,6 +10,7 @@ type InviteRow = {
   family_id: string;
   status: string;
   expires_at: string;
+  person_id: string | null;
 };
 
 export type AcceptInviteDb = {
@@ -24,6 +26,7 @@ export type AcceptInviteDb = {
     familyId: string,
     userId: string,
   ) => Promise<{ id: string | null; error: string | null }>;
+  linkPerson: (personId: string) => Promise<string | null>;
   markAccepted: (inviteId: string, userId: string) => Promise<string | null>;
 };
 
@@ -42,7 +45,7 @@ function liveDb(auth: string): AcceptInviteDb {
     async inviteByToken(token) {
       const { data, error } = await admin
         .from("invites")
-        .select("id, family_id, status, expires_at")
+        .select("id, family_id, status, expires_at, person_id")
         .eq("token", token)
         .maybeSingle();
       return {
@@ -76,6 +79,12 @@ function liveDb(auth: string): AcceptInviteDb {
         id: (data?.id as string | undefined) ?? null,
         error: error?.message ?? null,
       };
+    },
+    async linkPerson(personId) {
+      const { error } = await userSb.rpc("link_accepted_person", {
+        p_person_id: personId,
+      });
+      return error?.message ?? null;
     },
     async markAccepted(inviteId, userId) {
       const { error } = await admin
@@ -163,6 +172,16 @@ async function handleAcceptInvite(
       return errorResponse("VALIDATION", MEMBERSHIP_CREATE_FAILED, 400);
     }
     membershipId = created.id;
+  }
+
+  if (invite.person_id) {
+    const linkErr = await store.linkPerson(invite.person_id);
+    if (linkErr) {
+      if (linkErr.trim().startsWith("NOT_FOUND:")) {
+        return errorResponse("AUTH_REQUIRED", "Sign-in required", 401);
+      }
+      return mapRpcError(linkErr);
+    }
   }
 
   const updErr = await store.markAccepted(invite.id, userId);

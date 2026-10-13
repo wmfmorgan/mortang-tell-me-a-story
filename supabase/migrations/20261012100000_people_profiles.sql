@@ -545,3 +545,54 @@ revoke all on function public.create_branch_family(uuid, uuid, text, int, uuid, 
   from public, anon;
 grant execute on function public.create_branch_family(uuid, uuid, text, int, uuid, uuid[])
   to authenticated, service_role;
+
+create or replace function public.remove_member(fid uuid, target uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  tree_ids uuid[];
+begin
+  perform public._require_family(fid);
+  if not (public.is_family_owner(fid) or public.is_family_co_owner(fid)) then
+    raise exception 'FORBIDDEN: owner or co-owner only';
+  end if;
+  if target = (select auth.uid()) then
+    raise exception 'FORBIDDEN: cannot remove yourself';
+  end if;
+
+  select coalesce(array_agg(id), '{}') into tree_ids
+  from public.family_tree_ids(fid);
+
+  if exists (
+    select 1
+    from public.memberships
+    where user_id = target
+      and family_id = any (tree_ids)
+      and role = 'owner'
+  ) then
+    raise exception 'FORBIDDEN: cannot remove an owner';
+  end if;
+
+  if exists (
+    select 1
+    from public.memberships
+    where user_id = target
+      and family_id = any (tree_ids)
+      and role = 'co_owner'
+  ) and not public.is_family_owner(fid) then
+    raise exception 'FORBIDDEN: cannot remove a co-owner';
+  end if;
+
+  delete from public.memberships
+  where user_id = target
+    and family_id = any (tree_ids);
+
+  update public.people
+  set user_id = null
+  where user_id = target
+    and family_id = any (tree_ids);
+end;
+$$;
