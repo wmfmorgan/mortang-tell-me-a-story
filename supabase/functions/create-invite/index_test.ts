@@ -22,6 +22,7 @@ function dbWith(opts: {
   assertError?: string | null;
   onAssert?: (familyId: string, personId: string) => void;
   onInsert?: (personId: string | null, email: string | null) => void;
+  insertError?: string | null;
 }): CreateInviteDb {
   return {
     userId: () => Promise.resolve("user-1"),
@@ -33,6 +34,9 @@ function dbWith(opts: {
     },
     insertInvite: (row) => {
       opts.onInsert?.(row.personId, row.email);
+      if (opts.insertError) {
+        return Promise.resolve({ invite: null, error: opts.insertError });
+      }
       return Promise.resolve({
         invite: {
           id: "invite-1",
@@ -125,6 +129,19 @@ Deno.test("a non-member is forbidden and an ordinary member is allowed", async (
     { db: dbWith({ member: true }) },
   );
   assertEquals(allowed.status, 201);
+});
+
+Deno.test("a raw database insert error stays generic", async () => {
+  const raw = 'duplicate key value violates unique constraint "invites_token_key"';
+  const res = await createInvite(
+    post({ family_id: familyId, email: "a@b.co" }),
+    { db: dbWith({ insertError: raw }) },
+  );
+  const json = await res.json();
+  assertEquals(res.status, 400);
+  assertEquals(json.code, "VALIDATION");
+  assertEquals(json.message, "Could not create invite");
+  assertEquals(JSON.stringify(json).includes("duplicate key"), false);
 });
 
 Deno.test("mapRpcError still has the four prefixes", () => {

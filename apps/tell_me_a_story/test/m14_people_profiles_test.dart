@@ -237,6 +237,18 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Edit profile'), findsNothing);
       expect(find.text('Not signed in yet'), findsNothing);
+
+      people.editor = Person(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        userId: 'me',
+      );
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('person-pill-p1')));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit profile'), findsNothing);
     },
   );
 
@@ -518,6 +530,60 @@ void main() {
     expect(people.wroteBirth, isFalse);
     expect(people.wroteAbout, isFalse);
     expect(people.wroteEmail, isFalse);
+  });
+
+  testWidgets('a linked person email stays read-only for another member', (
+    tester,
+  ) async {
+    final people = _People();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (context) => Dialog(
+                  child: EditPersonDialog(
+                    person: const Person(
+                      id: 'p1',
+                      familyId: _familyId,
+                      name: 'Ada',
+                      email: 'ada@example.com',
+                      userId: 'other',
+                    ),
+                    people: people,
+                    signedInUserId: 'me',
+                  ),
+                ),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    final email = tester.widget<TextField>(
+      find.byKey(const Key('edit-person-email')),
+    );
+    expect(email.readOnly, isTrue);
+    await tester.enterText(
+      find.byKey(const Key('edit-person-name')),
+      'Ada Other',
+    );
+    await tester.enterText(
+      find.byKey(const Key('edit-person-email')),
+      'other@example.com',
+    );
+    final save = find.byKey(const Key('edit-person-save'));
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(people.updatedName, 'Ada Other');
+    expect(people.wroteEmail, isFalse);
+    expect(people.updatedEmail, 'ada@example.com');
   });
 
   testWidgets('edit is absent when the person is linked to someone else', (

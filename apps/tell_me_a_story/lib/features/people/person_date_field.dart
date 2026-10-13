@@ -99,9 +99,9 @@ class _PersonDateFieldState extends State<PersonDateField> {
     );
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F1EA),
+        color: albumParchment,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE7DECE)),
+        border: Border.all(color: albumSage.withValues(alpha: 0.45)),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),

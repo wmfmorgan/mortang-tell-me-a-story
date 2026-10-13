@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(20);
+select plan(22);
 
 create temporary table m14m_ctx (
   user_a uuid primary key,
@@ -68,7 +68,11 @@ select '99999999-14e1-4111-8111-999999999991', 'Sam root', user_a, null from m14
 union all
 select '99999999-14e1-4111-8111-999999999992', 'Sam child', user_a, '99999999-14e1-4111-8111-999999999991' from m14m_ctx
 union all
-select '99999999-14e1-4111-8111-999999999993', 'Sam grand', user_a, '99999999-14e1-4111-8111-999999999992' from m14m_ctx;
+select '99999999-14e1-4111-8111-999999999993', 'Sam grand', user_a, '99999999-14e1-4111-8111-999999999992' from m14m_ctx
+union all
+select 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa1', 'Blank fill root', user_a, null from m14m_ctx
+union all
+select 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa2', 'Blank fill child', user_a, 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa1' from m14m_ctx;
 
 insert into public.people (id, family_id, name, email, user_id, created_by)
 select 'a1111111-14e1-4111-8111-a11111111111'::uuid, '11111111-14e1-4111-8111-111111111111'::uuid, 'Root Bee', null::text, user_b, user_a from m14m_ctx
@@ -109,7 +113,11 @@ select 'a9999999-14e1-4111-8111-a99999999991', '99999999-14e1-4111-8111-99999999
 union all
 select 'a9999999-14e1-4111-8111-a99999999992', '99999999-14e1-4111-8111-999999999992', 'Sam', null, null, user_a from m14m_ctx
 union all
-select 'a9999999-14e1-4111-8111-a99999999993', '99999999-14e1-4111-8111-999999999993', 'Sam', null, null, user_a from m14m_ctx;
+select 'a9999999-14e1-4111-8111-a99999999993', '99999999-14e1-4111-8111-999999999993', 'Sam', null, null, user_a from m14m_ctx
+union all
+select 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaa01', 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa1', 'Blank Fill', '', user_c, user_a from m14m_ctx
+union all
+select 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaa02', 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa2', 'Blank Fill Copy', 'filled@test.local', user_c, user_a from m14m_ctx;
 
 insert into public.stories (id, family_id, author_id, title, timeframe_start, status)
 values
@@ -281,6 +289,53 @@ select is(
   ),
   'a9999999-14e1-4111-8111-a99999999991'::uuid,
   'the grandchild tag points at the root person'
+);
+
+select is_empty(
+  $$
+    select public.family_tree_root(family_id) as root, 'user:' || user_id::text as key
+    from public.people
+    where user_id is not null
+      and public.family_tree_root(family_id) in (
+        '11111111-14e1-4111-8111-111111111111',
+        '22222222-14e1-4111-8111-222222222221',
+        '33333333-14e1-4111-8111-333333333331',
+        '44444444-14e1-4111-8111-444444444441',
+        '55555555-14e1-4111-8111-555555555551',
+        '66666666-14e1-4111-8111-666666666661',
+        '77777777-14e1-4111-8111-777777777771',
+        '88888888-14e1-4111-8111-888888888881',
+        '99999999-14e1-4111-8111-999999999991',
+        'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa1'
+      )
+    group by 1, 2
+    having count(*) > 1
+    union all
+    select public.family_tree_root(family_id), 'email:' || lower(btrim(email))
+    from public.people
+    where nullif(btrim(email), '') is not null
+      and public.family_tree_root(family_id) in (
+        '11111111-14e1-4111-8111-111111111111',
+        '22222222-14e1-4111-8111-222222222221',
+        '33333333-14e1-4111-8111-333333333331',
+        '44444444-14e1-4111-8111-444444444441',
+        '55555555-14e1-4111-8111-555555555551',
+        '66666666-14e1-4111-8111-666666666661',
+        '77777777-14e1-4111-8111-777777777771',
+        '88888888-14e1-4111-8111-888888888881',
+        '99999999-14e1-4111-8111-999999999991',
+        'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa1'
+      )
+    group by 1, 2
+    having count(*) > 1
+  $$,
+  'a tree has no duplicate user_id or non-empty email after merge'
+);
+
+select is(
+  (select email from public.people where id = 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaa01'),
+  'filled@test.local',
+  'a blank survivor email is filled from the copy'
 );
 
 select public.merge_copied_people();

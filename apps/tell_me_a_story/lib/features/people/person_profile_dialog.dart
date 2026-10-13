@@ -166,11 +166,9 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
   }
 
   bool get _showEdit {
-    final profile = _profile;
-    if (profile == null || _missing) return false;
-    final userId = _editor?.userId;
-    if (!profile.isLinked || userId == null) return true;
-    return userId == widget.signedInUserId;
+    if (_profile == null || _missing) return false;
+    if (_profile!.isLinked) return false;
+    return _editor?.userId == null;
   }
 
   Future<void> _edit() async {
@@ -284,7 +282,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
                       const SizedBox(height: 8),
                       DecoratedBox(
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF7F1EC),
+                          color: albumParchment,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: albumInk.withValues(alpha: 0.08),
@@ -333,7 +331,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
             const Spacer(),
             DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xFFEBE0DD),
+                color: albumSage.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Padding(
@@ -365,7 +363,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
       if ((story.place ?? '').isNotEmpty) story.place!,
     ];
     return Material(
-      color: Colors.white,
+      color: albumParchment,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         key: Key('person-profile-story-${story.id}'),
@@ -428,7 +426,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
             borderRadius: BorderRadius.circular(8),
             child: url == null || url.isEmpty
                 ? const ColoredBox(
-                    color: Color(0xFFF3EDE6),
+                    color: albumParchment,
                     child: SizedBox(width: 56, height: 56),
                   )
                 : Image.network(
@@ -437,7 +435,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
                     height: 56,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => const ColoredBox(
-                      color: Color(0xFFF3EDE6),
+                      color: albumParchment,
                       child: SizedBox(width: 56, height: 56),
                     ),
                   ),
@@ -459,7 +457,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
                   child: Text(
                     '${story.photoCount}',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: albumParchment,
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
                     ),
@@ -487,14 +485,14 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
               height: 112,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFF3EDE6),
+                color: albumParchment,
                 border: Border.all(color: albumInk.withValues(alpha: 0.12)),
               ),
               child: ClipOval(
                 child: empty
                     ? const ColoredBox(
                         key: Key('person-avatar-empty'),
-                        color: Color(0xFFF3EDE6),
+                        color: albumParchment,
                       )
                     : Image.network(
                         url,
@@ -504,7 +502,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => const ColoredBox(
                           key: Key('person-avatar-empty'),
-                          color: Color(0xFFF3EDE6),
+                          color: albumParchment,
                         ),
                       ),
               ),
@@ -518,7 +516,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
                   height: 24,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5DED6),
+                    color: albumTerracotta.withValues(alpha: 0.25),
                     shape: BoxShape.circle,
                     border: Border.all(color: albumParchment, width: 2),
                   ),
@@ -564,7 +562,7 @@ class _UnsignedBadge extends StatelessWidget {
             Text(
               'Not signed in yet',
               style: TextStyle(
-                color: Color(0xFF52634C),
+                color: albumSage,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),

@@ -145,8 +145,9 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
       return;
     }
     final email = _email.text.trim();
+    final linked = widget.person.userId != null;
     final emailChanged =
-        !_self &&
+        !linked &&
         !_passingSet &&
         email.isNotEmpty &&
         email != (widget.person.email ?? '');
@@ -176,7 +177,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
         about: _self ? null : about,
         writeAbout: !_self,
         email: _passingSet ? null : email,
-        writeEmail: !_self && !_passingSet,
+        writeEmail: widget.person.userId == null && !_passingSet,
         pictureBytes: _self ? null : _picture,
         clearPicture: !_self && _removed && _picture == null,
       );
@@ -287,7 +288,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
               TextField(
                 key: const Key('edit-person-email'),
                 controller: _email,
-                readOnly: _self,
+                readOnly: widget.person.userId != null,
                 keyboardType: TextInputType.emailAddress,
               ),
             ],
@@ -327,9 +328,9 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
     );
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF3EDE6),
+        color: albumParchment,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFDCD3C4)),
+        border: Border.all(color: albumSage.withValues(alpha: 0.45)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -429,7 +430,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
                 child: const Icon(
                   Icons.photo_camera,
                   size: 13,
-                  color: Colors.white,
+                  color: albumParchment,
                 ),
               ),
             ),
@@ -450,7 +451,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => const ColoredBox(
           key: Key('edit-person-picture-preview'),
-          color: Color(0xFFE7D5C8),
+          color: albumTerracotta,
         ),
       );
     }
@@ -464,13 +465,13 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => const ColoredBox(
           key: Key('edit-person-picture-empty'),
-          color: Color(0xFFF3EDE6),
+          color: albumParchment,
         ),
       );
     }
     return const ColoredBox(
       key: Key('edit-person-picture-empty'),
-      color: Colors.white,
+      color: albumParchment,
     );
   }
 }
@@ -567,7 +568,7 @@ class _ResizeGripPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF8A7E70)
+      ..color = albumInk
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round;
     for (var i = 0; i < 3; i++) {

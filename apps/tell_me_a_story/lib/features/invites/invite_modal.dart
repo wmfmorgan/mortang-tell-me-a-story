@@ -39,12 +39,12 @@ class InviteModal extends StatefulWidget {
           maxHeight: MediaQuery.sizeOf(ctx).height * 0.9,
         ),
         child: Material(
-          color: _InviteColors.card,
+          color: albumParchment,
           surfaceTintColor: Colors.transparent,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: _InviteColors.border),
+            side: const BorderSide(color: albumSage),
           ),
           child: InviteModal(
             familyId: familyId,
@@ -321,7 +321,7 @@ class _InviteModalState extends State<InviteModal> {
             _notInvitedSection(),
           ],
           const SizedBox(height: 16),
-          const Divider(height: 1, color: _InviteColors.rule),
+          const Divider(height: 1, color: albumInk),
           const SizedBox(height: 16),
           _actions(),
           const SizedBox(height: 12),
@@ -369,7 +369,7 @@ class _InviteModalState extends State<InviteModal> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: _InviteColors.chip,
+                      color: albumSage,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(widget.familyName, style: _InviteType.chip),
@@ -383,8 +383,8 @@ class _InviteModalState extends State<InviteModal> {
           key: const Key('invite-close'),
           onPressed: _busy ? null : _close,
           style: IconButton.styleFrom(
-            backgroundColor: _InviteColors.well,
-            foregroundColor: _InviteColors.muted,
+            backgroundColor: albumParchment,
+            foregroundColor: albumInk,
             fixedSize: const Size(32, 32),
             minimumSize: const Size(32, 32),
             padding: EdgeInsets.zero,
@@ -399,9 +399,9 @@ class _InviteModalState extends State<InviteModal> {
   Widget _tabs() {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _InviteColors.well,
+        color: albumParchment,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _InviteColors.border),
+        border: Border.all(color: albumSage),
       ),
       child: Padding(
         padding: const EdgeInsets.all(4),
@@ -422,7 +422,7 @@ class _InviteModalState extends State<InviteModal> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2),
         child: Material(
-          color: selected ? _InviteColors.primary : Colors.transparent,
+          color: selected ? albumTerracotta : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
             key: Key(keyName),
@@ -475,9 +475,9 @@ class _InviteModalState extends State<InviteModal> {
         const SizedBox(height: 6),
         DecoratedBox(
           decoration: BoxDecoration(
-            color: _InviteColors.card,
+            color: albumParchment,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _InviteColors.fieldBorder),
+            border: Border.all(color: albumSage),
           ),
           child: Row(
             children: [
@@ -487,10 +487,8 @@ class _InviteModalState extends State<InviteModal> {
                   vertical: 12,
                 ),
                 decoration: const BoxDecoration(
-                  color: _InviteColors.prefix,
-                  border: Border(
-                    right: BorderSide(color: _InviteColors.fieldBorder),
-                  ),
+                  color: albumParchment,
+                  border: Border(right: BorderSide(color: albumSage)),
                 ),
                 child: Text('+1', style: _InviteType.field),
               ),
@@ -570,7 +568,7 @@ class _InviteModalState extends State<InviteModal> {
                 decoration: InputDecoration(
                   isDense: true,
                   filled: true,
-                  fillColor: _InviteColors.well,
+                  fillColor: albumParchment,
                   hintText: _busy ? 'Creating link…' : '',
                   hintStyle: _InviteType.hint,
                   border: _fieldBorder,
@@ -609,7 +607,7 @@ class _InviteModalState extends State<InviteModal> {
                   ? null
                   : () => _createLink(personId: _pickedPersonId),
               style: TextButton.styleFrom(
-                foregroundColor: _InviteColors.primary,
+                foregroundColor: albumTerracotta,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 visualDensity: VisualDensity.compact,
               ),
@@ -749,8 +747,8 @@ class _InviteModalState extends State<InviteModal> {
           key: const Key('invite-cancel'),
           onPressed: _busy ? null : _close,
           style: OutlinedButton.styleFrom(
-            foregroundColor: _InviteColors.secondary,
-            side: const BorderSide(color: _InviteColors.cancelBorder),
+            foregroundColor: albumInk,
+            side: const BorderSide(color: albumSage),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -810,11 +808,11 @@ class _InviteModalState extends State<InviteModal> {
         hintText: hint,
         hintStyle: _InviteType.hint,
         filled: true,
-        fillColor: _InviteColors.card,
+        fillColor: albumParchment,
         border: _fieldBorder,
         enabledBorder: _fieldBorder,
         focusedBorder: _fieldBorder.copyWith(
-          borderSide: const BorderSide(color: _InviteColors.primary),
+          borderSide: const BorderSide(color: albumTerracotta),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -840,12 +838,12 @@ class _InviteModalState extends State<InviteModal> {
         hintText: 'Add a warm note for your family member...',
         hintStyle: _InviteType.hint,
         filled: true,
-        fillColor: _InviteColors.card,
+        fillColor: albumParchment,
         alignLabelWithHint: true,
         border: _fieldBorder,
         enabledBorder: _fieldBorder,
         focusedBorder: _fieldBorder.copyWith(
-          borderSide: const BorderSide(color: _InviteColors.primary),
+          borderSide: const BorderSide(color: albumTerracotta),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -857,12 +855,12 @@ class _InviteModalState extends State<InviteModal> {
 
   OutlineInputBorder get _fieldBorder => OutlineInputBorder(
     borderRadius: BorderRadius.circular(12),
-    borderSide: const BorderSide(color: _InviteColors.fieldBorder),
+    borderSide: const BorderSide(color: albumSage),
   );
 
   ButtonStyle get _smallOutline => OutlinedButton.styleFrom(
-    foregroundColor: _InviteColors.secondary,
-    side: const BorderSide(color: _InviteColors.cancelBorder),
+    foregroundColor: albumInk,
+    side: const BorderSide(color: albumSage),
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     minimumSize: Size.zero,
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -871,70 +869,44 @@ class _InviteModalState extends State<InviteModal> {
   );
 
   ButtonStyle get _primaryStyle => FilledButton.styleFrom(
-    backgroundColor: _InviteColors.primary,
-    foregroundColor: _InviteColors.onPrimary,
-    disabledBackgroundColor: _InviteColors.primary.withValues(alpha: 0.4),
+    backgroundColor: albumTerracotta,
+    foregroundColor: albumParchment,
+    disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.4),
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     textStyle: _InviteType.buttonBold,
   );
 }
 
-abstract final class _InviteColors {
-  static const card = Color(0xFFFFFFFF);
-  static const primary = Color(0xFF6B5B55);
-  static const onPrimary = Color(0xFFFFF6F3);
-  static const ink = Color(0xFF37312F);
-  static const muted = albumInk;
-  static const secondary = Color(0xFF665D5A);
-  static const chip = Color(0xFFEDE0DC);
-  static const chipInk = Color(0xFF58504D);
-  static const well = Color(0xFFF5ECE9);
-  static const prefix = Color(0x80F5ECE9);
-  static const border = Color(0x4DB9B0AD);
-  static const fieldBorder = Color(0x66B9B0AD);
-  static const cancelBorder = Color(0x80B9B0AD);
-  static const rule = Color(0x33B9B0AD);
-}
-
 abstract final class _InviteType {
   static final title = GoogleFonts.newsreader(
     fontSize: 24,
     fontWeight: FontWeight.w700,
-    color: _InviteColors.ink,
+    color: albumInk,
     height: 1.2,
   );
   static final label = GoogleFonts.sourceSans3(
     fontSize: 14,
     fontWeight: FontWeight.w600,
-    color: _InviteColors.ink,
+    color: albumInk,
   );
   static final optional = GoogleFonts.sourceSans3(
     fontSize: 14,
     fontWeight: FontWeight.w400,
-    color: _InviteColors.muted,
+    color: albumInk,
   );
-  static final meta = GoogleFonts.sourceSans3(
-    fontSize: 12,
-    color: _InviteColors.muted,
-  );
+  static final meta = GoogleFonts.sourceSans3(fontSize: 12, color: albumInk);
   static final chip = GoogleFonts.sourceSans3(
     fontSize: 12,
     fontWeight: FontWeight.w600,
-    color: _InviteColors.chipInk,
+    color: albumInk,
   );
-  static final field = GoogleFonts.sourceSans3(
-    fontSize: 14,
-    color: _InviteColors.ink,
-  );
+  static final field = GoogleFonts.sourceSans3(fontSize: 14, color: albumInk);
   static final hint = GoogleFonts.sourceSans3(
     fontSize: 14,
-    color: _InviteColors.muted.withValues(alpha: 0.7),
+    color: albumInk.withValues(alpha: 0.7),
   );
-  static final mono = GoogleFonts.sourceSans3(
-    fontSize: 14,
-    color: _InviteColors.ink,
-  );
+  static final mono = GoogleFonts.sourceSans3(fontSize: 14, color: albumInk);
   static final button = GoogleFonts.sourceSans3(
     fontSize: 13,
     fontWeight: FontWeight.w600,
@@ -946,18 +918,18 @@ abstract final class _InviteType {
   static final linkAction = GoogleFonts.sourceSans3(
     fontSize: 12,
     fontWeight: FontWeight.w600,
-    color: _InviteColors.primary,
+    color: albumTerracotta,
   );
   static final footnote = GoogleFonts.sourceSans3(
     fontSize: 11,
-    color: _InviteColors.muted,
+    color: albumInk,
   );
 
   static TextStyle tab(bool selected) {
     return GoogleFonts.sourceSans3(
       fontSize: 12,
       fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-      color: selected ? _InviteColors.onPrimary : _InviteColors.muted,
+      color: selected ? albumParchment : albumInk,
     );
   }
 }

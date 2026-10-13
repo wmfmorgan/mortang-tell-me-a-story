@@ -140,11 +140,8 @@ async function handleCreateInvite(
     token,
   });
   if (insertErr || !invite) {
-    return errorResponse(
-      "VALIDATION",
-      insertErr ?? "Could not create invite",
-      400,
-    );
+    console.error("create-invite insert failed", insertErr);
+    return errorResponse("VALIDATION", "Could not create invite", 400);
   }
 
   return jsonResponse(

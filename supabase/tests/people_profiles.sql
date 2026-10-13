@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(70);
+select plan(71);
 
 create temporary table m14_ctx (
   user_a uuid primary key,
@@ -463,6 +463,13 @@ select throws_ok(
 );
 
 set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
+select throws_ok(
+  $$insert into public.people (family_id, name, created_by, user_id)
+    select parent_id, 'Linked insert', user_a, user_a from m14_ctx$$,
+  '42501',
+  null,
+  'a member insert with a non-null user_id is refused'
+);
 select lives_ok(
   $$insert into storage.objects (bucket_id, name, owner_id)
     values (
