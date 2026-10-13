@@ -272,3 +272,136 @@ create policy person_avatars_update_editor
         )
     )
   );
+
+drop trigger if exists story_people_ensure_membership on public.story_people;
+drop trigger if exists people_ensure_membership on public.people;
+
+alter table public.invites
+  add column person_id uuid null references public.people (id) on delete set null;
+
+create or replace function public.list_unlinked_people(p_family_id uuid)
+returns table (id uuid, family_id uuid, name text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is null
+     or not exists (
+       select 1
+       from public.families f
+       where f.id = p_family_id
+         and f.deleted_at is null
+     )
+     or not public.is_tree_member(p_family_id) then
+    raise exception 'NOT_FOUND:';
+  end if;
+
+  return query
+  select p.id, p.family_id, p.name
+  from public.people p
+  join public.families f on f.id = p.family_id
+  where f.deleted_at is null
+    and p.user_id is null
+    and p.passing_date is null
+    and public.family_tree_root(p.family_id) = public.family_tree_root(p_family_id)
+  order by p.name, p.id;
+end;
+$$;
+
+create or replace function public.assert_invite_person(
+  p_family_id uuid,
+  p_person_id uuid
+)
+returns void
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  person public.people;
+begin
+  if (select auth.uid()) is null
+     or not exists (
+       select 1
+       from public.families f
+       where f.id = p_family_id
+         and f.deleted_at is null
+     )
+     or not public.is_tree_member(p_family_id) then
+    raise exception 'NOT_FOUND:';
+  end if;
+
+  select * into person
+  from public.people
+  where id = p_person_id;
+
+  if not found
+     or public.family_tree_root(person.family_id)
+        is distinct from public.family_tree_root(p_family_id) then
+    raise exception 'NOT_FOUND:';
+  end if;
+
+  if person.user_id is not null then
+    raise exception 'VALIDATION: person is already linked';
+  end if;
+
+  if person.passing_date is not null then
+    raise exception 'VALIDATION: person has passed';
+  end if;
+end;
+$$;
+
+create or replace function public.link_accepted_person(p_person_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  person public.people;
+  caller uuid;
+begin
+  caller := (select auth.uid());
+  if caller is null then
+    raise exception 'NOT_FOUND:';
+  end if;
+
+  select * into person
+  from public.people
+  where id = p_person_id;
+
+  if not found or person.user_id is not null then
+    return;
+  end if;
+
+  if exists (
+    select 1
+    from public.people other
+    join public.families mine on mine.id = other.family_id
+    join public.families target on target.id = person.family_id
+    where other.user_id = caller
+      and other.id <> person.id
+      and mine.deleted_at is null
+      and target.deleted_at is null
+      and public.family_tree_root(other.family_id)
+        = public.family_tree_root(person.family_id)
+  ) then
+    return;
+  end if;
+
+  update public.people
+  set user_id = caller
+  where id = person.id
+    and user_id is null;
+end;
+$$;
+
+revoke all on function public.list_unlinked_people(uuid) from public, anon, service_role;
+revoke all on function public.assert_invite_person(uuid, uuid) from public, anon, service_role;
+revoke all on function public.link_accepted_person(uuid) from public, anon, service_role;
+grant execute on function public.list_unlinked_people(uuid) to authenticated;
+grant execute on function public.assert_invite_person(uuid, uuid) to authenticated;
+grant execute on function public.link_accepted_person(uuid) to authenticated;

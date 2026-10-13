@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(50);
+select plan(69);
 
 create temporary table m14_ctx (
   user_a uuid primary key,
@@ -572,6 +572,204 @@ select lives_ok(
       'a1400000-0000-4000-8000-0000000000a1'
     )$$,
   'the linked user uploads their person avatar'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+select set_config('request.jwt.claim.role', '', true);
+
+insert into public.people (
+  id, family_id, name, created_by, passing_date, passing_precision
+)
+select
+  '88888888-14a1-4111-8111-888888888888',
+  parent_id,
+  'Passed Pat',
+  user_a,
+  '2010-01-01',
+  'year'
+from m14_ctx;
+
+insert into public.people (id, family_id, name, created_by)
+select
+  '77777777-14a1-4111-8111-777777777777',
+  child_id,
+  'Child Kin',
+  user_a
+from m14_ctx;
+
+insert into public.people (id, family_id, name, created_by)
+select
+  '99999999-14a1-4111-8111-999999999999',
+  dead_id,
+  'Other Tree',
+  user_d
+from m14_ctx;
+
+select ok(
+  exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'invites'
+      and column_name = 'person_id'
+      and is_nullable = 'YES'
+  ),
+  'invites.person_id is nullable'
+);
+
+select is(
+  has_function_privilege('anon', 'public.list_unlinked_people(uuid)', 'execute'),
+  false,
+  'anon cannot execute list_unlinked_people'
+);
+select is(
+  has_function_privilege('authenticated', 'public.link_accepted_person(uuid)', 'execute'),
+  true,
+  'authenticated can execute link_accepted_person'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
+
+select results_eq(
+  $$select id, family_id, name
+    from public.list_unlinked_people((select parent_id from m14_ctx))
+    order by name, id$$,
+  $$values
+      (
+        '77777777-14a1-4111-8111-777777777777'::uuid,
+        '11111111-14a1-4111-8111-111111111111'::uuid,
+        'Child Kin'::text
+      ),
+      (
+        '44444444-14a1-4111-8111-444444444444'::uuid,
+        (select parent_id from m14_ctx),
+        'No kin'::text
+      )$$,
+  'list_unlinked_people covers the tree and omits linked and passed people'
+);
+
+set local request.jwt.claim.sub = 'c1400000-0000-4000-8000-0000000000c1';
+select throws_ok(
+  $$select public.list_unlinked_people((select parent_id from m14_ctx))$$,
+  'P0001',
+  'NOT_FOUND:',
+  'an outsider cannot list unlinked people'
+);
+
+set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
+select throws_ok(
+  $$select public.list_unlinked_people('00000000-0000-4000-8000-00000000ffff')$$,
+  'P0001',
+  'NOT_FOUND:',
+  'a missing family is not found'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+select throws_ok(
+  $$select public.list_unlinked_people((select parent_id from m14_ctx))$$,
+  'P0001',
+  'NOT_FOUND:',
+  'a null uid cannot list unlinked people'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
+
+select throws_ok(
+  $$select public.assert_invite_person(
+      (select parent_id from m14_ctx),
+      '00000000-0000-4000-8000-00000000eeee'
+    )$$,
+  'P0001',
+  'NOT_FOUND:',
+  'a missing person is not found'
+);
+select throws_ok(
+  $$select public.assert_invite_person(
+      (select parent_id from m14_ctx),
+      '99999999-14a1-4111-8111-999999999999'
+    )$$,
+  'P0001',
+  'NOT_FOUND:',
+  'a person outside the tree is not found'
+);
+select throws_ok(
+  $$select public.assert_invite_person(
+      (select parent_id from m14_ctx),
+      '66666666-14a1-4111-8111-666666666666'
+    )$$,
+  'P0001',
+  'VALIDATION: person is already linked',
+  'a linked person cannot be invited'
+);
+select throws_ok(
+  $$select public.assert_invite_person(
+      (select parent_id from m14_ctx),
+      '88888888-14a1-4111-8111-888888888888'
+    )$$,
+  'P0001',
+  'VALIDATION: person has passed',
+  'a person who has passed cannot be invited'
+);
+select lives_ok(
+  $$select public.assert_invite_person(
+      (select parent_id from m14_ctx),
+      '77777777-14a1-4111-8111-777777777777'
+    )$$,
+  'an unlinked living tree person can be invited'
+);
+
+set local request.jwt.claim.sub = 'c1400000-0000-4000-8000-0000000000c1';
+select lives_ok(
+  $$select public.link_accepted_person('77777777-14a1-4111-8111-777777777777')$$,
+  'link_accepted_person sets user_id when it was null'
+);
+reset role;
+select is(
+  (select user_id from public.people where id = '77777777-14a1-4111-8111-777777777777'),
+  'c1400000-0000-4000-8000-0000000000c1'::uuid,
+  'the caller is linked'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'c1400000-0000-4000-8000-0000000000c1';
+select lives_ok(
+  $$select public.link_accepted_person('55555555-14a1-4111-8111-555555555555')$$,
+  'a person already linked to someone else does not raise'
+);
+reset role;
+select is(
+  (select user_id from public.people where id = '55555555-14a1-4111-8111-555555555555'),
+  'b1400000-0000-4000-8000-0000000000b1'::uuid,
+  'an already linked person stays linked'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
+select lives_ok(
+  $$select public.link_accepted_person('44444444-14a1-4111-8111-444444444444')$$,
+  'a caller already linked in the tree does not raise'
+);
+reset role;
+select is(
+  (select user_id from public.people where id = '44444444-14a1-4111-8111-444444444444'),
+  null,
+  'a caller already linked in the tree does not get a second row'
+);
+
+select set_config('request.jwt.claim.sub', '', true);
+select throws_ok(
+  $$select public.link_accepted_person('44444444-14a1-4111-8111-444444444444')$$,
+  'P0001',
+  'NOT_FOUND:',
+  'a null uid cannot link a person'
 );
 
 select * from finish();
