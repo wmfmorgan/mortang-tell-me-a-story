@@ -393,6 +393,7 @@ class _TimelinePageState extends State<TimelinePage> {
       familyId: familyId,
       familyName: _currentFamily?.name ?? 'Family',
       api: _api,
+      people: widget.peopleApi,
     );
   }
 
@@ -1210,41 +1211,41 @@ class _FarRailState extends State<_FarRail> {
             child: _EmptyTap(
               onTap: widget.onEmpty,
               child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is ScrollUpdateNotification ||
-                    notification is ScrollEndNotification) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) _measure();
-                  });
-                }
-                return false;
-              },
-              child: Stack(
-                key: _viewportKey,
-                children: [
-                  const Positioned.fill(
-                    child: IgnorePointer(
-                      child: Center(
-                        child: SizedBox(
-                          width: 2,
-                          child: ColoredBox(color: Color(0x332C2416)),
+                onNotification: (notification) {
+                  if (notification is ScrollUpdateNotification ||
+                      notification is ScrollEndNotification) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _measure();
+                    });
+                  }
+                  return false;
+                },
+                child: Stack(
+                  key: _viewportKey,
+                  children: [
+                    const Positioned.fill(
+                      child: IgnorePointer(
+                        child: Center(
+                          child: SizedBox(
+                            width: 2,
+                            child: ColoredBox(color: Color(0x332C2416)),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final pad = constraints.maxHeight / 2;
-                      return ListView(
-                        controller: _scroll,
-                        padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                        children: _farChildren(joinYear),
-                      );
-                    },
-                  ),
-                ],
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final pad = constraints.maxHeight / 2;
+                        return ListView(
+                          controller: _scroll,
+                          padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
+                          children: _farChildren(joinYear),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
             ),
           ),
         ],
@@ -1780,87 +1781,87 @@ class _MidRailState extends State<_MidRail> {
             child: _EmptyTap(
               onTap: widget.onEmpty,
               child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is ScrollUpdateNotification ||
-                    notification is ScrollEndNotification) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) _measure();
-                  });
-                }
-                return false;
-              },
-              child: Stack(
-                key: _viewportKey,
-                children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final pad = constraints.maxHeight / 2;
-                      final beside = <String, List<TreeFamily>>{};
-                      for (final mark in widget.marks) {
-                        final year = mark.branchYear;
-                        if (year == null || widget.stories.isEmpty) continue;
-                        final index = closestNewerStoryIndex(
-                          widget.stories,
-                          year,
-                        );
-                        final id = widget.stories[index].id;
-                        (beside[id] ??= []).add(mark);
-                      }
-                      final origin = widget.originMark;
-                      final originId = widget.originStoryId;
-                      if (origin != null && originId != null) {
-                        (beside[originId] ??= []).add(origin);
-                      }
-                      return ListView(
-                        controller: _scroll,
-                        padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                        children: [
-                          for (final mark in widget.marks)
-                            if (mark.branchYear == null)
-                              _BranchMark(
-                                family: mark,
-                                onTap: () => widget.onMark(mark),
-                                onRail: true,
+                onNotification: (notification) {
+                  if (notification is ScrollUpdateNotification ||
+                      notification is ScrollEndNotification) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _measure();
+                    });
+                  }
+                  return false;
+                },
+                child: Stack(
+                  key: _viewportKey,
+                  children: [
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final pad = constraints.maxHeight / 2;
+                        final beside = <String, List<TreeFamily>>{};
+                        for (final mark in widget.marks) {
+                          final year = mark.branchYear;
+                          if (year == null || widget.stories.isEmpty) continue;
+                          final index = closestNewerStoryIndex(
+                            widget.stories,
+                            year,
+                          );
+                          final id = widget.stories[index].id;
+                          (beside[id] ??= []).add(mark);
+                        }
+                        final origin = widget.originMark;
+                        final originId = widget.originStoryId;
+                        if (origin != null && originId != null) {
+                          (beside[originId] ??= []).add(origin);
+                        }
+                        return ListView(
+                          controller: _scroll,
+                          padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
+                          children: [
+                            for (final mark in widget.marks)
+                              if (mark.branchYear == null)
+                                _BranchMark(
+                                  family: mark,
+                                  onTap: () => widget.onMark(mark),
+                                  onRail: true,
+                                ),
+                            for (var i = 0; i < widget.stories.length; i++)
+                              _DialRow(
+                                key: widget.anchorFor(widget.stories[i].id),
+                                story: widget.stories[i],
+                                marks: beside[widget.stories[i].id] ?? const [],
+                                originTag:
+                                    widget.stories[i].id == widget.originStoryId
+                                    ? widget.originTag
+                                    : null,
+                                onMark: widget.onMark,
+                                cardOnLeft: i.isEven,
+                                focused: widget.stories[i].id == _centerId,
+                                opacity:
+                                    _opacities[widget.stories[i].id] ??
+                                    (widget.stories[i].id == _centerId
+                                        ? 1
+                                        : 0.35),
+                                showBranchRail:
+                                    widget.child != null && i <= joinAt,
+                                railEndsAtJoin:
+                                    widget.child != null && i == joinAt,
+                                joinNote: widget.child != null && i == joinAt
+                                    ? '← ${widget.child!.name} union joined archive'
+                                    : null,
+                                branchLabel: widget.child != null && i == joinAt
+                                    ? '${widget.child!.name} Branch'
+                                    : null,
+                                onTap: () => widget.onStub(widget.stories[i]),
+                                onNode: () => widget.onNode(widget.stories[i]),
                               ),
-                          for (var i = 0; i < widget.stories.length; i++)
-                            _DialRow(
-                              key: widget.anchorFor(widget.stories[i].id),
-                              story: widget.stories[i],
-                              marks: beside[widget.stories[i].id] ?? const [],
-                              originTag:
-                                  widget.stories[i].id == widget.originStoryId
-                                  ? widget.originTag
-                                  : null,
-                              onMark: widget.onMark,
-                              cardOnLeft: i.isEven,
-                              focused: widget.stories[i].id == _centerId,
-                              opacity:
-                                  _opacities[widget.stories[i].id] ??
-                                  (widget.stories[i].id == _centerId
-                                      ? 1
-                                      : 0.35),
-                              showBranchRail:
-                                  widget.child != null && i <= joinAt,
-                              railEndsAtJoin:
-                                  widget.child != null && i == joinAt,
-                              joinNote: widget.child != null && i == joinAt
-                                  ? '← ${widget.child!.name} union joined archive'
-                                  : null,
-                              branchLabel: widget.child != null && i == joinAt
-                                  ? '${widget.child!.name} Branch'
-                                  : null,
-                              onTap: () => widget.onStub(widget.stories[i]),
-                              onNode: () => widget.onNode(widget.stories[i]),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                  const _DialFade(top: true),
-                  const _DialFade(top: false),
-                ],
+                          ],
+                        );
+                      },
+                    ),
+                    const _DialFade(top: true),
+                    const _DialFade(top: false),
+                  ],
+                ),
               ),
-            ),
             ),
           ),
         ],
@@ -2773,107 +2774,109 @@ class _FullCardRailState extends State<_FullCardRail> {
             child: _EmptyTap(
               onTap: widget.onEmpty,
               child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is ScrollUpdateNotification ||
-                    notification is ScrollEndNotification) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) _measure();
-                  });
-                }
-                return false;
-              },
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final wide = constraints.maxWidth >= 800;
-                  final pad = constraints.maxHeight / 2;
-                  final gap = constraints.maxWidth < 720 ? 32.0 : 80.0;
-                  return Stack(
-                    key: _viewportKey,
-                    children: [
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: Align(
-                            alignment: wide
-                                ? Alignment.center
-                                : Alignment.centerLeft,
-                            child: Padding(
-                              padding: EdgeInsets.only(left: wide ? 0 : 13),
-                              child: Container(
-                                key: const Key('timeline-spine'),
-                                width: 2,
-                                color: albumInk.withValues(alpha: 0.2),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      ListView(
-                        controller: _scroll,
-                        scrollCacheExtent: const ScrollCacheExtent.pixels(
-                          100000,
-                        ),
-                        padding: EdgeInsets.fromLTRB(
-                          wide ? 24 : 8,
-                          pad,
-                          24,
-                          pad,
-                        ),
-                        children: [
-                          ..._fullCardChildren(
-                            stories: widget.stories,
-                            marks: widget.marks,
-                            onMark: widget.onMark,
-                            wide: wide,
-                            cardAt: (i) => _FullCardRow(
-                              key: widget.anchorFor(widget.stories[i].id),
-                              story: widget.stories[i],
-                              cardOnLeft: i.isEven,
-                              wide: wide,
-                              originMark:
-                                  widget.stories[i].id == widget.originStoryId
-                                  ? widget.originMark
-                                  : null,
-                              originTag:
-                                  widget.stories[i].id == widget.originStoryId
-                                  ? widget.originTag
-                                  : null,
-                              onMark: widget.onMark,
-                              onPerson: widget.onPerson,
-                              focused: widget.stories[i].id == _centerId,
-                              opacity:
-                                  _opacities[widget.stories[i].id] ??
-                                  (widget.stories[i].id == _centerId ? 1 : 0.4),
-                              gap: gap,
-                              photos: widget.photos,
-                              onOpen: () => widget.onOpen(widget.stories[i]),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Positioned.fill(
-                        child: IgnorePointer(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  albumParchment,
-                                  Color(0x00FBF7F2),
-                                  Color(0x00FBF7F2),
-                                  albumParchment,
-                                ],
-                                stops: [0, 0.18, 0.82, 1],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
+                onNotification: (notification) {
+                  if (notification is ScrollUpdateNotification ||
+                      notification is ScrollEndNotification) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _measure();
+                    });
+                  }
+                  return false;
                 },
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final wide = constraints.maxWidth >= 800;
+                    final pad = constraints.maxHeight / 2;
+                    final gap = constraints.maxWidth < 720 ? 32.0 : 80.0;
+                    return Stack(
+                      key: _viewportKey,
+                      children: [
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: Align(
+                              alignment: wide
+                                  ? Alignment.center
+                                  : Alignment.centerLeft,
+                              child: Padding(
+                                padding: EdgeInsets.only(left: wide ? 0 : 13),
+                                child: Container(
+                                  key: const Key('timeline-spine'),
+                                  width: 2,
+                                  color: albumInk.withValues(alpha: 0.2),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        ListView(
+                          controller: _scroll,
+                          scrollCacheExtent: const ScrollCacheExtent.pixels(
+                            100000,
+                          ),
+                          padding: EdgeInsets.fromLTRB(
+                            wide ? 24 : 8,
+                            pad,
+                            24,
+                            pad,
+                          ),
+                          children: [
+                            ..._fullCardChildren(
+                              stories: widget.stories,
+                              marks: widget.marks,
+                              onMark: widget.onMark,
+                              wide: wide,
+                              cardAt: (i) => _FullCardRow(
+                                key: widget.anchorFor(widget.stories[i].id),
+                                story: widget.stories[i],
+                                cardOnLeft: i.isEven,
+                                wide: wide,
+                                originMark:
+                                    widget.stories[i].id == widget.originStoryId
+                                    ? widget.originMark
+                                    : null,
+                                originTag:
+                                    widget.stories[i].id == widget.originStoryId
+                                    ? widget.originTag
+                                    : null,
+                                onMark: widget.onMark,
+                                onPerson: widget.onPerson,
+                                focused: widget.stories[i].id == _centerId,
+                                opacity:
+                                    _opacities[widget.stories[i].id] ??
+                                    (widget.stories[i].id == _centerId
+                                        ? 1
+                                        : 0.4),
+                                gap: gap,
+                                photos: widget.photos,
+                                onOpen: () => widget.onOpen(widget.stories[i]),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Positioned.fill(
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    albumParchment,
+                                    Color(0x00FBF7F2),
+                                    Color(0x00FBF7F2),
+                                    albumParchment,
+                                  ],
+                                  stops: [0, 0.18, 0.82, 1],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
             ),
           ),
         ],
@@ -3356,14 +3359,17 @@ class _FullCard extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        for (final person in story.people.isNotEmpty
-                            ? story.people
-                            : [
-                                for (final name in story.personNames)
-                                  (id: '', name: name),
-                              ])
+                        for (final person
+                            in story.people.isNotEmpty
+                                ? story.people
+                                : [
+                                    for (final name in story.personNames)
+                                      (id: '', name: name),
+                                  ])
                           GestureDetector(
-                            key: Key('timeline-person-${story.id}-${person.name}'),
+                            key: Key(
+                              'timeline-person-${story.id}-${person.name}',
+                            ),
                             onTap: person.id.isEmpty || onPerson == null
                                 ? null
                                 : () => onPerson!(person),

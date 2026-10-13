@@ -9,6 +9,7 @@ import 'core/router/url_strategy_stub.dart'
 import 'core/supabase/supabase_init.dart';
 import 'data/families_api.dart';
 import 'data/invite_api.dart';
+import 'data/people_api.dart';
 import 'data/profile_api.dart';
 import 'data/profile_session.dart';
 
@@ -32,6 +33,7 @@ Future<void> main() async {
         authRefresh: authRefresh,
         familiesApi: FamiliesApi(),
         inviteApi: InviteApi(),
+        peopleApi: PeopleApi(),
       ),
     ),
   );

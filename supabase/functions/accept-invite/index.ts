@@ -11,6 +11,7 @@ type InviteRow = {
   status: string;
   expires_at: string;
   person_id: string | null;
+  accepted_by: string | null;
 };
 
 export type AcceptInviteDb = {
@@ -45,7 +46,7 @@ function liveDb(auth: string): AcceptInviteDb {
     async inviteByToken(token) {
       const { data, error } = await admin
         .from("invites")
-        .select("id, family_id, status, expires_at, person_id")
+        .select("id, family_id, status, expires_at, person_id, accepted_by")
         .eq("token", token)
         .maybeSingle();
       return {
@@ -149,6 +150,18 @@ async function handleAcceptInvite(
     return errorResponse("INVITE_INVALID", "Invite is not valid", 400);
   }
   if (invite.status === "accepted") {
+    // The magic-link return opens this invite again after the first accept.
+    // The same person continues into the family. Anyone else still sees it used.
+    if (invite.accepted_by === userId) {
+      const again = await store.membershipId(invite.family_id, userId);
+      if (again.error || !again.id) {
+        return errorResponse("VALIDATION", MEMBERSHIP_CHECK_FAILED, 400);
+      }
+      return jsonResponse({
+        family_id: invite.family_id,
+        membership_id: again.id,
+      });
+    }
     return errorResponse("INVITE_ACCEPTED", "Invite already used", 400);
   }
   if (invite.status !== "pending") {

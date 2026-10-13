@@ -10,6 +10,7 @@ import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/manage_families_api.dart';
+import '../../data/people_api.dart';
 import '../../data/recovery_window.dart';
 import '../invites/invite_modal.dart';
 import 'family_role.dart';
@@ -23,6 +24,7 @@ class ManageFamiliesPage extends StatefulWidget {
     this.familiesApi,
     this.manageApi,
     this.inviteApi,
+    this.peopleApi,
     this.onLogout,
   });
 
@@ -30,6 +32,7 @@ class ManageFamiliesPage extends StatefulWidget {
   final FamiliesGateway? familiesApi;
   final ManageFamiliesGateway? manageApi;
   final InviteGateway? inviteApi;
+  final PeopleGateway? peopleApi;
   final Future<void> Function()? onLogout;
 
   @override
@@ -149,6 +152,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
       familyId: id,
       familyName: _sessionName,
       api: widget.inviteApi,
+      people: widget.peopleApi,
     );
   }
 

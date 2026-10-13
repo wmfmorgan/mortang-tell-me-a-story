@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/album_theme.dart';
+import '../../core/theme/profile_avatar.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
 import '../family/family_blur_dialog.dart';
@@ -73,12 +74,19 @@ class _InviteModalState extends State<InviteModal> {
   String? _linkUrl;
   List<Person> _unlinked = const [];
   String? _pickedPersonId;
+  List<Person> _notInvited = const [];
+  final _emailDrafts = <String, TextEditingController>{};
+  final _addingEmail = <String>{};
+  final _rowError = <String, String>{};
+  final _pendingSend = <String, String>{};
+  String? _rowBusyId;
 
   @override
   void initState() {
     super.initState();
     _api = widget.api ?? InviteApi();
     _people = widget.people;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadNotInvited());
   }
 
   @override
@@ -88,6 +96,9 @@ class _InviteModalState extends State<InviteModal> {
     _phoneController.dispose();
     _smsNoteController.dispose();
     _linkController.dispose();
+    for (final draft in _emailDrafts.values) {
+      draft.dispose();
+    }
     super.dispose();
   }
 
@@ -113,6 +124,117 @@ class _InviteModalState extends State<InviteModal> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _unlinked = const []);
+    }
+  }
+
+  Future<void> _loadNotInvited() async {
+    final people = widget.people;
+    if (people == null) return;
+    try {
+      final rows = await people.listUnlinkedPeople(widget.familyId);
+      if (!mounted) return;
+      setState(() => _notInvited = rows);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _notInvited = const []);
+    }
+  }
+
+  bool _hasEmail(Person person) => (person.email ?? '').trim().isNotEmpty;
+
+  void _dropNotInvited(String personId) {
+    _emailDrafts.remove(personId)?.dispose();
+    _addingEmail.remove(personId);
+    _rowError.remove(personId);
+    _pendingSend.remove(personId);
+    _notInvited = [
+      for (final row in _notInvited)
+        if (row.id != personId) row,
+    ];
+  }
+
+  Future<void> _inviteNotInvited(Person person) async {
+    final email = person.email?.trim() ?? '';
+    if (_rowBusyId != null || email.isEmpty) return;
+    setState(() {
+      _rowBusyId = person.id;
+      _rowError.remove(person.id);
+    });
+    try {
+      await _createAndSend(person, email);
+    } on InviteApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _rowError[person.id] = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _rowError[person.id] = 'Couldn’t send invite. Try again.');
+    } finally {
+      if (mounted) setState(() => _rowBusyId = null);
+    }
+  }
+
+  /// Creates the invite once, then sends it. A second tap after a failed
+  /// send retries the email and does not create another invite.
+  Future<void> _createAndSend(Person person, String email) async {
+    var inviteId = _pendingSend[person.id];
+    if (inviteId == null) {
+      final created = await _api.createInvite(
+        familyId: widget.familyId,
+        personId: person.id,
+        email: email,
+      );
+      inviteId = created.inviteId;
+      _pendingSend[person.id] = inviteId;
+    }
+    await _api.sendInviteEmail(inviteId: inviteId);
+    _pendingSend.remove(person.id);
+    if (!mounted) return;
+    setState(() => _dropNotInvited(person.id));
+  }
+
+  Future<void> _saveEmailAndInvite(Person person) async {
+    final people = widget.people;
+    final draft = _emailDrafts[person.id]?.text.trim() ?? '';
+    if (people == null || draft.isEmpty || _rowBusyId != null) return;
+    setState(() {
+      _rowBusyId = person.id;
+      _rowError.remove(person.id);
+    });
+    Person saved;
+    try {
+      saved = await people.updatePerson(
+        personId: person.id,
+        name: person.name,
+        email: draft,
+        writeEmail: true,
+      );
+    } catch (_) {
+      if (mounted) setState(() => _rowBusyId = null);
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _notInvited = [
+        for (final row in _notInvited)
+          if (row.id == person.id) saved else row,
+      ];
+      _addingEmail.remove(person.id);
+    });
+    final email = saved.email?.trim() ?? '';
+    if (email.isEmpty) {
+      if (mounted) setState(() => _rowBusyId = null);
+      return;
+    }
+    try {
+      await _createAndSend(saved, email);
+    } on InviteApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _rowError[person.id] = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _rowError[person.id] = 'Couldn’t send invite. Try again.');
+    } finally {
+      if (mounted) setState(() => _rowBusyId = null);
     }
   }
 
@@ -194,6 +316,10 @@ class _InviteModalState extends State<InviteModal> {
           if (_tab == 0) _emailBody(),
           if (_tab == 1) _smsBody(),
           if (_tab == 2) _linkBody(),
+          if (_notInvited.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _notInvitedSection(),
+          ],
           const SizedBox(height: 16),
           const Divider(height: 1, color: _InviteColors.rule),
           const SizedBox(height: 16),
@@ -501,6 +627,111 @@ class _InviteModalState extends State<InviteModal> {
     );
   }
 
+  Widget _notInvitedSection() {
+    return Column(
+      key: const Key('not-invited'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Not invited yet',
+          style: GoogleFonts.newsreader(
+            color: albumInk,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (final person in _notInvited) _notInvitedRow(person),
+      ],
+    );
+  }
+
+  Widget _notInvitedRow(Person person) {
+    final busy = _rowBusyId == person.id;
+    final error = _rowError[person.id];
+    final adding = _addingEmail.contains(person.id);
+    return Padding(
+      key: Key('not-invited-row-${person.id}'),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              ProfileAvatar(size: 32, displayName: person.name),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(person.name, style: _InviteType.field),
+                    if (!adding)
+                      Text(
+                        _hasEmail(person)
+                            ? person.email!.trim()
+                            : 'No email yet',
+                        style: _InviteType.meta,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (_hasEmail(person))
+                OutlinedButton(
+                  key: Key('not-invited-invite-${person.id}'),
+                  onPressed: busy ? null : () => _inviteNotInvited(person),
+                  style: _smallOutline,
+                  child: const Text('Invite'),
+                )
+              else if (!adding)
+                OutlinedButton(
+                  key: Key('not-invited-add-${person.id}'),
+                  onPressed: busy ? null : () => _startAddEmail(person.id),
+                  style: _smallOutline,
+                  child: const Text('Add email'),
+                ),
+            ],
+          ),
+          if (adding) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _field(
+                    key: Key('not-invited-email-${person.id}'),
+                    controller: _emailDrafts[person.id]!,
+                    hint: 'name@example.com',
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  key: Key('not-invited-save-${person.id}'),
+                  onPressed: busy ? null : () => _saveEmailAndInvite(person),
+                  style: _smallOutline,
+                  child: const Text('Save and invite'),
+                ),
+              ],
+            ),
+          ],
+          if (error != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              error,
+              key: Key('not-invited-error-${person.id}'),
+              style: _InviteType.meta.copyWith(color: albumTerracotta),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _startAddEmail(String personId) {
+    _emailDrafts.putIfAbsent(personId, TextEditingController.new);
+    setState(() => _addingEmail.add(personId));
+  }
+
   Widget _actions() {
     final primary = switch (_tab) {
       1 => (
@@ -627,6 +858,16 @@ class _InviteModalState extends State<InviteModal> {
   OutlineInputBorder get _fieldBorder => OutlineInputBorder(
     borderRadius: BorderRadius.circular(12),
     borderSide: const BorderSide(color: _InviteColors.fieldBorder),
+  );
+
+  ButtonStyle get _smallOutline => OutlinedButton.styleFrom(
+    foregroundColor: _InviteColors.secondary,
+    side: const BorderSide(color: _InviteColors.cancelBorder),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    minimumSize: Size.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    textStyle: _InviteType.button,
   );
 
   ButtonStyle get _primaryStyle => FilledButton.styleFrom(

@@ -336,7 +336,9 @@ void main() {
   });
 
   testWidgets('invite query rewrites to /invite/:token', (tester) async {
-    final auth = AuthRefresh(initiallySignedIn: true);
+    // Signed out, so the rewritten invite page stays. A signed-in session
+    // accepts and continues to the timeline.
+    final auth = AuthRefresh(initiallySignedIn: false);
     final router = createAppRouter(
       authRefresh: auth,
       inviteApi: _StubInviteApi(),

@@ -28,6 +28,8 @@ class _StubInviteApi implements InviteGateway {
   final personIds = <String?>[];
   String? lastEmail;
   String? lastPersonId;
+  Object? createError;
+  Object? sendError;
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
     return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
@@ -46,6 +48,8 @@ class _StubInviteApi implements InviteGateway {
     lastEmail = email;
     lastPersonId = personId;
     personIds.add(personId);
+    final error = createError;
+    if (error != null) throw error;
     return CreateInviteResult(
       inviteId: 'i',
       token: 't',
@@ -59,6 +63,8 @@ class _StubInviteApi implements InviteGateway {
 
   @override
   Future<void> sendInviteEmail({required String inviteId}) async {
+    final error = sendError;
+    if (error != null) throw error;
     emails.add(inviteId);
   }
 }
@@ -207,6 +213,158 @@ void main() {
     await tester.pump();
     expect(find.text('Someone new'), findsNothing);
   });
+
+  testWidgets('email save stays and shows the error when create-invite fails', (
+    tester,
+  ) async {
+    final api = _StubInviteApi()
+      ..createError = InviteApiException(
+        code: 'VALIDATION',
+        message: 'person is already linked',
+      );
+    final people = _EmailPeople();
+    await tester.binding.setSurfaceSize(const Size(900, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _open(tester, api, people: people);
+
+    expect(find.text('Not invited yet'), findsOneWidget);
+    expect(find.text('No email yet'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('not-invited-add-p-kim')));
+    await tester.tap(find.byKey(const Key('not-invited-add-p-kim')));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const Key('not-invited-email-p-kim')),
+      'kim@test.local',
+    );
+    final save = find.byKey(const Key('not-invited-save-p-kim'));
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pump();
+
+    expect(people.updates, 1);
+    expect(people.savedEmail, 'kim@test.local');
+    expect(find.text('kim@test.local'), findsOneWidget);
+    expect(find.text('No email yet'), findsNothing);
+    expect(find.text('person is already linked'), findsOneWidget);
+    expect(find.byKey(const Key('not-invited-row-p-kim')), findsOneWidget);
+    expect(api.creates, 1);
+    expect(api.emails, isEmpty);
+  });
+
+  testWidgets('invite on a saved email sends once and leaves the list', (
+    tester,
+  ) async {
+    final api = _StubInviteApi();
+    final people = _EmailPeople()
+      ..person = const Person(
+        id: 'p-baby',
+        familyId: 'f',
+        name: 'baby',
+        email: 'baby@billy.com',
+      );
+    await tester.binding.setSurfaceSize(const Size(900, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _open(tester, api, people: people);
+
+    await tester.tap(find.byKey(const Key('not-invited-invite-p-baby')));
+    await tester.pump();
+
+    expect(api.creates, 1);
+    expect(api.lastPersonId, 'p-baby');
+    expect(api.lastEmail, 'baby@billy.com');
+    expect(api.emails, ['i']);
+    expect(find.byKey(const Key('not-invited-row-p-baby')), findsNothing);
+    expect(find.text('Not invited yet'), findsNothing);
+  });
+
+  testWidgets('a failed send retries the email and does not create again', (
+    tester,
+  ) async {
+    final api = _StubInviteApi()
+      ..sendError = InviteApiException(
+        code: 'VALIDATION',
+        message: 'Invite has no email address to send to',
+      );
+    final people = _EmailPeople()
+      ..person = const Person(
+        id: 'p-baby',
+        familyId: 'f',
+        name: 'baby',
+        email: 'baby@billy.com',
+      );
+    await tester.binding.setSurfaceSize(const Size(900, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _open(tester, api, people: people);
+
+    final invite = find.byKey(const Key('not-invited-invite-p-baby'));
+    await tester.tap(invite);
+    await tester.pump();
+    expect(api.creates, 1);
+    expect(api.emails, isEmpty);
+    expect(find.text('Invite has no email address to send to'), findsOneWidget);
+
+    api.sendError = null;
+    await tester.tap(invite);
+    await tester.pump();
+    expect(api.creates, 1);
+    expect(api.emails, ['i']);
+    expect(find.byKey(const Key('not-invited-row-p-baby')), findsNothing);
+  });
+}
+
+class _EmailPeople extends PeopleGateway {
+  int updates = 0;
+  String? savedEmail;
+  Person person = const Person(id: 'p-kim', familyId: 'f', name: 'Kim');
+
+  @override
+  Future<List<Person>> listPeople(String familyId) async => const [];
+
+  @override
+  Future<Person> createPerson({
+    required String familyId,
+    required String name,
+    DateTime? birthDate,
+    String? birthPrecision,
+    DateTime? passingDate,
+    String? passingPrecision,
+    String? about,
+    String? email,
+    List<int>? pictureBytes,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<Person>> listUnlinkedPeople(String familyId) async => [person];
+
+  @override
+  Future<Person> updatePerson({
+    required String personId,
+    required String name,
+    DateTime? birthDate,
+    String? birthPrecision,
+    bool writeBirth = false,
+    DateTime? passingDate,
+    String? passingPrecision,
+    bool writePassing = false,
+    String? about,
+    bool writeAbout = false,
+    String? email,
+    bool writeEmail = false,
+    List<int>? pictureBytes,
+    bool clearPicture = false,
+  }) async {
+    updates += 1;
+    savedEmail = email;
+    person = Person(
+      id: person.id,
+      familyId: person.familyId,
+      name: person.name,
+      email: email,
+    );
+    return person;
+  }
 }
 
 class _UnlinkedPeople extends PeopleGateway {
@@ -230,9 +388,7 @@ class _UnlinkedPeople extends PeopleGateway {
 
   @override
   Future<List<Person>> listUnlinkedPeople(String familyId) async {
-    return const [
-      Person(id: 'p1', familyId: 'f', name: 'Ada'),
-    ];
+    return const [Person(id: 'p1', familyId: 'f', name: 'Ada')];
   }
 }
 

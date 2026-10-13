@@ -33,9 +33,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(
-      MaterialApp(home: MagicLinkPage(sender: sender)),
-    );
+    await tester.pumpWidget(MaterialApp(home: MagicLinkPage(sender: sender)));
     expect(find.text('Tell Me a Story'), findsOneWidget);
     expect(find.text(landingHeadline), findsOneWidget);
     expect(find.text(landingSubhead), findsOneWidget);
@@ -64,10 +62,7 @@ void main() {
     expect(find.text('Please enter a full email address.'), findsOneWidget);
     expect(sender.calls, 0);
 
-    await tester.enterText(
-      find.byKey(const Key('magic-link-email')),
-      'a@b.co',
-    );
+    await tester.enterText(find.byKey(const Key('magic-link-email')), 'a@b.co');
     await tester.ensureVisible(find.text('Email me a sign-in link'));
     await tester.tap(find.text('Email me a sign-in link'));
     await tester.pumpAndSettle();
@@ -214,6 +209,60 @@ void main() {
     expect(signed.accepts, 1);
   });
 
+  testWidgets('signed-in return to an already used invite opens the timeline', (
+    tester,
+  ) async {
+    final invites = _Invites();
+    var validated = 0;
+    final router = GoRouter(
+      initialLocation: '/invite/tok',
+      routes: [
+        GoRoute(
+          path: '/invite/:token',
+          builder: (context, state) => InviteSignInPage(
+            token: 'tok',
+            previewApi: _Preview(
+              const InvitePreview(valid: false),
+              onValidate: () => validated++,
+            ),
+            inviteApi: invites,
+            signedIn: () => true,
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) => const Text('timeline-home'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('timeline-home'), findsOneWidget);
+    expect(find.text(inviteDeadLink), findsNothing);
+    expect(invites.accepts, 1);
+    expect(validated, 0);
+  });
+
+  testWidgets('signed-in invite that another account used stays dead', (
+    tester,
+  ) async {
+    final invites = _Invites()..acceptError = Exception('used');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: InviteSignInPage(
+          token: 'used',
+          previewApi: _Preview(const InvitePreview(valid: false)),
+          inviteApi: invites,
+          signedIn: () => true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(inviteDeadLink), findsOneWidget);
+    expect(invites.accepts, 1);
+  });
+
   testWidgets('listed confirms use a blur shell and not AlertDialog', (
     tester,
   ) async {
@@ -225,10 +274,8 @@ void main() {
             body: Column(
               children: [
                 TextButton(
-                  onPressed: () => showDeleteFamilyDialog(
-                    context,
-                    familyName: 'Ada',
-                  ),
+                  onPressed: () =>
+                      showDeleteFamilyDialog(context, familyName: 'Ada'),
                   child: const Text('open-delete'),
                 ),
                 TextButton(
@@ -312,20 +359,27 @@ class _Sender implements MagicLinkSender {
 }
 
 class _Preview implements InviteLinkGateway {
-  _Preview(this.preview);
+  _Preview(this.preview, {this.onValidate});
 
   final InvitePreview preview;
+  final void Function()? onValidate;
 
   @override
-  Future<InvitePreview> validateInviteToken(String token) async => preview;
+  Future<InvitePreview> validateInviteToken(String token) async {
+    onValidate?.call();
+    return preview;
+  }
 }
 
 class _Invites implements InviteGateway {
   int accepts = 0;
+  Object? acceptError;
 
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
     accepts++;
+    final error = acceptError;
+    if (error != null) throw error;
     return const AcceptInviteResult(familyId: 'fam', membershipId: 'm');
   }
 

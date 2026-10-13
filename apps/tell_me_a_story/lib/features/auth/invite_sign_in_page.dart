@@ -60,8 +60,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
   bool get _isSignedIn => widget.signedIn?.call() ?? false;
 
   MagicLinkSender get _sender =>
-      widget.sender ??
-      GoTrueMagicLinkSender(Supabase.instance.client.auth);
+      widget.sender ?? GoTrueMagicLinkSender(Supabase.instance.client.auth);
 
   @override
   void initState() {
@@ -78,12 +77,16 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
   }
 
   void _onAuth() {
-    if (_isSignedIn && _preview?.valid == true) {
-      _accept();
-    }
+    if (_isSignedIn) _accept();
   }
 
   Future<void> _load() async {
+    // A session is enough to join. Validate first would hide a repeat open
+    // of an invite this person already accepted behind the dead-link copy.
+    if (_isSignedIn && widget.inviteApi != null) {
+      await _accept();
+      if (!mounted || _accepted) return;
+    }
     try {
       final api = widget.previewApi ?? InviteLinkApi();
       final preview = await api.validateInviteToken(widget.token);
@@ -176,28 +179,33 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
                 child: SizedBox(
                   width: constraints.maxWidth,
                   child: Padding(
-                  padding: EdgeInsets.fromLTRB(gutter, gutter, gutter, gutter),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _wordmark(),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 48),
-                        child: Center(
-                          child: SizedBox(
-                            width: cardWidth,
-                            child: _loading
-                                ? const CircularProgressIndicator(
-                                    color: albumTerracotta,
-                                  )
-                                : _card(),
+                    padding: EdgeInsets.fromLTRB(
+                      gutter,
+                      gutter,
+                      gutter,
+                      gutter,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _wordmark(),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 48),
+                          child: Center(
+                            child: SizedBox(
+                              width: cardWidth,
+                              child: _loading
+                                  ? const CircularProgressIndicator(
+                                      color: albumTerracotta,
+                                    )
+                                  : _card(),
+                            ),
                           ),
                         ),
-                      ),
-                      _footer(),
-                    ],
-                  ),
+                        _footer(),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -306,10 +314,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
               '$inviter invited you to $familyLabel.',
               key: const Key('invite-inviter'),
               textAlign: TextAlign.center,
-              style: GoogleFonts.literata(
-                color: albumTerracotta,
-                fontSize: 16,
-              ),
+              style: GoogleFonts.literata(color: albumTerracotta, fontSize: 16),
             ),
           ],
           const SizedBox(height: 24),
@@ -361,10 +366,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
         ),
         child: SizedBox(
           width: double.infinity,
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: child,
-          ),
+          child: Padding(padding: const EdgeInsets.all(32), child: child),
         ),
       ),
     );

@@ -8,6 +8,7 @@ import '../../core/theme/album_theme.dart';
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
+import '../../data/people_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import '../invites/invite_modal.dart';
@@ -30,12 +31,14 @@ class DraftsPage extends StatefulWidget {
     this.storiesApi,
     this.photosApi,
     this.familiesApi,
+    this.peopleApi,
   });
 
   final InviteGateway? inviteApi;
   final StoriesGateway? storiesApi;
   final PhotosGateway? photosApi;
   final FamiliesGateway? familiesApi;
+  final PeopleGateway? peopleApi;
 
   @override
   State<DraftsPage> createState() => _DraftsPageState();
@@ -171,6 +174,7 @@ class _DraftsPageState extends State<DraftsPage> {
       familyId: familyId,
       familyName: _familyName,
       api: _invite,
+      people: widget.peopleApi,
     );
   }
 

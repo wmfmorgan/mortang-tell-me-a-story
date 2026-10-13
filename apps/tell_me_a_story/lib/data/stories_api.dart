@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'photos_api.dart';
+
 enum StoryStatus { draft, published }
 
 /// Declaration order matches Postgres `story_date_precision`.
@@ -171,6 +173,35 @@ String? _authorAvatarPath(Object? profiles) {
 
 int _rowCount(Object? rows) => rows is List ? rows.length : 0;
 
+String _profileWhen(Story story) {
+  final start = story.timeframeStart;
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  switch (story.datePrecision) {
+    case StoryDatePrecision.decade:
+      final year = start.year - (start.year % 10);
+      return '${year}s';
+    case StoryDatePrecision.year:
+      return '${start.year}';
+    case StoryDatePrecision.month:
+      return '${months[start.month - 1]} ${start.year}';
+    case StoryDatePrecision.day:
+      return '${months[start.month - 1]} ${start.day}, ${start.year}';
+  }
+}
+
 List<String> _photoPaths(Object? photos) {
   if (photos is! List) return const [];
   final rows = photos.whereType<Map>().toList();
@@ -183,6 +214,25 @@ List<String> _photoPaths(Object? photos) {
     for (final row in rows)
       if (row['storage_path'] is String) row['storage_path'] as String,
   ];
+}
+
+/// One published story on a person profile.
+class PersonStoryCard {
+  const PersonStoryCard({
+    required this.id,
+    required this.title,
+    required this.whenLabel,
+    this.place,
+    this.photoCount = 0,
+    this.thumbUrl,
+  });
+
+  final String id;
+  final String title;
+  final String whenLabel;
+  final String? place;
+  final int photoCount;
+  final String? thumbUrl;
 }
 
 class PublishReadiness {
@@ -397,6 +447,49 @@ class StoriesApi implements StoriesGateway {
     return Story.fromJson(row);
   }
 
+  /// Published stories tagged with [personId], oldest first.
+  Future<List<PersonStoryCard>> storiesForPerson(String personId) async {
+    final rows = await _client
+        .from('stories')
+        .select(
+          'id, family_id, author_id, title, body, timeframe_start, timeframe_end, '
+          'date_precision, created_at, place_id, status, published_at, '
+          'places(label), story_people!inner(person_id, people(name)), '
+          'profiles!author_id(display_name, avatar_path), '
+          'photos(id, storage_path, sort_order)',
+        )
+        .eq('status', 'published')
+        .eq('story_people.person_id', personId)
+        .order('timeframe_start');
+    final cards = <PersonStoryCard>[];
+    for (final row in rows) {
+      final story = Story.fromJson(row);
+      final title = story.title?.trim() ?? '';
+      String? thumb;
+      final path = story.photoPaths.isEmpty ? null : story.photoPaths.first;
+      if (path != null && path.isNotEmpty) {
+        try {
+          thumb = await _client.storage
+              .from(storyPhotosBucket)
+              .createSignedUrl(path, 3600);
+        } catch (_) {
+          thumb = null;
+        }
+      }
+      cards.add(
+        PersonStoryCard(
+          id: story.id,
+          title: title.isEmpty ? 'Untitled' : title,
+          whenLabel: _profileWhen(story),
+          place: story.placeLabel,
+          photoCount: story.photoCount,
+          thumbUrl: thumb,
+        ),
+      );
+    }
+    return cards;
+  }
+
   @override
   Future<List<Story>> listMyDrafts(String familyId) async {
     final uid = _client.auth.currentUser!.id;
@@ -454,17 +547,18 @@ int decadeStartYear(DateTime start) => (start.year ~/ 10) * 10;
 
 /// Oldest first: start, precision, created_at, id. Newest-first is the reverse.
 int compareStories(Story a, Story b) {
-  final start = DateTime(
-    a.timeframeStart.year,
-    a.timeframeStart.month,
-    a.timeframeStart.day,
-  ).compareTo(
-    DateTime(
-      b.timeframeStart.year,
-      b.timeframeStart.month,
-      b.timeframeStart.day,
-    ),
-  );
+  final start =
+      DateTime(
+        a.timeframeStart.year,
+        a.timeframeStart.month,
+        a.timeframeStart.day,
+      ).compareTo(
+        DateTime(
+          b.timeframeStart.year,
+          b.timeframeStart.month,
+          b.timeframeStart.day,
+        ),
+      );
   if (start != 0) return start;
   final precision = a.datePrecision.index.compareTo(b.datePrecision.index);
   if (precision != 0) return precision;

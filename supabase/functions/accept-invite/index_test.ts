@@ -11,6 +11,7 @@ const pending = {
   status: "pending",
   expires_at: "2099-01-01T00:00:00.000Z",
   person_id: null as string | null,
+  accepted_by: null as string | null,
 };
 
 function post(body: unknown): Request {
@@ -30,6 +31,8 @@ function dbWith(opts: {
   insertError?: string | null;
   personId?: string | null;
   linkError?: string | null;
+  status?: string;
+  acceptedBy?: string | null;
   onInsert?: () => void;
   onLink?: (personId: string) => void;
   onAccept?: () => void;
@@ -38,7 +41,12 @@ function dbWith(opts: {
     userId: () => Promise.resolve("user-owner"),
     inviteByToken: () =>
       Promise.resolve({
-        row: { ...pending, person_id: opts.personId ?? null },
+        row: {
+          ...pending,
+          person_id: opts.personId ?? null,
+          status: opts.status ?? pending.status,
+          accepted_by: opts.acceptedBy ?? null,
+        },
         error: null,
       }),
     membershipId: () =>
@@ -131,6 +139,38 @@ Deno.test("a missing uid while linking is 401 and does not accept", async () => 
   assertEquals(res.status, 401);
   assertEquals(json.code, "AUTH_REQUIRED");
   assertEquals(accepted, false);
+});
+
+Deno.test("the same user can open an accepted invite again", async () => {
+  let marked = false;
+  const res = await acceptInvite(post({ token: "abc" }), {
+    db: dbWith({
+      status: "accepted",
+      acceptedBy: "user-owner",
+      membershipId: "mem-owner",
+      onAccept: () => {
+        marked = true;
+      },
+    }),
+  });
+  const json = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(json.family_id, pending.family_id);
+  assertEquals(json.membership_id, "mem-owner");
+  assertEquals(marked, false);
+});
+
+Deno.test("someone else cannot reuse an accepted invite", async () => {
+  const res = await acceptInvite(post({ token: "abc" }), {
+    db: dbWith({
+      status: "accepted",
+      acceptedBy: "user-other",
+      membershipId: "mem-other",
+    }),
+  });
+  const json = await res.json();
+  assertEquals(res.status, 400);
+  assertEquals(json.code, "INVITE_ACCEPTED");
 });
 
 Deno.test("membership failures hide raw database text", async () => {

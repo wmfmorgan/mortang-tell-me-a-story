@@ -70,6 +70,9 @@ abstract class ProfileGateway {
   /// Uploads `{uid}/avatar.jpg` and sets `avatar_path`.
   Future<String> saveAvatar(Uint8List bytes);
 
+  /// Clears `profiles.avatar_path`. Does not delete the storage object.
+  Future<void> clearAvatar();
+
   Future<Uint8List?> downloadAvatar(String path);
 
   /// `auth.updateUser` only. Does not write `profiles.email`.
@@ -172,6 +175,11 @@ class ProfileApi implements ProfileGateway {
     }
     await _patch({'avatar_path': path});
     return path;
+  }
+
+  @override
+  Future<void> clearAvatar() {
+    return _patch({'avatar_path': null});
   }
 
   @override

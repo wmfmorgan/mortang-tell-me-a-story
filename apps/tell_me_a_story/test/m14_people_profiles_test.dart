@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -28,21 +30,27 @@ void main() {
     await tester.tap(find.text('Create new person'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Name'), findsOneWidget);
-    expect(find.text('Date of birth'), findsOneWidget);
-    expect(find.text('Date of passing'), findsOneWidget);
-    expect(find.text('Picture'), findsWidgets);
-    expect(find.text('About'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('NAME'), findsOneWidget);
+    expect(find.text('DATE OF BIRTH'), findsOneWidget);
+    expect(find.text('DATE OF PASSING'), findsOneWidget);
+    expect(find.text('PICTURE'), findsOneWidget);
+    expect(find.text('ABOUT'), findsOneWidget);
+    expect(find.text('EMAIL'), findsOneWidget);
     expect(find.text('Relationship'), findsNothing);
     expect(find.byIcon(Icons.add), findsWidgets);
     expect(find.text(_helper), findsNWidgets(2));
 
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
-    await tester.enterText(find.byKey(const Key('story-date-year')).first, '1987');
+    await tester.enterText(
+      find.byKey(const Key('story-date-year')).first,
+      '1987',
+    );
     await tester.pump();
     expect(find.text('Shows as: 1987'), findsOneWidget);
-    await tester.enterText(find.byKey(const Key('add-person-about')), 'a' * 500);
+    await tester.enterText(
+      find.byKey(const Key('add-person-about')),
+      'a' * 500,
+    );
     final save = find.widgetWithText(FilledButton, 'Add person');
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -60,7 +68,10 @@ void main() {
     await tester.tap(find.text('Create new person'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
-    await tester.enterText(find.byKey(const Key('add-person-about')), 'a' * 501);
+    await tester.enterText(
+      find.byKey(const Key('add-person-about')),
+      'a' * 501,
+    );
     final save = find.widgetWithText(FilledButton, 'Add person');
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -75,9 +86,16 @@ void main() {
     await tester.tap(find.text('Create new person'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
-    await tester.enterText(find.byKey(const Key('story-date-year')).at(1), '1990');
+    await tester.enterText(
+      find.byKey(const Key('story-date-year')).at(1),
+      '1990',
+    );
     await tester.pump();
-    expect(find.text('Email'), findsNothing);
+    expect(find.text('EMAIL'), findsNothing);
+    expect(
+      find.text('Email is hidden when Date of passing is set.'),
+      findsNothing,
+    );
     expect(find.text('Shows as: 1990'), findsOneWidget);
     final save = find.widgetWithText(FilledButton, 'Add person');
     await tester.ensureVisible(save);
@@ -99,7 +117,10 @@ void main() {
     await tester.tap(find.text('Create new person'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
-    await tester.enterText(find.byKey(const Key('add-person-email')), 'ada@example.com');
+    await tester.enterText(
+      find.byKey(const Key('add-person-email')),
+      'ada@example.com',
+    );
     final save = find.widgetWithText(FilledButton, 'Add person');
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -124,7 +145,10 @@ void main() {
     await tester.tap(find.text('Create new person'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
-    await tester.enterText(find.byKey(const Key('add-person-email')), 'ada@example.com');
+    await tester.enterText(
+      find.byKey(const Key('add-person-email')),
+      'ada@example.com',
+    );
     final save = find.widgetWithText(FilledButton, 'Add person');
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -138,79 +162,127 @@ void main() {
     expect(invites.sent, ['i']);
   });
 
-  testWidgets('a name pill opens a profile and hides edit when linked to someone else', (
-    tester,
-  ) async {
-    final people = _People()
-      ..profile = const PersonProfile(
+  testWidgets(
+    'a name pill opens a profile and hides edit when linked to someone else',
+    (tester) async {
+      final people = _People()
+        ..profile = const PersonProfile(
+          id: 'p1',
+          familyId: _familyId,
+          name: 'Ada',
+          isLinked: false,
+          birthDate: null,
+          about: 'Kin',
+        );
+      people.profile = PersonProfile(
         id: 'p1',
         familyId: _familyId,
         name: 'Ada',
         isLinked: false,
-        birthDate: null,
+        birthDate: DateTime(1987, 1, 1),
+        birthPrecision: 'year',
+        passingDate: DateTime(1990, 1, 1),
+        passingPrecision: 'year',
         about: 'Kin',
       );
-    people.profile = PersonProfile(
-      id: 'p1',
-      familyId: _familyId,
-      name: 'Ada',
-      isLinked: false,
-      birthDate: DateTime(1987, 1, 1),
-      birthPrecision: 'year',
-      passingDate: DateTime(1990, 1, 1),
-      passingPrecision: 'year',
-      about: 'Kin',
-    );
-    people.editor = Person(
-      id: 'p1',
-      familyId: _familyId,
-      name: 'Ada',
-      email: 'ada@example.com',
-    );
+      people.editor = Person(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        email: 'ada@example.com',
+      );
 
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PersonNamePill(
+              personId: 'p1',
+              name: 'Ada',
+              people: people,
+              signedInUserId: 'me',
+              child: const Text('Ada'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('person-pill-p1')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('person-profile-dialog')), findsOneWidget);
+      expect(find.text('Born 1987 · Passed 1990'), findsOneWidget);
+      expect(find.text('Kin'), findsOneWidget);
+      expect(find.text('ada@example.com'), findsNothing);
+      expect(find.text('Relationship'), findsNothing);
+      expect(find.text('Stories'), findsOneWidget);
+      expect(find.text('0 stories'), findsOneWidget);
+      expect(find.text('Not signed in yet'), findsOneWidget);
+      expect(find.byKey(const Key('person-avatar-empty')), findsOneWidget);
+      expect(find.text('Edit profile'), findsOneWidget);
+
+      people.profile = PersonProfile(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        isLinked: true,
+      );
+      people.editor = Person(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        userId: 'other',
+      );
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('person-pill-p1')));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit profile'), findsNothing);
+      expect(find.text('Not signed in yet'), findsNothing);
+    },
+  );
+
+  testWidgets('a member profile lists that person’s stories', (tester) async {
+    final people = _People()
+      ..profile = PersonProfile(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada Lovelace',
+        isLinked: false,
+        about: 'Kin',
+      );
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: PersonNamePill(
-            personId: 'p1',
-            name: 'Ada',
-            people: people,
-            signedInUserId: 'me',
-            child: const Text('Ada'),
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showPersonProfile(
+              context,
+              personId: 'p1',
+              name: 'Ada Lovelace',
+              people: people,
+              signedInUserId: 'me',
+              loadStories: (_) async => const [
+                PersonStoryCard(
+                  id: 's1',
+                  title: 'First notes',
+                  whenLabel: 'Summer 1972',
+                  place: 'St. Jude Chapel',
+                  photoCount: 8,
+                ),
+              ],
+            ),
+            child: const Text('open'),
           ),
         ),
       ),
     );
-    await tester.tap(find.byKey(const Key('person-pill-p1')));
+    await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('person-profile-dialog')), findsOneWidget);
-    expect(find.text('Shows as 1987'), findsOneWidget);
-    expect(find.text('Shows as 1990'), findsOneWidget);
-    expect(find.text('Kin'), findsOneWidget);
-    expect(find.text('ada@example.com'), findsNothing);
-    expect(find.text('Relationship'), findsNothing);
-    expect(find.text('Stories'), findsNothing);
-    expect(find.byKey(const Key('person-avatar-empty')), findsOneWidget);
-    expect(find.text('Edit'), findsOneWidget);
-
-    people.profile = PersonProfile(
-      id: 'p1',
-      familyId: _familyId,
-      name: 'Ada',
-      isLinked: true,
+    expect(find.text('1 story'), findsOneWidget);
+    expect(find.text('First notes'), findsOneWidget);
+    expect(find.text('Summer 1972 · St. Jude Chapel'), findsOneWidget);
+    expect(
+      find.text('Editable by family members until Ada signs in.'),
+      findsOneWidget,
     );
-    people.editor = Person(
-      id: 'p1',
-      familyId: _familyId,
-      name: 'Ada',
-      userId: 'other',
-    );
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('person-pill-p1')));
-    await tester.pumpAndSettle();
-    expect(find.text('Edit'), findsNothing);
   });
 
   testWidgets('a missing profile shows the name only', (tester) async {
@@ -275,10 +347,51 @@ void main() {
     expect(find.text('Date of birth'), findsOneWidget);
     expect(find.text('About'), findsOneWidget);
     expect(find.text('Picture'), findsWidgets);
+    expect(find.text('Add photo'), findsOneWidget);
+    double top(Key key) => tester.getTopLeft(find.byKey(key)).dy;
+    expect(
+      top(const Key('edit-person-picture')),
+      lessThan(top(const Key('edit-person-name'))),
+    );
+    expect(
+      top(const Key('edit-person-name')),
+      lessThan(top(const Key('edit-person-birth'))),
+    );
+    expect(
+      top(const Key('edit-person-birth')),
+      lessThan(top(const Key('edit-person-passing'))),
+    );
+    expect(
+      top(const Key('edit-person-passing')),
+      lessThan(top(const Key('edit-person-about'))),
+    );
+    expect(
+      top(const Key('edit-person-about')),
+      lessThan(top(const Key('edit-person-email'))),
+    );
+    expect(
+      top(const Key('edit-person-email')),
+      lessThan(top(const Key('edit-person-save'))),
+    );
+    final aboutBox = find.byKey(const Key('edit-person-about-box'));
+    await tester.ensureVisible(aboutBox);
+    final before = tester.getSize(aboutBox).height;
+    expect(before, lessThan(90));
+    final handle = find.byKey(const Key('edit-person-about-resize'));
+    await tester.drag(handle, const Offset(0, 48));
+    await tester.pump();
+    expect(tester.getSize(aboutBox).height, greaterThan(before + 20));
+    expect(find.byKey(const Key('edit-person-picture-remove')), findsNothing);
     expect(find.text('ada@example.com'), findsOneWidget);
 
-    await tester.enterText(find.byKey(const Key('edit-person-name')), 'Ada Lovelace');
-    await tester.enterText(find.byKey(const Key('edit-person-about')), 'Updated');
+    await tester.enterText(
+      find.byKey(const Key('edit-person-name')),
+      'Ada Lovelace',
+    );
+    await tester.enterText(
+      find.byKey(const Key('edit-person-about')),
+      'Updated',
+    );
     await tester.enterText(
       find.byKey(const Key('edit-person-email')),
       'next@example.com',
@@ -296,6 +409,69 @@ void main() {
     expect(people.updatedEmail, 'next@example.com');
     expect(people.wroteBirth, isTrue);
     expect(invites.creates, 0);
+  });
+
+  testWidgets('edit adds or clears an unlinked picture', (tester) async {
+    final people = _People();
+    final bytes = Uint8List.fromList(const [1, 2, 3]);
+    Future<void> open(Person person) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showEditPersonDialog(
+                context,
+                person: person,
+                people: people,
+                signedInUserId: 'me',
+                pickImageBytes: () async => bytes,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    await open(const Person(id: 'p1', familyId: _familyId, name: 'Ada'));
+    expect(find.text('Edit person'), findsOneWidget);
+    expect(find.text('Add photo'), findsOneWidget);
+    final picture = find.byKey(const Key('edit-person-picture'));
+    await tester.ensureVisible(picture);
+    await tester.tap(picture);
+    await tester.pump();
+    expect(find.text('Replace photo'), findsOneWidget);
+    expect(
+      find.byKey(const Key('edit-person-picture-preview')),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.byKey(const Key('edit-person-save')));
+    await tester.tap(find.byKey(const Key('edit-person-save')));
+    await tester.pumpAndSettle();
+    expect(people.updatedPicture, bytes);
+    expect(people.clearPicture, isFalse);
+
+    await open(
+      const Person(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        avatarPath: 'p1/avatar.jpg',
+      ),
+    );
+    expect(find.text('Replace photo'), findsOneWidget);
+    final remove = find.byKey(const Key('edit-person-picture-remove'));
+    await tester.ensureVisible(remove);
+    await tester.tap(remove);
+    await tester.pump();
+    expect(find.text('Add photo'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('edit-person-save')));
+    await tester.tap(find.byKey(const Key('edit-person-save')));
+    await tester.pumpAndSettle();
+    expect(people.updatedPicture, isNull);
+    expect(people.clearPicture, isTrue);
   });
 
   testWidgets('a linked self edits name and passing only', (tester) async {
@@ -327,10 +503,15 @@ void main() {
     expect(find.text('About'), findsNothing);
     expect(find.text('Picture'), findsNothing);
     expect(find.text('ada@example.com'), findsOneWidget);
-    final email = tester.widget<TextField>(find.byKey(const Key('edit-person-email')));
+    final email = tester.widget<TextField>(
+      find.byKey(const Key('edit-person-email')),
+    );
     expect(email.readOnly, isTrue);
 
-    await tester.enterText(find.byKey(const Key('edit-person-name')), 'Ada Self');
+    await tester.enterText(
+      find.byKey(const Key('edit-person-name')),
+      'Ada Self',
+    );
     await tester.tap(find.byKey(const Key('edit-person-save')));
     await tester.pumpAndSettle();
     expect(people.updatedName, 'Ada Self');
@@ -372,7 +553,9 @@ void main() {
     expect(opened, isFalse);
   });
 
-  testWidgets('start-timeline member chips do not open a profile', (tester) async {
+  testWidgets('start-timeline member chips do not open a profile', (
+    tester,
+  ) async {
     final people = _People();
     await tester.pumpWidget(
       MaterialApp(
@@ -458,6 +641,9 @@ class _People extends PeopleGateway {
   bool wroteBirth = false;
   bool wroteAbout = false;
   bool wroteEmail = false;
+  List<int>? updatedPicture;
+  bool clearPicture = false;
+  String? signedUrl;
   PersonProfile? profile;
   Person? editor;
   var missing = false;
@@ -515,7 +701,7 @@ class _People extends PeopleGateway {
     String? path,
   }) async {
     signedPath = path;
-    return null;
+    return signedUrl;
   }
 
   @override
@@ -533,6 +719,7 @@ class _People extends PeopleGateway {
     String? email,
     bool writeEmail = false,
     List<int>? pictureBytes,
+    bool clearPicture = false,
   }) async {
     updatedName = name;
     updatedAbout = about;
@@ -540,6 +727,8 @@ class _People extends PeopleGateway {
     wroteBirth = writeBirth;
     wroteAbout = writeAbout;
     wroteEmail = writeEmail;
+    updatedPicture = pictureBytes;
+    this.clearPicture = clearPicture;
     return Person(id: personId, familyId: _familyId, name: name, email: email);
   }
 }
@@ -632,7 +821,10 @@ class _Manage implements ManageFamiliesGateway {
   }
 
   @override
-  Future<void> removeMember({required String familyId, required String userId}) {
+  Future<void> removeMember({
+    required String familyId,
+    required String userId,
+  }) {
     throw UnimplementedError();
   }
 

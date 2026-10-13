@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(69);
+select plan(70);
 
 create temporary table m14_ctx (
   user_a uuid primary key,
@@ -590,6 +590,51 @@ select
   'year'
 from m14_ctx;
 
+insert into public.people (id, family_id, name, created_by, email)
+select
+  '12121212-14a1-4111-8111-121212121212',
+  parent_id,
+  'Open Olive',
+  user_a,
+  'olive@test.local'
+from m14_ctx;
+
+insert into public.invites (
+  id, family_id, invited_by, email, token, status, expires_at, person_id
+)
+select
+  '13131313-14a1-4111-8111-131313131313',
+  parent_id,
+  user_a,
+  'olive@test.local',
+  'tok_open_olive_m14',
+  'pending'::public.invite_status,
+  now() + interval '7 days',
+  '12121212-14a1-4111-8111-121212121212'
+from m14_ctx;
+
+insert into public.people (id, family_id, name, created_by)
+select
+  '10101010-14a1-4111-8111-101010101010',
+  parent_id,
+  'Done Dee',
+  user_a
+from m14_ctx;
+
+insert into public.invites (
+  id, family_id, invited_by, email, token, status, expires_at, person_id
+)
+select
+  '14141414-14a1-4111-8111-141414141414',
+  parent_id,
+  user_a,
+  null,
+  'tok_done_dee_m14',
+  'accepted'::public.invite_status,
+  now() + interval '7 days',
+  '10101010-14a1-4111-8111-101010101010'
+from m14_ctx;
+
 insert into public.people (id, family_id, name, created_by)
 select
   '77777777-14a1-4111-8111-777777777777',
@@ -644,11 +689,25 @@ select results_eq(
         'Child Kin'::text
       ),
       (
+        '10101010-14a1-4111-8111-101010101010'::uuid,
+        (select parent_id from m14_ctx),
+        'Done Dee'::text
+      ),
+      (
         '44444444-14a1-4111-8111-444444444444'::uuid,
         (select parent_id from m14_ctx),
         'No kin'::text
       )$$,
   'list_unlinked_people covers the tree and omits linked and passed people'
+);
+
+select ok(
+  not exists (
+    select 1
+    from public.list_unlinked_people((select parent_id from m14_ctx))
+    where name in ('Passed Pat', 'Open Olive')
+  ),
+  'list_unlinked_people excludes anyone with an open invite or a date of passing'
 );
 
 set local request.jwt.claim.sub = 'c1400000-0000-4000-8000-0000000000c1';

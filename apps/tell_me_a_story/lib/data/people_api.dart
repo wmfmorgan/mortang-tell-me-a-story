@@ -196,6 +196,7 @@ abstract class PeopleGateway {
     String? email,
     bool writeEmail = false,
     List<int>? pictureBytes,
+    bool clearPicture = false,
   }) async {
     throw UnimplementedError();
   }
@@ -330,15 +331,19 @@ class PeopleApi implements PeopleGateway {
     String? email,
     bool writeEmail = false,
     List<int>? pictureBytes,
+    bool clearPicture = false,
   }) async {
     final trimmedAbout = writeAbout ? _aboutOrNull(about) : null;
     ensureValidPersonCreate(
       name: name,
       about: writeAbout ? trimmedAbout : null,
     );
+    final clearing =
+        clearPicture && (pictureBytes == null || pictureBytes.isEmpty);
     final patch = <String, dynamic>{
       'name': name.trim(),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
+      if (clearing) 'avatar_path': null,
     };
     if (writeBirth) {
       patch['birth_date'] = birthDate == null ? null : personDateIso(birthDate);
@@ -379,6 +384,7 @@ class PeopleApi implements PeopleGateway {
             id: row['id'] as String,
             familyId: row['family_id'] as String,
             name: row['name'] as String,
+            email: row['email'] as String?,
           ),
     ];
   }
@@ -407,7 +413,10 @@ class PeopleApi implements PeopleGateway {
         .uploadBinary(
           path,
           compressed.bytes,
-          fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+          fileOptions: const FileOptions(
+            contentType: 'image/jpeg',
+            upsert: true,
+          ),
         );
     final row = await _client
         .from('people')

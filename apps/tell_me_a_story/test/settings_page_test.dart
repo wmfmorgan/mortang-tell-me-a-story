@@ -35,13 +35,13 @@ void main() {
     await pumpTall(tester, _app(_Profile()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Name'), findsOneWidget);
-    expect(find.text('Date of birth'), findsOneWidget);
-    expect(find.text('Picture'), findsOneWidget);
-    expect(find.text('About'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('NAME'), findsOneWidget);
+    expect(find.text('DATE OF BIRTH'), findsOneWidget);
+    expect(find.text('PROFILE PHOTO'), findsOneWidget);
+    expect(find.text('ABOUT'), findsOneWidget);
+    expect(find.text('ACCOUNT EMAIL'), findsOneWidget);
     expect(find.text('Date of passing'), findsNothing);
-    expect(find.text('Upload picture'), findsOneWidget);
+    expect(find.text('Replace photo'), findsOneWidget);
     expect(find.text('Save'), findsOneWidget);
     expect(find.text('Your family'), findsNothing);
     expect(find.text('Family members'), findsNothing);
@@ -60,7 +60,8 @@ void main() {
   testWidgets('a blank stored name with no picture paints an empty circle', (
     tester,
   ) async {
-    await pumpTall(tester, 
+    await pumpTall(
+      tester,
       _app(
         _Profile(
           profile: const OwnProfile(id: 'user-1', email: 'sarah@example.com'),
@@ -77,7 +78,8 @@ void main() {
   testWidgets('a saved picture fills the circle when the name is blank', (
     tester,
   ) async {
-    await pumpTall(tester, 
+    await pumpTall(
+      tester,
       _app(
         _Profile(
           profile: OwnProfile(
@@ -258,7 +260,8 @@ void main() {
 
   testWidgets('Logout calls sign-out', (tester) async {
     var signedOut = false;
-    await pumpTall(tester, 
+    await pumpTall(
+      tester,
       _app(
         _Profile(),
         onLogout: () async {
@@ -394,6 +397,7 @@ class _Profile implements ProfileGateway {
   final births = <(DateTime?, String?)>[];
   final abouts = <String?>[];
   var uploads = 0;
+  var clears = 0;
   Uint8List? avatarBytes;
   var failUpload = false;
 
@@ -409,6 +413,11 @@ class _Profile implements ProfileGateway {
     uploads += 1;
     avatarBytes = bytes;
     return 'user-1/avatar.jpg';
+  }
+
+  @override
+  Future<void> clearAvatar() async {
+    clears += 1;
   }
 
   @override

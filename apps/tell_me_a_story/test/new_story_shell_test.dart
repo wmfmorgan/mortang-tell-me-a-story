@@ -216,7 +216,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Add someone to this story or your family circle'),
+      find.text('Add a family member to your shared archive and timeline'),
       findsOneWidget,
     );
     expect(find.text('Ada'), findsOneWidget);
@@ -275,7 +275,7 @@ void main() {
 
     expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
     expect(
-      find.text('Add someone to this story or your family circle'),
+      find.text('Add a family member to your shared archive and timeline'),
       findsNothing,
     );
   });
@@ -369,7 +369,7 @@ void main() {
 
     expect(invite.createFamilyCalls, 1);
     expect(
-      find.text('Add someone to this story or your family circle'),
+      find.text('Add a family member to your shared archive and timeline'),
       findsOneWidget,
     );
   });

@@ -95,7 +95,7 @@ void main() {
 
     expect(find.text('Add person'), findsOneWidget);
     expect(
-      find.text('Add someone to this story or your family circle'),
+      find.text('Add a family member to your shared archive and timeline'),
       findsOneWidget,
     );
     expect(find.text('Choose existing'), findsOneWidget);
@@ -174,14 +174,20 @@ void main() {
     await tester.tap(find.text('Create new person'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Name'), findsOneWidget);
-    expect(find.text('Date of birth'), findsOneWidget);
-    expect(find.text('Date of passing'), findsOneWidget);
-    expect(find.text('Picture'), findsWidgets);
-    expect(find.text('About'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('NAME'), findsOneWidget);
+    expect(find.text('DATE OF BIRTH'), findsOneWidget);
+    expect(find.text('DATE OF PASSING'), findsOneWidget);
+    expect(find.text('PICTURE'), findsOneWidget);
+    expect(find.text('Upload picture'), findsOneWidget);
+    expect(find.text('ABOUT'), findsOneWidget);
+    expect(find.text('EMAIL'), findsOneWidget);
+    expect(
+      find.text('Email is hidden when Date of passing is set.'),
+      findsOneWidget,
+    );
+    expect(find.text('May be left blank'), findsNWidgets(2));
     expect(find.text('RELATIONSHIP'), findsNothing);
-    expect(find.text('Cancel'), findsNothing);
+    expect(find.text('Cancel'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Add person'), findsOneWidget);
   });
 
@@ -213,7 +219,10 @@ void main() {
     await tester.tap(find.text('Create new person'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada Lovelace');
+    await tester.enterText(
+      find.byKey(const Key('add-person-name')),
+      'Ada Lovelace',
+    );
     final save = find.widgetWithText(FilledButton, 'Add person');
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -225,6 +234,25 @@ void main() {
     expect(result!.sendInvite, isFalse);
     expect(api.createCalls, 1);
     expect(find.text('Add person'), findsNothing);
+  });
+
+  testWidgets('about starts at two lines and the handle grows it', (
+    tester,
+  ) async {
+    await _openModal(tester, api: _FakePeopleGateway());
+    await tester.tap(find.text('Create new person'));
+    await tester.pumpAndSettle();
+
+    final aboutBox = find.byKey(const Key('add-person-about-box'));
+    await tester.ensureVisible(aboutBox);
+    final before = tester.getSize(aboutBox).height;
+    expect(before, lessThan(90));
+    await tester.drag(
+      find.byKey(const Key('add-person-about-resize')),
+      const Offset(0, 48),
+    );
+    await tester.pump();
+    expect(tester.getSize(aboutBox).height, greaterThan(before + 20));
   });
 
   testWidgets('Cancel dismisses without returning a person', (tester) async {
