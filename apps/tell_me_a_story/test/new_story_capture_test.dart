@@ -570,14 +570,6 @@ void main() {
     await tester.enterText(find.byKey(const Key('story-date-year')), '1980');
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
-    await tester.tap(find.widgetWithText(TextButton, 'Add person'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ListTile, 'Ada'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Add to story'));
-    await tester.pumpAndSettle();
-
     await tester.ensureVisible(find.widgetWithText(TextButton, 'Choose place'));
     await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
     await tester.pumpAndSettle();

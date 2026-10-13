@@ -66,7 +66,20 @@ class _FakePeopleApi extends PeopleGateway {
     String? email,
     List<int>? pictureBytes,
   }) async {
-    throw UnimplementedError();
+    final person = Person(
+      id: 'p-created',
+      familyId: familyId,
+      name: name.trim(),
+      email: email,
+      about: about,
+      birthDate: birthDate,
+      birthPrecision: birthPrecision,
+      passingDate: passingDate,
+      passingPrecision: passingPrecision,
+      createdBy: 'u1',
+    );
+    rows.add(person);
+    return person;
   }
 }
 
@@ -215,11 +228,9 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Add a family member to your shared archive and timeline'),
-      findsOneWidget,
-    );
-    expect(find.text('Ada'), findsOneWidget);
+    expect(find.text('NAME'), findsOneWidget);
+    expect(find.text('Upload picture'), findsOneWidget);
+    expect(find.text('Ada'), findsNothing);
   });
 
   testWidgets('Choose place opens PlacePickerModal', (tester) async {
@@ -268,16 +279,14 @@ void main() {
     await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ListTile, 'Ada'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Add to story'));
+    await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
+    final save = find.widgetWithText(FilledButton, 'Add person');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
-    expect(
-      find.text('Add a family member to your shared archive and timeline'),
-      findsNothing,
-    );
+    expect(find.text('NAME'), findsNothing);
   });
 
   testWidgets('selecting place shows label and stub map', (tester) async {
@@ -368,9 +377,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(invite.createFamilyCalls, 1);
-    expect(
-      find.text('Add a family member to your shared archive and timeline'),
-      findsOneWidget,
-    );
+    expect(find.text('NAME'), findsOneWidget);
   });
 }

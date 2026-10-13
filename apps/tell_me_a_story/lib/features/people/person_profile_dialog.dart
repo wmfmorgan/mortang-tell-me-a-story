@@ -243,34 +243,14 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
                         ),
                       ),
                     ],
-                    if (!profile.isLinked || _showEdit) ...[
+                    if (_showEdit) ...[
                       const SizedBox(height: 16),
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 10,
-                        runSpacing: 8,
-                        children: [
-                          if (!profile.isLinked) const _UnsignedBadge(),
-                          if (_showEdit)
-                            OutlinedButton.icon(
-                              key: const Key('person-profile-edit'),
-                              onPressed: _edit,
-                              icon: const Icon(Icons.edit, size: 16),
-                              label: const Text('Edit profile'),
-                            ),
-                        ],
-                      ),
-                    ],
-                    if (!profile.isLinked && _showEdit) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Editable by family members until ${_firstName(name)} signs in.',
-                        key: const Key('person-profile-edit-note'),
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontStyle: FontStyle.italic,
-                          color: albumInk.withValues(alpha: 0.6),
+                      Center(
+                        child: OutlinedButton.icon(
+                          key: const Key('person-profile-edit'),
+                          onPressed: _edit,
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('Edit'),
                         ),
                       ),
                     ],
@@ -535,45 +515,6 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
   }
 }
 
-class _UnsignedBadge extends StatelessWidget {
-  const _UnsignedBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: albumSage.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: albumSage.withValues(alpha: 0.35)),
-      ),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: albumSage,
-                shape: BoxShape.circle,
-              ),
-              child: SizedBox(width: 6, height: 6),
-            ),
-            SizedBox(width: 6),
-            Text(
-              'Not signed in yet',
-              style: TextStyle(
-                color: albumSage,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 String _lifeLine(PersonProfile profile) {
   final parts = <String>[];
   final birth = storyDateFromPerson(profile.birthDate, profile.birthPrecision);
@@ -584,15 +525,6 @@ String _lifeLine(PersonProfile profile) {
   );
   if (passing != null) parts.add('Passed ${storyDateLabel(passing)}');
   return parts.join(' · ');
-}
-
-String _firstName(String name) {
-  final parts = name
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((part) => part.isNotEmpty)
-      .toList();
-  return parts.isEmpty ? name : parts.first;
 }
 
 Future<List<PersonStoryCard>> _defaultPersonStories(String personId) async {

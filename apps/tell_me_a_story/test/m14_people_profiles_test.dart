@@ -27,8 +27,6 @@ void main() {
   ) async {
     final api = _People();
     await _openAdd(tester, api);
-    await tester.tap(find.text('Create new person'));
-    await tester.pumpAndSettle();
 
     expect(find.text('NAME'), findsOneWidget);
     expect(find.text('DATE OF BIRTH'), findsOneWidget);
@@ -65,8 +63,6 @@ void main() {
   testWidgets('about of 501 does not call the API', (tester) async {
     final api = _People();
     await _openAdd(tester, api);
-    await tester.tap(find.text('Create new person'));
-    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
     await tester.enterText(
       find.byKey(const Key('add-person-about')),
@@ -83,8 +79,6 @@ void main() {
     final api = _People();
     final invites = _Invites();
     await _openAdd(tester, api, invites: invites);
-    await tester.tap(find.text('Create new person'));
-    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
     await tester.enterText(
       find.byKey(const Key('story-date-year')).at(1),
@@ -114,8 +108,6 @@ void main() {
     final api = _People();
     final invites = _Invites();
     await _openAdd(tester, api, invites: invites);
-    await tester.tap(find.text('Create new person'));
-    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
     await tester.enterText(
       find.byKey(const Key('add-person-email')),
@@ -142,8 +134,6 @@ void main() {
     final api = _People();
     final invites = _Invites();
     await _openAdd(tester, api, invites: invites);
-    await tester.tap(find.text('Create new person'));
-    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
     await tester.enterText(
       find.byKey(const Key('add-person-email')),
@@ -215,9 +205,14 @@ void main() {
       expect(find.text('Relationship'), findsNothing);
       expect(find.text('Stories'), findsOneWidget);
       expect(find.text('0 stories'), findsOneWidget);
-      expect(find.text('Not signed in yet'), findsOneWidget);
+      expect(find.text('Not signed in yet'), findsNothing);
       expect(find.byKey(const Key('person-avatar-empty')), findsOneWidget);
-      expect(find.text('Edit profile'), findsOneWidget);
+      final edit = find.byKey(const Key('person-profile-edit'));
+      expect(edit, findsOneWidget);
+      expect(
+        find.descendant(of: edit, matching: find.text('Edit')),
+        findsOneWidget,
+      );
 
       people.profile = PersonProfile(
         id: 'p1',
@@ -235,7 +230,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('person-pill-p1')));
       await tester.pumpAndSettle();
-      expect(find.text('Edit profile'), findsNothing);
+      expect(find.byKey(const Key('person-profile-edit')), findsNothing);
       expect(find.text('Not signed in yet'), findsNothing);
 
       people.editor = Person(
@@ -248,7 +243,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('person-pill-p1')));
       await tester.pumpAndSettle();
-      expect(find.text('Edit profile'), findsNothing);
+      expect(find.byKey(const Key('person-profile-edit')), findsNothing);
     },
   );
 
@@ -293,8 +288,9 @@ void main() {
     expect(find.text('Summer 1972 · St. Jude Chapel'), findsOneWidget);
     expect(
       find.text('Editable by family members until Ada signs in.'),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(find.byKey(const Key('person-profile-edit')), findsOneWidget);
   });
 
   testWidgets('a missing profile shows the name only', (tester) async {

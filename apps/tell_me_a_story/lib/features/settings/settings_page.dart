@@ -338,15 +338,6 @@ class _SettingsPageState extends State<SettingsPage> {
                         height: 1.1,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Manage your personal family profile and how you appear in shared memories.',
-                      style: GoogleFonts.literata(
-                        color: const Color(0xFF665D5A),
-                        fontSize: 14,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
                     const SizedBox(height: 16),
                     const Divider(height: 1, color: Color(0xFFE8DFD5)),
                     const SizedBox(height: 18),
@@ -519,13 +510,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              Text(
-                'Visible to all members of $_familyName',
-                style: GoogleFonts.sourceSans3(
-                  color: const Color(0xFF655E5B),
-                  fontSize: 12,
-                ),
-              ),
             ],
           ),
         ),
@@ -635,15 +619,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                'JPG, PNG, or HEIC portrait. Recommended 400×400px.',
-                style: GoogleFonts.literata(
-                  color: const Color(0xFF665D5A),
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
             ],
           ),
         ),
@@ -671,11 +646,6 @@ class _SettingsPageState extends State<SettingsPage> {
           style: _field,
           decoration: _decoration,
         ),
-        const SizedBox(height: 6),
-        Text(
-          'The name displayed on stories you write or appear in.',
-          style: _hint,
-        ),
       ],
     );
   }
@@ -702,10 +672,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(width: 6),
                 Text('(optional)', style: _hint),
               ],
-            ),
-            Text(
-              'May be left blank',
-              style: _hint.copyWith(fontStyle: FontStyle.italic),
             ),
           ],
         ),

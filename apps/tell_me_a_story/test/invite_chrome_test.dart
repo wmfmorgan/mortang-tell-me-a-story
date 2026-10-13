@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/config/env.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
@@ -251,6 +252,41 @@ void main() {
     expect(api.emails, isEmpty);
   });
 
+  testWidgets(
+    'email save shows the mapped error when the person update fails',
+    (tester) async {
+      final api = _StubInviteApi();
+      final people = _EmailPeople()
+        ..updateError = const PostgrestException(
+          message: 'VALIDATION: That email is already used',
+          code: '23505',
+        );
+      await tester.binding.setSurfaceSize(const Size(900, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _open(tester, api, people: people);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('not-invited-add-p-kim')),
+      );
+      await tester.tap(find.byKey(const Key('not-invited-add-p-kim')));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('not-invited-email-p-kim')),
+        'kim@test.local',
+      );
+      final save = find.byKey(const Key('not-invited-save-p-kim'));
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pump();
+
+      expect(find.text('That email is already used'), findsOneWidget);
+      expect(find.textContaining('VALIDATION:'), findsNothing);
+      expect(api.creates, 0);
+      expect(find.byKey(const Key('not-invited-row-p-kim')), findsOneWidget);
+      expect(find.byKey(const Key('not-invited-email-p-kim')), findsOneWidget);
+    },
+  );
+
   testWidgets('invite on a saved email sends once and leaves the list', (
     tester,
   ) async {
@@ -315,6 +351,7 @@ void main() {
 class _EmailPeople extends PeopleGateway {
   int updates = 0;
   String? savedEmail;
+  Object? updateError;
   Person person = const Person(id: 'p-kim', familyId: 'f', name: 'Kim');
 
   @override
@@ -355,6 +392,8 @@ class _EmailPeople extends PeopleGateway {
     List<int>? pictureBytes,
     bool clearPicture = false,
   }) async {
+    final error = updateError;
+    if (error != null) throw error;
     updates += 1;
     savedEmail = email;
     person = Person(

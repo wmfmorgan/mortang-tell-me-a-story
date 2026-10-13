@@ -108,42 +108,17 @@ class _PersonDateFieldState extends State<PersonDateField> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 2,
+            Row(
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (widget.icon != null) ...[
-                      Icon(
-                        widget.icon,
-                        size: 15,
-                        color: widget.iconColor ?? albumSage,
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                    Text(widget.label.toUpperCase(), style: kicker),
-                    const SizedBox(width: 6),
-                    Text(
-                      '(optional)',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: albumInk.withValues(alpha: 0.45),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  'May be left blank',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: albumInk.withValues(alpha: 0.45),
-                    fontStyle: FontStyle.italic,
-                    fontSize: 11,
+                if (widget.icon != null) ...[
+                  Icon(
+                    widget.icon,
+                    size: 15,
+                    color: widget.iconColor ?? albumSage,
                   ),
-                ),
+                  const SizedBox(width: 6),
+                ],
+                Text(widget.label.toUpperCase(), style: kicker),
               ],
             ),
             const SizedBox(height: 8),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
@@ -208,8 +209,12 @@ class _InviteModalState extends State<InviteModal> {
         email: draft,
         writeEmail: true,
       );
-    } catch (_) {
-      if (mounted) setState(() => _rowBusyId = null);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _rowBusyId = null;
+        _rowError[person.id] = _mappedPeopleSaveError(error);
+      });
       return;
     }
     if (!mounted) return;
@@ -932,4 +937,22 @@ abstract final class _InviteType {
       color: selected ? albumParchment : albumInk,
     );
   }
+}
+
+/// Same four prefixes as mapRpcError in supabase/functions/_shared/manage.ts.
+String _mappedPeopleSaveError(Object error) {
+  final raw = error is PostgrestException ? error.message : '';
+  final trimmed = raw.trim();
+  const prefixes = [
+    'NOT_FOUND:',
+    'FORBIDDEN:',
+    'VALIDATION:',
+    'INVITE_INVALID:',
+  ];
+  for (final prefix in prefixes) {
+    if (!trimmed.startsWith(prefix)) continue;
+    final detail = trimmed.substring(prefix.length).trim();
+    return detail.isEmpty ? trimmed : detail;
+  }
+  return 'Try again';
 }
