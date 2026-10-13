@@ -33,6 +33,7 @@ class _FakeInviteApi implements InviteGateway {
   Future<CreateInviteResult> createInvite({
     required String familyId,
     String? email,
+    String? personId,
   }) async {
     throw UnimplementedError();
   }
@@ -58,8 +59,13 @@ class _FakePeopleApi extends PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    required String relationship,
+    DateTime? birthDate,
+    String? birthPrecision,
+    DateTime? passingDate,
+    String? passingPrecision,
+    String? about,
     String? email,
+    List<int>? pictureBytes,
   }) async {
     throw UnimplementedError();
   }
@@ -562,14 +568,6 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('story-date-year')), '1980');
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
-    await tester.tap(find.widgetWithText(TextButton, 'Add person'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ListTile, 'Ada'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Add to story'));
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.widgetWithText(TextButton, 'Choose place'));

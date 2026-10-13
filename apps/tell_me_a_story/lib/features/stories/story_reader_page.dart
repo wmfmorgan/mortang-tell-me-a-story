@@ -21,6 +21,7 @@ import '../../data/profile_api.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../comments/comment_composer.dart';
+import '../people/person_profile_dialog.dart';
 import '../family/family_blur_dialog.dart';
 import '../family/start_timeline_dialog.dart';
 import '../perspectives/add_perspective_page.dart';
@@ -1143,7 +1144,12 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   }
 
   Widget _personChip(Person person) {
-    return DecoratedBox(
+    return PersonNamePill(
+      personId: person.id,
+      name: person.name,
+      people: _people,
+      signedInUserId: _currentUserId,
+      child: DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFFF6F1EB),
         borderRadius: BorderRadius.circular(20),
@@ -1157,16 +1163,17 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             _initialsAvatar(person.name, size: 22),
             const SizedBox(width: 6),
             Text(person.name, style: Theme.of(context).textTheme.labelMedium),
-            if (person.relationship.trim().isNotEmpty) ...[
+            if ((person.relationship ?? '').trim().isNotEmpty) ...[
               const SizedBox(width: 4),
               Text(
-                person.relationship,
+                person.relationship!,
                 style: Theme.of(context).textTheme.labelSmall
                     ?.copyWith(color: const Color(0xFF6B5E55)),
               ),
             ],
           ],
         ),
+      ),
       ),
     );
   }

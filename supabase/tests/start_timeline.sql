@@ -305,8 +305,8 @@ select is(
 select is(
   (select count(*) from public.people
     where family_id = (select member_branch from m11b_ctx)),
-  3::bigint,
-  'people row count equals distinct picks'
+  0::bigint,
+  'a new timeline adds no people rows'
 );
 select is(
   (select role::text from public.memberships
@@ -319,15 +319,15 @@ select is(
   (select count(*) from public.memberships
     where family_id = (select member_branch from m11b_ctx)
       and user_id = (select user_c from m11b_ctx)),
-  1::bigint,
-  'an email match becomes a member'
+  0::bigint,
+  'an email match does not become a member'
 );
 select is(
   (select count(*) from public.people
     where family_id = (select member_branch from m11b_ctx)
       and name = 'No Account'),
-  1::bigint,
-  'a person with no account is copied'
+  0::bigint,
+  'a person with no account is not copied'
 );
 select is(
   (select count(*) from public.memberships m
@@ -1008,8 +1008,8 @@ select ok(
 );
 select is(
   (select count(*) from pg_policies where schemaname in ('public', 'storage')),
-  44::bigint,
-  'policy count stays 44'
+  47::bigint,
+  'policy count stays 47'
 );
 
 set local role authenticated;

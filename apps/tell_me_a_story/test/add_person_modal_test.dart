@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 
@@ -23,11 +24,16 @@ class _FakePeopleGateway extends PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    required String relationship,
+    DateTime? birthDate,
+    String? birthPrecision,
+    DateTime? passingDate,
+    String? passingPrecision,
+    String? about,
     String? email,
+    List<int>? pictureBytes,
   }) async {
     createCalls++;
-    ensureValidPersonCreate(name: name, relationship: relationship);
+    ensureValidPersonCreate(name: name, about: about);
     final trimmedEmail = email != null && email.trim().isNotEmpty
         ? email.trim()
         : null;
@@ -35,8 +41,12 @@ class _FakePeopleGateway extends PeopleGateway {
       id: 'p${++_seq}',
       familyId: familyId,
       name: name.trim(),
-      relationship: relationship.trim(),
       email: trimmedEmail,
+      about: about,
+      birthDate: birthDate,
+      birthPrecision: birthPrecision,
+      passingDate: passingDate,
+      passingPrecision: passingPrecision,
       createdBy: 'u1',
     );
     rows.add(person);
@@ -44,11 +54,11 @@ class _FakePeopleGateway extends PeopleGateway {
   }
 }
 
-Future<Person?> _openModal(
+Future<AddPersonResult?> _openModal(
   WidgetTester tester, {
   required PeopleGateway api,
 }) async {
-  Person? result;
+  AddPersonResult? result;
   await tester.pumpWidget(
     MaterialApp(
       home: Builder(
@@ -73,126 +83,52 @@ Future<Person?> _openModal(
 }
 
 void main() {
-  testWidgets('shows Add person chrome and choose/create modes', (
-    tester,
-  ) async {
+  setUp(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
+  testWidgets('shows the create form when Add person opens', (tester) async {
     final api = _FakePeopleGateway();
     await _openModal(tester, api: api);
 
-    expect(find.text('Add person'), findsOneWidget);
-    expect(
-      find.text('Add someone to this story or your family circle'),
-      findsOneWidget,
-    );
-    expect(find.text('Choose existing'), findsOneWidget);
-    expect(find.text('Create new person'), findsOneWidget);
+    expect(find.text('Add person'), findsWidgets);
+    expect(find.text('NAME'), findsOneWidget);
+    expect(find.text('Upload picture'), findsOneWidget);
     expect(find.text('Cancel'), findsOneWidget);
-    expect(find.text('Add to story'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Add person'), findsOneWidget);
+    expect(find.text('Choose existing'), findsNothing);
+    expect(find.text('Create new person'), findsNothing);
+    expect(find.text('Add to story'), findsNothing);
   });
 
-  testWidgets('pick list shows people and returns selected person', (
+  testWidgets('create form has profile labels and no relationship', (
     tester,
   ) async {
-    final api = _FakePeopleGateway(
-      seed: const [
-        Person(
-          id: 'p1',
-          familyId: _familyId,
-          name: 'Ada',
-          relationship: 'Aunt',
-          createdBy: 'u1',
-        ),
-        Person(
-          id: 'p2',
-          familyId: _familyId,
-          name: 'Zoe',
-          relationship: 'Cousin',
-          createdBy: 'u1',
-        ),
-      ],
-    );
-
-    Person? result;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () async {
-                result = await AddPersonModal.show(
-                  context,
-                  familyId: _familyId,
-                  api: api,
-                );
-              },
-              child: const Text('open'),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Ada'), findsOneWidget);
-    expect(find.text('Zoe'), findsOneWidget);
-    expect(find.text('Aunt'), findsOneWidget);
-
-    await tester.tap(find.text('Ada'));
-    await tester.pumpAndSettle();
-    expect(find.text('Selected'), findsOneWidget);
-    await tester.tap(find.text('Add to story'));
-    await tester.pumpAndSettle();
-
-    expect(result, isNotNull);
-    expect(result!.id, 'p1');
-    expect(result!.name, 'Ada');
-    expect(find.text('Add person'), findsNothing);
-  });
-
-  testWidgets('create requires relationship', (tester) async {
     final api = _FakePeopleGateway();
     await _openModal(tester, api: api);
 
-    await tester.tap(find.text('Create new person'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('FULL NAME'), findsOneWidget);
-    expect(find.text('Enter first and last name'), findsOneWidget);
-    expect(find.text('RELATIONSHIP'), findsOneWidget);
+    expect(find.text('NAME'), findsOneWidget);
+    expect(find.text('DATE OF BIRTH'), findsOneWidget);
+    expect(find.text('DATE OF PASSING'), findsOneWidget);
+    expect(find.text('PICTURE'), findsOneWidget);
+    expect(find.text('Upload picture'), findsOneWidget);
+    expect(find.text('ABOUT'), findsOneWidget);
+    expect(find.text('EMAIL'), findsOneWidget);
     expect(
-      find.text(
-        'How is this person related in the context of this family story?',
-      ),
+      find.text('Email is hidden when Date of passing is set.'),
       findsOneWidget,
     );
-    expect(find.text('Aunt / Uncle'), findsOneWidget);
-    expect(find.text('EMAIL'), findsOneWidget);
-    expect(find.text('optional'), findsOneWidget);
-    expect(find.text('e.g. clara@example.com'), findsOneWidget);
-    expect(find.text('Also add to shared family people list'), findsNothing);
-    expect(find.textContaining('family invite'), findsNothing);
+    expect(find.text('May be left blank'), findsNothing);
+    expect(find.text('(optional)'), findsNothing);
+    expect(find.text('RELATIONSHIP'), findsNothing);
+    expect(find.text('Cancel'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Add person'), findsOneWidget);
-
-    final name = find.widgetWithText(TextField, 'Enter first and last name');
-    await tester.ensureVisible(name);
-    await tester.enterText(name, 'Ada Lovelace');
-    final save = find.widgetWithText(FilledButton, 'Add person');
-    await tester.ensureVisible(save);
-    await tester.tap(save);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Add person'), findsNWidgets(2));
-    expect(find.text('Relationship is required'), findsOneWidget);
-    expect(api.createCalls, 0);
   });
 
-  testWidgets('create with name and relationship returns new person', (
-    tester,
-  ) async {
+  testWidgets('create with a name returns the new person', (tester) async {
     final api = _FakePeopleGateway();
 
-    Person? result;
+    AddPersonResult? result;
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
@@ -214,30 +150,38 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Create new person'));
-    await tester.pumpAndSettle();
-
-    final name = find.widgetWithText(TextField, 'Enter first and last name');
-    await tester.ensureVisible(name);
-    await tester.enterText(name, 'Ada Lovelace');
-    final grandparent = find.text('Grandparent');
-    await tester.ensureVisible(grandparent);
-    await tester.tap(grandparent);
-    await tester.pumpAndSettle();
-    final email = find.widgetWithText(TextField, 'e.g. clara@example.com');
-    await tester.ensureVisible(email);
-    await tester.enterText(email, 'ada@example.com');
+    await tester.enterText(
+      find.byKey(const Key('add-person-name')),
+      'Ada Lovelace',
+    );
     final save = find.widgetWithText(FilledButton, 'Add person');
     await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();
 
     expect(result, isNotNull);
-    expect(result!.name, 'Ada Lovelace');
-    expect(result!.relationship, 'Grandparent');
-    expect(result!.email, 'ada@example.com');
+    expect(result!.person.name, 'Ada Lovelace');
+    expect(result!.person.relationship, isNull);
+    expect(result!.sendInvite, isFalse);
     expect(api.createCalls, 1);
     expect(find.text('Add person'), findsNothing);
+  });
+
+  testWidgets('about starts at two lines and the handle grows it', (
+    tester,
+  ) async {
+    await _openModal(tester, api: _FakePeopleGateway());
+
+    final aboutBox = find.byKey(const Key('add-person-about-box'));
+    await tester.ensureVisible(aboutBox);
+    final before = tester.getSize(aboutBox).height;
+    expect(before, lessThan(90));
+    await tester.drag(
+      find.byKey(const Key('add-person-about-resize')),
+      const Offset(0, 48),
+    );
+    await tester.pump();
+    expect(tester.getSize(aboutBox).height, greaterThan(before + 20));
   });
 
   testWidgets('Cancel dismisses without returning a person', (tester) async {
@@ -253,12 +197,15 @@ void main() {
       ],
     );
 
-    Person? result = const Person(
-      id: 'sentinel',
-      familyId: _familyId,
-      name: 'Sentinel',
-      relationship: 'X',
-      createdBy: 'u1',
+    AddPersonResult? result = const AddPersonResult(
+      person: Person(
+        id: 'sentinel',
+        familyId: _familyId,
+        name: 'Sentinel',
+        relationship: 'X',
+        createdBy: 'u1',
+      ),
+      sendInvite: false,
     );
     var completed = false;
 
@@ -284,7 +231,9 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Cancel'));
+    final cancel = find.text('Cancel');
+    await tester.ensureVisible(cancel);
+    await tester.tap(cancel);
     await tester.pumpAndSettle();
 
     expect(completed, isTrue);

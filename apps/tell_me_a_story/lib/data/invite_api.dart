@@ -17,6 +17,7 @@ abstract class InviteGateway {
   Future<CreateInviteResult> createInvite({
     required String familyId,
     String? email,
+    String? personId,
   });
   Future<void> sendInviteEmail({required String inviteId});
   Future<AcceptInviteResult> acceptInvite({required String token});
@@ -79,10 +80,14 @@ class InviteApi implements InviteGateway {
   Future<CreateInviteResult> createInvite({
     required String familyId,
     String? email,
+    String? personId,
   }) async {
     final body = <String, dynamic>{'family_id': familyId};
     if (email != null && email.trim().isNotEmpty) {
       body['email'] = email.trim();
+    }
+    if (personId != null && personId.isNotEmpty) {
+      body['person_id'] = personId;
     }
     final json = await _invoke('create-invite', body, expectStatus: 201);
     return CreateInviteResult(

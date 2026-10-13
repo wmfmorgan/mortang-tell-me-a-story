@@ -11,6 +11,7 @@ import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/manage_families_api.dart';
+import '../../data/people_api.dart';
 import '../invites/invite_modal.dart';
 import 'add_co_owner_dialog.dart';
 import 'delete_family_dialog.dart';
@@ -27,6 +28,7 @@ class ManageFamilyPage extends StatefulWidget {
     this.familiesApi,
     this.manageApi,
     this.inviteApi,
+    this.peopleApi,
     this.onLogout,
     this.currentUserId,
   });
@@ -36,6 +38,7 @@ class ManageFamilyPage extends StatefulWidget {
   final FamiliesGateway? familiesApi;
   final ManageFamiliesGateway? manageApi;
   final InviteGateway? inviteApi;
+  final PeopleGateway? peopleApi;
   final Future<void> Function()? onLogout;
 
   /// Signed-in user. Their own row never shows Make member or Remove.
@@ -307,6 +310,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
       familyId: detail.id,
       familyName: detail.name,
       api: widget.inviteApi,
+      people: widget.peopleApi,
     );
     if (!mounted) return;
     await _load();
@@ -326,6 +330,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
       familyId: id,
       familyName: _sessionName,
       api: widget.inviteApi,
+      people: widget.peopleApi,
     );
   }
 

@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(44);
+select plan(47);
 
 create temporary table m10_ctx (
   user_a uuid primary key,
@@ -234,6 +234,14 @@ values (
   '61000000-0000-4000-8000-000000000061'
 );
 
+reset role;
+update public.people
+set user_id = null
+where user_id = (select user_d from m10_ctx);
+update public.people
+set user_id = (select user_d from m10_ctx)
+where id = '61000000-0000-4000-8000-000000000061';
+
 set local role authenticated;
 set local request.jwt.claim.sub = 'a10a0000-0000-4000-8000-00000000000a';
 set local request.jwt.claim.role = 'authenticated';
@@ -244,6 +252,12 @@ select lives_ok(
     (select user_d from m10_ctx)
   ) $$,
   'owner removes a member from the tree'
+);
+
+select is(
+  (select user_id from public.people where id = '61000000-0000-4000-8000-000000000061'),
+  null,
+  'remove-member unlinks that user in the tree'
 );
 
 select is(
@@ -270,7 +284,7 @@ select is(
   'remove-member leaves story_people'
 );
 
--- Tagging a resolved person upserts member and does not demote owner.
+-- Tagging a person or saving an email does not create a membership.
 reset role;
 select set_config('request.jwt.claim.sub', '', true);
 
@@ -312,13 +326,41 @@ values
 
 select is(
   (
-    select role::text
+    select count(*)
     from public.memberships
     where family_id = (select family_a from m10_ctx)
       and user_id = (select user_g from m10_ctx)
   ),
-  'member',
-  'tagging a matching email upserts member'
+  0::bigint,
+  'tagging a matching email does not create a membership'
+);
+
+update public.people
+set email = 'e@test.local'
+where id = '63000000-0000-4000-8000-000000000063';
+
+select is(
+  (
+    select count(*)
+    from public.memberships
+    where family_id = (select family_a from m10_ctx)
+      and user_id = (select user_e from m10_ctx)
+  ),
+  0::bigint,
+  'saving an email does not create a membership'
+);
+
+select ok(
+  not exists (
+    select 1
+    from pg_trigger
+    where not tgisinternal
+      and tgname in (
+        'story_people_ensure_membership',
+        'people_ensure_membership'
+      )
+  ),
+  'auto-membership triggers are gone'
 );
 
 select is(

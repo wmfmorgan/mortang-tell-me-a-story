@@ -148,14 +148,15 @@ select throws_ok(
 reset role;
 select set_config('request.jwt.claim.sub', '', true);
 
-select throws_ok(
+-- M14 dropped story_people_ensure_membership. Authenticated callers are
+-- still rejected above. A role that bypasses RLS can tag the person, and
+-- that insert does not create a membership.
+select lives_ok(
   $$
     insert into public.story_people (story_id, person_id)
     select home_story, other_person from m12g_ctx
   $$,
-  'P0001',
-  'FORBIDDEN: person is not in this family',
-  'ensure_story_person_membership rejects a cross-family person'
+  'tagging a person does not fire ensure_story_person_membership'
 );
 
 set local role authenticated;

@@ -1,4 +1,5 @@
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
+import { mapRpcError } from "../_shared/manage.ts";
 import {
   bearerToken,
   buildInviteUrl,
@@ -6,7 +7,87 @@ import {
   userClient,
 } from "../_shared/supabase.ts";
 
-Deno.serve(async (req) => {
+type InviteInsert = {
+  id: string;
+  token: string;
+  expires_at: string;
+};
+
+export type CreateInviteDb = {
+  userId: () => Promise<string | null>;
+  isFamilyMember: (
+    familyId: string,
+  ) => Promise<{ member: boolean; error: string | null }>;
+  assertPerson: (
+    familyId: string,
+    personId: string,
+  ) => Promise<string | null>;
+  insertInvite: (row: {
+    familyId: string;
+    invitedBy: string;
+    email: string | null;
+    personId: string | null;
+    token: string;
+  }) => Promise<{ invite: InviteInsert | null; error: string | null }>;
+};
+
+function liveDb(auth: string): CreateInviteDb {
+  const userSb = userClient(auth);
+  const admin = serviceClient();
+  return {
+    async userId() {
+      const {
+        data: { user },
+        error,
+      } = await userSb.auth.getUser();
+      if (error || !user) return null;
+      return user.id;
+    },
+    async isFamilyMember(familyId) {
+      const { data, error } = await userSb.rpc("is_family_member", {
+        fid: familyId,
+      });
+      return { member: data === true, error: error?.message ?? null };
+    },
+    async assertPerson(familyId, personId) {
+      const { error } = await userSb.rpc("assert_invite_person", {
+        p_family_id: familyId,
+        p_person_id: personId,
+      });
+      return error?.message ?? null;
+    },
+    async insertInvite(row) {
+      const { data, error } = await admin
+        .from("invites")
+        .insert({
+          family_id: row.familyId,
+          invited_by: row.invitedBy,
+          email: row.email,
+          person_id: row.personId,
+          token: row.token,
+          status: "pending",
+        })
+        .select("id, token, expires_at")
+        .single();
+      return {
+        invite: (data as InviteInsert | null) ?? null,
+        error: error?.message ?? null,
+      };
+    },
+  };
+}
+
+export function createInvite(
+  req: Request,
+  options?: { db?: CreateInviteDb },
+): Promise<Response> {
+  return handleCreateInvite(req, options?.db);
+}
+
+async function handleCreateInvite(
+  req: Request,
+  db?: CreateInviteDb,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -19,7 +100,7 @@ Deno.serve(async (req) => {
     return errorResponse("AUTH_REQUIRED", "Sign-in required", 401);
   }
 
-  let body: { family_id?: string; email?: string };
+  let body: { family_id?: string; email?: string; person_id?: string };
   try {
     body = await req.json();
   } catch {
@@ -31,46 +112,36 @@ Deno.serve(async (req) => {
     return errorResponse("VALIDATION", "family_id is required", 400);
   }
   const email = body.email?.trim() || null;
+  const personId = body.person_id?.trim() || null;
 
-  const userSb = userClient(auth);
-  const {
-    data: { user },
-    error: userErr,
-  } = await userSb.auth.getUser();
-  if (userErr || !user) {
+  const store = db ?? liveDb(auth);
+  const userId = await store.userId();
+  if (!userId) {
     return errorResponse("AUTH_REQUIRED", "Sign-in required", 401);
   }
 
-  const { data: member, error: memberErr } = await userSb.rpc(
-    "is_family_member",
-    { fid: familyId },
-  );
-  if (memberErr || member !== true) {
+  const member = await store.isFamilyMember(familyId);
+  if (member.error || !member.member) {
     return errorResponse("FORBIDDEN", "Not a family member", 403);
+  }
+
+  if (personId) {
+    const personErr = await store.assertPerson(familyId, personId);
+    if (personErr) return mapRpcError(personErr);
   }
 
   const token = crypto.randomUUID().replace(/-/g, "") +
     crypto.randomUUID().replace(/-/g, "");
-
-  const admin = serviceClient();
-  const { data: invite, error: insertErr } = await admin
-    .from("invites")
-    .insert({
-      family_id: familyId,
-      invited_by: user.id,
-      email,
-      token,
-      status: "pending",
-    })
-    .select("id, token, expires_at")
-    .single();
-
+  const { invite, error: insertErr } = await store.insertInvite({
+    familyId,
+    invitedBy: userId,
+    email,
+    personId,
+    token,
+  });
   if (insertErr || !invite) {
-    return errorResponse(
-      "VALIDATION",
-      insertErr?.message ?? "Could not create invite",
-      400,
-    );
+    console.error("create-invite insert failed", insertErr);
+    return errorResponse("VALIDATION", "Could not create invite", 400);
   }
 
   return jsonResponse(
@@ -82,4 +153,8 @@ Deno.serve(async (req) => {
     },
     201,
   );
-});
+}
+
+if (import.meta.main) {
+  Deno.serve((req) => createInvite(req));
+}

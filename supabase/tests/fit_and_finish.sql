@@ -609,8 +609,8 @@ select hasnt_index(
 
 select is(
   (select count(*)::int from pg_policies),
-  44,
-  'policy count is 44'
+  47,
+  'policy count is 47'
 );
 
 select is(

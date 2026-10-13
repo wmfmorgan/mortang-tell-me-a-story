@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/album_theme.dart';
+import '../../core/theme/profile_avatar.dart';
 import '../../data/invite_api.dart';
+import '../../data/people_api.dart';
 import '../family/family_blur_dialog.dart';
 
 /// Invite dialog matching the Stitch Email, Link, and SMS screens.
@@ -14,17 +17,20 @@ class InviteModal extends StatefulWidget {
     required this.familyId,
     this.familyName = 'Family',
     this.api,
+    this.people,
   });
 
   final String familyId;
   final String familyName;
   final InviteGateway? api;
+  final PeopleGateway? people;
 
   static Future<void> show(
     BuildContext context, {
     required String familyId,
     String familyName = 'Family',
     InviteGateway? api,
+    PeopleGateway? people,
   }) {
     return showBlurredCard<void>(
       context: context,
@@ -34,17 +40,18 @@ class InviteModal extends StatefulWidget {
           maxHeight: MediaQuery.sizeOf(ctx).height * 0.9,
         ),
         child: Material(
-          color: _InviteColors.card,
+          color: albumParchment,
           surfaceTintColor: Colors.transparent,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: _InviteColors.border),
+            side: const BorderSide(color: albumSage),
           ),
           child: InviteModal(
             familyId: familyId,
             familyName: familyName,
             api: api,
+            people: people,
           ),
         ),
       ),
@@ -62,14 +69,25 @@ class _InviteModalState extends State<InviteModal> {
   final _smsNoteController = TextEditingController();
   final _linkController = TextEditingController();
   late final InviteGateway _api;
+  PeopleGateway? _people;
   var _tab = 0;
   var _busy = false;
   String? _linkUrl;
+  List<Person> _unlinked = const [];
+  String? _pickedPersonId;
+  List<Person> _notInvited = const [];
+  final _emailDrafts = <String, TextEditingController>{};
+  final _addingEmail = <String>{};
+  final _rowError = <String, String>{};
+  final _pendingSend = <String, String>{};
+  String? _rowBusyId;
 
   @override
   void initState() {
     super.initState();
     _api = widget.api ?? InviteApi();
+    _people = widget.people;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadNotInvited());
   }
 
   @override
@@ -79,6 +97,9 @@ class _InviteModalState extends State<InviteModal> {
     _phoneController.dispose();
     _smsNoteController.dispose();
     _linkController.dispose();
+    for (final draft in _emailDrafts.values) {
+      draft.dispose();
+    }
     super.dispose();
   }
 
@@ -90,7 +111,135 @@ class _InviteModalState extends State<InviteModal> {
   void _selectTab(int index) {
     setState(() => _tab = index);
     if (index == 2) {
-      _ensureLink();
+      _loadUnlinked();
+    }
+  }
+
+  Future<void> _loadUnlinked() async {
+    final people = _people;
+    if (people == null) return;
+    try {
+      final rows = await people.listUnlinkedPeople(widget.familyId);
+      if (!mounted) return;
+      setState(() => _unlinked = rows);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _unlinked = const []);
+    }
+  }
+
+  Future<void> _loadNotInvited() async {
+    final people = widget.people;
+    if (people == null) return;
+    try {
+      final rows = await people.listUnlinkedPeople(widget.familyId);
+      if (!mounted) return;
+      setState(() => _notInvited = rows);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _notInvited = const []);
+    }
+  }
+
+  bool _hasEmail(Person person) => (person.email ?? '').trim().isNotEmpty;
+
+  void _dropNotInvited(String personId) {
+    _emailDrafts.remove(personId)?.dispose();
+    _addingEmail.remove(personId);
+    _rowError.remove(personId);
+    _pendingSend.remove(personId);
+    _notInvited = [
+      for (final row in _notInvited)
+        if (row.id != personId) row,
+    ];
+  }
+
+  Future<void> _inviteNotInvited(Person person) async {
+    final email = person.email?.trim() ?? '';
+    if (_rowBusyId != null || email.isEmpty) return;
+    setState(() {
+      _rowBusyId = person.id;
+      _rowError.remove(person.id);
+    });
+    try {
+      await _createAndSend(person, email);
+    } on InviteApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _rowError[person.id] = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _rowError[person.id] = 'Couldn’t send invite. Try again.');
+    } finally {
+      if (mounted) setState(() => _rowBusyId = null);
+    }
+  }
+
+  /// Creates the invite once, then sends it. A second tap after a failed
+  /// send retries the email and does not create another invite.
+  Future<void> _createAndSend(Person person, String email) async {
+    var inviteId = _pendingSend[person.id];
+    if (inviteId == null) {
+      final created = await _api.createInvite(
+        familyId: widget.familyId,
+        personId: person.id,
+        email: email,
+      );
+      inviteId = created.inviteId;
+      _pendingSend[person.id] = inviteId;
+    }
+    await _api.sendInviteEmail(inviteId: inviteId);
+    _pendingSend.remove(person.id);
+    if (!mounted) return;
+    setState(() => _dropNotInvited(person.id));
+  }
+
+  Future<void> _saveEmailAndInvite(Person person) async {
+    final people = widget.people;
+    final draft = _emailDrafts[person.id]?.text.trim() ?? '';
+    if (people == null || draft.isEmpty || _rowBusyId != null) return;
+    setState(() {
+      _rowBusyId = person.id;
+      _rowError.remove(person.id);
+    });
+    Person saved;
+    try {
+      saved = await people.updatePerson(
+        personId: person.id,
+        name: person.name,
+        email: draft,
+        writeEmail: true,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _rowBusyId = null;
+        _rowError[person.id] = _mappedPeopleSaveError(error);
+      });
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _notInvited = [
+        for (final row in _notInvited)
+          if (row.id == person.id) saved else row,
+      ];
+      _addingEmail.remove(person.id);
+    });
+    final email = saved.email?.trim() ?? '';
+    if (email.isEmpty) {
+      if (mounted) setState(() => _rowBusyId = null);
+      return;
+    }
+    try {
+      await _createAndSend(saved, email);
+    } on InviteApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _rowError[person.id] = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _rowError[person.id] = 'Couldn’t send invite. Try again.');
+    } finally {
+      if (mounted) setState(() => _rowBusyId = null);
     }
   }
 
@@ -119,15 +268,16 @@ class _InviteModalState extends State<InviteModal> {
     }
   }
 
-  Future<void> _ensureLink() async {
-    if (_linkUrl != null || _busy) return;
-    await _createLink();
-  }
-
-  Future<void> _createLink() async {
-    setState(() => _busy = true);
+  Future<void> _createLink({String? personId}) async {
+    setState(() {
+      _busy = true;
+      _pickedPersonId = personId;
+    });
     try {
-      final created = await _api.createInvite(familyId: widget.familyId);
+      final created = await _api.createInvite(
+        familyId: widget.familyId,
+        personId: personId,
+      );
       if (!mounted) return;
       setState(() {
         _linkUrl = created.inviteUrl;
@@ -142,9 +292,6 @@ class _InviteModalState extends State<InviteModal> {
   }
 
   Future<void> _copyLink() async {
-    if (_linkUrl == null) {
-      await _ensureLink();
-    }
     final url = _linkUrl;
     if (url == null || url.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: url));
@@ -174,8 +321,12 @@ class _InviteModalState extends State<InviteModal> {
           if (_tab == 0) _emailBody(),
           if (_tab == 1) _smsBody(),
           if (_tab == 2) _linkBody(),
+          if (_notInvited.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _notInvitedSection(),
+          ],
           const SizedBox(height: 16),
-          const Divider(height: 1, color: _InviteColors.rule),
+          const Divider(height: 1, color: albumInk),
           const SizedBox(height: 16),
           _actions(),
           const SizedBox(height: 12),
@@ -223,7 +374,7 @@ class _InviteModalState extends State<InviteModal> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: _InviteColors.chip,
+                      color: albumSage,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(widget.familyName, style: _InviteType.chip),
@@ -237,8 +388,8 @@ class _InviteModalState extends State<InviteModal> {
           key: const Key('invite-close'),
           onPressed: _busy ? null : _close,
           style: IconButton.styleFrom(
-            backgroundColor: _InviteColors.well,
-            foregroundColor: _InviteColors.muted,
+            backgroundColor: albumParchment,
+            foregroundColor: albumInk,
             fixedSize: const Size(32, 32),
             minimumSize: const Size(32, 32),
             padding: EdgeInsets.zero,
@@ -253,9 +404,9 @@ class _InviteModalState extends State<InviteModal> {
   Widget _tabs() {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _InviteColors.well,
+        color: albumParchment,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _InviteColors.border),
+        border: Border.all(color: albumSage),
       ),
       child: Padding(
         padding: const EdgeInsets.all(4),
@@ -276,7 +427,7 @@ class _InviteModalState extends State<InviteModal> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2),
         child: Material(
-          color: selected ? _InviteColors.primary : Colors.transparent,
+          color: selected ? albumTerracotta : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
             key: Key(keyName),
@@ -329,9 +480,9 @@ class _InviteModalState extends State<InviteModal> {
         const SizedBox(height: 6),
         DecoratedBox(
           decoration: BoxDecoration(
-            color: _InviteColors.card,
+            color: albumParchment,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _InviteColors.fieldBorder),
+            border: Border.all(color: albumSage),
           ),
           child: Row(
             children: [
@@ -341,10 +492,8 @@ class _InviteModalState extends State<InviteModal> {
                   vertical: 12,
                 ),
                 decoration: const BoxDecoration(
-                  color: _InviteColors.prefix,
-                  border: Border(
-                    right: BorderSide(color: _InviteColors.fieldBorder),
-                  ),
+                  color: albumParchment,
+                  border: Border(right: BorderSide(color: albumSage)),
                 ),
                 child: Text('+1', style: _InviteType.field),
               ),
@@ -387,6 +536,30 @@ class _InviteModalState extends State<InviteModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _label('Who is this link for?'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final person in _unlinked)
+              ChoiceChip(
+                key: Key('invite-person-${person.id}'),
+                label: Text(person.name),
+                selected: _pickedPersonId == person.id,
+                onSelected: _busy
+                    ? null
+                    : (_) => _createLink(personId: person.id),
+              ),
+            ChoiceChip(
+              key: const Key('invite-person-new'),
+              label: const Text('Someone new'),
+              selected: _linkUrl != null && _pickedPersonId == null,
+              onSelected: _busy ? null : (_) => _createLink(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         _label('Shareable invite link'),
         const SizedBox(height: 6),
         Row(
@@ -400,7 +573,7 @@ class _InviteModalState extends State<InviteModal> {
                 decoration: InputDecoration(
                   isDense: true,
                   filled: true,
-                  fillColor: _InviteColors.well,
+                  fillColor: albumParchment,
                   hintText: _busy ? 'Creating link…' : '',
                   hintStyle: _InviteType.hint,
                   border: _fieldBorder,
@@ -435,9 +608,11 @@ class _InviteModalState extends State<InviteModal> {
             ),
             TextButton.icon(
               key: const Key('invite-generate'),
-              onPressed: _busy ? null : _createLink,
+              onPressed: _busy
+                  ? null
+                  : () => _createLink(personId: _pickedPersonId),
               style: TextButton.styleFrom(
-                foregroundColor: _InviteColors.primary,
+                foregroundColor: albumTerracotta,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 visualDensity: VisualDensity.compact,
               ),
@@ -453,6 +628,111 @@ class _InviteModalState extends State<InviteModal> {
         ),
       ],
     );
+  }
+
+  Widget _notInvitedSection() {
+    return Column(
+      key: const Key('not-invited'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Not invited yet',
+          style: GoogleFonts.newsreader(
+            color: albumInk,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (final person in _notInvited) _notInvitedRow(person),
+      ],
+    );
+  }
+
+  Widget _notInvitedRow(Person person) {
+    final busy = _rowBusyId == person.id;
+    final error = _rowError[person.id];
+    final adding = _addingEmail.contains(person.id);
+    return Padding(
+      key: Key('not-invited-row-${person.id}'),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              ProfileAvatar(size: 32, displayName: person.name),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(person.name, style: _InviteType.field),
+                    if (!adding)
+                      Text(
+                        _hasEmail(person)
+                            ? person.email!.trim()
+                            : 'No email yet',
+                        style: _InviteType.meta,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (_hasEmail(person))
+                OutlinedButton(
+                  key: Key('not-invited-invite-${person.id}'),
+                  onPressed: busy ? null : () => _inviteNotInvited(person),
+                  style: _smallOutline,
+                  child: const Text('Invite'),
+                )
+              else if (!adding)
+                OutlinedButton(
+                  key: Key('not-invited-add-${person.id}'),
+                  onPressed: busy ? null : () => _startAddEmail(person.id),
+                  style: _smallOutline,
+                  child: const Text('Add email'),
+                ),
+            ],
+          ),
+          if (adding) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _field(
+                    key: Key('not-invited-email-${person.id}'),
+                    controller: _emailDrafts[person.id]!,
+                    hint: 'name@example.com',
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  key: Key('not-invited-save-${person.id}'),
+                  onPressed: busy ? null : () => _saveEmailAndInvite(person),
+                  style: _smallOutline,
+                  child: const Text('Save and invite'),
+                ),
+              ],
+            ),
+          ],
+          if (error != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              error,
+              key: Key('not-invited-error-${person.id}'),
+              style: _InviteType.meta.copyWith(color: albumTerracotta),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _startAddEmail(String personId) {
+    _emailDrafts.putIfAbsent(personId, TextEditingController.new);
+    setState(() => _addingEmail.add(personId));
   }
 
   Widget _actions() {
@@ -472,8 +752,8 @@ class _InviteModalState extends State<InviteModal> {
           key: const Key('invite-cancel'),
           onPressed: _busy ? null : _close,
           style: OutlinedButton.styleFrom(
-            foregroundColor: _InviteColors.secondary,
-            side: const BorderSide(color: _InviteColors.cancelBorder),
+            foregroundColor: albumInk,
+            side: const BorderSide(color: albumSage),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -533,11 +813,11 @@ class _InviteModalState extends State<InviteModal> {
         hintText: hint,
         hintStyle: _InviteType.hint,
         filled: true,
-        fillColor: _InviteColors.card,
+        fillColor: albumParchment,
         border: _fieldBorder,
         enabledBorder: _fieldBorder,
         focusedBorder: _fieldBorder.copyWith(
-          borderSide: const BorderSide(color: _InviteColors.primary),
+          borderSide: const BorderSide(color: albumTerracotta),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -563,12 +843,12 @@ class _InviteModalState extends State<InviteModal> {
         hintText: 'Add a warm note for your family member...',
         hintStyle: _InviteType.hint,
         filled: true,
-        fillColor: _InviteColors.card,
+        fillColor: albumParchment,
         alignLabelWithHint: true,
         border: _fieldBorder,
         enabledBorder: _fieldBorder,
         focusedBorder: _fieldBorder.copyWith(
-          borderSide: const BorderSide(color: _InviteColors.primary),
+          borderSide: const BorderSide(color: albumTerracotta),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -580,74 +860,58 @@ class _InviteModalState extends State<InviteModal> {
 
   OutlineInputBorder get _fieldBorder => OutlineInputBorder(
     borderRadius: BorderRadius.circular(12),
-    borderSide: const BorderSide(color: _InviteColors.fieldBorder),
+    borderSide: const BorderSide(color: albumSage),
+  );
+
+  ButtonStyle get _smallOutline => OutlinedButton.styleFrom(
+    foregroundColor: albumInk,
+    side: const BorderSide(color: albumSage),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    minimumSize: Size.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    textStyle: _InviteType.button,
   );
 
   ButtonStyle get _primaryStyle => FilledButton.styleFrom(
-    backgroundColor: _InviteColors.primary,
-    foregroundColor: _InviteColors.onPrimary,
-    disabledBackgroundColor: _InviteColors.primary.withValues(alpha: 0.4),
+    backgroundColor: albumTerracotta,
+    foregroundColor: albumParchment,
+    disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.4),
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     textStyle: _InviteType.buttonBold,
   );
 }
 
-abstract final class _InviteColors {
-  static const card = Color(0xFFFFFFFF);
-  static const primary = Color(0xFF6B5B55);
-  static const onPrimary = Color(0xFFFFF6F3);
-  static const ink = Color(0xFF37312F);
-  static const muted = albumInk;
-  static const secondary = Color(0xFF665D5A);
-  static const chip = Color(0xFFEDE0DC);
-  static const chipInk = Color(0xFF58504D);
-  static const well = Color(0xFFF5ECE9);
-  static const prefix = Color(0x80F5ECE9);
-  static const border = Color(0x4DB9B0AD);
-  static const fieldBorder = Color(0x66B9B0AD);
-  static const cancelBorder = Color(0x80B9B0AD);
-  static const rule = Color(0x33B9B0AD);
-}
-
 abstract final class _InviteType {
   static final title = GoogleFonts.newsreader(
     fontSize: 24,
     fontWeight: FontWeight.w700,
-    color: _InviteColors.ink,
+    color: albumInk,
     height: 1.2,
   );
   static final label = GoogleFonts.sourceSans3(
     fontSize: 14,
     fontWeight: FontWeight.w600,
-    color: _InviteColors.ink,
+    color: albumInk,
   );
   static final optional = GoogleFonts.sourceSans3(
     fontSize: 14,
     fontWeight: FontWeight.w400,
-    color: _InviteColors.muted,
+    color: albumInk,
   );
-  static final meta = GoogleFonts.sourceSans3(
-    fontSize: 12,
-    color: _InviteColors.muted,
-  );
+  static final meta = GoogleFonts.sourceSans3(fontSize: 12, color: albumInk);
   static final chip = GoogleFonts.sourceSans3(
     fontSize: 12,
     fontWeight: FontWeight.w600,
-    color: _InviteColors.chipInk,
+    color: albumInk,
   );
-  static final field = GoogleFonts.sourceSans3(
-    fontSize: 14,
-    color: _InviteColors.ink,
-  );
+  static final field = GoogleFonts.sourceSans3(fontSize: 14, color: albumInk);
   static final hint = GoogleFonts.sourceSans3(
     fontSize: 14,
-    color: _InviteColors.muted.withValues(alpha: 0.7),
+    color: albumInk.withValues(alpha: 0.7),
   );
-  static final mono = GoogleFonts.sourceSans3(
-    fontSize: 14,
-    color: _InviteColors.ink,
-  );
+  static final mono = GoogleFonts.sourceSans3(fontSize: 14, color: albumInk);
   static final button = GoogleFonts.sourceSans3(
     fontSize: 13,
     fontWeight: FontWeight.w600,
@@ -659,18 +923,36 @@ abstract final class _InviteType {
   static final linkAction = GoogleFonts.sourceSans3(
     fontSize: 12,
     fontWeight: FontWeight.w600,
-    color: _InviteColors.primary,
+    color: albumTerracotta,
   );
   static final footnote = GoogleFonts.sourceSans3(
     fontSize: 11,
-    color: _InviteColors.muted,
+    color: albumInk,
   );
 
   static TextStyle tab(bool selected) {
     return GoogleFonts.sourceSans3(
       fontSize: 12,
       fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-      color: selected ? _InviteColors.onPrimary : _InviteColors.muted,
+      color: selected ? albumParchment : albumInk,
     );
   }
+}
+
+/// Same four prefixes as mapRpcError in supabase/functions/_shared/manage.ts.
+String _mappedPeopleSaveError(Object error) {
+  final raw = error is PostgrestException ? error.message : '';
+  final trimmed = raw.trim();
+  const prefixes = [
+    'NOT_FOUND:',
+    'FORBIDDEN:',
+    'VALIDATION:',
+    'INVITE_INVALID:',
+  ];
+  for (final prefix in prefixes) {
+    if (!trimmed.startsWith(prefix)) continue;
+    final detail = trimmed.substring(prefix.length).trim();
+    return detail.isEmpty ? trimmed : detail;
+  }
+  return 'Try again';
 }

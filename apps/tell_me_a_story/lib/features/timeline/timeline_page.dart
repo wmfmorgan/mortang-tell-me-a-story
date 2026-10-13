@@ -19,6 +19,7 @@ import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../family/start_timeline_dialog.dart';
+import '../people/person_profile_dialog.dart';
 import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
 import '../stories/story_date.dart';
@@ -392,6 +393,7 @@ class _TimelinePageState extends State<TimelinePage> {
       familyId: familyId,
       familyName: _currentFamily?.name ?? 'Family',
       api: _api,
+      people: widget.peopleApi,
     );
   }
 
@@ -741,6 +743,13 @@ class _TimelinePageState extends State<TimelinePage> {
         stories: dialStories(_published),
         focusedId: _focusedStoryId,
         photos: _photos,
+        onPerson: (person) => showPersonProfile(
+          context,
+          personId: person.id,
+          name: person.name,
+          people: widget.peopleApi,
+          signedInUserId: _sessionUserId(),
+        ),
         marks: _marks,
         originStoryId: originId,
         originTag: originLabel,
@@ -1202,41 +1211,41 @@ class _FarRailState extends State<_FarRail> {
             child: _EmptyTap(
               onTap: widget.onEmpty,
               child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is ScrollUpdateNotification ||
-                    notification is ScrollEndNotification) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) _measure();
-                  });
-                }
-                return false;
-              },
-              child: Stack(
-                key: _viewportKey,
-                children: [
-                  const Positioned.fill(
-                    child: IgnorePointer(
-                      child: Center(
-                        child: SizedBox(
-                          width: 2,
-                          child: ColoredBox(color: Color(0x332C2416)),
+                onNotification: (notification) {
+                  if (notification is ScrollUpdateNotification ||
+                      notification is ScrollEndNotification) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _measure();
+                    });
+                  }
+                  return false;
+                },
+                child: Stack(
+                  key: _viewportKey,
+                  children: [
+                    const Positioned.fill(
+                      child: IgnorePointer(
+                        child: Center(
+                          child: SizedBox(
+                            width: 2,
+                            child: ColoredBox(color: Color(0x332C2416)),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final pad = constraints.maxHeight / 2;
-                      return ListView(
-                        controller: _scroll,
-                        padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                        children: _farChildren(joinYear),
-                      );
-                    },
-                  ),
-                ],
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final pad = constraints.maxHeight / 2;
+                        return ListView(
+                          controller: _scroll,
+                          padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
+                          children: _farChildren(joinYear),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
             ),
           ),
         ],
@@ -1772,87 +1781,87 @@ class _MidRailState extends State<_MidRail> {
             child: _EmptyTap(
               onTap: widget.onEmpty,
               child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is ScrollUpdateNotification ||
-                    notification is ScrollEndNotification) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) _measure();
-                  });
-                }
-                return false;
-              },
-              child: Stack(
-                key: _viewportKey,
-                children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final pad = constraints.maxHeight / 2;
-                      final beside = <String, List<TreeFamily>>{};
-                      for (final mark in widget.marks) {
-                        final year = mark.branchYear;
-                        if (year == null || widget.stories.isEmpty) continue;
-                        final index = closestNewerStoryIndex(
-                          widget.stories,
-                          year,
-                        );
-                        final id = widget.stories[index].id;
-                        (beside[id] ??= []).add(mark);
-                      }
-                      final origin = widget.originMark;
-                      final originId = widget.originStoryId;
-                      if (origin != null && originId != null) {
-                        (beside[originId] ??= []).add(origin);
-                      }
-                      return ListView(
-                        controller: _scroll,
-                        padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                        children: [
-                          for (final mark in widget.marks)
-                            if (mark.branchYear == null)
-                              _BranchMark(
-                                family: mark,
-                                onTap: () => widget.onMark(mark),
-                                onRail: true,
+                onNotification: (notification) {
+                  if (notification is ScrollUpdateNotification ||
+                      notification is ScrollEndNotification) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _measure();
+                    });
+                  }
+                  return false;
+                },
+                child: Stack(
+                  key: _viewportKey,
+                  children: [
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final pad = constraints.maxHeight / 2;
+                        final beside = <String, List<TreeFamily>>{};
+                        for (final mark in widget.marks) {
+                          final year = mark.branchYear;
+                          if (year == null || widget.stories.isEmpty) continue;
+                          final index = closestNewerStoryIndex(
+                            widget.stories,
+                            year,
+                          );
+                          final id = widget.stories[index].id;
+                          (beside[id] ??= []).add(mark);
+                        }
+                        final origin = widget.originMark;
+                        final originId = widget.originStoryId;
+                        if (origin != null && originId != null) {
+                          (beside[originId] ??= []).add(origin);
+                        }
+                        return ListView(
+                          controller: _scroll,
+                          padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
+                          children: [
+                            for (final mark in widget.marks)
+                              if (mark.branchYear == null)
+                                _BranchMark(
+                                  family: mark,
+                                  onTap: () => widget.onMark(mark),
+                                  onRail: true,
+                                ),
+                            for (var i = 0; i < widget.stories.length; i++)
+                              _DialRow(
+                                key: widget.anchorFor(widget.stories[i].id),
+                                story: widget.stories[i],
+                                marks: beside[widget.stories[i].id] ?? const [],
+                                originTag:
+                                    widget.stories[i].id == widget.originStoryId
+                                    ? widget.originTag
+                                    : null,
+                                onMark: widget.onMark,
+                                cardOnLeft: i.isEven,
+                                focused: widget.stories[i].id == _centerId,
+                                opacity:
+                                    _opacities[widget.stories[i].id] ??
+                                    (widget.stories[i].id == _centerId
+                                        ? 1
+                                        : 0.35),
+                                showBranchRail:
+                                    widget.child != null && i <= joinAt,
+                                railEndsAtJoin:
+                                    widget.child != null && i == joinAt,
+                                joinNote: widget.child != null && i == joinAt
+                                    ? '← ${widget.child!.name} union joined archive'
+                                    : null,
+                                branchLabel: widget.child != null && i == joinAt
+                                    ? '${widget.child!.name} Branch'
+                                    : null,
+                                onTap: () => widget.onStub(widget.stories[i]),
+                                onNode: () => widget.onNode(widget.stories[i]),
                               ),
-                          for (var i = 0; i < widget.stories.length; i++)
-                            _DialRow(
-                              key: widget.anchorFor(widget.stories[i].id),
-                              story: widget.stories[i],
-                              marks: beside[widget.stories[i].id] ?? const [],
-                              originTag:
-                                  widget.stories[i].id == widget.originStoryId
-                                  ? widget.originTag
-                                  : null,
-                              onMark: widget.onMark,
-                              cardOnLeft: i.isEven,
-                              focused: widget.stories[i].id == _centerId,
-                              opacity:
-                                  _opacities[widget.stories[i].id] ??
-                                  (widget.stories[i].id == _centerId
-                                      ? 1
-                                      : 0.35),
-                              showBranchRail:
-                                  widget.child != null && i <= joinAt,
-                              railEndsAtJoin:
-                                  widget.child != null && i == joinAt,
-                              joinNote: widget.child != null && i == joinAt
-                                  ? '← ${widget.child!.name} union joined archive'
-                                  : null,
-                              branchLabel: widget.child != null && i == joinAt
-                                  ? '${widget.child!.name} Branch'
-                                  : null,
-                              onTap: () => widget.onStub(widget.stories[i]),
-                              onNode: () => widget.onNode(widget.stories[i]),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                  const _DialFade(top: true),
-                  const _DialFade(top: false),
-                ],
+                          ],
+                        );
+                      },
+                    ),
+                    const _DialFade(top: true),
+                    const _DialFade(top: false),
+                  ],
+                ),
               ),
-            ),
             ),
           ),
         ],
@@ -2605,6 +2614,7 @@ class _FullCardRail extends StatefulWidget {
     required this.onMark,
     required this.onMacro,
     required this.onMid,
+    this.onPerson,
   });
 
   final List<Story> stories;
@@ -2621,6 +2631,7 @@ class _FullCardRail extends StatefulWidget {
   final ValueChanged<TreeFamily> onMark;
   final VoidCallback onMacro;
   final VoidCallback onMid;
+  final void Function(({String id, String name}) person)? onPerson;
 
   @override
   State<_FullCardRail> createState() => _FullCardRailState();
@@ -2763,106 +2774,109 @@ class _FullCardRailState extends State<_FullCardRail> {
             child: _EmptyTap(
               onTap: widget.onEmpty,
               child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is ScrollUpdateNotification ||
-                    notification is ScrollEndNotification) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) _measure();
-                  });
-                }
-                return false;
-              },
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final wide = constraints.maxWidth >= 800;
-                  final pad = constraints.maxHeight / 2;
-                  final gap = constraints.maxWidth < 720 ? 32.0 : 80.0;
-                  return Stack(
-                    key: _viewportKey,
-                    children: [
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: Align(
-                            alignment: wide
-                                ? Alignment.center
-                                : Alignment.centerLeft,
-                            child: Padding(
-                              padding: EdgeInsets.only(left: wide ? 0 : 13),
-                              child: Container(
-                                key: const Key('timeline-spine'),
-                                width: 2,
-                                color: albumInk.withValues(alpha: 0.2),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      ListView(
-                        controller: _scroll,
-                        scrollCacheExtent: const ScrollCacheExtent.pixels(
-                          100000,
-                        ),
-                        padding: EdgeInsets.fromLTRB(
-                          wide ? 24 : 8,
-                          pad,
-                          24,
-                          pad,
-                        ),
-                        children: [
-                          ..._fullCardChildren(
-                            stories: widget.stories,
-                            marks: widget.marks,
-                            onMark: widget.onMark,
-                            wide: wide,
-                            cardAt: (i) => _FullCardRow(
-                              key: widget.anchorFor(widget.stories[i].id),
-                              story: widget.stories[i],
-                              cardOnLeft: i.isEven,
-                              wide: wide,
-                              originMark:
-                                  widget.stories[i].id == widget.originStoryId
-                                  ? widget.originMark
-                                  : null,
-                              originTag:
-                                  widget.stories[i].id == widget.originStoryId
-                                  ? widget.originTag
-                                  : null,
-                              onMark: widget.onMark,
-                              focused: widget.stories[i].id == _centerId,
-                              opacity:
-                                  _opacities[widget.stories[i].id] ??
-                                  (widget.stories[i].id == _centerId ? 1 : 0.4),
-                              gap: gap,
-                              photos: widget.photos,
-                              onOpen: () => widget.onOpen(widget.stories[i]),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Positioned.fill(
-                        child: IgnorePointer(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  albumParchment,
-                                  Color(0x00FBF7F2),
-                                  Color(0x00FBF7F2),
-                                  albumParchment,
-                                ],
-                                stops: [0, 0.18, 0.82, 1],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
+                onNotification: (notification) {
+                  if (notification is ScrollUpdateNotification ||
+                      notification is ScrollEndNotification) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _measure();
+                    });
+                  }
+                  return false;
                 },
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final wide = constraints.maxWidth >= 800;
+                    final pad = constraints.maxHeight / 2;
+                    final gap = constraints.maxWidth < 720 ? 32.0 : 80.0;
+                    return Stack(
+                      key: _viewportKey,
+                      children: [
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: Align(
+                              alignment: wide
+                                  ? Alignment.center
+                                  : Alignment.centerLeft,
+                              child: Padding(
+                                padding: EdgeInsets.only(left: wide ? 0 : 13),
+                                child: Container(
+                                  key: const Key('timeline-spine'),
+                                  width: 2,
+                                  color: albumInk.withValues(alpha: 0.2),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        ListView(
+                          controller: _scroll,
+                          scrollCacheExtent: const ScrollCacheExtent.pixels(
+                            100000,
+                          ),
+                          padding: EdgeInsets.fromLTRB(
+                            wide ? 24 : 8,
+                            pad,
+                            24,
+                            pad,
+                          ),
+                          children: [
+                            ..._fullCardChildren(
+                              stories: widget.stories,
+                              marks: widget.marks,
+                              onMark: widget.onMark,
+                              wide: wide,
+                              cardAt: (i) => _FullCardRow(
+                                key: widget.anchorFor(widget.stories[i].id),
+                                story: widget.stories[i],
+                                cardOnLeft: i.isEven,
+                                wide: wide,
+                                originMark:
+                                    widget.stories[i].id == widget.originStoryId
+                                    ? widget.originMark
+                                    : null,
+                                originTag:
+                                    widget.stories[i].id == widget.originStoryId
+                                    ? widget.originTag
+                                    : null,
+                                onMark: widget.onMark,
+                                onPerson: widget.onPerson,
+                                focused: widget.stories[i].id == _centerId,
+                                opacity:
+                                    _opacities[widget.stories[i].id] ??
+                                    (widget.stories[i].id == _centerId
+                                        ? 1
+                                        : 0.4),
+                                gap: gap,
+                                photos: widget.photos,
+                                onOpen: () => widget.onOpen(widget.stories[i]),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Positioned.fill(
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    albumParchment,
+                                    Color(0x00FBF7F2),
+                                    Color(0x00FBF7F2),
+                                    albumParchment,
+                                  ],
+                                  stops: [0, 0.18, 0.82, 1],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
             ),
           ),
         ],
@@ -3078,6 +3092,7 @@ class _FullCardRow extends StatelessWidget {
     this.originMark,
     this.originTag,
     this.onMark,
+    this.onPerson,
   });
 
   final Story story;
@@ -3086,6 +3101,7 @@ class _FullCardRow extends StatelessWidget {
   final TreeFamily? originMark;
   final String? originTag;
   final ValueChanged<TreeFamily>? onMark;
+  final void Function(({String id, String name}) person)? onPerson;
   final bool focused;
   final double opacity;
   final double gap;
@@ -3106,6 +3122,7 @@ class _FullCardRow extends StatelessWidget {
           photos: photos,
           originTag: originTag,
           onOpen: onOpen,
+          onPerson: onPerson,
         ),
       ),
     );
@@ -3265,6 +3282,7 @@ class _FullCard extends StatelessWidget {
     required this.photos,
     required this.onOpen,
     this.originTag,
+    this.onPerson,
   });
 
   final Story story;
@@ -3272,6 +3290,7 @@ class _FullCard extends StatelessWidget {
   final PhotosGateway? photos;
   final VoidCallback onOpen;
   final String? originTag;
+  final void Function(({String id, String name}) person)? onPerson;
 
   @override
   Widget build(BuildContext context) {
@@ -3340,11 +3359,25 @@ class _FullCard extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        for (final name in story.personNames)
-                          _FullChip(
-                            icon: Icons.person,
-                            label: name,
-                            filled: focused,
+                        for (final person
+                            in story.people.isNotEmpty
+                                ? story.people
+                                : [
+                                    for (final name in story.personNames)
+                                      (id: '', name: name),
+                                  ])
+                          GestureDetector(
+                            key: Key(
+                              'timeline-person-${story.id}-${person.name}',
+                            ),
+                            onTap: person.id.isEmpty || onPerson == null
+                                ? null
+                                : () => onPerson!(person),
+                            child: _FullChip(
+                              icon: Icons.person,
+                              label: person.name,
+                              filled: focused,
+                            ),
                           ),
                         if ((story.placeLabel ?? '').isNotEmpty)
                           _FullChip(

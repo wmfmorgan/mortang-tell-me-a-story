@@ -15,6 +15,7 @@ import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/search_api.dart';
 import '../../data/stories_api.dart';
+import '../people/person_profile_dialog.dart';
 import '../stories/story_date.dart';
 import '../stories/timeframe_chips.dart';
 import 'search_recents.dart';
@@ -566,6 +567,7 @@ class _SearchPageState extends State<SearchPage> {
                 child: _ResultCard(
                   record: record,
                   photos: _photos,
+                  people: _peopleApi,
                   onOpen: () =>
                       context.push(AppRoutes.storyPath(record.story.id)),
                 ),
@@ -634,7 +636,12 @@ class _SearchPageState extends State<SearchPage> {
                 key: Key('search-suggest-person-${person.id}'),
                 avatar: const Icon(Icons.person, size: 18),
                 label: Text(person.name),
-                onPressed: () => _addPerson(person.id),
+                onPressed: () => showPersonProfile(
+                  context,
+                  personId: person.id,
+                  name: person.name,
+                  people: _peopleApi,
+                ),
               ),
             for (final place in places)
               ActionChip(
@@ -716,11 +723,13 @@ class _ResultCard extends StatelessWidget {
     required this.record,
     required this.photos,
     required this.onOpen,
+    this.people,
   });
 
   final SearchRecord record;
   final PhotosGateway photos;
   final VoidCallback onOpen;
+  final PeopleGateway? people;
 
   @override
   Widget build(BuildContext context) {
@@ -760,11 +769,21 @@ class _ResultCard extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final name in story.personNames)
-                        _QuietOrFilledChip(
-                          key: Key('search-card-person-$name'),
-                          label: name,
-                          filled: true,
+                      for (final person in story.people.isNotEmpty
+                          ? story.people
+                          : [
+                              for (final name in story.personNames)
+                                (id: '', name: name),
+                            ])
+                        PersonNamePill(
+                          personId: person.id,
+                          name: person.name,
+                          people: people,
+                          child: _QuietOrFilledChip(
+                            key: Key('search-card-person-${person.name}'),
+                            label: person.name,
+                            filled: true,
+                          ),
                         ),
                       if ((story.placeLabel ?? '').isNotEmpty)
                         _QuietOrFilledChip(

@@ -18,6 +18,7 @@ import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/stories_api.dart';
 import '../people/add_person_modal.dart';
+import '../people/person_profile_dialog.dart';
 import '../places/place_map.dart';
 import '../places/place_picker_modal.dart';
 import 'photo_strip.dart';
@@ -290,11 +291,13 @@ class _NewStoryPageState extends State<NewStoryPage> {
     try {
       final familyId = await _ensureFamilyId();
       if (!mounted || familyId == null) return;
-      final person = await AddPersonModal.show(
+      final added = await AddPersonModal.show(
         context,
         familyId: familyId,
         api: _people,
+        invites: _invite,
       );
+      final person = added?.person;
       if (!mounted || person == null) return;
       if (_selectedPeople.any((p) => p.id == person.id)) return;
       setState(() => _selectedPeople.add(person));
@@ -950,14 +953,20 @@ class _NewStoryPageState extends State<NewStoryPage> {
                   runSpacing: 8,
                   children: [
                     for (final person in _selectedPeople)
-                      Chip(
-                        label: Text(person.name),
-                        labelStyle: Theme.of(context).textTheme.titleMedium,
-                        labelPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                      PersonNamePill(
+                        personId: person.id,
+                        name: person.name,
+                        people: _people,
+                        invites: _invite,
+                        child: Chip(
+                          label: Text(person.name),
+                          labelStyle: Theme.of(context).textTheme.titleMedium,
+                          labelPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          onDeleted: () => _removePerson(person),
                         ),
-                        onDeleted: () => _removePerson(person),
                       ),
                     TextButton(
                       onPressed: _actionsEnabled ? _openAddPerson : null,

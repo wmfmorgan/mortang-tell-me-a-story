@@ -35,6 +35,7 @@ class _StubInviteApi implements InviteGateway {
   Future<CreateInviteResult> createInvite({
     required String familyId,
     String? email,
+    String? personId,
   }) async {
     return const CreateInviteResult(
       inviteId: 'i',
@@ -59,8 +60,13 @@ class _StubPeopleApi extends PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    required String relationship,
+    DateTime? birthDate,
+    String? birthPrecision,
+    DateTime? passingDate,
+    String? passingPrecision,
+    String? about,
     String? email,
+    List<int>? pictureBytes,
   }) async {
     throw UnimplementedError();
   }
@@ -330,7 +336,9 @@ void main() {
   });
 
   testWidgets('invite query rewrites to /invite/:token', (tester) async {
-    final auth = AuthRefresh(initiallySignedIn: true);
+    // Signed out, so the rewritten invite page stays. A signed-in session
+    // accepts and continues to the timeline.
+    final auth = AuthRefresh(initiallySignedIn: false);
     final router = createAppRouter(
       authRefresh: auth,
       inviteApi: _StubInviteApi(),
