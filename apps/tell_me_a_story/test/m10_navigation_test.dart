@@ -576,6 +576,7 @@ class _Invite implements InviteGateway {
   Future<CreateInviteResult> createInvite({
     required String familyId,
     String? email,
+    String? personId,
   }) async {
     return const CreateInviteResult(
       inviteId: 'i',

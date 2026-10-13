@@ -12,12 +12,18 @@ class OwnProfile {
     this.displayName,
     this.email,
     this.avatarPath,
+    this.birthDate,
+    this.birthPrecision,
+    this.about,
   });
 
   final String id;
   final String? displayName;
   final String? email;
   final String? avatarPath;
+  final DateTime? birthDate;
+  final String? birthPrecision;
+  final String? about;
 
   factory OwnProfile.fromJson(Map<String, dynamic> json) {
     return OwnProfile(
@@ -25,8 +31,26 @@ class OwnProfile {
       displayName: json['display_name'] as String?,
       email: json['email'] as String?,
       avatarPath: json['avatar_path'] as String?,
+      birthDate: _profileDate(json['birth_date']),
+      birthPrecision: json['birth_precision'] as String?,
+      about: json['about'] as String?,
     );
   }
+}
+
+DateTime? _profileDate(Object? raw) {
+  if (raw == null) return null;
+  if (raw is DateTime) return raw;
+  if (raw is String && raw.isNotEmpty) return DateTime.parse(raw);
+  return null;
+}
+
+String? _profileDateIso(DateTime? date) {
+  if (date == null) return null;
+  final y = date.year.toString().padLeft(4, '0');
+  final m = date.month.toString().padLeft(2, '0');
+  final d = date.day.toString().padLeft(2, '0');
+  return '$y-$m-$d';
 }
 
 abstract class ProfileGateway {
@@ -34,6 +58,14 @@ abstract class ProfileGateway {
 
   /// Writes `display_name` only.
   Future<void> saveName(String displayName);
+
+  /// One Save: display name, birth, and about. Does not write email or people.
+  Future<void> saveAccount({
+    required String displayName,
+    DateTime? birthDate,
+    String? birthPrecision,
+    String? about,
+  });
 
   /// Uploads `{uid}/avatar.jpg` and sets `avatar_path`.
   Future<String> saveAvatar(Uint8List bytes);
@@ -91,7 +123,9 @@ class ProfileApi implements ProfileGateway {
     if (uid == null) return null;
     final row = await _supabase
         .from('profiles')
-        .select('id, display_name, email, avatar_path')
+        .select(
+          'id, display_name, email, avatar_path, birth_date, birth_precision, about',
+        )
         .eq('id', uid)
         .maybeSingle();
     if (row == null) return null;
@@ -101,6 +135,21 @@ class ProfileApi implements ProfileGateway {
   @override
   Future<void> saveName(String displayName) {
     return _patch({'display_name': displayName});
+  }
+
+  @override
+  Future<void> saveAccount({
+    required String displayName,
+    DateTime? birthDate,
+    String? birthPrecision,
+    String? about,
+  }) {
+    return _patch({
+      'display_name': displayName,
+      'birth_date': _profileDateIso(birthDate),
+      'birth_precision': birthPrecision,
+      'about': about,
+    });
   }
 
   @override

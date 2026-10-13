@@ -1,41 +1,58 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
+import '../family/family_blur_dialog.dart';
+import '../stories/story_date.dart';
+import 'person_date_field.dart';
+
+/// Created person, and whether the caller chose "Send invite".
+class AddPersonResult {
+  const AddPersonResult({required this.person, required this.sendInvite});
+
+  final Person person;
+  final bool sendInvite;
+}
 
 enum _AddPersonMode { chooseExisting, createNew }
 
-/// Visible chip label, then the string written by [PeopleGateway.createPerson].
-const _relationshipChoices = <(String, String)>[
-  ('Mother', 'Mother'),
-  ('Father', 'Father'),
-  ('Grandparent', 'Grandparent'),
-  ('Sibling', 'Sibling'),
-  ('Aunt / Uncle', 'Aunt/Uncle'),
-  ('Cousin', 'Cousin'),
-  ('Spouse', 'Spouse'),
-  ('Family friend', 'Family friend'),
-  ('Other', 'Other'),
-];
-
 /// Add Person modal — pick an existing family person or create one.
-/// Create writes name, relationship, and optional email. It does not send an invite.
+/// Create writes profile fields. Relationship is not collected.
 class AddPersonModal extends StatefulWidget {
-  const AddPersonModal({super.key, required this.familyId, required this.api});
+  const AddPersonModal({
+    super.key,
+    required this.familyId,
+    required this.api,
+    this.invites,
+    this.pickImageBytes,
+  });
 
   final String familyId;
   final PeopleGateway api;
+  final InviteGateway? invites;
+  final Future<Uint8List?> Function()? pickImageBytes;
 
-  static Future<Person?> show(
+  static Future<AddPersonResult?> show(
     BuildContext context, {
     required String familyId,
     required PeopleGateway api,
+    InviteGateway? invites,
+    Future<Uint8List?> Function()? pickImageBytes,
   }) {
-    return showAlbumDialog<Person>(
+    return showAlbumDialog<AddPersonResult>(
       context: context,
       maxWidth: 560,
-      builder: (ctx) => AddPersonModal(familyId: familyId, api: api),
+      builder: (ctx) => AddPersonModal(
+        familyId: familyId,
+        api: api,
+        invites: invites,
+        pickImageBytes: pickImageBytes,
+      ),
     );
   }
 
@@ -47,15 +64,18 @@ class _AddPersonModalState extends State<AddPersonModal> {
   _AddPersonMode _mode = _AddPersonMode.chooseExisting;
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _aboutController = TextEditingController();
   final _searchController = TextEditingController();
-  String? _relationship;
   Person? _selectedPerson;
+  StoryDate? _birth;
+  StoryDate? _passing;
+  Uint8List? _picture;
 
   List<Person>? _people;
   Object? _loadError;
   var _busy = false;
   String? _nameError;
-  String? _relationshipError;
+  String? _aboutError;
 
   @override
   void initState() {
@@ -67,6 +87,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _aboutController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -86,34 +107,85 @@ class _AddPersonModalState extends State<AddPersonModal> {
     }
   }
 
+  bool get _passingSet => _passing != null;
+
+  Future<void> _pickPicture() async {
+    final picker = widget.pickImageBytes ?? _pickFromGallery;
+    final bytes = await picker();
+    if (bytes == null || !mounted) return;
+    setState(() => _picture = bytes);
+  }
+
+  Future<Uint8List?> _pickFromGallery() async {
+    final file = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (file == null) return null;
+    return file.readAsBytes();
+  }
+
   Future<void> _saveCreate() async {
     final name = _nameController.text.trim();
-    final relationship = _relationship?.trim() ?? '';
+    final about = _aboutController.text;
     final nameError = name.isEmpty ? 'Name is required' : null;
-    final relationshipError = relationship.isEmpty
-        ? 'Relationship is required'
+    final aboutError = about.length > 500
+        ? 'About must be 500 characters or fewer.'
         : null;
-    if (nameError != null || relationshipError != null) {
+    if (nameError != null || aboutError != null) {
       setState(() {
         _nameError = nameError;
-        _relationshipError = relationshipError;
+        _aboutError = aboutError;
       });
       return;
+    }
+    final email = _passingSet ? '' : _emailController.text.trim();
+    var sendInvite = false;
+    if (email.isNotEmpty) {
+      final confirmed = await showFamilyBlurDialog(
+        context,
+        dialogKey: const Key('send-invite-confirm'),
+        title: 'Send invite to $name?',
+        confirmLabel: 'Send invite',
+        confirmKey: const Key('send-invite-confirm-yes'),
+        confirmColor: albumTerracotta,
+        cancelLabel: 'Not now',
+        cancelKey: const Key('send-invite-confirm-no'),
+      );
+      if (!mounted) return;
+      sendInvite = confirmed;
     }
     setState(() {
       _busy = true;
       _nameError = null;
-      _relationshipError = null;
+      _aboutError = null;
     });
     try {
+      final birth = _stored(_birth);
+      final passing = _stored(_passing);
       final person = await widget.api.createPerson(
         familyId: widget.familyId,
         name: name,
-        relationship: relationship,
-        email: _emailController.text,
+        birthDate: birth?.date,
+        birthPrecision: birth?.precision,
+        passingDate: passing?.date,
+        passingPrecision: passing?.precision,
+        about: about,
+        email: email,
+        pictureBytes: _picture,
       );
+      if (sendInvite) {
+        final invites = widget.invites;
+        if (invites != null) {
+          final created = await invites.createInvite(
+            familyId: widget.familyId,
+            email: email,
+            personId: person.id,
+          );
+          await invites.sendInviteEmail(inviteId: created.inviteId);
+        }
+      }
       if (!mounted) return;
-      Navigator.of(context).pop(person);
+      Navigator.of(context).pop(
+        AddPersonResult(person: person, sendInvite: sendInvite),
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -128,7 +200,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
     setState(() {
       _mode = mode;
       _nameError = null;
-      _relationshipError = null;
+      _aboutError = null;
     });
   }
 
@@ -343,22 +415,28 @@ class _AddPersonModalState extends State<AddPersonModal> {
     );
     return Row(
       children: [
-        OutlinedButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 48),
-            foregroundColor: albumInk,
-            side: const BorderSide(color: Color(0xFFDCD3C4)),
-            shape: buttonShape,
+        if (choosing)
+          OutlinedButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 48),
+              foregroundColor: albumInk,
+              side: const BorderSide(color: Color(0xFFDCD3C4)),
+              shape: buttonShape,
+            ),
+            child: const Text('Cancel'),
           ),
-          child: const Text('Cancel'),
-        ),
         const Spacer(),
         if (choosing)
           FilledButton.icon(
             onPressed: _busy || _selectedPerson == null
                 ? null
-                : () => Navigator.of(context).pop(_selectedPerson),
+                : () => Navigator.of(context).pop(
+                    AddPersonResult(
+                      person: _selectedPerson!,
+                      sendInvite: false,
+                    ),
+                  ),
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, 48),
               backgroundColor: albumTerracotta,
@@ -420,7 +498,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
               .where(
                 (person) =>
                     person.name.toLowerCase().contains(query) ||
-                    person.relationship.toLowerCase().contains(query),
+                    (person.relationship ?? '').toLowerCase().contains(query),
               )
               .toList();
     return Column(
@@ -523,7 +601,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
                             ?.copyWith(fontSize: 16),
                       ),
                       subtitle: Text(
-                        person.relationship,
+                        person.relationship ?? '',
                         style: Theme.of(context).textTheme.labelSmall
                             ?.copyWith(color: albumInk.withValues(alpha: 0.55)),
                       ),
@@ -588,226 +666,69 @@ class _AddPersonModalState extends State<AddPersonModal> {
     return parts.map((part) => part[0].toUpperCase()).join();
   }
 
-  Widget _relationshipChip(String label, String value) {
-    final selected = _relationship == value;
-    final foreground = selected ? Colors.white : const Color(0xFF554942);
-    return Material(
-      color: selected ? albumTerracotta : Colors.white,
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: selected ? albumTerracotta : const Color(0xFFE7DECE),
-        ),
-      ),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: _busy
-            ? null
-            : () {
-                setState(() {
-                  _relationship = selected ? null : value;
-                  _relationshipError = null;
-                });
-              },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: foreground,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  fontSize: 12,
-                ),
-              ),
-              if (selected) ...[
-                const SizedBox(width: 4),
-                Icon(Icons.check, size: 13, color: foreground),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _relationshipChips() {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        for (final (label, value) in _relationshipChoices)
-          _relationshipChip(label, value),
-      ],
-    );
-  }
-
-  Widget _sectionLabel({
-    required String label,
-    bool requiredMark = false,
-    required Widget trailing,
-    Color color = const Color(0xFF4A3E38),
-  }) {
-    return Row(
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            letterSpacing: 0.6,
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
-        ),
-        if (requiredMark)
-          Text(
-            ' *',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: const Color(0xFF9F403D),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        const Spacer(),
-        trailing,
-      ],
-    );
-  }
-
-  Widget _requiredPill(String text) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: albumTerracotta.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: albumTerracotta,
-            fontWeight: FontWeight.w500,
-            fontSize: 11,
-          ),
-        ),
-      ),
-    );
-  }
-
-  InputDecoration _createFieldDecoration({
-    required String hint,
-    required IconData icon,
-    String? errorText,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      errorText: errorText,
-      prefixIcon: Icon(icon, size: 20),
-      prefixIconColor: const Color(0xFFA8A29E),
-      hintStyle: const TextStyle(
-        color: Color(0xFFA8A29E),
-        fontWeight: FontWeight.w400,
-        fontSize: 14,
-      ),
-      filled: true,
-      fillColor: Colors.white,
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(vertical: 14),
-      border: _fieldBorder(),
-      enabledBorder: _fieldBorder(),
-      focusedBorder: _fieldBorder(color: albumTerracotta, width: 1.5),
-    );
-  }
-
   Widget _buildCreateForm() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _sectionLabel(
-          label: 'FULL NAME',
-          requiredMark: true,
-          trailing: _requiredPill('required'),
-        ),
+        const Text('Name'),
         const SizedBox(height: 6),
         TextField(
+          key: const Key('add-person-name'),
           controller: _nameController,
           enabled: !_busy,
           textCapitalization: TextCapitalization.words,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-          decoration: _createFieldDecoration(
-            hint: 'Enter first and last name',
-            icon: Icons.person_outline,
-            errorText: _nameError,
-          ),
-          onChanged: (_) {
-            if (_nameError != null) {
-              setState(() => _nameError = null);
-            }
-          },
+          decoration: InputDecoration(errorText: _nameError),
         ),
         const SizedBox(height: 16),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFFFAF5EE),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE8DFC8)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _sectionLabel(
-                  label: 'RELATIONSHIP',
-                  requiredMark: true,
-                  color: const Color(0xFF37312F),
-                  trailing: _requiredPill('Required'),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'How is this person related in the context of this family story?',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: const Color(0xFF6B5E55),
-                    fontWeight: FontWeight.w400,
-                    fontSize: 12,
-                  ),
-                ),
-                if (_relationshipError != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    _relationshipError!,
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: albumTerracotta),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                _relationshipChips(),
-              ],
-            ),
+        PersonDateField(
+          key: const Key('add-person-birth'),
+          label: 'Date of birth',
+          onChanged: (date) => _birth = date,
+        ),
+        const SizedBox(height: 16),
+        PersonDateField(
+          key: const Key('add-person-passing'),
+          label: 'Date of passing',
+          onChanged: (date) => setState(() => _passing = date),
+        ),
+        const SizedBox(height: 16),
+        const Text('Picture'),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton(
+            key: const Key('add-person-picture'),
+            onPressed: _busy ? null : _pickPicture,
+            child: const Text('Picture'),
           ),
         ),
         const SizedBox(height: 16),
-        _sectionLabel(
-          label: 'EMAIL',
-          trailing: Text(
-            'optional',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: albumSage,
-              fontWeight: FontWeight.w400,
-              fontSize: 11,
-            ),
-          ),
-        ),
+        const Text('About'),
         const SizedBox(height: 6),
         TextField(
-          controller: _emailController,
+          key: const Key('add-person-about'),
+          controller: _aboutController,
           enabled: !_busy,
-          keyboardType: TextInputType.emailAddress,
-          decoration: _createFieldDecoration(
-            hint: 'e.g. clara@example.com',
-            icon: Icons.mail_outline,
-          ),
+          maxLines: 4,
+          decoration: InputDecoration(errorText: _aboutError),
         ),
+        if (!_passingSet) ...[
+          const SizedBox(height: 16),
+          const Text('Email'),
+          const SizedBox(height: 6),
+          TextField(
+            key: const Key('add-person-email'),
+            controller: _emailController,
+            enabled: !_busy,
+            keyboardType: TextInputType.emailAddress,
+          ),
+        ],
       ],
     );
   }
+}
+
+({DateTime date, String precision})? _stored(StoryDate? date) {
+  if (date == null || date.legacyDecade) return null;
+  return storedPersonDate(year: date.year, month: date.month, day: date.day);
 }

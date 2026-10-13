@@ -36,6 +36,7 @@ class _Invite implements InviteGateway {
   Future<CreateInviteResult> createInvite({
     required String familyId,
     String? email,
+    String? personId,
   }) {
     throw UnimplementedError();
   }
@@ -52,8 +53,13 @@ class _People extends PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    required String relationship,
+    DateTime? birthDate,
+    String? birthPrecision,
+    DateTime? passingDate,
+    String? passingPrecision,
+    String? about,
     String? email,
+    List<int>? pictureBytes,
   }) {
     throw UnimplementedError();
   }

@@ -36,40 +36,30 @@ void main() {
   });
 
   group('ensureValidPersonCreate', () {
-    test('accepts non-empty name and relationship', () {
+    test('accepts a non-empty name', () {
       expect(
-        () => ensureValidPersonCreate(
-          name: 'Ada',
-          relationship: 'Grandmother',
-        ),
+        () => ensureValidPersonCreate(name: 'Ada'),
         returnsNormally,
       );
     });
 
     test('rejects empty name', () {
       expect(
-        () => ensureValidPersonCreate(name: '', relationship: 'Aunt'),
+        () => ensureValidPersonCreate(name: ''),
         throwsA(isA<ArgumentError>()),
       );
     });
 
     test('rejects whitespace-only name', () {
       expect(
-        () => ensureValidPersonCreate(name: '   ', relationship: 'Aunt'),
+        () => ensureValidPersonCreate(name: '   '),
         throwsA(isA<ArgumentError>()),
       );
     });
 
-    test('rejects empty relationship', () {
+    test('rejects about longer than 500', () {
       expect(
-        () => ensureValidPersonCreate(name: 'Ada', relationship: ''),
-        throwsA(isA<ArgumentError>()),
-      );
-    });
-
-    test('rejects whitespace-only relationship', () {
-      expect(
-        () => ensureValidPersonCreate(name: 'Ada', relationship: '  '),
+        () => ensureValidPersonCreate(name: 'Ada', about: 'a' * 501),
         throwsA(isA<ArgumentError>()),
       );
     });
@@ -84,23 +74,7 @@ void main() {
 
     test('createPerson rejects empty name before insert', () async {
       await expectLater(
-        () => gateway.createPerson(
-          familyId: 'f1',
-          name: '',
-          relationship: 'Sister',
-        ),
-        throwsA(isA<ArgumentError>()),
-      );
-      expect(gateway.rows, isEmpty);
-    });
-
-    test('createPerson rejects empty relationship before insert', () async {
-      await expectLater(
-        () => gateway.createPerson(
-          familyId: 'f1',
-          name: 'Ada',
-          relationship: '  ',
-        ),
+        () => gateway.createPerson(familyId: 'f1', name: ''),
         throwsA(isA<ArgumentError>()),
       );
       expect(gateway.rows, isEmpty);
@@ -110,12 +84,11 @@ void main() {
       final person = await gateway.createPerson(
         familyId: 'f1',
         name: '  Ada  ',
-        relationship: ' Grandmother ',
         email: '  ada@example.com  ',
       );
 
       expect(person.name, 'Ada');
-      expect(person.relationship, 'Grandmother');
+      expect(person.relationship, isNull);
       expect(person.email, 'ada@example.com');
       expect(person.createdBy, 'u1');
       expect(person.familyId, 'f1');
@@ -125,7 +98,6 @@ void main() {
       final person = await gateway.createPerson(
         familyId: 'f1',
         name: 'Ada',
-        relationship: 'Grandmother',
         email: '   ',
       );
 
@@ -136,17 +108,14 @@ void main() {
       await gateway.createPerson(
         familyId: 'f1',
         name: 'Zoe',
-        relationship: 'Cousin',
       );
       await gateway.createPerson(
         familyId: 'f1',
         name: 'Ada',
-        relationship: 'Aunt',
       );
       await gateway.createPerson(
         familyId: 'f2',
         name: 'Other',
-        relationship: 'Friend',
       );
 
       final people = await gateway.listPeople('f1');
@@ -174,18 +143,23 @@ class FakePeopleGateway extends PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    required String relationship,
+    DateTime? birthDate,
+    String? birthPrecision,
+    DateTime? passingDate,
+    String? passingPrecision,
+    String? about,
     String? email,
+    List<int>? pictureBytes,
   }) async {
-    ensureValidPersonCreate(name: name, relationship: relationship);
+    ensureValidPersonCreate(name: name, about: about);
     final trimmedEmail =
         email != null && email.trim().isNotEmpty ? email.trim() : null;
     final person = Person(
       id: 'p${++_seq}',
       familyId: familyId,
       name: name.trim(),
-      relationship: relationship.trim(),
       email: trimmedEmail,
+      about: about,
       createdBy: createdBy,
     );
     rows.add(person);

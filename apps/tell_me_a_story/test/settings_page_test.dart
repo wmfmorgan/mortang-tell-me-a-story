@@ -17,6 +17,12 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
+  Future<void> pumpTall(WidgetTester tester, Widget widget) async {
+    await tester.binding.setSurfaceSize(const Size(900, 2200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(widget);
+  }
+
   tearDown(() {
     ProfileSession.loadOwn = null;
     ProfileSession.downloadAvatar = null;
@@ -26,11 +32,15 @@ void main() {
   testWidgets('settings body is name, email, upload, and one Save', (
     tester,
   ) async {
-    await tester.pumpWidget(_app(_Profile()));
+    await pumpTall(tester, _app(_Profile()));
     await tester.pumpAndSettle();
 
     expect(find.text('Name'), findsOneWidget);
+    expect(find.text('Date of birth'), findsOneWidget);
+    expect(find.text('Picture'), findsOneWidget);
+    expect(find.text('About'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
+    expect(find.text('Date of passing'), findsNothing);
     expect(find.text('Upload picture'), findsOneWidget);
     expect(find.text('Save'), findsOneWidget);
     expect(find.text('Your family'), findsNothing);
@@ -39,7 +49,7 @@ void main() {
   });
 
   testWidgets('fields start from the stored profile', (tester) async {
-    await tester.pumpWidget(_app(_Profile()));
+    await pumpTall(tester, _app(_Profile()));
     await tester.pumpAndSettle();
 
     expect(_text(tester, 'settings-name'), 'Sarah Morgan');
@@ -50,7 +60,7 @@ void main() {
   testWidgets('a blank stored name with no picture paints an empty circle', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    await pumpTall(tester, 
       _app(
         _Profile(
           profile: const OwnProfile(id: 'user-1', email: 'sarah@example.com'),
@@ -67,7 +77,7 @@ void main() {
   testWidgets('a saved picture fills the circle when the name is blank', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    await pumpTall(tester, 
       _app(
         _Profile(
           profile: OwnProfile(
@@ -88,7 +98,7 @@ void main() {
 
   testWidgets('a blank name does not save', (tester) async {
     final profile = _Profile();
-    await tester.pumpWidget(_app(profile));
+    await pumpTall(tester, _app(profile));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('settings-name')), '   ');
@@ -104,7 +114,7 @@ void main() {
     tester,
   ) async {
     final profile = _Profile();
-    await tester.pumpWidget(_app(profile));
+    await pumpTall(tester, _app(profile));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('settings-name')), '  Ada  ');
@@ -113,13 +123,31 @@ void main() {
 
     expect(profile.names, ['Ada']);
     expect(profile.emails, isEmpty);
+    expect(profile.births, [(null, null)]);
+    expect(profile.abouts, [null]);
+  });
+
+  testWidgets('one Save writes birth and about on the account', (tester) async {
+    final profile = _Profile();
+    await pumpTall(tester, _app(profile));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
+    await tester.enterText(find.byKey(const Key('settings-about')), 'A note');
+    await tester.tap(find.byKey(const Key('settings-save')));
+    await tester.pumpAndSettle();
+
+    expect(profile.names, ['Sarah Morgan']);
+    expect(profile.births, [(DateTime(1987, 1, 1), 'year')]);
+    expect(profile.abouts, ['A note']);
+    expect(profile.emails, isEmpty);
   });
 
   testWidgets('a changed address calls updateEmail and the field stays', (
     tester,
   ) async {
     final profile = _Profile();
-    await tester.pumpWidget(_app(profile));
+    await pumpTall(tester, _app(profile));
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -136,7 +164,7 @@ void main() {
 
   testWidgets('a blank email still saves the name', (tester) async {
     final profile = _Profile();
-    await tester.pumpWidget(_app(profile));
+    await pumpTall(tester, _app(profile));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('settings-email')), '  ');
@@ -150,7 +178,7 @@ void main() {
 
   testWidgets('a pending picture uploads on save', (tester) async {
     final profile = _Profile();
-    await tester.pumpWidget(_app(profile, pick: () async => _jpeg()));
+    await pumpTall(tester, _app(profile, pick: () async => _jpeg()));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('settings-upload')));
@@ -166,7 +194,7 @@ void main() {
 
   testWidgets('a failed upload keeps the name and the preview', (tester) async {
     final profile = _Profile()..failUpload = true;
-    await tester.pumpWidget(_app(profile, pick: () async => _jpeg()));
+    await pumpTall(tester, _app(profile, pick: () async => _jpeg()));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('settings-name')), 'Ada');
@@ -183,7 +211,7 @@ void main() {
 
   testWidgets('the avatar opens Settings, then Logout', (tester) async {
     for (final page in AlbumHeaderPage.values) {
-      await tester.pumpWidget(_bar(page));
+      await pumpTall(tester, _bar(page));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('header-avatar')), findsOneWidget);
@@ -199,14 +227,14 @@ void main() {
       expect(settingsY, lessThan(logoutY));
       expect(find.byKey(const Key('settings-name')), findsNothing);
 
-      await tester.pumpWidget(const SizedBox.shrink());
+      await pumpTall(tester, const SizedBox.shrink());
       await tester.pumpAndSettle();
     }
   });
 
   testWidgets('Settings in the menu pushes /settings once', (tester) async {
     final router = _router(_Profile());
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpTall(tester, MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('header-avatar')));
@@ -230,7 +258,7 @@ void main() {
 
   testWidgets('Logout calls sign-out', (tester) async {
     var signedOut = false;
-    await tester.pumpWidget(
+    await pumpTall(tester, 
       _app(
         _Profile(),
         onLogout: () async {
@@ -363,6 +391,8 @@ class _Profile implements ProfileGateway {
   Uint8List? download;
   final names = <String>[];
   final emails = <String>[];
+  final births = <(DateTime?, String?)>[];
+  final abouts = <String?>[];
   var uploads = 0;
   Uint8List? avatarBytes;
   var failUpload = false;
@@ -387,6 +417,18 @@ class _Profile implements ProfileGateway {
   }
 
   @override
+  Future<void> saveAccount({
+    required String displayName,
+    DateTime? birthDate,
+    String? birthPrecision,
+    String? about,
+  }) async {
+    names.add(displayName);
+    births.add((birthDate, birthPrecision));
+    abouts.add(about);
+  }
+
+  @override
   Future<void> updateEmail(String email) async {
     emails.add(email);
   }
@@ -405,6 +447,7 @@ class _Invite implements InviteGateway {
   Future<CreateInviteResult> createInvite({
     required String familyId,
     String? email,
+    String? personId,
   }) {
     throw UnimplementedError();
   }

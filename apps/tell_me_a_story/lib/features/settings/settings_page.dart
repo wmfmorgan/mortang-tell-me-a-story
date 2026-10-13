@@ -11,9 +11,12 @@ import '../../core/theme/profile_avatar.dart';
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
+import '../../data/people_api.dart';
 import '../../data/profile_api.dart';
 import '../../data/profile_session.dart';
 import '../invites/invite_modal.dart';
+import '../people/person_date_field.dart';
+import '../stories/story_date.dart';
 
 /// Signed-in profile at `/settings`. Name, email, a picture, and one Save.
 class SettingsPage extends StatefulWidget {
@@ -41,6 +44,8 @@ class _SettingsPageState extends State<SettingsPage> {
   late final InviteGateway _invite;
   final _name = TextEditingController();
   final _email = TextEditingController();
+  final _about = TextEditingController();
+  StoryDate? _birth;
 
   var _loading = true;
   var _saving = false;
@@ -64,6 +69,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _name.dispose();
     _email.dispose();
+    _about.dispose();
     super.dispose();
   }
 
@@ -74,6 +80,8 @@ class _SettingsPageState extends State<SettingsPage> {
       final email = profile?.email ?? '';
       _name.text = profile?.displayName ?? '';
       _email.text = email;
+      _about.text = profile?.about ?? '';
+      _birth = storyDateFromPerson(profile?.birthDate, profile?.birthPrecision);
       Uint8List? bytes;
       final path = profile?.avatarPath;
       if (path != null) {
@@ -150,6 +158,7 @@ class _SettingsPageState extends State<SettingsPage> {
       familyId: familyId,
       familyName: _familyName,
       api: _invite,
+      people: PeopleApi(),
     );
   }
 
@@ -173,7 +182,14 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _saving = true);
     var nameSaved = false;
     try {
-      await _profile.saveName(name);
+      final birth = _storedBirth(_birth);
+      final about = _about.text.trim();
+      await _profile.saveAccount(
+        displayName: name,
+        birthDate: birth?.date,
+        birthPrecision: birth?.precision,
+        about: about.isEmpty ? null : about,
+      );
       nameSaved = true;
       _displayName = name;
       ProfileSession.instance.apply(
@@ -245,16 +261,15 @@ class _SettingsPageState extends State<SettingsPage> {
                       decoration: _decoration,
                     ),
                     const SizedBox(height: 24),
-                    Text('Email', style: _label),
-                    const SizedBox(height: 8),
-                    TextField(
-                      key: const Key('settings-email'),
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      style: _field,
-                      decoration: _decoration,
+                    PersonDateField(
+                      key: const Key('settings-birth'),
+                      label: 'Date of birth',
+                      initial: _birth,
+                      onChanged: (date) => _birth = date,
                     ),
                     const SizedBox(height: 24),
+                    Text('Picture', style: _label),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         ProfileAvatar(
@@ -273,6 +288,26 @@ class _SettingsPageState extends State<SettingsPage> {
                           label: const Text('Upload picture'),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 24),
+                    Text('About', style: _label),
+                    const SizedBox(height: 8),
+                    TextField(
+                      key: const Key('settings-about'),
+                      controller: _about,
+                      maxLines: 4,
+                      style: _field,
+                      decoration: _decoration,
+                    ),
+                    const SizedBox(height: 24),
+                    Text('Email', style: _label),
+                    const SizedBox(height: 8),
+                    TextField(
+                      key: const Key('settings-email'),
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      style: _field,
+                      decoration: _decoration,
                     ),
                     const SizedBox(height: 32),
                     Align(
@@ -306,6 +341,11 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
+}
+
+({DateTime date, String precision})? _storedBirth(StoryDate? date) {
+  if (date == null || date.legacyDecade) return null;
+  return storedPersonDate(year: date.year, month: date.month, day: date.day);
 }
 
 final _label = GoogleFonts.sourceSans3(

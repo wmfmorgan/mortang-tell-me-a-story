@@ -29,6 +29,7 @@ class Story {
     this.personIds = const [],
     this.photoCount = 0,
     this.placeLabel,
+    this.people = const [],
     this.personNames = const [],
     this.authorDisplayName,
     this.authorAvatarPath,
@@ -51,6 +52,9 @@ class Story {
   final List<String> personIds;
   final int photoCount;
   final String? placeLabel;
+
+  /// Id and name for each tagged person. [personNames] stays for name search.
+  final List<({String id, String name})> people;
   final List<String> personNames;
   final String? authorDisplayName;
   final String? authorAvatarPath;
@@ -85,6 +89,7 @@ class Story {
           : const [],
       photoCount: photos is List ? photos.length : 0,
       placeLabel: _embedLabel(json['places']),
+      people: _storyPeople(people),
       personNames: _personNames(people),
       authorDisplayName: _authorName(json['profiles']),
       authorAvatarPath: _authorAvatarPath(json['profiles']),
@@ -101,6 +106,26 @@ String? _embedLabel(Object? places) {
     if (label is String && label.trim().isNotEmpty) return label.trim();
   }
   return null;
+}
+
+List<({String id, String name})> _storyPeople(Object? people) {
+  if (people is! List) return const [];
+  final out = <({String id, String name})>[];
+  for (final row in people) {
+    if (row is! Map) continue;
+    final nested = row['people'];
+    String? name;
+    var id = row['person_id'] as String?;
+    if (nested is Map) {
+      final rawName = nested['name'];
+      if (rawName is String && rawName.trim().isNotEmpty) name = rawName.trim();
+      id ??= nested['id'] as String?;
+    }
+    if (id != null && id.isNotEmpty && name != null) {
+      out.add((id: id, name: name));
+    }
+  }
+  return out;
 }
 
 List<String> _personNames(Object? people) {

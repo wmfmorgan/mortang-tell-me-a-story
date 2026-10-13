@@ -35,6 +35,7 @@ class _FakeInviteApi implements InviteGateway {
   Future<CreateInviteResult> createInvite({
     required String familyId,
     String? email,
+    String? personId,
   }) async {
     throw UnimplementedError();
   }
@@ -2848,6 +2849,7 @@ class _FamilyInvite implements InviteGateway {
   Future<CreateInviteResult> createInvite({
     required String familyId,
     String? email,
+    String? personId,
   }) async {
     throw UnimplementedError();
   }

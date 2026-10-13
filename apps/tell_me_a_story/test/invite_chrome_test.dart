@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/config/env.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
@@ -24,7 +25,9 @@ class _MemberOf extends FamiliesGateway {
 class _StubInviteApi implements InviteGateway {
   int creates = 0;
   final emails = <String>[];
+  final personIds = <String?>[];
   String? lastEmail;
+  String? lastPersonId;
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
     return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
@@ -37,9 +40,12 @@ class _StubInviteApi implements InviteGateway {
   Future<CreateInviteResult> createInvite({
     required String familyId,
     String? email,
+    String? personId,
   }) async {
     creates += 1;
     lastEmail = email;
+    lastPersonId = personId;
+    personIds.add(personId);
     return CreateInviteResult(
       inviteId: 'i',
       token: 't',
@@ -130,8 +136,13 @@ void main() {
     await _open(tester, api);
     await tester.tap(find.byKey(const Key('invite-tab-link')));
     await tester.pump();
+    expect(api.creates, 0);
+    expect(find.text('Someone new'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('invite-person-new')));
+    await tester.pump();
     expect(find.text('Shareable invite link'), findsOneWidget);
     expect(find.textContaining('invite=t'), findsOneWidget);
+    expect(api.lastPersonId, isNull);
     expect(
       find.text('Link expires in 7 days · Anyone can request to join'),
       findsOneWidget,
@@ -158,9 +169,78 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(InviteModal), findsNothing);
   });
+
+  testWidgets('link tab picks an unlinked person and does not open a profile', (
+    tester,
+  ) async {
+    final api = _StubInviteApi();
+    final people = _UnlinkedPeople();
+    await _open(tester, api, people: people);
+
+    expect(find.text('Someone new'), findsNothing);
+    await tester.tap(find.byKey(const Key('invite-tab-link')));
+    await tester.pump();
+
+    expect(find.text('Ada'), findsWidgets);
+    expect(find.text('Someone new'), findsOneWidget);
+    expect(find.text('Passed'), findsNothing);
+    expect(api.creates, 0);
+    expect(find.byKey(const Key('person-profile-dialog')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('invite-person-p1')));
+    await tester.pump();
+    expect(api.lastPersonId, 'p1');
+    expect(api.lastEmail, isNull);
+    expect(find.byKey(const Key('person-profile-dialog')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('invite-person-new')));
+    await tester.pump();
+    expect(api.creates, 2);
+    expect(api.lastPersonId, isNull);
+    expect(api.personIds, ['p1', null]);
+    expect(
+      find.text('Link expires in 7 days · Anyone can request to join'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('invite-tab-email')));
+    await tester.pump();
+    expect(find.text('Someone new'), findsNothing);
+  });
 }
 
-Future<void> _open(WidgetTester tester, _StubInviteApi api) async {
+class _UnlinkedPeople extends PeopleGateway {
+  @override
+  Future<List<Person>> listPeople(String familyId) async => const [];
+
+  @override
+  Future<Person> createPerson({
+    required String familyId,
+    required String name,
+    DateTime? birthDate,
+    String? birthPrecision,
+    DateTime? passingDate,
+    String? passingPrecision,
+    String? about,
+    String? email,
+    List<int>? pictureBytes,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<Person>> listUnlinkedPeople(String familyId) async {
+    return const [
+      Person(id: 'p1', familyId: 'f', name: 'Ada'),
+    ];
+  }
+}
+
+Future<void> _open(
+  WidgetTester tester,
+  _StubInviteApi api, {
+  PeopleGateway? people,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
@@ -171,6 +251,7 @@ Future<void> _open(WidgetTester tester, _StubInviteApi api) async {
               familyId: '00000000-0000-0000-0000-000000000001',
               familyName: 'Ada',
               api: api,
+              people: people,
             ),
             child: const Text('open'),
           ),

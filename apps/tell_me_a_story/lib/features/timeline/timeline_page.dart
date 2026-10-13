@@ -19,6 +19,7 @@ import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../family/start_timeline_dialog.dart';
+import '../people/person_profile_dialog.dart';
 import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
 import '../stories/story_date.dart';
@@ -741,6 +742,13 @@ class _TimelinePageState extends State<TimelinePage> {
         stories: dialStories(_published),
         focusedId: _focusedStoryId,
         photos: _photos,
+        onPerson: (person) => showPersonProfile(
+          context,
+          personId: person.id,
+          name: person.name,
+          people: widget.peopleApi,
+          signedInUserId: _sessionUserId(),
+        ),
         marks: _marks,
         originStoryId: originId,
         originTag: originLabel,
@@ -2605,6 +2613,7 @@ class _FullCardRail extends StatefulWidget {
     required this.onMark,
     required this.onMacro,
     required this.onMid,
+    this.onPerson,
   });
 
   final List<Story> stories;
@@ -2621,6 +2630,7 @@ class _FullCardRail extends StatefulWidget {
   final ValueChanged<TreeFamily> onMark;
   final VoidCallback onMacro;
   final VoidCallback onMid;
+  final void Function(({String id, String name}) person)? onPerson;
 
   @override
   State<_FullCardRail> createState() => _FullCardRailState();
@@ -2828,6 +2838,7 @@ class _FullCardRailState extends State<_FullCardRail> {
                                   ? widget.originTag
                                   : null,
                               onMark: widget.onMark,
+                              onPerson: widget.onPerson,
                               focused: widget.stories[i].id == _centerId,
                               opacity:
                                   _opacities[widget.stories[i].id] ??
@@ -3078,6 +3089,7 @@ class _FullCardRow extends StatelessWidget {
     this.originMark,
     this.originTag,
     this.onMark,
+    this.onPerson,
   });
 
   final Story story;
@@ -3086,6 +3098,7 @@ class _FullCardRow extends StatelessWidget {
   final TreeFamily? originMark;
   final String? originTag;
   final ValueChanged<TreeFamily>? onMark;
+  final void Function(({String id, String name}) person)? onPerson;
   final bool focused;
   final double opacity;
   final double gap;
@@ -3106,6 +3119,7 @@ class _FullCardRow extends StatelessWidget {
           photos: photos,
           originTag: originTag,
           onOpen: onOpen,
+          onPerson: onPerson,
         ),
       ),
     );
@@ -3265,6 +3279,7 @@ class _FullCard extends StatelessWidget {
     required this.photos,
     required this.onOpen,
     this.originTag,
+    this.onPerson,
   });
 
   final Story story;
@@ -3272,6 +3287,7 @@ class _FullCard extends StatelessWidget {
   final PhotosGateway? photos;
   final VoidCallback onOpen;
   final String? originTag;
+  final void Function(({String id, String name}) person)? onPerson;
 
   @override
   Widget build(BuildContext context) {
@@ -3340,11 +3356,22 @@ class _FullCard extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        for (final name in story.personNames)
-                          _FullChip(
-                            icon: Icons.person,
-                            label: name,
-                            filled: focused,
+                        for (final person in story.people.isNotEmpty
+                            ? story.people
+                            : [
+                                for (final name in story.personNames)
+                                  (id: '', name: name),
+                              ])
+                          GestureDetector(
+                            key: Key('timeline-person-${story.id}-${person.name}'),
+                            onTap: person.id.isEmpty || onPerson == null
+                                ? null
+                                : () => onPerson!(person),
+                            child: _FullChip(
+                              icon: Icons.person,
+                              label: person.name,
+                              filled: focused,
+                            ),
                           ),
                         if ((story.placeLabel ?? '').isNotEmpty)
                           _FullChip(

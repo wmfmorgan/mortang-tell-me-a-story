@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
+import '../../data/people_api.dart';
 import '../family/family_blur_dialog.dart';
 
 /// Invite dialog matching the Stitch Email, Link, and SMS screens.
@@ -14,17 +15,20 @@ class InviteModal extends StatefulWidget {
     required this.familyId,
     this.familyName = 'Family',
     this.api,
+    this.people,
   });
 
   final String familyId;
   final String familyName;
   final InviteGateway? api;
+  final PeopleGateway? people;
 
   static Future<void> show(
     BuildContext context, {
     required String familyId,
     String familyName = 'Family',
     InviteGateway? api,
+    PeopleGateway? people,
   }) {
     return showBlurredCard<void>(
       context: context,
@@ -45,6 +49,7 @@ class InviteModal extends StatefulWidget {
             familyId: familyId,
             familyName: familyName,
             api: api,
+            people: people,
           ),
         ),
       ),
@@ -62,14 +67,18 @@ class _InviteModalState extends State<InviteModal> {
   final _smsNoteController = TextEditingController();
   final _linkController = TextEditingController();
   late final InviteGateway _api;
+  PeopleGateway? _people;
   var _tab = 0;
   var _busy = false;
   String? _linkUrl;
+  List<Person> _unlinked = const [];
+  String? _pickedPersonId;
 
   @override
   void initState() {
     super.initState();
     _api = widget.api ?? InviteApi();
+    _people = widget.people;
   }
 
   @override
@@ -90,7 +99,20 @@ class _InviteModalState extends State<InviteModal> {
   void _selectTab(int index) {
     setState(() => _tab = index);
     if (index == 2) {
-      _ensureLink();
+      _loadUnlinked();
+    }
+  }
+
+  Future<void> _loadUnlinked() async {
+    final people = _people;
+    if (people == null) return;
+    try {
+      final rows = await people.listUnlinkedPeople(widget.familyId);
+      if (!mounted) return;
+      setState(() => _unlinked = rows);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _unlinked = const []);
     }
   }
 
@@ -119,15 +141,16 @@ class _InviteModalState extends State<InviteModal> {
     }
   }
 
-  Future<void> _ensureLink() async {
-    if (_linkUrl != null || _busy) return;
-    await _createLink();
-  }
-
-  Future<void> _createLink() async {
-    setState(() => _busy = true);
+  Future<void> _createLink({String? personId}) async {
+    setState(() {
+      _busy = true;
+      _pickedPersonId = personId;
+    });
     try {
-      final created = await _api.createInvite(familyId: widget.familyId);
+      final created = await _api.createInvite(
+        familyId: widget.familyId,
+        personId: personId,
+      );
       if (!mounted) return;
       setState(() {
         _linkUrl = created.inviteUrl;
@@ -142,9 +165,6 @@ class _InviteModalState extends State<InviteModal> {
   }
 
   Future<void> _copyLink() async {
-    if (_linkUrl == null) {
-      await _ensureLink();
-    }
     final url = _linkUrl;
     if (url == null || url.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: url));
@@ -387,6 +407,30 @@ class _InviteModalState extends State<InviteModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _label('Who is this link for?'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final person in _unlinked)
+              ChoiceChip(
+                key: Key('invite-person-${person.id}'),
+                label: Text(person.name),
+                selected: _pickedPersonId == person.id,
+                onSelected: _busy
+                    ? null
+                    : (_) => _createLink(personId: person.id),
+              ),
+            ChoiceChip(
+              key: const Key('invite-person-new'),
+              label: const Text('Someone new'),
+              selected: _linkUrl != null && _pickedPersonId == null,
+              onSelected: _busy ? null : (_) => _createLink(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         _label('Shareable invite link'),
         const SizedBox(height: 6),
         Row(
@@ -435,7 +479,9 @@ class _InviteModalState extends State<InviteModal> {
             ),
             TextButton.icon(
               key: const Key('invite-generate'),
-              onPressed: _busy ? null : _createLink,
+              onPressed: _busy
+                  ? null
+                  : () => _createLink(personId: _pickedPersonId),
               style: TextButton.styleFrom(
                 foregroundColor: _InviteColors.primary,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
