@@ -74,3 +74,131 @@ $$;
 
 revoke all on function public.is_tree_member(uuid) from public, anon;
 grant execute on function public.is_tree_member(uuid) to authenticated;
+
+drop view if exists public.people_tree_read;
+create view public.people_tree_read
+with (security_barrier = true) as
+  select p.id, p.family_id, p.name
+  from public.people p
+  where public.is_live_family_member(p.family_id)
+     or public.is_family_tree_readable(p.family_id);
+
+revoke all on public.people_tree_read from public, anon;
+grant select on public.people_tree_read to authenticated;
+
+drop policy if exists people_select_member on public.people;
+create policy people_select_member
+  on public.people for select
+  to authenticated
+  using (public.is_tree_member(family_id));
+
+drop policy if exists people_insert_member on public.people;
+create policy people_insert_member
+  on public.people for insert
+  to authenticated
+  with check (public.is_live_family_member(family_id));
+
+drop policy if exists people_update_member on public.people;
+create policy people_update_member
+  on public.people for update
+  to authenticated
+  using (
+    (user_id is null and public.is_tree_member(family_id))
+    or user_id = (select auth.uid())
+  )
+  with check (
+    (user_id is null and public.is_tree_member(family_id))
+    or user_id = (select auth.uid())
+  );
+
+revoke update on table public.people from authenticated, anon, public;
+grant update (
+  name,
+  relationship,
+  email,
+  birth_date,
+  birth_precision,
+  passing_date,
+  passing_precision,
+  about,
+  avatar_path,
+  updated_at
+) on table public.people to authenticated;
+
+create or replace function public.person_profile(p_person_id uuid)
+returns table (
+  id uuid,
+  family_id uuid,
+  name text,
+  birth_date date,
+  birth_precision public.story_date_precision,
+  about text,
+  avatar_path text,
+  passing_date date,
+  passing_precision public.story_date_precision,
+  is_linked boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  person public.people%rowtype;
+  account_birth_date date;
+  account_birth_precision public.story_date_precision;
+  account_about text;
+  account_avatar text;
+begin
+  if (select auth.uid()) is null or p_person_id is null then
+    raise exception 'NOT_FOUND:';
+  end if;
+
+  select * into person
+  from public.people
+  where public.people.id = p_person_id;
+
+  if not found or not public.is_tree_member(person.family_id) then
+    raise exception 'NOT_FOUND:';
+  end if;
+
+  if person.user_id is not null then
+    select profiles.birth_date, profiles.birth_precision, profiles.about, profiles.avatar_path
+      into account_birth_date, account_birth_precision, account_about, account_avatar
+    from public.profiles
+    where profiles.id = person.user_id;
+  end if;
+
+  return query
+  select
+    person.id,
+    person.family_id,
+    person.name,
+    case
+      when person.user_id is not null and account_birth_date is not null
+        then account_birth_date
+      else person.birth_date
+    end,
+    case
+      when person.user_id is not null and account_birth_precision is not null
+        then account_birth_precision
+      else person.birth_precision
+    end,
+    case
+      when person.user_id is not null and account_about is not null
+        then account_about
+      else person.about
+    end,
+    case
+      when person.user_id is not null and account_avatar is not null
+        then account_avatar
+      else person.avatar_path
+    end,
+    person.passing_date,
+    person.passing_precision,
+    person.user_id is not null;
+end;
+$$;
+
+revoke all on function public.person_profile(uuid) from public, anon;
+grant execute on function public.person_profile(uuid) to authenticated;

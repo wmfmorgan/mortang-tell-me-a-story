@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(37);
+select plan(38);
 
 create temporary table m12_ctx (
   user_a uuid primary key,
@@ -276,10 +276,20 @@ select is(
   0::bigint,
   'parent member cannot select the child draft'
 );
-select is(
+select cmp_ok(
   (select count(*) from public.people where family_id = (select child_id from m12_ctx)),
-  0::bigint,
-  'parent member cannot select child people'
+  '>=',
+  1::bigint,
+  'parent member reads the child person through the tree'
+);
+select is(
+  (
+    select name
+    from public.people
+    where id = '33333333-3333-4333-8333-333333333333'
+  ),
+  'Cousin Cora',
+  'parent member reads the child person name'
 );
 select is(
   (
@@ -292,12 +302,14 @@ select is(
 );
 select is(
   (
-    select relationship
-    from public.people_tree_read
-    where id = '33333333-3333-4333-8333-333333333333'
+    select count(*)
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'people_tree_read'
+      and column_name = 'relationship'
   ),
-  'cousin',
-  'parent member reads the child relationship from people_tree_read'
+  0::bigint,
+  'people_tree_read does not expose relationship'
 );
 
 select throws_ok(

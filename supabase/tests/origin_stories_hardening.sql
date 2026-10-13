@@ -842,8 +842,8 @@ select results_eq(
     from information_schema.columns
     where table_schema = 'public' and table_name = 'people_tree_read'
     order by ordinal_position$$,
-  $$values ('id'::text collate "C"), ('family_id'::text collate "C"), ('name'::text collate "C"), ('relationship'::text collate "C")$$,
-  'people_tree_read exposes id, family_id, name, and relationship only'
+  $$values ('id'::text collate "C"), ('family_id'::text collate "C"), ('name'::text collate "C")$$,
+  'people_tree_read exposes id, family_id, and name only'
 );
 
 insert into public.people (id, family_id, name, relationship, created_by)

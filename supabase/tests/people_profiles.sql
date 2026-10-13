@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(16);
+select plan(38);
 
 create temporary table m14_ctx (
   user_a uuid primary key,
@@ -197,6 +197,221 @@ select lives_ok(
     select '44444444-14a1-4111-8111-444444444444', parent_id, 'No kin', null, user_a
     from m14_ctx$$,
   'relationship may be null'
+);
+
+insert into public.people (
+  id, family_id, name, created_by, about, birth_date, birth_precision,
+  passing_date, passing_precision
+)
+select
+  '55555555-14a1-4111-8111-555555555555',
+  parent_id,
+  'Ada Person',
+  user_a,
+  'from the row',
+  '1970-01-01',
+  'year',
+  '2020-03-01',
+  'month'
+from m14_ctx;
+
+select results_eq(
+  $$select column_name::text collate "C"
+    from information_schema.columns
+    where table_schema = 'public' and table_name = 'people_tree_read'
+    order by ordinal_position$$,
+  $$values ('id'::text collate "C"), ('family_id'::text collate "C"), ('name'::text collate "C")$$,
+  'people_tree_read is id, family_id, name'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'b1400000-0000-4000-8000-0000000000b1';
+
+select is(
+  (select about from public.people where id = '55555555-14a1-4111-8111-555555555555'),
+  'from the row',
+  'a tree member reads the full person row'
+);
+
+select lives_ok(
+  $$update public.people
+      set name = 'Edited'
+      where id = '55555555-14a1-4111-8111-555555555555'$$,
+  'a tree member edits an unlinked person'
+);
+
+reset role;
+update public.people
+set user_id = 'b1400000-0000-4000-8000-0000000000b1'
+where id = '55555555-14a1-4111-8111-555555555555';
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
+update public.people
+set name = 'Hacked'
+where id = '55555555-14a1-4111-8111-555555555555';
+
+reset role;
+select is(
+  (select name from public.people where id = '55555555-14a1-4111-8111-555555555555'),
+  'Edited',
+  'another tree member cannot edit a linked person'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'b1400000-0000-4000-8000-0000000000b1';
+update public.people
+set name = 'Mine'
+where id = '55555555-14a1-4111-8111-555555555555';
+
+reset role;
+select is(
+  (select name from public.people where id = '55555555-14a1-4111-8111-555555555555'),
+  'Mine',
+  'the linked user can edit their person row'
+);
+
+update public.people
+set user_id = null
+where id = '55555555-14a1-4111-8111-555555555555';
+
+set local role authenticated;
+set local request.jwt.claim.sub = 'b1400000-0000-4000-8000-0000000000b1';
+update public.people
+set name = 'Open'
+where id = '55555555-14a1-4111-8111-555555555555';
+
+reset role;
+select is(
+  (select name from public.people where id = '55555555-14a1-4111-8111-555555555555'),
+  'Open',
+  'clearing user_id reopens tree edits'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = 'c1400000-0000-4000-8000-0000000000c1';
+select is(
+  (select count(*) from public.people where id = '55555555-14a1-4111-8111-555555555555'),
+  0::bigint,
+  'an outsider cannot read the people row'
+);
+
+set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
+select throws_ok(
+  $$update public.people
+      set user_id = 'b1400000-0000-4000-8000-0000000000b1'
+      where id = '55555555-14a1-4111-8111-555555555555'$$,
+  '42501',
+  null,
+  'a client cannot update people.user_id'
+);
+
+reset role;
+select is(
+  has_function_privilege('anon', 'public.person_profile(uuid)', 'execute'),
+  false,
+  'anon cannot execute person_profile'
+);
+select is(
+  has_function_privilege('public', 'public.person_profile(uuid)', 'execute'),
+  false,
+  'public cannot execute person_profile'
+);
+select is(
+  has_function_privilege('authenticated', 'public.person_profile(uuid)', 'execute'),
+  true,
+  'authenticated can execute person_profile'
+);
+select ok(
+  exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'person_profile'
+      and 'search_path=""' = any (p.proconfig)
+  ),
+  'person_profile has search_path=""'
+);
+select ok(
+  position('user_id' in pg_get_function_result('public.person_profile(uuid)'::regprocedure)) = 0
+    and position('email' in pg_get_function_result('public.person_profile(uuid)'::regprocedure)) = 0,
+  'person_profile returns no user_id or email'
+);
+select ok(
+  (select qual from pg_policies where policyname = 'profiles_select_own_or_comember')
+    not like '%is_tree_member%',
+  'profiles select is not widened'
+);
+
+select throws_ok(
+  $$select * from public.person_profile('99999999-14a1-4111-8111-999999999999')$$,
+  'P0001',
+  'NOT_FOUND:',
+  'a missing id raises NOT_FOUND:'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'c1400000-0000-4000-8000-0000000000c1';
+select throws_ok(
+  $$select * from public.person_profile('55555555-14a1-4111-8111-555555555555')$$,
+  'P0001',
+  'NOT_FOUND:',
+  'an outsider raises NOT_FOUND:'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+select throws_ok(
+  $$select * from public.person_profile('55555555-14a1-4111-8111-555555555555')$$,
+  'P0001',
+  'NOT_FOUND:',
+  'a null uid raises NOT_FOUND:'
+);
+
+update public.people
+set user_id = 'b1400000-0000-4000-8000-0000000000b1',
+    name = 'Open'
+where id = '55555555-14a1-4111-8111-555555555555';
+update public.profiles
+set birth_date = '1984-01-01',
+    birth_precision = 'year',
+    about = null,
+    avatar_path = 'b1400000-0000-4000-8000-0000000000b1/avatar.jpg'
+where id = 'b1400000-0000-4000-8000-0000000000b1';
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'b1400000-0000-4000-8000-0000000000b1';
+
+select is(
+  (select birth_date from public.person_profile('55555555-14a1-4111-8111-555555555555')),
+  '1984-01-01'::date,
+  'a set account birth date wins'
+);
+select is(
+  (select about from public.person_profile('55555555-14a1-4111-8111-555555555555')),
+  'from the row',
+  'an unset account about falls back to the person'
+);
+select is(
+  (select passing_precision from public.person_profile('55555555-14a1-4111-8111-555555555555')),
+  'month'::public.story_date_precision,
+  'passing comes from the person row'
+);
+select is(
+  (select is_linked from public.person_profile('55555555-14a1-4111-8111-555555555555')),
+  true,
+  'is_linked is true when user_id is set'
+);
+select is(
+  (select is_linked from public.person_profile('44444444-14a1-4111-8111-444444444444')),
+  false,
+  'is_linked is false when user_id is null'
 );
 
 select * from finish();
