@@ -202,3 +202,73 @@ $$;
 
 revoke all on function public.person_profile(uuid) from public, anon;
 grant execute on function public.person_profile(uuid) to authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'person-avatars',
+  'person-avatars',
+  false,
+  2097152,
+  array['image/jpeg']
+);
+
+create policy person_avatars_select_tree
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'person-avatars'
+    and exists (
+      select 1
+      from public.people p
+      where (storage.foldername(objects.name))[1] = p.id::text
+        and objects.name = (p.id::text || '/avatar.jpg')
+        and public.is_tree_member(p.family_id)
+    )
+  );
+
+create policy person_avatars_insert_editor
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'person-avatars'
+    and exists (
+      select 1
+      from public.people p
+      where (storage.foldername(objects.name))[1] = p.id::text
+        and objects.name = (p.id::text || '/avatar.jpg')
+        and (
+          (p.user_id is null and public.is_tree_member(p.family_id))
+          or p.user_id = (select auth.uid())
+        )
+    )
+  );
+
+create policy person_avatars_update_editor
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'person-avatars'
+    and exists (
+      select 1
+      from public.people p
+      where (storage.foldername(objects.name))[1] = p.id::text
+        and objects.name = (p.id::text || '/avatar.jpg')
+        and (
+          (p.user_id is null and public.is_tree_member(p.family_id))
+          or p.user_id = (select auth.uid())
+        )
+    )
+  )
+  with check (
+    bucket_id = 'person-avatars'
+    and exists (
+      select 1
+      from public.people p
+      where (storage.foldername(objects.name))[1] = p.id::text
+        and objects.name = (p.id::text || '/avatar.jpg')
+        and (
+          (p.user_id is null and public.is_tree_member(p.family_id))
+          or p.user_id = (select auth.uid())
+        )
+    )
+  );

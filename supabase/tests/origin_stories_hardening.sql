@@ -890,8 +890,8 @@ select is(
 
 select is(
   (select count(*) from pg_policies where schemaname in ('public', 'storage')),
-  44::bigint,
-  'policy count stays 44'
+  47::bigint,
+  'policy count stays 47'
 );
 
 select is(

@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(38);
+select plan(50);
 
 create temporary table m14_ctx (
   user_a uuid primary key,
@@ -412,6 +412,166 @@ select is(
   (select is_linked from public.person_profile('44444444-14a1-4111-8111-444444444444')),
   false,
   'is_linked is false when user_id is null'
+);
+
+reset role;
+select is(
+  (select count(*)::int from pg_policies),
+  47,
+  'policy count is 47'
+);
+select ok(
+  exists (
+    select 1 from pg_policies
+    where policyname = 'person_avatars_select_tree'
+      and qual like '%is_tree_member%'
+  ),
+  'person avatar select is tree members'
+);
+select ok(
+  exists (
+    select 1 from pg_policies
+    where policyname = 'person_avatars_insert_editor'
+      and with_check like '%user_id%'
+  )
+  and exists (
+    select 1 from pg_policies
+    where policyname = 'person_avatars_update_editor'
+      and qual like '%user_id%'
+      and with_check like '%user_id%'
+  ),
+  'person avatar writes follow the edit rule'
+);
+
+update public.people
+set user_id = null
+where id = '55555555-14a1-4111-8111-555555555555';
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'c1400000-0000-4000-8000-0000000000c1';
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id)
+    values (
+      'person-avatars',
+      '55555555-14a1-4111-8111-555555555555/avatar.jpg',
+      'c1400000-0000-4000-8000-0000000000c1'
+    )$$,
+  '42501',
+  null,
+  'an outsider cannot upload a person avatar'
+);
+
+set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
+select lives_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id)
+    values (
+      'person-avatars',
+      '55555555-14a1-4111-8111-555555555555/avatar.jpg',
+      'a1400000-0000-4000-8000-0000000000a1'
+    )$$,
+  'a tree member uploads an unlinked person avatar'
+);
+select is(
+  (select count(*) from storage.objects
+    where bucket_id = 'person-avatars'
+      and name = '55555555-14a1-4111-8111-555555555555/avatar.jpg'),
+  1::bigint,
+  'a tree member can read the person avatar'
+);
+
+set local request.jwt.claim.sub = 'c1400000-0000-4000-8000-0000000000c1';
+select is(
+  (select count(*) from storage.objects
+    where bucket_id = 'person-avatars'
+      and name = '55555555-14a1-4111-8111-555555555555/avatar.jpg'),
+  0::bigint,
+  'an outsider cannot read the person avatar'
+);
+
+set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
+with updated as (
+  update storage.objects
+  set metadata = '{"n":1}'::jsonb
+  where bucket_id = 'person-avatars'
+    and name = '55555555-14a1-4111-8111-555555555555/avatar.jpg'
+  returning 1
+)
+select is(
+  (select count(*) from updated),
+  1::bigint,
+  'a tree member updates an unlinked person avatar'
+);
+
+reset role;
+update public.people
+set user_id = 'b1400000-0000-4000-8000-0000000000b1'
+where id = '55555555-14a1-4111-8111-555555555555';
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
+with updated as (
+  update storage.objects
+  set metadata = '{"n":2}'::jsonb
+  where bucket_id = 'person-avatars'
+    and name = '55555555-14a1-4111-8111-555555555555/avatar.jpg'
+  returning 1
+)
+select is(
+  (select count(*) from updated),
+  0::bigint,
+  'another tree member cannot update a linked person avatar'
+);
+
+set local request.jwt.claim.sub = 'b1400000-0000-4000-8000-0000000000b1';
+with updated as (
+  update storage.objects
+  set metadata = '{"n":3}'::jsonb
+  where bucket_id = 'person-avatars'
+    and name = '55555555-14a1-4111-8111-555555555555/avatar.jpg'
+  returning 1
+)
+select is(
+  (select count(*) from updated),
+  1::bigint,
+  'the linked user updates their person avatar'
+);
+
+reset role;
+insert into public.people (id, family_id, name, created_by, user_id)
+select
+  '66666666-14a1-4111-8111-666666666666',
+  child_id,
+  'Linked Ada',
+  user_a,
+  user_a
+from m14_ctx;
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'b1400000-0000-4000-8000-0000000000b1';
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id)
+    values (
+      'person-avatars',
+      '66666666-14a1-4111-8111-666666666666/avatar.jpg',
+      'b1400000-0000-4000-8000-0000000000b1'
+    )$$,
+  '42501',
+  null,
+  'another tree member cannot upload a linked person avatar'
+);
+
+set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
+select lives_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id)
+    values (
+      'person-avatars',
+      '66666666-14a1-4111-8111-666666666666/avatar.jpg',
+      'a1400000-0000-4000-8000-0000000000a1'
+    )$$,
+  'the linked user uploads their person avatar'
 );
 
 select * from finish();

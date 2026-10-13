@@ -678,7 +678,9 @@ select is_empty(
   'a user outside the story family sees no dependents'
 );
 
--- 21. Draft-only places and people stay hidden from a tree reader.
+-- 21. A draft-only place stays hidden from a tree reader.
+-- M14: a person who lives in the tree is visible to a tree member, even when
+-- the only story tag is a draft. Outside-tree readers still get zero rows.
 set local request.jwt.claim.sub = 'b11b0000-0000-4000-8000-0000000000b1';
 
 select is(
@@ -688,8 +690,8 @@ select is(
 );
 select is(
   (select count(*) from public.people_tree_read where id = (select person_id from m11_ctx)),
-  0::bigint,
-  'a tree reader does not see a draft-only person'
+  1::bigint,
+  'a tree reader sees a person who lives in the tree'
 );
 
 set local request.jwt.claim.sub = 'a11a0000-0000-4000-8000-0000000000a1';
@@ -773,8 +775,8 @@ select is(
 -- 25.
 select is(
   (select count(*) from pg_policies where schemaname in ('public', 'storage')),
-  44::bigint,
-  'policy count is 44'
+  47::bigint,
+  'policy count is 47'
 );
 
 select * from finish();
