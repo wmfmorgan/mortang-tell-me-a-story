@@ -97,6 +97,20 @@ class PersonProfile {
   }
 }
 
+/// PostgREST returns a `returns table` function as a one-element list.
+PersonProfile? personProfileFromRpc(Object? res) {
+  final row = switch (res) {
+    List(isEmpty: true) => null,
+    final List rows => rows.first,
+    final Map map => map,
+    _ => null,
+  };
+  if (row is! Map) return null;
+  return PersonProfile.fromJson(
+    row.map((key, value) => MapEntry(key.toString(), value)),
+  );
+}
+
 class PersonProfileNotFound implements Exception {
   const PersonProfileNotFound();
 }
@@ -292,10 +306,7 @@ class PeopleApi implements PeopleGateway {
         'person_profile',
         params: {'p_person_id': personId},
       );
-      if (res is! Map) return null;
-      return PersonProfile.fromJson(
-        res.map((key, value) => MapEntry(key.toString(), value)),
-      );
+      return personProfileFromRpc(res);
     } on PostgrestException catch (error) {
       if (error.message.startsWith('NOT_FOUND:')) {
         throw const PersonProfileNotFound();

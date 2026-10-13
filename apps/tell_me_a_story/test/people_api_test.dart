@@ -35,6 +35,47 @@ void main() {
     });
   });
 
+  group('personProfileFromRpc', () {
+    test('reads the single row PostgREST returns for a table function', () {
+      final profile = personProfileFromRpc([
+        {
+          'id': 'p1',
+          'family_id': 'f1',
+          'name': 'Ada',
+          'birth_date': '1815-01-01',
+          'birth_precision': 'year',
+          'about': 'Wrote the notes.',
+          'avatar_path': null,
+          'passing_date': null,
+          'passing_precision': null,
+          'is_linked': false,
+        },
+      ]);
+
+      expect(profile?.name, 'Ada');
+      expect(profile?.birthDate?.year, 1815);
+      expect(profile?.birthDate?.month, 1);
+      expect(profile?.birthDate?.day, 1);
+      expect(profile?.birthPrecision, 'year');
+      expect(profile?.about, 'Wrote the notes.');
+      expect(profile?.isLinked, isFalse);
+    });
+
+    test('reads a map and treats an empty list as missing', () {
+      expect(
+        personProfileFromRpc({
+          'id': 'p1',
+          'family_id': 'f1',
+          'name': 'Ada',
+          'is_linked': true,
+        })?.isLinked,
+        isTrue,
+      );
+      expect(personProfileFromRpc([]), isNull);
+      expect(personProfileFromRpc(null), isNull);
+    });
+  });
+
   group('ensureValidPersonCreate', () {
     test('accepts a non-empty name', () {
       expect(
