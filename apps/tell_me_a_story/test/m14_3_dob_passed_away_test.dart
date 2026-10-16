@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image/image.dart' as img;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/profile_api.dart';
@@ -154,6 +155,65 @@ void main() {
     expect(people.marks, [(personId: 'p1', value: false)]);
   });
 
+  testWidgets('a failed mark shows the mapped error and stays put', (
+    tester,
+  ) async {
+    final people = _People()
+      ..profile = const PersonProfile(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        isLinked: true,
+      )
+      ..editor = const Person(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        userId: 'member',
+      )
+      ..steward = true
+      ..markError = const PostgrestException(
+        message: 'FORBIDDEN: not a steward',
+      );
+    await _openProfile(tester, people, signedInUserId: 'owner');
+    await tester.tap(find.text('Mark as passed away'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('passed-away-confirm-yes')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('not a steward'), findsOneWidget);
+    expect(find.text('Mark as passed away'), findsOneWidget);
+    expect(people.marks, isEmpty);
+  });
+
+  testWidgets('an unmapped mark error says Try again', (tester) async {
+    final people = _People()
+      ..profile = const PersonProfile(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        isLinked: true,
+      )
+      ..editor = const Person(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        userId: 'member',
+      )
+      ..steward = true
+      ..markError = StateError('offline');
+    await _openProfile(tester, people, signedInUserId: 'owner');
+    await tester.tap(find.text('Mark as passed away'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('passed-away-confirm-yes')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Try again'), findsOneWidget);
+    expect(people.marks, isEmpty);
+  });
+
   testWidgets('Settings saves DOB and visibility, and Day waits for Month', (
     tester,
   ) async {
@@ -217,7 +277,7 @@ void main() {
     expect(profile.visibilities.single, 'year');
   });
 
-  testWidgets('a saved photo does not offer Remove', (tester) async {
+  testWidgets('a saved photo offers Remove and save clears it', (tester) async {
     final profile = _Profile(
       profile: OwnProfile(
         id: 'user-1',
@@ -236,7 +296,13 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('profile-avatar-image')), findsWidgets);
-    expect(find.text('Remove'), findsNothing);
+    expect(find.byKey(const Key('settings-picture-remove')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('settings-picture-remove')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('settings-save')));
+    await tester.tap(find.byKey(const Key('settings-save')));
+    await tester.pumpAndSettle();
+    expect(profile.clears, 1);
   });
 
   testWidgets('picker rows show the birth year and no end year', (
@@ -263,9 +329,7 @@ void main() {
     tester,
   ) async {
     final people = _People()
-      ..tree = [
-        const Person(id: 'p1', familyId: _familyId, name: 'Ada'),
-      ];
+      ..tree = [const Person(id: 'p1', familyId: _familyId, name: 'Ada')];
     await _openPicker(tester, people);
     expect(find.text('Ada'), findsOneWidget);
     expect(find.textContaining('1815'), findsNothing);
@@ -341,11 +405,8 @@ Future<void> _openAdd(WidgetTester tester, _People people) async {
     MaterialApp(
       home: Builder(
         builder: (context) => TextButton(
-          onPressed: () => AddPersonModal.show(
-            context,
-            familyId: _familyId,
-            api: people,
-          ),
+          onPressed: () =>
+              AddPersonModal.show(context, familyId: _familyId, api: people),
           child: const Text('open'),
         ),
       ),
@@ -364,11 +425,8 @@ Future<void> _openPicker(WidgetTester tester, _People people) async {
     MaterialApp(
       home: Builder(
         builder: (context) => TextButton(
-          onPressed: () => AddPersonModal.show(
-            context,
-            familyId: _familyId,
-            api: people,
-          ),
+          onPressed: () =>
+              AddPersonModal.show(context, familyId: _familyId, api: people),
           child: const Text('open'),
         ),
       ),
@@ -435,6 +493,7 @@ class _People extends PeopleGateway {
   PersonProfile? profile;
   Person? editor;
   var steward = false;
+  Object? markError;
   final marks = <({String personId, bool value})>[];
 
   @override
@@ -476,6 +535,8 @@ class _People extends PeopleGateway {
     required String personId,
     required bool value,
   }) async {
+    final error = markError;
+    if (error != null) throw error;
     marks.add((personId: personId, value: value));
   }
 }
@@ -494,6 +555,7 @@ class _Profile implements ProfileGateway {
   final Uint8List? download;
   final births = <(DateTime?, String?)>[];
   final visibilities = <String?>[];
+  var clears = 0;
 
   @override
   Future<Uint8List?> downloadAvatar(String path) async => download;
@@ -505,7 +567,9 @@ class _Profile implements ProfileGateway {
   Future<String> saveAvatar(Uint8List bytes) async => 'user-1/avatar.jpg';
 
   @override
-  Future<void> clearAvatar() async {}
+  Future<void> clearAvatar() async {
+    clears += 1;
+  }
 
   @override
   Future<void> saveName(String displayName) async {}
