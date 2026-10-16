@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(11);
+select plan(16);
 
 create temporary table m14n_ctx (
   owner_id uuid primary key,
@@ -107,7 +107,6 @@ where id = 'b14b0000-0000-4000-8000-0000000000b1';
 
 reset role;
 select set_config('request.jwt.claim.sub', '', true);
-select set_config('app.name_sync', '', true);
 
 select results_eq(
   $$select name from public.people
@@ -129,6 +128,15 @@ select is(
 set local role authenticated;
 set local request.jwt.claim.role = 'authenticated';
 set local request.jwt.claim.sub = 'b14b0000-0000-4000-8000-0000000000b1';
+
+select throws_ok(
+  $$update public.people
+      set name = 'Later Rename'
+      where id = (select person_b from m14n_ctx)$$,
+  '42501',
+  'FORBIDDEN: linked_person_name_locked',
+  'a direct rename later in the same transaction still raises'
+);
 
 select throws_ok(
   $$update public.people
@@ -162,31 +170,61 @@ select lives_ok(
 reset role;
 select set_config('request.jwt.claim.sub', '', true);
 
+insert into auth.users (id, email, raw_user_meta_data)
+values (
+  'c14b0000-0000-4000-8000-0000000000c1',
+  'm14n-hidden@test.local',
+  '{"display_name":"Hidden Profile"}'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'a14b0000-0000-4000-8000-0000000000a1';
+
+select is(
+  (select count(*) from public.profiles
+    where id = 'c14b0000-0000-4000-8000-0000000000c1'),
+  0::bigint,
+  'the caller cannot read the linked profile'
+);
+
+reset role;
+alter table public.people disable row level security;
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'a14b0000-0000-4000-8000-0000000000a1';
+
+select lives_ok(
+  $$insert into public.people (id, family_id, name, created_by, user_id)
+    select
+      '55555555-14b1-4111-8111-555555555555',
+      tree_a,
+      'Sent Hidden',
+      owner_id,
+      'c14b0000-0000-4000-8000-0000000000c1'
+    from m14n_ctx$$,
+  'a caller who cannot read the profile can still link the row'
+);
+
+reset role;
+alter table public.people enable row level security;
+
+select is(
+  (select name from public.people
+    where id = '55555555-14b1-4111-8111-555555555555'),
+  'Hidden Profile',
+  'the linked name still comes from the profile'
+);
+
 alter table public.people disable trigger user;
 update public.people
 set name = 'Drift'
 where id = (select person_a from m14n_ctx);
 alter table public.people enable trigger user;
 
-create function pg_temp.run_linked_name_backfill()
-returns int
-language plpgsql
-as $$
-declare
-  n int;
-begin
-  update public.people p
-  set name = pr.display_name
-  from public.profiles pr
-  where p.user_id = pr.id
-    and p.name is distinct from pr.display_name;
-  get diagnostics n = row_count;
-  return n;
-end;
-$$;
-
 select is(
-  pg_temp.run_linked_name_backfill() > 0,
+  public.backfill_linked_person_names() > 0,
   true,
   'backfill repairs a drifted linked name'
 );
@@ -198,9 +236,19 @@ select is(
 );
 
 select is(
-  pg_temp.run_linked_name_backfill(),
+  public.backfill_linked_person_names(),
   0,
   'a second backfill updates 0 rows'
+);
+
+select is(
+  has_function_privilege(
+    'authenticated',
+    'public.backfill_linked_person_names()',
+    'execute'
+  ),
+  false,
+  'authenticated cannot execute backfill_linked_person_names'
 );
 
 select is(
