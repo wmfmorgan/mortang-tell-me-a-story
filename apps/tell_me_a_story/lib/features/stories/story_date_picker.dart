@@ -19,11 +19,13 @@ class StoryDatePicker extends StatelessWidget {
     required this.onMonth,
     required this.onDay,
     required this.onYearChanged,
+    this.enabled = true,
   });
 
   final TextEditingController year;
   final int? month;
   final int? day;
+  final bool enabled;
   final ValueChanged<int?> onMonth;
   final ValueChanged<int?> onDay;
   final VoidCallback onYearChanged;
@@ -61,6 +63,7 @@ class StoryDatePicker extends StatelessWidget {
                 child: TextField(
                   key: const Key('story-date-year'),
                   controller: year,
+                  enabled: enabled,
                   textAlign: TextAlign.left,
                   style: valueStyle,
                   keyboardType: TextInputType.number,
@@ -115,7 +118,7 @@ class StoryDatePicker extends StatelessWidget {
                               ),
                             ),
                         ],
-                        onChanged: onMonth,
+                        onChanged: enabled ? onMonth : null,
                       ),
                     ),
                     if (month != null)
@@ -127,7 +130,7 @@ class StoryDatePicker extends StatelessWidget {
                           minWidth: 28,
                           minHeight: 28,
                         ),
-                        onPressed: () => onMonth(null),
+                        onPressed: enabled ? () => onMonth(null) : null,
                         icon: const Icon(Icons.close, size: 16),
                       ),
                   ],
@@ -159,7 +162,7 @@ class StoryDatePicker extends StatelessWidget {
                         ),
                       ),
                   ],
-                  onChanged: month == null ? null : onDay,
+                  onChanged: !enabled || month == null ? null : onDay,
                 ),
               ),
             ),

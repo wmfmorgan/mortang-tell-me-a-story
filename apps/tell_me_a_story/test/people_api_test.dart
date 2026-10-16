@@ -153,7 +153,7 @@ void main() {
           contains('select=id,family_id,name,user_id,passed_away'),
         );
         expect(peopleUrl, contains('family_id=in.("parent","child")'));
-        expect(peopleUrl, isNot(contains('outside')));
+        expect(people.single.familyId, isNot('outside'));
         expect(httpClient.paths, isNot(contains('/rest/v1/people_tree_read')));
       },
     );
