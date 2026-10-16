@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
+import '../../data/rpc_error.dart';
 import '../family/family_blur_dialog.dart';
 
 /// Invite dialog matching the Stitch Email, Link, and SMS screens.
@@ -213,7 +213,7 @@ class _InviteModalState extends State<InviteModal> {
       if (!mounted) return;
       setState(() {
         _rowBusyId = null;
-        _rowError[person.id] = _mappedPeopleSaveError(error);
+        _rowError[person.id] = mapRpcError(error) ?? 'Try again';
       });
       return;
     }
@@ -937,22 +937,4 @@ abstract final class _InviteType {
       color: selected ? albumParchment : albumInk,
     );
   }
-}
-
-/// Same four prefixes as mapRpcError in supabase/functions/_shared/manage.ts.
-String _mappedPeopleSaveError(Object error) {
-  final raw = error is PostgrestException ? error.message : '';
-  final trimmed = raw.trim();
-  const prefixes = [
-    'NOT_FOUND:',
-    'FORBIDDEN:',
-    'VALIDATION:',
-    'INVITE_INVALID:',
-  ];
-  for (final prefix in prefixes) {
-    if (!trimmed.startsWith(prefix)) continue;
-    final detail = trimmed.substring(prefix.length).trim();
-    return detail.isEmpty ? trimmed : detail;
-  }
-  return 'Try again';
 }
