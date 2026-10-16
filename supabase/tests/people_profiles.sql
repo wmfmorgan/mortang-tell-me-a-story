@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(69);
+select plan(70);
 
 create temporary table m14_ctx (
   user_a uuid primary key,
@@ -226,22 +226,27 @@ select throws_ok(
 reset role;
 select is(
   (select name from public.people where id = '55555555-14a1-4111-8111-555555555555'),
-  'Edited',
-  'a refused edit leaves the linked name unchanged'
+  'Bea',
+  'a refused edit leaves the profile name'
 );
 
 set local role authenticated;
 set local request.jwt.claim.role = 'authenticated';
 set local request.jwt.claim.sub = 'b1400000-0000-4000-8000-0000000000b1';
-update public.people
-set name = 'Mine'
-where id = '55555555-14a1-4111-8111-555555555555';
+select throws_ok(
+  $$update public.people
+      set name = 'Mine'
+      where id = '55555555-14a1-4111-8111-555555555555'$$,
+  '42501',
+  'FORBIDDEN: linked_person_name_locked',
+  'the linked user cannot rename their person row'
+);
 
 reset role;
 select is(
   (select name from public.people where id = '55555555-14a1-4111-8111-555555555555'),
-  'Mine',
-  'the linked user can edit their person row'
+  'Bea',
+  'a refused rename leaves the profile name'
 );
 
 update public.people

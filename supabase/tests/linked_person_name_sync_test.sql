@@ -107,6 +107,7 @@ where id = 'b14b0000-0000-4000-8000-0000000000b1';
 
 reset role;
 select set_config('request.jwt.claim.sub', '', true);
+select set_config('app.name_sync', '', true);
 
 select results_eq(
   $$select name from public.people

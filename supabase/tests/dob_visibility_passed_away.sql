@@ -439,7 +439,7 @@ select lives_ok(
 reset role;
 select is(
   (select name from public.people where id = '11111111-1430-4111-8111-111111111111'),
-  'Member Cam',
+  'Member',
   'mark_passed_away does not change the name'
 );
 select is(

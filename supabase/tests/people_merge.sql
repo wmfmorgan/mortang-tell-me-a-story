@@ -25,11 +25,11 @@ values (
 insert into auth.users (id, email, raw_user_meta_data)
 select user_a, 'merge-a@test.local', '{"display_name":"Ada"}'::jsonb from m14m_ctx
 union all
-select user_b, 'merge-b@test.local', '{"display_name":"Bea"}'::jsonb from m14m_ctx
+select user_b, 'merge-b@test.local', '{"display_name":"ada lovelace"}'::jsonb from m14m_ctx
 union all
-select user_c, 'merge-c@test.local', '{"display_name":"Cam"}'::jsonb from m14m_ctx
+select user_c, 'merge-c@test.local', '{"display_name":"Finn"}'::jsonb from m14m_ctx
 union all
-select user_d, 'merge-d@test.local', '{"display_name":"Dee"}'::jsonb from m14m_ctx;
+select user_d, 'merge-d@test.local', '{"display_name":"Finn"}'::jsonb from m14m_ctx;
 
 insert into public.families (id, name, created_by, parent_family_id)
 select '11111111-14e1-4111-8111-111111111111'::uuid, 'Uid root', user_a, null::uuid from m14m_ctx
