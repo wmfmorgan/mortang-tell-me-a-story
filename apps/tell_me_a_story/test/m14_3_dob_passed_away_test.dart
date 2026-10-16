@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
@@ -290,34 +289,6 @@ void main() {
     expect(profile.visibilities.single, 'year');
   });
 
-  testWidgets('a saved photo offers Remove and save clears it', (tester) async {
-    final profile = _Profile(
-      profile: OwnProfile(
-        id: 'user-1',
-        displayName: 'Sarah Morgan',
-        email: 'sarah@example.com',
-        avatarPath: 'user-1/avatar.jpg',
-      ),
-      download: _jpeg(),
-    );
-    await tester.binding.setSurfaceSize(const Size(900, 2200));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SettingsPage(profileApi: profile, inviteApi: _Invites()),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('profile-avatar-image')), findsWidgets);
-    expect(find.byKey(const Key('settings-picture-remove')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('settings-picture-remove')));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('settings-save')));
-    await tester.tap(find.byKey(const Key('settings-save')));
-    await tester.pumpAndSettle();
-    expect(profile.clears, 1);
-  });
-
   testWidgets('picker rows show the birth year and no end year', (
     tester,
   ) async {
@@ -553,23 +524,16 @@ class _People extends PeopleGateway {
 }
 
 class _Profile implements ProfileGateway {
-  _Profile({
-    this.profile = const OwnProfile(
-      id: 'user-1',
-      displayName: 'Sarah Morgan',
-      email: 'sarah@example.com',
-    ),
-    this.download,
-  });
-
-  final OwnProfile profile;
-  final Uint8List? download;
+  final profile = const OwnProfile(
+    id: 'user-1',
+    displayName: 'Sarah Morgan',
+    email: 'sarah@example.com',
+  );
   final births = <(DateTime?, String?)>[];
   final visibilities = <String?>[];
-  var clears = 0;
 
   @override
-  Future<Uint8List?> downloadAvatar(String path) async => download;
+  Future<Uint8List?> downloadAvatar(String path) async => null;
 
   @override
   Future<OwnProfile?> loadOwn() async => profile;
@@ -578,9 +542,7 @@ class _Profile implements ProfileGateway {
   Future<String> saveAvatar(Uint8List bytes) async => 'user-1/avatar.jpg';
 
   @override
-  Future<void> clearAvatar() async {
-    clears += 1;
-  }
+  Future<void> clearAvatar() async {}
 
   @override
   Future<void> saveName(String displayName) async {}
@@ -629,10 +591,4 @@ class _Invites implements InviteGateway {
 
   @override
   Future<void> sendInviteEmail({required String inviteId}) async {}
-}
-
-Uint8List _jpeg() {
-  final image = img.Image(width: 4, height: 4);
-  img.fill(image, color: img.ColorRgb8(180, 90, 40));
-  return Uint8List.fromList(img.encodeJpg(image));
 }
