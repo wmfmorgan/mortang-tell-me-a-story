@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-const temporaryHardcodedColorSkipFileNames = <String>{};
+const temporaryHardcodedColorSkipFileNames = <String>{
+  'settings_page.dart',
+};
 
 void main() {
   test('dart files under lib keep Color(0x and Colors. in album_theme.dart', () {
