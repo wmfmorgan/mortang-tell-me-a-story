@@ -14,6 +14,7 @@ class OwnProfile {
     this.avatarPath,
     this.birthDate,
     this.birthPrecision,
+    this.birthVisibility = 'hidden',
     this.about,
   });
 
@@ -23,6 +24,7 @@ class OwnProfile {
   final String? avatarPath;
   final DateTime? birthDate;
   final String? birthPrecision;
+  final String birthVisibility;
   final String? about;
 
   factory OwnProfile.fromJson(Map<String, dynamic> json) {
@@ -33,6 +35,7 @@ class OwnProfile {
       avatarPath: json['avatar_path'] as String?,
       birthDate: _profileDate(json['birth_date']),
       birthPrecision: json['birth_precision'] as String?,
+      birthVisibility: json['birth_visibility'] as String? ?? 'hidden',
       about: json['about'] as String?,
     );
   }
@@ -64,6 +67,7 @@ abstract class ProfileGateway {
     required String displayName,
     DateTime? birthDate,
     String? birthPrecision,
+    String? birthVisibility,
     String? about,
   });
 
@@ -145,12 +149,14 @@ class ProfileApi implements ProfileGateway {
     required String displayName,
     DateTime? birthDate,
     String? birthPrecision,
+    String? birthVisibility,
     String? about,
   }) {
     return _patch({
       'display_name': displayName,
       'birth_date': _profileDateIso(birthDate),
       'birth_precision': birthPrecision,
+      'birth_visibility': ?birthVisibility,
       'about': about,
     });
   }

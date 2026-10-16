@@ -97,6 +97,17 @@ Deno.test("a linked person is validation", async () => {
   assertEquals(json.message, "person is already linked");
 });
 
+Deno.test("create-invite rejects a flagged person_id", async () => {
+  const res = await createInvite(
+    post({ family_id: familyId, person_id: personId }),
+    { db: dbWith({ assertError: "VALIDATION: person has passed" }) },
+  );
+  const json = await res.json();
+  assertEquals(res.status, 400);
+  assertEquals(json.code, "VALIDATION");
+  assertEquals(json.message, "person has passed");
+});
+
 Deno.test("a person who has passed is validation", async () => {
   const res = await createInvite(
     post({ family_id: familyId, person_id: personId }),

@@ -19,6 +19,7 @@ class Person {
     this.about,
     this.avatarPath,
     this.userId,
+    this.passedAway = false,
     this.createdBy = '',
   });
 
@@ -34,6 +35,7 @@ class Person {
   final String? about;
   final String? avatarPath;
   final String? userId;
+  final bool passedAway;
   final String createdBy;
 
   factory Person.fromJson(Map<String, dynamic> json) {
@@ -50,6 +52,7 @@ class Person {
       about: json['about'] as String?,
       avatarPath: json['avatar_path'] as String?,
       userId: json['user_id'] as String?,
+      passedAway: json['passed_away'] == true,
       createdBy: json['created_by'] as String? ?? '',
     );
   }
@@ -68,6 +71,7 @@ class PersonProfile {
     this.avatarPath,
     this.passingDate,
     this.passingPrecision,
+    this.passedAway = false,
   });
 
   final String id;
@@ -79,6 +83,7 @@ class PersonProfile {
   final String? avatarPath;
   final DateTime? passingDate;
   final String? passingPrecision;
+  final bool passedAway;
   final bool isLinked;
 
   factory PersonProfile.fromJson(Map<String, dynamic> json) {
@@ -92,6 +97,7 @@ class PersonProfile {
       avatarPath: json['avatar_path'] as String?,
       passingDate: personDateFromJson(json['passing_date']),
       passingPrecision: json['passing_precision'] as String?,
+      passedAway: json['passed_away'] == true,
       isLinked: json['is_linked'] == true,
     );
   }
@@ -202,6 +208,18 @@ abstract class PeopleGateway {
   }
 
   Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
+
+  /// Home-family owner or co-owner. Other members, including owners of
+  /// another family in the tree, are false.
+  Future<bool> isHomeFamilySteward(String familyId) async => false;
+
+  /// `mark_passed_away(p_person_id, p_value)`.
+  Future<void> markPassedAway({
+    required String personId,
+    required bool value,
+  }) {
+    throw UnimplementedError();
+  }
 
   /// `person-avatars` when [path] is `{personId}/avatar.jpg`, else `avatars`.
   Future<String?> signedPictureUrl({
@@ -381,6 +399,31 @@ class PeopleApi implements PeopleGateway {
       person = await _uploadPersonPicture(person, pictureBytes);
     }
     return person;
+  }
+
+  @override
+  Future<bool> isHomeFamilySteward(String familyId) async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) return false;
+    final row = await _client
+        .from('memberships')
+        .select('role')
+        .eq('family_id', familyId)
+        .eq('user_id', uid)
+        .maybeSingle();
+    final role = row?['role'];
+    return role == 'owner' || role == 'co_owner';
+  }
+
+  @override
+  Future<void> markPassedAway({
+    required String personId,
+    required bool value,
+  }) async {
+    await _client.rpc(
+      'mark_passed_away',
+      params: {'p_person_id': personId, 'p_value': value},
+    );
   }
 
   @override
