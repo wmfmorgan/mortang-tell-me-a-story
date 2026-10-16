@@ -201,11 +201,14 @@ Rect _cardRect(WidgetTester tester, Finder marker) {
   return tester.getRect(card);
 }
 
+bool _skipStoryPumpError(FlutterErrorDetails details) {
+  return details.toString().contains('album_header.dart');
+}
+
 Future<void> _pumpStory(WidgetTester tester) async {
   final previous = FlutterError.onError;
   FlutterError.onError = (details) {
-    final report = details.toString();
-    if (report.contains('album_header.dart')) return;
+    if (_skipStoryPumpError(details)) return;
     previous?.call(details);
   };
   try {
@@ -214,6 +217,16 @@ Future<void> _pumpStory(WidgetTester tester) async {
   } finally {
     FlutterError.onError = previous;
   }
+}
+
+FlutterErrorDetails _pumpError(String message, String library) {
+  return FlutterErrorDetails(
+    exception: FlutterError(message),
+    library: library,
+    stack: StackTrace.fromString(
+      '#0 build (package:tell_me_a_story/$library:10:3)\n',
+    ),
+  );
 }
 
 void main() {
@@ -398,6 +411,62 @@ void main() {
 
     expect(invite.createFamilyCalls, 1);
     expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
+  });
+
+  test('_pumpStory ignores only an album_header RenderFlex overflow', () {
+    final headerOverflow = _pumpError(
+      'A RenderFlex overflowed by 385 pixels on the right.',
+      'core/theme/album_header.dart',
+    );
+    final headerOther = _pumpError(
+      'setState() called after dispose().',
+      'core/theme/album_header.dart',
+    );
+    final pageOverflow = _pumpError(
+      'A RenderFlex overflowed by 12 pixels on the bottom.',
+      'features/stories/new_story_page.dart',
+    );
+
+    expect(_skipStoryPumpError(headerOverflow), isTrue);
+    expect(_skipStoryPumpError(headerOther), isFalse);
+    expect(_skipStoryPumpError(pageOverflow), isFalse);
+  });
+
+  testWidgets('a forced overflow outside album_header still fails the filter', (
+    tester,
+  ) async {
+    final previous = FlutterError.onError;
+    final seen = <FlutterErrorDetails>[];
+    FlutterError.onError = (details) {
+      seen.add(details);
+      if (_skipStoryPumpError(details)) return;
+      previous?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = previous);
+
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: SizedBox(
+            width: 40,
+            child: Row(children: [SizedBox(width: 200, height: 10)]),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final taken = tester.takeException();
+    FlutterError.onError = previous;
+    expect(seen, isNotEmpty, reason: 'overflow reported ${seen.length} $taken');
+    expect(
+      seen.any(
+        (details) =>
+            !_skipStoryPumpError(details) &&
+            details.exceptionAsString().contains('RenderFlex overflowed'),
+      ),
+      isTrue,
+    );
   });
 
   testWidgets('story cards stack with a 20px gap at every width', (

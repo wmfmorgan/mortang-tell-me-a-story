@@ -145,15 +145,18 @@ void main() {
           '/rest/v1/rpc/list_family_tree',
           '/rest/v1/people',
         ]);
-        final peopleUrl = Uri.decodeFull(
-          httpClient.peopleUrls.single,
-        ).replaceAll(' ', '');
+        final decodedPeopleUrl = Uri.decodeFull(httpClient.peopleUrls.single);
+        expect(
+          decodedPeopleUrl,
+          contains('select=id, family_id, name, birth_date, passing_date'),
+        );
+        final peopleUrl = decodedPeopleUrl.replaceAll(' ', '');
         expect(
           peopleUrl,
           contains('select=id,family_id,name,birth_date,passing_date'),
         );
         expect(peopleUrl, contains('family_id=in.("parent","child")'));
-        expect(peopleUrl, isNot(contains('outside')));
+        expect(people.single.familyId, isNot('outside'));
         expect(httpClient.paths, isNot(contains('/rest/v1/people_tree_read')));
       },
     );
@@ -201,9 +204,8 @@ void main() {
 
         expect(people.single.name, 'Ada');
         expect(people.single.birthDate?.year, 1815);
-        final peopleUrl = Uri.decodeFull(
-          httpClient.peopleUrls.single,
-        ).replaceAll(' ', '');
+        final peopleUrl = Uri.decodeFull(httpClient.peopleUrls.single)
+            .replaceAll(' ', '');
         expect(peopleUrl, contains('family_id=in.("parent")'));
       },
     );
