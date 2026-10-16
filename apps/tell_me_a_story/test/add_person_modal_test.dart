@@ -8,11 +8,8 @@ import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
 class _FakePeopleGateway extends PeopleGateway {
-  _FakePeopleGateway({
-    List<Person>? seed,
-    Map<String, Set<String>> tree = const {},
-  }) : rows = [...?seed],
-       _tree = tree;
+  _FakePeopleGateway({List<Person>? seed, this._tree = const {}})
+    : rows = [...?seed];
 
   final List<Person> rows;
   final Map<String, Set<String>> _tree;

@@ -152,7 +152,7 @@ void main() {
           peopleUrl,
           contains('select=id,family_id,name,birth_date,passing_date'),
         );
-        expect(peopleUrl, contains('family_id=in.(parent,child)'));
+        expect(peopleUrl, contains('family_id=in.("parent","child")'));
         expect(peopleUrl, isNot(contains('outside')));
         expect(httpClient.paths, isNot(contains('/rest/v1/people_tree_read')));
       },
@@ -204,7 +204,7 @@ void main() {
         final peopleUrl = Uri.decodeFull(
           httpClient.peopleUrls.single,
         ).replaceAll(' ', '');
-        expect(peopleUrl, contains('family_id=in.(parent)'));
+        expect(peopleUrl, contains('family_id=in.("parent")'));
       },
     );
   });

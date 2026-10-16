@@ -148,9 +148,11 @@ $$;
 drop trigger if exists people_keep_one_member_link on public.people;
 drop function if exists public.people_keep_one_member_link();
 
--- One linked row per tree is enforced by ensure_member_person and
--- link_accepted_person. Do not replace the dropped trigger with an index.
-drop index if exists public.people_family_user_uidx;
+-- One user_id per family. The earlier migration creates this index.
+-- Recreate it so a database that applied the dropped version gets it back.
+create unique index if not exists people_family_user_uidx
+  on public.people (family_id, user_id)
+  where user_id is not null;
 
 create or replace function public.ensure_accepted_invite_person()
 returns trigger
