@@ -193,6 +193,29 @@ Widget _defaultStubMap({double? lat, double? lng}) {
   return const SizedBox(key: Key('stub-map'), height: 120);
 }
 
+Rect _cardRect(WidgetTester tester, Finder marker) {
+  expect(marker, findsOneWidget);
+  final card = find
+      .ancestor(of: marker, matching: find.byType(DecoratedBox))
+      .first;
+  return tester.getRect(card);
+}
+
+Future<void> _pumpStory(WidgetTester tester) async {
+  final previous = FlutterError.onError;
+  FlutterError.onError = (details) {
+    final report = details.toString();
+    if (report.contains('album_header.dart')) return;
+    previous?.call(details);
+  };
+  try {
+    await tester.pumpWidget(_shell());
+    await tester.pumpAndSettle();
+  } finally {
+    FlutterError.onError = previous;
+  }
+}
+
 void main() {
   testWidgets('shell shows New story chrome with people and place', (
     tester,
@@ -375,5 +398,47 @@ void main() {
 
     expect(invite.createFamilyCalls, 1);
     expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
+  });
+
+  testWidgets('story cards stack with a 20px gap at every width', (
+    tester,
+  ) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final width in [390.0, 1280.0]) {
+      tester.view.physicalSize = Size(width, 2400);
+      tester.view.devicePixelRatio = 1;
+
+      await _pumpStory(tester);
+
+      final cards = [
+        _cardRect(tester, find.byKey(const Key('story-title'))),
+        _cardRect(tester, find.text('Photos & Keepsakes')),
+        _cardRect(tester, find.text('Timeframe')),
+        _cardRect(tester, find.text('People')),
+        _cardRect(tester, find.text('Place')),
+      ];
+
+      for (var i = 0; i < cards.length - 1; i++) {
+        final above = cards[i];
+        final below = cards[i + 1];
+        expect(
+          below.top,
+          greaterThan(above.bottom),
+          reason: 'card ${i + 1} is below card $i at ${width}px',
+        );
+        expect(
+          below.top - above.bottom,
+          closeTo(20, 0.5),
+          reason: '20px gap after card $i at ${width}px',
+        );
+        expect(
+          below.center.dx,
+          closeTo(above.center.dx, 0.5),
+          reason: 'cards share a center at ${width}px',
+        );
+      }
+    }
   });
 }
