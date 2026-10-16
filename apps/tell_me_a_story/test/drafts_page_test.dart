@@ -135,6 +135,12 @@ class _FakeStoriesApi implements StoriesGateway {
     discarded.add(storyId);
     drafts.removeWhere((s) => s.id == storyId);
   }
+
+  @override
+  Future<void> linkPerson({
+    required String storyId,
+    required String personId,
+  }) async {}
 }
 
 class _ThrowingListStoriesApi extends _FakeStoriesApi {

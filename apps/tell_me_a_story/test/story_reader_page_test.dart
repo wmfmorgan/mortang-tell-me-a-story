@@ -148,6 +148,12 @@ class _FakeStoriesApi implements StoriesGateway {
   Future<void> discard(String storyId) async {
     discarded.add(storyId);
   }
+
+  @override
+  Future<void> linkPerson({
+    required String storyId,
+    required String personId,
+  }) async {}
 }
 
 class _FakePeopleApi extends PeopleGateway {

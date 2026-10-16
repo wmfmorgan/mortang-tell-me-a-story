@@ -173,9 +173,15 @@ select person_b, parent_id, 'Bee', 'kin', null, user_b, user_a from m11b_ctx
 union all
 select person_c, parent_id, 'Cee', 'kin', 'm11b-c@test.local', null, user_a from m11b_ctx
 union all
-select person_none, parent_id, 'No Account', 'kin', null, null, user_a from m11b_ctx
-union all
-select person_foreign, other_id, 'Foreign', 'kin', null, user_g, user_g from m11b_ctx;
+select person_none, parent_id, 'No Account', 'kin', null, null, user_a from m11b_ctx;
+
+update m11b_ctx c
+set person_foreign = (
+  select p.id
+  from public.people p
+  where p.family_id = c.other_id
+    and p.user_id = c.user_g
+);
 
 insert into public.photos (id, story_id, family_id, uploader_id, storage_path)
 select

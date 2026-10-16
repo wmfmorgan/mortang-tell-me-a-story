@@ -303,8 +303,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
     expect(find.byType(BackdropFilter), findsOneWidget);
-    expect(find.text('NAME'), findsOneWidget);
-    expect(find.text('Create new person'), findsNothing);
+    expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
+    expect(find.text('Create new person'), findsOneWidget);
     expect(find.text('+ Create new person'), findsNothing);
   });
 

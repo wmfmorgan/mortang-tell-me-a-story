@@ -312,6 +312,9 @@ abstract class StoriesGateway {
   Future<List<Story>> listMyDrafts(String familyId);
   Future<List<Story>> listPublished(String familyId);
   Future<void> discard(String storyId);
+
+  /// One `story_people` insert. Does not replace the story's other people.
+  Future<void> linkPerson({required String storyId, required String personId});
 }
 
 /// PostgREST CRUD gateway for family-scoped `stories` rows.
@@ -523,6 +526,17 @@ class StoriesApi implements StoriesGateway {
   @override
   Future<void> discard(String storyId) async {
     await _client.from('stories').delete().eq('id', storyId);
+  }
+
+  @override
+  Future<void> linkPerson({
+    required String storyId,
+    required String personId,
+  }) async {
+    await _client.from('story_people').insert({
+      'story_id': storyId,
+      'person_id': personId,
+    });
   }
 
   Future<void> _replacePeople(String storyId, List<String> personIds) async {

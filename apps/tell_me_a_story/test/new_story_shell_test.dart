@@ -228,9 +228,9 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
     await tester.pumpAndSettle();
 
-    expect(find.text('NAME'), findsOneWidget);
-    expect(find.text('Upload picture'), findsOneWidget);
-    expect(find.text('Ada'), findsNothing);
+    expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
+    expect(find.text('Ada'), findsOneWidget);
+    expect(find.text('NAME'), findsNothing);
   });
 
   testWidgets('Choose place opens PlacePickerModal', (tester) async {
@@ -279,10 +279,7 @@ void main() {
     await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
-    final save = find.widgetWithText(FilledButton, 'Add person');
-    await tester.ensureVisible(save);
-    await tester.tap(save);
+    await tester.tap(find.text('Ada'));
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
@@ -377,6 +374,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(invite.createFamilyCalls, 1);
-    expect(find.text('NAME'), findsOneWidget);
+    expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
   });
 }

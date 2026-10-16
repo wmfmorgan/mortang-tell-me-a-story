@@ -149,6 +149,7 @@ class _FakeStoriesApi implements StoriesGateway {
   var createDraftCalls = 0;
   var updateDraftCalls = 0;
   var publishCalls = 0;
+  var linkCalls = 0;
   String? lastUpdatedStoryId;
   DateTime? lastTimeframeStart;
   DateTime? lastTimeframeEnd;
@@ -280,6 +281,14 @@ class _FakeStoriesApi implements StoriesGateway {
 
   @override
   Future<void> discard(String storyId) async {}
+
+  @override
+  Future<void> linkPerson({
+    required String storyId,
+    required String personId,
+  }) async {
+    linkCalls++;
+  }
 }
 
 final _tinyJpeg = Uint8List.fromList(const [0xFF, 0xD8, 0xFF, 0xD9]);
@@ -527,6 +536,35 @@ void main() {
     expect(stories.lastTimeframeEnd, DateTime(1980, 12, 31));
     expect(find.text('Draft saved'), findsOneWidget);
   });
+
+  testWidgets(
+    'a person picked on a new story is written by the first draft save',
+    (tester) async {
+      final stories = _FakeStoriesApi();
+      await tester.pumpWidget(_captureShell(stories: stories));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
+      await tester.tap(find.widgetWithText(TextButton, 'Add person'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
+      await tester.tap(find.text('Ada'));
+      await tester.pumpAndSettle();
+
+      expect(stories.linkCalls, 0);
+      expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('story-date-year')), '1980');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
+      await tester.pumpAndSettle();
+
+      expect(stories.createDraftCalls, 1);
+      expect(stories.updateDraftCalls, 0);
+      expect(stories.lastPersonIds, ['p1']);
+      expect(stories.linkCalls, 0);
+    },
+  );
 
   testWidgets('timeframe card is year month and day', (tester) async {
     await tester.pumpWidget(_captureShell());
