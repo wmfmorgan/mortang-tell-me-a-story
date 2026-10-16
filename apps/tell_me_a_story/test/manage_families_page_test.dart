@@ -390,12 +390,13 @@ void main() {
   });
 
   testWidgets('pending invites resend and cancel', (tester) async {
+    final now = DateTime.now();
     final sent = DateTime(2026, 10, 8);
-    final expires = DateTime(2026, 10, 15);
+    final expires = now.add(const Duration(days: 7));
     final expiredSent = DateTime(2020, 9, 20);
     final expiredOn = DateTime(2020, 9, 27);
     final created = DateTime(2026, 10, 9);
-    final linkExpires = DateTime(2026, 10, 16);
+    final linkExpires = now.add(const Duration(days: 8));
     directory.detail = _detail(
       role: 'owner',
       pendingInvites: [
