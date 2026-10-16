@@ -25,6 +25,8 @@ import 'photo_strip.dart';
 import 'story_date.dart';
 import 'story_date_picker.dart';
 
+const _storyCardGap = 20.0;
+
 /// Capture form for `/stories/new` — timeframe, people, place, title, body, persist.
 class NewStoryPage extends StatefulWidget {
   const NewStoryPage({
@@ -687,7 +689,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       ),
       body: SafeArea(
         child: AlbumColumn(
-          maxWidth: 1080,
+          maxWidth: 720,
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
             child: Column(
@@ -705,27 +707,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
                   const Text('Finish the highlighted fields to publish.'),
                   const SizedBox(height: 12),
                 ],
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final storyColumn = _storyColumn();
-                    final contextColumn = _contextColumn(place);
-                    if (constraints.maxWidth < 680) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [storyColumn, contextColumn],
-                      );
-                    }
-                    final contextWidth = constraints.maxWidth * 0.52;
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: storyColumn),
-                        const SizedBox(width: 24),
-                        SizedBox(width: contextWidth, child: contextColumn),
-                      ],
-                    );
-                  },
-                ),
+                _storyColumn(),
+                const SizedBox(height: _storyCardGap),
+                _contextColumn(place),
               ],
             ),
           ),
@@ -827,7 +811,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: _storyCardGap),
         DecoratedBox(
           decoration: BoxDecoration(
             color: const Color(0xFFFFFFFF),
@@ -993,7 +977,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   Widget _paperCard({required Widget child}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: _storyCardGap),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFFFFFFFF),
