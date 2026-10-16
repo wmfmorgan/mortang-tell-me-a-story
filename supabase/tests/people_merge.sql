@@ -74,6 +74,7 @@ select 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa1', 'Blank fill root', user_a, null f
 union all
 select 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa2', 'Blank fill child', user_a, 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa1' from m14m_ctx;
 
+-- Fixture names on linked rows come from the profile.
 insert into public.people (id, family_id, name, email, user_id, created_by)
 select 'a1111111-14e1-4111-8111-a11111111111'::uuid, '11111111-14e1-4111-8111-111111111111'::uuid, 'Root Bee', null::text, user_b, user_a from m14m_ctx
 union all

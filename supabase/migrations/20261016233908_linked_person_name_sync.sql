@@ -1,4 +1,4 @@
--- app.name_sync is how the profile trigger copies a name past the guard.
+-- The flag is set only for this copy, then cleared so a later statement stays locked.
 
 create or replace function public.profiles_sync_linked_person_name()
 returns trigger
@@ -12,6 +12,7 @@ begin
   set name = new.display_name
   where user_id = new.id
     and name is distinct from new.display_name;
+  perform set_config('app.name_sync','',true);
   return new;
 end;
 $$;
@@ -28,10 +29,17 @@ revoke all on function public.profiles_sync_linked_person_name() from public, an
 create or replace function public.people_guard_linked_name()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
   if new.user_id is null then
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE'
+     and new.name is not distinct from old.name
+     and new.user_id is not distinct from old.user_id then
     return new;
   end if;
 
@@ -59,8 +67,26 @@ create trigger people_guard_linked_name
 
 revoke all on function public.people_guard_linked_name() from public, anon;
 
-update public.people p
-set name = pr.display_name
-from public.profiles pr
-where p.user_id = pr.id
-  and p.name is distinct from pr.display_name;
+create or replace function public.backfill_linked_person_names()
+returns int
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  n int;
+begin
+  update public.people p
+  set name = pr.display_name
+  from public.profiles pr
+  where p.user_id = pr.id
+    and p.name is distinct from pr.display_name;
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+revoke all on function public.backfill_linked_person_names()
+  from public, anon, authenticated, service_role;
+
+select public.backfill_linked_person_names();
