@@ -367,6 +367,7 @@ class _EmailPeople extends PeopleGateway {
     String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   }) {
     throw UnimplementedError();
@@ -385,6 +386,8 @@ class _EmailPeople extends PeopleGateway {
     DateTime? passingDate,
     String? passingPrecision,
     bool writePassing = false,
+    bool passedAway = false,
+    bool writePassedAway = false,
     String? about,
     bool writeAbout = false,
     String? email,
@@ -420,6 +423,7 @@ class _UnlinkedPeople extends PeopleGateway {
     String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   }) {
     throw UnimplementedError();

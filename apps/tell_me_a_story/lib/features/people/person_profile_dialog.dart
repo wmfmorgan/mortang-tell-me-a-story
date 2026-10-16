@@ -110,6 +110,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
   Person? _editor;
   var _missing = false;
   var _loading = true;
+  var _steward = false;
   String? _pictureUrl;
   List<PersonStoryCard> _stories = const [];
 
@@ -154,9 +155,18 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
         stories = const [];
       }
     }
+    var steward = false;
+    final linkedId = editor?.userId;
+    if (profile != null &&
+        profile.isLinked &&
+        linkedId != null &&
+        linkedId != widget.signedInUserId) {
+      steward = await widget.people.isHomeFamilySteward(profile.familyId);
+    }
     if (!mounted) return;
     setState(() {
       _profile = profile;
+      _steward = steward;
       _editor = editor;
       _missing = missing || profile == null;
       _pictureUrl = pictureUrl;
@@ -169,6 +179,61 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     if (_profile == null || _missing) return false;
     if (_profile!.isLinked) return false;
     return _editor?.userId == null;
+  }
+
+  bool get _showOwners {
+    final profile = _profile;
+    final editor = _editor;
+    if (profile == null || !profile.isLinked || !_steward) return false;
+    final linkedId = editor?.userId;
+    if (linkedId == null || linkedId == widget.signedInUserId) return false;
+    return true;
+  }
+
+  Future<void> _confirmMark() async {
+    final profile = _profile;
+    if (profile == null) return;
+    final mark = !profile.passedAway;
+    final title = mark ? 'Mark as passed away?' : 'Unmark passed away?';
+    final action = mark ? 'Mark as passed away' : 'Unmark passed away';
+    final yes = await showBlurredCard<bool>(
+      context: context,
+      builder: (context) => Material(
+        color: albumParchment,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 16),
+                FilledButton(
+                  key: const Key('passed-away-confirm-yes'),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(action, textAlign: TextAlign.center),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (yes != true || !mounted) return;
+    await widget.people.markPassedAway(personId: profile.id, value: mark);
+    if (!mounted) return;
+    setState(() => _loading = true);
+    await _load();
   }
 
   Future<void> _edit() async {
@@ -251,6 +316,22 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
                           onPressed: _edit,
                           icon: const Icon(Icons.edit, size: 16),
                           label: const Text('Edit'),
+                        ),
+                      ),
+                    ],
+                    if (_showOwners) ...[
+                      const SizedBox(height: 16),
+                      Text('Family owners', style: labelStyle),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: _confirmMark,
+                          child: Text(
+                            profile.passedAway
+                                ? 'Unmark passed away'
+                                : 'Mark as passed away',
+                          ),
                         ),
                       ),
                     ],
@@ -516,15 +597,9 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
 }
 
 String _lifeLine(PersonProfile profile) {
-  final parts = <String>[];
   final birth = storyDateFromPerson(profile.birthDate, profile.birthPrecision);
-  if (birth != null) parts.add('Born ${storyDateLabel(birth)}');
-  final passing = storyDateFromPerson(
-    profile.passingDate,
-    profile.passingPrecision,
-  );
-  if (passing != null) parts.add('Passed ${storyDateLabel(passing)}');
-  return parts.join(' · ');
+  if (birth == null) return '';
+  return 'Born ${storyDateLabel(birth)}';
 }
 
 Future<List<PersonStoryCard>> _defaultPersonStories(String personId) async {

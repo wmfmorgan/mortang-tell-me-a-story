@@ -9,8 +9,6 @@ import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
 import '../../data/rpc_error.dart';
 import '../family/family_blur_dialog.dart';
-import '../stories/story_date.dart';
-import 'person_date_field.dart';
 
 /// Created person, and whether the caller chose "Send invite".
 class AddPersonResult {
@@ -83,8 +81,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
   final _emailController = TextEditingController();
   final _aboutController = TextEditingController();
   final _searchController = TextEditingController();
-  StoryDate? _birth;
-  StoryDate? _passing;
+  var _passedAway = false;
   Uint8List? _picture;
   List<Person>? _people;
   var _step = _AddStep.pick;
@@ -129,7 +126,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  bool get _passingSet => _passing != null;
+  bool get _passedAwaySet => _passedAway;
 
   Future<void> _pickPicture() async {
     final picker = widget.pickImageBytes ?? _pickFromGallery;
@@ -159,8 +156,8 @@ class _AddPersonModalState extends State<AddPersonModal> {
         });
         return;
       }
-      final email = _passingSet ? '' : _emailController.text.trim();
-      if (email.isNotEmpty) {
+      final email = _emailController.text.trim();
+      if (email.isNotEmpty && !_passedAwaySet) {
         final confirmed = await showSendInviteConfirm(
           context,
           name: name,
@@ -176,18 +173,13 @@ class _AddPersonModalState extends State<AddPersonModal> {
       _aboutError = null;
     });
     try {
-      final birth = _stored(_birth);
-      final passing = _stored(_passing);
-      final email = _passingSet ? '' : _emailController.text.trim();
+      final email = _emailController.text.trim();
       final person = _created ??= await widget.api.createPerson(
         familyId: widget.familyId,
         name: _nameController.text.trim(),
-        birthDate: birth?.date,
-        birthPrecision: birth?.precision,
-        passingDate: passing?.date,
-        passingPrecision: passing?.precision,
         about: _aboutController.text,
         email: email,
+        passedAway: _passedAway,
         pictureBytes: _picture,
       );
       if (_sendInvite && !_inviteSent) {
@@ -517,6 +509,10 @@ class _AddPersonModalState extends State<AddPersonModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Text('PICTURE', style: kicker),
+        const SizedBox(height: 6),
+        _pictureRow(),
+        const SizedBox(height: 16),
         Row(
           children: [
             Text('NAME', style: kicker),
@@ -538,28 +534,6 @@ class _AddPersonModalState extends State<AddPersonModal> {
           ),
         ),
         const SizedBox(height: 16),
-        PersonDateField(
-          key: const Key('add-person-birth'),
-          label: 'Date of birth',
-          framed: true,
-          icon: Icons.cake_outlined,
-          iconColor: albumSage,
-          onChanged: (date) => _birth = date,
-        ),
-        const SizedBox(height: 16),
-        PersonDateField(
-          key: const Key('add-person-passing'),
-          label: 'Date of passing',
-          framed: true,
-          icon: Icons.hourglass_bottom_outlined,
-          iconColor: albumInk.withValues(alpha: 0.45),
-          onChanged: (date) => setState(() => _passing = date),
-        ),
-        const SizedBox(height: 16),
-        Text('PICTURE', style: kicker),
-        const SizedBox(height: 6),
-        _pictureRow(),
-        const SizedBox(height: 16),
         Text('ABOUT', style: kicker),
         const SizedBox(height: 6),
         _AddAboutField(
@@ -567,36 +541,31 @@ class _AddPersonModalState extends State<AddPersonModal> {
           enabled: !_busy,
           errorText: _aboutError,
         ),
-        if (!_passingSet) ...[
-          const SizedBox(height: 16),
-          Text('EMAIL', style: kicker),
-          const SizedBox(height: 6),
-          TextField(
-            key: const Key('add-person-email'),
-            controller: _emailController,
-            enabled: !_busy,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(hintText: 'name@example.com'),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.info_outline, size: 15, color: albumSage),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Email is hidden when Date of passing is set.',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: albumSage,
-                    fontWeight: FontWeight.w600,
-                    height: 1.3,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        const SizedBox(height: 16),
+        Text('EMAIL', style: kicker),
+        const SizedBox(height: 6),
+        TextField(
+          key: const Key('add-person-email'),
+          controller: _emailController,
+          enabled: !_busy,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(hintText: 'name@example.com'),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Text('Passed away', style: kicker),
+            ),
+            Switch(
+              key: const Key('add-person-passed-away'),
+              value: _passedAway,
+              onChanged: _busy
+                  ? null
+                  : (value) => setState(() => _passedAway = value),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -876,16 +845,8 @@ class _DashedOutlinePainter extends CustomPainter {
       oldDelegate.shape != shape;
 }
 
-({DateTime date, String precision})? _stored(StoryDate? date) {
-  if (date == null || date.legacyDecade) return null;
-  return storedPersonDate(year: date.year, month: date.month, day: date.day);
-}
-
 String _yearSpan(Person person) {
   final birth = person.birthDate?.year;
-  final passing = person.passingDate?.year;
-  if (birth != null && passing != null) return '$birth-$passing';
-  if (birth != null) return '$birth';
-  if (passing != null) return '$passing';
-  return '';
+  if (birth == null) return '';
+  return '$birth';
 }

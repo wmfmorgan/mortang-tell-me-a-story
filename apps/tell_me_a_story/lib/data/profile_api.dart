@@ -130,13 +130,19 @@ class ProfileApi implements ProfileGateway {
     if (uid == null) return null;
     final row = await _supabase
         .from('profiles')
-        .select(
-          'id, display_name, email, avatar_path, birth_date, birth_precision, about',
-        )
+        .select('id, display_name, email, avatar_path, about')
         .eq('id', uid)
         .maybeSingle();
     if (row == null) return null;
-    return OwnProfile.fromJson(row);
+    final birth = await _supabase.rpc('my_profile');
+    final birthRow = switch (birth) {
+      List(isNotEmpty: true) when birth.first is Map => Map<String, dynamic>.from(
+        birth.first as Map,
+      ),
+      final Map map => Map<String, dynamic>.from(map),
+      _ => const <String, dynamic>{},
+    };
+    return OwnProfile.fromJson({...row, ...birthRow});
   }
 
   @override

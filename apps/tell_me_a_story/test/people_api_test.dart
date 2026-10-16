@@ -109,7 +109,7 @@ void main() {
 
   group('PeopleApi.listTreePeople', () {
     test(
-      'listTreePeople reads dates from people for families in the tree',
+      'listTreePeople reads unlinked rows without a date of birth',
       () async {
         final httpClient = _StubHttpClient(
           tree: [
@@ -139,8 +139,8 @@ void main() {
         expect(people, hasLength(1));
         expect(people.single.name, 'Cousin Ada');
         expect(people.single.familyId, 'child');
-        expect(people.single.birthDate, DateTime(1920, 3, 1));
-        expect(people.single.passingDate, DateTime(1998, 6, 1));
+        expect(people.single.birthDate, isNull);
+        expect(people.single.passingDate, isNull);
         expect(httpClient.paths, [
           '/rest/v1/rpc/list_family_tree',
           '/rest/v1/people',
@@ -150,7 +150,7 @@ void main() {
         ).replaceAll(' ', '');
         expect(
           peopleUrl,
-          contains('select=id,family_id,name,birth_date,passing_date'),
+          contains('select=id,family_id,name,user_id,passed_away'),
         );
         expect(peopleUrl, contains('family_id=in.("parent","child")'));
         expect(peopleUrl, isNot(contains('outside')));
@@ -200,7 +200,7 @@ void main() {
         final people = await api.listTreePeople('parent');
 
         expect(people.single.name, 'Ada');
-        expect(people.single.birthDate?.year, 1815);
+        expect(people.single.birthDate, isNull);
         final peopleUrl = Uri.decodeFull(
           httpClient.peopleUrls.single,
         ).replaceAll(' ', '');
@@ -284,6 +284,7 @@ class FakePeopleGateway extends PeopleGateway {
     String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   }) async {
     ensureValidPersonCreate(name: name, about: about);

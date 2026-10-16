@@ -176,6 +176,7 @@ class _FakePeopleApi extends PeopleGateway {
     String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   }) {
     throw UnimplementedError();

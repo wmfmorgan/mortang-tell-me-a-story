@@ -41,6 +41,7 @@ class _FakePeopleGateway extends PeopleGateway {
     String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   }) async {
     createCalls++;
@@ -168,15 +169,16 @@ void main() {
     await _openForm(tester, api: api);
 
     expect(find.text('NAME'), findsOneWidget);
-    expect(find.text('DATE OF BIRTH'), findsOneWidget);
-    expect(find.text('DATE OF PASSING'), findsOneWidget);
+    expect(find.text('DATE OF BIRTH'), findsNothing);
+    expect(find.text('DATE OF PASSING'), findsNothing);
+    expect(find.text('Passed away'), findsOneWidget);
     expect(find.text('PICTURE'), findsOneWidget);
     expect(find.text('Upload picture'), findsOneWidget);
     expect(find.text('ABOUT'), findsOneWidget);
     expect(find.text('EMAIL'), findsOneWidget);
     expect(
       find.text('Email is hidden when Date of passing is set.'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('May be left blank'), findsNothing);
     expect(find.text('(optional)'), findsNothing);
@@ -283,7 +285,8 @@ void main() {
     await _openModal(tester, api: api);
 
     expect(find.text('Cousin Ada'), findsOneWidget);
-    expect(find.text('1920-1998'), findsOneWidget);
+    expect(find.text('1920'), findsOneWidget);
+    expect(find.text('1920-1998'), findsNothing);
     expect(find.text('Outside Bea'), findsNothing);
     expect(find.text('1910-1980'), findsNothing);
   });
@@ -299,7 +302,8 @@ void main() {
 
     expect(find.text('Search people in this family'), findsOneWidget);
     expect(find.text('Ada'), findsOneWidget);
-    expect(find.text('1815-1852'), findsOneWidget);
+    expect(find.text('1815'), findsOneWidget);
+    expect(find.text('1815-1852'), findsNothing);
     expect(find.text('Zoe'), findsOneWidget);
     expect(find.text('1990'), findsOneWidget);
     expect(

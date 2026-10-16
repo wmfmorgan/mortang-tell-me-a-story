@@ -300,8 +300,10 @@ void main() {
       ];
     await _openPicker(tester, people);
     expect(find.text('Ada'), findsOneWidget);
-    expect(find.text('Pat'), findsNothing);
+    expect(find.text('Pat'), findsOneWidget);
 
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -454,6 +456,7 @@ class _People extends PeopleGateway {
     String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   }) async {
     return Person(id: 'new', familyId: familyId, name: name);

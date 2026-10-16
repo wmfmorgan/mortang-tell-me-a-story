@@ -237,18 +237,14 @@ select
 from m14a_ctx;
 
 insert into public.people (
-  id, family_id, name, created_by,
-  birth_date, birth_precision, passing_date, passing_precision
+  id, family_id, name, created_by, passed_away
 )
 select
   '66666666-14a1-4111-8111-666666666666'::uuid,
   '44444444-14a1-4111-8111-444444444444'::uuid,
   'Child Kin'::text,
   owner_id,
-  '1920-03-01'::date,
-  'day'::public.story_date_precision,
-  '1998-06-01'::date,
-  'day'::public.story_date_precision
+  true
 from m14a_ctx
 union all
 select
@@ -256,10 +252,7 @@ select
   '55555555-14a1-4111-8111-555555555555'::uuid,
   'Outside Kin'::text,
   owner_id,
-  '1930-01-01'::date,
-  'day'::public.story_date_precision,
-  '2001-01-01'::date,
-  'day'::public.story_date_precision
+  true
 from m14a_ctx;
 
 set local role authenticated;
@@ -267,11 +260,11 @@ set local request.jwt.claim.role = 'authenticated';
 set local request.jwt.claim.sub = 'a14a0000-0000-4000-8000-0000000000a1';
 
 select results_eq(
-  $$select birth_date::text, passing_date::text
+  $$select passed_away
     from public.people
     where id = '66666666-14a1-4111-8111-666666666666'$$,
-  $$values ('1920-03-01'::text, '1998-06-01'::text)$$,
-  'a tree member reads birth and passing dates on another family in the tree'
+  $$values (true)$$,
+  'a tree member reads passed_away on another family in the tree'
 );
 
 select is(

@@ -180,6 +180,7 @@ abstract class PeopleGateway {
     String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   });
 
@@ -197,6 +198,8 @@ abstract class PeopleGateway {
     DateTime? passingDate,
     String? passingPrecision,
     bool writePassing = false,
+    bool passedAway = false,
+    bool writePassedAway = false,
     String? about,
     bool writeAbout = false,
     String? email,
@@ -237,10 +240,9 @@ class PeopleApi implements PeopleGateway {
 
   static const _rowSelect =
       'id, family_id, name, relationship, email, created_by, '
-      'birth_date, birth_precision, passing_date, passing_precision, '
-      'about, avatar_path, user_id';
+      'about, avatar_path, user_id, passed_away';
 
-  static const _treeSelect = 'id,family_id,name,birth_date,passing_date';
+  static const _treeSelect = 'id, family_id, name, user_id, passed_away';
 
   @override
   Future<List<Person>> listPeople(String familyId) async {
@@ -260,7 +262,36 @@ class PeopleApi implements PeopleGateway {
         .select(_treeSelect)
         .inFilter('family_id', familyIds)
         .order('name');
-    return rows.map(Person.fromJson).toList();
+    final people = rows.map(Person.fromJson).toList();
+    final trimmed = <Person>[];
+    for (final person in people) {
+      if (person.userId == null) {
+        trimmed.add(
+          Person(
+            id: person.id,
+            familyId: person.familyId,
+            name: person.name,
+            email: person.email,
+            userId: person.userId,
+            passedAway: person.passedAway,
+          ),
+        );
+        continue;
+      }
+      final profile = await personProfile(person.id);
+      trimmed.add(
+        Person(
+          id: person.id,
+          familyId: person.familyId,
+          name: person.name,
+          userId: person.userId,
+          passedAway: profile?.passedAway ?? person.passedAway,
+          birthDate: profile?.birthDate,
+          birthPrecision: profile?.birthPrecision,
+        ),
+      );
+    }
+    return trimmed;
   }
 
   /// Families in [familyId]'s tree. One family when the walk returns none.
@@ -290,12 +321,12 @@ class PeopleApi implements PeopleGateway {
     String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   }) async {
     final trimmedAbout = _aboutOrNull(about);
     ensureValidPersonCreate(name: name, about: trimmedAbout);
-    final passingSet = passingDate != null;
-    final trimmedEmail = passingSet ? null : _emailOrNull(email);
+    final trimmedEmail = _emailOrNull(email);
     final uid = _client.auth.currentUser!.id;
     final row = await _client
         .from('people')
@@ -304,10 +335,7 @@ class PeopleApi implements PeopleGateway {
           'name': name.trim(),
           'relationship': null,
           'email': ?trimmedEmail,
-          if (birthDate != null) 'birth_date': personDateIso(birthDate),
-          'birth_precision': ?birthPrecision,
-          if (passingDate != null) 'passing_date': personDateIso(passingDate),
-          'passing_precision': ?passingPrecision,
+          'passed_away': passedAway,
           'about': ?trimmedAbout,
           'created_by': uid,
         })
@@ -357,6 +385,8 @@ class PeopleApi implements PeopleGateway {
     DateTime? passingDate,
     String? passingPrecision,
     bool writePassing = false,
+    bool passedAway = false,
+    bool writePassedAway = false,
     String? about,
     bool writeAbout = false,
     String? email,
@@ -376,16 +406,7 @@ class PeopleApi implements PeopleGateway {
       'updated_at': DateTime.now().toUtc().toIso8601String(),
       if (clearing) 'avatar_path': null,
     };
-    if (writeBirth) {
-      patch['birth_date'] = birthDate == null ? null : personDateIso(birthDate);
-      patch['birth_precision'] = birthPrecision;
-    }
-    if (writePassing) {
-      patch['passing_date'] = passingDate == null
-          ? null
-          : personDateIso(passingDate);
-      patch['passing_precision'] = passingPrecision;
-    }
+    if (writePassedAway) patch['passed_away'] = passedAway;
     if (writeAbout) patch['about'] = trimmedAbout;
     if (writeEmail) patch['email'] = _emailOrNull(email);
     final row = await _client

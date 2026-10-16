@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(71);
+select plan(68);
 
 create temporary table m14_ctx (
   user_a uuid primary key,
@@ -134,43 +134,12 @@ select is(
 );
 
 select throws_ok(
-  $$insert into public.people (family_id, name, relationship, created_by, birth_precision)
-    select parent_id, 'Decade', 'kin', user_a, 'decade'::public.story_date_precision
-    from m14_ctx$$,
-  '23514',
-  null,
-  'people.birth_precision refuses decade'
-);
-
-select throws_ok(
   $$update public.profiles
       set birth_precision = 'decade'::public.story_date_precision
       where id = 'a1400000-0000-4000-8000-0000000000a1'$$,
   '23514',
   null,
   'profiles.birth_precision refuses decade'
-);
-
-select throws_ok(
-  $$insert into public.people (
-      family_id, name, relationship, created_by, birth_date
-    )
-    select parent_id, 'Half', 'kin', user_a, '1980-01-01'::date
-    from m14_ctx$$,
-  '23514',
-  null,
-  'a birth date without precision fails'
-);
-
-select throws_ok(
-  $$insert into public.people (
-      family_id, name, relationship, created_by, passing_precision
-    )
-    select parent_id, 'Half pass', 'kin', user_a, 'year'::public.story_date_precision
-    from m14_ctx$$,
-  '23514',
-  null,
-  'a passing precision without a date fails'
 );
 
 select throws_ok(
@@ -200,8 +169,7 @@ select lives_ok(
 );
 
 insert into public.people (
-  id, family_id, name, created_by, about, birth_date, birth_precision,
-  passing_date, passing_precision
+  id, family_id, name, created_by, about, passed_away
 )
 select
   '55555555-14a1-4111-8111-555555555555',
@@ -209,10 +177,7 @@ select
   'Ada Person',
   user_a,
   'from the row',
-  '1970-01-01',
-  'year',
-  '2020-03-01',
-  'month'
+  true
 from m14_ctx;
 
 select results_eq(
@@ -399,9 +364,9 @@ select is(
   'an unset account about falls back to the person'
 );
 select is(
-  (select passing_precision from public.person_profile('55555555-14a1-4111-8111-555555555555')),
-  'month'::public.story_date_precision,
-  'passing comes from the person row'
+  (select passed_away from public.person_profile('55555555-14a1-4111-8111-555555555555')),
+  true,
+  'passed_away comes from the person row'
 );
 select is(
   (select is_linked from public.person_profile('55555555-14a1-4111-8111-555555555555')),
@@ -586,15 +551,14 @@ select set_config('request.jwt.claim.sub', '', true);
 select set_config('request.jwt.claim.role', '', true);
 
 insert into public.people (
-  id, family_id, name, created_by, passing_date, passing_precision
+  id, family_id, name, created_by, passed_away
 )
 select
   '88888888-14a1-4111-8111-888888888888',
   parent_id,
   'Passed Pat',
   user_a,
-  '2010-01-01',
-  'year'
+  true
 from m14_ctx;
 
 insert into public.people (id, family_id, name, created_by, email)

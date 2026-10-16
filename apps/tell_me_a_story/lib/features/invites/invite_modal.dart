@@ -121,7 +121,7 @@ class _InviteModalState extends State<InviteModal> {
     try {
       final rows = await people.listUnlinkedPeople(widget.familyId);
       if (!mounted) return;
-      setState(() => _unlinked = rows);
+      setState(() => _unlinked = _notPassed(rows));
     } catch (_) {
       if (!mounted) return;
       setState(() => _unlinked = const []);
@@ -134,7 +134,7 @@ class _InviteModalState extends State<InviteModal> {
     try {
       final rows = await people.listUnlinkedPeople(widget.familyId);
       if (!mounted) return;
-      setState(() => _notInvited = rows);
+      setState(() => _notInvited = _notPassed(rows));
     } catch (_) {
       if (!mounted) return;
       setState(() => _notInvited = const []);
@@ -142,6 +142,11 @@ class _InviteModalState extends State<InviteModal> {
   }
 
   bool _hasEmail(Person person) => (person.email ?? '').trim().isNotEmpty;
+
+  List<Person> _notPassed(List<Person> rows) => [
+    for (final row in rows)
+      if (!row.passedAway) row,
+  ];
 
   void _dropNotInvited(String personId) {
     _emailDrafts.remove(personId)?.dispose();

@@ -43,13 +43,13 @@ union all
 select plain_id, 'm143-plain@test.local', '{"display_name":"Plain"}'::jsonb from m143_ctx;
 
 select results_eq(
-  $$select e.enumlabel::text
+  $$select e.enumlabel::text collate "C"
       from pg_enum e
       join pg_type t on t.oid = e.enumtypid
       join pg_namespace n on n.oid = t.typnamespace
       where n.nspname = 'public' and t.typname = 'dob_visibility'
       order by e.enumsortorder$$,
-  $$values ('hidden'::text), ('year'::text), ('year_month'::text), ('full'::text)$$,
+  $$values ('hidden'::text collate "C"), ('year'::text collate "C"), ('year_month'::text collate "C"), ('full'::text collate "C")$$,
   'dob_visibility is hidden, year, year_month, full'
 );
 

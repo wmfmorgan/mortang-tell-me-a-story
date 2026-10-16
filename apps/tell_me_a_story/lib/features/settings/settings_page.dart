@@ -51,6 +51,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final _email = TextEditingController();
   final _about = TextEditingController();
   StoryDate? _birth;
+  String _visibility = 'hidden';
 
   var _loading = true;
   var _saving = false;
@@ -66,6 +67,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _loadedEmail = '';
   String _loadedAbout = '';
   StoryDate? _loadedBirth;
+  String _loadedVisibility = 'hidden';
   Uint8List? _loadedBytes;
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
@@ -101,6 +103,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _email.text = email;
       _about.text = profile?.about ?? '';
       _birth = storyDateFromPerson(profile?.birthDate, profile?.birthPrecision);
+      _visibility = profile?.birthVisibility ?? 'hidden';
       Uint8List? bytes;
       final path = profile?.avatarPath;
       if (path != null) {
@@ -187,6 +190,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadedEmail = _email.text;
     _loadedAbout = _about.text;
     _loadedBirth = _birth;
+    _loadedVisibility = _visibility;
     _loadedBytes = _savedBytes;
   }
 
@@ -196,6 +200,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _about.text = _loadedAbout;
     setState(() {
       _birth = _loadedBirth;
+      _visibility = _loadedVisibility;
       _birthEpoch += 1;
       _pending = null;
       _clearPicture = false;
@@ -213,14 +218,6 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _pending = bytes;
       _clearPicture = false;
-      _savedNotice = false;
-    });
-  }
-
-  void _removePicture() {
-    setState(() {
-      _pending = null;
-      _clearPicture = true;
       _savedNotice = false;
     });
   }
@@ -250,6 +247,7 @@ class _SettingsPageState extends State<SettingsPage> {
         displayName: name,
         birthDate: birth?.date,
         birthPrecision: birth?.precision,
+        birthVisibility: _visibility,
         about: about.isEmpty ? null : about,
       );
       nameSaved = true;
@@ -605,18 +603,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                   ),
-                  if (preview != null)
-                    TextButton(
-                      key: const Key('settings-picture-remove'),
-                      onPressed: _saving ? null : _removePicture,
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF9F403D),
-                        visualDensity: VisualDensity.compact,
-                        minimumSize: const Size(0, 32),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text('Remove'),
-                    ),
                 ],
               ),
             ],
@@ -682,6 +668,36 @@ class _SettingsPageState extends State<SettingsPage> {
           showLabel: false,
           initial: _birth,
           onChanged: (date) => _birth = date,
+        ),
+        const SizedBox(height: 12),
+        Text('Who can see it', style: _kicker),
+        const SizedBox(height: 6),
+        Wrap(
+          key: const Key('settings-birth-visibility'),
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final option in const [
+              ('hidden', 'Hidden'),
+              ('year', 'Year only'),
+              ('year_month', 'Year and month'),
+              ('full', 'Full date'),
+            ])
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: _visibility == option.$1
+                      ? albumTerracotta
+                      : albumInk,
+                  backgroundColor: _visibility == option.$1
+                      ? albumSage.withValues(alpha: 0.25)
+                      : albumParchment,
+                ),
+                onPressed: _saving
+                    ? null
+                    : () => setState(() => _visibility = option.$1),
+                child: Text(option.$2),
+              ),
+          ],
         ),
       ],
     );
