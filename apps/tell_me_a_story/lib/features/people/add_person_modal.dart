@@ -131,6 +131,8 @@ class _AddPersonModalState extends State<AddPersonModal> {
 
   bool get _passingSet => _passing != null;
 
+  bool get _formLocked => _busy || _created != null;
+
   Future<void> _pickPicture() async {
     final picker = widget.pickImageBytes ?? _pickFromGallery;
     final bytes = await picker();
@@ -530,7 +532,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
         TextField(
           key: const Key('add-person-name'),
           controller: _nameController,
-          enabled: !_busy,
+          enabled: !_formLocked,
           textCapitalization: TextCapitalization.words,
           decoration: InputDecoration(
             hintText: 'e.g. Thomas Jenkins or Aunt Clara',
@@ -542,6 +544,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
           key: const Key('add-person-birth'),
           label: 'Date of birth',
           framed: true,
+          enabled: !_formLocked,
           icon: Icons.cake_outlined,
           iconColor: albumSage,
           onChanged: (date) => _birth = date,
@@ -551,6 +554,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
           key: const Key('add-person-passing'),
           label: 'Date of passing',
           framed: true,
+          enabled: !_formLocked,
           icon: Icons.hourglass_bottom_outlined,
           iconColor: albumInk.withValues(alpha: 0.45),
           onChanged: (date) => setState(() => _passing = date),
@@ -564,7 +568,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
         const SizedBox(height: 6),
         _AddAboutField(
           controller: _aboutController,
-          enabled: !_busy,
+          enabled: !_formLocked,
           errorText: _aboutError,
         ),
         if (!_passingSet) ...[
@@ -574,7 +578,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
           TextField(
             key: const Key('add-person-email'),
             controller: _emailController,
-            enabled: !_busy,
+            enabled: !_formLocked,
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(hintText: 'name@example.com'),
           ),
@@ -620,7 +624,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
                 children: [
                   OutlinedButton.icon(
                     key: const Key('add-person-picture'),
-                    onPressed: _busy ? null : _pickPicture,
+                    onPressed: _formLocked ? null : _pickPicture,
                     style: OutlinedButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                       foregroundColor: albumInk,

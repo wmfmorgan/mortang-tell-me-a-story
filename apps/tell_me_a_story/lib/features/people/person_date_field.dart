@@ -14,6 +14,7 @@ class PersonDateField extends StatefulWidget {
     required this.onChanged,
     this.framed = false,
     this.showLabel = true,
+    this.enabled = true,
     this.icon,
     this.iconColor,
   });
@@ -27,6 +28,7 @@ class PersonDateField extends StatefulWidget {
 
   /// Settings draws its own date heading and hides this one.
   final bool showLabel;
+  final bool enabled;
   final IconData? icon;
   final Color? iconColor;
 
@@ -68,6 +70,7 @@ class _PersonDateFieldState extends State<PersonDateField> {
       year: _year,
       month: _month,
       day: _day,
+      enabled: widget.enabled,
       onMonth: (month) {
         setState(() => _month = month);
         _emit();

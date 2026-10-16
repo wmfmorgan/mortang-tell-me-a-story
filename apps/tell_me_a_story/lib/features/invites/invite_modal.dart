@@ -211,9 +211,10 @@ class _InviteModalState extends State<InviteModal> {
       );
     } catch (error) {
       if (!mounted) return;
+      final message = mapRpcError(error);
       setState(() {
         _rowBusyId = null;
-        _rowError[person.id] = mapRpcError(error) ?? 'Try again';
+        if (message != null) _rowError[person.id] = message;
       });
       return;
     }

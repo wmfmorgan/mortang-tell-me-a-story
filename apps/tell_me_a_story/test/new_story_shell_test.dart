@@ -202,12 +202,15 @@ Rect _cardRect(WidgetTester tester, Finder marker) {
 }
 
 bool _skipStoryPumpError(FlutterErrorDetails details) {
-  return details.toString().contains('album_header.dart');
+  final report = details.toString();
+  return report.contains('RenderFlex overflowed') &&
+      report.contains('album_header.dart');
 }
 
 Future<void> _pumpStory(WidgetTester tester) async {
   final previous = FlutterError.onError;
   FlutterError.onError = (details) {
+    // Known exception: album_header overflow at 390px; M14.1c dropped by Bill 2026-10-16.
     if (_skipStoryPumpError(details)) return;
     previous?.call(details);
   };

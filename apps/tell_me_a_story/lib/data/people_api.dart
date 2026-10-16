@@ -222,7 +222,7 @@ class PeopleApi implements PeopleGateway {
       'birth_date, birth_precision, passing_date, passing_precision, '
       'about, avatar_path, user_id';
 
-  static const _treeSelect = 'id,family_id,name,birth_date,passing_date';
+  static const _treeSelect = 'id, family_id, name, birth_date, passing_date';
 
   @override
   Future<List<Person>> listPeople(String familyId) async {

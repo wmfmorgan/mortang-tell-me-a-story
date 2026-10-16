@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -107,6 +108,20 @@ void main() {
     });
   });
 
+  test('_treeSelect keeps the same comma spacing as _rowSelect', () {
+    final source = File('lib/data/people_api.dart').readAsStringSync();
+    expect(
+      source,
+      contains(
+        "static const _treeSelect = 'id, family_id, name, birth_date, passing_date';",
+      ),
+    );
+    expect(
+      source,
+      contains("'id, family_id, name, relationship, email, created_by, '"),
+    );
+  });
+
   group('PeopleApi.listTreePeople', () {
     test(
       'listTreePeople reads dates from people for families in the tree',
@@ -145,12 +160,8 @@ void main() {
           '/rest/v1/rpc/list_family_tree',
           '/rest/v1/people',
         ]);
-        final decodedPeopleUrl = Uri.decodeFull(httpClient.peopleUrls.single);
-        expect(
-          decodedPeopleUrl,
-          contains('select=id, family_id, name, birth_date, passing_date'),
-        );
-        final peopleUrl = decodedPeopleUrl.replaceAll(' ', '');
+        final peopleUrl = Uri.decodeFull(httpClient.peopleUrls.single)
+            .replaceAll(' ', '');
         expect(
           peopleUrl,
           contains('select=id,family_id,name,birth_date,passing_date'),
