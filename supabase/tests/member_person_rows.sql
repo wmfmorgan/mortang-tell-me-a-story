@@ -4,9 +4,9 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(7);
+select plan(9);
 
-create function pg_temp.backfill_members()
+create function pg_temp.backfill_member_person_rows_stand_in()
 returns void
 language plpgsql
 as $$
@@ -163,7 +163,7 @@ insert into public.people (id, family_id, name, email, created_by)
 select email_person, family_id, 'Email Kin', 'member@test.local', owner_id
 from m14a_ctx;
 
-select pg_temp.backfill_members();
+select pg_temp.backfill_member_person_rows_stand_in();
 
 select results_eq(
   $$select
@@ -184,7 +184,7 @@ set people_snapshot = (
   join m14a_ctx c on c.family_id = p.family_id
 );
 
-select pg_temp.backfill_members();
+select pg_temp.backfill_member_person_rows_stand_in();
 
 select is(
   (
@@ -214,7 +214,7 @@ select
   'member'::public.membership_role
 from m14a_ctx;
 
-select pg_temp.backfill_members();
+select pg_temp.backfill_member_person_rows_stand_in();
 
 select is(
   (
@@ -228,6 +228,62 @@ select is(
   1::bigint,
   'a member of a parent and a child family has one linked person in the tree'
 );
+
+insert into public.families (id, name, created_by)
+select
+  '55555555-14a1-4111-8111-555555555555',
+  'Outside',
+  owner_id
+from m14a_ctx;
+
+insert into public.people (
+  id, family_id, name, created_by,
+  birth_date, birth_precision, passing_date, passing_precision
+)
+select
+  '66666666-14a1-4111-8111-666666666666'::uuid,
+  '44444444-14a1-4111-8111-444444444444'::uuid,
+  'Child Kin'::text,
+  owner_id,
+  '1920-03-01'::date,
+  'day'::public.story_date_precision,
+  '1998-06-01'::date,
+  'day'::public.story_date_precision
+from m14a_ctx
+union all
+select
+  '77777777-14a1-4111-8111-777777777777'::uuid,
+  '55555555-14a1-4111-8111-555555555555'::uuid,
+  'Outside Kin'::text,
+  owner_id,
+  '1930-01-01'::date,
+  'day'::public.story_date_precision,
+  '2001-01-01'::date,
+  'day'::public.story_date_precision
+from m14a_ctx;
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'a14a0000-0000-4000-8000-0000000000a1';
+
+select results_eq(
+  $$select birth_date::text, passing_date::text
+    from public.people
+    where id = '66666666-14a1-4111-8111-666666666666'$$,
+  $$values ('1920-03-01'::text, '1998-06-01'::text)$$,
+  'a tree member reads birth and passing dates on another family in the tree'
+);
+
+select is(
+  (select count(*)
+    from public.people
+    where id = '77777777-14a1-4111-8111-777777777777'),
+  0::bigint,
+  'a tree member cannot read an out-of-tree family'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
 
 select * from finish();
 rollback;

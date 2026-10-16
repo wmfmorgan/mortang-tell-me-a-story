@@ -8,9 +8,14 @@ import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
 class _FakePeopleGateway extends PeopleGateway {
-  _FakePeopleGateway({List<Person>? seed}) : rows = [...?seed];
+  _FakePeopleGateway({
+    List<Person>? seed,
+    Map<String, Set<String>> tree = const {},
+  }) : rows = [...?seed],
+       _tree = tree;
 
   final List<Person> rows;
+  final Map<String, Set<String>> _tree;
   var _seq = 0;
   var createCalls = 0;
 
@@ -23,8 +28,10 @@ class _FakePeopleGateway extends PeopleGateway {
 
   @override
   Future<List<Person>> listTreePeople(String familyId) async {
-    final copy = [...rows]..sort((a, b) => a.name.compareTo(b.name));
-    return copy;
+    final ids = _tree[familyId] ?? {familyId};
+    final filtered = rows.where((p) => ids.contains(p.familyId)).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return filtered;
   }
 
   @override
@@ -254,6 +261,9 @@ void main() {
     tester,
   ) async {
     final api = _FakePeopleGateway(
+      tree: {
+        _familyId: {_familyId, 'other-family'},
+      },
       seed: [
         Person(
           id: 'cousin',
@@ -263,12 +273,22 @@ void main() {
           passingDate: DateTime(1998, 6, 1),
           createdBy: 'u1',
         ),
+        Person(
+          id: 'outsider',
+          familyId: 'outside-tree',
+          name: 'Outside Bea',
+          birthDate: DateTime(1910, 1, 1),
+          passingDate: DateTime(1980, 1, 1),
+          createdBy: 'u9',
+        ),
       ],
     );
     await _openModal(tester, api: api);
 
     expect(find.text('Cousin Ada'), findsOneWidget);
     expect(find.text('1920-1998'), findsOneWidget);
+    expect(find.text('Outside Bea'), findsNothing);
+    expect(find.text('1910-1980'), findsNothing);
   });
 
   testWidgets('search lists tree people with their years', (tester) async {

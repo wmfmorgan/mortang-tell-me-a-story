@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 
 void main() {
@@ -78,10 +82,7 @@ void main() {
 
   group('ensureValidPersonCreate', () {
     test('accepts a non-empty name', () {
-      expect(
-        () => ensureValidPersonCreate(name: 'Ada'),
-        returnsNormally,
-      );
+      expect(() => ensureValidPersonCreate(name: 'Ada'), returnsNormally);
     });
 
     test('rejects empty name', () {
@@ -104,6 +105,108 @@ void main() {
         throwsA(isA<ArgumentError>()),
       );
     });
+  });
+
+  group('PeopleApi.listTreePeople', () {
+    test(
+      'listTreePeople reads dates from people for families in the tree',
+      () async {
+        final httpClient = _StubHttpClient(
+          tree: [
+            {'id': 'parent'},
+            {'id': 'child'},
+          ],
+          people: [
+            {
+              'id': 'cousin',
+              'family_id': 'child',
+              'name': 'Cousin Ada',
+              'birth_date': '1920-03-01',
+              'passing_date': '1998-06-01',
+            },
+          ],
+        );
+        final api = PeopleApi(
+          client: SupabaseClient(
+            'http://localhost',
+            'test-anon-key',
+            httpClient: httpClient,
+          ),
+        );
+
+        final people = await api.listTreePeople('parent');
+
+        expect(people, hasLength(1));
+        expect(people.single.name, 'Cousin Ada');
+        expect(people.single.familyId, 'child');
+        expect(people.single.birthDate, DateTime(1920, 3, 1));
+        expect(people.single.passingDate, DateTime(1998, 6, 1));
+        expect(httpClient.paths, [
+          '/rest/v1/rpc/list_family_tree',
+          '/rest/v1/people',
+        ]);
+        final peopleUrl = Uri.decodeFull(
+          httpClient.peopleUrls.single,
+        ).replaceAll(' ', '');
+        expect(
+          peopleUrl,
+          contains('select=id,family_id,name,birth_date,passing_date'),
+        );
+        expect(peopleUrl, contains('family_id=in.(parent,child)'));
+        expect(peopleUrl, isNot(contains('outside')));
+        expect(httpClient.paths, isNot(contains('/rest/v1/people_tree_read')));
+      },
+    );
+
+    test('listTreePeople throws when list_family_tree is not a list', () async {
+      final httpClient = _StubHttpClient(tree: {'id': 'parent'});
+      final api = PeopleApi(
+        client: SupabaseClient(
+          'http://localhost',
+          'test-anon-key',
+          httpClient: httpClient,
+        ),
+      );
+
+      await expectLater(
+        api.listTreePeople('parent'),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test(
+      'listTreePeople falls back to the family when the tree is empty',
+      () async {
+        final httpClient = _StubHttpClient(
+          tree: const [],
+          people: [
+            {
+              'id': 'ada',
+              'family_id': 'parent',
+              'name': 'Ada',
+              'birth_date': '1815-12-10',
+              'passing_date': null,
+            },
+          ],
+        );
+        final api = PeopleApi(
+          client: SupabaseClient(
+            'http://localhost',
+            'test-anon-key',
+            httpClient: httpClient,
+          ),
+        );
+
+        final people = await api.listTreePeople('parent');
+
+        expect(people.single.name, 'Ada');
+        expect(people.single.birthDate?.year, 1815);
+        final peopleUrl = Uri.decodeFull(
+          httpClient.peopleUrls.single,
+        ).replaceAll(' ', '');
+        expect(peopleUrl, contains('family_id=in.(parent)'));
+      },
+    );
   });
 
   group('FakePeopleGateway', () {
@@ -146,18 +249,9 @@ void main() {
     });
 
     test('listPeople returns people for family ordered by name', () async {
-      await gateway.createPerson(
-        familyId: 'f1',
-        name: 'Zoe',
-      );
-      await gateway.createPerson(
-        familyId: 'f1',
-        name: 'Ada',
-      );
-      await gateway.createPerson(
-        familyId: 'f2',
-        name: 'Other',
-      );
+      await gateway.createPerson(familyId: 'f1', name: 'Zoe');
+      await gateway.createPerson(familyId: 'f1', name: 'Ada');
+      await gateway.createPerson(familyId: 'f2', name: 'Other');
 
       final people = await gateway.listPeople('f1');
       expect(people.map((p) => p.name), ['Ada', 'Zoe']);
@@ -193,8 +287,9 @@ class FakePeopleGateway extends PeopleGateway {
     List<int>? pictureBytes,
   }) async {
     ensureValidPersonCreate(name: name, about: about);
-    final trimmedEmail =
-        email != null && email.trim().isNotEmpty ? email.trim() : null;
+    final trimmedEmail = email != null && email.trim().isNotEmpty
+        ? email.trim()
+        : null;
     final person = Person(
       id: 'p${++_seq}',
       familyId: familyId,
@@ -205,5 +300,35 @@ class FakePeopleGateway extends PeopleGateway {
     );
     rows.add(person);
     return person;
+  }
+}
+
+class _StubHttpClient extends http.BaseClient {
+  _StubHttpClient({required this.tree, this.people = const []});
+
+  final Object tree;
+  final List<Map<String, dynamic>> people;
+  final paths = <String>[];
+  final peopleUrls = <String>[];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    paths.add(request.url.path);
+    final Object body;
+    if (request.url.path.endsWith('/rpc/list_family_tree')) {
+      body = tree;
+    } else if (request.url.path == '/rest/v1/people') {
+      peopleUrls.add(request.url.toString());
+      body = people;
+    } else {
+      body = const [];
+    }
+    final bytes = utf8.encode(jsonEncode(body));
+    return http.StreamedResponse(
+      Stream.value(bytes),
+      200,
+      headers: const {'content-type': 'application/json'},
+      request: request,
+    );
   }
 }
