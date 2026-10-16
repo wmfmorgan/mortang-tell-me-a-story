@@ -281,11 +281,84 @@ void main() {
 
       expect(find.text('That email is already used'), findsOneWidget);
       expect(find.textContaining('VALIDATION:'), findsNothing);
+      expect(find.text('Try again'), findsNothing);
       expect(api.creates, 0);
       expect(find.byKey(const Key('not-invited-row-p-kim')), findsOneWidget);
       expect(find.byKey(const Key('not-invited-email-p-kim')), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'email save falls back to Try again when the person error is unmapped',
+    (tester) async {
+      final api = _StubInviteApi();
+      final people = _EmailPeople()
+        ..updateError = const PostgrestException(
+          message: 'duplicate key value violates unique constraint',
+          code: '23505',
+        );
+      await tester.binding.setSurfaceSize(const Size(900, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _open(tester, api, people: people);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('not-invited-add-p-kim')),
+      );
+      await tester.tap(find.byKey(const Key('not-invited-add-p-kim')));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('not-invited-email-p-kim')),
+        'kim@test.local',
+      );
+      final save = find.byKey(const Key('not-invited-save-p-kim'));
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pump();
+
+      expect(find.text('Try again'), findsOneWidget);
+      expect(find.textContaining('duplicate key'), findsNothing);
+      expect(api.creates, 0);
+      expect(find.byKey(const Key('not-invited-email-p-kim')), findsOneWidget);
+    },
+  );
+
+  testWidgets('a failed email save clears Try again after the retry succeeds', (
+    tester,
+  ) async {
+    final api = _StubInviteApi();
+    final people = _EmailPeople()
+      ..updateError = const PostgrestException(
+        message: 'duplicate key value violates unique constraint',
+        code: '23505',
+      );
+    await tester.binding.setSurfaceSize(const Size(900, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _open(tester, api, people: people);
+
+    await tester.ensureVisible(find.byKey(const Key('not-invited-add-p-kim')));
+    await tester.tap(find.byKey(const Key('not-invited-add-p-kim')));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const Key('not-invited-email-p-kim')),
+      'kim@test.local',
+    );
+    final save = find.byKey(const Key('not-invited-save-p-kim'));
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pump();
+
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.textContaining('duplicate key'), findsNothing);
+
+    people.updateError = null;
+    await tester.tap(save);
+    await tester.pump();
+
+    expect(find.text('Try again'), findsNothing);
+    expect(find.byKey(const Key('not-invited-row-p-kim')), findsNothing);
+    expect(api.creates, 1);
+    expect(api.emails, ['i']);
+  });
 
   testWidgets('invite on a saved email sends once and leaves the list', (
     tester,

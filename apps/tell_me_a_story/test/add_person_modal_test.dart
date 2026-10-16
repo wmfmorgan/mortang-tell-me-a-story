@@ -521,6 +521,65 @@ void main() {
     expect(find.byKey(const Key('add-person-name')), findsNothing);
   });
 
+  testWidgets('form fields are disabled after create succeeds', (tester) async {
+    final api = _FakePeopleGateway();
+    await _openModal(
+      tester,
+      api: api,
+      storyId: 'story-1',
+      linkPerson: ({required String storyId, required String personId}) async {
+        throw const PostgrestException(message: 'VALIDATION: Already linked');
+      },
+    );
+    await tester.enterText(_search, 'Grace Hopper');
+    await tester.pump();
+    await tester.tap(find.text('Create new person'));
+    await tester.pumpAndSettle();
+    await _tapSave(tester);
+
+    expect(api.createCalls, 1);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('add-person-name')))
+          .enabled,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('add-person-about')))
+          .enabled,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('add-person-email')))
+          .enabled,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('add-person-picture')))
+          .onPressed,
+      isNull,
+    );
+    final years = tester.widgetList<TextField>(
+      find.byKey(const Key('story-date-year')),
+    );
+    expect(years, isNotEmpty);
+    expect(years.every((field) => field.enabled == false), isTrue);
+    final months = tester.widgetList<DropdownButton<int>>(
+      find.byKey(const Key('story-date-month')),
+    );
+    expect(months, isNotEmpty);
+    expect(months.every((menu) => menu.onChanged == null), isTrue);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Add person'))
+          .onPressed,
+      isNotNull,
+    );
+  });
+
   testWidgets('the picker list stays within 220', (tester) async {
     final api = _FakePeopleGateway(
       seed: [
