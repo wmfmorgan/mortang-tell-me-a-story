@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'families_api.dart';
 import 'photos_api.dart';
 
 /// Family-scoped person row. Relationship is optional; new people send null.
@@ -19,6 +20,7 @@ class Person {
     this.about,
     this.avatarPath,
     this.userId,
+    this.passedAway = false,
     this.createdBy = '',
   });
 
@@ -34,6 +36,7 @@ class Person {
   final String? about;
   final String? avatarPath;
   final String? userId;
+  final bool passedAway;
   final String createdBy;
 
   factory Person.fromJson(Map<String, dynamic> json) {
@@ -50,6 +53,7 @@ class Person {
       about: json['about'] as String?,
       avatarPath: json['avatar_path'] as String?,
       userId: json['user_id'] as String?,
+      passedAway: json['passed_away'] == true,
       createdBy: json['created_by'] as String? ?? '',
     );
   }
@@ -68,6 +72,7 @@ class PersonProfile {
     this.avatarPath,
     this.passingDate,
     this.passingPrecision,
+    this.passedAway = false,
   });
 
   final String id;
@@ -79,6 +84,7 @@ class PersonProfile {
   final String? avatarPath;
   final DateTime? passingDate;
   final String? passingPrecision;
+  final bool passedAway;
   final bool isLinked;
 
   factory PersonProfile.fromJson(Map<String, dynamic> json) {
@@ -92,6 +98,7 @@ class PersonProfile {
       avatarPath: json['avatar_path'] as String?,
       passingDate: personDateFromJson(json['passing_date']),
       passingPrecision: json['passing_precision'] as String?,
+      passedAway: json['passed_away'] == true,
       isLinked: json['is_linked'] == true,
     );
   }
@@ -161,19 +168,16 @@ void ensureValidPersonCreate({required String name, String? about}) {
 abstract class PeopleGateway {
   Future<List<Person>> listPeople(String familyId);
 
-  /// People in [familyId]'s tree, including birth and passing dates.
-  /// The default reads [listPeople] so fakes stay unchanged.
+  /// People in [familyId]'s tree. Linked rows take a trimmed birth from
+  /// `person_profile`. The default reads [listPeople] so fakes stay unchanged.
   Future<List<Person>> listTreePeople(String familyId) => listPeople(familyId);
 
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    DateTime? passingDate,
-    String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   });
 
@@ -185,12 +189,8 @@ abstract class PeopleGateway {
   Future<Person> updatePerson({
     required String personId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    bool writeBirth = false,
-    DateTime? passingDate,
-    String? passingPrecision,
-    bool writePassing = false,
+    bool passedAway = false,
+    bool writePassedAway = false,
     String? about,
     bool writeAbout = false,
     String? email,
@@ -202,6 +202,15 @@ abstract class PeopleGateway {
   }
 
   Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
+
+  /// Home-family owner or co-owner. Other members, including owners of
+  /// another family in the tree, are false.
+  Future<bool> isHomeFamilySteward(String familyId) async => false;
+
+  /// `mark_passed_away(p_person_id, p_value)`.
+  Future<void> markPassedAway({required String personId, required bool value}) {
+    throw UnimplementedError();
+  }
 
   /// `person-avatars` when [path] is `{personId}/avatar.jpg`, else `avatars`.
   Future<String?> signedPictureUrl({
@@ -219,10 +228,9 @@ class PeopleApi implements PeopleGateway {
 
   static const _rowSelect =
       'id, family_id, name, relationship, email, created_by, '
-      'birth_date, birth_precision, passing_date, passing_precision, '
-      'about, avatar_path, user_id';
+      'about, avatar_path, user_id, passed_away';
 
-  static const _treeSelect = 'id, family_id, name, birth_date, passing_date';
+  static const _treeSelect = 'id, family_id, name, user_id, passed_away';
 
   @override
   Future<List<Person>> listPeople(String familyId) async {
@@ -242,7 +250,24 @@ class PeopleApi implements PeopleGateway {
         .select(_treeSelect)
         .inFilter('family_id', familyIds)
         .order('name');
-    return rows.map(Person.fromJson).toList();
+    return Future.wait(rows.map(_treePerson));
+  }
+
+  /// One [Person] per tree row. Linked profiles load together.
+  Future<Person> _treePerson(Map<String, dynamic> row) async {
+    final userId = row['user_id'] as String?;
+    final profile = userId == null
+        ? null
+        : await personProfile(row['id'] as String);
+    return Person(
+      id: row['id'] as String,
+      familyId: row['family_id'] as String,
+      name: row['name'] as String,
+      userId: userId,
+      passedAway: profile?.passedAway ?? row['passed_away'] == true,
+      birthDate: profile?.birthDate,
+      birthPrecision: profile?.birthPrecision,
+    );
   }
 
   /// Families in [familyId]'s tree. One family when the walk returns none.
@@ -266,18 +291,14 @@ class PeopleApi implements PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    DateTime? passingDate,
-    String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   }) async {
     final trimmedAbout = _aboutOrNull(about);
     ensureValidPersonCreate(name: name, about: trimmedAbout);
-    final passingSet = passingDate != null;
-    final trimmedEmail = passingSet ? null : _emailOrNull(email);
+    final trimmedEmail = _emailOrNull(email);
     final uid = _client.auth.currentUser!.id;
     final row = await _client
         .from('people')
@@ -286,10 +307,7 @@ class PeopleApi implements PeopleGateway {
           'name': name.trim(),
           'relationship': null,
           'email': ?trimmedEmail,
-          if (birthDate != null) 'birth_date': personDateIso(birthDate),
-          'birth_precision': ?birthPrecision,
-          if (passingDate != null) 'passing_date': personDateIso(passingDate),
-          'passing_precision': ?passingPrecision,
+          'passed_away': passedAway,
           'about': ?trimmedAbout,
           'created_by': uid,
         })
@@ -333,12 +351,8 @@ class PeopleApi implements PeopleGateway {
   Future<Person> updatePerson({
     required String personId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    bool writeBirth = false,
-    DateTime? passingDate,
-    String? passingPrecision,
-    bool writePassing = false,
+    bool passedAway = false,
+    bool writePassedAway = false,
     String? about,
     bool writeAbout = false,
     String? email,
@@ -358,16 +372,7 @@ class PeopleApi implements PeopleGateway {
       'updated_at': DateTime.now().toUtc().toIso8601String(),
       if (clearing) 'avatar_path': null,
     };
-    if (writeBirth) {
-      patch['birth_date'] = birthDate == null ? null : personDateIso(birthDate);
-      patch['birth_precision'] = birthPrecision;
-    }
-    if (writePassing) {
-      patch['passing_date'] = passingDate == null
-          ? null
-          : personDateIso(passingDate);
-      patch['passing_precision'] = passingPrecision;
-    }
+    if (writePassedAway) patch['passed_away'] = passedAway;
     if (writeAbout) patch['about'] = trimmedAbout;
     if (writeEmail) patch['email'] = _emailOrNull(email);
     final row = await _client
@@ -381,6 +386,31 @@ class PeopleApi implements PeopleGateway {
       person = await _uploadPersonPicture(person, pictureBytes);
     }
     return person;
+  }
+
+  @override
+  Future<bool> isHomeFamilySteward(String familyId) async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) return false;
+    final row = await _client
+        .from('memberships')
+        .select('role')
+        .eq('family_id', familyId)
+        .eq('user_id', uid)
+        .maybeSingle();
+    final role = row?['role'];
+    return originSteward(role is String ? role : null);
+  }
+
+  @override
+  Future<void> markPassedAway({
+    required String personId,
+    required bool value,
+  }) async {
+    await _client.rpc(
+      'mark_passed_away',
+      params: {'p_person_id': personId, 'p_value': value},
+    );
   }
 
   @override

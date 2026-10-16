@@ -51,10 +51,10 @@ class _SettingsPageState extends State<SettingsPage> {
   final _email = TextEditingController();
   final _about = TextEditingController();
   StoryDate? _birth;
+  BirthVisibility _visibility = BirthVisibility.hidden;
 
   var _loading = true;
   var _saving = false;
-  var _clearPicture = false;
   var _savedNotice = false;
   var _birthEpoch = 0;
   String? _storedEmail;
@@ -66,6 +66,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _loadedEmail = '';
   String _loadedAbout = '';
   StoryDate? _loadedBirth;
+  BirthVisibility _loadedVisibility = BirthVisibility.hidden;
   Uint8List? _loadedBytes;
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
@@ -101,6 +102,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _email.text = email;
       _about.text = profile?.about ?? '';
       _birth = storyDateFromPerson(profile?.birthDate, profile?.birthPrecision);
+      _visibility = profile?.birthVisibility ?? BirthVisibility.hidden;
       Uint8List? bytes;
       final path = profile?.avatarPath;
       if (path != null) {
@@ -187,6 +189,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadedEmail = _email.text;
     _loadedAbout = _about.text;
     _loadedBirth = _birth;
+    _loadedVisibility = _visibility;
     _loadedBytes = _savedBytes;
   }
 
@@ -196,15 +199,15 @@ class _SettingsPageState extends State<SettingsPage> {
     _about.text = _loadedAbout;
     setState(() {
       _birth = _loadedBirth;
+      _visibility = _loadedVisibility;
       _birthEpoch += 1;
       _pending = null;
-      _clearPicture = false;
       _savedBytes = _loadedBytes;
       _savedNotice = false;
     });
   }
 
-  Uint8List? get _preview => _clearPicture ? null : (_pending ?? _savedBytes);
+  Uint8List? get _preview => _pending ?? _savedBytes;
 
   Future<void> _pick() async {
     final picker = widget.pickImageBytes ?? _pickFromGallery;
@@ -212,15 +215,6 @@ class _SettingsPageState extends State<SettingsPage> {
     if (bytes == null || !mounted) return;
     setState(() {
       _pending = bytes;
-      _clearPicture = false;
-      _savedNotice = false;
-    });
-  }
-
-  void _removePicture() {
-    setState(() {
-      _pending = null;
-      _clearPicture = true;
       _savedNotice = false;
     });
   }
@@ -250,6 +244,7 @@ class _SettingsPageState extends State<SettingsPage> {
         displayName: name,
         birthDate: birth?.date,
         birthPrecision: birth?.precision,
+        birthVisibility: _visibility,
         about: about.isEmpty ? null : about,
       );
       nameSaved = true;
@@ -263,16 +258,6 @@ class _SettingsPageState extends State<SettingsPage> {
         await _profile.saveAvatar(_pending!);
         _savedBytes = _pending;
         _pending = null;
-        _clearPicture = false;
-      } else if (_clearPicture && _savedBytes != null) {
-        await _profile.clearAvatar();
-        _savedBytes = null;
-        _clearPicture = false;
-        ProfileSession.instance.apply(
-          displayName: name,
-          email: _storedEmail,
-          avatarBytes: null,
-        );
       }
       _rememberLoaded();
       _savedNotice = true;
@@ -605,18 +590,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                   ),
-                  if (preview != null)
-                    TextButton(
-                      key: const Key('settings-picture-remove'),
-                      onPressed: _saving ? null : _removePicture,
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF9F403D),
-                        visualDensity: VisualDensity.compact,
-                        minimumSize: const Size(0, 32),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text('Remove'),
-                    ),
                 ],
               ),
             ],
@@ -682,6 +655,36 @@ class _SettingsPageState extends State<SettingsPage> {
           showLabel: false,
           initial: _birth,
           onChanged: (date) => _birth = date,
+        ),
+        const SizedBox(height: 12),
+        Text('Who can see it', style: _kicker),
+        const SizedBox(height: 6),
+        Wrap(
+          key: const Key('settings-birth-visibility'),
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final option in const [
+              (BirthVisibility.hidden, 'Hidden'),
+              (BirthVisibility.year, 'Year only'),
+              (BirthVisibility.yearMonth, 'Year and month'),
+              (BirthVisibility.full, 'Full date'),
+            ])
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: _visibility == option.$1
+                      ? albumTerracotta
+                      : albumInk,
+                  backgroundColor: _visibility == option.$1
+                      ? albumSage.withValues(alpha: 0.25)
+                      : albumParchment,
+                ),
+                onPressed: _saving
+                    ? null
+                    : () => setState(() => _visibility = option.$1),
+                child: Text(option.$2),
+              ),
+          ],
         ),
       ],
     );

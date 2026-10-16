@@ -35,12 +35,9 @@ class _FakePeopleGateway extends PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    DateTime? passingDate,
-    String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   }) async {
     createCalls++;
@@ -54,10 +51,6 @@ class _FakePeopleGateway extends PeopleGateway {
       name: name.trim(),
       email: trimmedEmail,
       about: about,
-      birthDate: birthDate,
-      birthPrecision: birthPrecision,
-      passingDate: passingDate,
-      passingPrecision: passingPrecision,
       createdBy: 'u1',
     );
     rows.add(person);
@@ -168,15 +161,16 @@ void main() {
     await _openForm(tester, api: api);
 
     expect(find.text('NAME'), findsOneWidget);
-    expect(find.text('DATE OF BIRTH'), findsOneWidget);
-    expect(find.text('DATE OF PASSING'), findsOneWidget);
+    expect(find.text('DATE OF BIRTH'), findsNothing);
+    expect(find.text('DATE OF PASSING'), findsNothing);
+    expect(find.text('Passed away'), findsOneWidget);
     expect(find.text('PICTURE'), findsOneWidget);
     expect(find.text('Upload picture'), findsOneWidget);
     expect(find.text('ABOUT'), findsOneWidget);
     expect(find.text('EMAIL'), findsOneWidget);
     expect(
       find.text('Email is hidden when Date of passing is set.'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('May be left blank'), findsNothing);
     expect(find.text('(optional)'), findsNothing);
@@ -283,7 +277,8 @@ void main() {
     await _openModal(tester, api: api);
 
     expect(find.text('Cousin Ada'), findsOneWidget);
-    expect(find.text('1920-1998'), findsOneWidget);
+    expect(find.text('1920'), findsOneWidget);
+    expect(find.text('1920-1998'), findsNothing);
     expect(find.text('Outside Bea'), findsNothing);
     expect(find.text('1910-1980'), findsNothing);
   });
@@ -299,7 +294,8 @@ void main() {
 
     expect(find.text('Search people in this family'), findsOneWidget);
     expect(find.text('Ada'), findsOneWidget);
-    expect(find.text('1815-1852'), findsOneWidget);
+    expect(find.text('1815'), findsOneWidget);
+    expect(find.text('1815-1852'), findsNothing);
     expect(find.text('Zoe'), findsOneWidget);
     expect(find.text('1990'), findsOneWidget);
     expect(
@@ -562,16 +558,12 @@ void main() {
           .onPressed,
       isNull,
     );
-    final years = tester.widgetList<TextField>(
-      find.byKey(const Key('story-date-year')),
+    expect(
+      tester
+          .widget<Switch>(find.byKey(const Key('add-person-passed-away')))
+          .onChanged,
+      isNull,
     );
-    expect(years, isNotEmpty);
-    expect(years.every((field) => field.enabled == false), isTrue);
-    final months = tester.widgetList<DropdownButton<int>>(
-      find.byKey(const Key('story-date-month')),
-    );
-    expect(months, isNotEmpty);
-    expect(months.every((menu) => menu.onChanged == null), isTrue);
     expect(
       tester
           .widget<FilledButton>(find.widgetWithText(FilledButton, 'Add person'))

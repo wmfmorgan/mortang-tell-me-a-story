@@ -8,8 +8,6 @@ import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
 import '../family/family_blur_dialog.dart';
-import '../stories/story_date.dart';
-import 'person_date_field.dart';
 
 /// Edit person. The gate is [Person.userId] from the people row.
 Future<Person?> showEditPersonDialog(
@@ -20,8 +18,7 @@ Future<Person?> showEditPersonDialog(
   String? signedInUserId,
   Future<Uint8List?> Function()? pickImageBytes,
 }) {
-  final userId = person.userId;
-  if (userId != null && userId != signedInUserId) return Future.value();
+  if (person.userId != null) return Future.value();
   return showAlbumDialog<Person>(
     context: context,
     maxWidth: 560,
@@ -59,19 +56,12 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
   late final TextEditingController _name;
   late final TextEditingController _about;
   late final TextEditingController _email;
-  StoryDate? _birth;
-  StoryDate? _passing;
+  late bool _passedAway;
   Uint8List? _picture;
   String? _existingUrl;
   var _removed = false;
   var _busy = false;
   String? _aboutError;
-
-  bool get _self =>
-      widget.person.userId != null &&
-      widget.person.userId == widget.signedInUserId;
-
-  bool get _passingSet => _passing != null;
 
   @override
   void initState() {
@@ -80,8 +70,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
     _name = TextEditingController(text: person.name);
     _about = TextEditingController(text: person.about ?? '');
     _email = TextEditingController(text: person.email ?? '');
-    _birth = storyDateFromPerson(person.birthDate, person.birthPrecision);
-    _passing = storyDateFromPerson(person.passingDate, person.passingPrecision);
+    _passedAway = person.passedAway;
     final path = person.avatarPath;
     if (path != null && path.isNotEmpty) {
       _loadExisting(path);
@@ -140,15 +129,13 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
     final name = _name.text.trim();
     if (name.isEmpty) return;
     final about = _about.text;
-    if (!_self && about.length > 500) {
+    if (about.length > 500) {
       setState(() => _aboutError = 'About must be 500 characters or fewer.');
       return;
     }
     final email = _email.text.trim();
-    final linked = widget.person.userId != null;
     final emailChanged =
-        !linked &&
-        !_passingSet &&
+        !_passedAway &&
         email.isNotEmpty &&
         email != (widget.person.email ?? '');
     var sendInvite = false;
@@ -163,23 +150,17 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
     }
     setState(() => _busy = true);
     try {
-      final birth = _self ? null : _stored(_birth);
-      final passing = _stored(_passing);
       final person = await widget.people.updatePerson(
         personId: widget.person.id,
         name: name,
-        birthDate: birth?.date,
-        birthPrecision: birth?.precision,
-        writeBirth: !_self,
-        passingDate: passing?.date,
-        passingPrecision: passing?.precision,
-        writePassing: true,
-        about: _self ? null : about,
-        writeAbout: !_self,
-        email: _passingSet ? null : email,
-        writeEmail: widget.person.userId == null && !_passingSet,
-        pictureBytes: _self ? null : _picture,
-        clearPicture: !_self && _removed && _picture == null,
+        passedAway: _passedAway,
+        writePassedAway: true,
+        about: about,
+        writeAbout: true,
+        email: email,
+        writeEmail: true,
+        pictureBytes: _picture,
+        clearPicture: _removed && _picture == null,
       );
       if (sendInvite) {
         final invites = widget.invites;
@@ -250,7 +231,8 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
             ),
             const SizedBox(height: 12),
             Divider(color: albumSage.withValues(alpha: 0.28), height: 1),
-            if (!_self) ...[const SizedBox(height: 16), _pictureRow(context)],
+            const SizedBox(height: 16),
+            _pictureRow(context),
             const SizedBox(height: 20),
             const Text('Name'),
             const SizedBox(height: 8),
@@ -259,39 +241,31 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
               controller: _name,
               decoration: const InputDecoration(hintText: 'Name'),
             ),
-            if (!_self) ...[
-              const SizedBox(height: 20),
-              PersonDateField(
-                key: const Key('edit-person-birth'),
-                label: 'Date of birth',
-                initial: _birth,
-                onChanged: (date) => _birth = date,
-              ),
-            ],
             const SizedBox(height: 20),
-            PersonDateField(
-              key: const Key('edit-person-passing'),
-              label: 'Date of passing',
-              initial: _passing,
-              onChanged: (date) => setState(() => _passing = date),
+            const Text('About'),
+            const SizedBox(height: 8),
+            _AboutField(controller: _about, errorText: _aboutError),
+            const SizedBox(height: 20),
+            const Text('Email'),
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('edit-person-email'),
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
             ),
-            if (!_self) ...[
-              const SizedBox(height: 20),
-              const Text('About'),
-              const SizedBox(height: 8),
-              _AboutField(controller: _about, errorText: _aboutError),
-            ],
-            if (!_passingSet) ...[
-              const SizedBox(height: 20),
-              const Text('Email'),
-              const SizedBox(height: 8),
-              TextField(
-                key: const Key('edit-person-email'),
-                controller: _email,
-                readOnly: widget.person.userId != null,
-                keyboardType: TextInputType.emailAddress,
-              ),
-            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Expanded(child: Text('Passed away')),
+                Switch(
+                  key: const Key('edit-person-passed-away'),
+                  value: _passedAway,
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _passedAway = value),
+                ),
+              ],
+            ),
             const SizedBox(height: 20),
             Row(
               children: [
@@ -583,9 +557,4 @@ class _ResizeGripPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-({DateTime date, String precision})? _stored(StoryDate? date) {
-  if (date == null || date.legacyDecade) return null;
-  return storedPersonDate(year: date.year, month: date.month, day: date.day);
 }

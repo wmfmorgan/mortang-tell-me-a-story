@@ -430,6 +430,7 @@ class _Profile implements ProfileGateway {
     required String displayName,
     DateTime? birthDate,
     String? birthPrecision,
+    BirthVisibility? birthVisibility,
     String? about,
   }) async {
     names.add(displayName);

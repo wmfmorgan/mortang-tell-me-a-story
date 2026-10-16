@@ -102,6 +102,25 @@ Deno.test("an unlinked person_id is linked before the invite is accepted", async
   assertEquals(order, ["link", "accept"]);
 });
 
+Deno.test(
+  "accept-invite still accepts a pending invite on a flagged person",
+  async () => {
+    const order: string[] = [];
+    const res = await acceptInvite(post({ token: "abc" }), {
+      db: dbWith({
+        personId: "flagged-person",
+        onLink: () => order.push("link"),
+        onAccept: () => order.push("accept"),
+      }),
+    });
+    const json = await res.json();
+    assertEquals(res.status, 200);
+    assertEquals(json.family_id, pending.family_id);
+    assertEquals(order, ["link", "accept"]);
+    assertEquals(json.membership_id, "mem-new");
+  },
+);
+
 Deno.test("a null person_id does not link", async () => {
   let linked = false;
   const res = await acceptInvite(post({ token: "abc" }), {

@@ -109,7 +109,7 @@ void main() {
 
   group('PeopleApi.listTreePeople', () {
     test(
-      'listTreePeople reads dates from people for families in the tree',
+      'listTreePeople reads unlinked rows without a date of birth',
       () async {
         final httpClient = _StubHttpClient(
           tree: [
@@ -139,18 +139,17 @@ void main() {
         expect(people, hasLength(1));
         expect(people.single.name, 'Cousin Ada');
         expect(people.single.familyId, 'child');
-        expect(people.single.birthDate, DateTime(1920, 3, 1));
-        expect(people.single.passingDate, DateTime(1998, 6, 1));
+        expect(people.single.birthDate, isNull);
+        expect(people.single.passingDate, isNull);
         expect(httpClient.paths, [
           '/rest/v1/rpc/list_family_tree',
           '/rest/v1/people',
         ]);
-        final peopleUrl = Uri.decodeFull(
-          httpClient.peopleUrls.single,
-        ).replaceAll(' ', '');
+        final peopleUrl = Uri.decodeFull(httpClient.peopleUrls.single)
+            .replaceAll(' ', '');
         expect(
           peopleUrl,
-          contains('select=id,family_id,name,birth_date,passing_date'),
+          contains('select=id,family_id,name,user_id,passed_away'),
         );
         expect(peopleUrl, contains('family_id=in.("parent","child")'));
         expect(people.single.familyId, isNot('outside'));
@@ -200,13 +199,61 @@ void main() {
         final people = await api.listTreePeople('parent');
 
         expect(people.single.name, 'Ada');
-        expect(people.single.birthDate?.year, 1815);
-        final peopleUrl = Uri.decodeFull(
-          httpClient.peopleUrls.single,
-        ).replaceAll(' ', '');
+        expect(people.single.birthDate, isNull);
+        final peopleUrl = Uri.decodeFull(httpClient.peopleUrls.single)
+            .replaceAll(' ', '');
         expect(peopleUrl, contains('family_id=in.("parent")'));
       },
     );
+
+    test('linked profile reads overlap and keep the trimmed birth', () async {
+      final httpClient = _ProfileDelayClient(
+        people: [
+          {
+            'id': 'ada',
+            'family_id': 'parent',
+            'name': 'Ada',
+            'user_id': 'user-ada',
+            'passed_away': false,
+            'birth_date': '1999-01-01',
+          },
+          {
+            'id': 'bea',
+            'family_id': 'parent',
+            'name': 'Bea',
+            'user_id': 'user-bea',
+            'passed_away': true,
+          },
+          {
+            'id': 'cousin',
+            'family_id': 'parent',
+            'name': 'Cousin',
+            'birth_date': '1920-03-01',
+          },
+        ],
+      );
+      final api = PeopleApi(
+        client: SupabaseClient(
+          'http://localhost',
+          'test-anon-key',
+          httpClient: httpClient,
+        ),
+      );
+
+      final people = await api.listTreePeople('parent');
+
+      expect(httpClient.maxInFlight, 2);
+      expect(httpClient.profileIds, ['ada', 'bea']);
+      expect(people.map((person) => person.name), ['Ada', 'Bea', 'Cousin']);
+      expect(people[0].birthDate, DateTime(1815, 1, 1));
+      expect(people[0].birthPrecision, 'year');
+      expect(people[0].passedAway, isFalse);
+      expect(people[1].birthDate, DateTime(1900, 6, 1));
+      expect(people[1].birthPrecision, 'month');
+      expect(people[1].passedAway, isTrue);
+      expect(people[2].birthDate, isNull);
+      expect(people[2].userId, isNull);
+    });
   });
 
   group('FakePeopleGateway', () {
@@ -278,12 +325,9 @@ class FakePeopleGateway extends PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    DateTime? passingDate,
-    String? passingPrecision,
     String? about,
     String? email,
+    bool passedAway = false,
     List<int>? pictureBytes,
   }) async {
     ensureValidPersonCreate(name: name, about: about);
@@ -300,6 +344,56 @@ class FakePeopleGateway extends PeopleGateway {
     );
     rows.add(person);
     return person;
+  }
+}
+
+class _ProfileDelayClient extends http.BaseClient {
+  _ProfileDelayClient({required this.people});
+
+  final List<Map<String, dynamic>> people;
+  final profileIds = <String>[];
+  var inFlight = 0;
+  var maxInFlight = 0;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final Object body;
+    if (request.url.path.endsWith('/rpc/list_family_tree')) {
+      body = const [
+        {'id': 'parent'},
+      ];
+    } else if (request.url.path == '/rest/v1/people') {
+      body = people;
+    } else if (request.url.path.endsWith('/rpc/person_profile')) {
+      inFlight += 1;
+      if (inFlight > maxInFlight) maxInFlight = inFlight;
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      inFlight -= 1;
+      final raw = request is http.Request ? request.body : '';
+      final decoded = raw.isEmpty ? const <String, dynamic>{} : jsonDecode(raw);
+      final id = decoded is Map ? decoded['p_person_id'] as String? : null;
+      profileIds.add(id ?? '');
+      body = [
+        {
+          'id': id,
+          'family_id': 'parent',
+          'name': id == 'ada' ? 'Ada' : 'Bea',
+          'birth_date': id == 'ada' ? '1815-01-01' : '1900-06-01',
+          'birth_precision': id == 'ada' ? 'year' : 'month',
+          'is_linked': true,
+          'passed_away': id == 'bea',
+        },
+      ];
+    } else {
+      body = const [];
+    }
+    final bytes = utf8.encode(jsonEncode(body));
+    return http.StreamedResponse(
+      Stream.value(bytes),
+      200,
+      headers: const {'content-type': 'application/json'},
+      request: request,
+    );
   }
 }
 
