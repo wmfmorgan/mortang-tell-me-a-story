@@ -46,7 +46,7 @@ The §15 item's own gates override these baselines. Otherwise, no regressions, a
 ## Code quality
 - No swallowed errors. Every catch shows or returns a mapped message or rethrows.
 - UI uses only `album_theme.dart` tokens (`apps/tell_me_a_story/lib/core/theme/album_theme.dart`), no hardcoded colors; build from the Stitch screen of record, and the written UXD rules win over quirks in the mock.
-- Enforced by a Flutter test (added in the AGENTS.md PR, runs in `flutter test`): it fails on any `Color(0x` or `Colors.` in `lib/` outside `album_theme.dart`. Temporary skip: `lib/**/settings_page.dart` only, until the follow-up PR removes its hardcoded colors and deletes the skip. Do not add other skips.
+- Enforced by a Flutter test (added in the AGENTS.md PR, runs in `flutter test`): it fails on any `Color(0x` or `Colors.` in `lib/` outside `album_theme.dart`. Temporary skip list: the 23 files that had hardcoded colors on 2026-10-15 (`lib/features/settings/settings_page.dart` plus the 22 in Dinesh's PR #31 review), each listed by exact path from `lib/`, never by bare file name; the `album_theme.dart` exemption is also an exact-path match. Each follow-up PR that fixes a file removes it from the list. The list only shrinks: never add a path to it.
 - No new user-facing copy without approval. Copy comes from the UXD copy rule only.
 - Errors use the shared `mapRpcError` (`supabase/functions/_shared/manage.ts`) with exactly four prefixes: `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, `INVITE_INVALID:`. A new prefix goes to Gilfoyle first. Never return raw Postgres error text to the client; log it server-side.
 - Definer functions: `set search_path = ''`, schema-qualified names, `(select auth.uid())`, and a null uid fails closed.
