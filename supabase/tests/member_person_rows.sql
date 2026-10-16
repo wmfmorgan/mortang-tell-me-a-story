@@ -4,7 +4,25 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(6);
+select plan(7);
+
+create function pg_temp.backfill_members()
+returns void
+language plpgsql
+as $$
+declare
+  rec record;
+begin
+  for rec in
+    select m.family_id, m.user_id
+    from public.memberships m
+    join public.families f on f.id = m.family_id
+    where f.deleted_at is null
+  loop
+    perform public.ensure_member_person(rec.family_id, rec.user_id, true);
+  end loop;
+end;
+$$;
 
 create temporary table m14a_ctx (
   owner_id uuid primary key,
@@ -145,7 +163,7 @@ insert into public.people (id, family_id, name, email, created_by)
 select email_person, family_id, 'Email Kin', 'member@test.local', owner_id
 from m14a_ctx;
 
-select public.backfill_member_person_rows();
+select pg_temp.backfill_members();
 
 select results_eq(
   $$select
@@ -166,7 +184,7 @@ set people_snapshot = (
   join m14a_ctx c on c.family_id = p.family_id
 );
 
-select public.backfill_member_person_rows();
+select pg_temp.backfill_members();
 
 select is(
   (
@@ -179,6 +197,36 @@ select is(
   ),
   (select people_snapshot from m14a_ctx),
   'backfill run twice changes nothing'
+);
+
+insert into public.families (id, name, created_by, parent_family_id)
+select
+  '44444444-14a1-4111-8111-444444444444',
+  'Child',
+  owner_id,
+  family_id
+from m14a_ctx;
+
+insert into public.memberships (family_id, user_id, role)
+select
+  '44444444-14a1-4111-8111-444444444444',
+  owner_id,
+  'member'::public.membership_role
+from m14a_ctx;
+
+select pg_temp.backfill_members();
+
+select is(
+  (
+    select count(*)
+    from public.people p
+    join public.families f on f.id = p.family_id
+    join m14a_ctx c on p.user_id = c.owner_id
+    where f.deleted_at is null
+      and public.family_tree_root(f.id) = public.family_tree_root(c.family_id)
+  ),
+  1::bigint,
+  'a member of a parent and a child family has one linked person in the tree'
 );
 
 select * from finish();
