@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(68);
+select plan(69);
 
 create temporary table m14_ctx (
   user_a uuid primary key,
@@ -214,15 +214,20 @@ where id = '55555555-14a1-4111-8111-555555555555';
 set local role authenticated;
 set local request.jwt.claim.role = 'authenticated';
 set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
-update public.people
-set name = 'Hacked'
-where id = '55555555-14a1-4111-8111-555555555555';
+select throws_ok(
+  $$update public.people
+      set name = 'Hacked'
+      where id = '55555555-14a1-4111-8111-555555555555'$$,
+  '42501',
+  null,
+  'another tree member cannot edit a linked person'
+);
 
 reset role;
 select is(
   (select name from public.people where id = '55555555-14a1-4111-8111-555555555555'),
   'Edited',
-  'another tree member cannot edit a linked person'
+  'a refused edit leaves the linked name unchanged'
 );
 
 set local role authenticated;
