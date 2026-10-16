@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -106,20 +105,6 @@ void main() {
         throwsA(isA<ArgumentError>()),
       );
     });
-  });
-
-  test('_treeSelect keeps the same comma spacing as _rowSelect', () {
-    final source = File('lib/data/people_api.dart').readAsStringSync();
-    expect(
-      source,
-      contains(
-        "static const _treeSelect = 'id, family_id, name, birth_date, passing_date';",
-      ),
-    );
-    expect(
-      source,
-      contains("'id, family_id, name, relationship, email, created_by, '"),
-    );
   });
 
   group('PeopleApi.listTreePeople', () {

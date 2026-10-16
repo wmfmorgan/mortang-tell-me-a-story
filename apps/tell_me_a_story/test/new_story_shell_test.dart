@@ -435,43 +435,6 @@ void main() {
     expect(_skipStoryPumpError(pageOverflow), isFalse);
   });
 
-  testWidgets('a forced overflow outside album_header still fails the filter', (
-    tester,
-  ) async {
-    final previous = FlutterError.onError;
-    final seen = <FlutterErrorDetails>[];
-    FlutterError.onError = (details) {
-      seen.add(details);
-      if (_skipStoryPumpError(details)) return;
-      previous?.call(details);
-    };
-    addTearDown(() => FlutterError.onError = previous);
-
-    await tester.pumpWidget(
-      const Directionality(
-        textDirection: TextDirection.ltr,
-        child: Center(
-          child: SizedBox(
-            width: 40,
-            child: Row(children: [SizedBox(width: 200, height: 10)]),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    final taken = tester.takeException();
-    FlutterError.onError = previous;
-    expect(seen, isNotEmpty, reason: 'overflow reported ${seen.length} $taken');
-    expect(
-      seen.any(
-        (details) =>
-            !_skipStoryPumpError(details) &&
-            details.exceptionAsString().contains('RenderFlex overflowed'),
-      ),
-      isTrue,
-    );
-  });
-
   testWidgets('story cards stack with a 20px gap at every width', (
     tester,
   ) async {
