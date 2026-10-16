@@ -19,6 +19,12 @@ class AddPersonResult {
   final bool sendInvite;
 }
 
+/// Inserts one `story_people` row for a person the picker just chose.
+typedef LinkStoryPerson = Future<void> Function({
+  required String storyId,
+  required String personId,
+});
+
 /// Add Person modal. Create writes profile fields. Relationship is not collected.
 class AddPersonModal extends StatefulWidget {
   const AddPersonModal({
@@ -27,12 +33,18 @@ class AddPersonModal extends StatefulWidget {
     required this.api,
     this.invites,
     this.pickImageBytes,
+    this.storyId,
+    this.linkedPersonIds = const {},
+    this.linkPerson,
   });
 
   final String familyId;
   final PeopleGateway api;
   final InviteGateway? invites;
   final Future<Uint8List?> Function()? pickImageBytes;
+  final String? storyId;
+  final Set<String> linkedPersonIds;
+  final LinkStoryPerson? linkPerson;
 
   static Future<AddPersonResult?> show(
     BuildContext context, {
@@ -40,6 +52,9 @@ class AddPersonModal extends StatefulWidget {
     required PeopleGateway api,
     InviteGateway? invites,
     Future<Uint8List?> Function()? pickImageBytes,
+    String? storyId,
+    Set<String> linkedPersonIds = const {},
+    LinkStoryPerson? linkPerson,
   }) {
     return showAlbumDialog<AddPersonResult>(
       context: context,
@@ -49,6 +64,9 @@ class AddPersonModal extends StatefulWidget {
         api: api,
         invites: invites,
         pickImageBytes: pickImageBytes,
+        storyId: storyId,
+        linkedPersonIds: linkedPersonIds,
+        linkPerson: linkPerson,
       ),
     );
   }
