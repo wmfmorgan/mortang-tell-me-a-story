@@ -113,7 +113,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
 
   Future<void> _loadPeople() async {
     try {
-      final people = await widget.api.listPeople(widget.familyId);
+      final people = await widget.api.listTreePeople(widget.familyId);
       if (!mounted) return;
       setState(() => _people = people);
     } catch (error) {

@@ -1,4 +1,4 @@
--- M14.1a member person rows. One linked people row per live member.
+-- M14.1a member person rows. One linked people row per account per tree.
 -- App inserts still cannot set user_id. No new policies.
 
 create or replace function public.ensure_member_person(
@@ -22,9 +22,14 @@ begin
 
   if exists (
     select 1
-    from public.people
-    where family_id = p_family_id
-      and user_id = p_user_id
+    from public.people p
+    join public.families mine on mine.id = p.family_id
+    join public.families target on target.id = p_family_id
+    where p.user_id = p_user_id
+      and mine.deleted_at is null
+      and target.deleted_at is null
+      and public.family_tree_root(p.family_id)
+        = public.family_tree_root(p_family_id)
   ) then
     return;
   end if;
@@ -110,10 +115,6 @@ begin
     raise exception 'NOT_FOUND:';
   end if;
 
-  if p_person_id is null then
-    return;
-  end if;
-
   select * into person
   from public.people
   where id = p_person_id;
@@ -144,32 +145,12 @@ begin
 end;
 $$;
 
-create or replace function public.people_keep_one_member_link()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  if new.user_id is not null
-     and (select auth.uid()) is null
-     and exists (
-       select 1
-       from public.people
-       where family_id = new.family_id
-         and user_id = new.user_id
-     ) then
-    new.user_id := null;
-  end if;
-  return new;
-end;
-$$;
-
 drop trigger if exists people_keep_one_member_link on public.people;
-create trigger people_keep_one_member_link
-  before insert on public.people
-  for each row
-  execute function public.people_keep_one_member_link();
+drop function if exists public.people_keep_one_member_link();
+
+-- One linked row per tree is enforced by ensure_member_person and
+-- link_accepted_person. Do not replace the dropped trigger with an index.
+drop index if exists public.people_family_user_uidx;
 
 create or replace function public.ensure_accepted_invite_person()
 returns trigger
@@ -231,8 +212,6 @@ revoke all on function public.backfill_member_person_rows()
   from public, anon, authenticated, service_role;
 revoke all on function public.ensure_accepted_invite_person()
   from public, anon, authenticated, service_role;
-revoke all on function public.people_keep_one_member_link()
-  from public, anon, authenticated, service_role;
 revoke all on function public.link_accepted_person(uuid)
   from public, anon, service_role;
 revoke all on function public.create_family(text) from public;
@@ -241,3 +220,5 @@ grant execute on function public.link_accepted_person(uuid) to authenticated;
 grant execute on function public.create_family(text) to authenticated, service_role;
 
 select public.backfill_member_person_rows();
+
+drop function public.backfill_member_person_rows();

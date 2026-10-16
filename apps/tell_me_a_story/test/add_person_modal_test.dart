@@ -250,27 +250,26 @@ void main() {
     expect(find.byKey(_pickerKey), findsOneWidget);
   });
 
-  testWidgets(
-    'a person from another family in the tree shows their years',
-    (tester) async {
-      final api = _FakePeopleGateway(
-        seed: [
-          Person(
-            id: 'cousin',
-            familyId: 'other-family',
-            name: 'Cousin Ada',
-            birthDate: DateTime(1920, 3, 1),
-            passingDate: DateTime(1998, 6, 1),
-            createdBy: 'u1',
-          ),
-        ],
-      );
-      await _openModal(tester, api: api);
+  testWidgets('a person from another family in the tree shows their years', (
+    tester,
+  ) async {
+    final api = _FakePeopleGateway(
+      seed: [
+        Person(
+          id: 'cousin',
+          familyId: 'other-family',
+          name: 'Cousin Ada',
+          birthDate: DateTime(1920, 3, 1),
+          passingDate: DateTime(1998, 6, 1),
+          createdBy: 'u1',
+        ),
+      ],
+    );
+    await _openModal(tester, api: api);
 
-      expect(find.text('Cousin Ada'), findsOneWidget);
-      expect(find.text('1920-1998'), findsOneWidget);
-    },
-  );
+    expect(find.text('Cousin Ada'), findsOneWidget);
+    expect(find.text('1920-1998'), findsOneWidget);
+  });
 
   testWidgets('search lists tree people with their years', (tester) async {
     final api = _FakePeopleGateway(

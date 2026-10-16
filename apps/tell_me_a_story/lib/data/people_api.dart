@@ -161,7 +161,7 @@ void ensureValidPersonCreate({required String name, String? about}) {
 abstract class PeopleGateway {
   Future<List<Person>> listPeople(String familyId);
 
-  /// Name for a viewer who can read the family tree and is not a member.
+  /// People in [familyId]'s tree, including birth and passing dates.
   /// The default reads [listPeople] so fakes stay unchanged.
   Future<List<Person>> listTreePeople(String familyId) => listPeople(familyId);
 
@@ -234,19 +234,48 @@ class PeopleApi implements PeopleGateway {
 
   @override
   Future<List<Person>> listTreePeople(String familyId) async {
+    final familyIds = await _treeFamilyIds(familyId);
     final rows = await _client
         .from('people_tree_read')
         .select('id, family_id, name')
-        .eq('family_id', familyId)
+        .inFilter('family_id', familyIds)
         .order('name');
+    final dated = await _client
+        .from('people')
+        .select('id, birth_date, passing_date')
+        .inFilter('family_id', familyIds);
+    final datesById = <String, Map<String, dynamic>>{
+      for (final row in dated)
+        if (row['id'] is String) row['id'] as String: row,
+    };
     return [
       for (final row in rows)
         Person(
           id: row['id'] as String,
           familyId: row['family_id'] as String,
           name: row['name'] as String,
+          birthDate: personDateFromJson(datesById[row['id']]?['birth_date']),
+          passingDate: personDateFromJson(
+            datesById[row['id']]?['passing_date'],
+          ),
         ),
     ];
+  }
+
+  /// Families in [familyId]'s tree. One family when the walk returns none.
+  Future<List<String>> _treeFamilyIds(String familyId) async {
+    final tree = await _client.rpc(
+      'list_family_tree',
+      params: {'fid': familyId},
+    );
+    if (tree is List) {
+      final ids = <String>[
+        for (final row in tree)
+          if (row is Map && row['id'] is String) row['id'] as String,
+      ];
+      if (ids.isNotEmpty) return ids;
+    }
+    return [familyId];
   }
 
   @override
