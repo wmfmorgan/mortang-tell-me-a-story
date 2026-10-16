@@ -21,6 +21,19 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
+  test('BirthVisibility converts the four wire values and hides the rest', () {
+    expect(BirthVisibility.hidden.toWire(), 'hidden');
+    expect(BirthVisibility.year.toWire(), 'year');
+    expect(BirthVisibility.yearMonth.toWire(), 'year_month');
+    expect(BirthVisibility.full.toWire(), 'full');
+    expect(BirthVisibility.fromWire('hidden'), BirthVisibility.hidden);
+    expect(BirthVisibility.fromWire('year'), BirthVisibility.year);
+    expect(BirthVisibility.fromWire('year_month'), BirthVisibility.yearMonth);
+    expect(BirthVisibility.fromWire('full'), BirthVisibility.full);
+    expect(BirthVisibility.fromWire(null), BirthVisibility.hidden);
+    expect(BirthVisibility.fromWire('nope'), BirthVisibility.hidden);
+  });
+
   testWidgets('Add person has no date fields and has the Passed away toggle', (
     tester,
   ) async {
@@ -469,16 +482,18 @@ Future<void> _openProfile(
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
-      home: Builder(
-        builder: (context) => TextButton(
-          onPressed: () => showPersonProfile(
-            context,
-            personId: 'p1',
-            name: 'Ada',
-            people: people,
-            signedInUserId: signedInUserId,
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showPersonProfile(
+              context,
+              personId: 'p1',
+              name: 'Ada',
+              people: people,
+              signedInUserId: signedInUserId,
+            ),
+            child: const Text('open'),
           ),
-          child: const Text('open'),
         ),
       ),
     ),
@@ -509,10 +524,6 @@ class _People extends PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    DateTime? passingDate,
-    String? passingPrecision,
     String? about,
     String? email,
     bool passedAway = false,
@@ -579,11 +590,11 @@ class _Profile implements ProfileGateway {
     required String displayName,
     DateTime? birthDate,
     String? birthPrecision,
-    String? birthVisibility,
+    BirthVisibility? birthVisibility,
     String? about,
   }) async {
     births.add((birthDate, birthPrecision));
-    visibilities.add(birthVisibility);
+    visibilities.add(birthVisibility?.toWire());
   }
 
   @override

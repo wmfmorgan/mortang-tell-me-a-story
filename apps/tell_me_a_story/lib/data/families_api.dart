@@ -48,12 +48,15 @@ class StewardFamily {
   final DateTime? deletedAt;
 
   bool countsForManage([DateTime? now]) {
-    if (role != 'owner' && role != 'co_owner') return false;
+    if (!originSteward(role)) return false;
     final deleted = deletedAt;
     if (deleted == null) return true;
     return isInsideRecoveryWindow(deleted, now);
   }
 }
+
+/// Owner or co-owner of a family. Other roles are false.
+bool originSteward(String? role) => role == 'owner' || role == 'co_owner';
 
 /// One live family from `list_family_tree`.
 /// [branchYear] and [originStoryId] are whatever the server returns.

@@ -50,7 +50,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.createCalls, 1);
-    expect(api.lastBirth, isNull);
     expect(api.lastPassedAway, isFalse);
     expect(api.lastAbout?.length, 500);
   });
@@ -412,7 +411,6 @@ void main() {
     expect(people.updatedName, 'Ada Lovelace');
     expect(people.updatedAbout, 'Updated');
     expect(people.updatedEmail, 'next@example.com');
-    expect(people.wroteBirth, isFalse);
     expect(people.wrotePassedAway, isTrue);
     expect(people.updatedPassedAway, isFalse);
     expect(invites.creates, 0);
@@ -656,16 +654,12 @@ Future<void> _openAdd(
 
 class _People extends PeopleGateway {
   int createCalls = 0;
-  DateTime? lastBirth;
-  String? lastBirthPrecision;
-  DateTime? lastPassing;
   bool lastPassedAway = false;
   String? lastAbout;
   String? lastEmail;
   String? updatedName;
   String? updatedAbout;
   String? updatedEmail;
-  bool wroteBirth = false;
   bool wrotePassedAway = false;
   bool updatedPassedAway = false;
   bool wroteAbout = false;
@@ -687,10 +681,6 @@ class _People extends PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    DateTime? passingDate,
-    String? passingPrecision,
     String? about,
     String? email,
     bool passedAway = false,
@@ -698,9 +688,6 @@ class _People extends PeopleGateway {
   }) async {
     ensureValidPersonCreate(name: name, about: about);
     createCalls++;
-    lastBirth = birthDate;
-    lastBirthPrecision = birthPrecision;
-    lastPassing = passingDate;
     lastPassedAway = passedAway;
     lastAbout = about;
     lastEmail = email != null && email.trim().isNotEmpty ? email.trim() : null;
@@ -709,10 +696,6 @@ class _People extends PeopleGateway {
       familyId: familyId,
       name: name.trim(),
       email: lastEmail,
-      birthDate: birthDate,
-      birthPrecision: birthPrecision,
-      passingDate: passingDate,
-      passingPrecision: passingPrecision,
       about: about,
     );
   }
@@ -739,12 +722,6 @@ class _People extends PeopleGateway {
   Future<Person> updatePerson({
     required String personId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    bool writeBirth = false,
-    DateTime? passingDate,
-    String? passingPrecision,
-    bool writePassing = false,
     bool passedAway = false,
     bool writePassedAway = false,
     String? about,
@@ -757,7 +734,6 @@ class _People extends PeopleGateway {
     updatedName = name;
     updatedAbout = about;
     updatedEmail = email;
-    wroteBirth = writeBirth;
     wrotePassedAway = writePassedAway;
     updatedPassedAway = passedAway;
     wroteAbout = writeAbout;

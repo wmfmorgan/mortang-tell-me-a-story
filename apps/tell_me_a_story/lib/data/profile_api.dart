@@ -5,6 +5,28 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'photos_api.dart';
 
+/// Wire values for `profiles.birth_visibility`.
+enum BirthVisibility {
+  hidden,
+  year,
+  yearMonth,
+  full;
+
+  String toWire() => switch (this) {
+    BirthVisibility.hidden => 'hidden',
+    BirthVisibility.year => 'year',
+    BirthVisibility.yearMonth => 'year_month',
+    BirthVisibility.full => 'full',
+  };
+
+  static BirthVisibility fromWire(String? raw) => switch (raw) {
+    'year' => BirthVisibility.year,
+    'year_month' => BirthVisibility.yearMonth,
+    'full' => BirthVisibility.full,
+    _ => BirthVisibility.hidden,
+  };
+}
+
 /// The signed-in user's profile row. Email is not written here.
 class OwnProfile {
   const OwnProfile({
@@ -14,7 +36,7 @@ class OwnProfile {
     this.avatarPath,
     this.birthDate,
     this.birthPrecision,
-    this.birthVisibility = 'hidden',
+    this.birthVisibility = BirthVisibility.hidden,
     this.about,
   });
 
@@ -24,7 +46,7 @@ class OwnProfile {
   final String? avatarPath;
   final DateTime? birthDate;
   final String? birthPrecision;
-  final String birthVisibility;
+  final BirthVisibility birthVisibility;
   final String? about;
 
   factory OwnProfile.fromJson(Map<String, dynamic> json) {
@@ -35,7 +57,9 @@ class OwnProfile {
       avatarPath: json['avatar_path'] as String?,
       birthDate: _profileDate(json['birth_date']),
       birthPrecision: json['birth_precision'] as String?,
-      birthVisibility: json['birth_visibility'] as String? ?? 'hidden',
+      birthVisibility: BirthVisibility.fromWire(
+        json['birth_visibility'] as String?,
+      ),
       about: json['about'] as String?,
     );
   }
@@ -67,7 +91,7 @@ abstract class ProfileGateway {
     required String displayName,
     DateTime? birthDate,
     String? birthPrecision,
-    String? birthVisibility,
+    BirthVisibility? birthVisibility,
     String? about,
   });
 
@@ -136,9 +160,8 @@ class ProfileApi implements ProfileGateway {
     if (row == null) return null;
     final birth = await _supabase.rpc('my_profile');
     final birthRow = switch (birth) {
-      List(isNotEmpty: true) when birth.first is Map => Map<String, dynamic>.from(
-        birth.first as Map,
-      ),
+      List(isNotEmpty: true) when birth.first is Map =>
+        Map<String, dynamic>.from(birth.first as Map),
       final Map map => Map<String, dynamic>.from(map),
       _ => const <String, dynamic>{},
     };
@@ -155,14 +178,14 @@ class ProfileApi implements ProfileGateway {
     required String displayName,
     DateTime? birthDate,
     String? birthPrecision,
-    String? birthVisibility,
+    BirthVisibility? birthVisibility,
     String? about,
   }) {
     return _patch({
       'display_name': displayName,
       'birth_date': _profileDateIso(birthDate),
       'birth_precision': birthPrecision,
-      'birth_visibility': ?birthVisibility,
+      'birth_visibility': ?birthVisibility?.toWire(),
       'about': about,
     });
   }

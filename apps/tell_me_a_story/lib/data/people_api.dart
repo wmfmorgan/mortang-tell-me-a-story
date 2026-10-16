@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'families_api.dart';
 import 'photos_api.dart';
 
 /// Family-scoped person row. Relationship is optional; new people send null.
@@ -167,17 +168,13 @@ void ensureValidPersonCreate({required String name, String? about}) {
 abstract class PeopleGateway {
   Future<List<Person>> listPeople(String familyId);
 
-  /// People in [familyId]'s tree, including birth and passing dates.
-  /// The default reads [listPeople] so fakes stay unchanged.
+  /// People in [familyId]'s tree. Linked rows take a trimmed birth from
+  /// `person_profile`. The default reads [listPeople] so fakes stay unchanged.
   Future<List<Person>> listTreePeople(String familyId) => listPeople(familyId);
 
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    DateTime? passingDate,
-    String? passingPrecision,
     String? about,
     String? email,
     bool passedAway = false,
@@ -192,12 +189,6 @@ abstract class PeopleGateway {
   Future<Person> updatePerson({
     required String personId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    bool writeBirth = false,
-    DateTime? passingDate,
-    String? passingPrecision,
-    bool writePassing = false,
     bool passedAway = false,
     bool writePassedAway = false,
     String? about,
@@ -217,10 +208,7 @@ abstract class PeopleGateway {
   Future<bool> isHomeFamilySteward(String familyId) async => false;
 
   /// `mark_passed_away(p_person_id, p_value)`.
-  Future<void> markPassedAway({
-    required String personId,
-    required bool value,
-  }) {
+  Future<void> markPassedAway({required String personId, required bool value}) {
     throw UnimplementedError();
   }
 
@@ -262,36 +250,24 @@ class PeopleApi implements PeopleGateway {
         .select(_treeSelect)
         .inFilter('family_id', familyIds)
         .order('name');
-    final people = rows.map(Person.fromJson).toList();
-    final trimmed = <Person>[];
-    for (final person in people) {
-      if (person.userId == null) {
-        trimmed.add(
-          Person(
-            id: person.id,
-            familyId: person.familyId,
-            name: person.name,
-            email: person.email,
-            userId: person.userId,
-            passedAway: person.passedAway,
-          ),
-        );
-        continue;
-      }
-      final profile = await personProfile(person.id);
-      trimmed.add(
-        Person(
-          id: person.id,
-          familyId: person.familyId,
-          name: person.name,
-          userId: person.userId,
-          passedAway: profile?.passedAway ?? person.passedAway,
-          birthDate: profile?.birthDate,
-          birthPrecision: profile?.birthPrecision,
-        ),
-      );
-    }
-    return trimmed;
+    return Future.wait(rows.map(_treePerson));
+  }
+
+  /// One [Person] per tree row. Linked profiles load together.
+  Future<Person> _treePerson(Map<String, dynamic> row) async {
+    final userId = row['user_id'] as String?;
+    final profile = userId == null
+        ? null
+        : await personProfile(row['id'] as String);
+    return Person(
+      id: row['id'] as String,
+      familyId: row['family_id'] as String,
+      name: row['name'] as String,
+      userId: userId,
+      passedAway: profile?.passedAway ?? row['passed_away'] == true,
+      birthDate: profile?.birthDate,
+      birthPrecision: profile?.birthPrecision,
+    );
   }
 
   /// Families in [familyId]'s tree. One family when the walk returns none.
@@ -315,10 +291,6 @@ class PeopleApi implements PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    DateTime? passingDate,
-    String? passingPrecision,
     String? about,
     String? email,
     bool passedAway = false,
@@ -379,12 +351,6 @@ class PeopleApi implements PeopleGateway {
   Future<Person> updatePerson({
     required String personId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    bool writeBirth = false,
-    DateTime? passingDate,
-    String? passingPrecision,
-    bool writePassing = false,
     bool passedAway = false,
     bool writePassedAway = false,
     String? about,
@@ -433,7 +399,7 @@ class PeopleApi implements PeopleGateway {
         .eq('user_id', uid)
         .maybeSingle();
     final role = row?['role'];
-    return role == 'owner' || role == 'co_owner';
+    return originSteward(role is String ? role : null);
   }
 
   @override

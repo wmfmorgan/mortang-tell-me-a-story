@@ -50,8 +50,6 @@ class OriginMenuEntry {
   final String label;
 }
 
-bool originSteward(String? role) => role == 'owner' || role == 'co_owner';
-
 /// Published stories only. The label is always `Set as origin for {Family}`.
 List<OriginMenuEntry> originMenuEntries({
   required bool published,

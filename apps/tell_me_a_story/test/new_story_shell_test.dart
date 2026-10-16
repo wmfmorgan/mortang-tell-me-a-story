@@ -58,10 +58,6 @@ class _FakePeopleApi extends PeopleGateway {
   Future<Person> createPerson({
     required String familyId,
     required String name,
-    DateTime? birthDate,
-    String? birthPrecision,
-    DateTime? passingDate,
-    String? passingPrecision,
     String? about,
     String? email,
     bool passedAway = false,
@@ -73,10 +69,6 @@ class _FakePeopleApi extends PeopleGateway {
       name: name.trim(),
       email: email,
       about: about,
-      birthDate: birthDate,
-      birthPrecision: birthPrecision,
-      passingDate: passingDate,
-      passingPrecision: passingPrecision,
       createdBy: 'u1',
     );
     rows.add(person);

@@ -51,7 +51,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final _email = TextEditingController();
   final _about = TextEditingController();
   StoryDate? _birth;
-  String _visibility = 'hidden';
+  BirthVisibility _visibility = BirthVisibility.hidden;
 
   var _loading = true;
   var _saving = false;
@@ -67,7 +67,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _loadedEmail = '';
   String _loadedAbout = '';
   StoryDate? _loadedBirth;
-  String _loadedVisibility = 'hidden';
+  BirthVisibility _loadedVisibility = BirthVisibility.hidden;
   Uint8List? _loadedBytes;
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
@@ -103,7 +103,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _email.text = email;
       _about.text = profile?.about ?? '';
       _birth = storyDateFromPerson(profile?.birthDate, profile?.birthPrecision);
-      _visibility = profile?.birthVisibility ?? 'hidden';
+      _visibility = profile?.birthVisibility ?? BirthVisibility.hidden;
       Uint8List? bytes;
       final path = profile?.avatarPath;
       if (path != null) {
@@ -218,6 +218,14 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _pending = bytes;
       _clearPicture = false;
+      _savedNotice = false;
+    });
+  }
+
+  void _removePicture() {
+    setState(() {
+      _pending = null;
+      _clearPicture = true;
       _savedNotice = false;
     });
   }
@@ -603,6 +611,18 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                   ),
+                  if (preview != null)
+                    TextButton(
+                      key: const Key('settings-picture-remove'),
+                      onPressed: _saving ? null : _removePicture,
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF9F403D),
+                        visualDensity: VisualDensity.compact,
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Remove'),
+                    ),
                 ],
               ),
             ],
@@ -678,10 +698,10 @@ class _SettingsPageState extends State<SettingsPage> {
           runSpacing: 4,
           children: [
             for (final option in const [
-              ('hidden', 'Hidden'),
-              ('year', 'Year only'),
-              ('year_month', 'Year and month'),
-              ('full', 'Full date'),
+              (BirthVisibility.hidden, 'Hidden'),
+              (BirthVisibility.year, 'Year only'),
+              (BirthVisibility.yearMonth, 'Year and month'),
+              (BirthVisibility.full, 'Full date'),
             ])
               TextButton(
                 style: TextButton.styleFrom(

@@ -126,8 +126,6 @@ class _AddPersonModalState extends State<AddPersonModal> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  bool get _passedAwaySet => _passedAway;
-
   bool get _formLocked => _busy || _created != null;
 
   Future<void> _pickPicture() async {
@@ -159,7 +157,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
         return;
       }
       final email = _emailController.text.trim();
-      if (email.isNotEmpty && !_passedAwaySet) {
+      if (email.isNotEmpty && !_passedAway) {
         final confirmed = await showSendInviteConfirm(
           context,
           name: name,

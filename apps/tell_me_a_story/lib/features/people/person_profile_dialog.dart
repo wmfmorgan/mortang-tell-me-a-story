@@ -6,6 +6,7 @@ import '../../core/router/app_router.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
+import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 import '../family/family_blur_dialog.dart';
 import '../stories/story_date.dart';
@@ -181,15 +182,6 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     return _editor?.userId == null;
   }
 
-  bool get _showOwners {
-    final profile = _profile;
-    final editor = _editor;
-    if (profile == null || !profile.isLinked || !_steward) return false;
-    final linkedId = editor?.userId;
-    if (linkedId == null || linkedId == widget.signedInUserId) return false;
-    return true;
-  }
-
   Future<void> _confirmMark() async {
     final profile = _profile;
     if (profile == null) return;
@@ -230,7 +222,15 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
       ),
     );
     if (yes != true || !mounted) return;
-    await widget.people.markPassedAway(personId: profile.id, value: mark);
+    try {
+      await widget.people.markPassedAway(personId: profile.id, value: mark);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+      return;
+    }
     if (!mounted) return;
     setState(() => _loading = true);
     await _load();
@@ -319,7 +319,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
                         ),
                       ),
                     ],
-                    if (_showOwners) ...[
+                    if (_steward) ...[
                       const SizedBox(height: 16),
                       Text('Family owners', style: labelStyle),
                       const SizedBox(height: 8),
