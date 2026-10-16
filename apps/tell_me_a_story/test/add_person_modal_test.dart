@@ -108,14 +108,23 @@ Future<AddPersonResult?> _openModal(
   return result;
 }
 
+Future<void> _openForm(
+  WidgetTester tester, {
+  required PeopleGateway api,
+}) async {
+  await _openModal(tester, api: api);
+  await tester.tap(find.text('Create new person'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  testWidgets('shows the create form when Add person opens', (tester) async {
+  testWidgets('shows the create form after Create new person', (tester) async {
     final api = _FakePeopleGateway();
-    await _openModal(tester, api: api);
+    await _openForm(tester, api: api);
 
     expect(find.text('Add person'), findsWidgets);
     expect(find.text('NAME'), findsOneWidget);
@@ -123,7 +132,6 @@ void main() {
     expect(find.text('Cancel'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Add person'), findsOneWidget);
     expect(find.text('Choose existing'), findsNothing);
-    expect(find.text('Create new person'), findsNothing);
     expect(find.text('Add to story'), findsNothing);
   });
 
@@ -131,7 +139,7 @@ void main() {
     tester,
   ) async {
     final api = _FakePeopleGateway();
-    await _openModal(tester, api: api);
+    await _openForm(tester, api: api);
 
     expect(find.text('NAME'), findsOneWidget);
     expect(find.text('DATE OF BIRTH'), findsOneWidget);
@@ -175,6 +183,8 @@ void main() {
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Create new person'));
+    await tester.pumpAndSettle();
 
     await tester.enterText(
       find.byKey(const Key('add-person-name')),
@@ -196,7 +206,7 @@ void main() {
   testWidgets('about starts at two lines and the handle grows it', (
     tester,
   ) async {
-    await _openModal(tester, api: _FakePeopleGateway());
+    await _openForm(tester, api: _FakePeopleGateway());
 
     final aboutBox = find.byKey(const Key('add-person-about-box'));
     await tester.ensureVisible(aboutBox);
@@ -316,7 +326,7 @@ void main() {
     await tester.enterText(_search, 'Ada');
     await tester.pump();
 
-    expect(find.text('Ada'), findsNothing);
+    expect(find.byKey(const Key('add-person-pick-p1')), findsNothing);
     expect(find.text('Create new person'), findsOneWidget);
   });
 

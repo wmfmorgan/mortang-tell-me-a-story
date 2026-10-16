@@ -175,6 +175,12 @@ class _StubStoriesApi implements StoriesGateway {
 
   @override
   Future<void> discard(String storyId) async {}
+
+  @override
+  Future<void> linkPerson({
+    required String storyId,
+    required String personId,
+  }) async {}
 }
 
 class _StubPhotosApi implements PhotosGateway {

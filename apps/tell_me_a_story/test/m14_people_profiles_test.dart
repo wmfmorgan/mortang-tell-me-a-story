@@ -688,6 +688,8 @@ Future<void> _openAdd(
   );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
+  await tester.tap(find.text('Create new person'));
+  await tester.pumpAndSettle();
 }
 
 class _People extends PeopleGateway {

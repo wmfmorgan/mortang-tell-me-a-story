@@ -296,6 +296,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
         familyId: familyId,
         api: _people,
         invites: _invite,
+        storyId: _storyId,
+        linkedPersonIds: {for (final person in _selectedPeople) person.id},
+        linkPerson: ({required String storyId, required String personId}) {
+          return _stories.linkPerson(storyId: storyId, personId: personId);
+        },
       );
       final person = added?.person;
       if (!mounted || person == null) return;
