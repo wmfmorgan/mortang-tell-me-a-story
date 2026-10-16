@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(57);
+select plan(59);
 
 create temporary table m143_ctx (
   owner_id uuid primary key,
@@ -543,6 +543,22 @@ select throws_ok(
   'P0001',
   'FORBIDDEN:',
   'a linked user cannot change passed_away on their own row'
+);
+
+set local request.jwt.claim.sub = 'f1430000-0000-4000-8000-0000000000f1';
+select throws_ok(
+  $$update public.people
+      set passed_away = true
+      where id = '11111111-1430-4111-8111-111111111111'$$,
+  'P0001',
+  'FORBIDDEN:',
+  'a plain member cannot directly update passed_away on a linked row'
+);
+
+set local request.jwt.claim.sub = 'a1430000-0000-4000-8000-0000000000a1';
+select lives_ok(
+  $$select public.mark_passed_away('11111111-1430-4111-8111-111111111111', true)$$,
+  'an owner via mark_passed_away still sets the flag'
 );
 
 set local request.jwt.claim.sub = 'f1430000-0000-4000-8000-0000000000f1';
