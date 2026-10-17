@@ -7,6 +7,8 @@ revoke execute on function public.purge_expired_families()          from anon, a
 revoke execute on function public.handle_new_user()                 from public, anon, authenticated;
 revoke execute on function public.sync_profile_email()              from public, anon, authenticated;
 revoke execute on function public.photos_cap_insert()               from authenticated;
+revoke execute on function public.profiles_sync_linked_person_name() from public, anon, authenticated;
+revoke execute on function public.people_guard_linked_name()         from public, anon, authenticated;
 
 revoke execute on function public.is_family_member(uuid)                 from anon;
 revoke execute on function public.is_family_owner(uuid)                  from anon;
