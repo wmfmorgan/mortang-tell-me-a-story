@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(64);
+select plan(68);
 
 select ok(
   not has_function_privilege('anon', 'public.upsert_story_member(uuid, uuid)', 'execute'),
@@ -66,6 +66,22 @@ select ok(
 select ok(
   not has_function_privilege('authenticated', 'public.photos_cap_insert()', 'execute'),
   'authenticated cannot execute photos_cap_insert'
+);
+select ok(
+  not has_function_privilege('anon', 'public.profiles_sync_linked_person_name()', 'execute'),
+  'anon cannot execute profiles_sync_linked_person_name'
+);
+select ok(
+  not has_function_privilege('authenticated', 'public.profiles_sync_linked_person_name()', 'execute'),
+  'authenticated cannot execute profiles_sync_linked_person_name'
+);
+select ok(
+  not has_function_privilege('anon', 'public.people_guard_linked_name()', 'execute'),
+  'anon cannot execute people_guard_linked_name'
+);
+select ok(
+  not has_function_privilege('authenticated', 'public.people_guard_linked_name()', 'execute'),
+  'authenticated cannot execute people_guard_linked_name'
 );
 
 select ok(
@@ -256,9 +272,6 @@ select is_empty(
   'no public security definer function is executable by anon'
 );
 
--- profiles_sync_linked_person_name and people_guard_linked_name arrived in
--- 20261016233908 after the review. Authenticated still executes them. This
--- hotfix does not revoke them, so they stay on the allowlist.
 select is_empty(
   $$
     select p.oid::regprocedure::text
@@ -286,9 +299,7 @@ select is_empty(
         'public.list_unlinked_people(uuid)'::regprocedure,
         'public.mark_passed_away(uuid,boolean)'::regprocedure,
         'public.my_profile()'::regprocedure,
-        'public.people_guard_linked_name()'::regprocedure,
         'public.person_profile(uuid)'::regprocedure,
-        'public.profiles_sync_linked_person_name()'::regprocedure,
         'public.recover_family(uuid)'::regprocedure,
         'public.remove_co_owner(uuid,uuid)'::regprocedure,
         'public.remove_member(uuid,uuid)'::regprocedure,
