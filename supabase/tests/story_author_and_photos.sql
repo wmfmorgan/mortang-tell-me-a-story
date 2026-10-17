@@ -1,4 +1,4 @@
--- §14 author rules + member photo INSERT (M1 RLS; no new policies).
+-- §14 author rules. A member cannot read or add a photo to another author's draft.
 -- Harness: insert auth.users (trigger → profiles); SET LOCAL ROLE authenticated
 -- + request.jwt.claim.sub/role; create_family as each user; seed story as A;
 -- postgres-only membership insert for B into family_a; assert as B.
@@ -84,8 +84,8 @@ set local request.jwt.claim.role = 'authenticated';
 select is(
   (select count(*)::int from public.stories s
    join test_ctx c on s.id = c.story_a),
-  1,
-  'User B can SELECT story_a as family_a member'
+  0,
+  'User B cannot SELECT another author draft'
 );
 
 update public.stories s
@@ -101,26 +101,25 @@ select is(
   'User B cannot UPDATE story_a body (not author)'
 );
 
-insert into public.photos (
-  id, story_id, family_id, uploader_id, storage_path, sort_order
-)
-select
-  'a4000000-0000-4000-8000-000000000004',
-  story_a,
-  family_a,
-  user_b,
-  family_a::text
-    || '/' || story_a::text
-    || '/a4000000-0000-4000-8000-000000000004.jpg',
-  0
-from test_ctx;
-
-select is(
-  (select count(*)::int from public.photos p
-   where p.id = 'a4000000-0000-4000-8000-000000000004'
-     and p.uploader_id = (select user_b from test_ctx)),
-  1,
-  'User B can INSERT photo on story_a as member with uploader_id = self'
+select throws_ok(
+  $$
+    insert into public.photos (
+      id, story_id, family_id, uploader_id, storage_path, sort_order
+    )
+    select
+      'a4000000-0000-4000-8000-000000000004',
+      story_a,
+      family_a,
+      user_b,
+      family_a::text
+        || '/' || story_a::text
+        || '/a4000000-0000-4000-8000-000000000004.jpg',
+      0
+    from test_ctx
+  $$,
+  '42501',
+  null,
+  'User B cannot INSERT a photo on another author draft'
 );
 
 update public.stories s

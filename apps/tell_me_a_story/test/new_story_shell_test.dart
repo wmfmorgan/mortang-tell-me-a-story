@@ -166,6 +166,7 @@ class _FakeMapboxSearch implements MapboxSearchGateway {
 }
 
 Widget _shell({
+  Key? key,
   InviteGateway? invite,
   PeopleGateway? people,
   PlacesGateway? places,
@@ -176,6 +177,7 @@ Widget _shell({
 }) {
   return MaterialApp(
     home: NewStoryPage(
+      key: key,
       inviteApi: invite ?? _FakeInviteApi(),
       peopleApi: people ?? _FakePeopleApi(),
       placesApi: places ?? _FakePlacesApi(),
@@ -537,7 +539,9 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
 
     final leaving = _AutosaveStories();
-    await tester.pumpWidget(_shell(stories: leaving));
+    await tester.pumpWidget(
+      _shell(key: const ValueKey('leaving'), stories: leaving),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
     await tester.pump();
@@ -661,7 +665,9 @@ void main() {
     );
 
     final blocked = _AutosaveStories();
-    await tester.pumpWidget(_shell(stories: blocked));
+    await tester.pumpWidget(
+      _shell(key: const ValueKey('blocked'), stories: blocked),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('story-title')), 'No date');
     await tester.pump(kAutosavePause);

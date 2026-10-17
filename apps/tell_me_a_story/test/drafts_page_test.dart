@@ -82,8 +82,9 @@ class _FakeStoriesApi implements StoriesGateway {
 
   @override
   Future<Story> createDraft({
+    String? id,
     required String familyId,
-    required DateTime timeframeStart,
+    DateTime? timeframeStart,
     DateTime? timeframeEnd,
     String? datePrecision,
     String? title,
@@ -539,10 +540,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No date yet'), findsOneWidget);
-    expect(
-      tester.getTopLeft(find.text('January 1, 1980')).dy,
-      lessThan(tester.getTopLeft(find.text('No date yet')).dy),
+    final datedAt = tester.getTopLeft(find.byKey(const Key('draft-row-dated')));
+    final undatedAt = tester.getTopLeft(
+      find.byKey(const Key('draft-row-undated')),
     );
+    final datedFirst =
+        datedAt.dy < undatedAt.dy ||
+        (datedAt.dy == undatedAt.dy && datedAt.dx < undatedAt.dx);
+    expect(datedFirst, isTrue);
     expect(
       tester.widget<Text>(find.text('No date yet')).style?.color,
       albumInk.withValues(alpha: 0.55),

@@ -75,8 +75,8 @@ bool searchTextMatches(SearchRecord record, String text) {
   if (story.personNames.any((name) => name.toLowerCase().contains(needle))) {
     return true;
   }
-  if ('${story.timeframeStart.year}'.contains(needle)) return true;
-  final decade = decadeLabelFor(story.timeframeStart);
+  if ('${story.timeframeStart!.year}'.contains(needle)) return true;
+  final decade = decadeLabelFor(story.timeframeStart!);
   return decade != null && decade.toLowerCase().contains(needle);
 }
 
@@ -87,8 +87,8 @@ bool _dateOnOrBefore(DateTime a, DateTime b) {
 }
 
 bool timeframeOverlaps(Story story, DateTime rangeStart, DateTime rangeEnd) {
-  final storyEnd = story.timeframeEnd ?? story.timeframeStart;
-  return _dateOnOrBefore(story.timeframeStart, rangeEnd) &&
+  final storyEnd = story.timeframeEnd ?? story.timeframeStart!;
+  return _dateOnOrBefore(story.timeframeStart!, rangeEnd) &&
       _dateOnOrBefore(rangeStart, storyEnd);
 }
 
@@ -102,10 +102,10 @@ int _relevanceTier(SearchRecord record, String needle) {
       has(record.placeAddress)) {
     return 2;
   }
-  if (has(story.body) || '${story.timeframeStart.year}'.contains(needle)) {
+  if (has(story.body) || '${story.timeframeStart!.year}'.contains(needle)) {
     return 1;
   }
-  final decade = decadeLabelFor(story.timeframeStart);
+  final decade = decadeLabelFor(story.timeframeStart!);
   if (decade != null && decade.toLowerCase().contains(needle)) return 1;
   return 0;
 }
@@ -132,7 +132,7 @@ List<SearchRecord> filterSearchRecords(
     final start = request.rangeStart;
     final end = request.rangeEnd;
     if (request.decades.isNotEmpty &&
-        !request.decades.contains(decadeStartYear(story.timeframeStart))) {
+        !request.decades.contains(decadeStartYear(story.timeframeStart!))) {
       return false;
     }
     if (request.decades.isEmpty &&

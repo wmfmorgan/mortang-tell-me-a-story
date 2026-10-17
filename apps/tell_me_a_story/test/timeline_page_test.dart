@@ -54,8 +54,9 @@ class _FakeStoriesApi implements StoriesGateway {
 
   @override
   Future<Story> createDraft({
+    String? id,
     required String familyId,
-    required DateTime timeframeStart,
+    DateTime? timeframeStart,
     DateTime? timeframeEnd,
     String? datePrecision,
     String? title,

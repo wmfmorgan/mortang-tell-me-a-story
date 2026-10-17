@@ -99,7 +99,7 @@ String storyDateLabel(StoryDate date) {
 String storyDateLabelFor(Story story) {
   return storyDateLabel(
     StoryDate.fromRow(
-      story.timeframeStart,
+      story.timeframeStart!,
       story.timeframeEnd,
       story.datePrecision,
     ),

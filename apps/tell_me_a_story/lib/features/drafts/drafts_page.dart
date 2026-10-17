@@ -88,7 +88,8 @@ class _DraftsPageState extends State<DraftsPage> {
         await _loadFamilies();
         return;
       }
-      final drafts = await _stories.listMyDrafts(familyId);
+      final drafts = [...await _stories.listMyDrafts(familyId)]
+        ..sort(compareStories);
       if (!mounted) return;
       setState(() {
         _familyId = familyId;
@@ -355,7 +356,11 @@ class _DraftRow extends StatelessWidget {
                   Expanded(
                     child: Text(
                       _timeframeLabel(story),
-                      style: Theme.of(context).textTheme.labelLarge,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: story.timeframeStart == null
+                            ? albumInk.withValues(alpha: 0.55)
+                            : null,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -448,4 +453,7 @@ String _bodyExcerpt(Story story) {
   return title.isEmpty ? 'Untitled' : title;
 }
 
-String _timeframeLabel(Story story) => storyDateLabelFor(story);
+String _timeframeLabel(Story story) {
+  if (story.timeframeStart == null) return 'No date yet';
+  return storyDateLabelFor(story);
+}

@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/config/env.dart';
 import '../../core/router/app_router.dart';
@@ -26,6 +29,9 @@ import 'story_date.dart';
 import 'story_date_picker.dart';
 
 const _storyCardGap = 20.0;
+
+/// Pause after the last keystroke before an autosave. Leaving the page does not wait.
+const kAutosavePause = Duration(seconds: 2);
 
 /// Capture form for `/stories/new` — timeframe, people, place, title, body, persist.
 class NewStoryPage extends StatefulWidget {
@@ -90,6 +96,12 @@ class _NewStoryPageState extends State<NewStoryPage> {
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
   String? _storyId;
+  Timer? _autosaveTimer;
+  var _autosaveInserted = false;
+  var _autosaveDirty = false;
+  var _autosaveInFlight = false;
+  var _autosaveCoalesce = false;
+  String? _autosaveLabel;
   var _loadingFamily = true;
   var _busy = false;
   var _showPublishBanner = false;
@@ -160,10 +172,101 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   @override
   void dispose() {
+    _autosaveTimer?.cancel();
+    if (!_editing && _autosaveDirty && _storyId != null) {
+      unawaited(_runAutosave());
+    }
     _title.dispose();
     _body.dispose();
     _year.dispose();
     super.dispose();
+  }
+
+  void _scheduleAutosave() {
+    if (_editing) return;
+    _storyId ??= const Uuid().v4();
+    _autosaveDirty = true;
+    if (_autosaveInFlight) {
+      _autosaveCoalesce = true;
+      return;
+    }
+    _autosaveTimer?.cancel();
+    _autosaveTimer = Timer(kAutosavePause, () {
+      unawaited(_runAutosave());
+    });
+  }
+
+  Future<void> _runAutosave() async {
+    if (_editing) return;
+    if (_autosaveInFlight) {
+      _autosaveCoalesce = true;
+      return;
+    }
+    if (!_autosaveDirty || _storyId == null) return;
+    _autosaveDirty = false;
+    _autosaveInFlight = true;
+    final id = _storyId!;
+    final title = _title.text;
+    final body = _body.text;
+    final range = _storyDate?.toRange();
+    final personIds = _selectedPeople.map((person) => person.id).toList();
+    final placeId = _selectedPlace?.id ?? _placeId;
+    try {
+      final familyId = await _ensureFamilyId();
+      if (familyId == null) throw StateError('no family');
+      if (!_autosaveInserted) {
+        try {
+          final created = await _stories.createDraft(
+            id: id,
+            familyId: familyId,
+            timeframeStart: range?.start,
+            timeframeEnd: range?.end,
+            datePrecision: range?.precision.name,
+            title: title,
+            body: body,
+            placeId: placeId,
+            personIds: personIds,
+          );
+          _autosaveInserted = true;
+          _storyId = created.id;
+        } on PostgrestException catch (error) {
+          if (!isDuplicateStoryKey(error)) rethrow;
+          _autosaveInserted = true;
+          await _stories.updateDraft(
+            storyId: id,
+            timeframeStart: range?.start,
+            timeframeEnd: range?.end,
+            datePrecision: range?.precision.name,
+            title: title,
+            body: body,
+            placeId: placeId,
+            personIds: personIds,
+          );
+        }
+      } else {
+        await _stories.updateDraft(
+          storyId: _storyId!,
+          timeframeStart: range?.start,
+          timeframeEnd: range?.end,
+          datePrecision: range?.precision.name,
+          title: title,
+          body: body,
+          placeId: placeId,
+          personIds: personIds,
+        );
+      }
+      if (mounted) setState(() => _autosaveLabel = 'Saved');
+    } catch (_) {
+      _autosaveDirty = true;
+      if (mounted) setState(() => _autosaveLabel = 'Not saved');
+    } finally {
+      _autosaveInFlight = false;
+      if (_autosaveCoalesce) {
+        _autosaveCoalesce = false;
+        _autosaveDirty = true;
+        unawaited(_runAutosave());
+      }
+    }
   }
 
   Future<void> _bootstrap() async {
@@ -199,21 +302,21 @@ class _NewStoryPageState extends State<NewStoryPage> {
     }
     if (!mounted) return;
     final familyId = story.familyId;
-    final parsed = StoryDate.fromRow(
-      story.timeframeStart,
-      story.timeframeEnd,
-      story.datePrecision,
-    );
-    final legacy = parsed.legacyDecade;
+    final start = story.timeframeStart;
+    final parsed = start == null
+        ? null
+        : StoryDate.fromRow(start, story.timeframeEnd, story.datePrecision);
+    final legacy = parsed?.legacyDecade ?? false;
     // A decade row opens with an empty year, including edit.
     final keepDecadeBlank = legacy;
-    _year.text = keepDecadeBlank ? '' : '${parsed.year}';
+    _year.text = parsed == null || keepDecadeBlank ? '' : '${parsed.year}';
+    _autosaveInserted = true;
     setState(() {
       _storyId = story.id;
       _familyId = familyId;
       _loadedLegacy = legacy && _editing ? parsed : null;
-      _month = legacy ? null : parsed.month;
-      _day = legacy ? null : parsed.day;
+      _month = parsed == null || legacy ? null : parsed.month;
+      _day = parsed == null || legacy ? null : parsed.day;
       _title.text = story.title ?? '';
       _body.text = story.body ?? '';
       _placeId = story.placeId;
@@ -484,25 +587,42 @@ class _NewStoryPageState extends State<NewStoryPage> {
     final placeId = _selectedPlace?.id ?? _placeId;
     final title = _title.text;
     final body = _body.text;
-    final existingId = _storyId;
-    if (existingId == null) {
+    if (!_autosaveInserted) {
       if (range == null) return null;
-      final created = await _stories.createDraft(
-        familyId: familyId,
-        timeframeStart: range.start,
-        timeframeEnd: range.end,
-        datePrecision: range.precision.name,
-        title: title,
-        body: body,
-        placeId: placeId,
-        personIds: personIds,
-      );
+      Story created;
+      try {
+        created = await _stories.createDraft(
+          id: _storyId,
+          familyId: familyId,
+          timeframeStart: range.start,
+          timeframeEnd: range.end,
+          datePrecision: range.precision.name,
+          title: title,
+          body: body,
+          placeId: placeId,
+          personIds: personIds,
+        );
+      } on PostgrestException catch (error) {
+        final clientId = _storyId;
+        if (clientId == null || !isDuplicateStoryKey(error)) rethrow;
+        created = await _stories.updateDraft(
+          storyId: clientId,
+          timeframeStart: range.start,
+          timeframeEnd: range.end,
+          datePrecision: range.precision.name,
+          title: title,
+          body: body,
+          placeId: placeId,
+          personIds: personIds,
+        );
+      }
+      _autosaveInserted = true;
       if (!mounted) return created;
       setState(() => _storyId = created.id);
       return created;
     }
     final story = await _stories.updateDraft(
-      storyId: existingId,
+      storyId: _storyId!,
       timeframeStart: range?.start,
       timeframeEnd: range?.end,
       datePrecision: range?.precision.name,
@@ -518,6 +638,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   Future<void> _onSaveDraft() async {
     if (!_canSaveDraft) return;
+    _autosaveTimer?.cancel();
+    _autosaveDirty = false;
     setState(() => _busy = true);
     try {
       final story = await _persistDraft();
@@ -571,6 +693,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   Future<void> _onSaveChanges() async {
     if (!_canSaveChanges) return;
+    _autosaveTimer?.cancel();
+    _autosaveDirty = false;
     setState(() => _busy = true);
     try {
       final story = await _persistDraft();
@@ -588,6 +712,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   Future<void> _onPublish() async {
     if (!_actionsEnabled) return;
+    _autosaveTimer?.cancel();
     final readiness = _readiness;
     if (!readiness.canPublish) {
       setState(() => _showPublishBanner = true);
@@ -684,6 +809,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
             : (_editing
                   ? (_canSaveChanges ? _onSaveChanges : null)
                   : _onPublish),
+        captureStatus: _editing ? null : _autosaveLabel,
         captureSecondaryLabel: _editing ? 'Cancel' : 'Save draft',
         capturePrimaryLabel: _editing ? 'Save changes' : 'Publish story',
       ),
@@ -748,7 +874,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
                     maxLines: 3,
                     textCapitalization: TextCapitalization.sentences,
                     cursorColor: albumTerracotta,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) {
+                      setState(() {});
+                      _scheduleAutosave();
+                    },
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontSize: 30,
                       height: 1.2,
@@ -785,7 +914,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
                     minLines: 8,
                     maxLines: null,
                     cursorColor: albumTerracotta,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) {
+                      setState(() {});
+                      _scheduleAutosave();
+                    },
                     style: Theme.of(context).textTheme.bodyLarge
                         ?.copyWith(fontSize: 22, height: 1.55),
                     decoration: InputDecoration(

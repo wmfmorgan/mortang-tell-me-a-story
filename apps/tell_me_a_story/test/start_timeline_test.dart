@@ -220,8 +220,9 @@ class _Stories implements StoriesGateway {
 
   @override
   Future<Story> createDraft({
+    String? id,
     required String familyId,
-    required DateTime timeframeStart,
+    DateTime? timeframeStart,
     DateTime? timeframeEnd,
     String? datePrecision,
     String? title,
@@ -230,11 +231,12 @@ class _Stories implements StoriesGateway {
     List<String> personIds = const [],
   }) async {
     createCalls++;
+    final start = timeframeStart ?? DateTime(1980, 1, 1);
     draft = _story(
       id: 'draft-kept',
       familyId: familyId,
       title: title ?? '',
-      year: timeframeStart.year,
+      year: start.year,
       status: StoryStatus.draft,
       personIds: personIds,
       placeId: placeId,
@@ -260,7 +262,7 @@ class _Stories implements StoriesGateway {
       id: storyId,
       familyId: current.familyId,
       title: title ?? current.title,
-      year: timeframeStart?.year ?? current.timeframeStart.year,
+      year: timeframeStart?.year ?? current.timeframeStart!.year,
       status: StoryStatus.draft,
       personIds: personIds ?? current.personIds,
       placeId: placeId ?? current.placeId,
@@ -276,7 +278,7 @@ class _Stories implements StoriesGateway {
       id: storyId,
       familyId: source.familyId,
       title: source.title,
-      year: source.timeframeStart.year,
+      year: source.timeframeStart!.year,
       personIds: source.personIds,
       placeId: source.placeId,
     );
@@ -1567,8 +1569,9 @@ class _ReaderStories implements StoriesGateway {
 
   @override
   Future<Story> createDraft({
+    String? id,
     required String familyId,
-    required DateTime timeframeStart,
+    DateTime? timeframeStart,
     DateTime? timeframeEnd,
     String? datePrecision,
     String? title,
