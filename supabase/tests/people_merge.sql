@@ -25,11 +25,11 @@ values (
 insert into auth.users (id, email, raw_user_meta_data)
 select user_a, 'merge-a@test.local', '{"display_name":"Ada"}'::jsonb from m14m_ctx
 union all
-select user_b, 'merge-b@test.local', '{"display_name":"Bea"}'::jsonb from m14m_ctx
+select user_b, 'merge-b@test.local', '{"display_name":"ada lovelace"}'::jsonb from m14m_ctx
 union all
-select user_c, 'merge-c@test.local', '{"display_name":"Cam"}'::jsonb from m14m_ctx
+select user_c, 'merge-c@test.local', '{"display_name":"Finn"}'::jsonb from m14m_ctx
 union all
-select user_d, 'merge-d@test.local', '{"display_name":"Dee"}'::jsonb from m14m_ctx;
+select user_d, 'merge-d@test.local', '{"display_name":"Finn"}'::jsonb from m14m_ctx;
 
 insert into public.families (id, name, created_by, parent_family_id)
 select '11111111-14e1-4111-8111-111111111111'::uuid, 'Uid root', user_a, null::uuid from m14m_ctx
@@ -74,6 +74,7 @@ select 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa1', 'Blank fill root', user_a, null f
 union all
 select 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa2', 'Blank fill child', user_a, 'aaaaaaa1-14e1-4111-8111-aaaaaaaaaaa1' from m14m_ctx;
 
+-- Fixture names on linked rows come from the profile.
 insert into public.people (id, family_id, name, email, user_id, created_by)
 select 'a1111111-14e1-4111-8111-a11111111111'::uuid, '11111111-14e1-4111-8111-111111111111'::uuid, 'Root Bee', null::text, user_b, user_a from m14m_ctx
 union all
