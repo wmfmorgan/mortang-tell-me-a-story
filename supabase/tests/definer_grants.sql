@@ -1,6 +1,3 @@
--- EXECUTE grants on public security definer functions.
--- One transaction, rolled back.
-
 begin;
 create extension if not exists pgtap with schema extensions;
 
