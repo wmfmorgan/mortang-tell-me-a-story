@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(16);
+select plan(32);
 
 create temporary table m14n_ctx (
   owner_id uuid primary key,
@@ -239,6 +239,236 @@ select is(
   public.backfill_linked_person_names(),
   0,
   'a second backfill updates 0 rows'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'b14b0000-0000-4000-8000-0000000000b1';
+
+select lives_ok(
+  $$update public.profiles
+      set display_name = null
+      where id = 'b14b0000-0000-4000-8000-0000000000b1'$$,
+  'a null display name sync raises no error'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+
+select results_eq(
+  $$select name from public.people
+    where id in (
+      (select person_a from m14n_ctx),
+      (select person_b from m14n_ctx)
+    )
+    order by id$$,
+  $$values ('Sam Renamed'::text), ('Sam Renamed')$$,
+  'a null display name keeps the linked names'
+);
+
+insert into auth.users (id, email, raw_user_meta_data)
+values (
+  'd14b0000-0000-4000-8000-0000000000d1',
+  'm14n-blank@test.local',
+  '{"display_name":"Blank Null"}'
+);
+
+update public.profiles
+set display_name = null
+where id = 'd14b0000-0000-4000-8000-0000000000d1';
+
+select lives_ok(
+  $$insert into public.people (id, family_id, name, created_by, user_id)
+    select
+      '66666666-14b1-4111-8111-666666666666',
+      tree_a,
+      'Kept Null',
+      owner_id,
+      'd14b0000-0000-4000-8000-0000000000d1'
+    from m14n_ctx$$,
+  'a null display name does not raise when linking a person'
+);
+
+select is(
+  (select name from public.people
+    where id = '66666666-14b1-4111-8111-666666666666'),
+  'Kept Null',
+  'a null display name keeps the name on the new linked person'
+);
+
+alter table public.profiles disable trigger profiles_sync_linked_person_name;
+update public.profiles
+set display_name = null
+where id = 'b14b0000-0000-4000-8000-0000000000b1';
+alter table public.profiles enable trigger profiles_sync_linked_person_name;
+
+select lives_ok(
+  $$select public.backfill_linked_person_names()$$,
+  'backfill raises no error when a display name is null'
+);
+
+select is(
+  (select name from public.people where id = (select person_a from m14n_ctx)),
+  'Sam Renamed',
+  'backfill keeps the person name when the display name is null'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'b14b0000-0000-4000-8000-0000000000b1';
+
+select lives_ok(
+  $$update public.profiles
+      set display_name = '   '
+      where id = 'b14b0000-0000-4000-8000-0000000000b1'$$,
+  'a whitespace display name sync raises no error'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+
+select results_eq(
+  $$select name from public.people
+    where id in (
+      (select person_a from m14n_ctx),
+      (select person_b from m14n_ctx)
+    )
+    order by id$$,
+  $$values ('Sam Renamed'::text), ('Sam Renamed')$$,
+  'a whitespace display name keeps the linked names'
+);
+
+insert into auth.users (id, email, raw_user_meta_data)
+values (
+  'e14b0000-0000-4000-8000-0000000000e1',
+  'm14n-space@test.local',
+  '{"display_name":"Blank Space"}'
+);
+
+update public.profiles
+set display_name = '   '
+where id = 'e14b0000-0000-4000-8000-0000000000e1';
+
+select lives_ok(
+  $$insert into public.people (id, family_id, name, created_by, user_id)
+    select
+      '77777777-14b1-4111-8111-777777777777',
+      tree_a,
+      'Kept Space',
+      owner_id,
+      'e14b0000-0000-4000-8000-0000000000e1'
+    from m14n_ctx$$,
+  'a whitespace display name does not raise when linking a person'
+);
+
+select is(
+  (select name from public.people
+    where id = '77777777-14b1-4111-8111-777777777777'),
+  'Kept Space',
+  'a whitespace display name keeps the name on the new linked person'
+);
+
+alter table public.people disable trigger user;
+update public.people
+set name = 'Drift Space'
+where id = (select person_b from m14n_ctx);
+alter table public.people enable trigger user;
+
+select lives_ok(
+  $$select public.backfill_linked_person_names()$$,
+  'backfill raises no error when a display name is whitespace'
+);
+
+select is(
+  (select name from public.people where id = (select person_b from m14n_ctx)),
+  'Drift Space',
+  'backfill keeps the person name when the display name is whitespace'
+);
+
+insert into auth.users (id, email, raw_user_meta_data)
+values (
+  'f14b0000-0000-4000-8000-0000000000f1',
+  'm14n-invite-null@test.local',
+  '{"display_name":"Invite Null"}'
+);
+
+update public.profiles
+set display_name = null
+where id = 'f14b0000-0000-4000-8000-0000000000f1';
+
+insert into public.invites (
+  family_id, invited_by, email, token, status, expires_at, person_id
+)
+select
+  tree_a,
+  owner_id,
+  'm14n-invite-null@test.local',
+  'tok_m14n_blank_null',
+  'pending'::public.invite_status,
+  now() + interval '7 days',
+  null
+from m14n_ctx;
+
+select lives_ok(
+  $$update public.invites
+      set status = 'accepted',
+          accepted_by = 'f14b0000-0000-4000-8000-0000000000f1',
+          accepted_at = now()
+      where token = 'tok_m14n_blank_null'$$,
+  'an invite accept with a null display name succeeds'
+);
+
+select results_eq(
+  $$select name, user_id::text
+    from public.people
+    where user_id = 'f14b0000-0000-4000-8000-0000000000f1'$$,
+  $$values (
+    'm14n-invite-null@test.local'::text,
+    'f14b0000-0000-4000-8000-0000000000f1'
+  )$$,
+  'an invite accept with a null display name keeps the email fallback'
+);
+
+insert into auth.users (id, email, raw_user_meta_data)
+values (
+  'a14c0000-0000-4000-8000-0000000000c2',
+  'm14n-link-space@test.local',
+  '{"display_name":"Link Space"}'
+);
+
+update public.profiles
+set display_name = '   '
+where id = 'a14c0000-0000-4000-8000-0000000000c2';
+
+insert into public.people (id, family_id, name, created_by)
+select
+  '88888888-14b1-4111-8111-888888888888',
+  tree_a,
+  'Kept Link',
+  owner_id
+from m14n_ctx;
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = 'a14c0000-0000-4000-8000-0000000000c2';
+
+select lives_ok(
+  $$select public.link_accepted_person('88888888-14b1-4111-8111-888888888888')$$,
+  'a person link with a whitespace display name succeeds'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+
+select results_eq(
+  $$select name, user_id::text
+    from public.people
+    where id = '88888888-14b1-4111-8111-888888888888'$$,
+  $$values (
+    'Kept Link'::text,
+    'a14c0000-0000-4000-8000-0000000000c2'
+  )$$,
+  'a person link with a whitespace display name keeps the existing name'
 );
 
 select is(
