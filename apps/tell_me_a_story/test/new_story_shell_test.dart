@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
@@ -505,7 +506,9 @@ void main() {
     await tester.pump();
 
     expect(stories.createIds, hasLength(1));
-    expect(stories.updateIds, [id]);
+    expect(stories.createAllowUndated, [true]);
+    expect(stories.autosaveIds, [id]);
+    expect(stories.updateIds, isEmpty);
   });
 
   testWidgets('a duplicate-key insert becomes an update by the same id', (
@@ -520,7 +523,8 @@ void main() {
     await tester.pump();
 
     expect(stories.createIds, hasLength(1));
-    expect(stories.updateIds, [stories.createIds.single]);
+    expect(stories.autosaveIds, [stories.createIds.single]);
+    expect(stories.updateIds, isEmpty);
     expect(find.text('Saved'), findsOneWidget);
   });
 
@@ -599,7 +603,177 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
   });
 
-  testWidgets('Save draft and Publish still work, and a missing date blocks publish', (
+  testWidgets(
+    'Save draft and Publish still work, and a missing date blocks publish',
+    (tester) async {
+      final stories = _AutosaveStories();
+      await tester.pumpWidget(
+        _shell(
+          stories: stories,
+          people: _FakePeopleApi(
+            seed: const [
+              Person(
+                id: 'p1',
+                familyId: _familyId,
+                name: 'Ada',
+                relationship: 'Aunt',
+                createdBy: 'u1',
+              ),
+            ],
+          ),
+          places: _FakePlacesApi(
+            seed: [
+              Place(
+                id: 'pl1',
+                familyId: _familyId,
+                label: 'Central Park',
+                address: 'New York, NY',
+                lat: 40.78,
+                lng: -73.96,
+                isFavorite: true,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('story-date-year')), '1980');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
+      await tester.pumpAndSettle();
+      expect(find.text('Draft saved'), findsOneWidget);
+      expect(stories.createIds, hasLength(1));
+      expect(stories.createAllowUndated, [false]);
+      expect(stories.createStarts.single, DateTime(1980, 1, 1));
+
+      await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
+      await tester.enterText(
+        find.byKey(const Key('story-body')),
+        'We made jam.',
+      );
+      await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
+      await tester.tap(find.widgetWithText(TextButton, 'Add person'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ada'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.widgetWithText(TextButton, 'Choose place'),
+      );
+      await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Central Park'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Use this place'));
+      await tester.tap(find.text('Use this place'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
+      await tester.pumpAndSettle();
+      expect(stories.publishCalls, 1);
+      expect(
+        find.text('Finish the highlighted fields to publish.'),
+        findsNothing,
+      );
+
+      final blocked = _AutosaveStories();
+      await tester.pumpWidget(
+        _shell(key: const ValueKey('blocked'), stories: blocked),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('story-title')), 'No date');
+      await tester.pump(kAutosavePause);
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
+      await tester.pump();
+      expect(
+        find.text('Finish the highlighted fields to publish.'),
+        findsOneWidget,
+      );
+      expect(blocked.publishCalls, 0);
+      expect(find.byType(AlertDialog), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'a late autosave after publish leaves the story and blanks the label',
+    (tester) async {
+      final stories = _AutosaveStories();
+      await tester.pumpWidget(_shell(stories: stories));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
+      await tester.pump(kAutosavePause);
+      await tester.pump();
+      expect(find.text('Saved'), findsOneWidget);
+
+      stories.markPublished(personIds: const ['p1']);
+      await tester.enterText(find.byKey(const Key('story-title')), 'Jam later');
+      await tester.pump(kAutosavePause);
+      await tester.pump();
+
+      expect(stories.autosaveIds, [stories.createIds.single]);
+      expect(stories.updateIds, isEmpty);
+      expect(stories.story?.status, StoryStatus.published);
+      expect(stories.story?.title, 'Jam');
+      expect(stories.story?.personIds, ['p1']);
+      expect(find.text('Jam later'), findsOneWidget);
+      expect(find.text('Saved'), findsNothing);
+      expect(find.text('Not saved'), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+    },
+  );
+
+  testWidgets('Save changes on a published story writes through updateDraft', (
+    tester,
+  ) async {
+    final stories = _AutosaveStories()
+      ..story = Story(
+        id: 's1',
+        familyId: _familyId,
+        authorId: 'u1',
+        title: 'Jam',
+        body: 'Porch',
+        timeframeStart: DateTime(1987, 3, 14),
+        timeframeEnd: DateTime(1987, 3, 14),
+        datePrecision: StoryDatePrecision.day,
+        status: StoryStatus.published,
+      );
+    final router = GoRouter(
+      initialLocation: '/stories/s1/edit',
+      routes: [
+        GoRoute(
+          path: '/stories/:storyId/edit',
+          builder: (context, state) => NewStoryPage(
+            inviteApi: _FakeInviteApi(),
+            peopleApi: _FakePeopleApi(),
+            placesApi: _FakePlacesApi(),
+            mapboxSearch: _FakeMapboxSearch(),
+            storiesApi: stories,
+            hasMapboxToken: true,
+            mapBuilder: _defaultStubMap,
+            editStoryId: 's1',
+          ),
+        ),
+        GoRoute(
+          path: '/stories/:storyId',
+          builder: (context, state) =>
+              Text('reader-${state.pathParameters['storyId']}'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam revised');
+    await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
+    await tester.pumpAndSettle();
+
+    expect(stories.updateIds, ['s1']);
+    expect(stories.autosaveIds, isEmpty);
+    expect(stories.story?.title, 'Jam revised');
+    expect(find.text('reader-s1'), findsOneWidget);
+  });
+
+  testWidgets('after Publish, disposing the page fires no autosave', (
     tester,
   ) async {
     final stories = _AutosaveStories();
@@ -633,15 +807,14 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('story-date-year')), '1980');
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
-    await tester.pumpAndSettle();
-    expect(find.text('Draft saved'), findsOneWidget);
-    expect(stories.createIds, hasLength(1));
-    expect(stories.createStarts.single, DateTime(1980, 1, 1));
-
     await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+    expect(stories.createIds, hasLength(1));
+
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam more');
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('story-date-year')), '1980');
     await tester.enterText(find.byKey(const Key('story-body')), 'We made jam.');
     await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
@@ -659,27 +832,16 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
     await tester.pumpAndSettle();
     expect(stories.publishCalls, 1);
-    expect(
-      find.text('Finish the highlighted fields to publish.'),
-      findsNothing,
-    );
 
-    final blocked = _AutosaveStories();
-    await tester.pumpWidget(
-      _shell(key: const ValueKey('blocked'), stories: blocked),
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('story-title')), 'No date');
-    await tester.pump(kAutosavePause);
+    final autosaves = stories.autosaveIds.length;
+    final updates = stories.updateIds.length;
+    final creates = stories.createIds.length;
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
-    await tester.pump();
-    expect(
-      find.text('Finish the highlighted fields to publish.'),
-      findsOneWidget,
-    );
-    expect(blocked.publishCalls, 0);
-    expect(find.byType(AlertDialog), findsNothing);
+
+    expect(stories.autosaveIds, hasLength(autosaves));
+    expect(stories.updateIds, hasLength(updates));
+    expect(stories.createIds, hasLength(creates));
   });
 }
 
@@ -689,9 +851,28 @@ class _AutosaveStories implements StoriesGateway {
   final List<String?> createIds = [];
   final List<String> createStatuses = [];
   final List<DateTime?> createStarts = [];
+  final List<bool> createAllowUndated = [];
   final List<String> updateIds = [];
+  final List<String> autosaveIds = [];
   var publishCalls = 0;
   Story? story;
+
+  void markPublished({List<String> personIds = const []}) {
+    final current = story;
+    if (current == null) return;
+    story = Story(
+      id: current.id,
+      familyId: current.familyId,
+      authorId: current.authorId,
+      title: current.title,
+      body: current.body,
+      timeframeStart: current.timeframeStart,
+      timeframeEnd: current.timeframeEnd,
+      placeId: current.placeId,
+      status: StoryStatus.published,
+      personIds: personIds,
+    );
+  }
 
   @override
   Future<Story> createDraft({
@@ -703,11 +884,13 @@ class _AutosaveStories implements StoriesGateway {
     String? title,
     String? body,
     String? placeId,
+    bool allowUndated = false,
     List<String> personIds = const [],
   }) async {
     createIds.add(id);
     createStatuses.add('draft');
     createStarts.add(timeframeStart);
+    createAllowUndated.add(allowUndated);
     if (duplicateOnCreate) {
       duplicateOnCreate = false;
       throw const PostgrestException(
@@ -755,6 +938,35 @@ class _AutosaveStories implements StoriesGateway {
       personIds: personIds ?? story?.personIds ?? const [],
     );
     return story!;
+  }
+
+  @override
+  Future<bool> autosaveDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) async {
+    autosaveIds.add(storyId);
+    final current = story;
+    if (current != null && current.status == StoryStatus.published) {
+      return false;
+    }
+    story = Story(
+      id: storyId,
+      familyId: current?.familyId ?? _familyId,
+      authorId: 'u1',
+      title: title ?? current?.title,
+      body: body ?? current?.body,
+      timeframeStart: timeframeStart ?? current?.timeframeStart,
+      status: StoryStatus.draft,
+      personIds: personIds ?? current?.personIds ?? const [],
+    );
+    return true;
   }
 
   @override

@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(37);
+select plan(42);
 
 create temporary table m14_ctx (
   author_id uuid primary key,
@@ -113,14 +113,37 @@ select is(
   null::date,
   'the null draft keeps a null timeframe_start'
 );
+select is(
+  (select timeframe_end from public.stories where id = (select null_id from m14_ctx)),
+  null::date,
+  'the null draft keeps a null timeframe_end'
+);
+select is(
+  (select date_precision from public.stories where id = (select null_id from m14_ctx)),
+  null::public.story_date_precision,
+  'the null draft keeps a null date_precision'
+);
 
 select throws_ok(
   $$update public.stories
     set status = 'published'::public.story_status, published_at = now()
     where id = (select null_id from m14_ctx)$$,
-  '23514',
-  'new row for relation "stories" violates check constraint "stories_published_needs_date"',
-  'publishing a draft with a null date fails on stories_published_needs_date'
+  'P0001',
+  'VALIDATION: date required',
+  'publishing a draft with a null date raises VALIDATION: date required'
+);
+
+select throws_ok(
+  $$insert into public.stories (
+      id, family_id, author_id, title, status
+    )
+    select
+      'a1400011-0000-4000-8000-000000000011',
+      child_id, author_id, 'Published blank', 'published'::public.story_status
+    from m14_ctx$$,
+  'P0001',
+  'VALIDATION: date required',
+  'inserting a dateless row as published raises VALIDATION: date required'
 );
 
 select lives_ok(
@@ -204,6 +227,24 @@ select lives_ok(
   'a second draft stays unpublished'
 );
 
+select lives_ok(
+  $$insert into public.stories (
+      id, family_id, author_id, title, timeframe_start, status
+    )
+    select
+      'a1400010-0000-4000-8000-000000000010',
+      child_id, author_id, 'Day default', '1982-05-05'::date,
+      'draft'::public.story_status
+    from m14_ctx$$,
+  'a draft with a start date and no precision inserts'
+);
+select is(
+  (select date_precision from public.stories
+    where id = 'a1400010-0000-4000-8000-000000000010'),
+  'day'::public.story_date_precision,
+  'a start date and no precision becomes day'
+);
+
 reset role;
 select set_config('request.jwt.claim.sub', '', true);
 
@@ -231,6 +272,27 @@ select
   child_id::text || '/' || vis_id::text || '/' || photo_id::text || '.jpg',
   author_id::text
 from m14_ctx;
+
+create function pg_temp.m14_visible(story_id uuid)
+returns integer
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select
+    (select count(*)::int from public.stories s where s.id = m14_visible.story_id)
+    + (select count(*)::int from public.comments c where c.story_id = m14_visible.story_id)
+    + (select count(*)::int from public.perspectives p where p.story_id = m14_visible.story_id)
+    + (select count(*)::int from public.photos ph where ph.story_id = m14_visible.story_id)
+    + (select count(*)::int from public.story_people sp where sp.story_id = m14_visible.story_id)
+    + (select count(*)::int from storage.objects o
+        where o.bucket_id = 'story-photos'
+          and o.name = (
+            select c.child_id::text || '/' || m14_visible.story_id::text || '/' || c.photo_id::text || '.jpg'
+            from pg_temp.m14_ctx c
+          ));
+$$;
 
 set local role authenticated;
 set local request.jwt.claim.sub = 'a14a0000-0000-4000-8000-0000000000a1';
@@ -275,16 +337,7 @@ select is(
 set local request.jwt.claim.sub = 'a14d0000-0000-4000-8000-0000000000d1';
 
 select is(
-  (select count(*)::int from public.stories where id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.comments where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.perspectives where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.photos where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.story_people where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from storage.objects
-      where name = (
-        select child_id::text || '/' || vis_id::text || '/' || photo_id::text || '.jpg'
-        from m14_ctx
-      )),
+  pg_temp.m14_visible((select vis_id from m14_ctx)),
   0,
   'a non-author live member sees none of a draft'
 );
@@ -292,16 +345,7 @@ select is(
 set local request.jwt.claim.sub = 'a14b0000-0000-4000-8000-0000000000b1';
 
 select is(
-  (select count(*)::int from public.stories where id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.comments where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.perspectives where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.photos where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.story_people where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from storage.objects
-      where name = (
-        select child_id::text || '/' || vis_id::text || '/' || photo_id::text || '.jpg'
-        from m14_ctx
-      )),
+  pg_temp.m14_visible((select vis_id from m14_ctx)),
   0,
   'an owner sees none of someone else''s draft'
 );
@@ -309,16 +353,7 @@ select is(
 set local request.jwt.claim.sub = 'a14c0000-0000-4000-8000-0000000000c1';
 
 select is(
-  (select count(*)::int from public.stories where id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.comments where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.perspectives where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.photos where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.story_people where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from storage.objects
-      where name = (
-        select child_id::text || '/' || vis_id::text || '/' || photo_id::text || '.jpg'
-        from m14_ctx
-      )),
+  pg_temp.m14_visible((select vis_id from m14_ctx)),
   0,
   'a co-owner sees none of someone else''s draft'
 );
@@ -403,16 +438,7 @@ select lives_ok(
 set local request.jwt.claim.sub = 'a14d0000-0000-4000-8000-0000000000d1';
 
 select is(
-  (select count(*)::int from public.stories where id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.comments where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.perspectives where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.photos where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.story_people where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from storage.objects
-      where name = (
-        select child_id::text || '/' || vis_id::text || '/' || photo_id::text || '.jpg'
-        from m14_ctx
-      )),
+  pg_temp.m14_visible((select vis_id from m14_ctx)),
   6,
   'after publish a live member sees the story and its rows'
 );
@@ -420,16 +446,7 @@ select is(
 set local request.jwt.claim.sub = 'a14b0000-0000-4000-8000-0000000000b1';
 
 select is(
-  (select count(*)::int from public.stories where id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.comments where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.perspectives where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.photos where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.story_people where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from storage.objects
-      where name = (
-        select child_id::text || '/' || vis_id::text || '/' || photo_id::text || '.jpg'
-        from m14_ctx
-      )),
+  pg_temp.m14_visible((select vis_id from m14_ctx)),
   6,
   'after publish the owner sees the story and its rows'
 );
@@ -437,16 +454,7 @@ select is(
 set local request.jwt.claim.sub = 'a14c0000-0000-4000-8000-0000000000c1';
 
 select is(
-  (select count(*)::int from public.stories where id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.comments where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.perspectives where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.photos where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from public.story_people where story_id = (select vis_id from m14_ctx))
-  + (select count(*)::int from storage.objects
-      where name = (
-        select child_id::text || '/' || vis_id::text || '/' || photo_id::text || '.jpg'
-        from m14_ctx
-      )),
+  pg_temp.m14_visible((select vis_id from m14_ctx)),
   6,
   'after publish a co-owner sees the story and its rows'
 );

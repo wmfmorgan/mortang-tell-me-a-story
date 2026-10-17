@@ -88,8 +88,7 @@ class _DraftsPageState extends State<DraftsPage> {
         await _loadFamilies();
         return;
       }
-      final drafts = [...await _stories.listMyDrafts(familyId)]
-        ..sort(compareStories);
+      final drafts = await _stories.listMyDrafts(familyId);
       if (!mounted) return;
       setState(() {
         _familyId = familyId;

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
@@ -114,11 +116,42 @@ void main() {
     expect(rows.map((story) => story.id).toList(), ['dated', 'undated']);
   });
 
+  test('publishedStart returns the start date and rejects a null one', () {
+    final dated = Story(
+      id: 'dated',
+      familyId: 'f1',
+      authorId: 'u1',
+      timeframeStart: DateTime(1980, 6, 1),
+      status: StoryStatus.published,
+    );
+    expect(dated.publishedStart, DateTime(1980, 6, 1));
+
+    final undated = Story(
+      id: 'undated',
+      familyId: 'f1',
+      authorId: 'u1',
+      status: StoryStatus.draft,
+    );
+    expect(() => undated.publishedStart, throwsA(isA<StateError>()));
+  });
+
+  test('lib does not force a story start date with timeframeStart!', () {
+    final hits = <String>[];
+    for (final entity in Directory('lib').listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      if (entity.readAsStringSync().contains('timeframeStart!')) {
+        hits.add(entity.path);
+      }
+    }
+    expect(hits, isEmpty);
+  });
+
   test('isDuplicateStoryKey matches a stories primary key collision', () {
     expect(
       isDuplicateStoryKey(
         const PostgrestException(
-          message: 'duplicate key value violates unique constraint "stories_pkey"',
+          message:
+              'duplicate key value violates unique constraint "stories_pkey"',
           code: '23505',
         ),
       ),

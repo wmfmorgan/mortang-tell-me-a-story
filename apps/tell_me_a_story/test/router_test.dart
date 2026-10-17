@@ -133,7 +133,22 @@ class _StubStoriesApi implements StoriesGateway {
     String? title,
     String? body,
     String? placeId,
+    bool allowUndated = false,
     List<String> personIds = const [],
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> autosaveDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
   }) {
     throw UnimplementedError();
   }

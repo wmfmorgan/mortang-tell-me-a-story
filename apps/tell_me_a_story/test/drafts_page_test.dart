@@ -90,7 +90,22 @@ class _FakeStoriesApi implements StoriesGateway {
     String? title,
     String? body,
     String? placeId,
+    bool allowUndated = false,
     List<String> personIds = const [],
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> autosaveDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
   }) {
     throw UnimplementedError();
   }
@@ -125,7 +140,9 @@ class _FakeStoriesApi implements StoriesGateway {
   @override
   Future<List<Story>> listMyDrafts(String familyId) async {
     familyLoads.add(familyId);
-    return drafts.where((s) => s.familyId == familyId).toList();
+    final rows = drafts.where((s) => s.familyId == familyId).toList();
+    rows.sort(compareStories);
+    return rows;
   }
 
   @override

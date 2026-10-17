@@ -45,6 +45,16 @@ class Story {
   final String? title;
   final String? body;
   final DateTime? timeframeStart; // date only; null until the author sets one
+
+  /// Start date of a published story. A published row always has one.
+  DateTime get publishedStart {
+    final start = timeframeStart;
+    if (start == null) {
+      throw StateError('published story $id is missing a start date');
+    }
+    return start;
+  }
+
   final DateTime? timeframeEnd;
   final StoryDatePrecision datePrecision;
   final DateTime? createdAt;
@@ -306,9 +316,22 @@ abstract class StoriesGateway {
     String? title,
     String? body,
     String? placeId,
+    bool allowUndated = false,
     List<String> personIds = const [],
   });
   Future<Story> updateDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  });
+
+  /// Autosave and save-on-leave only. False when the row is no longer a draft.
+  Future<bool> autosaveDraft({
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
@@ -352,9 +375,10 @@ class StoriesApi implements StoriesGateway {
     String? title,
     String? body,
     String? placeId,
+    bool allowUndated = false,
     List<String> personIds = const [],
   }) async {
-    if (id == null) {
+    if (!allowUndated) {
       ensureValidDraftSave(timeframeStart: timeframeStart);
     }
     final uid = _client.auth.currentUser!.id;
@@ -391,6 +415,56 @@ class StoriesApi implements StoriesGateway {
     String? placeId,
     List<String>? personIds,
   }) async {
+    await _applyStoryWrite(
+      storyId: storyId,
+      draftsOnly: false,
+      timeframeStart: timeframeStart,
+      timeframeEnd: timeframeEnd,
+      datePrecision: datePrecision,
+      title: title,
+      body: body,
+      placeId: placeId,
+      personIds: personIds,
+    );
+    return getStory(storyId);
+  }
+
+  @override
+  Future<bool> autosaveDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) {
+    return _applyStoryWrite(
+      storyId: storyId,
+      draftsOnly: true,
+      timeframeStart: timeframeStart,
+      timeframeEnd: timeframeEnd,
+      datePrecision: datePrecision,
+      title: title,
+      body: body,
+      placeId: placeId,
+      personIds: personIds,
+    );
+  }
+
+  /// Story update plus `story_people` replace. [draftsOnly] is the only fork.
+  Future<bool> _applyStoryWrite({
+    required String storyId,
+    required bool draftsOnly,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) async {
     if (timeframeStart != null) {
       ensureValidDraftSave(timeframeStart: timeframeStart);
     }
@@ -415,12 +489,24 @@ class StoriesApi implements StoriesGateway {
       patch['place_id'] = placeId.isEmpty ? null : placeId;
     }
     if (patch.isNotEmpty) {
-      await _client.from('stories').update(patch).eq('id', storyId);
+      var update = _client.from('stories').update(patch).eq('id', storyId);
+      if (draftsOnly) {
+        update = update.eq('status', 'draft');
+      }
+      final rows = await update.select('id');
+      if (rows.isEmpty) return false;
+    } else if (draftsOnly) {
+      final rows = await _client
+          .from('stories')
+          .select('id')
+          .eq('id', storyId)
+          .eq('status', 'draft');
+      if (rows.isEmpty) return false;
     }
     if (personIds != null) {
       await _replacePeople(storyId, personIds);
     }
-    return getStory(storyId);
+    return true;
   }
 
   @override

@@ -145,6 +145,7 @@ class _FakeStoriesApi implements StoriesGateway {
   var throwOnCreate = false;
   var createDraftCalls = 0;
   var updateDraftCalls = 0;
+  var autosaveCalls = 0;
   var publishCalls = 0;
   var linkCalls = 0;
   String? lastUpdatedStoryId;
@@ -190,6 +191,7 @@ class _FakeStoriesApi implements StoriesGateway {
     String? title,
     String? body,
     String? placeId,
+    bool allowUndated = false,
     List<String> personIds = const [],
   }) async {
     if (throwOnCreate) {
@@ -246,6 +248,39 @@ class _FakeStoriesApi implements StoriesGateway {
       personIds: lastPersonIds,
     );
     return story!;
+  }
+
+  @override
+  Future<bool> autosaveDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) async {
+    autosaveCalls++;
+    lastUpdatedStoryId = storyId;
+    lastTimeframeStart = timeframeStart ?? lastTimeframeStart;
+    lastTimeframeEnd = timeframeEnd ?? lastTimeframeEnd;
+    lastDatePrecision = datePrecision ?? lastDatePrecision;
+    lastTitle = title ?? lastTitle;
+    lastBody = body ?? lastBody;
+    lastPlaceId = placeId ?? lastPlaceId;
+    lastPersonIds = personIds ?? lastPersonIds;
+    story = _draft(
+      id: storyId,
+      familyId: story?.familyId ?? _familyId,
+      timeframeStart: lastTimeframeStart,
+      timeframeEnd: lastTimeframeEnd,
+      title: lastTitle,
+      body: lastBody,
+      placeId: lastPlaceId,
+      personIds: lastPersonIds,
+    );
+    return true;
   }
 
   @override
@@ -1059,9 +1094,12 @@ void main() {
     expect(find.text('Publish story'), findsNothing);
     expect(find.text('Shows as: March 14, 1987'), findsOneWidget);
 
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam revised');
     await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
     await tester.pumpAndSettle();
     expect(stories.updateDraftCalls, 1);
+    expect(stories.autosaveCalls, 0);
+    expect(stories.lastTitle, 'Jam revised');
     expect(stories.lastTimeframeEnd, DateTime(1987, 3, 14));
     expect(stories.lastDatePrecision, 'day');
     expect(stories.publishCalls, 0);

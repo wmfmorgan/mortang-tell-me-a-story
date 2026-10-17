@@ -228,6 +228,7 @@ class _Stories implements StoriesGateway {
     String? title,
     String? body,
     String? placeId,
+    bool allowUndated = false,
     List<String> personIds = const [],
   }) async {
     createCalls++;
@@ -268,6 +269,20 @@ class _Stories implements StoriesGateway {
       placeId: placeId ?? current.placeId,
     );
     return draft!;
+  }
+
+  @override
+  Future<bool> autosaveDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) {
+    throw UnimplementedError();
   }
 
   @override
@@ -1577,6 +1592,7 @@ class _ReaderStories implements StoriesGateway {
     String? title,
     String? body,
     String? placeId,
+    bool allowUndated = false,
     List<String> personIds = const [],
   }) {
     throw UnimplementedError();
@@ -1584,6 +1600,20 @@ class _ReaderStories implements StoriesGateway {
 
   @override
   Future<Story> updateDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> autosaveDraft({
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
