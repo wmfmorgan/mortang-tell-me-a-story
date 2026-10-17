@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 
 void main() {
@@ -69,5 +70,60 @@ void main() {
     expect(s.personIds, ['a', 'b']);
     expect(s.photoCount, 1);
     expect(s.timeframeStart, DateTime(1980, 1, 1));
+  });
+
+  test('Story.fromJson tolerates a null timeframe', () {
+    final story = Story.fromJson({
+      'id': 's-null',
+      'family_id': 'f1',
+      'author_id': 'u1',
+      'title': 'Undated',
+      'body': 'Still writing',
+      'timeframe_start': null,
+      'timeframe_end': null,
+      'date_precision': null,
+      'status': 'draft',
+    });
+    expect(story.timeframeStart, isNull);
+    expect(story.timeframeEnd, isNull);
+    expect(story.status, StoryStatus.draft);
+  });
+
+  test('compareStories sorts a null date last', () {
+    final undated = Story.fromJson({
+      'id': 'undated',
+      'family_id': 'f1',
+      'author_id': 'u1',
+      'timeframe_start': null,
+      'timeframe_end': null,
+      'date_precision': null,
+      'status': 'draft',
+      'created_at': '2020-01-01T00:00:00Z',
+    });
+    final dated = Story.fromJson({
+      'id': 'dated',
+      'family_id': 'f1',
+      'author_id': 'u1',
+      'timeframe_start': '1980-01-01',
+      'timeframe_end': '1980-12-31',
+      'date_precision': 'year',
+      'status': 'draft',
+      'created_at': '2020-01-02T00:00:00Z',
+    });
+    final rows = [undated, dated]..sort(compareStories);
+    expect(rows.map((story) => story.id).toList(), ['dated', 'undated']);
+  });
+
+  test('isDuplicateStoryKey matches a stories primary key collision', () {
+    expect(
+      isDuplicateStoryKey(
+        const PostgrestException(
+          message: 'duplicate key value violates unique constraint "stories_pkey"',
+          code: '23505',
+        ),
+      ),
+      isTrue,
+    );
+    expect(isDuplicateStoryKey(StateError('network')), isFalse);
   });
 }

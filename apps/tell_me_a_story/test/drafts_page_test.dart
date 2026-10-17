@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/app.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
@@ -505,6 +506,47 @@ void main() {
 
     expect(stories.familyLoads.last, otherId);
     expect(find.text('Drafts'), findsOneWidget);
+  });
+
+  testWidgets('a null date renders as No date yet and sorts last', (
+    tester,
+  ) async {
+    final undated = Story.fromJson({
+      'id': 'undated',
+      'family_id': _familyId,
+      'author_id': 'u1',
+      'title': 'Undated',
+      'timeframe_start': null,
+      'timeframe_end': null,
+      'date_precision': null,
+      'status': 'draft',
+      'created_at': '2020-01-01T00:00:00Z',
+    });
+    final dated = Story.fromJson({
+      'id': 'dated',
+      'family_id': _familyId,
+      'author_id': 'u1',
+      'title': 'Dated',
+      'timeframe_start': '1980-01-01',
+      'timeframe_end': '1980-01-01',
+      'date_precision': 'day',
+      'status': 'draft',
+      'created_at': '2020-06-01T00:00:00Z',
+    });
+    await tester.pumpWidget(
+      _drafts(stories: _FakeStoriesApi(drafts: [undated, dated])),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No date yet'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('January 1, 1980')).dy,
+      lessThan(tester.getTopLeft(find.text('No date yet')).dy),
+    );
+    expect(
+      tester.widget<Text>(find.text('No date yet')).style?.color,
+      albumInk.withValues(alpha: 0.55),
+    );
   });
 }
 

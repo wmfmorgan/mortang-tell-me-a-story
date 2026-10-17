@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/places/place_map.dart';
 import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
@@ -167,6 +170,7 @@ Widget _shell({
   PeopleGateway? people,
   PlacesGateway? places,
   MapboxSearchGateway? search,
+  StoriesGateway? stories,
   bool hasMapboxToken = true,
   PlaceMapBuilder? mapBuilder = _defaultStubMap,
 }) {
@@ -176,6 +180,7 @@ Widget _shell({
       peopleApi: people ?? _FakePeopleApi(),
       placesApi: places ?? _FakePlacesApi(),
       mapboxSearch: search ?? _FakeMapboxSearch(),
+      storiesApi: stories,
       hasMapboxToken: hasMapboxToken,
       mapBuilder: mapBuilder,
     ),
@@ -469,4 +474,320 @@ void main() {
       }
     }
   });
+
+  testWidgets('first keystroke inserts one draft with a client id', (
+    tester,
+  ) async {
+    final stories = _AutosaveStories();
+    await tester.pumpWidget(_shell(stories: stories));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('story-title')), 'J');
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+
+    expect(stories.createIds, hasLength(1));
+    expect(stories.createStatuses, ['draft']);
+    expect(stories.createStarts.single, isNull);
+    final id = stories.createIds.single;
+    expect(id, isNotNull);
+    expect(
+      RegExp(
+        r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+      ).hasMatch(id!),
+      isTrue,
+    );
+
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+
+    expect(stories.createIds, hasLength(1));
+    expect(stories.updateIds, [id]);
+  });
+
+  testWidgets('a duplicate-key insert becomes an update by the same id', (
+    tester,
+  ) async {
+    final stories = _AutosaveStories()..duplicateOnCreate = true;
+    await tester.pumpWidget(_shell(stories: stories));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+
+    expect(stories.createIds, hasLength(1));
+    expect(stories.updateIds, [stories.createIds.single]);
+    expect(find.text('Saved'), findsOneWidget);
+  });
+
+  testWidgets('a typing pause saves and leaving saves with no prompt', (
+    tester,
+  ) async {
+    final paused = _AutosaveStories();
+    await tester.pumpWidget(_shell(stories: paused));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('story-body')), 'Porch');
+    await tester.pump(const Duration(seconds: 1));
+    expect(paused.createIds, isEmpty);
+    await tester.pump(kAutosavePause - const Duration(seconds: 1));
+    await tester.pump();
+    expect(paused.createIds, hasLength(1));
+    expect(find.byType(AlertDialog), findsNothing);
+
+    final leaving = _AutosaveStories();
+    await tester.pumpWidget(_shell(stories: leaving));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
+    await tester.pump();
+    expect(leaving.createIds, isEmpty);
+    expect(find.byType(AlertDialog), findsNothing);
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.pump();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(leaving.createIds, hasLength(1));
+  });
+
+  testWidgets('a successful autosave shows Saved in muted ink', (tester) async {
+    final stories = _AutosaveStories();
+    await tester.pumpWidget(_shell(stories: stories));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+
+    expect(find.text('Saved'), findsOneWidget);
+    final saved = tester.widget<Text>(find.text('Saved'));
+    expect(saved.style?.color, albumInk.withValues(alpha: 0.55));
+    expect(
+      tester.getTopLeft(find.text('Saved')).dx,
+      lessThan(tester.getTopLeft(find.text('Save draft')).dx),
+    );
+  });
+
+  testWidgets('a failed autosave shows Not saved and retries next pause', (
+    tester,
+  ) async {
+    final stories = _AutosaveStories()..createError = StateError('down');
+    await tester.pumpWidget(_shell(stories: stories));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+
+    expect(find.text('Not saved'), findsOneWidget);
+    expect(find.text('Jam'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(stories.createIds, hasLength(1));
+
+    stories.createError = null;
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam today');
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+
+    expect(find.text('Saved'), findsOneWidget);
+    expect(find.text('Jam today'), findsOneWidget);
+    expect(stories.createIds, hasLength(2));
+    expect(stories.createIds[1], stories.createIds[0]);
+    expect(find.byType(AlertDialog), findsNothing);
+  });
+
+  testWidgets('Save draft and Publish still work, and a missing date blocks publish', (
+    tester,
+  ) async {
+    final stories = _AutosaveStories();
+    await tester.pumpWidget(
+      _shell(
+        stories: stories,
+        people: _FakePeopleApi(
+          seed: const [
+            Person(
+              id: 'p1',
+              familyId: _familyId,
+              name: 'Ada',
+              relationship: 'Aunt',
+              createdBy: 'u1',
+            ),
+          ],
+        ),
+        places: _FakePlacesApi(
+          seed: [
+            Place(
+              id: 'pl1',
+              familyId: _familyId,
+              label: 'Central Park',
+              address: 'New York, NY',
+              lat: 40.78,
+              lng: -73.96,
+              isFavorite: true,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('story-date-year')), '1980');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
+    await tester.pumpAndSettle();
+    expect(find.text('Draft saved'), findsOneWidget);
+    expect(stories.createIds, hasLength(1));
+    expect(stories.createStarts.single, DateTime(1980, 1, 1));
+
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
+    await tester.enterText(find.byKey(const Key('story-body')), 'We made jam.');
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
+    await tester.tap(find.widgetWithText(TextButton, 'Add person'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ada'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Choose place'));
+    await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Central Park'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Use this place'));
+    await tester.tap(find.text('Use this place'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
+    await tester.pumpAndSettle();
+    expect(stories.publishCalls, 1);
+    expect(
+      find.text('Finish the highlighted fields to publish.'),
+      findsNothing,
+    );
+
+    final blocked = _AutosaveStories();
+    await tester.pumpWidget(_shell(stories: blocked));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('story-title')), 'No date');
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
+    await tester.pump();
+    expect(
+      find.text('Finish the highlighted fields to publish.'),
+      findsOneWidget,
+    );
+    expect(blocked.publishCalls, 0);
+    expect(find.byType(AlertDialog), findsNothing);
+  });
+}
+
+class _AutosaveStories implements StoriesGateway {
+  var duplicateOnCreate = false;
+  Object? createError;
+  final List<String?> createIds = [];
+  final List<String> createStatuses = [];
+  final List<DateTime?> createStarts = [];
+  final List<String> updateIds = [];
+  var publishCalls = 0;
+  Story? story;
+
+  @override
+  Future<Story> createDraft({
+    String? id,
+    required String familyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String> personIds = const [],
+  }) async {
+    createIds.add(id);
+    createStatuses.add('draft');
+    createStarts.add(timeframeStart);
+    if (duplicateOnCreate) {
+      duplicateOnCreate = false;
+      throw const PostgrestException(
+        message:
+            'duplicate key value violates unique constraint "stories_pkey"',
+        code: '23505',
+      );
+    }
+    if (createError != null) throw createError!;
+    story = Story(
+      id: id ?? 'server-id',
+      familyId: familyId,
+      authorId: 'u1',
+      title: title,
+      body: body,
+      timeframeStart: timeframeStart,
+      timeframeEnd: timeframeEnd,
+      placeId: placeId,
+      status: StoryStatus.draft,
+      personIds: personIds,
+    );
+    return story!;
+  }
+
+  @override
+  Future<Story> updateDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) async {
+    updateIds.add(storyId);
+    story = Story(
+      id: storyId,
+      familyId: story?.familyId ?? _familyId,
+      authorId: 'u1',
+      title: title ?? story?.title,
+      body: body ?? story?.body,
+      timeframeStart: timeframeStart ?? story?.timeframeStart,
+      status: StoryStatus.draft,
+      personIds: personIds ?? story?.personIds ?? const [],
+    );
+    return story!;
+  }
+
+  @override
+  Future<Story> publish(String storyId) async {
+    publishCalls++;
+    return story ??
+        Story(
+          id: storyId,
+          familyId: _familyId,
+          authorId: 'u1',
+          timeframeStart: DateTime(1980, 1, 1),
+          status: StoryStatus.published,
+        );
+  }
+
+  @override
+  Future<Story> getStory(String storyId) async {
+    final existing = story;
+    if (existing == null || existing.id != storyId) {
+      throw StateError('missing $storyId');
+    }
+    return existing;
+  }
+
+  @override
+  Future<Story?> getPublished(String storyId) async => null;
+
+  @override
+  Future<List<Story>> listMyDrafts(String familyId) async => const [];
+
+  @override
+  Future<List<Story>> listPublished(String familyId) async => const [];
+
+  @override
+  Future<void> discard(String storyId) async {}
+
+  @override
+  Future<void> linkPerson({
+    required String storyId,
+    required String personId,
+  }) async {}
 }
