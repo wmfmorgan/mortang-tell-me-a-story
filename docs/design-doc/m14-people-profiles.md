@@ -58,3 +58,66 @@ Bill: "yes. I want this fixed in #33"
 - link_accepted_person's tree-wide check stays as it is on main.
 - pgTAP adds a case for a member of both a parent and a child family: exactly one linked person in the tree after create, accept, and backfill.
 - Still 47 policies, 4 prefixes, a new migration only. The app change for the tree-wide picker comes back for Mugatu's recheck. Ships in #33.
+## M14 amendment: #51, story people from anywhere in the tree (LOCKED 2026-10-18)
+
+### Problem
+`story_people_insert_editor` and `story_people_update_editor` require `p.family_id = s.family_id`. Since `20261016120000_member_person_rows.sql` there is one person row per tree, so parent-timeline people live only in the parent family. The tree-wide picker offers them and the insert refuses them (Bill, "Liam is Born" in The WFM Morgans, could not add William F Morgan or txmorgan from WHM Morgans).
+
+### Decision
+A person can be linked to a story when the person's family and the story's family are in the same live tree. Story-side rights are unchanged (`can_edit_story`). The helper also requires the caller to be a live member of both trees (TMAS-53-01), so it answers nothing for outsiders.
+
+`family_tree_root` is security definer and NOT executable by `authenticated` on prod, so it cannot be called directly from a policy. `is_tree_member(p.family_id)` is not enough either: it checks the caller, not the story, so a user in two trees could link a person from tree B onto a story in tree A. We do not widen `family_tree_root` (it would hand any signed-in user the root id of any family uuid). Instead, one boolean-only helper.
+
+### Migration: `20261018000000_story_people_same_tree.sql` (new file, no edits to shipped migrations)
+
+```sql
+create function public.same_family_tree(a uuid, b uuid)
+returns boolean
+language sql stable security definer
+set search_path = ''
+as $$
+  select coalesce(public.is_tree_member(a) and public.is_tree_member(b) and public.family_tree_root(a) = public.family_tree_root(b), false);
+$$;
+revoke all on function public.same_family_tree(uuid, uuid) from public, anon;
+grant execute on function public.same_family_tree(uuid, uuid) to authenticated;
+
+alter policy story_people_insert_editor on public.story_people
+  with check (
+    public.can_edit_story(story_id)
+    and exists (
+      select 1 from public.people p
+      join public.stories s on s.id = story_people.story_id
+      where p.id = story_people.person_id
+        and public.same_family_tree(p.family_id, s.family_id)
+    )
+  );
+
+alter policy story_people_update_editor on public.story_people
+  using (public.can_edit_story(story_id))
+  with check (
+    public.can_edit_story(story_id)
+    and exists (
+      select 1 from public.people p
+      join public.stories s on s.id = story_people.story_id
+      where p.id = story_people.person_id
+        and public.same_family_tree(p.family_id, s.family_id)
+    )
+  );
+```
+
+Soft deletes: `family_tree_root` returns null for a soft-deleted family and stops climbing at a soft-deleted parent, so a person in a deleted family is refused, and a child timeline whose parent is deleted counts as its own tree (matches the M10 lock). Existing links are untouched.
+
+### Gates
+- Policies: 47, unchanged (alter only).
+- Definer allowlist: 29 to 30 (`same_family_tree`). Update the allowlist test.
+- Error prefixes: 4, unchanged. No client change.
+- pgTAP: 739 plus the new tests.
+
+### pgTAP (`supabase/tests/story_people_same_tree.sql`)
+1. Live member who can edit a story in a child timeline links a person whose row is in the parent timeline: passes.
+2. Same, person in the story's own timeline: passes (no regression).
+3. Person in an unrelated tree, where the caller is also a member of that tree: refused (42501). This is the case `is_tree_member` alone would let through.
+4. Person whose family is soft-deleted: refused.
+5. Child timeline whose parent is soft-deleted, person in that parent: refused.
+6. Update an existing link to a person in an unrelated tree: refused.
+7. `same_family_tree` is not executable by anon; executable by authenticated; is security definer with `search_path=''`.

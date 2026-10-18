@@ -2366,8 +2366,8 @@ Definition of done:
 - PR description: commands run, test counts, OPENs left, screenshots of Add person, Edit person, Settings and the owner view with the Mark and Unmark confirms, and Bill's smoke steps.
 - Then stop. Lanes: Big Head, Mugatu, Dinesh, Gilfoyle. Bill merges.
 ```
-### §15 M14.3 item 10 Linked person name follows profile (READY 2026-10-16)
-**Status:** **READY 2026-10-16.** Sources: PRD M14.3 item 10 (Jared, locked by Bill 2026-10-16) [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2); Decisions [✅ Decisions](https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166); Design Doc "M14.3 item 10 — Linked person name follows profile (LOCKED 2026-10-16)" (Gilfoyle) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7); Mugatu locked UX (linked person name comes from the profile; Edit name hidden for linked people). Branch: `feat/m14-3-linked-name-sync`. One PR.
+### §15 M14.3 item 10 Linked person name follows profile (CLOSED 2026-10-18: #38 merged cae41fa, #39 definer-grants hotfix ec0efa7, Bill smoke passed 3:17 PM CT)
+**Status:** **CLOSED 2026-10-18** (Bill: "item 10 smoke test passed", 3:17 PM CT). Earlier: **READY 2026-10-16.** Sources: PRD M14.3 item 10 (Jared, locked by Bill 2026-10-16) [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2); Decisions [✅ Decisions](https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166); Design Doc "M14.3 item 10 — Linked person name follows profile (LOCKED 2026-10-16)" (Gilfoyle) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7); Mugatu locked UX (linked person name comes from the profile; Edit name hidden for linked people). Branch: `feat/m14-3-linked-name-sync`. One PR.
 #### Rule
 - When `people.user_id` is not null, `people.name` equals that user's `profiles.display_name`, in every tree.
 - It syncs on link (insert, or update that changes `user_id`) and whenever `profiles.display_name` changes.
@@ -2721,3 +2721,181 @@ Update existing tests (same names unless noted; no assertion removed):
 - Decisions 2026-10-18 (#50: tree people only, no cap, invites unchanged, already-on-story hidden, New and Edit story, Search filter unchanged) map to U3, U8/C1, U9 and the new_story tests.
 - UX `docs/ux/m14-multi-add-people.md` maps to U1–U9 and tests 1–14; U10 (Bill C2) covers its Cancel line; U8 pins the amendment's clear-on-create rule (test 13).
 - Design Doc: no change (Gilfoyle 2026-10-18, #50 comment). Maps to G1–G3, the FORBIDDEN rules and the empty `supabase/` and `lib/data/` diff gates.
+
+### §15 M14.6 Story people from anywhere in the tree (#51) (APPROVED by Bill 2026-10-18, rev 3)
+**Status:** **APPROVED by Bill 2026-10-18 (rev 3)** (Bill: "Fix TMAS-53-01 in #53 before merging", 4:13 PM CT, relayed verbatim by Erlich). Rev 3 fixes Trinity's Low finding TMAS-53-01: `same_family_tree` had no check on who was calling it. The helper now also requires the caller to be a live member of both trees. Gilfoyle locked the body on 2026-10-18. This adds four helper checks and folds in the planned #42 helper-tests cleanup. Earlier: **APPROVED rev 2** (Bill: "let's go on #51", 3:19 PM CT, relayed verbatim by Erlich); **READY rev 2 2026-10-18.** Rev 2: Gilfoyle approved the three `fit_and_finish.sql` edits (2026-10-18), so the CONFLICT is resolved; his condition (cases 3 and 6 run as a caller in both trees) is an explicit guard assertion and acceptance check. Bug fix to existing behavior. Database only: one new migration, one new pgTAP file, and in-place edits to three existing pgTAP files (`definer_grants.sql`, `story_draft_autosave.sql`, `fit_and_finish.sql`). No client change. PRD and UX are unchanged. M14.6 is the next free number: the last §15 item on `main` is M14.4 (CLOSED 2026-10-17), there is no M14.5 or M14.6 on `main`, and open PR #52 (`feat/m14-multi-add-people`, #50) adds "§15 M14.5 Multi-add people (#50)". Update 2026-10-18 3:10 PM CT: #52 merged as `19bf266`, which adds §15 M14.5 to `impl-spec.md` and touches nothing under `supabase/` or `docs/design-doc/`, so every supabase fact below still holds. Branch off `19bf266` and append M14.6 right after M14.5. Code facts are pinned to `main` @ `f3f3244` (#41, "docs: move build docs from Notion into docs/", 2026-10-18 08:12 CT).
+**Branch:** `fix/m14-story-people-same-tree`, one PR off `main`. One milestone per PR. No push to `main`. Don't merge. Stop after opening the PR. Follow the Grok Build CLI Contract.
+> 🔍 INFER: Branch `fix/m14-story-people-same-tree` because this is a bug fix and earlier fixes use the `fix/<milestone>-<topic>` prefix (`fix/definer-grants-hotfix`, `fix/m14-3-blank-display-name`). No branch with this name exists yet.
+**Sources:** GitHub issue [#51](https://github.com/wmfmorgan/mortang-tell-me-a-story/issues/51) (Bill, 2026-10-18: on The WFM Morgans story "Liam is Born", adding William F Morgan or txmorgan shows "Couldn't save person. Try again."); Gilfoyle, Design Doc "M14 amendment: #51, story people from anywhere in the tree (LOCKED 2026-10-18)", which wins on all SQL, RLS and pgTAP cases and lands verbatim in `docs/design-doc/m14-people-profiles.md` in this PR. PRD and UX unchanged.
+
+#### Code on `main` this item changes (read-only facts)
+- Latest migration: `supabase/migrations/20261017000100_drafts_author_only.sql` (#40). Nothing later exists on `main` or on any open PR. 32 migrations total.
+- `story_people_insert_editor` and `story_people_update_editor` were last defined in `supabase/migrations/20261011210000_fit_and_finish.sql` (M13) and never touched since (Migration B of M14.4 altered only `story_people_select_member`, l.80):
+	- l.215–228: `drop policy if exists story_people_insert_author` then `create policy story_people_insert_editor on public.story_people for insert to authenticated with check (public.can_edit_story(story_people.story_id) and exists (select 1 from public.people p join public.stories s on s.id = story_people.story_id where p.id = story_people.person_id and p.family_id = s.family_id))`. The same-timeline clause is l.226.
+	- l.230–244: `create policy story_people_update_editor ... for update to authenticated using (public.can_edit_story(story_people.story_id)) with check (<same body as insert>)`. The USING clause (l.234) matches Gilfoyle's `using (public.can_edit_story(story_id))`; his `alter policy` restates it unchanged. The same-timeline clause is l.242.
+	- l.246–250: `story_people_delete_editor` (USING `can_edit_story` only). Not touched by this item.
+- `public.family_tree_root(fid uuid)`: `supabase/migrations/20261010230000_family_tree_read.sql` l.9–27, never redefined. `language sql stable security definer set search_path = public`. Recursive walk from `fid` that requires `f.deleted_at is null` on the start row (l.18) and `p.deleted_at is null` on each parent (l.22), depth cap 64, cycle guard. It returns null for a soft-deleted family and stops climbing at a soft-deleted parent. l.75: `revoke all on function public.family_tree_root(uuid) from public, anon, authenticated;` with no later grant, so `authenticated` cannot call it. Gilfoyle's claims hold.
+- `public.can_edit_story(sid uuid)`: `20261011210000_fit_and_finish.sql` l.136–173, never redefined. `security definer`, `set search_path = ''`. True when the story's family is live and either the caller is the author and a live member (`is_live_family_member`), or the story is published and the caller is an owner or co-owner of the story's family. l.175–176: revoked from `public, anon`, granted to `authenticated`. Unchanged by this item.
+- `public.is_tree_member(fid uuid)`: `20261012100000_people_profiles.sql` l.52–73 (checks the caller, not the story). Not used by this fix.
+- RLS inside the policy subquery: `people_select_member` is `using (public.is_tree_member(family_id))` (`20261012100000_people_profiles.sql` l.89–93), so an editor in a child timeline can see a parent-timeline person row; the EXISTS in the new policy reads it under that policy.
+- Client writes that hit these policies, all unchanged: `StoriesApi.linkPerson` (`apps/tell_me_a_story/lib/data/stories_api.dart` l.637, one insert) and `_replacePeople` (l.647, delete then insert, called from l.403 and l.507). Both go through `story_people_insert_editor`, so the issue's `_replacePeople` follow-up is fixed by the same policy change.
+- Tests on `main` (22 pgTAP files, `select plan(n)` sums to **739**):
+	- Definer allowlist array: `supabase/tests/definer_grants.sql` l.275–316, `is_empty` "every public security definer authenticated can execute is on the allowlist", 29 entries at l.284–312 in alphabetical order. `revoke_invite` is l.308, `set_family_origin` is l.309. Plan 68.
+	- Definer count 29: `supabase/tests/story_draft_autosave.sql` l.489–500 (`count(*)` of `public` `prosecdef` functions `authenticated` can execute; expected `29` at l.498, label `'the definer allowlist is 29'` at l.499). Plan 42.
+	- No-anon rule for all definers: `supabase/tests/definer_grants.sql` l.262–273 (`is_empty`, "no public security definer function is executable by anon"). The new function satisfies it via `revoke all ... from public, anon`.
+	- No test requires `search_path` for every definer at once. Per-function checks use `'search_path=""' = any (p.proconfig)` (e.g. `people_profiles.sql` l.48–58). The new function sets `search_path = ''`.
+	- Policy count 47: `supabase/tests/fit_and_finish.sql` l.610–614 (count query l.611, `47` at l.612), repeated in `origin_stories.sql` l.776–780, `start_timeline.sql` l.1015–1019, `people_profiles.sql` l.393–397, `dob_visibility_passed_away.sql` l.108–112, `linked_person_name_sync_test.sql` l.484–488, `story_draft_autosave.sql` l.483–487. All stay 47.
+	- Policy text pins: `supabase/tests/fit_and_finish.sql` l.631–638 (`story_people_insert_editor` with_check) and l.644–651 (`story_people_update_editor` with_check) assert the deparsed text ending `AND (p.family_id = s.family_id)))))` (l.636, l.649). l.639–643 pins the update qual `'can_edit_story(story_id)'`, which stays true.
+	- Old-behavior assertion: `supabase/tests/fit_and_finish.sql` l.425–431, `throws_ok` "a cross-family person link is rejected". The caller is the parent family's owner (`a1300000-…a1`, set at l.385); the story is `published_id` in `parent_id`; the person is `other_person_id`, whose row is in `child_id`, a live child of `parent_id` (setup l.80–90, l.123–124). Same tree, so after the fix that insert succeeds.
+	- Not affected: `story_photos_tree_read_guard.sql` l.138–147 also rejects a "cross-family person link", but `home_id` and `other_id` are two separate root families (both from `create_family`, l.46–47), so it stays refused. Other `story_people` inserts in tests run as a superuser, or are refused by `can_edit_story` (`story_draft_autosave.sql` l.408–414).
+- pgTAP conventions (from existing files): `begin;` then `create extension if not exists pgtap with schema extensions;`, `select plan(n);`, a `create temporary table <x>_ctx (...)` with `grant all on table <x>_ctx to authenticated, anon, service_role;`, users seeded with `insert into auth.users (id, email, raw_user_meta_data)`, families with `public.create_family('Name')` as the caller or `insert into public.families (name, created_by, parent_family_id)` as superuser plus `insert into public.memberships`, impersonation with `set local role authenticated; set local request.jwt.claim.sub = '<uuid>'; set local request.jwt.claim.role = 'authenticated';`, back to superuser with `reset role; select set_config('request.jwt.claim.sub', '', true);`, soft delete with `update public.families set deleted_at = now() where id = ...` as superuser (`start_timeline.sql` l.199), and `select * from finish(); rollback;`. There is no `tests/helpers` folder and no shared seeding function; each file seeds its own fixtures.
+
+#### Files touched (exhaustive)
+- New: `supabase/migrations/20261018000000_story_people_same_tree.sql`
+- New: `supabase/tests/story_people_same_tree.sql`
+- `supabase/tests/definer_grants.sql` (one array entry, EXPECTED)
+- `supabase/tests/story_draft_autosave.sql` (count 29 to 30, EXPECTED)
+- `supabase/tests/fit_and_finish.sql` (EXPECTED, Gilfoyle-approved): l.636 and l.649 policy-text pins re-pinned to `same_family_tree(p.family_id, s.family_id)`; l.425–431 `throws_ok` flipped to `lives_ok` and renamed. Plan stays 60.
+- `docs/design-doc/m14-people-profiles.md` (append Gilfoyle's section verbatim after the last line, l.60)
+- `docs/impl-spec/impl-spec.md` (this §15 item, appended at the end of §15)
+- Unchanged, and the diff must show it: everything under `apps/`, every existing file under `supabase/migrations/`, `supabase/functions/`, `apps/tell_me_a_story/lib/data/rpc_error.dart`.
+> 🔍 INFER: Migration filename `20261018000000_story_people_same_tree.sql` because it is the next timestamp after the latest on `main` (`20261017000100_drafts_author_only.sql`), it uses today's date, and it follows the `YYYYMMDD000000` / `YYYYMMDD000100` pattern of the M14.4 pair (`20261017000000`, `20261017000100`). If another migration lands on `main` before this PR merges, rename this unmerged file to a later timestamp before merge (renaming is allowed only while it is unmerged).
+- Resolved (Gilfoyle, 2026-10-18; was a CONFLICT in rev 1): his Gates named only the allowlist test, but on `main` the definer count also lives in `story_draft_autosave.sql` and three `fit_and_finish.sql` assertions pin the old same-timeline rule. He approved editing exactly those assertions in place (edits 3 and 4 below), with plan counts unchanged and no assertion removed. The unrelated-tree refusal the old l.425–431 stood for is covered by new cases 3 and 6 (caller in both trees, enforced by the guard) and by `story_photos_tree_read_guard.sql` l.138–147, which stays as is.
+
+#### Migration (exact SQL, Gilfoyle, no additions)
+`supabase/migrations/20261018000000_story_people_same_tree.sql`:
+```sql
+create function public.same_family_tree(a uuid, b uuid)
+returns boolean
+language sql stable security definer
+set search_path = ''
+as $$
+  select coalesce(public.is_tree_member(a) and public.is_tree_member(b) and public.family_tree_root(a) = public.family_tree_root(b), false);
+$$;
+revoke all on function public.same_family_tree(uuid, uuid) from public, anon;
+grant execute on function public.same_family_tree(uuid, uuid) to authenticated;
+
+alter policy story_people_insert_editor on public.story_people
+  with check (
+    public.can_edit_story(story_id)
+    and exists (
+      select 1 from public.people p
+      join public.stories s on s.id = story_people.story_id
+      where p.id = story_people.person_id
+        and public.same_family_tree(p.family_id, s.family_id)
+    )
+  );
+
+alter policy story_people_update_editor on public.story_people
+  using (public.can_edit_story(story_id))
+  with check (
+    public.can_edit_story(story_id)
+    and exists (
+      select 1 from public.people p
+      join public.stories s on s.id = story_people.story_id
+      where p.id = story_people.person_id
+        and public.same_family_tree(p.family_id, s.family_id)
+    )
+  );
+```
+
+#### Rules
+- R1 **Same live tree.** A person can be linked to a story when the person's family and the story's family resolve to the same `family_tree_root`. Story-side rights stay `can_edit_story` exactly as today.
+- R2 **Soft deletes.** A person in a soft-deleted family is refused (`family_tree_root` returns null, `coalesce` gives false). A child timeline whose parent is soft-deleted counts as its own tree, so people in that parent are refused (M10 lock).
+- R3 **Existing links untouched.** No data change, no backfill. `story_people_select_member` and `story_people_delete_editor` are unchanged.
+- R4 **`alter policy` only.** Policy names and count stay as they are (47).
+- R5 **One new definer.** `same_family_tree` returns a boolean only; `family_tree_root` keeps its grants (no `authenticated` execute). It returns true only when the caller is a live member of both trees (`is_tree_member(a)` and `is_tree_member(b)`). A signed-in outsider always gets false, so it reveals nothing about tree structure (TMAS-53-01).
+- R6 **Errors.** A refusal is the standard RLS error, SQLSTATE `42501` ("new row violates row-level security policy for table "story_people""). The client keeps showing its existing message; `mapRpcError` is unchanged at 4 prefixes.
+- PR body: paste `with_check` and `qual` of both policies from `pg_policies` before and after, and `pg_get_functiondef('public.same_family_tree(uuid,uuid)'::regprocedure)`, from local.
+
+#### Existing test edits (EXPECTED gate changes, in place)
+1. `supabase/tests/definer_grants.sql`: insert one line between l.308 (`'public.revoke_invite(uuid)'::regprocedure,`) and l.309 (`'public.set_family_origin(uuid,uuid)'::regprocedure,`), keeping alphabetical order:
+	`        'public.same_family_tree(uuid,uuid)'::regprocedure,`
+	The array goes from 29 to 30 entries. Plan stays 68.
+2. `supabase/tests/story_draft_autosave.sql`: l.498 `29,` becomes `30,`; l.499 `'the definer allowlist is 29'` becomes `'the definer allowlist is 30'`. Plan stays 42.
+3. `supabase/tests/fit_and_finish.sql` l.636 and l.649: in each expected string, `AND (p.family_id = s.family_id)))))` becomes `AND same_family_tree(p.family_id, s.family_id)))))`. Every other character of both strings stays. Labels stay.
+> 🔍 INFER: Expected deparse is `(can_edit_story(story_id) AND (EXISTS ( SELECT 1` / `   FROM (people p` / `     JOIN stories s ON ((s.id = story_people.story_id)))` / `  WHERE ((p.id = story_people.person_id) AND same_family_tree(p.family_id, s.family_id)))))` because Postgres prints a function call in a boolean AND without extra parentheses and the existing pins already print `public` functions unqualified (`can_edit_story(story_id)`). If local `pg_policies` differs, it may differ only inside that last predicate; paste the actual text in the PR body and stop if anything else differs.
+4. `supabase/tests/fit_and_finish.sql` l.425–431: replace the `throws_ok` block with
+```sql
+select lives_ok(
+  $$insert into public.story_people (story_id, person_id)
+    select published_id, other_person_id from m13_ctx$$,
+  'a child-timeline person can be linked to a parent-timeline story in the same tree (#51)'
+);
+```
+	Plan stays 60. Direction is from the fixture (story `published_id` in `parent_id`, person `other_person_id` in `child_id`, l.80–90, l.123–124): a child-timeline person on a parent-timeline story. The rename names that direction; the reverse direction is new case 1. The following `lives_ok` at l.432–435 still deletes the story's `story_people` rows, so later assertions see the same state.
+- l.612 (policy count 47) and l.639–643 (update qual) are not edited.
+
+#### New pgTAP file (mandatory, TDD: write it first, see it fail on `main`'s policies, apply the migration, green)
+`supabase/tests/story_people_same_tree.sql`, structured like the files above (`begin;` … `select * from finish(); rollback;`), context table `m51_ctx`, uuids with a `51` marker (e.g. `a5100000-0000-4000-8000-0000000000a1`).
+Fixtures (seed as superuser unless noted):
+- Users: `owner_id` (owns the root), `editor_id` (the caller in every refusal and pass), and `outsider_id` `a5100000-0000-4000-8000-0000000000a3` (seeded in `auth.users`, with no memberships; used only in check 9).
+- Tree A: root `root_id` (`create_family('Root')` as `owner_id`); live child `child_id` (`parent_family_id = root_id`), `editor_id` a `member`; sibling child `gone_sib_id` under `root_id`, soft-deleted at the end of setup.
+- Tree B: `other_root_id`, a separate root, with `editor_id` a `member` (live). This makes case 3 the one `is_tree_member` alone would let through.
+- Tree C: root `dead_parent_id` and its live child `orphan_child_id` (`editor_id` a `member`); `dead_parent_id` is soft-deleted at the end of setup.
+- People (`insert into public.people (id, family_id, name, relationship, created_by)`): `root_person` in `root_id`, `child_person` and `child_person2` in `child_id`, `gone_person` in `gone_sib_id`, `other_person` in `other_root_id`, `dead_parent_person` in `dead_parent_id`.
+- Stories (`insert into public.stories (id, family_id, author_id, title, timeframe_start, status)`, `'published'`, author `editor_id`): `child_story` in `child_id`, `orphan_story_id` in `orphan_child_id`.
+- One seed link for case 6: `insert into public.story_people (story_id, person_id)` of (`child_story`, `child_person`), as superuser. Case 2 uses `child_person2` so it doesn't collide with the seed.
+- Then `set local role authenticated`, `request.jwt.claim.sub` = `editor_id`, `request.jwt.claim.role` = `'authenticated'` for the guard and cases 1–6.
+Guard (Gilfoyle's condition, runs first as `editor_id`, before case 1):
+0. `ok(public.is_tree_member((select child_id from m51_ctx)) and public.is_tree_member((select other_root_id from m51_ctx)), 'the caller is a live member of both trees (#51 cases 3 and 6)')`. If this fails, cases 3 and 6 prove nothing: stop and fix the fixtures, don't adjust the cases.
+> 🔍 INFER: The guard calls `is_tree_member` as `authenticated` because `people_select_member` (`20261012100000_people_profiles.sql` l.89–93) already calls it as the caller, so `authenticated` has execute. It's only used in this test, never in a policy (FORBIDDEN stands).
+Cases (Gilfoyle 1–7):
+1. `lives_ok`: insert (`child_story`, `root_person`). A child-timeline story links a person whose row is in the parent timeline.
+2. `lives_ok`: insert (`child_story`, `child_person2`). Same timeline, no regression.
+3. `throws_ok(..., '42501', 'new row violates row-level security policy for table "story_people"', ...)`: insert (`child_story`, `other_person`). Unrelated tree; the caller is a live member of that tree too.
+4. `throws_ok` 42501, same message: insert (`child_story`, `gone_person`). Person's family soft-deleted.
+5. `throws_ok` 42501, same message: insert (`orphan_story_id`, `dead_parent_person`). Child timeline whose parent is soft-deleted, person in that parent.
+6. `throws_ok(..., '42501', null, ...)`: `update public.story_people set person_id = (select other_person from m51_ctx) where story_id = (select child_story from m51_ctx) and person_id = (select child_person from m51_ctx)`. Move an existing link to an unrelated-tree person.
+Helper checks (rev 3, TMAS-53-01). These run after case 6 and before case 7, never as superuser:
+8a. As `editor_id`: `ok(public.same_family_tree((select child_id from m51_ctx), (select root_id from m51_ctx)), 'same_family_tree is true inside one live tree (#51 helper)')`
+8b. As `editor_id`: `ok(not public.same_family_tree((select child_id from m51_ctx), (select gone_sib_id from m51_ctx)), 'same_family_tree is false for a soft-deleted sibling timeline (#51 helper)')`
+8c. As `editor_id`: `ok(not public.same_family_tree((select orphan_child_id from m51_ctx), (select dead_parent_id from m51_ctx)), 'same_family_tree is false across a soft-deleted parent (#51 helper)')`
+9. `set local request.jwt.claim.sub` = `outsider_id` (role stays `authenticated`), then: `ok(not public.same_family_tree((select child_id from m51_ctx), (select root_id from m51_ctx)), 'a signed-in user outside the tree gets false (TMAS-53-01)')`
+Then case 7 as written (it starts with `reset role`).
+7. After `reset role`, three assertions:
+	- `ok(not has_function_privilege('anon', 'public.same_family_tree(uuid, uuid)', 'execute'), 'anon cannot execute same_family_tree')`
+	- `ok(has_function_privilege('authenticated', 'public.same_family_tree(uuid, uuid)', 'execute'), 'authenticated can execute same_family_tree')`
+	- `ok(exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'same_family_tree' and p.prosecdef and 'search_path=""' = any (p.proconfig)), 'same_family_tree is security definer with search_path=""')`
+**`select plan(14);`**
+> 🔍 INFER: Plan 14 because the guard is one assertion, cases 1–6 are one each, helper checks 8a–8c and 9 are four, and case 7 is three checks (anon, authenticated, definer plus `search_path`); folding case 7 into one `ok` would hide which grant broke. pgTAP total becomes 739 + 14 = **753**.
+> 🔍 INFER: Case 6 passes `null` as the message because an UPDATE refused by WITH CHECK is matched on SQLSTATE only, the pattern at `story_draft_autosave.sql` l.408–414; inserts keep the full message, the pattern at `fit_and_finish.sql` l.425–431 and `story_photos_tree_read_guard.sql` l.138–147.
+> 🔍 INFER: Case 4 uses a soft-deleted sibling timeline under a live root, not the story's own timeline, because a soft-deleted story family would already fail `can_edit_story` and would not test the person side.
+
+#### Gates (paste every command's full output in the PR body)
+- `supabase test db` (pgTAP): exactly **753** (739 + 14 in the new file; the existing 22 files keep their plans: `definer_grants.sql` 68, `story_draft_autosave.sql` 42, `fit_and_finish.sql` 60), 0 failing, full output pasted. `fit_and_finish.sql` l.425 `lives_ok` (child-timeline person on a parent-timeline story) must stay green with the gated body.
+- Acceptance (Gilfoyle's condition): in the output, guard 0 `the caller is a live member of both trees (#51 cases 3 and 6)` passes, and cases 3 and 6 throw 42501 as that same `editor_id`. The PR body states the caller of cases 3 and 6 is `editor_id`. Check 9 passes as `outsider_id`, and checks 8a–8c pass as `editor_id`. The PR body states both callers.
+- Policies exactly **47** (pin `supabase/tests/fit_and_finish.sql:611`, the count query; `47` at l.612; unchanged).
+- Definer allowlist exactly **30**. EXPECTED change from 29 (`same_family_tree`), in `definer_grants.sql` and `story_draft_autosave.sql:498`.
+- `mapRpcError` exactly 4 prefixes: `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, `INVITE_INVALID:`.
+- `flutter analyze` ≤ 27 issues (unchanged, no Dart change).
+- `flutter test`: 483 (baseline after #52 at `19bf266`), unchanged, 0 failing.
+- `deno test --allow-env supabase/functions`: 43, unchanged.
+- `git diff main --stat` lists only the files under "Files touched". `git diff main -- apps/` is empty. `git diff main -- supabase/migrations/` shows only the new file.
+- Local DB: `supabase migration up --local` only.
+
+#### Merge order with #50 (PR #52)
+- PR #52 (`feat/m14-multi-add-people`, head `88c66ce`, 3 commits ahead of `main` @ `f3f3244`, opened 2026-10-18 2:33 PM CT) touches 5 client files, adds `docs/ux/m14-multi-add-people.md`, and appends "§15 M14.5 Multi-add people (#50)" at the end of `docs/impl-spec/impl-spec.md` (hunk `@@ -2598,3 +2598,126 @@`). It touches nothing under `supabase/` and not `docs/design-doc/m14-people-profiles.md`.
+- Only collision: both PRs append at the end of `impl-spec.md` §15, so the second to merge gets a text conflict there. No migration-order collision (#52 has no migration).
+- Rule: whichever merges second rebases on `main` and resolves `impl-spec.md` by keeping both items, M14.5 first, then M14.6. Numbering is fixed: M14.5 is #50, M14.6 is #51, whatever the merge order. After rebasing, re-check that `20261018000000` is still the latest migration and re-run every gate.
+
+#### Agent operating rules
+- Implement only what this item lists. Match names, paths and SQL exactly. If code and spec disagree, stop and report the diff. Report pass or fail per gate with command output.
+> 🚫 FORBIDDEN: Granting `family_tree_root` to `authenticated` or widening its grants in any way. Using `is_tree_member` in either policy. Any change under `apps/` (no client change, no new error text). Adding, dropping, or drop-and-recreating any policy (`alter policy` only; count stays 47). Editing any merged migration. A fifth error prefix or a change to `mapRpcError`. Any function besides `same_family_tree`, any RPC or Edge function. Changes to `story_people_select_member`, `story_people_delete_editor` or `can_edit_story`. A data backfill or touching existing `story_people` rows. Removing a pgTAP assertion or editing tests beyond the four edits above. Dropping or weakening the guard. Running cases 3 or 6 as a caller who is not a member of both trees. Running `supabase db reset`, `db pull`, `migration repair` or `migration down`.
+
+#### Design Doc append
+- Append Gilfoyle's "M14 amendment: #51, story people from anywhere in the tree (LOCKED 2026-10-18)" section verbatim at the end of `docs/design-doc/m14-people-profiles.md` (after l.60), from its H2 line through pgTAP case 7.
+> 🔍 INFER: Keep his migration heading's `<next timestamp after 20261017000100>` placeholder as written, because the section must land verbatim; the concrete filename is pinned in this item.
+- Rev 3 (TMAS-53-01, Gilfoyle's lock, same push): in that section, the SQL block uses the gated body from the Migration above. Add this sentence to the Decision paragraph: "The helper also requires the caller to be a live member of both trees (TMAS-53-01), so it answers nothing for outsiders."
+
+#### Done / Bill smoke (after deploy)
+1. Open The WFM Morgans timeline, story "Liam is Born", Edit. Open Add person and add William F Morgan (WHM Morgans). It saves with no error and a chip shows.
+2. Add txmorgan (WHM Morgans) the same way. It saves and a chip shows.
+3. Save changes and reload the page. Both chips are still on the story; reopen Add person and both are hidden from the list.
+
+#### Traceability
+- Issue #51 (parent-timeline people can't be added to a child-timeline story, insert and update policies) maps to the migration, Rules R1–R4, new cases 1, 2 and 6, and smoke 1–3. The issue's `_replacePeople` question is covered by the same insert policy (no client change).
+- Gilfoyle Design Doc "M14 amendment: #51 … (LOCKED 2026-10-18)": Decision maps to R1 and R5; Soft deletes to R2 and cases 4–5; Gates to the Gates list; pgTAP 1–7 to the new file's cases 1–7; "do not widen `family_tree_root`" and "`is_tree_member` is not enough" to case 3 and FORBIDDEN.
+- Existing test edits 1–4 map to Gilfoyle's 2026-10-18 approval (allowlist 29 to 30; policy text and old-behavior pins). Guard 0 maps to his condition on cases 3 and 6.
+- PRD and UX: unchanged (bug fix to existing tree-wide picker behavior, `docs/design-doc/m14-people-profiles.md` l.55).
+- Trinity TMAS-53-01 (Low, `same_family_tree` had no caller check), with Bill's fix-now call (4:13 PM CT): this maps to the gated body in the Migration, R5, helper checks 8a–8c and 9, and the Design Doc rev 3 sentence. The planned #42 helper-tests cleanup is folded in here. Info items 53-02 and 53-03 stay on #42.

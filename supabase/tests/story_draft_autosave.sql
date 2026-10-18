@@ -495,8 +495,8 @@ select is(
       and p.prosecdef
       and pg_catalog.has_function_privilege('authenticated', p.oid, 'execute')
   ),
-  29,
-  'the definer allowlist is 29'
+  30,
+  'the definer allowlist is 30'
 );
 
 select * from finish();
