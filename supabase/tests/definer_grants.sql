@@ -306,6 +306,7 @@ select is_empty(
         'public.rename_family(uuid,text)'::regprocedure,
         'public.resend_invite(uuid)'::regprocedure,
         'public.revoke_invite(uuid)'::regprocedure,
+        'public.same_family_tree(uuid,uuid)'::regprocedure,
         'public.set_family_origin(uuid,uuid)'::regprocedure,
         'public.soft_delete_family(uuid)'::regprocedure,
         'public.story_row_exists(uuid)'::regprocedure,

@@ -422,12 +422,10 @@ select lives_ok(
     where story_id = (select published_id from m13_ctx)$$,
   'an editor can update story_people'
 );
-select throws_ok(
+select lives_ok(
   $$insert into public.story_people (story_id, person_id)
     select published_id, other_person_id from m13_ctx$$,
-  '42501',
-  'new row violates row-level security policy for table "story_people"',
-  'a cross-family person link is rejected'
+  'a child-timeline person can be linked to a parent-timeline story in the same tree (#51)'
 );
 select lives_ok(
   $$delete from public.story_people where story_id = (select published_id from m13_ctx)$$,
@@ -633,7 +631,7 @@ select is(
   $pol$(can_edit_story(story_id) AND (EXISTS ( SELECT 1
    FROM (people p
      JOIN stories s ON ((s.id = story_people.story_id)))
-  WHERE ((p.id = story_people.person_id) AND (p.family_id = s.family_id)))))$pol$,
+  WHERE ((p.id = story_people.person_id) AND same_family_tree(p.family_id, s.family_id)))))$pol$,
   'story_people_insert_editor with_check'
 );
 select is(
@@ -646,7 +644,7 @@ select is(
   $pol$(can_edit_story(story_id) AND (EXISTS ( SELECT 1
    FROM (people p
      JOIN stories s ON ((s.id = story_people.story_id)))
-  WHERE ((p.id = story_people.person_id) AND (p.family_id = s.family_id)))))$pol$,
+  WHERE ((p.id = story_people.person_id) AND same_family_tree(p.family_id, s.family_id)))))$pol$,
   'story_people_update_editor with_check'
 );
 select is(
