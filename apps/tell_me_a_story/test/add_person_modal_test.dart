@@ -679,7 +679,6 @@ void main() {
 
   testWidgets('a selected pill is announced as selected', (tester) async {
     final handle = tester.ensureSemantics();
-    addTearDown(handle.dispose);
     await _openModal(tester, api: _FakePeopleGateway(seed: _trio()));
 
     final ada = find.byKey(const Key('add-person-pick-a1'));
@@ -687,8 +686,9 @@ void main() {
     await tester.tap(ada);
     await tester.pump();
 
-    expect(tester.getSemantics(ada), containsSemantics(isSelected: true));
-    expect(tester.getSemantics(grace), containsSemantics(isSelected: false));
+    expect(tester.getSemantics(ada), isSemantics(isSelected: true));
+    expect(tester.getSemantics(grace), isSemantics(isSelected: false));
+    handle.dispose();
   });
 
   testWidgets('Add person is disabled until a pill is selected', (
@@ -828,7 +828,14 @@ void main() {
 
     expect(find.text('Adding…'), findsOneWidget);
     expect(
-      tester.widget<IconButton>(find.byTooltip('Close')).onPressed,
+      tester
+          .widget<IconButton>(
+            find.ancestor(
+              of: find.byTooltip('Close'),
+              matching: find.byType(IconButton),
+            ),
+          )
+          .onPressed,
       isNull,
     );
     expect(tester.widget<InkWell>(pill).onTap, isNull);
@@ -985,7 +992,10 @@ void main() {
     );
 
     final listScroll = find.descendant(
-      of: find.byKey(_pickerKey),
+      of: find.descendant(
+        of: find.byKey(_pickerKey),
+        matching: find.byType(ListView),
+      ),
       matching: find.byType(Scrollable),
     );
     for (final person in people) {
