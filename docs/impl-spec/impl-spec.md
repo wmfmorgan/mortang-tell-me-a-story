@@ -1,0 +1,2600 @@
+# 📐 Tell Me a Story — Impl Spec (Accepted)
+
+> **Three-source SoT (plus PRD pack + Design Doc locks):** (1) PRD [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2) + User Stories [📝 User Stories](https://app.notion.com/p/3e0c4bcef238810ab885df1d973d35bd) + Decisions [✅ Decisions](https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166) for product must/must-not; (2) Mugatu UX [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4) (Stitch `12192342757314667328`, Memory Album `assets/18104844965535020843`) for screens/flows; (3) SAD System Overview (Accepted) [🏗️ Tell Me a Story — System Architecture (v1)](https://app.notion.com/p/3e0c4bcef238810d8898e79e881f5ac8) for stack/data/API/security **names**; (4) Design Doc (Accepted) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7) for DDL / RLS / Storage / Edge JSON / Resend / Realtime / Mapbox / error codes. Pack: [📖 Tell Me a Story — Product Pack](https://app.notion.com/p/3e0c4bcef238810b9c26ff3e9653debc).
+> **Status:** **Accepted** Implementation Spec for coding agents. Architecture OPENs closed from Design Doc (2026-09-19) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7). Mugatu UX leftovers folded in from [🧵 UXD — Client copy & chrome locks (v1)](https://app.notion.com/p/3e0c4bcef23881e59430d4f904bc59a3). Plumbing locked (Bill green-lit Gilfoyle defaults 2026-09-19): Flutter monorepo `apps/tell_me_a_story` + `supabase/`; `--dart-define` / CI env `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`; `RESEND_API_KEY` Edge-only; tests `flutter test` + Supabase RLS SQL tests. Do not invent past PRD + SAD + Design Doc; do not invent screens/copy past Mugatu. **v1 invites = email + shareable link only; server SMS = fast follow (do not redefine).**
+---
+## 0 Agent operating rules
+### Three-source precedence (enforce)
+1. **PRD (Jared)** → section 1 Scope lock, domain language, acceptance intent, out-of-scope. **PRD wins** for product must / must-not.
+2. **Mugatu UX / Stitch** → section 10 Client behavior lock (routes/screens, loading/empty/error/success, redirects, local storage). **Mugatu wins** for screen/flow when SAD is silent on UI. Do **not** invent screens Mugatu did not lock.
+3. **SAD (Gilfoyle System Overview)** → stack, repo map, data/auth planes, API, security, milestones. **SAD names win** for components / tables / routes / tech.
+4. **Design Doc (Gilfoyle OPEN locks + plumbing)** → exact DDL, enums, RLS patterns, Storage paths, Edge HTTP contracts, Resend, Realtime filters, Mapbox client token, error codes, plus repo layout / env injection / test commands. **Design Doc wins** for those implementation details; SAD names still win if anything clashes on naming.
+Cross-source clash → `> ⚠️ CONFLICT:` pick narrower option, one-line pick. Missing → `> ❓ OPEN:` never invent. Hard cap: no features absent from PRD + SAD; no screens Mugatu did not lock; no schema/API beyond Design Doc. Extras only in §17 OPEN.
+### Operating rules
+1. Implement **only** what this spec lists. Features absent from PRD + SAD are out of scope unless listed under section 17 as OPEN.
+2. If an `> ❓ OPEN:` blocks a file, **stop that file** and do unblocked work elsewhere.
+3. Match **names, paths, and schemas exactly** as written here, in SAD, and in the Design Doc. Never rename components, tables, or routes. Screen names match Mugatu.
+4. After each milestone, run the listed checks and report **pass/fail with command output**.
+5. Do **not** “improve” auth, schema, or API shape beyond this spec / SAD / Design Doc.
+6. If code and this spec disagree, **stop and report the diff** — do not silently reconcile.
+---
+## 1 Scope lock
+> **Source owner:** Jared PRD (product must / must-not). SAD confirms stack constraints. Mugatu does not expand product scope.
+### In v1 (must build) — PRD must-haves
+- Private family tenancy (one family’s shared record; not a public multi-family marketplace)
+- Flutter client: **iOS/iPad + web**, full feature parity (capture, timeline, drafts, invites)
+- Supabase backend: Postgres + Auth + Storage + RLS + Realtime
+- Auth: email **magic link** (passwordless)
+- **Online-only**; drafts stored in Supabase
+- Story capture: timeframe, people (shared list), place (address → map pin; favorites + recents), text, story title, photos; drafts. **LOCKED 2026-10-03, pack restamp the same evening:** New Story saves `stories.title`. A title is required to publish, not to save a draft. The reader shows that saved title as the headline, with the body under it, and keeps the Documented month/year. Drafts and the timeline show the saved title instead of the body excerpt. No title means "Untitled", and do not use the first line of the body. No perspective title. Add photo stays blocked until a decade is picked.
+- Pictures: client-side compress; **\~20 images/story**; images only
+- Comments (short) vs perspectives (full alternate tellings) — separate
+- Timeline: chronological per family unit; branching family units
+- Invites: **email + shareable link**; any member may invite
+- Search by person / place / timeframe
+- Mapbox Maps + Search/Geocoding; persist address + lat/lng (+ optional Mapbox id)
+- Supabase Realtime on timeline / story feeds
+### Explicitly out of v1 — PRD out-of-scope + SAD deferrals
+- Android as a required ship target (Flutter may build later; not a v1 deliverable)
+- Offline mode / offline drafts
+- Video
+- Server SMS invites (fast follow — do not block v1)
+- Public multi-family / marketplace
+- AI-written stories
+- Genealogy-tree primary UX
+- Live chat / messaging
+- DNA / Ancestry-style imports
+- Push notifications when a story is added (v2 per PRD)
+- Export / backup (v2)
+- Voice / audio capture (v2)
+- Public SEO pages
+### Permissions (from SAD / PRD)
+- Story author edits core story + pictures
+- Comment / perspective authors edit only their own
+- Any member may attach pictures to any story
+- Any member may invite (email/link in v1)
+> ⚠️ CONFLICT: Mugatu Stitch still had an Invite **Text (SMS)** tab; PRD + User Stories US-2 + Decisions + SAD defer server SMS to fast follow. **Pick (locked):** Email + Link only in v1; SMS UI/API superseded — do not ship.
+### Acceptance intent (User Stories → implement)
+<table header-row="true">
+<tr>
+<td>US</td>
+<td>Intent (product-level)</td>
+<td>Spec home</td>
+</tr>
+<tr>
+<td>US-1 Start a family</td>
+<td>Create private family; starter owns family record; not publicly discoverable</td>
+<td>§8 / M2</td>
+</tr>
+<tr>
+<td>US-2 Invite</td>
+<td>Email + shareable link; any member; join after accept; **SMS not required v1**</td>
+<td>§9 / §10 / §11</td>
+</tr>
+<tr>
+<td>US-3 Capture</td>
+<td>Timeframe, people, place (address→pin), text, story title; own/dictated/deceased; any subject</td>
+<td>§10 New Story</td>
+</tr>
+<tr>
+<td>US-3a Places reuse</td>
+<td>Shared favorites + recents during capture; new address still allowed</td>
+<td>§10 Place picker</td>
+</tr>
+<tr>
+<td>US-4 Pictures</td>
+<td>Any member attach to any story; visible on reader; author edits pictures</td>
+<td>§7 / §10</td>
+</tr>
+<tr>
+<td>US-5 Author edit</td>
+<td>Only author edits core (timeframe/people/place/text) + pictures</td>
+<td>§7 RLS / §1 Permissions</td>
+</tr>
+<tr>
+<td>US-6 Comment</td>
+<td>Short reaction; attributable; author-only edit</td>
+<td>§10 Reader</td>
+</tr>
+<tr>
+<td>US-6a Perspective</td>
+<td>Full alternate telling; separate from comments; author-only edit</td>
+<td>§10 Add Perspective</td>
+</tr>
+<tr>
+<td>US-7 Timeline</td>
+<td>Chronological per family unit; iPad/mobile/web</td>
+<td>§10 Timeline</td>
+</tr>
+<tr>
+<td>US-8 Branch</td>
+<td>New family unit branches off existing; own timeline; not genealogy-tree UX</td>
+<td>§6 / §10 Mid zoom peek</td>
+</tr>
+<tr>
+<td>US-9 Search</td>
+<td>By person, place, timeframe</td>
+<td>§10 Search</td>
+</tr>
+<tr>
+<td>US-10 People list</td>
+<td>Shared list; select on story; add when needed</td>
+<td>§10 Add Person</td>
+</tr>
+<tr>
+<td>US-11 Drafts</td>
+<td>Save/resume draft; not on timeline until published</td>
+<td>§10 Drafts</td>
+</tr>
+</table>
+> 🚫 FORBIDDEN: Inventing tables, routes, Edge Function payloads, or RLS policies beyond what SAD + Design Doc state. Put remaining gaps under section 17.
+> 🚫 FORBIDDEN: Shipping server-sent SMS invite UI or API in v1 (US-2 / Decisions / SAD — fast follow only).
+---
+## 2 Stack lock
+<table header-row="true">
+<tr>
+<td>Layer</td>
+<td>Locked choice</td>
+</tr>
+<tr>
+<td>Client</td>
+<td>Flutter 3.x — iOS/iPad + web, full parity</td>
+</tr>
+<tr>
+<td>Backend</td>
+<td>Supabase — Postgres + Auth + Storage + RLS + Realtime</td>
+</tr>
+<tr>
+<td>Auth</td>
+<td>Email magic link</td>
+</tr>
+<tr>
+<td>Offline</td>
+<td>Online-only; drafts in Supabase</td>
+</tr>
+<tr>
+<td>Invites</td>
+<td>Email + shareable link; SMS → fast follow</td>
+</tr>
+<tr>
+<td>Media</td>
+<td>Client compress; \~20 images/story; no video</td>
+</tr>
+<tr>
+<td>Maps</td>
+<td>Mapbox Maps + Search/Geocoding (client public token only)</td>
+</tr>
+<tr>
+<td>Live updates</td>
+<td>Supabase Realtime `postgres_changes` filtered by `family_id`</td>
+</tr>
+<tr>
+<td>Client SDK</td>
+<td>`supabase_flutter` (SAD: flutter_supabase / supabase_flutter)</td>
+</tr>
+<tr>
+<td>Email</td>
+<td>**Resend** for invite emails (`RESEND_API_KEY` on Edge); magic link via Supabase Auth email OK for v1</td>
+</tr>
+<tr>
+<td>Edge</td>
+<td>Edge Functions: create invite, accept invite, send invite email, validate invite token</td>
+</tr>
+<tr>
+<td>Fast follow</td>
+<td>Twilio (or similar) for SMS — hook only; do not block v1</td>
+</tr>
+</table>
+> 🔍 INFER: Prefer package name `supabase_flutter` as the maintained Flutter client; SAD lists both `flutter_supabase` / `supabase_flutter`.
+---
+## 3 Repo map
+> **Locked (Bill green-lit Gilfoyle plumbing 2026-09-19; Design Doc):** Flutter monorepo — `apps/tell_me_a_story` (Flutter client iOS/iPad + web) + `supabase/` (migrations, Edge Functions, seed/RLS tests). Root README + analysis_options as needed.
+> 🚫 FORBIDDEN: Separate per-platform repos for v1; inventing extra packages not required by SAD/Design Doc; a second app target.
+```javascript
+tell-me-a-story/
+  apps/
+    tell_me_a_story/
+      lib/
+        main.dart
+        app.dart
+        core/
+        features/
+          auth/
+          family/
+          invites/
+          people/
+          places/
+          stories/
+          comments/
+          perspectives/
+          timeline/
+          search/
+          drafts/
+        data/
+      web/
+      ios/
+  supabase/
+    migrations/
+    functions/
+      create-invite/
+      accept-invite/
+      send-invite-email/
+      validate-invite-token/
+    config.toml
+```
+### Screen → feature folder (Mugatu names)
+<table header-row="true">
+<tr>
+<td>Screen / flow</td>
+<td>Feature folder</td>
+</tr>
+<tr>
+<td>New Story</td>
+<td>`features/stories/`</td>
+</tr>
+<tr>
+<td>Add Person (pick / create)</td>
+<td>`features/people/`</td>
+</tr>
+<tr>
+<td>Place picker</td>
+<td>`features/places/`</td>
+</tr>
+<tr>
+<td>Story reader</td>
+<td>`features/stories/`</td>
+</tr>
+<tr>
+<td>Add Perspective</td>
+<td>`features/perspectives/`</td>
+</tr>
+<tr>
+<td>Timeline (far/mid/near)</td>
+<td>`features/timeline/`</td>
+</tr>
+<tr>
+<td>Full-screen search</td>
+<td>`features/search/`</td>
+</tr>
+<tr>
+<td>Invite (Email / Link)</td>
+<td>`features/invites/`</td>
+</tr>
+<tr>
+<td>Drafts list</td>
+<td>`features/drafts/`</td>
+</tr>
+<tr>
+<td>Manage families (hub / detail)</td>
+<td>`features/family/`</td>
+</tr>
+</table>
+> 🚫 FORBIDDEN: Building a separate React/SwiftUI web or iOS shell. One Flutter codebase for both surfaces.
+---
+## 4 Environment and secrets
+### Client (Flutter — safe to ship)
+<table header-row="true">
+<tr>
+<td>Secret / config</td>
+<td>Where</td>
+<td>Notes</td>
+</tr>
+<tr>
+<td>`SUPABASE_URL`</td>
+<td>`--dart-define` / CI env</td>
+<td>Public project URL</td>
+</tr>
+<tr>
+<td>`SUPABASE_ANON_KEY`</td>
+<td>`--dart-define` / CI env</td>
+<td>Anon key only</td>
+</tr>
+<tr>
+<td>`MAPBOX_ACCESS_TOKEN`</td>
+<td>`--dart-define` / CI env</td>
+<td>Public token; restrict by iOS bundle + web URL (Design Doc); no server secret in v1</td>
+</tr>
+</table>
+### Server only (Edge Functions)
+<table header-row="true">
+<tr>
+<td>Secret</td>
+<td>Notes</td>
+</tr>
+<tr>
+<td>`SUPABASE_SERVICE_ROLE_KEY`</td>
+<td>**Never** in Flutter app</td>
+</tr>
+<tr>
+<td>`RESEND_API_KEY`</td>
+<td>Resend — invite emails only on Edge</td>
+</tr>
+</table>
+### Local / staging
+- Separate Supabase **staging** project (SAD risk mitigation)
+- Mapbox account + restricted public tokens (iOS bundle + web URL)
+- Resend account + SPF/DKIM for invite deliverability; Supabase Auth email for magic links
+> 🚫 FORBIDDEN: Service-role keys in the Flutter app.
+> 🚫 FORBIDDEN: Mapbox secret token / server-side geocode in v1 (Design Doc).
+> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally and CI env vars in pipelines: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.
+---
+## 5 Architecture for implementers
+### System components (from SAD; Mail = Resend per Design Doc)
+```mermaid
+flowchart TB
+  subgraph clients [Clients]
+    iOS[Flutter iOS/iPad]
+    Web[Flutter Web]
+  end
+  subgraph supabase [Supabase]
+    Auth[Auth - magic link]
+    API[PostgREST + RLS]
+    DB[(Postgres)]
+    Storage[Storage - story-photos]
+    RT[Realtime]
+    Edge[Edge Functions - invites]
+  end
+  Mapbox[Mapbox Maps + Search]
+  Mail[Resend]
+  iOS --> Auth
+  Web --> Auth
+  iOS --> API
+  Web --> API
+  iOS --> Storage
+  Web --> Storage
+  iOS --> RT
+  Web --> RT
+  iOS --> Mapbox
+  Web --> Mapbox
+  API --> DB
+  RT --> DB
+  Edge --> DB
+  Edge --> Mail
+  Auth --> Mail
+```
+**Same relationships (bullets):**
+- Flutter iOS/iPad and Flutter Web both talk to Supabase Auth, PostgREST+RLS, Storage, and Realtime
+- Both clients talk to Mapbox Maps + Search
+- PostgREST and Realtime read/write Postgres
+- Edge Functions (invites) write Postgres and send invite email via **Resend**
+- Auth sends magic-link email via Supabase Auth email (v1 OK)
+### Actors
+Family creator, member, story author, perspective author, commenter, inviter.
+### Security boundary
+**RLS is the security boundary.** Test with multiple families before any real data.
+---
+## 6 Domain objects
+> **Locked by Design Doc** [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7). SAD table names win.
+### Enums
+```sql
+create type story_status as enum ('draft', 'published');
+create type invite_status as enum ('pending', 'accepted', 'revoked', 'expired');
+create type membership_role as enum ('member');
+```
+### Tables (columns locked)
+<table header-row="true">
+<tr>
+<td>Object</td>
+<td>Columns / meaning</td>
+</tr>
+<tr>
+<td>`profiles`</td>
+<td>`id uuid PK → auth.users`, `display_name`, `email`, timestamps</td>
+</tr>
+<tr>
+<td>`families`</td>
+<td>`id`, `name`, `parent_family_id` nullable (branch), `created_by`, timestamps; index `parent_family_id`</td>
+</tr>
+<tr>
+<td>`memberships`</td>
+<td>`family_id`, `user_id`, `role membership_role default 'member'`, unique `(family_id, user_id)`; indexes on `user_id`, `family_id`</td>
+</tr>
+<tr>
+<td>`people`</td>
+<td>`family_id`, `name`, `relationship` (required), `email` optional, `created_by`</td>
+</tr>
+<tr>
+<td>`places`</td>
+<td>`family_id`, `label`, `address`, `lat`, `lng`, `mapbox_place_id` optional, `is_favorite`, `last_used_at`</td>
+</tr>
+<tr>
+<td>`stories`</td>
+<td>`family_id`, `author_id`, `title`, `body`, `timeframe_start date not null`, `timeframe_end date` nullable (null end = single day; check end ≥ start), `place_id` nullable, `status story_status default 'draft'`, `published_at`; indexes `(family_id, status)`, `(family_id, timeframe_start, timeframe_end)`</td>
+</tr>
+<tr>
+<td>`story_people`</td>
+<td>PK `(story_id, person_id)`</td>
+</tr>
+<tr>
+<td>`photos`</td>
+<td>`story_id`, `family_id`, `uploader_id`, `storage_path`, `sort_order`; app enforces max **20**/story</td>
+</tr>
+<tr>
+<td>`comments`</td>
+<td>`story_id`, `family_id`, `author_id`, `body`, timestamps</td>
+</tr>
+<tr>
+<td>`perspectives`</td>
+<td>`story_id`, `family_id`, `author_id`, `body`, timestamps</td>
+</tr>
+<tr>
+<td>`invites`</td>
+<td>`family_id`, `invited_by`, `email` nullable, `token` unique, `status invite_status default 'pending'`, `expires_at` (= created + **7 days**), `accepted_by`, `accepted_at`; token **single-use**</td>
+</tr>
+</table>
+### Story status
+- `draft` — private until published (UX)
+- `published` — appears on timeline
+### Timeframe (locked)
+~~Decade chips are **UI only**; they write calendar date ranges (e.g. 1980s → ~~~~`1980-01-01`~~~~..~~~~`1989-12-31`~~~~). Persist ~~~~`timeframe_start`~~~~ + optional ~~~~`timeframe_end`~~~~ (null end = single day).~~ **Amended by M13 (Bill 2026-10-11, §15 M13 OPEN 8):** the Year / Month / Day picker replaces decade chips. `timeframe_start` and `timeframe_end` stay the canonical storage, `timeframe_end` is `not null` (day: start = end; month and year store the full period), and `date_precision` records what was entered. Legacy decade stories keep their stored range. See §15 M13 item 3.
+### Membership role (locked)
+`member` only in v1. Admin role rejected for v1 (Design Doc).
+### Branching
+Branching = new `families` row with `parent_family_id` when a child unit splits off.
+> ⚠️ CONFLICT (resolved): SAD said membership role “(member/admin if needed later)”; Design Doc locks **`member`**** only**. **Pick:** Design Doc — no admin in v1.
+---
+## 7 Data plane
+### Tenant scope
+All tenant data scoped by `family_id`.
+### ER (from SAD)
+```mermaid
+erDiagram
+  families ||--o{ memberships : has
+  families ||--o{ families : branches_to
+  families ||--o{ people : lists
+  families ||--o{ places : saves
+  families ||--o{ stories : contains
+  families ||--o{ invites : issues
+  stories ||--o{ story_people : tags
+  people ||--o{ story_people : tagged_in
+  stories ||--o{ photos : has
+  stories ||--o{ comments : has
+  stories ||--o{ perspectives : has
+  places ||--o| stories : located_at
+```
+**Same relationships (bullets):**
+- `families` has many `memberships`, `people`, `places`, `stories`, `invites`
+- `families` branches to child `families` via `parent_family_id`
+- `stories` tags many `people` through `story_people`
+- `stories` has many `photos`, `comments`, `perspectives`
+- `places` optionally locates a story
+### Helper + RLS (Design Doc)
+```sql
+create or replace function public.is_family_member(fid uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.memberships m
+    where m.family_id = fid and m.user_id = auth.uid()
+  );
+$$;
+```
+Enable RLS on all public tables. Expand to explicit `create policy` in migrations; never weaken membership checks. Mandatory test: two families, zero cross-read (**include profiles**: co-member can read `display_name`; stranger cannot).
+<table header-row="true">
+<tr>
+<td>Table</td>
+<td>SELECT</td>
+<td>INSERT</td>
+<td>UPDATE/DELETE</td>
+</tr>
+<tr>
+<td>profiles</td>
+<td>own id **OR co-member** (shares ≥1 family via `memberships`)</td>
+<td>trigger only</td>
+<td>own id</td>
+</tr>
+<tr>
+<td>families</td>
+<td>member</td>
+<td>authenticated + membership in same flow</td>
+<td>member</td>
+</tr>
+<tr>
+<td>memberships</td>
+<td>member</td>
+<td>Edge/security definer only</td>
+<td>Edge only</td>
+</tr>
+<tr>
+<td>people, places</td>
+<td>member</td>
+<td>member</td>
+<td>member</td>
+</tr>
+<tr>
+<td>stories</td>
+<td>member</td>
+<td>member + author_id = uid</td>
+<td>author only</td>
+</tr>
+<tr>
+<td>story_people</td>
+<td>member</td>
+<td>story author</td>
+<td>story author</td>
+</tr>
+<tr>
+<td>photos</td>
+<td>member</td>
+<td>member + uploader_id = uid</td>
+<td>uploader or story author</td>
+</tr>
+<tr>
+<td>comments, perspectives</td>
+<td>member</td>
+<td>member + author_id = uid</td>
+<td>author only</td>
+</tr>
+<tr>
+<td>invites</td>
+<td>member</td>
+<td>member + invited_by = uid</td>
+<td>Edge for status transitions</td>
+</tr>
+</table>
+**Amendment (Bill 2026-09-27):** `profiles` SELECT is own row **or** any profile whose `id` shares at least one `memberships.family_id` with `auth.uid()`. Enables nested `display_name` on comments/perspectives for family members. UPDATE/DELETE stay own-id only. INSERT remains trigger-only. Migration **replaces** the own-only SELECT policy.
+```sql
+-- profiles SELECT (replace own-only policy)
+create policy profiles_select_own_or_comember on public.profiles
+for select using (
+  id = auth.uid()
+  or exists (
+    select 1
+    from public.memberships mine
+    join public.memberships theirs
+      on theirs.family_id = mine.family_id
+    where mine.user_id = auth.uid()
+      and theirs.user_id = profiles.id
+  )
+);
+```
+> 🚫 FORBIDDEN: Denormalize `display_name` / author name onto `comments` or `perspectives`. Read names via `profiles` join. Non-co-members must not read profiles.
+### Storage (Design Doc)
+- Bucket: **`story-photos`** (private)
+- Path: **`{family_id}/{story_id}/{photo_id}.jpg`** (also `.jpeg` `.png` `.webp`)
+- Storage policies: path prefix `family_id` must pass `is_family_member`
+- Signed URLs or authenticated downloads only
+- Client-side compress before upload; enforce \~20 images/story (app-level)
+> 🚫 FORBIDDEN: Public buckets or unauthenticated photo URLs in v1.
+---
+## 8 Auth plane
+<table header-row="true">
+<tr>
+<td>Concern</td>
+<td>Lock</td>
+</tr>
+<tr>
+<td>Sign-in</td>
+<td>Email magic link only</td>
+</tr>
+<tr>
+<td>Session</td>
+<td>Supabase Auth session in Flutter</td>
+</tr>
+<tr>
+<td>Profile</td>
+<td>`profiles` row linked to `auth.users` — **trigger bootstrap** (Design Doc)</td>
+</tr>
+<tr>
+<td>Family join</td>
+<td>Opaque invite token, expiry **7 days**, **single-use**; authenticated `POST /accept-invite` upserts membership + marks invite accepted</td>
+</tr>
+<tr>
+<td>Keys</td>
+<td>Anon in client; service role only on Edge Functions</td>
+</tr>
+</table>
+### Profile bootstrap (locked)
+Trigger `after insert on auth.users` → `handle_new_user()` inserts `profiles` (`id`, `email`, `display_name`). **No client upsert for bootstrap.**
+### Accept-invite sequence (locked — Design Doc)
+1. Validate pending + not expired
+2. Require `auth.uid()`
+3. Upsert membership `role=member`
+4. Mark invite `accepted`
+5. Return `{ family_id, membership_id }`
+Join = authenticated accept of a valid single-use token (no separate admin-approval step in Design Doc).
+### Acceptance checks (auth)
+1. User can request magic link and complete sign-in on iOS and web
+2. Unauthenticated client cannot read any `families` / `stories` rows
+3. Service role key is absent from Flutter build artifacts
+4. New auth user gets a `profiles` row via trigger (no client bootstrap upsert)
+---
+## 9 API / interface contracts
+### Patterns (SAD + Design Doc)
+- **CRUD:** Supabase PostgREST against tables above (RLS-enforced)
+- **Storage:** Authenticated upload to `story-photos` at `{family_id}/{story_id}/{photo_id}.ext`
+- **Realtime:** `postgres_changes` on `stories` (optional comments/perspectives/photos) with filter `family_id=eq.<uuid>`; timeline may add `status=eq.published`. **No custom channel names.**
+- **Mapbox:** Client public token only (Maps + Search); persist address + lat/lng + optional `mapbox_place_id`
+- **Email:** Magic links (Supabase Auth) + invite emails (Edge → **Resend**)
+- **Edge Functions (names from SAD; contracts from Design Doc):**
+	- `create-invite`
+	- `accept-invite`
+	- `send-invite-email`
+	- `validate-invite-token`
+### Edge HTTP contracts (Design Doc)
+Auth: `Authorization: Bearer <user JWT>` except validate may be public.
+**POST ****`/create-invite`** body `{ "family_id", "email?" }` → `201` `{ invite_id, token, expires_at, invite_url }`. Does **not** send email.
+**GET ****`/validate-invite-token?token=`** → `{ valid, family_id?, family_name?, status?, expires_at? }` or `valid: false` + code.
+**POST ****`/send-invite-email`** body `{ "invite_id" }` → Resend send; `{ sent: true }`.
+**POST ****`/accept-invite`** (JWT required) body `{ "token" }` → sequence in §8; return `{ family_id, membership_id }`.
+### Invite rules (locked)
+- Opaque token
+- Expiry: 7 days (`expires_at` = created + 7 days)
+- Email + shareable link in v1
+- **Single-use** token; rate limits (SAD risk mitigation)
+- Any member may invite
+- Create and send are **separate** Edge Functions (retry-friendly)
+> 🚫 FORBIDDEN: Custom REST API outside Supabase PostgREST + Edge Functions for v1 CRUD.
+> 🚫 FORBIDDEN: Wiring SMS provider in v1 (fast follow only).
+> 🚫 FORBIDDEN: Custom Realtime channel names (use table filters only).
+---
+## 10 Client behavior lock
+> **Source owner:** Mugatu UX handoff (locked) [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4) + UX leftovers lock [🧵 UXD — Client copy & chrome locks (v1)](https://app.notion.com/p/3e0c4bcef23881e59430d4f904bc59a3). Stitch project `12192342757314667328`. Design system: Tell Me a Story — Memory Album (`assets/18104844965535020843`). Mugatu wins for screen/flow/copy when SAD is silent on UI. Do **not** invent screens or strings Mugatu did not lock.
+> **Final v1 screens ONLY:** New Story; Add Person (pick + create); Place picker; Story reader; Add Perspective; Timeline far/mid/near (M12 branch marks); full-screen Search; Invite Email + Link only; Drafts list; Manage families (M10); R2 family dropdown carries **+ Start a family** and **Manage families** (M10 navigation, Bill 2026-10-10); avatar menu is **Settings · Logout** only.
+> 🚫 FORBIDDEN: SMS invite UI or API in v1 — Stitch SMS tab superseded. Ignore superseded early timeline drafts.
+### Locked screens (final Stitch set only)
+<table header-row="true">
+<tr>
+<td>Flow</td>
+<td>Screen</td>
+<td>Behavior lock</td>
+</tr>
+<tr>
+<td>Capture</td>
+<td>New Story</td>
+<td>Title above the story, saved on `stories.title` (required to publish; a draft may still be saved without one); timeframe, people chips, place+map, text, photos; Add photo is enabled only once the date has a year (amended by M13, Bill 2026-10-11; replaces "blocked until a decade is picked"); Save draft (secondary) / Publish (primary) → Supabase.</td>
+</tr>
+<tr>
+<td>Capture</td>
+<td>Add Person — pick existing</td>
+<td>Family people list</td>
+</tr>
+<tr>
+<td>Capture</td>
+<td>Add Person — create new</td>
+<td>Relationship **required**; email optional (future invite)</td>
+</tr>
+<tr>
+<td>Capture</td>
+<td>Place picker</td>
+<td>Basemap + pin; favorites/recents from `places` (SAD: Mapbox)</td>
+</tr>
+<tr>
+<td>Reader</td>
+<td>Published story reader</td>
+<td>**M9 (2026-10-05):** opens as parchment modal Stitch `221229a5b4844e7a9b3a2d1b3ef034e5` over the blurred timeline; X closes to the same spot. Saved `stories.title` is the headline. Null title paints blank (R3). Meta: `Recorded event · Documented {month year} by {author} {avatar} · {n} min read` per Design Doc data map. Author avatar uses M8 circle rule; family co-members can see the picture (M9 visibility). Hero is first photo by `sort_order`; no caption. Comments vs Perspectives stay separate. Deep-link route stays. Print/Share OPEN — do not build.</td>
+</tr>
+<tr>
+<td>Reader</td>
+<td>Add Perspective</td>
+<td>Full alternate telling overlay (not a comment)</td>
+</tr>
+<tr>
+<td>Timeline</td>
+<td>Far zoom</td>
+<td>Bill 2026-10-04 dots/layout on `02972cf4e7ca4facaececdcb9e16991f`, plus **FA (2026-10-05)** chrome matching main after PR #21: shared “Continuous Family Dial” sub-header + one year chip (`1980 · IN FOCUS` on Macro, not a range); Macro / Mid / Full Cards switch with terracotta pill (240ms slide). One solid dot per published story. Title only in the tooltip. Drafts stay off the rail. Newest decade at the top. Decade dims in the top/bottom 45% of the rail. Parchment overlays stay off far. Macro decade label / decade node / story dot → Mid (M9, Bill 2026-10-06; not the reader). The dashed rail, hollow rings included, is a mark, and those rings are not stories. **M12:** branch chrome SoT `a6259996a3b1408486c6074a4fa75f5d` (supersedes this id for branch marks only).</td>
+</tr>
+<tr>
+<td>Timeline</td>
+<td>Mid zoom</td>
+<td>Years + title stubs; branch fork peek. Macro taps (M9) open Mid centered on that year/story with chip `{year} · IN FOCUS`. Mid stub → reader modal; Mid rail node → Near (not reader). **M12:** branch chrome SoT `5a0fa5949a9647daa363c3daf34bd49e` (supersedes Mid `0cd5bfaa63c64008b81a836c48e8abd3` for branch marks only).</td>
+</tr>
+<tr>
+<td>Timeline</td>
+<td>Near zoom</td>
+<td>Full cards; tap-to-zoom focus. **M12:** branch chrome SoT `974665ebd3a44254a61da7f1cf45a3f2` (supersedes Full Cards `c2c1a5e91d4a449490b92ef53b0cf72c` for branch marks only). Hollow-ring markers between cards at fork years are marks, not story cards.</td>
+</tr>
+<tr>
+<td>Search</td>
+<td>Full-screen search</td>
+<td>From header; Person / Place / Timeframe chips; story results</td>
+</tr>
+<tr>
+<td>Invite</td>
+<td>Email tab</td>
+<td>Address + optional note</td>
+</tr>
+<tr>
+<td>Invite</td>
+<td>Link tab</td>
+<td>Copyable URL; expires 7 days; join via authenticated accept-invite</td>
+</tr>
+<tr>
+<td>Drafts</td>
+<td>Drafts list</td>
+<td>Filter by missing fields; Continue writing / Discard; status chips. Show the saved `stories.title` instead of the body excerpt.</td>
+</tr>
+<tr>
+<td>Manage</td>
+<td>Avatar menu (M10)</td>
+<td>Stitch `6b07fcdcaa204d028e79ab4494ca975a`. ~~Rows: Settings · Manage families · Logout~~ **Superseded by M10 navigation (Bill 2026-10-10):** avatar menu Stitch `76b65f5e53684fd7a487148717af53a2`, rows **Settings · Logout** only (M8 shape). Manage families moves to the R2 family dropdown Stitch `9dd2079031004573be8c92226a9c707f`: live families (check on current) · divider · **  • Start a family** · **Manage families** (owner/co_owner gate).</td>
+</tr>
+<tr>
+<td>Manage</td>
+<td>Manage families hub</td>
+<td>Stitch `622ceebb3b434b6c88143f888cca8ef9` (supersedes `b429823c1f6a44aea297aaeef195bedd`, M10 navigation Bill 2026-10-10). R2 header with the family dropdown trigger active; Timeline and Drafts plain. Lists **only** families the caller owns or co-owns, then Recoverable (60 days) with Recover. Monogram circles. Route `/manage-families`.</td>
+</tr>
+<tr>
+<td>Manage</td>
+<td>Start a family</td>
+<td>Stitch `78ba55e6adf1449685fe9dadcc1ccdfc`. Root create only (branching is M11). Name required. Create → empty timeline for that family.</td>
+</tr>
+<tr>
+<td>Manage</td>
+<td>Family detail</td>
+<td>Stitch `1c097b0e40cd4703a76fb8b1baf1ebc7`. Route `/manage-families/:familyId`. Rename; co-owners (max 2); remove member (whole tree); Transfer; soft-delete (owner). Modals: Transfer `5a400d28acc24b9eb8f17da6ac3074e9`, Delete confirm `505fa619379b4ca797208e8087ccf630`.</td>
+</tr>
+</table>
+### Superseded (ignore for build)
+- Early Family Timeline screens without locked zoom chrome (two older “Jenkins Family Archive” passes)
+- Timeline mid year-stubs screen `b09b90c0a3714344b9ecb0474f184bda`. Replaced 2026-10-03 by Continuous Dial mid `0cd5bfaa63c64008b81a836c48e8abd3`. Do not build the old mid.
+- Timeline far screen `97d391c7e9bd46dba1efe302995fde51`. Replaced 2026-10-04 by Continuous Dial Far-Zoom, Flat `02972cf4e7ca4facaececdcb9e16991f`. Do not build the old far. FA (2026-10-05) amends that screen’s chrome to match main after PR #21; dots/layout stay.
+- Full-page Story Reader `3ca683beb0144a658fd5074b665fe6af` and M9 candidate `e3692b8710ea4fe395d9e03ebdf1a934`. Replaced for the modal look by `221229a5b4844e7a9b3a2d1b3ef034e5`. Deep-link route may still use the full-page shell; do not match those superseded Stitch ids for the modal.
+### Stitch screen inventory (project `12192342757314667328`)
+Mugatu stamp 2026-10-02. **Visual SoT** is the Stitch screen id plus its screenshot and HTML resource names. Do not stamp signed download URLs (they expire). Implement-to-match the look, not just structure. “Jenkins” in timeline titles is Stitch demo copy, not a product rename.
+<table header-row="true">
+<tr>
+<td>Spec screen</td>
+<td>Stitch screen id</td>
+<td>v1</td>
+</tr>
+<tr>
+<td>Timeline far</td>
+<td>`02972cf4e7ca4facaececdcb9e16991f`</td>
+<td>**Build**</td>
+</tr>
+<tr>
+<td>Timeline mid</td>
+<td>`0cd5bfaa63c64008b81a836c48e8abd3`</td>
+<td>**Build**</td>
+</tr>
+<tr>
+<td>Timeline near</td>
+<td>`b50f9265a875446abc4025d1cf84b8a3`</td>
+<td>**Build**</td>
+</tr>
+<tr>
+<td>New Story</td>
+<td>`30237cf012c74948b863c02cb860223a`</td>
+<td>**Build**</td>
+</tr>
+<tr>
+<td>Drafts</td>
+<td>`2ef8fbb308b24783a9b7d385f7d8d7a2`</td>
+<td>**Build**</td>
+</tr>
+<tr>
+<td>Add Person (choose)</td>
+<td>`c2cde0060dec47e0b5cf9b2afbfdf788`</td>
+<td>**Build**</td>
+</tr>
+<tr>
+<td>Add Person (create)</td>
+<td>`a634b51aa7524889969ba984b5496a16`</td>
+<td>**Build**</td>
+</tr>
+<tr>
+<td>Choose Place</td>
+<td>`149c60693c4a447e8a475d36ccf5868d`</td>
+<td>**Build** (Mapbox per SAD, not Google chrome)</td>
+</tr>
+<tr>
+<td>Story Reader (modal, M9)</td>
+<td>`221229a5b4844e7a9b3a2d1b3ef034e5`</td>
+<td>**Build** — M9. Full-page `3ca683beb0144a658fd5074b665fe6af` and candidate `e3692b8710ea4fe395d9e03ebdf1a934` are superseded for the modal look.</td>
+</tr>
+<tr>
+<td>Add Perspective</td>
+<td>`8964211b6cd145dd99e4ddaa3e694728`</td>
+<td>**Build**</td>
+</tr>
+<tr>
+<td>Search</td>
+<td>`8ddd24bb44d1485696c058d04c848108`</td>
+<td>**Build**</td>
+</tr>
+<tr>
+<td>Invite (email)</td>
+<td>`89b27d387f644be899da138977ea009c`</td>
+<td>**Build**</td>
+</tr>
+<tr>
+<td>Invite (link)</td>
+<td>`f71a7e7008324b5ba45ebd5df799bc4a`</td>
+<td>**Build**</td>
+</tr>
+<tr>
+<td>Invite (SMS)</td>
+<td>`3d92c66cebb442a8abc68c46bed7f2ba`</td>
+<td>**Inventory only — do not build** (v1 is email + link; server SMS is fast follow)</td>
+</tr>
+<tr>
+<td>Avatar menu (M10)</td>
+<td>`76b65f5e53684fd7a487148717af53a2`</td>
+<td>**Build** — M10 navigation (Bill 2026-10-10): Settings · Logout only. Supersedes `6b07fcdcaa204d028e79ab4494ca975a`.</td>
+</tr>
+<tr>
+<td>Family dropdown (M10)</td>
+<td>`9dd2079031004573be8c92226a9c707f`</td>
+<td>**Build** — M10 navigation (Bill 2026-10-10): families · Start a family · Manage families.</td>
+</tr>
+<tr>
+<td>Manage families hub</td>
+<td>`622ceebb3b434b6c88143f888cca8ef9`</td>
+<td>**Build** — M10. Supersedes `b429823c1f6a44aea297aaeef195bedd` and `f1949c8fd1db41b4baf0c5e9fdb387ce`.</td>
+</tr>
+<tr>
+<td>Start a family</td>
+<td>`78ba55e6adf1449685fe9dadcc1ccdfc`</td>
+<td>**Build** — M10 (root only)</td>
+</tr>
+<tr>
+<td>Family detail (owner)</td>
+<td>`1c097b0e40cd4703a76fb8b1baf1ebc7`</td>
+<td>**Build** — M10</td>
+</tr>
+<tr>
+<td>Transfer ownership</td>
+<td>`5a400d28acc24b9eb8f17da6ac3074e9`</td>
+<td>**Build** — M10 modal</td>
+</tr>
+<tr>
+<td>Delete family confirmation</td>
+<td>`505fa619379b4ca797208e8087ccf630`</td>
+<td>**Build** — M10 modal</td>
+</tr>
+<tr>
+<td>Macro with branch marks (M12)</td>
+<td>`a6259996a3b1408486c6074a4fa75f5d`</td>
+<td>**Build** — M12. Supersedes `02972cf4e7ca4facaececdcb9e16991f` for branch chrome only.</td>
+</tr>
+<tr>
+<td>Mid with branch marks (M12)</td>
+<td>`5a0fa5949a9647daa363c3daf34bd49e`</td>
+<td>**Build** — M12. Supersedes `0cd5bfaa63c64008b81a836c48e8abd3` for branch chrome only.</td>
+</tr>
+<tr>
+<td>Full Cards with branch marks (M12)</td>
+<td>`974665ebd3a44254a61da7f1cf45a3f2`</td>
+<td>**Build** — M12. Supersedes `c2c1a5e91d4a449490b92ef53b0cf72c` for branch chrome only.</td>
+</tr>
+</table>
+> 🚫 NOT A SCREEN: `a2bc93b9ea2343989b0d0bde7644e4b0` is a map-tile scrap with no HTML. Do not implement it and do not treat it as Place picker.
+> ⚠️ CONFLICT: Stitch Place picker chrome looks Google Maps–like; SAD locks **Mapbox**. **Pick:** Mapbox Maps + Search; match Mugatu pin/favorites/recents behavior, not Google SDK.
+> 🚫 FORBIDDEN: Implementing Stitch SMS invite screen or any SMS invite API in v1.
+### UX principles (implement, do not redesign)
+- Feel: warm memory album; forms that breathe; iPad-first
+- Timeline zoom: continuous pinch like a map; ladder dots → years → title stubs → full cards; also +/−, tap-to-zoom, Fit all
+- Search: full-screen from header — not inline dropdown, not dedicated nav tab
+- Invites: one modal from + Invite; album feel not SaaS; any member can invite
+- Drafts: private until published; status chips for what’s missing
+- Primary actions: Save draft (secondary), Publish story (primary)
+- Large tap targets for elders; readable body text
+- Place always shows a small map with a pin when selected
+- Photo strip with add tile
+### Loading / empty / error / success (Mugatu + SAD + UX leftovers lock)
+Source: [🧵 UXD — Client copy & chrome locks (v1)](https://app.notion.com/p/3e0c4bcef23881e59430d4f904bc59a3). EN strings below are locked; do not invent alternate copy.
+<table header-row="true">
+<tr>
+<td>Surface</td>
+<td>Locked behavior</td>
+<td>Locked EN copy / chrome</td>
+</tr>
+<tr>
+<td>Drafts list</td>
+<td>Status chips for missing fields; Continue / Discard</td>
+<td>Empty: `No drafts yet. Stories you’re still writing will show up here.` · Loading: `Loading drafts…`</td>
+</tr>
+<tr>
+<td>Search</td>
+<td>Full-screen; chip filters; story results</td>
+<td>Idle (no query): keep recent searches + suggested people/places (per Stitch) · No results: `No stories match. Try another person, place, or time.` · Loading: `Searching the album…`</td>
+</tr>
+<tr>
+<td>Place picker</td>
+<td>Favorites/recents + basemap pin</td>
+<td>Mapbox failure: `Couldn’t load the map. Check your connection and try again.` · Retry button: `Try again`</td>
+</tr>
+<tr>
+<td>Timeline</td>
+<td>Far/mid/near zoom surfaces. Far (Bill 2026-10-04) is Continuous Dial Far-Zoom, Flat `02972cf4e7ca4facaececdcb9e16991f`: one solid dot per published story, title only in the tooltip, drafts off the rail, sample decades are data, the newest decade is at the top. A decade dims while its center is in the top or bottom 45% of the rail, and it comes back to full when it scrolls into the middle (Bill, 2026-10-04). This replaces the first-and-last-row fade. The parchment overlays stay off far. Mid keeps its own top and bottom edge fades. The dashed rail, hollow rings included, is a mark, and those rings are not stories. Mid (Bill 2026-10-03) is the whole published timeline for the current family, scrolled like a dial. The center year is in focus. Rows at the top and bottom fade into parchment. Not one decade. Sample years on the screen are data, not a hardcoded range. Drafts stay off the rail. The timeline header, including the family menu, is not part of M6. It is R2. No new table or Edge function. The mid second rail is drawn and dashed beside the spine, with the branch label. A text label alone is not that rail. It does not load the other family's stories.</td>
+<td>Empty archive: `No stories yet. Capture the first one for this family.` Mid context title: `Continuous Family Dial`, plus `{year} · IN FOCUS` for the centered year. Do not render `Mid-1980s` or `Mid-1980s to Mid-1990s Era`.</td>
+</tr>
+<tr>
+<td>Photos</td>
+<td>Add tile on strip</td>
+<td>SAD: upload failures need clear **retry** UX (no Mugatu string beyond place-picker retry pattern)</td>
+</tr>
+<tr>
+<td>Invite (Email + Link)</td>
+<td>Modal from + Invite; Email + Link only in v1 (no SMS UI)</td>
+<td>Email send success toast: `Invite sent` · Link copy success toast: `Link copied` · Failure toast: `Couldn’t send invite. Try again.` · After send/copy: **close the invite modal**; stay on the screen underneath · Invitee accepts magic link → land on `/timeline`</td>
+</tr>
+<tr>
+<td>Publish</td>
+<td>Primary action on New Story; blocked until required fields present</td>
+<td>See **Publish validation UX** below</td>
+</tr>
+</table>
+### Publish validation UX (locked — UX leftovers)
+Publish is blocked until all required fields are present:
+1. Story title (non-empty). Required to publish, not to save a draft.
+2. Story text (non-empty body)
+3. Timeframe
+4. At least one person
+5. Place with map pin
+Photos are **optional** for publish.
+On blocked Publish tap:
+- Soft banner at top of form: `Finish the highlighted fields to publish.`
+- Highlight missing fields inline (terracotta focus ring)
+- Do **not** navigate away; Save draft remains available
+Almost-ready drafts (only photos missing) may show chip `Ready to publish` when 1–5 are complete.
+### Redirects / navigation
+- Search opens full-screen **from header** (not a nav tab)
+- Invite opens as **one modal** from + Invite with Email / Link tabs in v1 (no deep invite route required)
+- Add Perspective is an **overlay** (not a comment composer)
+- Timeline tap-to-zoom / Fit all stay on timeline surface
+### Flutter route path strings (Mugatu suggested; package `tell_me_a_story` locked)
+- `/timeline` — family timeline (default signed-in home)
+- `/drafts` — drafts list
+- `/stories/new` — new story capture
+- `/stories/:storyId` — published story reader
+- `/stories/:storyId/perspective` — add perspective (modal/route overlay)
+- `/search` — full-screen search
+- Invite: modal from header `+ Invite` (no deep route in v1)
+- Auth redirect: signed-out → magic-link entry; post-auth → `/timeline`
+### Local storage
+- SAD: **online-only**; drafts in Supabase — **no offline draft store**
+- Mugatu: drafts private until published (server status), not a device-local vault
+> 🚫 FORBIDDEN: Inventing a local SQLite/Hive offline draft cache in v1.
+> ⚠️ CONFLICT: Stitch SMS tab vs locked product trim. **Pick (locked):** no SMS invite UI/API in v1; Email + Link only.
+> 🚫 FORBIDDEN: Implementing superseded early Family Timeline screens without locked zoom chrome.
+> 🚫 FORBIDDEN: Adding screens not in the Mugatu final Stitch set above.
+---
+## 11 Async / email / jobs
+<table header-row="true">
+<tr>
+<td>Job</td>
+<td>Owner</td>
+<td>Notes</td>
+</tr>
+<tr>
+<td>Magic link email</td>
+<td>Supabase Auth email</td>
+<td>OK for v1; SPF/DKIM still recommended</td>
+</tr>
+<tr>
+<td>Invite email</td>
+<td>Edge Function `send-invite-email` → **Resend**</td>
+<td>Separate from create; HTML template with family name + `invite_url`; `RESEND_API_KEY` on Edge only</td>
+</tr>
+<tr>
+<td>Invite token validation</td>
+<td>Edge Function `validate-invite-token`</td>
+<td>Expiry + status</td>
+</tr>
+<tr>
+<td>Accept invite</td>
+<td>Edge Function `accept-invite`</td>
+<td>Membership upsert + mark accepted (§8)</td>
+</tr>
+<tr>
+<td>SMS invite</td>
+<td>Fast follow</td>
+<td>Twilio (or similar) hook — do not block v1</td>
+</tr>
+<tr>
+<td>Realtime fanout</td>
+<td>Supabase Realtime</td>
+<td>`postgres_changes`  • `family_id=eq.<uuid>` (optional `status=eq.published`)</td>
+</tr>
+</table>
+> Locked: invite email is **not** inside `create-invite` — call `send-invite-email` separately for retry.
+---
+## 12 Error catalog
+Machine-readable codes (Design Doc). Shape: `{ "code": "INVITE_EXPIRED", "message": "..." }`.
+<table header-row="true">
+<tr>
+<td>Code</td>
+<td>User-facing intent</td>
+<td>Handling</td>
+</tr>
+<tr>
+<td>`AUTH_REQUIRED`</td>
+<td>Sign-in required / magic link failed</td>
+<td>Stay on auth; no session; request new link if expired</td>
+</tr>
+<tr>
+<td>`FORBIDDEN`</td>
+<td>Not allowed (RLS / permission)</td>
+<td>Surface generic permission error; log</td>
+</tr>
+<tr>
+<td>`NOT_FOUND`</td>
+<td>Resource missing</td>
+<td>Show not-found state</td>
+</tr>
+<tr>
+<td>`VALIDATION`</td>
+<td>Missing / invalid fields (e.g. publish)</td>
+<td>Mirror drafts status chips</td>
+</tr>
+<tr>
+<td>`INVITE_INVALID`</td>
+<td>Cannot join</td>
+<td>Show invalid state</td>
+</tr>
+<tr>
+<td>`INVITE_EXPIRED`</td>
+<td>Link expired (\>7 days)</td>
+<td>Prompt to request new invite</td>
+</tr>
+<tr>
+<td>`INVITE_ACCEPTED`</td>
+<td>Invite already used</td>
+<td>Show used/invalid state</td>
+</tr>
+<tr>
+<td>`RATE_LIMITED`</td>
+<td>Too many attempts</td>
+<td>Backoff; retry later</td>
+</tr>
+<tr>
+<td>`STORAGE_FAILED`</td>
+<td>Photo upload failure</td>
+<td>Clear retry UX; do not orphan DB rows without storage object</td>
+</tr>
+</table>
+Other cases (no separate Design Doc code): network offline → block mutations + clear “you’re offline”; photo over \~20/story → block adds; Mapbox search failure → allow retry (`Couldn’t load the map. Check your connection and try again.` / `Try again`), do not fake pins.
+### Localization / EN strings (locked — UX leftovers)
+Source: [🧵 UXD — Client copy & chrome locks (v1)](https://app.notion.com/p/3e0c4bcef23881e59430d4f904bc59a3).
+- v1 ships **English only** — do not invent additional languages
+- Use §10 locked EN chrome strings as the EN source table for user-facing `message` fields where applicable (Drafts/Search/Place/Timeline empty+loading, invite toasts, publish banner, Mapbox failure)
+- Machine codes above remain locked from Design Doc; surface the §10 EN strings for matching UX events
+---
+## 13 Security non-negotiables
+1. RLS on all tenant tables; membership-gated access via `is_family_member`
+2. No service-role key in Flutter
+3. Private bucket `story-photos`; authenticated or signed download only; path `{family_id}/{story_id}/{photo_id}.ext`
+4. Restrict Mapbox public token + Supabase keys by platform/referrer (iOS bundle + web URL)
+5. Invite: opaque single-use token, 7-day expiry, rate-limit abuse controls
+6. No public SEO pages for family content in v1
+7. Multi-family isolation tests before real data
+8. Staging project separate from prod
+9. `RESEND_API_KEY` only on Edge; no Mapbox secret in v1
+> 🚫 FORBIDDEN: Disabling RLS “temporarily” in any shared environment.
+> 🚫 FORBIDDEN: Cross-family Realtime subscriptions without `family_id` filter.
+---
+## 14 Test plan
+### Automated / scripted (minimum)
+1. **RLS isolation:** User A in family 1 cannot SELECT family 2 stories/photos/people/places/invites
+2. **Author rules:** Non-author cannot UPDATE story core; can INSERT photo if member
+3. **Comment/perspective authorship:** Author-only UPDATE/DELETE of own rows
+4. **Magic link session:** Authenticated requests succeed; anon fail on tenant tables
+5. **Invite expiry:** Token older than 7 days rejected by validate/accept (`INVITE_EXPIRED`)
+6. **Invite single-use:** Second accept returns `INVITE_ACCEPTED` / invalid
+7. **Photo path:** Upload under `{family_id}/{story_id}/{photo_id}.ext` in `story-photos` only for member
+8. **Profile trigger:** New `auth.users` row creates `profiles` without client upsert
+### Manual / device
+1. iOS/iPad and web: capture → draft → publish → appears on timeline
+2. Timeline far/mid/near zoom interactions
+3. Place picker favorites/recents + Mapbox pin
+4. Invite email + link: create → send (Resend) → validate → accept-invite
+5. Search by person / place / timeframe
+6. Realtime: second client sees new published story without refresh
+7. Photo compress + \~20 cap + retry on failure
+### Commands (report output)
+> **Locked (Bill / Design Doc plumbing):** Client: `flutter test` (from `apps/tell_me_a_story`). Data/RLS: Supabase SQL tests against migrations (two-family leak test mandatory). Milestone reports must include command output.
+---
+## 15 Milestones
+Aligned to SAD phased build plan:
+<table header-row="true">
+<tr>
+<td>#</td>
+<td>Milestone</td>
+<td>Exit criteria</td>
+</tr>
+<tr>
+<td>M1</td>
+<td>Foundation</td>
+<td>**CLOSED 2026-09-26 (local).** Local Supabase (`supabase start`); schema + RLS per Design Doc; magic link (Mailpit / Flutter web `:3000`); profile trigger; empty Flutter app wired (iOS + web). Cloud staging **waived** as M1 exit — see Staging MS.</td>
+</tr>
+<tr>
+<td>M2</td>
+<td>Family + invites</td>
+<td>**CLOSED 2026-10-03** — Bill local smoke. Create family (data/API; **no Create Family UI** — Mugatu OOS); memberships; email + link invites (create/send/validate/accept contracts); Resend.</td>
+</tr>
+<tr>
+<td>M3</td>
+<td>People + places</td>
+<td>**CLOSED 2026-10-03** — Bill local smoke. Shared lists; Mapbox place picker (client token); favorites/recents.</td>
+</tr>
+<tr>
+<td>M4</td>
+<td>Stories + drafts + photos</td>
+<td>**CLOSED 2026-09-27** — Bill local smoke. Capture; compress/upload to `story-photos`; publish; drafts list; \~20 cap; timeline list reload after publish; capture-strip thumbs.</td>
+</tr>
+<tr>
+<td>M4.5</td>
+<td>Memory Album visual skin</td>
+<td>**CLOSED 2026-09-27** — Bill local smoke. PR #13 `fdc5231`; Mugatu PASS vs Stitch. Theme/tokens on `/timeline`, `/stories/new`, `/drafts`, People/Places from capture only.</td>
+</tr>
+<tr>
+<td>M5</td>
+<td>Reader</td>
+<td>**CLOSED 2026-10-03** — Bill local smoke. PR #14 squash-merged to main as `1b61163`. Comments + perspectives separate; nested `profiles.display_name` via co-member SELECT (Bill 2026-09-27). Migration replaces own-only profiles policy. No denormalized author names.</td>
+</tr>
+<tr>
+<td>M6</td>
+<td>Timeline + Realtime</td>
+<td>**CLOSED 2026-10-04** — Bill local smoke. PR #16 squash-merged to main as `a3cb316`, from head `443d1d69`. Timeline far, mid, and near plus `postgres_changes` by `family_id`. The timeline header is later R2, not this close.</td>
+</tr>
+<tr>
+<td>M7</td>
+<td>Search</td>
+<td>**CLOSED 2026-10-04** — Bill local smoke. PR #17 squash-merged to main as `cef8f13`, from head `83874016`. Full-screen search from the `Search archive...` chip on far, mid, and near. The shared header is R2, not this close.</td>
+</tr>
+<tr>
+<td>M8</td>
+<td>Profile</td>
+<td>**CLOSED 2026-10-07** — Bill local smoke. The logged-in user's profile. Bill 2026-10-04: the name is required. Save does not write a blank or null display_name. Do not take initials from the email. A stored name that is already blank paints no letters until a name is saved. A saved picture still fills the circle, including when the stored name is blank. No NOT NULL in this milestone. Do not reopen M6, M7, R2, or R3.</td>
+</tr>
+<tr>
+<td>R1</td>
+<td>Stitch chrome reskin</td>
+<td>**CLOSED 2026-10-03** — Bill local smoke. Visual, product, and architecture PASS on `27be83f`. PR #15 squash-merged to main as `b30c697`, from head `27be83f`. Paint the screens the Flutter app already has. A title is required to publish, not to save a draft. It stays on New Story, the reader, Drafts, and the timeline, where it replaces the excerpt. Documented stays. Add photo stays blocked until a decade is picked. One PR off main (`feat/r1-stitch-reskin`). No new routes. Search stays M7. Timeline far / mid / near stay M6. SMS and the map-tile scrap stay out.</td>
+</tr>
+<tr>
+<td>R2</td>
+<td>Shared header</td>
+<td>**CLOSED 2026-10-04** — Bill local smoke. PR #18 squash-merged to main as `0795f22c`, from head `a94a0c34`. Header only. One bar on the timeline, Drafts, and New story. Do not reopen M6 or M7. Playbook below.</td>
+</tr>
+<tr>
+<td>R3</td>
+<td>Full-card timeline</td>
+<td>**CLOSED 2026-10-04** — Bill local smoke. PR #19 squash-merged to main as `534000c`, from head `d2ec07d`. Full cards only. Do not reopen M6, M7, or R2. Do not change the R2 header. Playbook below.</td>
+</tr>
+<tr>
+<td>M9</td>
+<td>Reader modal + Macro year tap</td>
+<td>**CLOSED 2026-10-07** — Bill local smoke. PR #22 squash-merged to main as `1dc7976`, from head `00c18dc`. Stitch `221229a5b4844e7a9b3a2d1b3ef034e5`. Reader opens as a parchment modal over the blurred timeline. Meta line + author avatar (family can see each other's pictures). Bill 2026-10-06 zoom taps re-lock: Macro decade label / decade node / story dot → Mid (not reader); Mid stub + Near full card → reader; Mid rail node → Near. One storage migration: `avatars` SELECT own-or-co-member. Invite Stitch chrome (SMS visual placeholder only). Playbook below. Do not reopen M6, M7, M8, R2, or R3.</td>
+</tr>
+<tr>
+<td>M10</td>
+<td>Manage families</td>
+<td>**CLOSED 2026-10-10** — Bill local smoke. PR #23 merged to main as `bbedef6`, from head `5a3b53c`. Do not reopen M10. Design Doc M10 (Gilfoyle 2026-10-07) + **M10 navigation (LOCKED Bill 2026-10-10)**. Roles `owner` / `co_owner` / `member`; `families.deleted_at`; Edge create-root / rename / co-owner / remove-member (whole tree) / transfer (immediate) / soft-delete / recover. Routes `/manage-families`  • `/:familyId`. Stitch: family dropdown `9dd2079031004573be8c92226a9c707f`, avatar menu `76b65f5e53684fd7a487148717af53a2`, hub `622ceebb3b434b6c88143f888cca8ef9`, Start `78ba55e6adf1449685fe9dadcc1ccdfc`, detail `1c097b0e40cd4703a76fb8b1baf1ebc7`, Transfer `5a400d28acc24b9eb8f17da6ac3074e9`, soft-delete `505fa619379b4ca797208e8087ccf630`. Branch `feat/m10-manage-families`. Tree-wide write + branch create stay M11. Playbook below. Do not reopen M1–M9 or FA.</td>
+</tr>
+<tr>
+<td>M11a</td>
+<td>Origin stories</td>
+<td>**CLOSED 2026-10-11** — Bill local smoke PASS (incl. narrow-window ring tap opens parent timeline). PR #26 merged to main as `7cd6bc4`, from head `063c058` (all five lanes PASS; pgTAP 201/201, flutter test 350/0, analyze 29 = main). Do not reopen M11a. OPENs answered and Mugatu's four M11a screens locked by Bill 2026-10-11 (UXD "M11a — origin stories"; `cb931352`, `3ed7c63c`, `e6460f52`, `564334d7`). Design Doc "M11a Origin stories" (Gilfoyle, LOCKED Bill 2026-10-11) + PRD/Decisions M11 (Jared 2026-10-11). `families.origin_story_id` set only through `set_family_origin`; `family_origin(fid)` is the one rule for whether an origin counts; origin dot on the child timeline with the parent ring beside it; child-family members add comments, perspectives and photos to the origin story; delete warning via `list_origin_dependents`; TMAS-24-05 ships here. Branch `feat/m11a-origin-stories`. Starting new timelines is M11b. Playbook below. Do not reopen M1–M10, M12, or FA.</td>
+</tr>
+<tr>
+<td>M11a.2</td>
+<td>Origin stories hardening</td>
+<td>**CLOSED 2026-10-11** — PR #27 merged as `3158f38` (head `96ec0b9`); all six lanes PASS (spec, architecture, security, visual, product, code quality with nits); Bill's smoke PASS (4 steps) and close order 2026-10-11. Carried: Dinesh nits 1–6 (service_role no-bypass test for perspectives and photos, one multi-row cap insert, policy-text pins depend on search_path, stale `origin must be published` fake at story_reader_page_test.dart:1527, PhotoStrip `canRemove == null` should default to hidden, generated columns would trip the allow-list guards); Trinity follow-ups 01/02/03/05/06 and 07 (`family_tree_root` / `is_family_tree_readable` search_path) to the next hardening pass. History: Bill locked Gilfoyle's calls 1–4; Gilfoyle PASS on places_select_member deviation; PR #27 Spec PASS at `96ec0b9` 2026-10-11; plan-review amendments folded 2026-10-11 (whitelist guard, parent-deleted check first, FOR NO KEY UPDATE, own-photo Remove; storage residual risks accepted by Bill); ships next, before M11b; Trinity audit link to be added when filed. Separate milestone from M11a; Design Doc "M11a.2 Origin stories hardening" (Gilfoyle, LOCKED Bill 2026-10-11). Guard triggers on comments/perspectives/photos; uniform `NOT_FOUND` in `set_family_origin`; `story_row_exists` grant kept (accepted risk); definer `search_path = ''`; server photo cap 20; reader fixes M11A-04/-05. Branch `feat/m11a2-hardening`. Playbook below. Do not reopen M11a.</td>
+</tr>
+<tr>
+<td>M11b</td>
+<td>Start a new timeline</td>
+<td>**CLOSED 2026-10-11** — PR #28 (feat/m11b-start-a-timeline) merged by Bill at head 7c274a7; Bill confirmed local smoke passed (Mortang room, 2026-10-11: "the PR's been merged, smoke is passed" / "close M11b"). Bill locked Gilfoyle's 3 calls as written (starter not auto-added, any 4-digit attach year, nesting cap 63; dial-label ellipsis stays). Design Doc "M11b Start a new timeline" (Gilfoyle) + UXD M11b (Mugatu, LOCKED Bill 2026-10-11 1:58 PM CT). Story-first: start from the reader ⋯ menu or from the family menu with a required story picker; one atomic `create_branch_family` RPC with a required published origin from the parent family; any live member of the parent may start; every bad origin is `NOT_FOUND: story`; policy count stays 44; one migration `20261011200000_start_a_timeline.sql`; starter stays on the parent with a toast. Branch `feat/m11b-start-a-timeline` (suggested). Playbook below. Do not reopen M11a or M12; do not fold M11a.2 in.</td>
+</tr>
+<tr>
+<td>M12</td>
+<td>Timeline branch marks</td>
+<td>**CLOSED 2026-10-11** — Bill local smoke (steps 1–5 PASS). Rail-centering fix PR #25 merged to main as `f978616`, from head `0231128` (all five lanes PASS). Do not reopen M12. Design Doc M12 (Gilfoyle 2026-10-07). Hollow-ring branch marks on Macro/Mid/Full; `branch_year`; `family_tree_root`  • `is_family_tree_readable` for published tree **read**; write stays membership; no new graph table. Stitch: Macro `a6259996a3b1408486c6074a4fa75f5d`, Mid `5a0fa5949a9647daa363c3daf34bd49e`, Full Cards `974665ebd3a44254a61da7f1cf45a3f2` (supersede prior Macro/Mid/Full for branch chrome only). Branch `feat/m12-branch-marks`. Branch create stays M11. Playbook below. Do not reopen M1–M9 or FA.</td>
+</tr>
+<tr>
+<td>M13</td>
+<td>Fit & Finish</td>
+<td>**CLOSED 2026-10-12.** PR #29 merged to main 12:34 PM CT (merge commit `0f47be8`, final head `0ecf739`). Bill in the Mortang room: 'the PR has been merged. smoke passed. let's close it'. Lane PASSes at `0ecf739`: Gilfoyle (architecture), Big Head (spec), Mugatu (visual), Dinesh (code quality). Trinity's M13 review deferred to H1. Earlier: **READY 2026-10-11** (Bill, Mortang room: "yes on 1-4", which locks Gilfoyle's M13 section himself; "hold off on trinity until the hardening milestone", so Trinity's M13 review moves to H1). All OPENs resolved. M11b has merged (`59f91a9`), so M13 can branch now. Grok plans it as one PR. Design Doc "M13 Fit & Finish" (Gilfoyle, LOCKED Bill 2026-10-11) + PRD M13 (APPROVED Bill 2026-10-11) + UXD "M13 — Fit & Finish" (Mugatu, LOCKED Bill 2026-10-11; 12 Stitch screens, three-box date picker `a9fd84de` replaces `5b929a4c`) + Decisions M13 (1)–(11). Eight items: blurred modals; plus-circle create buttons; year / year-month / full dates (`story_date_precision`, each date stored as the full period it covers, one sort order, one decade rule); a Macro dot opens the reader; a click on empty space zooms out one level; landing + sign in; `/invite/:token`; Edit a story through `can_edit_story` (author + owners/co-owners of the story's own timeline; Decisions M13 (11): the parent's owners/co-owners can remove a child member's photo on the origin story). One migration that sorts after `20261011200000`; policy count stays 44. Branch `feat/m13-fit-and-finish` (suggested). Playbook below. Do not reopen M11a, M11a.2, M11b or M12.</td>
+</tr>
+<tr>
+<td>M14</td>
+<td>People profiles</td>
+<td>**CLOSED 2026-10-13.** PR #30 squash-merged to main as `ec83077`, from final head `ef92451`. Bill's local smoke passed (Mortang room: "smoke passed"). Lane PASSes at `ef92451`: Gilfoyle (architecture), Big Head (spec), Mugatu (visual), Dinesh (code quality), Jared (product). Trinity's review is deferred to H1 item (h). Counts reported in the PR body: analyze 27, Flutter 415, pgTAP 530, Deno 41, policies 47. Known limit: blank-email survivors from `20261012100100` stay blank until someone uses Add email. A follow-up PR (copy and colors, no `supabase/` changes) is recorded in the playbook. Earlier: **READY 2026-10-12.** Design Doc "M14 — People profiles" (Gilfoyle, LOCKED by Bill 2026-10-12; Bill answered all three OPENs 2026-10-12: merge M11b people copies into one person each with story tags moved to the survivor; the invite-link picker excludes anyone with a date of passing; once a person signs in, DOB / About / picture live on the account, one profile everywhere, one Save in Settings, and each tree's person row keeps name, story tags and date of passing (with its precision)) + PRD M14 (APPROVED Bill 2026-10-11; 7 items, 13 locks, incl. Lock 11 picker excludes people with a date of passing, Lock 12 one profile per account after sign-in, and Lock 13 (Bill 2026-10-13) a "Not invited yet" section in the Invite modal) + UXD "M14 — People profiles" (Mugatu, LOCKED Bill 2026-10-12; 8 Stitch screens). Person vs member: being named on a story no longer makes anyone a member (drops the two M10 auto-membership triggers). New `is_tree_member()`; profile columns on `people` (DOB / passing with M13 precision, `about`, `avatar_path`) + private `person-avatars` bucket; account-level `profiles.birth_date` / `birth_precision` / `about`; `invites.person_id`; `accept-invite` links, `remove-member` unlinks; `user_id` server-side only; outside-tree readers see name only; `create_branch_family` stops copying people; one data migration merges existing copies. Policy count 44 → 47 (3 new `person-avatars` storage policies; `people` replaced in place; `profiles` unchanged, account fields read through `person_profile()`). No new error prefixes. Migrations sort after `20261011210000`. Branch `feat/m14-people-profiles`. Playbook below. **Amendment 2026-10-13** (status stays READY; PR #30): any family member can invite (`is_family_member`); Lock 13 "Not invited yet"; `list_unlinked_people` excludes open invites (`20261013140000_unlinked_open_invite.sql`); people INSERT requires `user_id is null`; policies stay 47; fix-push gates analyze ≤ 27, Flutter ≥ 414, pgTAP ≥ 527, Deno ≥ 40. Do not reopen M10–M13.</td>
+</tr>
+<tr>
+<td>M14.1</td>
+<td>Add person picker (link existing or create new)</td>
+<td>**READY 2026-10-15.** Flow, labels, and Stitch screen `f821c61746fe4895b48c94b2e4e13349` locked by Bill (Mortang room, "lock m14.1", 2026-10-15); Gilfoyle architecture lock same day. Branch `feat/m14-1-person-picker`, client only, no `supabase/` changes. Playbook below.</td>
+</tr>
+<tr>
+<td>H1</td>
+<td>Hardening</td>
+<td>**DRAFT placeholder 2026-10-11** — not READY. Bill 2026-10-11 (Mortang room): "skip trinity this time. we'll do a hardening milestone later." Scope to be specced later (Trinity's PR #28 review, Trinity's M13 review, publishing Trinity's M11a audit, the `validate-invite-token` raw-error finding, grant tests, TMAS-M11B-01 hosted re-check at Staging, carried M11a.2 items). Bill 2026-10-11: "hold off on trinity until the hardening milestone." No branch, migration or playbook yet. Section below.</td>
+</tr>
+<tr>
+<td>FA</td>
+<td>Far-zoom amendment</td>
+<td>**LOCKED 2026-10-05** — describes main after PR #21. Not a new build PR. Not a stamp. Amends Macro/Far chrome only. Do not reopen M6. Playbook below.</td>
+</tr>
+<tr>
+<td>FF</td>
+<td>Fast follow</td>
+<td>SMS invites (after v1)</td>
+</tr>
+<tr>
+<td>Staging</td>
+<td>Cloud staging (final-ish)</td>
+<td>**Bill lock 2026-09-26.** After feature set proven locally: push schema to cloud Supabase; Email magic link + Resend SMTP; Site URL / Redirect URLs; lock **one** Flutter-web host (Vercel **or** Netlify — not both; still unlocked); magic-link smoke on shareable staging URL. Not a per-feature gate.</td>
+</tr>
+<tr>
+<td>V2</td>
+<td>Backlog</td>
+<td>Offline, notifications, export, audio. Former M8 hardening: RLS audit, key restriction, basic monitoring.</td>
+</tr>
+</table>
+**Env rule (Bill 2026-09-26):** Feature MS exit = local smoke by Bill. Optional mid-stream staging deploys never block. Staging MS is separate and late.
+After each milestone: run section 14 checks for that slice; report pass/fail with output.
+### R2 Shared header (executable playbook)
+**Status:** **CLOSED 2026-10-04** — Bill local smoke. PR #18 squash-merged to main as `0795f22c`, from head `a94a0c34`. Do not reopen this milestone. Header only. Do not reopen M6 or M7.
+**Where:** One bar on the timeline, Drafts, and New story. The reader keeps its back control. Search keeps its own bar.
+**On the bar, left to right:** wordmark `Tell Me a Story` (the name, not a link); family menu; `Timeline`; `Drafts` immediately after Timeline, same ink text; the existing search chip (`timeline-search`, still pushes `/search`). Do not add a second search control.
+**Right side:** `Invite` is ink text. `New story` is the only filled terracotta button. On the New story page those two come off, and Save draft and Publish stay. The reader keeps its back control. Search keeps its own bar.
+**Timeline** returns to the timeline for the current family. **Drafts** opens drafts for the current family and stays on the bar when you are already in Drafts.
+Stories, Family Members, Places, and Help come off. They are not destinations.
+**Screen:** `703158c2c064414883d9d1c1dff8902a` is the bar. The timeline under it is a stand-in. Far, mid, and near stay the locked zoom screens.
+**Family menu:** List this member's families with `listMine()`. Remember the chosen id in process memory. Clear it when the signed-in user id changes or the session drops. A signed-out user keeps the existing null return before any membership read. No new table, package, or Edge function. `currentFamilyId()` returns the remembered id when it is one of those memberships. If nothing is remembered, keep today's unordered `limit(1)` read and do not add a lookup. If the remembered id is not a membership, do not return it, and fall through to that same read. Do not order the fallback. Timeline, search, New story, and Drafts keep calling `currentFamilyId()`. No second family-id source. The menu is on the bar at far, mid, and near. An open New story form keeps the family id it loaded. Do not move that draft into the other family. Search has no family menu. Do not change search results, chips, or its header.
+**Out:** Search behavior, timeline zoom rules, and the reader chrome. Add perspective keeps its current bar.
+### R3 Full-card timeline (executable playbook)
+**Status:** **CLOSED 2026-10-04** — Bill local smoke. PR #19 squash-merged to main as `534000c`, from head `d2ec07d`. Do not reopen this milestone. Full cards only. Do not reopen M6, M7, or R2. Do not change the R2 header.
+**Screen:** Stitch `c2c1a5e91d4a449490b92ef53b0cf72c`, project `12192342757314667328`. Ignore `015a7a24ebd746bf96f69c4132fc1d9c`, `0ef65157329747aaba45e529d0a33947`, and the old near screen `b50f9265a875446abc4025d1cf84b8a3`.
+**Page:** Scroll the whole published timeline for the current family as full cards, newest toward the top. The card in the center of the viewport is sharp and full opacity. Cards fade into parchment as they leave the top and bottom.
+**Card:** Year and the saved title. People chips, place chips, and stored photos. No body excerpt. Do not use the first body line. One terracotta dot per card. The spine is a solid line, a mark, not a second timeline. No "in focus" badge, no dial label, no era name, and no Near zoom view.
+**Zoom row:** Under the R2 header, one quiet row. Left, a beige pill reading `Zoom Level: 100% (Full Cards)`. Right, one segmented switch reading Macro, Mid, Full Cards, with Full Cards selected. That switch is the zoom control on this page. No plus, no minus, and no Fit all.
+**Header:** The R2 bar stays: wordmark, family menu, Timeline, Drafts, search chip, ink Invite, terracotta New story. Stories, Family Members, Places, and Help stay off. Do not edit that bar in this milestone.
+**Data:** No new table, column, or Edge function. If the current published read cannot paint the card, stop. Do not invent a sort column or a second family id.
+**Out:** The R2 header, search, the reader, Drafts, and New story.
+### M9 Reader modal + Macro year tap (executable playbook)
+**Status:** **CLOSED 2026-10-07** — Bill local smoke. PR #22 squash-merged to main as `1dc7976`, from head `00c18dc`. Do not reopen this milestone. Do not reopen M6, M7, M8, R2, or R3.
+**Sources:** UXD handoff M9 + Far-zoom amendment [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4); Design Doc “M9 avatar visibility” + “M9 reader data map” [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7); PRD/Decisions M9 items.
+**Screen:** Stitch `221229a5b4844e7a9b3a2d1b3ef034e5`, project `12192342757314667328`. Ignore `e3692b8710ea4fe395d9e03ebdf1a934` and full-page reader `3ca683beb0144a658fd5074b665fe6af` for this milestone’s look. The existing reader route stays as the deep-link target.
+**Modal:** Mid **stub** and Near **full card** open a large parchment sheet centered over the timeline (Stitch `221229a5`). Bill 2026-10-06: Macro decade label, Macro decade node, and Macro story dot do **not** open the reader — they open Mid (see Zoom taps). Cold `/stories/:id` and Search “Read Story →” still open the reader (full page on cold). The timeline and the R2 header stay visible behind the modal, dimmed and blurred. The sheet scrolls inside itself. Top bar: “Family Keepsake” on the left, round X close on the right. No back link. Closing returns to the same timeline position and zoom.
+**Meta line:** One line under the title: `Recorded event: {event date} · Documented {month year} by {author} {avatar} · {n} min read`. No separate “Written by” line. Data map (Design Doc):
+- Recorded event date → `stories.timeframe_start` (+ `timeframe_end` when set)
+- Documented month/year → `stories.published_at` (do not add `created_at`)
+- Author + avatar → `stories.author_id` → `profiles.display_name` + `avatar_path` (M8 circle rule)
+- Min read → client: ceil(word count / 200), minimum 1; nothing stored
+- People chips → `story_people` → `people`
+- Place chip → `places.label`, or `places.address` when label blank
+- Decade chip → client from `timeframe_start`
+- Wide hero photo → `photos` with lowest `sort_order`, signed URL from `story-photos`; no photo → no image block
+**Avatar visibility (Bill 2026-10-05):** Within a family, anyone can see anyone’s name and picture. Outside the family, neither. One new migration after `20261005000001` (do not edit that file): drop `avatars_select_own`; create `avatars_select_own_or_comember` per Design Doc. Bucket stays private; signed URLs only; INSERT/UPDATE/DELETE stay own-only. RLS SQL tests: co-member can select; stranger cannot; co-member cannot write another’s object. If the signed URL fails, paint initials.
+**Zoom taps (Bill 2026-10-06 — supersedes 2026-10-05 Macro-dot → reader):**
+- Macro **decade label**, Macro **decade node**, and Macro **story dot** open Mid (`0cd5bfaa63c64008b81a836c48e8abd3`), centered on that year or story, chip `{year} · IN FOCUS`. They do **not** open the reader.
+- Mid **stub** and Near **full card** still open the reader modal (see Modal).
+- Mid **rail node** (circle on the dashed rail) opens Near (full cards), focused on that story. It does **not** open the reader.
+- Up/down arrow keys step each zoom rail. Client-only. Non-blocking / allowed. No new route, table, or Edge.
+**Invite Stitch chrome (Bill 2026-10-06 — OK on this PR even though outside original M9 playbook):** Invite dialog may restyle to match locked Stitch Email / Text (SMS) / Link screens on PR #22. Email and Link stay the only send paths; `create-invite` / `send-invite-email` / accept contracts unchanged. SMS / Text tab is visual placeholder only — no SMS Edge, no phone send, no Twilio. Do not invent SMS send. Personal note fields are chrome only.
+**Branch:** One PR off main, `feat/m9-reader-modal`. No push to main.
+**Tests:** `flutter test` from `apps/tell_me_a_story`. Supabase RLS SQL for the avatar policy. Paste output in the PR.
+**OPEN (do not build):** Print and Share beside the X. Photo caption (`photos` has no caption column).
+**Out:** Reopening closed milestones. New tables/columns/Edge/packages. Public avatar URL. Denormalizing author name or `avatar_path` onto `stories`. Editing merged M8 migration. Inventing SMS send.
+> 🚫 FORBIDDEN: Building Print/Share or photo captions. A public `avatars` bucket. Inventing `stories.created_at`. Matching superseded screens `e3692b8` or `3ca683be` as the modal look. Macro story dots opening the reader. Treating Mid rail nodes as reader opens. Inventing an SMS Edge function or client SMS send. Changing create-invite / send-invite-email / accept-invite contracts.
+### M10 Manage families (executable playbook)
+**Status:** **CLOSED 2026-10-10** — Bill local smoke. PR #23 merged to main as `bbedef6`, from head `5a3b53c` (all five lanes PASS). Do not reopen this milestone. Do not reopen M1–M9, FA, R2, or R3. Tree-wide write and branch create stay **M11** — do not fold them into M10.
+**Sources:** Design Doc “M10 Manage families” (Gilfoyle 2026-10-07) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7); UXD M10 (Mugatu, UX locked) [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4); PRD/Decisions M10.
+**Screens (Stitch project ****`12192342757314667328`****):**
+- Family dropdown (R2, open): `9dd2079031004573be8c92226a9c707f` — live families with a check on the current one · divider · **+ Start a family** · **Manage families** (owner/co_owner gate)
+- Avatar menu (open): `76b65f5e53684fd7a487148717af53a2` — **Settings · Logout** only (M8 shape). Supersedes `6b07fcdcaa204d028e79ab4494ca975a`
+- Manage families hub: `622ceebb3b434b6c88143f888cca8ef9` — R2 shared header with the family dropdown trigger active (Timeline and Drafts plain); lists **only** families the caller owns or co-owns (Owner / Co-owner chips), then **Recoverable (60 days)** with Recover; monogram circles. Supersedes hubs `b429823c1f6a44aea297aaeef195bedd` and `f1949c8fd1db41b4baf0c5e9fdb387ce`
+- Start a family: `78ba55e6adf1449685fe9dadcc1ccdfc` — root create only; name required; Create lands on that family’s empty timeline; Cancel → hub
+- Family detail (owner): `1c097b0e40cd4703a76fb8b1baf1ebc7` — rename; up to two co-owners; members; remove; Transfer ownership…; Delete family… (soft-delete)
+- Transfer ownership modal: `5a400d28acc24b9eb8f17da6ac3074e9` — pick new owner from co-owners; former owner becomes Co-owner or Member (required); immediate (no accept)
+- Soft-delete confirm: `505fa619379b4ca797208e8087ccf630` — type-to-confirm; hidden 60 days then permanent; Recover from hub
+**Routes:** `/manage-families` (hub); `/manage-families/:familyId` (detail). Start / Transfer / Delete may be overlays on those routes.
+**Session family:** R2 family menu stays the **only** control that switches session current family (`FamilySelection` / `currentFamilyId()`). No new session table. Manage does not replace R2 for switch. The R2 menu also carries **+ Start a family** and **Manage families** as actions, not switches.
+**Data / migrations (Design Doc):**
+- `alter type membership_role add value if not exists 'owner';` and `'co_owner'` (keep `'member'`). New migration after latest on main; do not edit old enum migrations.
+- Product chips: Owner=`owner`, Co-owner=`co_owner`, Member=`member`. Exactly one `owner` per family; at most two `co_owner`. Co-owners same powers as owner except: only `owner` soft-deletes, transfers, or removes a `co_owner`. Owners cannot remove each other.
+- Backfill: for each family, set `memberships.role = 'owner'` where `user_id = families.created_by` (create membership if missing); others stay `member`.
+- `families.deleted_at timestamptz null` + index where not null. Soft-delete sets `deleted_at = now()`; Recover clears it within 60 days. Active lists exclude soft-deleted. After 60 days: security-definer purge (`pg_cron` or scheduled Edge) hard-deletes (cascade per existing FKs). No client hard delete.
+- **Soft-delete parent with children — LOCKED (Bill 2026-10-07):** allowed. While the parent has `deleted_at` set, tree walks / M12 marks treat those children as **roots** (skip the soft-deleted ancestor). Keep `parent_family_id` on the children during the 60-day window so **Recover** restores the parent link. On **permanent purge** after 60 days: set each direct child’s `parent_family_id` to null (they become true roots), then hard-delete the parent.
+- **Named on a story → membership — LOCKED (Bill 2026-10-07):** `alter table public.people add column user_id uuid null references public.profiles(id);` + unique partial index `(family_id, user_id) where user_id is not null`. Resolve by `people.user_id` when set, else case-insensitive match of non-null `people.email` to `profiles.email`. Security-definer trigger (or Edge on the same write path): on `story_people` INSERT, and when `people.user_id` / `people.email` changes while the person is already on any story in that family — if resolved, **upsert** `memberships` on that story’s `family_id` with `role = member`. Do **not** demote `owner` / `co_owner`. Do **not** create an auth user or invite if no matching profile. Membership is on the **story’s family only** in M10 (tree-wide write remains M11). Client may set `people.user_id` when tagging a known profile; never writes `memberships` directly.
+**Edge / security-definer (JWT required; memberships writes stay Edge-only):**
+- `POST /create-root-family` `{ "name" }` — authenticated → root family + owner membership; return `{ family_id }`
+- `POST /rename-family` `{ "family_id", "name" }` — owner or co_owner → update `families.name`
+- `POST /add-co-owner` `{ "family_id", "user_id" }` — owner or co_owner → promote/insert `co_owner` if under cap 2; target already a member
+- `POST /remove-co-owner` `{ "family_id", "user_id" }` — **owner only** → demote that co_owner to `member`
+- `POST /remove-member` `{ "family_id", "user_id" }` — owner or co_owner → drop membership on **every family in the same branch tree**; do **not** delete `story_people` / name tags; cannot remove `owner`; cannot remove `co_owner` unless caller is `owner`; cannot remove self
+- `POST /transfer-ownership` `{ "family_id", "new_owner_user_id", "former_owner_becomes": "co_owner" | "member" }` — **owner only** → target must be current `co_owner`; immediate swap; **no accept handshake** (Stitch “confirm acceptance” copy is non-binding)
+- `POST /soft-delete-family` `{ "family_id" }` — **owner only** → set `deleted_at`
+- `POST /recover-family` `{ "family_id" }` — owner or co_owner → clear `deleted_at` if within 60 days
+Invite from Manage: still `create-invite` + `send-invite-email` / Link for the family on the detail screen; R2 Invite stays. Accept still upserts `member` on that invite’s `family_id`.
+**RLS:** `families` SELECT: member and (`deleted_at is null` or caller is owner/co_owner). UPDATE rename/recover: owner or co_owner; set `deleted_at`: owner only. Hard DELETE: service role / purge only. Client never writes `memberships`.
+**Client:** Hub lists only families the caller owns or co-owns (active, then recoverable). Start a family → create-root → set session family → empty timeline. Detail: rename, co-owners, remove, transfer, soft-delete per role. Avatar menu stays **Settings · Logout** (Manage families is not on it).
+**M10 navigation — LOCKED (Bill 2026-10-10; Design Doc “M10 navigation”):**
+- **R2 family dropdown order:** (1) live families you belong to in any role (`deleted_at is null`), with a check on the session family; tap switches session family as today. (2) Divider. (3) **+ Start a family** for every signed-in user; opens the existing Start dialog over the current page; `create-root-family`; on success sets session family and goes to its timeline. (4) **Manage families**, opens `/manage-families`.
+- **Manage gate:** show Manage only if the caller is `owner` or `co_owner` on **at least one** family, **including soft-deleted families inside the 60-day window**. Members-only users never see it. The gate is **not** tied to the session family's role.
+- **Gate and hub data:** the dropdown list keeps the active read. The gate and hub use a separate read (or an `includeDeleted` flag on the families API) of families where the caller's `memberships.role in ('owner','co_owner')`, deleted or not. Existing M10 `families` SELECT RLS already allows this. No schema, RLS, or Edge change.
+- **Hub:** lists only families the caller owns or co-owns, active first, then Recoverable (60 days). After purge, if that was the caller's last owned/co-owned family, Manage disappears.
+- **Avatar menu:** Settings · Logout only.
+- **Header active state:** add a Manage value to the existing header page enum (e.g. `AlbumHeaderPage.manageFamilies`). On `/manage-families` and `/manage-families/:familyId` the family dropdown trigger carries the same active ink underline Timeline and Drafts use; Timeline and Drafts render plain. No new nav item, breadcrumbs, or route.
+- **Monogram:** dropdown and hub rows use a circle showing the first letter of `families.name`, skipping a leading "The " (case-insensitive), uppercased, on parchment. Client-computed; no photo, column, or upload. "Grandma Ruth's Side" → G.
+- **App-start landing:** ≥1 live family (any role) → session/default family timeline as today. No live family **and** ≥1 soft-deleted family you own or co-own → `/manage-families`. Neither → existing empty Start state. One client routing check; no backend change.
+- **Nav tests (widget):** dropdown order and divider; Start visible for a members-only user; Manage shown for owner, for co_owner, and for a user whose only owned family is soft-deleted; Manage hidden for members-only; Manage stays visible after switching to a family where you are `member`; soft-deleted families absent from the switch list; avatar menu rows exactly Settings · Logout; family trigger active and Timeline plain on both Manage routes; monogram skips "The "; the three landing cases.
+**M10 Add co-owner dialog — LOCKED (Bill 2026-10-10; Stitch ****`71ccb38d05c54f75b6c830e480b06bc0`****):**
+- Opens from **+ Add co-owner** on the Family detail Co-owners card, as a centered modal over `/manage-families/:familyId`. The whole page behind it, header to footer, is dimmed and blurred, the same modal standard as Transfer and Soft-delete.
+- The list shows only people who are already `member` on **this** family. It never shows the owner or current co-owners. Pick exactly one, then tap **Make co-owner**. That calls the existing `POST /add-co-owner` `{ family_id, user_id }`. The client never writes `memberships`.
+- No email field and no invite path. The dialog shows "\{n\} of 2 co-owner spots used".
+- **+ Add co-owner** is hidden once the family has 2 co-owners. The server still rejects a third co-owner.
+- Cancel and X close the dialog with no change. On success, close the dialog and refresh the Co-owners card.
+- Shown to whoever can call `add-co-owner` (owner or co_owner), as in the Design Doc table.
+- No new table, column, Edge function, package, or route.
+- **Dialog tests (widget):** only members of this family are listed (no owner or co-owners); Make co-owner calls `add-co-owner` with that family and user; button hidden at 2 co-owners; spots counter is correct; Cancel and X make no call.
+**M10 Co-owner row actions — LOCKED (Bill 2026-10-10; labels by Mugatu):**
+- On each co-owner row of Family detail, the **owner only** sees two text buttons: **Make member** (ink, left) and **Remove** (red, right).
+- Make member opens a confirm with title "Make \{name\} a member?" and body "They keep their stories and access but lose co-owner powers." Buttons Cancel and Make member. Confirm calls `POST /remove-co-owner {family_id, user_id}`; Cancel calls nothing.
+- Remove calls `POST /remove-member {family_id, user_id}` (whole branch tree; `story_people` stays), but only after a confirm (Bill 2026-10-10), on both co-owner and member rows: "Remove \{name\} from \{family\}? They lose access to \{family\} and its branches. Their stories stay." Buttons: Cancel, which calls nothing, and a red Remove.
+- The Make member and Remove confirms use the same full-page blur modal as Add co-owner, Transfer and Delete. Not a stock AlertDialog.
+- Co-owners never see either button on a co-owner row. Nobody sees any action on the owner's row or their own row. Member-row Remove is unchanged in who sees it (owner and co-owner), and it now goes through the Remove confirm too.
+- After success the page reloads: the "n of 2" counter drops and + Add co-owner returns if it was hidden.
+- No new table, column, Edge function, package, or route. Client never writes `memberships`.
+- Widget tests: owner sees both on co-owner rows; co-owner sees neither; none on owner or own row; confirm shows the name; Cancel calls nothing; Make member calls remove-co-owner; Remove opens its confirm with the name and family, Cancel there calls nothing, and confirming calls remove-member (co-owner and member rows); both confirms render as the blur modal; counter and Add co-owner update.
+- SQL tests (`supabase/tests/manage_families.sql`): throws_ok for co-owner removing owner, co-owner removing co-owner, removing self, non-owner calling remove_co_owner, remove_co_owner on a non-co-owner; lives_ok for owner demoting a co-owner.
+**M10 Pending Invites — LOCKED (Bill 2026-10-10; Stitch 16384b751bcb46678b2483cb6b856d66; server per Gilfoyle):**
+- Family detail, bottom of the Members card. Shown only to the owner and co-owners, and only when the family has pending invites. Reads `invites` (id, email, created_at, expires_at, status).
+- Each row: the email, or "Invite link" when there's no email; sent and expiry dates underneath; a Pending or Expired pill on the right (Expired when `expires_at` \< now).
+- **Resend** (ink text, email invites only) calls `POST /resend-invite {invite_id}`. It shows a busy state while the call runs. On success it shows "Invite sent again to \{email\}. The old link no longer works." under the row and reloads the list.
+- **Cancel invite** (red text, every invite) opens a full-page blur confirm: "Cancel this invite? \{email\} won't be able to join \{Family\} with this link. You can invite them again any time." For a link-only invite the body reads "This invite link won't work for anyone anymore. You can make a new one any time." Buttons: Keep invite, which calls nothing, and a red Cancel invite, which calls `POST /revoke-invite {invite_id}` and then reloads.
+- `resend-invite` uses the security-definer RPC `resend_invite(iid)` and only the owner or a co-owner can call it. It works on `pending` invites, expired ones included. It returns `INVITE_INVALID` for accepted or revoked invites and `VALIDATION` for link-only ones. It sets `expires_at = now() + 7 days` and `status = pending`, **rotates ****`token`**, and sends the email through the shared Resend helper (move `send-invite-email`'s send code into `_shared`). It returns `{sent: true, expires_at}`. If the send fails it returns 502, the row stays rotated, and a retry is safe.
+- `revoke-invite` uses the security-definer RPC `revoke_invite(iid)` with the same callers. It sets `status = 'revoked'` and never deletes the row. It returns `INVITE_INVALID` for accepted invites. Revoking an already-revoked invite is a no-op that returns 200. `accept-invite` and `validate-invite-token` already reject revoked invites.
+- 🚫 One migration for the two functions and their grants only. No new table, column, enum value or package. No deleting invite rows. The client never writes `invites`. Any member can still create invites.
+- Widget tests: section hidden for a plain member and when nothing is pending; email vs "Invite link"; Pending vs Expired pill; Resend only on email rows, shows busy, calls resend-invite, then shows the note; link-only confirm text; Keep invite calls nothing; Cancel invite calls revoke-invite.
+- SQL tests: throws_ok for a plain member calling either RPC, resend on an accepted, a revoked, or a link-only invite. lives_ok for a co-owner resend (assert `expires_at` moved and `token` changed), and for a revoke followed by accept failing on that token.
+**Branch:** Same PR #23, branch `feat/m10-manage-families`. Push the nav change and the pending fixes together; lanes review the new head once. No push to main.
+**Tests:** `flutter test` from `apps/tell_me_a_story`. Supabase RLS/SQL: one owner per family; co_owner cap 2; soft-delete hidden from active lists; recover within 60 days; stranger cannot SELECT soft-deleted; soft-delete parent with children keeps `parent_family_id` and purge nulls children then hard-deletes parent; remove-member drops all tree memberships and leaves `story_people`; transfer immediate and rejects non-co_owner; tagging a resolved person upserts `member` membership (no owner/co_owner promote; no auth-user create); client cannot INSERT `memberships`; two-family leak still passes. Paste output in the PR.
+**Locks (Bill 2026-10-07 — no remaining M10 OPENs):**
+1. **Named on a story → membership — LOCKED.** Build `people.user_id` + trigger/Edge auto-member as in Data / migrations above.
+2. **Soft-delete parent with children — LOCKED.** Allowed; children-as-roots while soft-deleted; purge nulls then hard-deletes as above.
+3. **M10 navigation — LOCKED (Bill 2026-10-10).** As in the M10 navigation block above. Manage gate is owner or co_owner on any family, deleted included.
+4. **Add co-owner dialog — LOCKED (Bill 2026-10-10).** As in the Add co-owner block above. Rides on PR #23.
+**Out:** Manage families in the avatar menu. Gating Manage on the session family's role. Showing Manage to members-only users. Hub rows for families the caller does not own or co-own. Soft-deleted families in the switch list. Timeline underlined on Manage pages. A family photo column or upload. Any new table, column, Edge function, or package for the nav change. Tree-wide write RLS (M11). Branch create UX (M11). Dial branch marks / related-families list (M12). Replacing R2 family menu with Manage for session switch. Transfer accept/confirm step. Soft-delete by co_owner or member. Client writes to `memberships`. Auto-creating auth users from name tags. Promoting to owner/co_owner via tags. Inventing SMS. Email invite or non-members in the Add co-owner dialog. Stamping CLOSED.
+> 🚫 FORBIDDEN: Client writes to `memberships`. Soft-delete by co_owner or member. Transfer accept handshake. Shipping tree-wide write in M10. Auto-creating auth users from a name tag. Promoting to owner/co_owner via tags. Folding M11 branch create or M12 marks into this PR. Reopening closed milestones. Stamping CLOSED.
+### M11a Origin stories (executable playbook)
+**Status:** **CLOSED 2026-10-11** — Bill local smoke PASS, including a narrow-window ring tap that opens the parent timeline. PR #26 merged to main as `7cd6bc4`, from head `063c058` (Gilfoyle, Big Head, Mugatu, Dinesh, Jared all PASS). pgTAP 201/201 (main 144 + M11a 57), `flutter test` 350/0, `flutter analyze` 29 (same as main). Do not reopen this milestone. **Closed-with notes:** narrow layouts put the origin ring in the 28px rail column 8px below the dot, unlabeled and tappable, never overlapping the card; narrow layouts skip the focused 1.05 scale, wide keeps it. Carry (Dinesh nits, non-blocking): name the repeated 8 / 16 / `2 * (8 + 16)` constants; give the right-edge check its own test; tighten the lenient if/else in the ring-tap test. Bill answered both OPENs ("agree on both") and locked the four screens below (UXD "M11a — origin stories (LOCKED Bill 2026-10-11)"). Plan and build M11a alone; M11b (start a new timeline from a story or the family menu, plus the M12 carry items) gets its own playbook after M11a merges.
+**Sources:** Design Doc "M11a Origin stories" (Gilfoyle, LOCKED Bill 2026-10-11) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7) is the SQL source and wins on data and RLS; PRD M11 + Decisions (Jared 2026-10-11) [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2); Mugatu's M11a screens win on look and copy.
+**Screens (Stitch project ****`12192342757314667328`****) — LOCKED Bill 2026-10-11:**
+- Reader overflow with Set as origin for \{Child\} + blurred confirm (\[Cancel\] / terracotta \[Set origin\]): `cb9313522baa44deb49841c11c99caf6`
+- Timeline with the Set origin story banner (child: button "Choose from \{Parent\}" opens the parent timeline): `3ed7c63cac35408e8c00d4720a03461e`
+- Child timeline with origin set (tag `Origin · from {Parent}`, parent ring beside it): `e6460f5208024f58be19e5a2fc457261`
+- Delete warning ("This story starts the \{Family\} timeline. Delete anyway?", \[Cancel\] / \[Delete story\]): `564334d791e243b395f879c00bae5100`
+**Where the mocks and locked rules disagree (Mugatu 2026-10-11), build the rule:**
+- Screen 3: the origin story keeps its own dot, and the M12 ring (16px, centered on the rail, parchment disc) sits beside it. The mock draws only the ring.
+- Ring labels go on the empty side of the ring (M12), not under it as screen 2 draws them. On Full Cards, the origin ring's label goes on the side of the rail away from the origin card; Macro and Mid stay on the M12 row (Mugatu, plan review 2026-10-11). Narrow Full Cards (not wide): ignore `cardOnLeft`; the ring sits on the rail, centered in the 28px left column, 8px below the dot, with no label (the card's tag names the parent); it stays tappable and opens the parent timeline and never sits over the card or outside the column. Widget tests: wide with the card on the right puts the label left of the ring; narrow ring center x equals the dot's, no label, no overlap with the card (Mugatu, PR #26 review 2026-10-11).
+- Don't ship Stitch's extra lines ("Candidate beginning" under the menu item, the note under the delete warning). Only the confirm text above ships. Also drop the confirm dialog's "Only owners and co-owners…" note (Mugatu, plan review 2026-10-11).
+- A root's origin story gets a plain sage `Origin` tag with no "from" (no mock).
+**Behavior (Bill 2026-10-11):**
+1. Every timeline (root, child, existing) has one origin story. Owners and co-owners of that family set or change it with **Set as origin** in the reader overflow. A change takes effect immediately and moves both the origin dot and the parent ring.
+2. A child's origin is a published story in its parent family. A root's origin is a published story in its own family. Drafts can't be picked. One story can be the origin of several timelines. The server is the real gate; the client gate only hides the action.
+3. **Banner:** shows to owners and co-owners when `list_family_tree` returns a null `origin_story_id` for the open family. On a child its button reads "Choose from \{Parent\}" and opens the parent timeline. On a root it tells them to open one of their own stories and use the menu item. On a root it waits until the family has at least one published story (PRD: "the owner gets the prompt after the first published story"). Members never see it.
+4. **Child timeline:** the origin is the same story row, not a copy. Fetch it by id (tree-read RLS already allows it), merge it into the dots at its own `timeframe_start`, and tag it `Origin · from {Parent}` using the parent's `families.name` exactly as Mugatu's screen writes it. The parent ring (M12 `_BranchMark`, unchanged style) sits beside that dot at Macro, Mid and Full. Until an origin counts, the ring stays where M12 put it (`branch_year`, then the M12 no-year rule).
+5. **Child-family members** (live members of the child) can add comments, perspectives and photos to their origin story. Only the author edits the story. If the origin changes or goes unset, their existing rows stay readable but they can no longer edit or delete them (intended).
+6. **Delete:** before the normal delete, call `list_origin_dependents(story_id)`. Empty means the normal delete dialog. Non-empty means Mugatu's warning naming those families ("This story starts the \{Family\} timeline. Delete anyway?"). Confirm deletes; the FK clears the link, the banner comes back for those families' owners, and `branch_year` stays as the ring fallback.
+**Data (one new migration after ****`20261010233000_story_photos_tree_read_guard.sql`****; do not edit earlier files; apply with ****`supabase migration up --local`****, never ****`db reset`****):**
+- `families.origin_story_id uuid null references public.stories (id) on delete set null` + index `families_origin_story_id_idx`.
+- `families_guard_update()` locks `origin_story_id` unless `current_setting('app.family_origin', true) = 'on'` (same pattern as `app.family_purge`). Direct PATCH raises `FORBIDDEN: field is locked`.
+- `public.family_origin(fid uuid) returns uuid` (security definer, stable): returns the stored id only when the family is live, the story exists, is `published`, its family is live, and `s.family_id = coalesce(f.parent_family_id, f.id)`; otherwise null. Use it everywhere an origin is read. Never clear the stored id to express "unset".
+- `set_family_origin(p_family_id, p_story_id) returns void` with the Design Doc error order: `FORBIDDEN` (not owner/co-owner, family not live, null uid), `NOT_FOUND`, `VALIDATION: origin must be published`, `VALIDATION: origin must be in parent family` / `in this family`, `VALIDATION: parent family is deleted`. No clear-origin call.
+- `list_origin_dependents(p_story_id) returns table (family_id uuid, name text)`: live families whose `family_origin(id) = p_story_id`; zero rows unless the caller is a live member of the story's family.
+- `list_family_tree(fid)` gains `origin_story_id uuid = family_origin(id)`. Drop and recreate in the new migration with the same body, guards and grants as M12 amendment 5.
+- `can_contribute_to_story(fid, sid)` (security definer) = `is_live_family_member(fid)` OR caller is a live member of a live family `c` with `c.parent_family_id = fid` and `family_origin(c.id) = sid`. Delete rules keep today's rights exactly (plan review 2026-10-11): keep the current `is_family_member` check and add the child case with OR; comments/perspectives `author_id = (select auth.uid()) and (is_family_member(x.family_id) or can_contribute_to_story(x.family_id, x.story_id))`, photos keep uploader-or-author then the same OR, storage `bucket_id = 'story-photos' and (is_family_member(seg1) or (owner_id = (select auth.uid())::text and can_contribute_to_story(seg1, seg2)))` starting from the `20261010233000` body. Swap it in for `is_live_family_member(<tbl>.family_id)` in every INSERT and UPDATE policy on `comments`, `perspectives`, `photos`, and in storage `story-photos` INSERT/UPDATE/DELETE (`can_contribute_to_story(seg1, seg2)` with the existing guarded uuid casts). Keep the author/uploader checks and the M12 same-family check (`s.family_id = <tbl>.family_id`, outer table named). Rows keep `family_id` = the story's family. SELECT policies don't change. Recreate under the same names; **policy count stays exactly 44**.
+- **TMAS-24-05 (Trinity, carried from M12):** `places` tree-read and the `people_tree_read` tree branch return only rows tied to a published story in the tree. Member reads are unchanged.
+- Grants: revoke the new functions from `public, anon`; grant execute on `set_family_origin`, `list_origin_dependents` and `list_family_tree` to `authenticated`. `can_contribute_to_story` is called by RLS as the signed-in user, so it gets the same grant as `is_live_family_member` (execute to `authenticated`, not `anon`). `family_origin` is only called inside other security-definer functions: no client grant. `set_family_origin` turns `app.family_origin` back off right after its update. Storage delete for child members is limited to files they uploaded (see the delete rule above), with a pgTAP test that a child member can't delete a parent member's file. PR #26 review (Dinesh + Gilfoyle, 2026-10-11): `story_photos_update_member` uses `is_live_family_member(seg1) or (owner_id = (select auth.uid())::text and can_contribute_to_story(seg1, seg2))` in both USING and WITH CHECK, with a pgTAP check that a child member's update to a parent member's file changes 0 rows. The guard's "old story row is gone" check uses a new `story_row_exists(sid)` helper (SECURITY DEFINER, `search_path = public`, granted to `authenticated`); the guard itself stays invoker. pgTAP: after the author drafts the origin, and after the parent is soft-deleted, the child owner's direct `origin_story_id = null` write throws `FORBIDDEN: field is locked`. Still one migration file; locally re-run only the changed statements, never `migration down` or `db reset`. (Amended 2026-10-11 from Gilfoyle's plan review.)
+**Client:**
+- Read `origin_story_id` from the existing `list_family_tree` result (no second call). Cache rule stays M12's.
+- **Set as origin (LOCKED Bill 2026-10-11):** on a story in the open family, owners/co-owners of the open family see **Set as origin for \{Family\}** (root only, since a root's origin is its own story). There is no bare "Set as origin"; the root banner reads "Open one of your stories and choose Set as origin for \{Family\}." (Mugatu, plan review 2026-10-11). On a parent story, the menu lists **Set as origin for \{Child\}** once per child family the caller owns or co-owns whose parent is that story's family, built from `list_family_tree` plus the caller's memberships. Each item opens the blurred confirm, then calls `set_family_origin(child_id, story_id)`; the server checks the role on the child, not the open family. Only published stories show the items. Call `set_family_origin`, then invalidate the tree cache so the banner, dot and ring update without a restart. Map `VALIDATION` and `FORBIDDEN` to the §12 error catalog copy.
+- The reader on an origin story shows the add-comment, add-perspective and add-photo actions to child members. Realtime for that story's comments, perspectives and photos filters on `story_id`, not the open family. Timeline Realtime stays `family_id` for the session family.
+- Photo uploads by child members use the path `{story_family_id}/{story_id}/file`, never the child's family id.
+**Branch:** one PR off main, `feat/m11a-origin-stories`. No push to main.
+**Tests (paste output in the PR):**
+- pgTAP, every item in Design Doc "M11a Tests": `set_family_origin` success for owner and co-owner; `FORBIDDEN` for member, non-member, no uid; `VALIDATION` for draft, wrong family, soft-deleted parent; root takes its own story, child takes its parent's; one story origins two children; direct `update families set origin_story_id` raises `FORBIDDEN`; `family_origin` null after parent soft-delete and back after restore, null after unpublish, null after story delete; child member can insert comment, perspective, photo row and storage object on the origin and is denied on another parent story; outsider denied; after the origin changes the child member is denied new rows; `list_origin_dependents` rows for a story-family member, zero for an outsider; TMAS-24-05: a tree reader sees no place or person tied only to drafts; anon has no execute on any new function; policy count exactly 44.
+- `flutter test`: banner gate (owner/co-owner yes, member no, root with no published story no); overflow gate; origin dot merged at its decade with the tag and the parent ring beside it, and the ring falls back to the M12 spot when the origin is null; delete with dependents shows the warning, without shows the normal dialog.
+- Smoke (Bill, local, second account): set an origin on Test Family (root) and on a child; change it and see the dot and ring move; child member comments, adds a perspective and a photo on the origin; delete the origin and see the warning, then the banner return.
+**OPENs:** none. Both answered by Bill 2026-10-11: Set as origin for \{Child\} on parent stories, and a plain `Origin` tag on a root's origin.
+**Out:** Starting a new timeline (either way in), the full-tree Related families menu, long-label width cap, dated Macro mark with no story band, cycle refusal, the soft-deleted-family photo-delete pgTAP, Trinity's low findings (all M11b). Copying the origin story into the child family. Clearing the stored id to mean unset. A clear-origin RPC. Search changes. Reopening M12 ring styling.
+> 🚫 FORBIDDEN: Writing `origin_story_id` outside `set_family_origin`. Reading the raw column instead of `family_origin`. Letting drafts or another family's story become an origin. Child-member write on any parent story other than their origin. Changing SELECT policies. \[Corrected in M11a.2: places_select_member was narrowed for TMAS-24-05 (accepted deviation, Gilfoyle PASS 2026-10-11); the M11A-02 error order and M11A-03 grant are corrected in M11a.2.\] A policy count other than 44. Editing earlier migrations or running `db reset`. Folding M11b into this PR. Stamping CLOSED.
+### M11a.2 Origin stories hardening (executable playbook)
+**Status:** **CLOSED 2026-10-11** — PR #27 merged as `3158f38` (head `96ec0b9`); spec, architecture, security, visual, product and code-quality lanes all PASS; Bill's 4-step smoke PASS and close order 2026-10-11. Carried to the next hardening pass: Dinesh nits 1–6 and Trinity 01/02/03/05/06/07 (see status row). History: Bill locked Gilfoyle's calls 1–4; Gilfoyle PASS on places_select_member deviation; PR #27 Spec PASS at `96ec0b9` 2026-10-11; amended 2026-10-11 after the plan review (Gilfoyle's four changes; Bill accepted Trinity 02/03 as residual risks and chose to fix own-photo Remove); ships next, before M11b; Trinity audit link to be added when filed. Separate milestone from M11a, which stays CLOSED; this does not reopen it.
+**Sources:** Design Doc "M11a.2 Origin stories hardening" (Gilfoyle, LOCKED Bill 2026-10-11, relayed by Erlich) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7) is the SQL source and wins on data. Trinity's M11a audit of `7cd6bc4` (0 Critical, 0 High, 1 Medium, 3 Low); the audit link will be added when Trinity files it. Code read on main at `7cd6bc4`.
+**Locked rules (restated for reviewers, unchanged):** only the author edits the core story (`stories_update_author`; owner/co-owner edit is M13 and not built). Contributors are the members of the story's own family plus the members of a child family whose current origin is that story, and only while it stays their origin.
+**In:**
+1. **Accepted deviation: ****`places_select_member`**** (Gilfoyle PASS 2026-10-11).** It shipped narrowed in M11a's PR #26 migration, although the M11a playbook says SELECT policies don't change. Members of the family see all its places; anyone else who can read the tree sees only places attached to a published story in the same family. The M11a note points here. M11a's `set_family_origin` error order (M11A-02) and its `story_row_exists` grant text (M11A-03) are corrected by items 3 and 4.
+2. **M11A-01: lock row identity on contributor updates (LOCKED Bill 2026-10-11).** Add a BEFORE UPDATE guard trigger on `public.comments`, `public.perspectives` and `public.photos`: security invoker, `set search_path = ''`, written as a whitelist (amended 2026-10-11, Gilfoyle). Comments and perspectives raise `FORBIDDEN: field is locked` when `(to_jsonb(new) - 'body' - 'updated_at') is distinct from (to_jsonb(old) - 'body' - 'updated_at')`. Photos use the same check minus `'sort_order'` (and `'updated_at'` only if the table has it). Any column added later is locked by default. No bypass for any role, service_role included; that is intended. No column-limited grants (fragile next to the DDL's `grant all` plus default privileges, and they silently break upserts). FK cascades are deletes, so the guard needs no exemption.
+3. **M11A-02: one error for an origin story you can't use (LOCKED Bill 2026-10-11).** In `set_family_origin` the order is (amended 2026-10-11, Gilfoyle): 1) the `FORBIDDEN` gate (signed in, live family, owner or co-owner); 2) load the family, and if it's a child whose parent is deleted, raise `VALIDATION: parent family is deleted`; 3) one story lookup, where a missing story, a story that isn't published, and a story outside `coalesce(parent_family_id, id)` all raise one error, `NOT_FOUND`. No parent-deleted check after the lookup. The client error mapping in `families_api.dart` already handles `NOT_FOUND`.
+4. **M11A-03: ****`story_row_exists`**** keeps its grant (LOCKED Bill 2026-10-11, accepted residual risk).** `families_guard_update` runs as security invoker so its `current_user` check sees the real caller, so `authenticated` needs execute on `story_row_exists`. It reveals only whether a random UUID exists, with no row content. `anon` stays revoked, pinned by pgTAP. No SQL change.
+5. **Definer ****`search_path`**** (LOCKED Bill 2026-10-11).** Every security definer function in `20261011150000_origin_stories.sql` moves to `set search_path = ''`: `story_row_exists`, `family_origin`, `set_family_origin`, `list_origin_dependents`, `can_contribute_to_story`, and `list_family_tree` (recreated in that file). Their bodies already name `public.*` explicitly. Sweeping older functions is out of scope.
+6. **Server photo cap (LOCKED Bill 2026-10-11).** A security definer BEFORE INSERT trigger on `public.photos` locks the parent `stories` row (`for no key update`) and raises `VALIDATION: photo limit reached` once the story already has 20 photos, matching `maxPhotosPerStory`. The client cap stays as UX.
+7. **M11A-04 (Low) — tagged people hidden from child-family contributors.** `story_reader_page.dart` L316–324 sets `canWrite` true for a child-family member on their origin story, then L332–334 picks `listPeople(story.familyId)` (members-only `people`) whenever `canWrite` is true, so the contributor gets no tagged people. Fix: choose the people source by membership of the story's family, not by `canWrite`. Members use `listPeople`; everyone else, contributors included, uses `listTreePeople` (`people_tree_read`, which after TMAS-24-05 returns people tagged on a published story in the tree). No data-plane change: if a pgTAP check shows `people_tree_read` doesn't return the origin's tagged people to a child member, stop and raise it with Gilfoyle.
+8. **M11A-05 (Info) — stale delete affordance.** `story_reader_page.dart` L907–912 passes `canDelete: row.authorId == _currentUserId` to `CommentTile` with no contribute check, so a child-family member still sees Delete on their own comment after their family's origin changes (the server already denies it). Fix: show Delete only when the caller can still contribute (author AND the caller is still a contributor, i.e. `_canWrite`). Apply the same rule to the caller's own perspectives and photos (`PhotoStrip onRemove`, L850). Photo Remove shows only when `_canWrite && (photo.uploaderId == uid || story.authorId == uid)`, matching `photos_delete_uploader_or_author` (Bill 2026-10-11: fix, not a deviation).
+9. **Accepted residual risks (Bill 2026-10-11, Trinity plan review 02/03; no policy change in this PR):** storage uploads aren't counted toward the 20-photo cap (the cap counts `photos` rows only), and a family member can update or overwrite storage objects in their family's story paths. M11A-03 (item 4) is also an accepted residual risk. The PR body states all three, and that the guards have no service-role bypass by intent.
+**Data:** one new migration after `20261011150000_origin_stories.sql` for items 2, 3, 5 and 6 (PR #27 shipped it as `20261011190823_origin_stories_hardening.sql`) (item 4 has no SQL change). Policy count is unchanged. Do not edit earlier files. Apply with `supabase migration up --local`, never `db reset` or `migration down`.
+**Branch:** one PR off main, `feat/m11a2-hardening` (suggested). One milestone per PR. No push to main.
+**Tests (paste output in the PR):**
+- pgTAP: different-parent-story denial (today only on comments) for perspectives, photo rows and storage uploads; a tree member who isn't in the child family is denied; a soft-deleted child-family member is denied; writes are denied after the origin story is unpublished; edits and deletes are denied after the origin changes; an UPDATE that changes `story_id` or `family_id` is denied; `story_row_exists` isn't executable by `anon`.
+- pgTAP: keep the 44 count, and replace substring checks with exact `pg_policies.qual` / `with_check` equality (text or md5, captured from main) for the 13 policies `20261011150000` recreated: `comments_insert_member_author`, `comments_update_author`, `comments_delete_author`, `perspectives_insert_member_author`, `perspectives_update_author`, `perspectives_delete_author`, `photos_insert_member_uploader`, `photos_update_uploader_or_author`, `photos_delete_uploader_or_author`, `story_photos_insert_member`, `story_photos_update_member`, `story_photos_delete_member`, `places_select_member`.
+- pgTAP (M11A-01): for each of `comments`, `perspectives` and `photos`, every non-allowed column rejects a change with `FORBIDDEN: field is locked` (today, comments/perspectives: `id`, `story_id`, `family_id`, `author_id`, `created_at`; photos: `id`, `story_id`, `family_id`, `uploader_id`, `storage_path`), and the allowed columns still update (`body` + `updated_at`; `sort_order`). A row can't be moved to another story the author could also contribute to. A `lives_ok` for an update that changes only `updated_at`.
+- pgTAP (M11A-02): `set_family_origin` returns `NOT_FOUND` for a missing story, a draft, and a story in the wrong family; a caller who isn't owner or co-owner still gets `FORBIDDEN` first, even for a missing, draft or wrong-family story; `VALIDATION: parent family is deleted` is still raised, before any story lookup: a child of a deleted parent gets VALIDATION even when the story id is missing.
+- pgTAP (photo cap, search_path, FK): on a fresh published story, first assert it has 0 photos; insert 19 and then the 20th with `lives_ok`, and the 21st `throws_ok` with `VALIDATION: photo limit reached`; a child-family contributor's insert at the cap on the origin story fails the same way; each of the six definer functions in item 5 has `search_path=""` in `pg_proc.proconfig` AND is called once in pgTAP and runs with no "does not exist" errors (every name in its body must be `public.`-qualified); deleting the origin story still lets the FK set `origin_story_id` to null.
+- `flutter test`: M11A-04, a child-family contributor sees the origin's tagged people. M11A-05, after the origin changes, the contributor's own comment, perspective and photo show no Delete; while contributing, Remove doesn't show on another member's photo unless the caller is the story's author.
+- Recommended, not required (Trinity plan review): outsider and post-move denial on perspectives, photos and storage; child-contributor storage path abuse; exact `people_tree_read` column set; a child contributor can't UPDATE the origin `stories` row.
+**Resolved (Bill 2026-10-11):** no parent-side revoke; contributions stop only when the child owner changes origin; parent-side flag possible later.
+**Out:** Owner/co-owner story edit (M13 item 8). Moving older definer functions to an empty `search_path`. Any change to who can contribute. Column-limited grants. Starting new timelines and the M12 carry items (M11b, which ships after this). Reopening M11a or M12. Changing who counts as a contributor.
+> 🚫 FORBIDDEN: Column-limited grants. Letting a locked column change. A blacklist guard or a role bypass in the guard. Changing storage policies in this PR. Distinct errors for missing, draft or wrong-family origins. Revoking `story_row_exists` from `authenticated` or granting it to `anon`. Widening any SELECT policy or `people` SELECT. Letting anyone but the author edit the core story. Editing earlier migrations or running `db reset` or `migration down`. Folding M11b into this PR. Stamping CLOSED.
+### M11b Start a new timeline (executable playbook)
+**Status:** **CLOSED 2026-10-11** (Bill). PR #28 merged at 7c274a7; local smoke passed. Lane results on 7c274a7: Spec PASS (Big Head; INVITE_INVALID 4th prefix, `_isInternal` two strings, draft id kept after newTimelineFrom clears, second Save draft updates same draft), Architecture PASS (Gilfoyle), Code quality PASS (Dinesh: flutter analyze 29, flutter test 374 pass), Visual PASS (Mugatu, no on-screen change; no follow-up PR). Trinity review deferred to H1 Hardening (Bill). OPEN 4 (indented full-tree Related families view): not built in M11b; carry item, Bill's explicit yes still pending. History: Bill locked Gilfoyle's three calls as written ("Yes to all three M11b calls as written"); the dial-label ellipsis stays in. Builds only after the M11a.2 PR merges (Design Doc: built on main `7cd6bc4` plus M11a.2). Separate milestone; does not reopen M11a, M11a.2 or M12. **Plan review 2026-10-11:** Grok's M11b plan passed architecture (Gilfoyle), spec (Big Head, 3 required changes), visual (Mugatu) and product (Jared). The plan's OPENs are folded in below. Security (Trinity, relayed by Erlich 2026-10-11): PASS with required changes, all in scope. T1: RPC body as the plan describes, with `search_path = ''` and every name schema-qualified. T2: same as the missing `parent_family_id` Deno test. T3: pgTAP check-order tests (a non-member with a bad origin gets FORBIDDEN; a null `parent_family_id` gets FORBIDDEN; a bad origin plus a blank name gets NOT_FOUND). T4: Edge validates every UUID and `person_ids` entry before the RPC; `mapRpcError` stops passing raw DB messages through. Pass-through is decided by prefix, not by a list of exact strings (Gilfoyle 2026-10-11, replacing Dinesh's list): a message starting with one of four prefixes, `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:` or `INVITE_INVALID:` (`["INVITE_INVALID:", "INVITE_INVALID", 400]`), is one we raised and goes through as it does today; anything else (constraint violations, raw Postgres errors) becomes the generic message. Bill 2026-10-11 (Mortang room): yes — INVITE_INVALID restored as the 4th prefix so M10 resend/revoke on a non-pending invite shows the real reason (raised by migration 20261010184643). No migration, policy count stays 44. The Edge keeps splitting code from the bare message as today, and the client shows only the message field, never a code prefix (Mugatu/Gilfoyle). Deno tests: a year of 0999 returns the RPC's sentence with no `VALIDATION:` prefix, and an unprefixed DB error returns generic. Flutter test: the form shows the bare sentence. The generic message using the app's existing generic error string in the same inline spot with the modal open, and no new sentence; if no such string exists, list it as an open question for Mugatu (Mugatu 2026-10-11). The `NOT_FOUND:` prefix-with-colon match stays, and every existing Edge test must still pass unchanged. T5: **RESOLVED (Gilfoyle 2026-10-11)**: no FOR SHARE on the parent or origin rows. The foreign key locks are enough. Add no locking.
+**Sources:** Design Doc "M11b Start a new timeline" (Gilfoyle, LOCKED Bill 2026-10-11) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7) is the SQL source and wins on data; UXD "M11b — Start a new timeline" (Mugatu, LOCKED Bill 2026-10-11 1:58 PM CT) [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4) wins on look and copy, and where a mock differs from the UXD written rules, the rules win; PRD M11 + Decisions (Jared; "M11b story-first RE-CONFIRMED 2026-10-11") [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2).
+**Screens (Stitch project ****`12192342757314667328`****) — LOCKED Bill 2026-10-11:**
+- Family menu with the Start a new timeline row (v3): `7f173351c091430f900f1a61793cb941`
+- Pick the origin story (v3): `7d6fcf3bf70a48cb8aee5923b187457c`
+- Create modal "Start a new timeline" (v3): `faaa5d4c913d470a8634e6796f3fc8fd`
+- Reader entry: no mock. Build from the locked M11a reader `cb9313522baa44deb49841c11c99caf6` plus the ⋯ menu item. Post-create: no mock; the parent timeline with the toast.
+- Superseded v2 "Start a branch" screens, do not build: `f8643416184b4c5a90dac4983bf7acd4`, `4222b8b6af134a63b63b87f42cc46aa1`, `2db4c46528e74aaabb0e58f53858925d`, `21bba77a4e5041c7b9a6dfbcde23ee1d` (and their v1s).
+**Where the mocks and the written rules disagree (UXD), build the rule:** in the menu the current family keeps a parchment monogram with the check only (no filled terracotta circle, no row highlight); the picker's search field and footer are white/parchment, not pink, and its backdrop is the full-card timeline, not the mock's card grid; Owner reads exactly "You", not "You (Bill Morgan)"; delete the helper text beside the year box; Timeline name and Owner fields are white. No demo names from the mocks.
+**Locked rules (Bill 2026-10-11, restated for reviewers):** M11b is story-first: start from the reader, or from the family menu with a required story picker. No empty start, no dial-mark entry, no "Start a branch" wording anywhere. A new timeline is a child family created in one transaction with its origin, a published story in the parent family; nothing is written before Create and there is no pending or waiting state. Any live member of the parent, in any role, may start one. The starter sets the origin at create; only owners/co-owners change it later, through `set_family_origin` (M11a.2, unchanged). No parent-side revoke.
+**Locked calls (Bill 2026-10-11, Gilfoyle's calls as written; formerly OPENs 1–3):**
+- LOCKED 1: **Starter membership.** The starter is not auto-added to the new timeline. They are in it only if they make themselves owner or pick themselves as a member, and they always stay in the parent (Design Doc decision 7).
+- LOCKED 2: **Attach year.** The year only needs to be four digits (1000–9999, `VALIDATION: attach year must be four digits`); there is no future-year rule (Design Doc decision 8). Future years allowed.
+- LOCKED 3: **Nesting depth.** A new timeline may sit at most 63 levels below its root; deeper raises `VALIDATION: too many levels`. This is the M12 tree-walk safety limit (walks stop at depth 64), not a product rule (Design Doc decision 4). Unlimited in practice; nobody sees the limit on screen (Mugatu).
+**CONFLICTs and gaps (all resolved 2026-10-11):**
+- CONFLICT (nesting): UXD says "Nesting is unlimited"; the Design Doc refuses depth 63+ with `VALIDATION: too many levels`. RESOLVED (Bill 2026-10-11, locked call 3): cap at 63 levels; the M12 walk cap of 64 is unchanged.
+- CONFLICT (year prefill): UXD prefills the YEAR box "from the origin story's year (or decade)"; the Design Doc prefills Entry A from `story.timeframeStart.year` and says nothing about a decade-only origin. RESOLVED (Gilfoyle): `timeframe_start` always stores a date, the decade's first year for a decade-only story, so "the 70s" prefills 1970; the box stays editable. Nothing extra to build.
+- GAP (origin tag): the Design Doc and UXD M11b both write the child's tag as "Origin · from \{Parent\} Family"; M11a shipped `Origin · from {Parent}` using `families.name` exactly. M11b changes no tag. RESOLVED (Gilfoyle): the tag stays exactly `Origin · from {Parent}` as M11a shipped; "Family" was a typo, now fixed in the Design Doc.
+- GAP (dial labels): the Design Doc carries the menu's ellipsis rule to dial ring labels; the UXD "Decided" ellipsis line covers only family-menu and Related families rows. RESOLVED (Gilfoyle): the dial-label ellipsis is carried from §15 M11a Out, not the M11b UXD; it rides along in item 13 unless Bill drops it.
+**In:**
+1. **One atomic RPC (Design Doc decision 1).** `public.create_branch_family(p_parent_family_id uuid, p_origin_story_id uuid, p_name text, p_branch_year int, p_owner_user_id uuid, p_person_ids uuid[] default '{}') returns public.families`. Security definer, `set search_path = ''`, every name schema-qualified, `(select auth.uid())`; a null uid fails closed. Checks in this order: 1) `FORBIDDEN: member only` (no uid, or `public.is_live_family_member(p_parent_family_id)` false: strangers, non-member tree readers, soft-deleted parent); 2) `NOT_FOUND: story` unless the story exists, is `published` and has `family_id = p_parent_family_id` — a missing story, a draft, another family's, a sibling's, the grandparent's and null all give the same error; 3) `VALIDATION: name is required`; 4) `VALIDATION: attach year must be four digits` (null or outside 1000–9999); 5) `VALIDATION: owner must be a member of the parent family`; 6) `VALIDATION: members must come from the parent family`; 7) `VALIDATION: too many levels` (parent 63+ levels below its root by the M12 upward walk, path guard, cap 64; hitting the cap also counts).
+2. **Same transaction, in order:** insert the `families` row (trimmed name, `p_parent_family_id`, `created_by` = caller, `p_branch_year`); set `app.family_origin` on, update `origin_story_id`, set it off (the M11a flag path; `families_guard_update()` is not changed); backstop `public.family_origin(new.id) = p_origin_story_id` or raise `NOT_FOUND: story` and roll back; insert the `owner` membership for `p_owner_user_id` (defaults to the caller in the client; must be a live parent member with an account); for each distinct picked person, copy `name`, `relationship`, `email`, `user_id` into the new family (`created_by` = caller) and `perform public.upsert_story_member(new.id, public.resolve_person_user(user_id, email))` (on conflict nothing, so the owner keeps owner). The starter's parent role doesn't change. Any raised error rolls everything back. Grants: revoke all from `public, anon`; execute to `authenticated, service_role`.
+3. **Cycle refusal (decision 9):** `families_parent_not_self` CHECK. `parent_family_id` updates stay locked by the guard; the RPC only inserts.
+4. **Edge ****`POST /create-branch-family`** (thin wrapper, M10 `create-root-family` pattern): body `{ parent_family_id, origin_story_id, name, branch_year, owner_user_id, person_ids? }`, response `201 { family_id }`; `handleManage` (JWT, `AUTH_REQUIRED`), one `userSb.rpc` call, `mapRpcError` (it matches the prefix `NOT_FOUND:` with the colon, so the RPC must raise `NOT_FOUND: story` exactly; a bare `NOT_FOUND` like M11a's direct-RPC `set_family_origin` would come back as VALIDATION 400 through Edge; Big Head 2026-10-11, answering Gilfoyle's PR #27 note); pre-checks return `VALIDATION` for a missing `parent_family_id` or `origin_story_id`, a blank name, or a non-integer year, with the messages `parent_family_id is required`, `origin_story_id is required`, `name is required` and `attach year must be four digits`, code and message in separate fields as in `create-root-family` (Gilfoyle, plan OPEN 1). The year pre-check rejects anything that isn't a JSON integer (decimal, string, null, missing); the 1000–9999 range check lives only in the RPC (Gilfoyle, plan OPEN 2). No service role, no new error codes.
+5. **RLS and reads:** no policy changes; count stays exactly 44. The RPC is the only way to insert a family or membership. Reads need nothing new (`is_family_tree_readable`, `list_family_tree` with a non-null `origin_story_id`); child members contribute through M11a's `can_contribute_to_story`.
+6. **Entry A, reader ⋯ menu:** add "Start a new timeline from this story" to the existing M11a overflow. Show it only on a `published` story and only when the caller has a membership on `story.family_id` (`listMine`, live families only); hidden in tree-read views and on a parent's origin story viewed from a child. Opens the create modal with the origin fixed (no "Change"). The server is the real gate.
+7. **Entry B, family menu:** the frozen M10 block exactly as it shipped on main, with no new "Your families" label (the UXD label described the mock; plan OPEN 3, Gilfoyle/Mugatu/Big Head), unchanged except one row: families (monogram, check on current), divider, "+ Start a family", **"Start a new timeline"** (no "+"), "Manage families" (owner/co-owner gate unchanged). Then the M12 related block. "Start a new timeline" shows when the caller is a live member of the open family, and only in the timeline page's header menu (plan OPEN 5, Gilfoyle). The M12 Related families block stays exactly as shipped (plan OPEN 4, Bill 2026-10-11).
+8. **Pick the origin story modal:** `showFamilyBlurDialog`, title "Pick the origin story", subtitle "Published stories from \{Parent\}"; client-side search, a case-insensitive substring match on the title, and an empty search lists every published story (plan OPEN 8); rows are the parent family's published stories (title + year) from the timeline's loaded `_published` — no drafts, no borrowed origin from a grandparent; a "Write a new story" row; Cancel is an ink outline button. The picker is required on this path.
+9. **Write a new story path (no new route path):** "Write a new story" goes to `/stories/new?newTimelineFrom=<parentFamilyId>`; NewStoryPage keeps the parent as session family; on Publish it goes to `/timeline?newTimelineOrigin=<storyId>`, and TimelinePage opens the create modal once with that origin and "Change" shown, then clears the parameter. Save draft or Cancel ends the flow with no call; Cancel means leaving New Story without publishing (back or close), with no new control (plan OPEN 6).
+10. **Create modal "Start a new timeline":** `showFamilyBlurDialog`; origin card (title + year) at top, "Change" back to the picker only on the menu path (Menu path includes the write path: picker → 'Write a new story' → publish → `/timeline?newTimelineOrigin=<id>`. That form keeps Change (`allowChange: true`). Only the reader ⋯ path fixes the origin (`allowChange: false`). (Mugatu UXD lock, confirmed 2026-10-11; Jared: PRD silent, screen-flow call.)); Timeline name (placeholder "e.g. The Morgan-Reyes"); Owner single-select of parent members with accounts from `FamiliesApi.listMembers(parentId)` (factored out of the `loadDetail` roster query), default label exactly "You"; Members chips from `PeopleGateway.listPeople(parentId)`, sage selected / outline unselected, no add-member input; "Attaches in \*" one YEAR box, prefilled from the chosen origin story's `timeframeStart.year` on every path (reader entry, a picker pick or "Change", and the write-and-publish reopen) and editable (see CONFLICT; Big Head required change 1); an Owner or Members entry with a blank name shows `Member` (plan OPEN 7); one line "You'll stay in \{Parent\}."; Cancel (ink outline) and Create timeline (terracotta); no other helper copy. Create timeline is disabled until name, owner and a four-digit year are set. `VALIDATION`, `NOT_FOUND` and `FORBIDDEN` show inline under the form in the existing error style and the modal stays open. Copy (Mugatu 2026-10-11; Big Head required change 2, never show the bare Edge words "story" or "member only"): `VALIDATION` shows the Edge message as returned; `NOT_FOUND` on the menu path "That story isn't available anymore. Pick another one."; `NOT_FOUND` on the reader path "That story isn't available anymore."; `FORBIDDEN` "You're not a member of \{Parent\} anymore." Pull the shared blur shell (sigma 4, scrim `0x662C2416`) into a private helper; the `showFamilyBlurDialog` signature doesn't change (plan OPEN 9, Gilfoyle).
+11. **Gateway:** `ManageFamiliesGateway.createBranchFamily({parentFamilyId, originStoryId, name, branchYear, ownerUserId, personIds})` calls `_invoke('create-branch-family', …)` and returns the new id; errors map to the §12 catalog.
+12. **After Create:** close the modal, invalidate the `list_family_tree` cache, reload the parent timeline, show the toast "\{Name\} timeline created". Don't change `FamilySelection`; don't navigate. The new ring appears beside the origin story through the M11a placement.
+13. **Carried items — in M11b because the Design Doc includes them** (M12 closed notes + M11a Out): ~~the Related families block shows the whole tree as indented rows~~ **not built in M11b (plan OPEN 4). DECIDED Bill 2026-10-11 (Mortang room, "yes on 1-4"): it officially comes out of M11b and stays on the carry list for a later milestone; the M12 Related families block ships unchanged.** Long names truncate with an ellipsis at the menu's max width (menu and Related rows), and dial ring labels get the same ellipsis rule, inside the label's existing slot with no new width limit (plan OPEN 11); a dated Macro mark in a decade with no stories draws as a lone mark; Dinesh's M11a nits (name the 8 / 16 / `2 * (8 + 16)` constants, give the right-edge check its own test, tighten the ring-tap if/else (plan OPEN 10, Dinesh 2026-10-11): in `timeline_page_test.dart` "a narrow origin ring opens the parent timeline", delete the `parentDot` lookup and the whole if/else; after `expect(FamilySelection.id, parent);` assert `find.text('Child tale')` findsNothing, `find.byKey(const Key('timeline-dot-child-story'))` findsNothing, and `find.text('The beginning')` findsOneWidget (full card on the parent). If zoom resetting on a family change is the intended behavior, tap `timeline-zoom-full` again before the last assert and say so in a comment; a reset that isn't intended is a bug, so don't patch the test around it. Not a blocker); the soft-deleted-family photo-delete pgTAP.
+**Data:** exactly one new migration, `supabase/migrations/20261011200000_start_a_timeline.sql`, which sorts after M11a.2's actual file `20261011190823_origin_stories_hardening.sql` (PR #27; the Design Doc's planned `20261011180000` was a placeholder, corrected 2026-10-11 per Trinity TMAS-27-04). It holds only `alter table public.families add constraint families_parent_not_self check (parent_family_id is null or parent_family_id <> id);`, the `create_branch_family` function and its grants. No new table, column, enum value, policy or route path; `families` still has no INSERT policy; `families_guard_update()` unchanged. Do not edit earlier migrations. Apply with `supabase migration up --local`, never `db reset`, `db pull` or `migration down`.
+**Branch:** one PR off main, `feat/m11b-start-a-timeline` (suggested), opened only after the M11a.2 PR merges. One milestone per PR. No push to main. Don't merge.
+**Tests (paste output in the PR):**
+- pgTAP, new file `supabase/tests/start_timeline.sql`, every item in Design Doc "M11b Tests": success for a member, a co-owner and an owner (row fields right, `family_origin` returns the origin, `list_family_tree` and `list_origin_dependents` include the new family, exactly one owner); non-owner starter picks user B as owner (create succeeds with origin set, starter has no membership in the new timeline, starter's `set_family_origin` raises `FORBIDDEN`, B's succeeds, direct `origin_story_id` update still raises `FORBIDDEN: field is locked`); people (one with `user_id`, one with matching email, one with no account; owner role preserved; row count equals distinct picks).
+- pgTAP, uniform `NOT_FOUND: story` for a random uuid, a draft, another family's story, a sibling's, the grandparent's, and null, each leaving no family row behind; nesting: a grandchild's origin must come from its own parent, so a root story gives `NOT_FOUND: story`.
+- pgTAP, `FORBIDDEN: member only` for a tree reader who isn't a member, a stranger, no uid, and a member of a soft-deleted parent.
+- pgTAP, `VALIDATION` for a blank name; year null, 987 and 10000; an owner who isn't a parent member; a foreign person; depth guard (depth 63 succeeds, the next level is refused).
+- pgTAP, atomicity: after a person error, no family, membership or origin was written. Cycles and inserts: a direct authenticated INSERT gives 42501; a self-parent insert as service role gives 23514; a `parent_family_id` update raises `FORBIDDEN: field is locked`.
+- pgTAP, grants and search_path: anon has no execute on `create_branch_family`, authenticated does; `search_path=""` in `pg_proc.proconfig` AND the function is called once in pgTAP with no "does not exist" errors. Policy count exactly 44; M11b changes no policy, so the M11a.2 exact `qual` / `with_check` pins still pass unchanged. Carried: a member of a soft-deleted family gets 0 rows when deleting a photo row or a `story-photos` object.
+- Edge (Deno): 401 with no JWT; 400 for a missing `parent_family_id`, a missing origin, a blank name, or a non-integer year (decimal, string, null, missing) (Big Head required change 3); 404 and 403 passed through from the RPC; 201 on success.
+- `flutter test`: reader item shows for a member on a published story and is hidden on a draft, for a tree reader, and on a borrowed origin; family menu order exactly as above, no "+" on the new row, ellipsis; picker lists published only, search works, "Write a new story" routing, Publish reopens create with the origin; create modal disabled until name, owner and year are set, the year prefilled from the origin on each of the three paths, owner default reads "You", NOT_FOUND and FORBIDDEN show Mugatu's sentences (never "story" or "member only"), gateway gets the right arguments, errors show inline; after create the toast text is right, the tree cache is invalidated, `FamilySelection` is unchanged and the route stays on the parent; the carried Macro and label items.
+- Smoke (Bill, local, second account): 1) start from the reader; 2) start from the menu by picking a story; 3) start from the menu by writing and publishing a story; 4) as a member, make the second account the owner: origin set, only the owner can change it; 5) pick one person with an account and one without; 6) nest one level; 7) the parent ring sits beside the origin and the toast shows on the parent.
+**Out:** Dial or timeline-mark entries. "Start a branch". Timelines with no origin or a draft origin. A pending state. Landing on the new timeline after create. A future-year rule. Changing `branch_year` after create. Co-owner assignment in the modal. A clear-origin RPC. Copying the origin story. Parent-side revoke. Re-parenting or merging timelines. Anything in M13. Any new table, column, enum, policy, route path or package. Trinity's M11a low findings (shipped in M11a.2). Reopening M11a, M11a.2 or M12.
+> 🚫 FORBIDDEN: An empty start or inserting a family without an origin. Any dial-mark entry. The wording "Start a branch". A "+" on "Start a new timeline". Any change to the M10 menu block other than the added row. Writing `origin_story_id` outside `set_family_origin` or this RPC's flag path. Editing `families_guard_update()`. Origin errors that tell the cases apart. Auto-adding the starter to the new timeline (locked call 1). Client INSERTs into `families` or `memberships`. Widening any SELECT policy. A policy count other than 44. Demo names from the mocks; mock-only chrome. Editing earlier migrations, or running `db reset`, `db pull` or `migration down`. Folding M11a.2 or M13 in, or any M12 carry the Design Doc doesn't list. Branching before M11a.2 merges. Stamping CLOSED.
+### M12 Timeline branch marks (executable playbook)
+**Status:** **CLOSED 2026-10-11** — Bill local smoke (steps 1–5 PASS). PR #25 (rail-centering fix) merged to main as `f978616`, from head `0231128` (all five lanes PASS). Do not reopen this milestone. **Closed-with notes (Bill 2026-10-11):** a child family's timeline keeps the parent's ring (`relatedMarks` drops only the open family); marks sit centered on the rail at every zoom (narrow ring center 14px), label on the empty side, parchment `albumParchment` disc behind the dashed ring, tap/tooltip/pointer on ring + label only. Carry to M11: long-label width cap (`Flexible` + ellipsis); dated Macro mark when its decade has no story band; full tree in the Related families menu. Mugatu's Full Cards hover screenshot is a post-close visual check. Do not reopen M1–M9, FA, R2, or R3 chrome rules except adding branch marks. Branch **create** stays **M11**. Tree-wide **write** stays **M11**. Do not fold either into M12. **Ship order — LOCKED (Bill 2026-10-07):** do **M12 first**; empty marks until M11 creates branches (no seed/fake branches).
+**Sources:** Design Doc “M12 Timeline branch marks” (Gilfoyle 2026-10-07) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7); UXD M12 (Mugatu, UX locked) [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4); PRD/Decisions M12.
+**Screens (Stitch project ****`12192342757314667328`****) — supersede prior Macro/Mid/Full for branch chrome only:**
+- Macro with branch marks: `a6259996a3b1408486c6074a4fa75f5d` — supersedes flat Macro `02972cf4e7ca4facaececdcb9e16991f` for branch chrome
+- Mid with branch marks: `5a0fa5949a9647daa363c3daf34bd49e` — supersedes Mid `0cd5bfaa63c64008b81a836c48e8abd3` for branch chrome
+- Full Cards with branch marks: `974665ebd3a44254a61da7f1cf45a3f2` — supersedes Full Cards `c2c1a5e91d4a449490b92ef53b0cf72c` for branch chrome
+Ignore superseded Stories / Family Members / Places chrome on some Stitch frames; R2/R3 chrome rules stay.
+**Behavior:** Dashed sage **hollow-ring** marks = related families in the branch tree (not stories). Solid dots/nodes = published stories. Mark tap → open that related family’s timeline for **read** (set session family via existing `FamilySelection` / R2 selection path). Does **not** merge the other family’s stories into the current dial. Related-families **list** shows every family linked by `parent_family_id` in the whole tree (root + descendants), including families you are not a member of. Entry points: dial mark **and** related-families list. Switching current family for write/session still uses the **R2 family menu** when you are a member. M9 zoom taps stay in force; marks are an additional target type.
+**Data / migrations (Design Doc):**
+- Graph: existing `families.parent_family_id` only. **No new graph table.**
+- `alter table public.families add column branch_year int null check (branch_year is null or (branch_year >= 1 and branch_year <= 9999));` Roots: `branch_year` null. Child families: fork calendar year. **M11** writes `branch_year` on branch create. M12 reads it; if null, show mark/label **without** a year and place Full Cards markers by stable sort among nulls — **do not invent a year from ****`created_at`**.
+**Read access (Design Doc helpers):**
+- `family_tree_root(fid)` and `is_family_tree_readable(fid)` (security definer) as in Design Doc.
+- `stories` / `photos` / `comments` / `perspectives` / `story_people` / `places` **SELECT** (`people` removed 2026-10-10, see M12 amendments): `is_family_member(family_id)` **OR** (`is_family_tree_readable(family_id)` and published content for timeline). **Drafts stay member-only** (`is_family_member` only) — **LOCKED (Bill 2026-10-07):** non-members never see drafts on a related timeline.
+- `families` SELECT: member **OR** `is_family_tree_readable(id)` (still respect M10 soft-delete: non-owner/co_owner must not see `deleted_at is not null`).
+- INSERT/UPDATE/DELETE unchanged (membership / author). Tree read does **not** grant write.
+- Storage `story-photos` SELECT: same tree-readable rule for published paths; do not widen writes.
+- Realtime: still `family_id=eq.<uuid>` for the **current** session family. No cross-family Realtime fan-in.
+**Client:** Call `list_family_tree(fid)` (security-definer RPC, see M12 amendments). Do not walk `parent_family_id` from the client. Cache in memory for the session family; invalidate on family switch. Paint hollow-ring marks for related families other than current; labels use `families.name` + optional `branch_year`. Full Cards: place marks **between** cards at `branch_year` when set.
+**Branch:** One PR off main, `feat/m12-branch-marks`. No push to main.
+**Tests:** `flutter test` from `apps/tell_me_a_story`. Supabase RLS/SQL: non-member who shares a tree can SELECT published stories on a related family; stranger outside the tree cannot; non-member cannot SELECT drafts on a related family; non-member cannot INSERT comment/photo on a related family; soft-deleted related family hidden from marks/list for everyone, owner/co_owner included (recover stays in the Manage hub only — amended 2026-10-10); empty marks OK when no `parent_family_id` rows; marks are not story dots; story open paths unchanged. Paste output in the PR.
+**M12 amendments — LOCKED (Bill 2026-10-10, from the M12 plan review; Design Doc “M12 amendments” is the SQL source and wins over the original helper SQL):**
+1. **Root walk skips soft-deleted ancestors** (M10 delete rule). A soft-deleted family has no root, so nothing tree-reads it. Both walks (up in `family_tree_root`, down in `list_family_tree`) carry a visited-id path and stop when a family id repeats; depth cap 64 stays as the backstop. Copy the Design Doc amendment walk SQL as written. Do not rely on `union` (the depth column makes every row distinct). `parent_family_id` is not cleared.
+2. **`list_family_tree(fid)`** is the only client tree read. Returns `id, name, parent_family_id, branch_year` for live families under the visible root. Soft-deleted families are excluded for **everyone**, owner/co_owner included. Returns no rows when the caller cannot read `fid`.
+3. **`is_family_tree_readable`** is false when `fid` is soft-deleted and ignores the caller's memberships in soft-deleted families.
+4. **`people`**** SELECT stays member-only.** Tree readers read names through the view `people_tree_read` (`id, family_id, name, relationship`; no `email`), granted SELECT to `authenticated` only. The reader uses it only when the viewer is not a member of the session family.
+5. **Grants.** Revoke `family_tree_root` from `public, anon, authenticated` (helpers only). `is_family_tree_readable` and `list_family_tree`: revoke from `public, anon`, grant execute to `authenticated, service_role`. `family_tree_ids` stays as M10 shipped it; do not grant it.
+6. **pgTAP adds:** deleted child absent from `list_family_tree` for a parent member **and** for the child's owner; `is_family_tree_readable` false on a soft-deleted `fid`; a user whose only tree link is a membership in a soft-deleted family cannot read the tree; a tree reader cannot SELECT `people` but can SELECT `people_tree_read`; `has_function_privilege('anon', …, 'execute')` false for all three functions and `has_function_privilege('authenticated', 'public.family_tree_root(uuid)', 'execute')` false; two families that point to each other as parents: the walk ends and returns each family once; a signed-in user outside the tree gets 0 rows from `people_tree_read` (its filter is the only gate, since the view runs with owner rights); `people_tree_read` has no `email` column; `has_table_privilege('anon', 'public.people_tree_read', 'select')` false (revoke the view from `public, anon`, grant select to `authenticated`).
+7. **Migration:** one new file after `20261010184643_invite_resend_revoke.sql`. Apply with `supabase migration up --local`; do not reset. The PR #24 fix push adds one follow-up file, `20261010233000_story_photos_tree_read_guard.sql` (see item 9); do not edit `20261010230000`.
+8. **Related families menu — LOCKED (Bill 2026-10-10; UXD “M12 Related families menu”).** The M10 family dropdown block stays exactly as locked (families, + Start a family, Manage families). Below it: a divider, a `Related families` label, then one row per related family (same monogram + `families.name`, no year), fed by the same `list_family_tree` result as the marks (no second call). Related rows = every family in that result that is not in `listMine`, **including the open session family** (do not build the rows from `relatedMarks`, which drops the open family). Marks keep using `relatedMarks`. The whole block hides when the related list is empty. When the open session family is a related row, that row shows the checkmark. Selecting a row uses the existing `FamilySelection` path. Widget test: the menu shows Start and Manage in the same order, a related row selects that family, and the open related row has the check.
+9. **Security amendments — LOCKED (Bill 2026-10-10; Design Doc “M12 security amendments”, from Trinity's PR #24 review).** All in `20261010233000_story_photos_tree_read_guard.sql`, same push as the ring fix. Apply with `supabase migration up --local`; do not reset.
+	- **story_people same family (TMAS-24-01).** `story_people` INSERT and UPDATE WITH CHECK add `exists (select 1 from public.people p join public.stories s on s.id = story_people.story_id where p.id = story_people.person_id and p.family_id = s.family_id)`. `ensure_story_person_membership()` raises `FORBIDDEN` when the person's family is not the story's family.
+	- **Child rows tied to the story's family (TMAS-24-02).** `photos`, `comments`, `perspectives` INSERT (and UPDATE where present) WITH CHECK add `exists (select 1 from public.stories s where s.id = <table>.story_id and s.family_id = <table>.family_id)`, with the outer table named each time (`photos.family_id`, `comments.family_id`, `perspectives.family_id`). A bare `family_id` resolves to `stories` and makes the check always true.
+	- **Storage.** `story_photos_insert_member` and the update policy: exactly two folders; both segments match the uuid regex before any cast, written as `case when seg ~* '<uuid regex>' then seg::uuid end` for each segment (never `regex and seg::uuid`, which Postgres may evaluate cast-first); segment 2 is a story in the segment-1 family the uploader can write to; extension allowlist unchanged. `story_photos_select_member` is dropped and recreated with the guarded segment-2 cast, so a non-uuid path denies instead of erroring.
+	- **Soft-deleted family goes dark.** New security-definer `is_live_family_member(fid)` = member and `families.deleted_at is null`. Every content SELECT/INSERT/UPDATE policy (stories, people, places, photos, comments, perspectives, story_people, storage story-photos, and the `people_tree_read` member branch) uses it instead of `is_family_member`. `families` and `memberships` keep `is_family_member`, so owner and co_owner still see the deleted family row to restore it from Manage families.
+	- **auth.uid().** New or rewritten policies and helpers use `(select auth.uid())`. A null uid fails closed.
+	- **pgTAP:** cross-family person link rejected; photo, comment, and perspective rows with a mismatched `family_id` each rejected; non-story, 3-folder, and non-uuid storage paths rejected on insert with `42501` (`throws_ok`), not `22P02`; a tree reader selecting `<fid>/not-a-uuid/x.jpg` gets 0 rows and no error; a member of a soft-deleted family reads 0 stories, people, and photos (drafts included) while the owner still reads the `families` row; a no-uid call returns false or 0 rows.
+	- **Deferred to M11:** TMAS-24-05 (scope places and `people_tree_read` to published stories). Not in this PR.
+**Locks (Bill 2026-10-07 — no remaining M12 OPENs):**
+1. **Ship order — LOCKED.** M12 first; empty marks until M11 creates branches. No seed branches.
+2. **Drafts on related — LOCKED.** Non-members never see drafts (member-only SELECT for drafts).
+**Out:** Branch create (M11). Tree-wide write (M11). Loading another family’s stories into the current dial. New graph tables. Inventing `branch_year` from `created_at`. Widening draft SELECT to tree-readable. Reopening closed milestones. Stamping CLOSED.
+> 🚫 FORBIDDEN: Merging another family’s stories into the current dial. Tree-wide write in M12. New graph tables. Using superseded Stitch header chrome as requirements. Inventing `branch_year` from `created_at`. Widening draft SELECT beyond `is_family_member`. Widening `people` SELECT. An `email` column on `people_tree_read`. Granting `family_tree_root` to any client role. Returning soft-deleted rows from `list_family_tree`. Folding M11 branch create into this PR. Stamping CLOSED.
+### M13 Fit & Finish (executable playbook)
+**Status:** **CLOSED 2026-10-12.** PR #29 merged to main 12:34 PM CT (merge commit `0f47be8`, final head `0ecf739`). Bill in the Mortang room: 'the PR has been merged. smoke passed. let's close it'. Lane PASSes at `0ecf739`: Gilfoyle (architecture), Big Head (spec), Mugatu (visual), Dinesh (code quality). Trinity's M13 review deferred to H1. Earlier: **READY 2026-10-11** (Bill, Mortang room: "yes on 1-4" locks Gilfoyle's M13 Design Doc section and says yes to item 5 and OPEN 4; "hold off on trinity until the hardening milestone" defers Trinity's M13 security review to H1). Written from the Design Doc, PRD, UXD and Decisions M13 sections listed below. Every OPEN is resolved. M11b has merged (`59f91a9` on main), so M13 branches now. Next: Grok plans it as one PR on `feat/m13-fit-and-finish`. Separate milestone. Does not reopen M11a, M11a.2, M11b or M12.
+**Sources:** Design Doc "M13 Fit & Finish" (Gilfoyle, LOCKED by Bill 2026-10-11) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7) is the SQL source and wins on data, RLS and contracts. UXD "M13 — Fit & Finish (LOCKED Bill 2026-10-11)" (Mugatu) [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4) wins on look and copy; where a mock differs from the UXD build rules, the rules win. PRD "M13 — Fit & Finish" (APPROVED, Bill 2026-10-11; items 1–8, clarifications 1–9) [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2). Decisions row "Fit & Finish (M13)" (1)–(11) [✅ Decisions](https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166); Decisions M13 (11) is the source for Bill's 2026-10-11 origin-story photo decision.
+**Screens (Stitch project ****`12192342757314667328`****, design system ****`assets/18104844965535020843`****) — LOCKED Bill 2026-10-11:**
+- Add a story — date picker (three plain boxes Year / Month / Day, "Shows as" preview): `a9fd84de2e094f6e9e234c8fb9387a94`. Replaces `5b929a4c` (superseded, do not build from it).
+- Add person — blurred backdrop: `d1f8f94f2e0c45ffb59836f7c2636c22`
+- Family detail — create buttons: `4173413ee3894a5c9fe7e8081981235a`
+- Landing + sign in: `1939575036dd4c9396d124461df8572f`
+- Landing — check your email: `6cdb77ad4e204d29be8cc3dc875e6607`
+- Invite sign in: `830d27ceec9c412a8826d8303d56689b`
+- Invite sign in — check your email: `5f80ed88432f42a2a9ca78faee4db746`
+- Reader — partial date: `d4eb7bc3dc19455b8adb2d3cb312160e`
+- Invite link dead: `8855fdcf599348ec8150295218ccd1d0`
+- Story reader with Edit: `bdedfd1f423046ed9a1567b739eb2ea2`
+- New story — full (M13) top: `125b2d23e0ef4e42a4f4b9a81e07a86b`
+- New story — full (M13) bottom: `c91ba67e72bc4cc7b369ae7785e87dfb`
+- Items 4 and 5 are behavior only, no screen.
+**Where the mocks and the written rules disagree (UXD build rules), build the rule:** keep the built New story layout (two-column `30237cf012c74948b863c02cb860223a`) and swap only the Timeframe card and the create chips; ignore the date-picker mock's word count / "All changes saved" row and the literal "nn"; the preview reads "Shows as: March 14, 1987" on one line; Year/Day values left-aligned per `a9fd84de`; ignore the full-form mocks' icon badges, heading sizes, card gaps, "STORY ENTRY" and "RIVERTOWN"; on Family detail the plus-circle sits inline left of "New story", not stacked; the Add person blur covers the full viewport (no unblurred strip); the reader keeps the M9 hero photo with no caption and no Print/Share. Circle about 20px on chips and small buttons, 32px on the Add photo tile; tokens terracotta #8B5E4B, parchment #FBF7F2, ink #2C2416.
+**Locked rules (restated for reviewers):**
+- Build order (Gilfoyle lock): M11b ships first, then M13. Branch only after the M11b PR merges.
+- Every new function and trigger follows the M11a.2 hardening standard: `set search_path = ''` and every name schema-qualified (`public.*`), `(select auth.uid())`, a null uid fails closed.
+- Editing (PRD item 8, Decisions M13 (10)): a published story can be edited by its author and by the owners and co-owners of the timeline the story belongs to. Owners and co-owners of a parent or child timeline in the same tree can't. Comments and perspectives stay editable only by their own authors.
+- **Bill 2026-10-11 (Decisions M13 (11)):** YES, the parent timeline's owners and co-owners can remove any photo on the origin story, including one a child-timeline member added. The child timeline's owners still can't edit the origin story.
+- Sign-in is magic link only. No password, no Google/Apple/social, no "Forgot password".
+- **Supersedes (not edited here):** item 4 replaces the M9 re-lock (Macro dot opened Mid); item 3 replaces the decade-chip capture and the "Add photo blocked until a decade is picked" rule in §6 Timeframe and §10; item 8 replaces "only the author edits the core story" for owners and co-owners of the story's own family; the Remove gate in item 11 below **supersedes M11a.2 item 8's own-photos-only Remove gating** (`_canWrite && (photo.uploaderId == uid || story.authorId == uid)`).
+**In:**
+1. **Blurred modals (item 1).** Every modal and dialog uses the M10 standard: the whole page behind it, header to bottom, dimmed and blurred; parchment card; Newsreader title. Covers Add person, Choose place, Add perspective, Invite, Start a family, Set as origin, the origin delete warning, and every confirm (Make member, Remove, Cancel invite). The M9 reader modal already does this. No stock AlertDialog anywhere. Dropdown menus get no blur (clarification 9). Client-only.
+2. **Create buttons (item 2).** No "+" in any create label. A small filled circle with a plus sits left of the label: terracotta circle with white plus on parchment or outline buttons; parchment circle with terracotta plus on the filled terracotta New story button. Labels: "New story", "Add co-owner", "Start a family", "Add person", "Create new person", "Add photo". Same hide/disable rules as today (Add co-owner still hides at two co-owners). Invite stays a plain button with no plus-circle (clarification 9). Client-only.
+3. **Partial dates, data (item 3; Design Doc "Partial dates: data").**
+	- New enum `public.story_date_precision as enum ('decade', 'year', 'month', 'day')`. Declaration order is the sort order: less precise sorts first. Clients may never write `decade`; it exists only for legacy rows.
+	- `stories.date_precision public.story_date_precision not null`: added nullable, backfilled, then set not null.
+	- New `stories.created_at timestamptz not null default now()`, backfilled `coalesce(published_at, now())`. It's the tie-break clarification 5 needs. (Main at `3158f38` has no `stories.created_at`.)
+	- `timeframe_start` and `timeframe_end` stay the canonical storage. Each date is stored as the full period it covers, and `timeframe_end` becomes `not null` (backfill sets `timeframe_end = timeframe_start` where null). `day`: start = end. `month`: start is the 1st, end is the last day of that month. `year`: Jan 1 to Dec 31 of that year. `decade` (legacy only): Jan 1 of a year ending in 0 to Dec 31 nine years later.
+	- Backfill derives `date_precision` from the shape of the range using those four patterns, after the end-null fix. Any row that matches none makes the migration `raise exception`, listing the ids. No silent guessing.
+	- CHECK `stories_date_shape` enforces the shape for each precision plus `extract(year from timeframe_start) between 1000 and 9999`, and replaces `stories_timeframe_end_gte_start`.
+	- Trigger `stories_date_guard` (BEFORE INSERT OR UPDATE): an INSERT with `decade` raises `VALIDATION: year required`; an UPDATE that sets `decade` is allowed only when the old row was `decade` and both dates are unchanged.
+	- Index: drop `stories_family_id_timeframe_idx`, create `stories_family_id_order_idx on (family_id, timeframe_start, date_precision, created_at, id)`.
+	- Realtime already uses replica identity full; the new columns come along with no change.
+4. **One sort order, one decade rule (Design Doc, copied exactly).**
+	- Canonical order everywhere (server `.order` and client sorts): `timeframe_start asc, date_precision asc, created_at asc, id asc`. That gives 1980s, then 1987, then January 1987, then January 1, 1987, then ties by created. A partial date sits at the start of its period because it is stored there.
+	- Newest-first views (decade bands and rows) use the exact reverse of that full key. Never sort on `timeframe_start` alone again. `listPublished`, `listMyDrafts`, `decadeBands`, the decade sorts, rows and the search result sort all use it.
+	- Decade of a story = `decadeStartYear(timeframe_start)` for every precision. This one rule feeds the Macro and Mid decade bands, decade dimming (`farFadeBand` logic unchanged, it just gets the bands), branch-ring decade placement, and the Search Timeframe filter (clarification 4). Search changes from range overlap to `decadeStartYear(timeframe_start) in selectedDecades`.
+	- M11a origin placement: no change. The origin dot is drawn at its own `timeframe_start` and takes the canonical order; the parent ring sits beside it as locked; `branch_year` is untouched.
+	- **M11b year prefill: no change needed.** The create modal reads only the year of the origin's `timeframe_start`, which is correct for all three precisions (and gives the decade's first year for a legacy decade story).
+5. **Partial dates, client (Design Doc "client contract" + UXD Behavior 3).**
+	- One Dart value type `StoryDate { int year; int? month; int? day; }` plus a legacy `decade` case read from rows only; methods `precision`, `toRange()`, `fromRow(start, end, precision)`.
+	- One formatter `storyDateLabel(start, precision)`: "1980s" / "1987" / "March 1987" / "March 14, 1987". Used by the reader meta line ("Recorded event: …"), drafts list, Macro tooltip, timeline year labels and the picker's "Shows as" preview. Delete `decadeChipLabel`, the reader decade pill, `TimeframeChips` and `DecadeRange` capture. Search keeps its own decade chip list for the filter.
+	- The Timeframe card replaces the decade chips: three plain boxes side by side, "Year", "Month", "Day"; no precision selector. Year required, four digits. Month optional: a January–December dropdown (RESOLVED Mugatu 2026-10-11, OPEN 4; matches "March" on `a9fd84de`). Day optional (1–31), disabled until a month is picked; clearing Month clears and disables Day. Precision comes from which boxes are filled. Helper: "Year is required. Add the month or day only if you remember. Day unlocks after Month." Preview: "Shows as: 1987" · "Shows as: March 1987" · "Shows as: March 14, 1987". Inline errors: "Enter a four-digit year." · "That day isn't in that month."
+	- Writes send `timeframe_start`, `timeframe_end` and `date_precision` from `StoryDate.toRange()`. The update patch must be able to set `timeframe_end`: remove the skip-when-null branch.
+	- The client validates first; the server CHECK and trigger are the backstop. On a server `23514` or `VALIDATION`, show the existing save-failed surface.
+	- Legacy `decade` story (clarification 2): the reader shows "1980s"; the picker opens empty, so Save draft, Publish and Save changes stay disabled until a Year is entered.
+	- Photo gating (clarification 3): Add photo is enabled only when the form's `StoryDate` has a year. Client-side as today. No new photo policy.
+	- Reader (clarification 1; RESOLVED Mugatu 2026-10-11, OPEN 7): build to `d4eb7bc3`. Add a "Recorded event: …" line from `storyDateLabel` at the precision entered ("Recorded event: 1987" / "March 1987" / "March 4, 1987"); it replaces the reader's decade chip. The M9 "Documented … by \{author\}" line and avatar stay unchanged. Do not ship "4 min read".
+6. **Macro dot (item 4).** Tapping a story dot on Macro opens that story in the reader modal; closing returns to Macro at the same spot. Year chip and decade label still open Mid (M9); Mid rail circle still opens Full Cards. Client-only.
+7. **Zoom out on empty space (item 5).** A click or tap on empty space steps out one level: Full Cards → Mid → Macro; on Macro it does nothing. Dots, stubs, cards, chips, branch rings, labels, the header and the zoom switch keep their own taps. The zoom pill slides as it does today. Client-only.
+8. **Edit access: ****`can_edit_story`**** (item 8; Design Doc "Edit a story (item 8): access").**
+	- New `public.can_edit_story(sid uuid) returns boolean`: security definer, stable, `set search_path = ''`, schema-qualified names, `(select auth.uid())`; a null uid returns false. True when the story exists, its family is live, and either the caller is `author_id` and `public.is_live_family_member(family_id)` (drafts and published), or the story is `published` and the caller is `owner` or `co_owner` of the story's own `family_id`. Owners and co-owners of a parent or child family in the same tree don't qualify. Grants follow the M11a pattern for RLS helpers called as the signed-in user: revoke from `public, anon`; execute to `authenticated`.
+	- `stories_update_author` is dropped and recreated as `stories_update_editor` with `using/with check (public.can_edit_story(stories.id))`.
+	- `story_people` insert, update and delete swap their author check for `public.can_edit_story(story_id)`; names change suffix `_author` → `_editor` (`story_people_insert_editor`, `story_people_update_editor`, `story_people_delete_editor`). The insert and update keep the TMAS-24-01 same-family person check.
+	- Trigger `stories_edit_guard` (BEFORE UPDATE, security invoker, `set search_path = ''`, schema-qualified) raises `FORBIDDEN: field is locked` on any change to `author_id`, `family_id` or `created_at`. When the caller isn't `author_id`, it also locks `status` and `published_at`, so an owner can edit content but can't unpublish or republish someone else's story.
+	- Concurrent edits are last write wins, as draft saves are today. No locking.
+	- Comments and perspectives are unchanged: own-author only.
+9. **Photo policies: replace ONLY the story-author part.** In `photos_update_uploader_or_author` and `photos_delete_uploader_or_author`, only the story-author branch (`exists (… s.author_id = (select auth.uid()))`) is replaced by `public.can_edit_story(photos.story_id)`. Each policy keeps its M11a family gate exactly (`can_contribute_to_story` on update; `is_family_member(photos.family_id) or can_contribute_to_story(photos.family_id, photos.story_id)` on delete) and the uploader branch. Photo INSERT is unchanged. `photos_guard_update` (M11a.2, only `sort_order` may change) is unchanged, and `photos_cap_insert` is unchanged.
+10. **Storage: no policy change (RESOLVED Gilfoyle 2026-10-11, OPEN 1).** Every photo, including a child member's photo on an origin story, is stored under the story's own family folder (`storyPhotoStoragePath(familyId: story.familyId, …)`, path `<story family>/<story>/<photo>.<ext>`), so the parent timeline's owners and co-owners already pass `is_family_member(seg1)` in the existing `story_photos_delete_member`. M13 recreates no storage policy; its M11a.2 pin stays untouched.
+11. **Client Remove gate (RESOLVED Gilfoyle 2026-10-11, OPEN 2).** The reader's and the edit form's photo Remove shows when `canEditStory || (_canWrite && photo.uploaderId == uid)`. **This supersedes M11a.2 item 8's own-photos-only Remove gating.** Parent owners/co-owners therefore see Remove on a child member's photo on their origin story; the child timeline's owners don't (Decisions M13 (11)); a child member whose origin changed sees no Remove on their own photo. Client-only; server RLS is the real gate.
+12. **Edit a story, client (Design Doc "Edit a story: client" + UXD Behavior 8).**
+	- New route `/stories/:storyId/edit`, reusing the New story form in edit mode (including the three-box picker), prefilled. Title "Edit story". Header actions "Cancel" and "Save changes" (terracotta) instead of Save draft / Publish. Save writes through the existing draft-update path (story row patch, `story_people` diff, photos), then returns to the reader. Cancel returns to the reader with no changes. No new RPC.
+	- Edit covers title, text, date, people and pictures.
+	- Reader entry: an outlined "Edit" button (pencil) at the top right of the story content, next to the title; the reader header is otherwise unchanged. It shows when the caller is the author, or when the story is published and the caller's membership in `story.family_id` is `owner` or `co_owner`. The server is the real gate.
+13. **Landing + sign in (items 6 and 7 combined; Design Doc "Landing and sign in").** Route `/` stays the public page, rebuilt to screens `1939575036dd4c9396d124461df8572f` and `6cdb77ad4e204d29be8cc3dc875e6607`. Magic link only: `signInWithOtp(email, emailRedirectTo: origin)`. "Send it again" repeats the same call; a 429 on "Send it again" shows the existing inline request-failed error and keeps the sent card on screen, with no new copy (RESOLVED Mugatu 2026-10-11, OPEN 6); "Use a different email" resets the form; a bad email is caught client-side ("Please enter a full email address."). Copy exactly as UXD Behavior 6 (headline "Your family's stories, kept together.", card "Sign in or get started" with the line "Enter your email to access your family archive." (kept, RESOLVED Mugatu 2026-10-11, OPEN 5), button "Email me a sign-in link", sent state "Check your email", footer "Private to your family. Stories stay inside the family you share them with."). Signed-in visitors redirect per the M10 landing rule (unchanged). No password, social or Forgot-password paths. Supabase Auth config otherwise unchanged.
+14. **Invite sign in (item 7, clarifications 6–8; Design Doc "Invite sign in").**
+	- New public route `/invite/:token`. `buildInviteUrl` changes to `${INVITE_APP_ORIGIN}/invite/<token>`.
+	- Links already sent still work: the router rewrites `/timeline?invite=X` and `/?invite=X` to `/invite/X`. After that, the `?invite=` carry-through in the router and `auth_callback` is removed.
+	- On load the page calls `validate-invite-token`, which gains `inviter_name` (`profiles.display_name` of `invited_by`, or null; when null the page omits the "\{Inviter\} invited you to \{Family\}." line rather than inventing a name) and returns `INVITE_INVALID` when the invite's family is soft-deleted. An invalid result is a 200 body with `valid: false`, `code` one of `INVITE_INVALID`, `INVITE_EXPIRED`, `INVITE_ACCEPTED`, and a fixed `message`; it does not go through `mapRpcError` (a soft-deleted family returns `INVITE_INVALID` this way). The response stays limited to `{valid, code, message, family_id, family_name, inviter_name, status, expires_at}`: no emails, no ids beyond `family_id`.
+	- Any `valid:false` (invalid, expired, cancelled, accepted) renders the single dead-link state `8855fdcf599348ec8150295218ccd1d0`: "This invite link no longer works. Ask your family for a new one." (Gilfoyle, `validate-invite-token/index.ts` on main): a cancelled invite is stored as status `revoked` and returns `INVITE_INVALID` with `status: "revoked"`; an invite stored with status `expired` also returns `INVITE_INVALID`; `INVITE_EXPIRED` is returned only for a `pending` invite whose `expires_at` has passed; `code` does not map one-to-one to `status`; the client does not branch on `code`, and M13 does not change this.
+	- Signed out: `signInWithOtp` with `emailRedirectTo: ${origin}/invite/<token>` so the token survives the email round trip. Auth `additional_redirect_urls` adds `${site}/invite/**` for local and prod.
+	- Signed in (already, or on return from the link): the app calls `accept-invite` once. Success opens that family's timeline through the existing family-selection path. Failure shows the dead-link state. Errors are no longer swallowed.
+	- Page copy per UXD Behavior 7: family monogram (M10 rule), kicker "YOU'RE INVITED", title "Join \{Family\}", body "\{Family\} keeps its stories on Tell Me a Story. Sign in with your email to read them and add your own.", then "\{Inviter\} invited you to \{Family\}."; sent state "We sent a sign-in link to \{email\}. Tap it to join \{Family\}." No inviter photo. Family confirmation of invites stays as it works today (clarification 8; M14 replaces it).
+**Data:** exactly one new migration, `supabase/migrations/<timestamp>_fit_and_finish.sql` (suggested `20261011210000_fit_and_finish.sql`); the timestamp must sort after M11b's `20261011200000_start_a_timeline.sql`. It holds the enum, the `stories` columns, backfill, CHECK, `stories_date_guard`, the index swap, `can_edit_story`, `stories_edit_guard`, and the recreated `stories_update_editor`, three `story_people_*_editor` and two `photos_*_uploader_or_author` policies. No storage policy change. Policies are dropped and recreated in place: **policy count stays exactly 44** (44 after M11b, 44 after M13, no net new policies), pinned in a pgTAP test. It assumes the M11a, M11a.2 and M11b policies and helpers are on main. Do not edit earlier migrations. Apply with `supabase migration up --local` only; never `db reset`, `db pull` or `migration down`. Locally re-run only changed statements if a fix is needed. Edge: `validate-invite-token` change only. Auth config: the `/invite/**` redirect URL.
+**Branch:** one PR off main, `feat/m13-fit-and-finish` (suggested), opened only after the M11b PR merges, based on that main. One milestone per PR. No push to main. Don't merge.
+**Tests (paste output in the PR):**
+- pgTAP, partial dates (Design Doc): backfill gives a decade range `decade` and sets a null end to start; the CHECK rejects a bad shape for each precision and a year outside 1000–9999; INSERT with `decade` is refused (`VALIDATION: year required`); a legacy decade row survives an unrelated update but can't move its dates while staying `decade`; ordering of decade, year, month and day at the same start, then `created_at`.
+- pgTAP, `can_edit_story` matrix: author (draft and published) true; owner and co-owner true on a published story, false on someone's draft; member, non-member and no-uid caller false; a parent-family owner and a child-family owner false; nobody in a soft-deleted family.
+- pgTAP, edit guard: a non-author editor changing `status` (or `published_at`) raises `FORBIDDEN: field is locked`; anyone changing `author_id`, `family_id` or `created_at` raises `FORBIDDEN: field is locked`; an owner's title/body/date edit on a published story succeeds.
+- pgTAP, editor rights: an editor can insert, update and delete `story_people` and delete photos; a cross-family person link is still rejected.
+- pgTAP, origin-story photo (Decisions M13 (11)), written on the real path `<story family>/<story>/<photo>.<ext>`: a parent-timeline owner (and co-owner) deletes a child-timeline member's photo on the origin story — **both the ****`photos`**** row and the ****`story-photos`**** storage object** are gone; the child-timeline owner is denied (0 rows) on both, and can't update the origin `stories` row.
+- pgTAP, unchanged checks: the M11a `can_contribute_to_story` family gates still deny an outsider; `photos_guard_update` still raises on a locked column; the 20-photo cap still holds.
+- pgTAP, hardening: `can_edit_story` has `search_path=""` in `pg_proc.proconfig` and is called once with no "does not exist" errors; anon has no execute on `can_edit_story`; **policy count exactly 44**. Pins (RESOLVED Gilfoyle 2026-10-11, OPEN 3): in the same PR, pin every policy the M13 migration recreates or renames by exact name and exact `qual` / `with_check`, counting from the migration itself; expected `stories_update_editor`, `story_people_insert_editor`, `story_people_update_editor`, `story_people_delete_editor`, `photos_update_uploader_or_author` and `photos_delete_uploader_or_author` (the two photos policies keep their names). `story_photos_delete_member` is not recreated, so its M11a.2 pin stays untouched, as do the M11a.2 pins for every other policy M13 doesn't touch.
+- Edge (Deno): `validate-invite-token` returns `inviter_name` (and null when the inviter has no name); returns `valid: false, code: "INVITE_INVALID"` (200 body, no prefix parsing) for a soft-deleted family; an invalid result is a 200 body with `valid: false`, `code` one of `INVITE_INVALID`, `INVITE_EXPIRED`, `INVITE_ACCEPTED`, and a fixed `message`, and does not go through `mapRpcError`; the response has no keys beyond `{valid, code, message, family_id, family_name, inviter_name, status, expires_at}`; every existing Edge test passes unchanged.
+- `flutter test`, dates: `StoryDate` round-trip and `storyDateLabel` for all four precisions; picker derives precision from the filled boxes (year / year+month / year+month+day), Year is required (Mugatu UXD M13), Month is a January–December dropdown, Day stays disabled until a month is picked, clearing Month clears and disables Day, both inline errors, the "Shows as" preview; no precision selector and no decade chips in the form; legacy decade story opens with an empty picker and can't be saved; photo gating needs a year; canonical sort (including the reverse for newest-first views); decade mapping `decadeStartYear(timeframe_start)` for every precision feeds bands, branch-ring decade placement and the Search decade filter on partial dates; the reader shows "Recorded event: …" at the entered precision in place of the decade chip, the M9 "Documented … by \{author\}" line and avatar unchanged, and no "4 min read".
+- `flutter test`, edit: Edit button gate (author yes; owner/co-owner of `story.family_id` on a published story yes; member, other-family owner and child-timeline owner no); edit mode is titled "Edit story" with Cancel and Save changes, prefilled, and both return to the reader; the update patch sets `timeframe_end`. **Remove visibility:** shows for the uploader, shows for an editor (author, or parent owner/co-owner on a child member's origin-story photo), hidden for neither (including a child-timeline owner on the origin story).
+- `flutter test`, chrome and behavior: every listed modal uses the blurred shell (no AlertDialog); create labels have no "+" and show the plus-circle, Invite has none; a Macro dot opens the reader and closing returns to Macro; empty-space taps step Full Cards → Mid → Macro and do nothing on Macro, and taps on dots, cards, chips, rings and labels don't zoom out.
+- `flutter test`, sign in: landing form, bad-email error, sent state, "Send it again" and "Use a different email"; the card line "Enter your email to access your family archive."; a 429 on "Send it again" shows the existing request-failed inline error with the sent card still on screen; `/invite/:token` live, dead and signed-in paths, plus the legacy `?invite=` rewrite; `emailRedirectTo` carries the invite path; the inviter line is omitted when `inviter_name` is null.
+- Gates: `flutter analyze` issue count does not exceed main's current 29, and the full `flutter test` run passes with a count of at least 374 (Dinesh code-quality gate).
+- Gates: any new M13 error path uses one of the four T4 prefixes (`VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, `INVITE_INVALID:`) or falls back to the app's existing generic error string (as T4); no fifth prefix (Dinesh code-quality gate).
+- Smoke (Bill, local, second account): 1) write a story with only a year, one with year+month, one with a full date in the same year, and see them sort 1987 → March 1987 → March 14, 1987 on the timeline and show exactly that in the reader; 2) open an old decade story: reader shows "1980s", the picker opens empty and Save stays off until a year is entered; 3) as owner, edit the second account's published story (title, text, date, people, a photo) and see Save changes return to the reader; as a member, see no Edit; 4) on an origin story, as the parent owner remove a photo the child-timeline member added; as the child owner, see no Edit and no Remove on it; 5) tap a Macro dot (reader opens), tap empty space (zooms out one level); 6) sign out, sign in from the landing page; 7) open an old `?invite=` link and a new `/invite/<token>` link signed out and signed in, and a used link shows the dead message; 8) spot-check blurred modals and plus-circle create buttons.
+**OPENs (all RESOLVED; Bill locked Gilfoyle's M13 Design Doc section 2026-10-11 and deferred Trinity's review to H1; 8 RESOLVED by Bill 2026-10-11; 1–3 RESOLVED by Gilfoyle 2026-10-11, 4–7 RESOLVED by Mugatu 2026-10-11):**
+1. **RESOLVED (Gilfoyle 2026-10-11) — storage-path reason for the new storage case.** Every photo, including a child member's on an origin story, is stored under the story's own family folder (`storyPhotoStoragePath(familyId: story.familyId, …)`), so parent owners already pass `is_family_member(seg1)`. The `can_edit_story` storage case is removed; M13 makes no storage policy change. The parent-owner delete pgTAP stays, written on the real path `<story family>/<story>/<photo>.<ext>`. Design Doc corrected.
+2. **RESOLVED (Gilfoyle 2026-10-11) — uploader term of the Remove gate.** Remove shows when `canEditStory || (_canWrite && photo.uploaderId == uid)`. Client-only; server RLS is the real gate.
+3. **RESOLVED (Gilfoyle 2026-10-11) — exact policy pins.** Pin every policy the M13 migration recreates or renames, by exact name and exact `qual` / `with_check`, in the same PR; count from the migration itself. Expected: `stories_update_editor`, the three `story_people_*_editor` policies, `photos_update_uploader_or_author` and `photos_delete_uploader_or_author` (names kept). `story_photos_delete_member` is not recreated, so its M11a.2 pin stays untouched. Total policy count stays 44.
+4. **RESOLVED (Mugatu 2026-10-11) — Month box.** A January–December dropdown (matches "March" on `a9fd84de`). Day stays disabled until a month is picked; clearing Month clears Day. Flutter test added. Within the locked UXD.
+5. **RESOLVED (Mugatu 2026-10-11) — landing card line.** The landing card keeps "Enter your email to access your family archive." Within the locked UXD.
+6. **RESOLVED (Mugatu 2026-10-11) — 429 on "Send it again".** Reuse the existing inline request-failed error and keep the sent card on screen; no new copy. Within the locked UXD.
+7. **RESOLVED (Mugatu 2026-10-11) — reader "Documented" line.** Build to `d4eb7bc3`: a "Recorded event: …" line from `storyDateLabel` at the precision entered replaces the reader's decade chip; the M9 "Documented … by \{author\}" line and avatar stay unchanged; "4 min read" does not ship. Jared's rewording of the PRD note is pending Bill's yes and doesn't block this spec text. Within the locked UXD.
+8. **RESOLVED (Bill 2026-10-11, Mortang room: "yes") — superseded text elsewhere in this spec.** §6 "Timeframe (locked)" says `timeframe_end` is optional and null end = single day, and §10 says "Add photo stays blocked until a decade is picked"; M13 makes `timeframe_end` not null (day: start = end) and gates photos on a year. **Recommendation:** approve amending §6 and §10 when M13 goes READY (this draft doesn't edit them). Jared: product PASS (2026-10-11). Bill approved amending §6 and §10 to match M13 (`timeframe_end` not null, day: start = end; Add photo gated on a year). §6 and §10 are edited when M13 goes READY, not before.
+**Out:** Anything beyond the eight items. Owner/co-owner story **delete** (`stories_delete_author` unchanged; the sources only add edit). Edit rights for owners of other timelines in the tree. Owners editing someone else's draft. Comment or perspective edits by anyone but their author. Unpublish/republish by a non-author. Edit locking. A precision selector or decade chips in capture. A server photo-date rule. Password, social or Forgot-password sign-in. Inviter photos. Invite edge-case handling beyond the dead-link state. Automatic invite linking (M14). Blur on dropdown menus. Any new table, Edge function or package. Reopening M11a, M11a.2, M11b or M12.
+**Carry (not in M13 unless the Design Doc adds them):** Dinesh's M11a.2 nits 1–6 and Trinity follow-ups 01/02/03/05/06/07 (next hardening pass; note that nit 5, PhotoStrip `canRemove == null` defaulting to hidden, touches the item 11 Remove gate); the indented whole-tree Related families view (Bill 2026-10-11); M14 People profiles (held until M13 is through).
+> 🚫 FORBIDDEN: Starting M13 before M11b merges. A migration that sorts at or before `20261011200000`. A policy count other than 44. Replacing anything in the photo policies except the story-author part; dropping the `can_contribute_to_story` / `is_family_member` family gates or changing `photos_guard_update`. Any storage policy change. Letting owners of a parent or child timeline edit a story outside their own family, or a child-timeline owner remove a photo on the origin story. A non-author editor changing `status` or `published_at`. Clients writing `decade`. Sorting on `timeframe_start` alone. A precision selector, decade chips in the add-story flow, or a "+" glyph in a create label. Password, social sign-in or "Forgot password". Inviter names or photos the invite doesn't carry. Definer functions without `search_path = ''` or with unqualified names. Editing earlier migrations, or running `db reset`, `db pull` or `migration down`. Folding M11b or M14 in. Stamping READY or CLOSED.
+### M14 People profiles (executable playbook)
+**Status:** **CLOSED 2026-10-13.** See the closing record below. Earlier: **READY 2026-10-12.** Design Doc "M14 — People profiles" (Gilfoyle, LOCKED by Bill 2026-10-12; policy count corrected to 47 by Gilfoyle 2026-10-12). PRD M14 (APPROVED Bill 2026-10-11) and UXD M14 (Mugatu, LOCKED Bill 2026-10-12) are locked. The Design Doc lists no OPENs: Bill answered all three on 2026-10-12. M13 has merged (`0f47be8` on main), so M14 branches now. Next: Grok plans it as one PR on `feat/m14-people-profiles`. Separate milestone. Does not reopen M10, M11a, M11a.2, M11b, M12 or M13.
+**Closing record (CLOSED 2026-10-13):**
+- PR #30 was squash-merged to main as `ec83077`, from final head `ef92451`.
+- Bill's local smoke test passed ("smoke passed" in the Mortang room).
+- Reviews of `ef92451`: Gilfoyle architecture PASS, Big Head spec PASS, Mugatu visual PASS, Dinesh code-quality PASS, Jared product PASS. Trinity's review is deferred to H1 item (h).
+- Counts reported in the PR body: `flutter analyze` 27, `flutter test` 415, pgTAP 530, Deno 41, policies 47.
+- Known limit: people merged by the one-time run in `20261012100100` who were saved with a blank email stay blank until someone uses Add email.
+- Follow-up PR (not yet written; Erlich writes the prompt):
+	- Mugatu's copy changes: keep the name placeholder; shorten the About placeholder to "A short note about them" or remove it; remove "Email is hidden when Date of passing is set."; remove both Settings "(optional)" labels and the hint "Short memory or role in the family".
+	- Remove the hardcoded colors in `settings_page.dart`.
+	- The invite modal moves onto the shared `mapRpcError` list, which stays at exactly four prefixes. Any new prefix goes back to Gilfoyle.
+	- An error with nothing after its prefix uses `mapRpcError`'s existing generic message. If there isn't one, Bill picks the words.
+	- No changes under `supabase/`.
+**Amendment 2026-10-13 (status stays READY; PR #30 on ****`feat/m14-people-profiles`****):**
+1. **`create-invite`**** permission (Gilfoyle, corrected in the room):** any family member can invite, as before M14. The gate is `is_family_member`. `FORBIDDEN:` is only for a caller who isn't a member. Earlier wording that limited inviting to a narrower role is removed.
+2. **PRD Lock 13 (Bill 2026-10-13), "Not invited yet" in the Invite modal:** the existing Invite to the family archive modal stays unchanged: Email / Text (SMS) / Link tabs, personal note, Cancel / Send invite. A "Not invited yet" section goes below the tab content and above the buttons. It lists people who are unlinked, have no date of passing, and have no open invite.
+	- A row with an email shows an Invite button that calls `create-invite` with that `person_id`.
+	- A row with no email shows "No email yet" and an Add email button. That opens an inline field and a "Save and invite" button. Save updates the `people` row, then calls `create-invite`.
+	- The section is hidden when empty. No other new copy.
+	- `list_unlinked_people` also leaves out anyone with an open invite, in migration `20261013140000_unlinked_open_invite.sql`. No new endpoint or policy; the count stays 47. Lock counts are now 1–13.
+3. **Rules:** the `people` INSERT policy requires `user_id is null` (replaced in place; the count stays 47). The merge fills email with `coalesce(nullif(btrim(email),''), copy.email)`. All M14 colors come from `album_theme.dart` tokens. `create-invite` never returns raw Postgres error text: it maps errors to the four prefixes and logs the raw error server-side.
+4. **Required tests:**
+	- pgTAP: `list_unlinked_people` leaves out people with an open invite and anyone with a date of passing.
+	- pgTAP: a `people` insert with a non-null `user_id` is refused.
+	- pgTAP: after `merge_copied_people`, an `is_empty` check shows that the unique parent/child matches the merge folds leave no duplicate, matching by `user_id`, or by `lower(btrim(email))` when it's non-empty (scope per point 6).
+	- Flutter: the email save works, then `create-invite` fails. The email stays saved, the row shows the `mapRpcError` text, and nothing sends twice.
+	- Flutter: for any linked person (`userId != null`), the email is read-only and Edit is hidden.
+5. **Gates for the fix push:** `flutter analyze` ≤ 27; `flutter test` ≥ 414 passing, 0 failing; pgTAP ≥ 527; Deno ≥ 40 (run with `--allow-env`); policies exactly 47.
+6. **No-duplicates test scope (Gilfoyle 2026-10-13):** the `is_empty` check covers the unique parent/child matches the merge folds. It is not a rule that a tree has no duplicates. These duplicates are allowed: two rows in the same family; copies in sibling branches with no matching row in the parent; ambiguous copies left unmerged on purpose; rows created after `20261012100100` ran.
+7. **Known limit (recommended by Gilfoyle, Jared and Erlich; Bill has not objected):** the blank-email fill in `20261013150100_merge_blank_email.sql` doesn't reach rows merged by the one-time run in `20261012100100_people_merge_copies.sql`. A survivor saved with `''` keeps no email; Add email fixes it. This is no exception to the migration-edit or reset rules.
+8. **Copy push for PR #30:** **Reversed 2026-10-15** (Bill: picker should not have been removed). See M14.1.
+	- The profile button reads "Edit".
+	- The linked-person test finds the button by key or by the "Edit" text, and fails if it's visible.
+	- When the email save itself fails in `_saveEmailAndInvite`, the row shows the `mapRpcError` message, covered by a Flutter test.
+	- Strip the mock copy Mugatu listed.
+	- Every color in `add_person_modal.dart` comes from `album_theme.dart` tokens (required in this push, per Mugatu).
+	- Remove the Choose existing / Create new person tabs and the picker, so Add person opens straight to the create form.
+	- Flutter gate: ≥ 414 passing, 0 failing. A lower count is allowed only for removed picker tests, each listed with its reason in the PR body. The other gates are unchanged.
+**Sources:** Design Doc "M14 — People profiles" [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7) is the SQL source and wins on data, RLS and contracts. UXD "M14 — People profiles (LOCKED 2026-10-12, Bill)" [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4) wins on look and copy. Where a mock differs from the UXD copy rule, the rule wins. PRD "M14 — People profiles" (items 1–7, locks 1–13; Lock 11: people with a date of passing are excluded from the invite picker; Lock 12: one profile per account after sign-in; confirmed by Jared 2026-10-12; Lock 13: the Invite modal gains a "Not invited yet" section, Bill 2026-10-13) [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2).
+**Bill's three answers (2026-10-12, in the Design Doc):** (1) people copied into child timelines (M11b) merge back into one person each, and their story tags move to the survivor; (2) the invite-link picker excludes anyone with a date of passing; (3) once a person signs in, DOB, About and picture live on the account. That gives one profile everywhere and one Save in Settings. Each tree's person row keeps name, story tags and date of passing (with its precision).
+**Screens (Stitch project ****`12192342757314667328`****) — LOCKED Bill 2026-10-12; only these ids are canonical (duplicate M14 drafts in Stitch are ignored):**
+- Add person: `b473d44aa3d245a190c0e63e4b3a8d5d` (PRD items 1, 2; Lock 5)
+- Send invite confirm: `b1fe8caf283040809781a10bba45c97c` (item 5; Lock 6)
+- Add person, passed: `58464879b06c48148d22314e9b57ad3c` (Lock 6: email hidden, no invite)
+- Person profile, member view: `ed49266f0c1e49a08588e65e583b36a9` (item 4; Lock 8)
+- Person profile, name only: `3e69375b469e4e9ab5878de281428bda` (Lock 8)
+- Edit person: `98ba67f7f2c04e1187dbbb40f46d26e2` (Lock 3)
+- Settings, your profile: `c285e4a01e444a80b784bbbec167af27` (Lock 4; Bill answer 3)
+- Invite link, pick a person: `ef1bb744f41a478091a09d80c3538669` (item 6; Lock 7; Bill answer 2)
+- Linking happens on the existing M13 invite sign-in page `830d27ceec9c412a8826d8303d56689b` with no "this is me" step (Lock 7). That page is not a new M14 screen.
+**Copy rule (UXD; the written rule wins over the mocks):** Labels only: Name, Date of birth, Date of passing, Picture, About, Email. Dates use the M13 three-box picker with its helper "Year is required. Add the month or day only if you remember. Day unlocks after Month." and its "Shows as" preview. Buttons: "Add person" (with the plus-circle) on Add person. "Send invite to \{name\}?" with "Send invite" and "Not now" on the confirm. "Edit" on the profile. "Save" on Edit person and Settings. The invite link shows the names of people not signed in yet plus "Someone new". **Bill 2026-10-12:** people with a date of passing are left out of the picker. Mugatu is making that one-line copy-rule change in the UXD. Build to the decision either way. Ignore every other line in the mocks: subtitles, helper/footer text, badges, breadcrumbs, tabs, Stories list, account email, Cancel, link area, Copy link, expiry, counts, sample names. Layout, colors, blur and the plus-circle follow the mocks. The profile opens from any name pill (and from Settings) as an M13 blurred modal. There is no deceased mark.
+**Locked rules (restated for reviewers):**
+- Person vs member (Lock 1): a member is a person who has signed in. Membership comes only from accepting an invite. Tagging a story or adding an email never creates a membership. This retires the M10 auto-membership lock.
+- Scope (Lock 2): one profile per person across the tree. `people.family_id` stays the **home family**, where the person was added.
+- Edit rights (Lock 3): any tree member can edit until the person signs in. After that, only that person can. A removed member's profile becomes editable by tree members again (UXD default).
+- Visibility (Lock 8): tree members see the full profile. Anyone else who can see a pill sees only the name.
+- Picker (Lock 11): people with a date of passing are excluded from the invite-link picker.
+- One profile per account (Lock 12): after sign-in, DOB, About and picture live on the account, the same profile everywhere.
+- Invite modal (Lock 13, Bill 2026-10-13): see the 2026-10-13 amendment below.
+- Every new function and trigger follows the M11a.2 hardening standard: `set search_path = ''`, every name schema-qualified (`public.*`), `(select auth.uid())`, and a null uid fails closed.
+- UXD defaults (Bill-approved): both dates may stay blank, and Year is required only once a date is started. Email can be added later, with the same confirm. "Not now" still saves the email. The picker lists every not-signed-in person in the tree, except anyone with a date of passing. An uploaded picture stays until the person replaces it.
+**In (Design Doc, copied):**
+1. **Tree membership helper.** New `public.is_tree_member(fid uuid) returns boolean`: true when the caller has a live membership in any live family that shares `public.family_tree_root(fid)`. SECURITY DEFINER, `search_path = ''`. Grants follow the M11a pattern for RLS helpers: revoke from `public, anon`; execute to `authenticated`.
+2. **Profile columns on ****`people`****.** `birth_date date`, `birth_precision public.story_date_precision`, `passing_date date`, `passing_precision public.story_date_precision`. These reuse the M13 enum and helper; no new type. **RESOLVED (Gilfoyle 2026-10-12)**: CHECK constraints refuse `'decade'` on `people.birth_precision` and `people.passing_precision` (PRD Lock 5). Each date/precision pair is null-together by CHECK. `about text` with a ≤ 500-character CHECK. `avatar_path text` with CHECK `avatar_path = id::text || '/avatar.jpg'`. `updated_at`. `relationship` becomes nullable: Add person has no Relationship field, and v2 owns relationships.
+3. **Private bucket ****`person-avatars`****.** Path `{person_id}/avatar.jpg`. 3 policies on `storage.objects`: select (tree member of the person's home family), plus insert and update (the same rule as profile edit, item 6).
+4. **Account-level profile fields.** Add `profiles.birth_date`, `profiles.birth_precision` and `profiles.about`, with the same checks, including a CHECK that refuses `'decade'` on `profiles.birth_precision` (**RESOLVED (Gilfoyle 2026-10-12)**). `profiles.birth_precision` is `public.story_date_precision`. `profiles.avatar_path` already exists (M8). For a linked person, each field shows the account's value when set, otherwise the person row's value. Date of passing stays on `people`. Display picture: the account picture if set, else `people.avatar_path`, else the empty circle (M8 rule). `profiles` gets no new policy. Settings' one Save writes the caller's own `profiles` row (name, DOB, About, picture) through the existing `profiles_update_own`.
+5. **`person_profile(p_person_id uuid)`** (**RESOLVED (Gilfoyle 2026-10-12)**). SECURITY DEFINER, `search_path = ''`. Revoke from `anon` and `public`; grant execute to `authenticated` only. A missing row, or a caller who fails `is_tree_member` for the person's home family, raises `NOT_FOUND:`. Returns one row: `id`, `family_id`, `name`. Then `birth_date`, `birth_precision`, `about` and `avatar_path`, each taken from `profiles` when the person is linked and that field is set, otherwise from `people`. Then `passing_date` and `passing_precision`, always from `people`, and `is_linked` (`user_id is not null`). It never returns `user_id` or email. This is how tree members read account fields; `profiles` select is not widened.
+6. **RLS on ****`people`**** (replaced in place, net 0).** SELECT the full row: `is_tree_member(family_id)`. Outside-tree readers stay name-only: `people_tree_read` stays `id, family_id, name` (drop `relationship`), with no new columns. INSERT: `is_live_family_member(family_id)` and `user_id is null` (amended 2026-10-13; replaced in place). UPDATE: `(user_id is null and is_tree_member(family_id)) or user_id = auth.uid()`. DELETE: unchanged.
+7. `user_id` is server-side only. Revoke client update on `people.user_id`. Only Edge or RPC code writes it. It must be unique per tree, enforced in the write RPCs; the partial index stays per family.
+8. **Drop the two M10 auto-membership triggers.** `story_people_ensure_membership` and `people_ensure_membership`.
+9. `invites.person_id`. `uuid null references people(id) on delete set null`.
+10. `create-invite` (Edge). Accepts an optional `person_id`. It must be a tree person with `user_id is null` and `passing_date is null`. Email path: the client shows the "Send invite to \{name\}?" confirm. "Not now" still saves the email and creates no invite row. No silent send.
+11. `accept-invite` (Edge) links. If `invites.person_id` is set and that person is still unlinked, set `user_id = caller`. If the person is already linked to someone else, accept the membership, skip the link, and return no error to the invitee. If `person_id` is null (Someone new), make no link. No email-match auto-link.
+12. `remove-member` (Edge) unlinks. Set `user_id` to null on that user's people rows in the tree. Story tags stay.
+13. **Picker RPC.** `list_unlinked_people(p_family_id)` returns tree people with `user_id is null` and `passing_date is null`, and (amended 2026-10-13) no open invite (`20261013140000_unlinked_open_invite.sql`). It also feeds the Invite modal's "Not invited yet" section (Lock 13). The client adds "Someone new".
+14. **Stop copying people on a new timeline.** `create_branch_family` no longer copies `people` rows. Picked people are already tree people; the picker only seeds who gets an invite or membership, as M11b locked.
+15. **Merge existing copies (data migration).** Find `people` rows in a branch family that match a row in the parent family's people list at branch time. Repoint `story_people` to the parent's row (`on conflict do nothing`), then delete the copy. The survivor's email is filled with `coalesce(nullif(btrim(email),''), copy.email)` (amended 2026-10-13). **Matching rules **RESOLVED (Gilfoyle 2026-10-12)**:** nulls and empty values never match. `user_id` matches only when both are non-null and equal. Email matches only when both are non-empty, compared as `lower(trim())`. A name-only match counts only when the normalized names are equal and neither row has a conflicting non-empty email or `user_id`. A copy that could match more than one person is left unmerged. The pgTAP no-duplicates check covers only the unique parent/child matches the merge folds (2026-10-13 amendment point 6).
+16. **Client.** Add person and Add person, passed (email field hidden once Date of passing is set). The Send invite confirm. The profile modal from every name pill: member view or name only. Edit person, shown and enabled per Lock 3. Settings, your profile, with one Save to `profiles`. The invite-link person picker, passing the picked `person_id` to `create-invite`. Avatar upload to `person-avatars` at `{person_id}/avatar.jpg` for unlinked people; a linked person replaces their own picture through Settings. **Edit person email (**RESOLVED (Gilfoyle 2026-10-12)**):** Edit person (`98ba67f7`) reads email straight from the `people` row through the `is_tree_member` select policy, not from `person_profile`. Once the person is linked (signed in), the email field is read-only, because the client can't update that `people` row. That person's own details come from `profiles`.
+**Errors:** the allowed prefixes are the four `mapRpcError` passes through: `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, `INVITE_INVALID:`. No new ones. **`create-invite`**** refusals **RESOLVED (Gilfoyle 2026-10-12)**:** a person who doesn't exist or isn't in the caller's tree returns `NOT_FOUND:` (the same answer for both, so callers can't probe the tree). A person who is already linked returns `VALIDATION:`, and so does a person with a date of passing. `FORBIDDEN:` is only for a caller who isn't a member of the family (**Amendment 2026-10-13**: any family member can invite, as before M14; the gate is `is_family_member`). `person_profile` raises `NOT_FOUND:` as in item 5.
+**Data:** migrations in `supabase/migrations/`, each sorting after the latest on main, `20261011210000_fit_and_finish.sql`. Suggested names: `20261012100000_people_profiles.sql` (items 1–9, 13, 14 and `person_profile`) and `20261012100100_people_merge_copies.sql` (item 15, the one merge migration the Design Doc calls for). The final split and order are Grok's call, as long as both sort after `20261011210000` and the merge runs before the per-tree `user_id` uniqueness is relied on. Policies on `people` are dropped and recreated in place. **Policy count: 44 → exactly 47** (`select count(*) from pg_policies`, storage included; +3 `person-avatars`), pinned in pgTAP. Do not edit earlier migrations. Apply with `supabase migration up --local` only. Never run `supabase db reset`, `db pull` or `migration down`. If a fix is needed locally, re-run only the changed statements. Edge: `create-invite`, `accept-invite` and `remove-member` only. `create_branch_family` changes in SQL. If its Edge wrapper `create-branch-family` needs a change, report it rather than invent one.
+**Branch:** one PR off main, `feat/m14-people-profiles` (PR #30). One milestone per PR. No push to main. Don't merge.
+**Tests (paste output in the PR):**
+- pgTAP, tree scope: `is_tree_member` is true for a member of any live family in the tree and false for an outsider, a soft-deleted family and a null uid. It has `search_path=""` in `pg_proc.proconfig`, and anon has no execute.
+- pgTAP, people RLS: a tree member reads the full row and edits an unlinked person. The edit locks once `user_id` is set (only that user edits). A removed member's row reopens for tree edits. An outside-tree reader sees only `id, family_id, name` through `people_tree_read` (no `relationship`). A client update of `user_id` is refused.
+- pgTAP, columns: the date/precision null-together checks; `'decade'` refused on `people.birth_precision`, `people.passing_precision` and `profiles.birth_precision`; `about` ≤ 500; the `avatar_path` shape; nullable `relationship`.
+- pgTAP, `person_profile`: anon and public have no execute and authenticated does. It has `search_path=""`. A missing id raises `NOT_FOUND:`, and so does an outsider (failing `is_tree_member` on the home family) or a null uid. Coalescing: account values win when linked and set, the person row is the fallback, and passing comes only from `people`. `is_linked` is correct. The result has no `user_id` or email column. The `profiles` select policy is unchanged.
+- pgTAP, membership: **replace the M10 tests that asserted tagging makes a member** (`supabase/tests/manage_families.sql`: "tagging a matching email upserts member" and the "Tagging a resolved person upserts member…" block) and the M11b one (`supabase/tests/start_timeline.sql`: "an email match becomes a member"). The new tests assert that tagging a story and adding an email create no membership, and that the two triggers are gone. Update the M11b copy-people assertions to assert that no people are copied.
+- pgTAP, linking: accept with an unlinked `person_id` links. Accept on an already-linked person accepts membership with no link and no error. Accept with no `person_id` doesn't link. A double link is refused. `remove-member` nulls `user_id` and keeps the tags.
+- pgTAP, picker: `list_unlinked_people` leaves out linked people, people with a `passing_date` and (2026-10-13) people with an open invite, and covers the whole tree.
+- pgTAP, merge: after the merge migration, the unique parent/child matches it folds leave no duplicate (scope per 2026-10-13 amendment point 6), and the story tags point at the survivor. Null or empty email and `user_id` never match. Email compares as `lower(trim())`. A name-only match with a conflicting email or `user_id` is not merged. An ambiguous copy (more than one candidate) is left unmerged.
+- pgTAP, storage: `person-avatars` read by tree members only; insert and update per the edit rule; denied to an outsider. **Policy count exactly 47**, with each recreated `people` policy and the 3 new storage policies pinned by exact name and `qual` / `with_check`.
+- Deno: `create-invite` `person_id` rules. A missing person and an out-of-tree person both return `NOT_FOUND:`, with identical responses. A linked person returns `VALIDATION:`, and so does a person who has passed. Any family member can invite; a caller who isn't a member of the family returns `FORBIDDEN:` (**Amendment 2026-10-13**). A valid person is accepted, and an absent `person_id` works as today. `accept-invite` link paths (link / already linked / null). `remove-member` unlink. Every existing Edge test passes.
+- `flutter test`, one or more per screen and lock: Add person with optional DOB / passing (M13 picker), picture and About. Passing set hides Email and offers no invite. Saving with an email shows the confirm, and "Not now" saves the email without an invite. The profile opens as a blurred modal from every name pill. The member view versus name only. Edit shows only when allowed (Lock 3). Settings has one Save that writes `profiles`. The picker lists not-signed-in, non-passed people plus "Someone new" and sends `person_id`. Picture fallback order. Labels and buttons exactly as the copy rule, with no extra mock text. Edit person: email is prefilled from the `people` row and editable while unlinked, read-only once linked, with the linked person's details from `profiles`.
+- Gates (fix push, amended 2026-10-13): `flutter analyze` ≤ 27 issues; `flutter test` ≥ 414 passing, 0 failing; pgTAP ≥ 527; Deno ≥ 40 (run with `--allow-env`); **policy count exactly 47**. No fifth error prefix. Plus the 2026-10-13 required tests above.
+- Smoke (Bill, local, second account): 1) Add a person with a year-only DOB, About and a picture. Open their pill from a story and see the full profile. 2) Add a person with a date of passing: the Email field is hidden. 3) Add a person with an email: the confirm shows. "Not now" saves the email with no invite. Add the email again later and choose "Send invite". 4) Make an invite link, pick an unlinked person (people who have passed aren't listed), and sign in as the second account on `/invite/<token>`. The account is now that person: no "this is me" step, and the tags are kept. 5) As the second account, edit DOB / About / picture in Settings with one Save. As the first account, see it on their profile and see that Edit is gone. 6) Tag someone on a story: no membership appears. 7) Remove the second account: the profile and tags stay and are editable again. 8) Open a pill from a related family you're not a member of: name only. 9) Start a new timeline: no people are copied. Older parent/child copies are merged (other duplicates are allowed, per the 2026-10-13 amendment point 6).
+**OPENs (1–4 RESOLVED by Gilfoyle 2026-10-12; folded in above):**
+1. RESOLVED (Gilfoyle 2026-10-12) — `create-invite` refusals: missing or out-of-tree → `NOT_FOUND:`; already linked → `VALIDATION:`; has passed → `VALIDATION:`; `FORBIDDEN:` only for a caller who isn't a family member (amended 2026-10-13: any family member can invite, gate `is_family_member`).
+2. RESOLVED (Gilfoyle 2026-10-12) — precision type: reuse `public.story_date_precision`, no new type; CHECKs refuse `'decade'` on `people.birth_precision`, `people.passing_precision` and `profiles.birth_precision`.
+3. RESOLVED (Gilfoyle 2026-10-12) — merge matching: nulls and empties never match; `user_id` only when both are non-null and equal; email only when both are non-empty, compared as `lower(trim())`; a name-only match only with equal normalized names and no conflicting email or `user_id`; ambiguous copies stay unmerged.
+4. RESOLVED (Gilfoyle 2026-10-12) — `person_profile(p_person_id uuid)`: definer, `search_path=''`, authenticated-only execute, `NOT_FOUND:` on a missing row or a non-tree caller, the fixed return shape in item 5, never `user_id` or email. Also locked: Edit person reads email from the `people` row, read-only once linked.
+5. Pending, not blocking: Mugatu's one-line UXD copy-rule edit for the picker. Bill's decision already stands.
+**Out:** Relationships (v2). A deceased mark. Family tree view. Family friends. SMS invites. Email-match auto-linking. A "this is me" step. Any new error prefix. Widening `profiles` select. Changes to M13 date rules or the sign-in pages beyond the linking call.
+**After PR (lanes):** Gilfoyle (architecture), Big Head (spec), Mugatu (visual vs the 8 Stitch ids), Dinesh (code quality), Jared (product). **Trinity's M14 security review is deferred to H1** (listed as H1 item (h)). Bill merges and smokes locally.
+> 🚫 FORBIDDEN: A migration that sorts at or before `20261011210000`. A policy count other than 47. A client-writable `people.user_id`. Keeping either auto-membership trigger. Copying people in `create_branch_family`. Email-match auto-link. Listing people who have passed in the picker. Showing DOB / About / picture to non-tree-members. Widening `profiles` select. A fifth error prefix. Definer functions without `search_path = ''` or with unqualified names. Editing earlier migrations, or running `db reset`, `db pull` or `migration down`. Folding H1 in. Stamping READY or CLOSED.
+#### Grok Build handoff
+Copy-paste prompt for Grok Build:
+```javascript
+You are implementing milestone M14 "People profiles" for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story; Flutter + Supabase; no CI). Do it in ONE PR on branch feat/m14-people-profiles off main (main has M13 at 0f47be8). Do not push to main and do not merge.
+
+Read first, in this order:
+1. Impl Spec §15 "M14 People profiles (executable playbook)": https://app.notion.com/p/3e0c4bcef238814f9686d1d956b1f3f8. This is your task list. Also §0 and §14.
+2. Design Doc "M14 — People profiles" (LOCKED Bill 2026-10-12): https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7. Wins on SQL, RLS and contracts.
+3. UXD "M14 — People profiles" (LOCKED Bill 2026-10-12): https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4. Wins on look and copy. The written copy rule beats the mocks. Stitch project 12192342757314667328; build only the 8 screen ids listed there.
+4. PRD "M14 — People profiles" (7 items, locks 1–13): https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2
+5. Grok Build CLI Contract: https://app.notion.com/p/3edc4bcef23881e6bfedf1cb30c0e7dd
+
+Bill's decisions (2026-10-12): (1) merge people copied into child timelines back into one person each, moving story tags to the survivor; (2) the invite-link picker excludes anyone with a date of passing; (3) once a person signs in, DOB/About/picture live on the account (profiles): one profile everywhere, one Save in Settings; the per-tree people row keeps name, story tags and date of passing (with its precision).
+
+Build exactly the playbook: is_tree_member(); people profile columns (DOB/passing with the M13 precision, about ≤500, avatar_path, updated_at; relationship nullable); private person-avatars bucket + 3 storage policies; profiles.birth_date/birth_precision/about; person_profile(p_person_id) definer RPC (no widening of profiles select); people RLS replaced in place; user_id server-side only; outside-tree readers name-only via people_tree_read (id, family_id, name); drop story_people_ensure_membership and people_ensure_membership; invites.person_id; create-invite person_id rules; accept-invite linking; remove-member unlink; list_unlinked_people; create_branch_family stops copying people; one merge migration for existing copies; the client screens.
+
+Locked by Gilfoyle 2026-10-12 (see the playbook): create-invite refusals: missing/out-of-tree person → NOT_FOUND: (identical response), already linked → VALIDATION:, has passed → VALIDATION:, FORBIDDEN: only for a caller who isn't a family member (any family member can invite, gate is_family_member; amended 2026-10-13). Precision columns use public.story_date_precision with CHECKs refusing 'decade' (people.birth_precision, people.passing_precision, profiles.birth_precision). Merge: nulls/empties never match; user_id only when both are non-null and equal; email only when both are non-empty, lower(trim()); a name-only match only with equal normalized names and no conflicting email/user_id; ambiguous copies stay unmerged; the is_empty check covers only the unique parent/child matches the merge folds (same-family pairs, sibling copies with no parent match, ambiguous copies and rows created after 20261012100100 may stay duplicated). Known limit: the blank-email fill in 20261013150100 doesn't reach rows merged by 20261012100100; Add email fixes them; no migration edits or resets. Copy push (PR #30): the profile button reads "Edit"; the linked-person test finds it by key or by "Edit" text and fails if it's visible; an email-save failure in _saveEmailAndInvite shows the mapRpcError message on the row, with a Flutter test; strip the mock copy Mugatu listed; every color in add_person_modal.dart comes from album_theme.dart tokens; remove the Choose existing / Create new person tabs and the picker so Add person opens straight to the create form; flutter test ≥ 414 with 0 failing, lower only for removed picker tests, each listed with its reason in the PR body. person_profile(p_person_id uuid): SECURITY DEFINER, search_path='', execute for authenticated only (revoked from anon and public), NOT_FOUND: on a missing row or a non-tree caller; returns id, family_id, name, birth_date, birth_precision, about, avatar_path (from profiles when linked and set, else from people), passing_date, passing_precision (always from people), is_linked; never user_id or email. Edit person reads email from the people row (is_tree_member select), read-only once linked; the linked person's details come from profiles.
+
+Amendment 2026-10-13 (see the playbook note): any family member can invite (create-invite gate is_family_member; FORBIDDEN: only for non-members). Lock 13: the Invite to the family archive modal stays unchanged (Email/Text (SMS)/Link tabs, personal note, Cancel/Send invite), plus a "Not invited yet" section below the tab content and above the buttons, listing unlinked people with no date of passing and no open invite. A row with an email has Invite (create-invite with person_id). A row without one shows "No email yet" + Add email → inline field + "Save and invite" (save the people row, then create-invite). The section is hidden when empty; no other new copy. list_unlinked_people also excludes open invites (migration 20261013140000_unlinked_open_invite). People INSERT policy requires user_id is null (in place; 47 stays). The merge fills email with coalesce(nullif(btrim(email),''), copy.email). M14 colors come from album_theme.dart tokens. create-invite never returns raw Postgres text: map to the four prefixes, log raw server-side. Required tests are listed in the playbook note.
+
+Constraints:
+- New migrations must sort after 20261011210000_fit_and_finish.sql. Never edit earlier migrations.
+- Local DB: `supabase migration up --local` only. NEVER db reset, db pull or migration down.
+- Policy count exactly 47 (pg_policies, storage included), pinned in pgTAP.
+- No new error prefixes: only VALIDATION:, NOT_FOUND:, FORBIDDEN:, INVITE_INVALID: (mapRpcError stays at four).
+- Definer functions: search_path = '', schema-qualified names, (select auth.uid()), null uid fails closed.
+- TDD: failing test → implement → green. Replace the M10/M11b pgTAP tests that asserted tagging/email makes a member.
+- The playbook's M14 OPENs 1–4 are resolved. Don't invent past anything the sources don't say. Skip it, do the unblocked work, and report it. If code and the Spec disagree, stop and report the difference.
+
+Definition of done:
+- All playbook items built; screens match the 8 Stitch ids and the UXD copy rule.
+- Gates (fix push on PR #30): flutter analyze ≤ 27 issues; flutter test ≥ 414 passing, 0 failing; pgTAP ≥ 527; Deno ≥ 40 (run with --allow-env); policy count 47. Paste every command's output in the PR.
+- PR description: commands run, test counts, any OPENs left, a screenshot of each of the 8 screens, and Bill's smoke steps from the playbook.
+- Then stop. Lanes review (Gilfoyle, Big Head, Mugatu, Dinesh, Jared; Trinity's M14 review deferred to H1). Bill merges.
+```
+### M14.1 Add person picker (link existing or create new) (executable playbook) (CLOSED 2026-10-16, Bill smoke passed)
+**Status:** **READY 2026-10-15.** Bill locked the flow and labels ("yes") and then the whole milestone including the Stitch screen ("lock m14.1") in the Mortang room, 2026-10-15. Gilfoyle locked the architecture the same day (client only, 47 policies, 4 prefixes, only `migration up --local`). This reverses M14 amendment point 8, which removed the Choose existing / Create new person tabs and the picker. Merge the date-test PR (`manage_families_page_test`) to `main` before branching. Follows the repo `AGENTS.md` rules (Cursor cloud agent).
+**Branch:** `feat/m14-1-person-picker`, one PR off `main`. Client only. One milestone per PR. No push to `main`. Don't merge. Stop after opening the PR.
+**Locked flow (Mugatu; Bill "yes" 2026-10-15):**
+1. The Add person modal opens on a search field labeled exactly "Search people in this family". It lists people already in this family tree, each as a name pill with years. People already linked to this story are left out.
+2. Tapping a name links that person to the story through the existing `story_people` insert (policy `story_people_insert_editor`), then closes the modal.
+3. A row labeled exactly "Create new person" is always last in the list. It opens the current M14 create form with the typed text prefilled into Name.
+4. If the tree is empty or nothing matches, only the "Create new person" row shows.
+5. "Create new person" opens the existing M14 form in `add_person_modal.dart` with the typed name prefilled. It saves through the existing `people` insert, then links through the same `story_people` insert as the picker. No second copy of the form (Gilfoyle 2026-10-15).
+**Architecture limits (Gilfoyle):**
+- ~~Nothing under ~~~~`supabase/`~~~~ changes~~ **Amended 2026-10-16 (M14.1a, below):** exactly one new migration `supabase/migrations/20261016120000_member_person_rows.sql` plus its pgTAP file. No other `supabase/` change: no policy edits, no new RPC, no edit to any earlier migration.
+**M14.1a Member person rows (amendment, READY 2026-10-16).** Sources: Bill "yes. I want this fixed in #33" and "yes" to the backfill (Mortang room, 2026-10-16); Jared logged it on Decisions and in the PRD under M14.1; Gilfoyle locked it as "M14.1a Member person rows" in the Design Doc. Ships in PR #33 as a fix push. This replaces the client-only limit for this push only.
+1. **Owner:** `create_family` also inserts a `people` row for the owner in the new family, with `user_id` = the owner and name from their `profiles` row.
+2. **Invitee:** on invite accept, if no `people` row in that family has the invitee's `user_id`: when the invite points at a person, link that person (current behavior); otherwise insert a new linked row. Never two linked rows for one user in one family. Implement this by redefining `public.link_accepted_person` in the new migration (Gilfoyle 2026-10-16). Do not change the `accept-invite` Deno function.
+3. **Backfill (same migration, idempotent):** for every live member with no linked `people` row in that family, link an unlinked `people` row in that family with the same email if one exists; otherwise insert one. A second run changes 0 rows.
+4. **Do not:** change the `people` insert policy (the app still can't set `user_id`); add policies (count stays exactly 47); add error prefixes (still 4); edit earlier migrations. Definer functions use `search_path = ''`, schema-qualified names, `(select auth.uid())`, and a null uid fails closed.
+5. **pgTAP (new, required):** owner gets a linked person on `create_family`; accept with an already-linked person creates no duplicate; accept with an invite person links it; backfill links a same-email unlinked person instead of inserting; backfill run twice changes nothing; policy count 47.
+6. **Gates at the new head:** analyze ≤27; Flutter ≥429, 0 failing; pgTAP ≥535 (530 + the 5 above); Deno ≥41; `mapRpcError` still 4 prefixes; `git diff main -- supabase/` shows only the new migration and its test file. Local DB: `supabase migration up --local` only. Paste every command's output in the PR.
+7. **Re-review:** all five lanes again at the new head (Jared, Gilfoyle, Big Head, Mugatu, Dinesh). Bill's smoke adds one step: open Add person in an existing family and see yourself in the list.
+8. **Amendment (b) one per tree, 2026-10-16.** Source: Bill "i pick B" (Mortang room); Gilfoyle rulings same day. Overrides items 1–3 wherever they say "in that family": the rule is **no linked ****`people`**** row for that user anywhere in this family tree** (`public.family_tree_root`), matching M14's one-person-per-account rule.
+	- `public.ensure_member_person`: return early if the user is linked anywhere in the tree, not just this family. This covers the owner, the accept trigger, and the backfill.
+	- `public.link_accepted_person`: keep the tree-wide check exactly as on `main` (`20261012100000_people_profiles.sql`). Do not narrow it.
+	- Drop `public.people_keep_one_member_link` and its trigger. Don't replace it with a unique index.
+	- Drop `public.backfill_member_person_rows()` at the end of the migration, after it runs. The idempotency test calls `ensure_member_person` for every member a second time and asserts 0 changes.
+	- New pgTAP case: a member of both a parent family and a child family has exactly one linked row in the tree after the backfill. pgTAP gate becomes ≥537.
+	- Client (Dinesh 2026-10-16): the picker must list people from the whole tree. Widen the select in the existing `listTreePeople` (`people_api.dart`, reads `people_tree_read`) and the type it returns to include the birth and passing dates, then point `add_person_modal.dart` at it. Do not add a third people-listing method. The layout doesn't change. Add a Flutter test: someone from another family in the tree shows up with their years. Flutter gate becomes ≥430. Mugatu rechecks the picker.
+	- Gilfoyle 2026-10-16: keep `people_family_user_uidx`. Do not drop it. Allowed `supabase/` diff widens to 3 files for this fix only: `supabase/tests/start_timeline.sql` may change so its owner fixture no longer inserts a second linked person (reuse the person `create_family` already linked). Change only that fixture: no plan count change, no assertion removed. Gates at the new head: Flutter ≥433, pgTAP ≥539 with `start_timeline.sql` running fully. The 47 policies and 4 prefixes are unchanged. Re-review at the new head: Gilfoyle, Big Head, Dinesh, and Mugatu (picker).
+- The picker reads only the `people` rows the user can already see through existing RLS.
+- `mapRpcError` stays at exactly four prefixes: `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, `INVITE_INVALID:`.
+- Colors come from `album_theme.dart` tokens.
+- No new copy beyond the two labels. No new dependencies.
+**Files:**
+- `apps/tell_me_a_story/lib/features/people/add_person_modal.dart` (confirmed on `main`, read-only).
+- `apps/tell_me_a_story/test/add_person_modal_test.dart` (confirmed on `main`).
+- INFER: `apps/tell_me_a_story/lib/data/people_api.dart`, for listing tree people. It holds the `people` reads today; add to it only if no existing read fits.
+- INFER: `apps/tell_me_a_story/lib/data/stories_api.dart`, for the link insert. It holds the existing `story_people` writes; reuse them, no new endpoint.
+- INFER: the callers that open Add person (for example New story / Edit story), only if the modal's return type changes.
+**Start from the deleted picker:** recover the picker code and the test "pick list shows people and returns selected person" from git history (both were deleted in commit `ef92451`) and adapt them to Mugatu's flow. Do not write a second picker from scratch.
+**Tests (TDD: write each failing test first and commit it):**
+- Search lists tree people with their years.
+- People already linked to this story are left out.
+- Tapping a name links that person through the insert and closes the modal.
+- The "Create new person" row is always last, and it prefills Name with the typed text.
+- An empty tree or no matches shows only the "Create new person" row.
+- An insert error shows the `mapRpcError` message in the modal; no swallowed error.
+- Acceptance check: a test asserts the picker exists, so it can't be removed again unnoticed. It finds the picker by a `Key`, not by label text.
+**Gates (fresh counts in the PR body; the repo has no CI):**
+- `flutter analyze` ≤ 27 issues.
+- `flutter test`: ≥ 415 plus the new picker tests, all passing.
+- `supabase test db` ≥ 530, including the policy pin at `supabase/tests/fit_and_finish.sql:611` = 47.
+- `deno test --allow-env supabase/functions` ≥ 41.
+- `git diff main -- supabase/` is empty.
+**After PR (lanes):** Gilfoyle (architecture), Big Head (spec), Mugatu (visual), Dinesh (code quality), Jared (product). Trinity's review is deferred to H1. Bill merges and smokes locally.
+**OPENs:**
+1. **RESOLVED 2026-10-15** (Bill, "lock m14.1"): the Stitch screen landed 2026-10-15 at [f821c61746fe4895b48c94b2e4e13349](https://stitch.withgoogle.com/projects/12192342757314667328?node-id=f821c61746fe4895b48c94b2e4e13349) (Bill's link). Node `f821c61746fe4895b48c94b2e4e13349` is the screen of record (Mugatu 2026-10-15). Node `1d063d3ead4a47ac88fa79f74406d908` "M14b Add person picker" is superseded; do not use it. Notes: the header behind the modal is a Stitch quirk, and R2's locked bar stays. Avatar initials circles in the rows are allowed. Build note: the highlighted "Uncle Jim" row in the mock is a hover state only, not a selection state. Tapping a row links immediately, so no selected state is built.
+2. **DECIDED 2026-10-15** (Jared): PRD record of the M14 reversal. See PRD [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2) (M14 item 1) and Decisions [✅ Decisions](https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166) (entry M14.1).
+### FA Far-zoom amendment (executable playbook)
+**Status:** **LOCKED 2026-10-05** — describes main after PR #21. Not a new build PR. Not a stamp. Do not reopen M6.
+**What changed:** Amends the Macro/Far chrome of Stitch `02972cf4e7ca4facaececdcb9e16991f`. Dots and layout of that screen stay.
+- Every zoom level uses the same sub-header: “Continuous Family Dial” plus one year chip.
+- On Macro/Far the chip is a single year, e.g. `1980 · IN FOCUS`. Not a range. That year is the one a Macro tap drills into (M9).
+- The Macro / Mid / Full Cards switch has a terracotta pill that slides to the chosen zoom in 240ms.
+- On a freshly opened timeline the pill already sits on the current zoom. It only slides when the zoom changes on that same timeline. Polish, not a blocker.
+**Build note:** If a later PR touches Macro/Far chrome, match this amendment. Do not restore the pre-#21 far chrome.
+### M7 Full-screen search (executable playbook)
+**Status:** **CLOSED 2026-10-04** — Bill local smoke. PR #17 squash-merged to main as `cef8f13`, from head `83874016`. Do not reopen this milestone.
+**Screen:** Stitch `8ddd24bb44d1485696c058d04c848108`, project `12192342757314667328`. Visual match only where a stored field exists. No new tables, columns, Edge Functions, full-text search, or RPCs. Lookup indexes only.
+**Entry:** Main already paints `Search archive...`. Far uses `_SearchChip` with key `timeline-search` and it does nothing. Mid paints a second unkeyed copy. Near has no chip. On far, mid, and near, one chip, key `timeline-search`, pushes `/search`. Reuse `_SearchChip`. Replace the mid copy. Add that same chip on near. Do not add a second control. Do not leave it far-only. Keep it inside the existing scaled action row so 320px does not overflow. Do not touch the family pill. The family bar is R2.
+**Route:** `/search` (`AppRoutes.search`), signed-in only. Full screen from that chip. Not a nav tab and not an inline dropdown. `Close` (key `search-close`) pops back to the timeline.
+**Search header:** Newsreader italic wordmark `Tell Me a Story`, then Source Sans 3 `SEARCH ARCHIVE`. Autofocus field, key `search-field`, placeholder `Search stories by person, place, or time…`. The inner clear icon clears the text only. Filter row: label `Filters:`, filled terracotta removable chips for each selected person, place, and decade range, then `Add Person` and `Decade`. `Clear filters` removes chips only. No `Add Place` pill. A place chip comes from the suggestions row, or from a text match the user commits as a chip. One place chip. Tapping another place replaces it. The label `Sort by` sits in front of the menu, key `search-sort`: `Most Relevant`, `Chronological`, `Recently Added`. Default `Most Relevant`.
+**Results:** Heading `Matching Archive Stories (N results)` only when there is a query or at least one chip. Grid: 1 column under 700px, 2 under 1100px, 3 at or above that. Max content width about 1280. Parchment page, white cards, 8–12px radius, terracotta primary, sage only as accent, ink text. Newsreader titles, Literata excerpts, Source Sans 3 labels.
+**Card:** First photo if the story has one, private bucket download, same as the reader. No stock image. The year from `timeframe_start` is a badge on the photo. No photo: show the year and no image well. On the card the person chip is filled and the place chip is quiet. Person chips come from tagged `people.name`. The place chip comes from `places.label`. The title is the saved `stories.title` only. Do not print `Untitled`. Do not use the first line of the body as the title. A blank title leaves the title line off. The reader headline is unchanged. Body excerpt, three lines. Byline `Added by {profiles.display_name}`, or `Added by Member` when there is no name. `Read Story →` pushes `/stories/:id`.
+**Under the grid, always:** `Recent Searches` and `Suggested Family Members & Places`. Stitch demo names and stock photos stay off, including Aunt Clara, Back Porch, Uncle Arthur, and the sample stories.
+**Query:** Current family is `InviteGateway.currentFamilyId()`, the same read as the timeline. Published stories only. Drafts stay out. RLS already hides other families. The client also sends `family_id`. Chips are AND across dimensions. People: the story is tagged with every selected person (`story_people`). Place: `stories.place_id` equals the selected place. Decade: reuse `DecadeRange` (1900s–2020s). One decade is that decade. A second tap extends the chip, min start through max end, as in `1980s–1990s`. Overlap is `timeframe_start <= rangeEnd` and `coalesce(timeframe_end, timeframe_start) >= rangeStart`. A debounced text query matches, case-insensitive, any of title, body, a tagged person’s name, place label or address, the year, or the decade label (`1980s`). Text does not by itself create chips.
+**Sort:** Most Relevant ranks a title hit, then a person or place name, then body or year. Ties use newest `timeframe_start`. Chronological is `timeframe_start` descending. Recently Added is `published_at` descending, nulls last. No `tsvector`. Rank in Dart after one family-scoped published select with nested `story_people`, `people(name)`, `places(label, address)`, `profiles!author_id(display_name)`, and `photos(id, storage_path, sort_order)`.
+**Indexes:** The Design Doc already has `(family_id, timeframe_start, timeframe_end)`. New migration, no policy change: `story_people_person_id_idx` on `(person_id)`, `stories_place_id_idx` on `(place_id)`, `people_family_id_name_idx` on `(family_id, name)`, `places_family_id_label_idx` on `(family_id, label)`.
+**Suggestions and recents:** This family’s `people` and `places`, excluding anyone or anywhere already chipped. People come from `PeopleGateway.listPeople`. Add `PlacesGateway.listPlaces(familyId)`. Tapping a person adds a person chip. Tapping a place sets the place chip. Recent searches are the last three submitted query strings, held in memory for the session. Tapping one refills the field and runs the search. No table and no new package. They do not survive a process restart.
+**Empty, loading, error:** Idle, no query and no chips: no results heading. Recent searches and suggestions stay. No hits: `No stories match. Try another person, place, or time.` Loading: `Searching the album…` Load failure: SnackBar and `Try again`. Stay on `/search`.
+**Files:** `supabase/migrations/20261004000002_search_indexes.sql`. `apps/tell_me_a_story/lib/data/search_api.dart` for `SearchGateway.search` and the rank and filter helpers. `apps/tell_me_a_story/lib/data/places_api.dart` for `listPlaces`. `apps/tell_me_a_story/lib/features/search/search_page.dart`. `apps/tell_me_a_story/lib/core/router/app_router.dart`. `apps/tell_me_a_story/lib/features/timeline/timeline_page.dart`.
+**Tests:** `test/search_api_test.dart` covers AND chips, text match, drafts excluded, the three sorts, a blank title that is not `Untitled`, and `Member` only when there is no name. `test/search_page_test.dart` covers idle versus no-results copy, loading copy, add person, the decade range chip, clear filters, the Read Story route, and Close. The timeline test checks that `timeline-search` on far, mid, and near opens `/search`. Run `flutter test` from `apps/tell_me_a_story`. The existing two-family RLS test still covers isolation. No new policy.
+**Out:** Stories, Family Members, and Places as destinations. Mapbox geocoding on this screen. Full-text search, SMS, offline cache, search across families, and editing a story from a card. The family bar.
+### M4.5 Memory Album visual skin (executable playbook)
+**Status:** **CLOSED 2026-09-27** — Bill local smoke. Merged PR #13 (`fdc5231`); Mugatu visual PASS. Sage `#7A8B74` remains locked for future skins.
+**Sources (do not invent beyond these):**
+- Mugatu skin acceptance lock (this MS)
+- [DESIGN.md](http://DESIGN.md) Memory Album tokens
+- Stitch project `12192342757314667328` + design system asset `18104844965535020843`
+- UXD handoff: [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4)
+- Chrome/copy locks: [🧵 UXD — Client copy & chrome locks (v1)](https://app.notion.com/p/3e0c4bcef23881e59430d4f904bc59a3)
+- Local screenshots under `/workspace/stitch/` for visual reference
+**Locked tokens (must-match):**
+- BG parchment `#FBF7F2` (Stitch surface may read `#FFF8F6` — either warm album; **never** cold Material white)
+- Primary terracotta / sepia `#8B5E4B` (primary buttons — Publish)
+- Muted sage secondary accent `#7A8B74` (**accent only**: chips / status / secondary accents — **not** primary buttons)
+- Ink brown text `#2C2416`
+- Headlines: **Newsreader**; body: **Literata**; labels: **Source Sans 3**
+- Card roundness **8–12px**, soft borders; forms that breathe; elder tap targets
+- Components: people / place / decade chips; mini map under place; photo strip + add tile; Save draft **secondary** / Publish **primary**
+> 🔍 INFER: Stitch Material `ColorScheme.secondary` `#665D5A` is **not** muted sage. Map product sage accents to `#7A8B74`. Do not conflate Material secondary with Mugatu sage.
+**Screens IN this skin MS (Mugatu lock — only these):**
+1. `/timeline` — album chrome + soft story cards (**not** Far/Mid/Near pinch — that is M6)
+2. `/stories/new` — capture form per Stitch (timeframe chips, people, place+map, text, photo strip)
+3. `/drafts` — album list + missing-field chips; EN from chrome locks
+4. People / Places **as touched from capture** — Add Person + Place picker only
+**OUT of this MS (later queue; still v1 intent):**
+- Reader, Add Perspective, Search fullscreen
+- Invite modal polish
+- Far / Mid / Near timeline zoom
+- Year / month / day pickers (fast-follow OPEN)
+- New routes, schema/migrations, Edge, Realtime, Storage path changes
+**Fail criteria (Mugatu):** still Material debug chrome; wrong fonts; purple AppBar / cold white as product chrome; freestyle palette.
+**Agent rules:**
+1. Skin only the four IN surfaces above
+2. Match locked hex/fonts/roundness exactly; no “improve” palette
+3. Keep locked EN copy from §10 / chrome locks
+4. After Build: `flutter test` from `apps/tell_me_a_story`; Mugatu pass/fails screenshots vs Stitch; Bill local smoke closes M4.5
+> 🚫 FORBIDDEN: inventing a different sage hex; using Stitch Material secondary `#665D5A` as sage; public Storage URLs; redesigning capture field order; implementing M6 zoom or Invite polish under this MS; claiming pixel-perfect without Mugatu PASS.
+### R1 Stitch chrome reskin (executable playbook)
+**Status:** **CLOSED 2026-10-03** — Bill local smoke. Mugatu visual PASS, Jared product PASS, and Gilfoyle architecture PASS on `27be83f`. PR #15 squash-merged to main as `b30c697`, from head `27be83f`. Search and Timeline far / mid / near stayed out. M6 closed 2026-10-04. M7 closed 2026-10-04.
+**Story title (Bill 2026-10-03, pack restamp the same evening):** New Story keeps the title field and saves it on `stories.title`, above the story. A trimmed title is required to publish. A draft may still be saved without one, and a blank draft stores null. `stories.title` stays nullable. No migration. The reader uses the saved title as the headline, or "Untitled" when it is blank, and keeps the full body, including its first line. Keep the Documented month/year. Drafts and the timeline show the saved title instead of the body excerpt. Decade chips stay the timeframe. Add photo stays blocked until a decade is picked. No perspective title. No edits under `supabase/`.
+**What this is:** a reskin of screens that already exist. Not a rewrite. Data, auth, routes, widgets’ data calls, Supabase, RLS, and Edge contracts stay. M4.5’s CLOSED visual PASS was a token pass. It does **not** satisfy R1. Match the Stitch screen, not a loose palette.
+**Law, in order:** this spec §0 (app law), this §15 R1 playbook, and §10 for the ids below; Grok Build CLI Contract; SAD only if this spec is silent on stack, data, auth, or repo. Stitch project `12192342757314667328` is visual reference only. Do not edit Stitch. Do not codegen a new app from Stitch. If Stitch cannot be opened, match the §10 screen id plus its screenshot and HTML resource names. Do not freestyle chrome.
+**IN (already in the app — repaint these only):**
+1. New Story `30237cf012c74948b863c02cb860223a`
+2. Drafts `2ef8fbb308b24783a9b7d385f7d8d7a2`
+3. Add Person (choose) `c2cde0060dec47e0b5cf9b2afbfdf788`
+4. Add Person (create) `a634b51aa7524889969ba984b5496a16`
+5. Choose Place `149c60693c4a447e8a475d36ccf5868d` — Mapbox stays; Google-looking Stitch chrome is not a stack change
+6. Story Reader `3ca683beb0144a658fd5074b665fe6af`
+7. Add Perspective `8964211b6cd145dd99e4ddaa3e694728`
+8. Invite (email) `89b27d387f644be899da138977ea009c`
+9. Invite (link) `f71a7e7008324b5ba45ebd5df799bc4a`
+10. The current published-story list. Locked tokens and album cards only. Show the saved story title instead of the body excerpt. This is not Timeline far, mid, or near. Do not add pinch, Fit all, decade dots, or year stubs, and do not assign it one of those Stitch ids.
+**Tokens (must-match):** parchment `#FBF7F2`, terracotta `#8B5E4B`, sage `#7A8B74`, Newsreader, Literata, Source Sans 3. “Jenkins” in Stitch titles is demo copy. Do not rename the product.
+**OUT of this PR (still v1, later milestones — do not delete from §10):**
+- Search `8ddd24bb44d1485696c058d04c848108` — M7. Do not open a `/search` route.
+- Timeline far `02972cf4e7ca4facaececdcb9e16991f`, mid `0cd5bfaa63c64008b81a836c48e8abd3`, near `b50f9265a875446abc4025d1cf84b8a3` — M6. The old far `97d391c7e9bd46dba1efe302995fde51` and the old mid `b09b90c0a3714344b9ecb0474f184bda` are superseded. Do not build the zoom ladder.
+- Invite SMS `3d92c66cebb442a8abc68c46bed7f2ba` (inventory only; fast follow)
+- Invite “Personal note”: §10 email tab still says address + optional note. §9 `create-invite` is `{ family_id, email? }` and `send-invite-email` is `{ invite_id }`. Neither accepts a note. Leave the field out. Do not change the Edge body in this PR.
+- Map-tile scrap `a2bc93b9ea2343989b0d0bde7644e4b0` (not a screen)
+- Schema, RLS, migrations, Edge contracts, secrets
+- New screens, routes, or APIs
+**Agent rules:**
+1. One PR off main. No push to main. Branch `feat/r1-stitch-reskin`.
+2. Run `flutter test` from `apps/tell_me_a_story`. Paste command output in the PR.
+3. PR body: completion note, a Flutter web screenshot of each IN screen, and an explicit note that Search and the zoom ladder are out of this PR.
+4. If code and this spec disagree, stop and report the diff. Do not invent a fix.
+**Exit:** Mugatu FAIL or PASS each IN screen from those Flutter web shots against the ids above. The story list is judged on the locked tokens, not against a zoom screen. Bill local smoke stamps R1 **CLOSED**. Smoke fail reverts the PR.
+> 🚫 FORBIDDEN: starting over; treating the M4.5 theme PASS as the look; building Search or the zoom ladder inside R1; building SMS; swapping Mapbox for Google; renaming the product to Jenkins; claiming visual PASS without Flutter shots of the IN set.
+### H1 Hardening (placeholder, DRAFT, not READY)
+**Status:** **DRAFT placeholder 2026-10-11** — not READY. No branch, migration or playbook yet.
+**Source:** Bill 2026-10-11 (Mortang room): "skip trinity this time. we'll do a hardening milestone later."
+**Scope to be specced later:**
+- (a) Trinity's security review of PR #28 (M11b), skipped before merge;
+- (b) Trinity's pgTAP grant tests for `public.upsert_story_member(uuid,uuid)`, `public.resolve_person_user(uuid,text)`, `public.family_tree_ids(uuid)`, `public._require_family(uuid)` (anon and authenticated must not have EXECUTE);
+- (c) re-run the TMAS-M11B-01 grant check against the hosted Supabase project at the Staging milestone (local check 2026-10-11 returned all 8 rows false, finding closed locally);
+- (d) carried items already listed for the next hardening pass (Dinesh M11a.2 nits 1–6, Trinity follow-ups 01/02/03/05/06/07);
+- (e) Trinity's security review of §15 M13 (Bill 2026-10-11, Mortang room: "hold off on trinity until the hardening milestone"), done against the merged M13 code;
+- (f) Trinity's M11a audit: publishing it to Notion and linking it here, held until H1 by the same message;
+- (g) Gilfoyle finding (2026-10-11, relayed by Erlich): `validate-invite-token` returns the raw database `error.message` with a 400 on a database error. Replace it with a fixed message and add an Edge test proving no database text leaks. Pre-existing on main; not in M13 scope. ~~Also ~~~~`accept-invite`~~~~ (Gilfoyle 2026-10-12, PR #29 at 5f7f1dc): the ~~~~`existingErr.message`~~~~ branch and the existing ~~~~`memErr?.message`~~~~ branch return raw database text with a 400; same fix and test.~~ **FIXED in #29:** these now return `MEMBERSHIP_CHECK_FAILED` / `MEMBERSHIP_CREATE_FAILED`, with a Deno test. accept-invite `inviteErr` (\~line 137) and `updErr` (\~line 170) still return raw DB text. Pre-existing on main. Fix: fixed messages plus a Deno test (flagged by Gilfoyle and Dinesh on the #29 recheck).
+- (h) Trinity's security review of §15 M14 People profiles (deferred to H1, 2026-10-12), done against the merged M14 code.
+## 16 Definition of done
+v1 is done when:
+1. All **In v1** items in section 1 work on **iOS/iPad and web** with parity
+2. RLS multi-family tests pass
+3. No service-role key in client
+4. Invites work via email + link (not SMS)
+5. Timeline + Realtime + search + drafts + reader (comments/perspectives) meet Mugatu screen behaviors
+6. Photos: compress, \~20/story, private `story-photos`, retry UX
+7. Mapbox place pin + favorites/recents persist address + lat/lng (+ optional mapbox id)
+8. Online-only behavior is explicit (no fake offline store)
+9. Section 13 non-negotiables satisfied
+10. No features from **Out of v1** shipped
+11. Migrations match Design Doc DDL / enums / RLS patterns
+---
+## 17 Open questions
+**No remaining Bill OPENs.** Plumbing closed 2026-09-19 (Bill green-lit Gilfoyle Design Doc locks):
+- Repo: Flutter monorepo `apps/tell_me_a_story` + `supabase/`
+- Secrets: `--dart-define` / CI — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`; Resend Edge-only (`RESEND_API_KEY`)
+- Tests: `flutter test` + Supabase RLS SQL tests
+> UX leftovers closed into §10 / §12: empty/loading/no-results copy (Drafts, Search, Place picker, Timeline); invite success/failure toasts + post-accept → `/timeline`; publish required-field list + blocking banner; EN-only localization source table; Mugatu suggested Flutter route path strings + auth redirect.
+> Architecture OPENs closed from Design Doc: DDL/enums, RLS matrix + `is_family_member`, Storage bucket/path, timeframe date range, membership `member` only, invite single-use + Edge JSON, Resend + separate send, Realtime table filters, Mapbox client token only, profile trigger, error codes.
+---
+## 18 Traceability
+### Precedence reminder
+PRD (product) → Mugatu (screens/flows) → SAD (tech names) → Design Doc (DDL/RLS/API locks). Clash → CONFLICT + narrower pick.
+### PRD pack → this spec
+<table header-row="true">
+<tr>
+<td>Artifact</td>
+<td>Spec section</td>
+</tr>
+<tr>
+<td>PRD product shape / JTBD / primary user</td>
+<td>§1 Scope lock</td>
+</tr>
+<tr>
+<td>PRD must-haves</td>
+<td>§1 In v1</td>
+</tr>
+<tr>
+<td>PRD fast follow SMS</td>
+<td>§1 Out / §11 / §15 FF — **do not redefine**</td>
+</tr>
+<tr>
+<td>PRD nice-to-haves / v2 / out of scope</td>
+<td>§1 Explicitly out of v1</td>
+</tr>
+<tr>
+<td>PRD permissions</td>
+<td>§1 Permissions; §7 RLS intent</td>
+</tr>
+<tr>
+<td>PRD platforms</td>
+<td>§1 / §2</td>
+</tr>
+<tr>
+<td>PRD success (qualitative)</td>
+<td>§16</td>
+</tr>
+<tr>
+<td>User Stories US-1…US-11 acceptance</td>
+<td>§1 Acceptance intent; §14 / §16</td>
+</tr>
+<tr>
+<td>Decisions (2026-09-19 Bill lock)</td>
+<td>§1 / §2 invites trim; §10 no SMS UI</td>
+</tr>
+<tr>
+<td>PRD page</td>
+<td>[📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2)</td>
+</tr>
+<tr>
+<td>User Stories page</td>
+<td>[📝 User Stories](https://app.notion.com/p/3e0c4bcef238810ab885df1d973d35bd)</td>
+</tr>
+<tr>
+<td>Decisions page</td>
+<td>[✅ Decisions](https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166)</td>
+</tr>
+<tr>
+<td>Product pack</td>
+<td>[📖 Tell Me a Story — Product Pack](https://app.notion.com/p/3e0c4bcef238810b9c26ff3e9653debc)</td>
+</tr>
+</table>
+### Mugatu UX / Stitch → this spec
+<table header-row="true">
+<tr>
+<td>UX artifact</td>
+<td>Spec section</td>
+</tr>
+<tr>
+<td>Final Stitch screen table (Capture/Reader/Timeline/Search/Invite/Drafts)</td>
+<td>§10 Locked screens</td>
+</tr>
+<tr>
+<td>Superseded timeline drafts</td>
+<td>§10 Superseded</td>
+</tr>
+<tr>
+<td>Locked UX decisions (feel, zoom, search, invites, drafts)</td>
+<td>§10 UX principles</td>
+</tr>
+<tr>
+<td>[DESIGN.md](http://DESIGN.md) Memory Album tokens</td>
+<td>§10 (implement; do not redesign)</td>
+</tr>
+<tr>
+<td>Invite 7-day expiry</td>
+<td>§8 Auth; §9 Invites; §10</td>
+</tr>
+<tr>
+<td>Stitch project `12192342757314667328`</td>
+<td>§10</td>
+</tr>
+<tr>
+<td>Design system asset `18104844965535020843`</td>
+<td>§10</td>
+</tr>
+<tr>
+<td>UX leftovers lock (copy, invite chrome, publish validation, EN, routes)</td>
+<td>§10 / §12 / §17</td>
+</tr>
+<tr>
+<td>Source handoff page</td>
+<td>[🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4)</td>
+</tr>
+<tr>
+<td>UX leftovers lock page</td>
+<td>[🧵 UXD — Client copy & chrome locks (v1)](https://app.notion.com/p/3e0c4bcef23881e59430d4f904bc59a3)</td>
+</tr>
+</table>
+### SAD → this spec
+<table header-row="true">
+<tr>
+<td>SAD area</td>
+<td>Spec section</td>
+</tr>
+<tr>
+<td>Decision / stack lock table</td>
+<td>§2 Stack lock</td>
+</tr>
+<tr>
+<td>System component mermaid</td>
+<td>§5 Architecture</td>
+</tr>
+<tr>
+<td>Data model tables + ER</td>
+<td>§6 Domain; §7 Data plane</td>
+</tr>
+<tr>
+<td>RLS intent</td>
+<td>§7 / §13 (detail from Design Doc)</td>
+</tr>
+<tr>
+<td>Auth / security notes</td>
+<td>§8 / §13</td>
+</tr>
+<tr>
+<td>APIs / integrations / Edge Functions</td>
+<td>§9 (contracts from Design Doc)</td>
+</tr>
+<tr>
+<td>Key flows / screens (Mugatu set mirrored)</td>
+<td>§10 cross-check</td>
+</tr>
+<tr>
+<td>Phased build plan</td>
+<td>§15 Milestones</td>
+</tr>
+<tr>
+<td>Risks / follow-ups</td>
+<td>§12 / §17</td>
+</tr>
+<tr>
+<td>Source page (Accepted System Overview)</td>
+<td>[🏗️ Tell Me a Story — System Architecture (v1)](https://app.notion.com/p/3e0c4bcef238810d8898e79e881f5ac8)</td>
+</tr>
+</table>
+### Design Doc → this spec
+<table header-row="true">
+<tr>
+<td>Design Doc area</td>
+<td>Spec section</td>
+</tr>
+<tr>
+<td>Enums + DDL + timeframe</td>
+<td>§6</td>
+</tr>
+<tr>
+<td>RLS helper + policy matrix</td>
+<td>§7</td>
+</tr>
+<tr>
+<td>Storage bucket/path</td>
+<td>§7 / §13</td>
+</tr>
+<tr>
+<td>Profile bootstrap trigger</td>
+<td>§8</td>
+</tr>
+<tr>
+<td>Edge HTTP contracts + invite single-use</td>
+<td>§9 / §8</td>
+</tr>
+<tr>
+<td>Resend</td>
+<td>§2 / §4 / §11</td>
+</tr>
+<tr>
+<td>Realtime filters</td>
+<td>§9 / §11</td>
+</tr>
+<tr>
+<td>Mapbox client token</td>
+<td>§2 / §4 / §9</td>
+</tr>
+<tr>
+<td>Error codes</td>
+<td>§12</td>
+</tr>
+<tr>
+<td>Source page (Accepted OPEN locks)</td>
+<td>[📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7)</td>
+</tr>
+</table>
+### Product pack
+<table header-row="true">
+<tr>
+<td>Pack</td>
+<td>Spec</td>
+</tr>
+<tr>
+<td>Pack index / related pages</td>
+<td>Context only — [📖 Tell Me a Story — Product Pack](https://app.notion.com/p/3e0c4bcef238810b9c26ff3e9653debc)</td>
+</tr>
+</table>
+---
+## 19 Notion setup
+<table header-row="true">
+<tr>
+<td>Field</td>
+<td>Value</td>
+</tr>
+<tr>
+<td>Parent</td>
+<td>Architecture Docs (`collection://e420284e-6b8a-41b7-a331-e0ada7f8067f`)</td>
+</tr>
+<tr>
+<td>Title</td>
+<td>Tell Me a Story — Implementation Spec v1</td>
+</tr>
+<tr>
+<td>Type</td>
+<td>Design Doc</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>Accepted (plumbing locked Bill 2026-09-19)</td>
+</tr>
+<tr>
+<td>System</td>
+<td>Other</td>
+</tr>
+<tr>
+<td>Tags</td>
+<td>backend, frontend, data, security, integration</td>
+</tr>
+<tr>
+<td>Related SAD</td>
+<td>System Overview Accepted 2026-09-19</td>
+</tr>
+<tr>
+<td>Related Design Doc</td>
+<td>OPEN locks Accepted 2026-09-19</td>
+</tr>
+</table>
+Status set to **Accepted** 2026-09-19 (Bill green-lit plumbing).
+---
+## First 10 agent actions
+1. Create Flutter app skeleton targeting iOS + web; wire `supabase_flutter` with URL + anon key only
+2. ~~Create Supabase staging project~~ → **Moved to Staging MS** (Bill 2026-09-26). For M1/M2+: use **local** `supabase start`; enable Email magic link against local (Mailpit). Cloud project + Resend Auth deferred to Staging MS.
+3. Add `supabase/migrations` matching Design Doc DDL + enums (§6)
+4. Implement RLS per §7 (`is_family_member` + policy matrix) including profile trigger
+5. Magic-link sign-in screen on iOS and web; verify session + `profiles` bootstrap
+6. Family create + membership insert path (PostgREST / Edge as required by RLS)
+7. Edge Functions with locked contracts: `create-invite`, `validate-invite-token`, `send-invite-email` (Resend), `accept-invite`
+8. Mapbox **public** token + minimal place picker prototype (risk burn-down per SAD)
+9. Storage private bucket `story-photos` + compress-and-upload spike with path `{family_id}/{story_id}/{photo_id}.ext`
+10. Run multi-family RLS isolation test; report pass/fail with output — do not proceed to M4 until M1–M2 isolation passes
+> 🚫 FORBIDDEN: Starting SMS, offline drafts, video, or Android-required polish before M8 / fast follow / v2 as listed.
+[Draft — AGENTS.md (cloud agent repo rules)](https://app.notion.com/p/3fac4bcef23881459558f204428bd66b)
+### §15 M14.1b New story stacked layout (CLOSED 2026-10-16, Bill smoke passed)
+Source: Bill's ask in the Mortang room on 2026-10-16. Mugatu locked [the New story screen in Stitch](https://stitch.withgoogle.com/projects/12192342757314667328?node-id=c91ba67e72bc4cc7b369ae7785e87dfb) (frame `c91ba67e`). PRD and SAD are unchanged.
+- Branch: `fix/m14-1b-new-story-stacked`. One PR.
+- File to change: `apps/tell_me_a_story/lib/features/stories/new_story_page.dart`. Tests go in `apps/tell_me_a_story/test/new_story_shell_test.dart`.
+- Layout: one centered column with every card stacked, in this order:
+	1. Title and body card
+	2. Photos & Keepsakes
+	3. Timeframe
+	4. People
+	5. Place
+	Spacing: 20px between every card, including the `_paperCard` cards that use 12px today. Width: keep `AlbumColumn` but lower its max width from 1080 to 720. `_contextColumn` moves below `_storyColumn`, with the same cards as today.
+- At every width there are no side-by-side columns. Remove the `Row` branch of the `LayoutBuilder` at about lines 710–729 (the two-column layout at ≥680px).
+> 🚫 FORBIDDEN: Don't change copy, tokens, colors, behavior, providers, or any API call. Don't add the mock's sample place chips, map art, "Drafts stay private…" note, or section headings. The Timeframe, People and Place labels stay as they are. Don't touch `supabase/`, migrations, or tests outside the two files above.
+Acceptance checks:
+- A widget test at 390 and 1280 px width shows the five cards in the order above, each one below the last (each card's top y is greater than the previous card's bottom y), all sharing the same horizontal center, and the gap between cards is 20px.
+- `new_story_capture_test.dart` still passes without edits.
+- Gates: analyze ≤27, Flutter ≥434 (433 plus the new test), pgTAP 539 unchanged, Deno ≥41, 47 policies, 4 prefixes.
+- The PR body includes the command output for each gate.
+Re-review lanes: Big Head (spec), Mugatu (visual against `c91ba67e`), Dinesh (code). Gilfoyle and Jared aren't needed unless the diff leaves the allowed files.
+### §15 M14.2 Cleanup (CLOSED 2026-10-16, Bill smoke passed)
+Source: Dinesh's review of #33/#34, confirmed in the Mortang room on 2026-10-16. Item 6 follows Erlich's final ruling the same day. PRD, UX, and SAD are unchanged.
+- Branch: `fix/m14-2-cleanup`. One PR.
+1. `invite_modal.dart:216`: replace the bare "Try again" error with the shared `mapRpcError` message, so the user sees what failed. Don't add new copy strings beyond what `mapRpcError` already returns.
+	- Clarification (Big Head, 2026-10-16; Mugatu concurring): the invite row must never be blank. When `mapRpcError` can't map an error, the row shows the existing `'Try again'` string, because `mapRpcError` has no generic fallback. No new copy.
+2. Person form: once `_created` is set, the form fields become read-only (disabled), so the person can't be edited after the create succeeds.
+3. `people_api_test`: delete the dead `isNot(contains('outside'))` assert, or replace it with an assert that actually runs against the response body.
+4. Revert the `dart format` changes from #33 that touched files unrelated to the change. Leave formatting alone in files #33 changed on purpose.
+5. `_treeSelect` spacing must match `_select` (same padding and gaps). Reuse `_select`'s values and don't add new tokens.
+6. `new_story_shell_test.dart` `_pumpStory` (lines 204–217): narrow the error filter so it skips only a `RenderFlex overflowed` FlutterError whose source is `album_header.dart`. Every other error, including other overflows, must fail the test. Add a one-line comment above the filter: `// Known exception: album_header overflow at 390px; M14.1c dropped by Bill 2026-10-16.` Keep the 390 and 1280 px pumps.
+> 🚫 FORBIDDEN: Don't change `album_header.dart`, any layout, tokens, `supabase/`, migrations, API shapes, or policies. Don't remove the 390px test width.
+Known bug: the album header overflows at 390px. Bill chose to leave it as is (M14.1c dropped), and item 6's filter is the only thing allowed to ignore it.
+Acceptance checks:
+- A test proves the filter still fails on any non-album_header error (for example, a forced overflow somewhere else).
+- A widget test shows the person form fields are disabled after a create succeeds.
+- Gates: analyze ≤27, Flutter ≥436, pgTAP 539 unchanged, Deno ≥41, 47 policies, 4 prefixes. The PR body includes the command output for each gate.
+Re-review lanes: Big Head (spec), Dinesh (code), Mugatu (visual, item 5 only). Gilfoyle isn't needed.
+### §15 M14.3 DOB and passed away (CLOSED 2026-10-16, Bill smoke passed; item 10 name sync tracked separately)
+**Status:** **READY 2026-10-16.** Design Doc "M14.3: DOB visibility and passed away" (Gilfoyle, LOCKED 2026-10-16). PRD M14.3 items 1–8 (APPROVED by Bill 2026-10-16) and UXD M14.3 (Mugatu, LOCKED by Bill 2026-10-16) are locked. **Unmark added 2026-10-16:** PRD M14.3 item 9 (Jared, Bill 2026-10-16) [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2); Decisions "M14.3 Unmark passed away — LOCKED 2026-10-16" [✅ Decisions](https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166); UXD v1 Handoff M14.3 Undo rule and "Unmark passed away" wording (Mugatu, LOCKED by Bill 2026-10-16) [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4). Gilfoyle confirmed no architecture change: `mark_passed_away(p_person_id, false)` already does the undo, with the same owner and co-owner checks. Separate milestone, one PR. It doesn't reopen M14, M14.1, M14.1a, M14.1b or M14.2, except for the M14 lines listed under Supersedes below.
+**Sources:** Design Doc [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7) wins on tables, RPCs, routes and tech. PRD [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2) wins on what the product must and must not do. UXD [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4) wins on screen behavior where the Design Doc is silent. Written rules win over mock quirks.
+**Branch:** `feat/m14-3-dob-passed-away`, one PR off main. No push to main. Don't merge.
+**Bill's locks (2026-10-16):**
+- Only the member sets their own DOB and who can see it: Hidden, Year only, Year and month, Full date.
+- The full DOB is stored. Everyone else, owners and co-owners included, sees it trimmed server-side. Only the member reads raw `profiles.dob` (`birth_date`, `birth_precision`, `birth_visibility`).
+- Add person and Edit person lose both date fields and gain a "Passed away" toggle.
+- Once a person signs in, nobody else gets Edit person on them. Owners and co-owners get only "Mark as passed away" (and, per PRD item 9, "Unmark passed away" on someone already flagged).
+- Cut: the "Family Chronicler" badge, the green online dot, and the mismatched header drawn in the mocks.
+- Rose Morgan's Edit person frame is the locked frame. The Mary Morgan copy is a duplicate and isn't locked.
+- The migration sets `passed_away` wherever a date of passing exists, then deletes DOB and passing dates on `people` rows. No backup.
+**Screens (Stitch project ****`12192342757314667328`****, UXD keeper frames):**
+- Add person: picture, Name (required), About, Email (optional), "Passed away" toggle. No date fields.
+- Edit person (Rose Morgan frame): the same fields as Add person, one Save. It opens only for a person who hasn't signed in. Any tree member can use it, including the toggle, with no confirm dialog.
+- Settings, Your profile: picture, Name, Date of birth (Year required, Month optional, Day only once Month is set), "Who can see it" with Hidden / Year only / Year and month / Full date, About, Save.
+- Person profile, signed-in member, owner/co-owner view: one action, "Mark as passed away", under a section labeled "Family owners". The "Mark as passed away?" confirm has a title, Cancel and Mark as passed away. Other members see no action.
+- Undo (UXD, PRD item 9): for a person already marked passed away, the same "Family owners" slot shows "Unmark passed away" instead, with a confirm in the same layout (title, Cancel, Unmark passed away). It calls `mark_passed_away(p_person_id, false)`. No new screen.
+- Every M14.3 screen uses the locked R2 shared header. Ignore the Timeline/Stories/People bar and the Timeline/Drafts variants in the mocks.
+**Copy cuts (UXD):** in Settings, the "Family Chronicler" badge, the "Helps pin…" helper line, the JPG/PNG file line, the "Changes update…" line and "Remove". In the dialog, the body sentence, the "Owner Controls" label (now "Family owners") and the green online dot. Anything else Stitch added that isn't in the PRD or an existing M14 rule is cut. No new copy.
+**In (Design Doc, copied):**
+1. New enum `dob_visibility` (`'hidden','year','year_month','full'`).
+2. `profiles.birth_visibility dob_visibility not null default 'hidden'`. Existing `profiles.birth_date` values stay hidden until the member picks a level. `profiles.birth_date` and `birth_precision` stay.
+3. `people.passed_away boolean not null default false`.
+4. Drop `people.birth_date`, `birth_precision`, `passing_date` and `passing_precision`, plus their null-together checks.
+5. Column revoke: `revoke select (birth_date, birth_precision, birth_visibility) on public.profiles from authenticated, anon`. This closes the co-member DOB leak through `profiles_select_own_or_comember`.
+6. Replace `person_profile(p_person_id)`: SECURITY DEFINER, `search_path = ''`, `(select auth.uid())`, a null uid fails closed, and an `is_tree_member` check. It returns the birth date trimmed to the coarser of `birth_visibility` and `birth_precision`, or null when hidden. That applies to everyone else, owners and co-owners included. The caller's own row returns raw values.
+7. New `my_profile()` (SECURITY DEFINER) returns the caller's raw `birth_date`, `birth_precision` and `birth_visibility`. Settings writes stay on `profiles_update_own`.
+8. New `mark_passed_away(p_person_id uuid, p_value boolean)`: SECURITY DEFINER, `search_path = ''`, execute for `authenticated` only. Undo is allowed (`p_value = false`). The caller must be an owner or co-owner of the target's **home family** (`people.family_id`) only. The target must be signed in (`user_id is not null`), and a caller can't target themselves. It sets only `passed_away` and `updated_at`. Errors: `FORBIDDEN:`, `NOT_FOUND:`, `VALIDATION:`.
+9. A trigger guard on `people` update stops a linked user from changing `passed_away` on their own row through `people_update_member`.
+10. For unlinked rows, any tree member toggles `passed_away` through Edit person using the existing update policy.
+11. Marking someone as passed away changes nothing about their account. Membership, sign-in and profile stay the same.
+12. `list_unlinked_people` and the `create-invite` `person_id` check use `not passed_away` in place of `passing_date is null`. Pending invites are left as they are when a person is flagged, and `accept-invite` doesn't check the flag.
+13. Picker rows show the birth year only when visibility is `year` or finer, with no end year.
+14. Client: Add person, Edit person, Settings (DOB plus "Who can see it", reading through `my_profile()`), the profile modal's "Family owners" section and confirm calling `mark_passed_away`, and the picker and "Not invited yet" filters.
+**Data:** one migration in `supabase/migrations/`, sorting after the latest on main (`20261016120000_member_person_rows.sql` as of this spec). Suggested name: `20261016130000_dob_visibility_passed_away.sql`. If main has a later migration, sort after that one. It runs in one transaction (`begin;` … `commit;`): create `dob_visibility`, add `profiles.birth_visibility` and `people.passed_away`, then `update people set passed_away = true where passing_date is not null;`. Next it drops the four `people` date columns and their checks, applies the column revoke, replaces `person_profile` and `list_unlinked_people`, and adds `my_profile`, `mark_passed_away` and the guard trigger. The dropped dates aren't kept anywhere, so this can't be undone. **Policy count stays exactly 47** (a column revoke isn't a policy).
+**Files (known paths; change existing files, don't create parallel ones):**
+- `supabase/migrations/<new>_dob_visibility_passed_away.sql`
+- The `create-invite` Edge function under `supabase/functions/` (the flag check only)
+- `apps/tell_me_a_story/lib/features/people/add_person_modal.dart` and `apps/tell_me_a_story/test/add_person_modal_test.dart`
+- `apps/tell_me_a_story/lib/data/people_api.dart`
+- `settings_page.dart`, `invite_modal.dart`, and the existing person profile modal and Edit person widgets. Find them by name in the repo.
+- pgTAP tests in `supabase/tests/`, plus the Deno tests for `create-invite` and `accept-invite`
+### Supersedes in §15 M14 (per Design Doc)
+- In item 2, the `people` columns `birth_date`, `birth_precision`, `passing_date` and `passing_precision`, their null-together CHECK, and the `'decade'` CHECKs on the two `people` precision columns.
+- In item 4, "For a linked person, each field shows the account's value when set, otherwise the person row's value." This no longer applies to DOB.
+- In item 4, "Date of passing stays on `people`." `passed_away` replaces it.
+- In item 5 and the RLS lines, tree members reading a linked person's account DOB through `person_profile`. It's now trimmed, plus the column revoke. `passing_date` and `passing_precision` leave the return shape.
+- In item 10 and OPEN 1, the `create-invite` rule "`passing_date is null`" and "has passed" now mean `not passed_away`.
+- In item 13, Lock 11 and Lock 13, the `list_unlinked_people` filter "`passing_date is null`" is now `not passed_away`.
+- The M14 copy-rule labels "Date of birth" and "Date of passing" on Add person and Edit person, and the screen "Add person, passed" (`58464879`, email hidden when a date of passing is set). Both are replaced by the "Passed away" toggle (PRD item 3).
+> ❓ OPEN: The UXD names its keeper frames but gives no Stitch node ids. Owner: Mugatu. Not blocking: match by frame name (Rose Morgan for Edit person).
+### Tests (mandatory, TDD: failing test, implement, green)
+pgTAP:
+- Migration: every row that had a `passing_date` is flagged, and the four `people` date columns are gone.
+- Policy count is exactly 47.
+- A co-member, an owner and a co-owner can't select `profiles.birth_date`, `birth_precision` or `birth_visibility` directly.
+- `person_profile` trims for all 4 levels, uses the coarser of visibility and precision, returns null when hidden, and refuses non-tree callers. The caller's own row returns raw values. `my_profile` returns raw values for the caller only.
+- `birth_visibility` defaults to hidden for existing rows.
+- `mark_passed_away`: the home-family owner and co-owner succeed. Refused: the owner of another family in the tree (not the home family), a plain member, self, an unlinked target, and a non-tree caller. Only the flag changes.
+- Undo: `p_value = false` clears the flag, and the person comes back in `list_unlinked_people` only if unlinked.
+- Guard: a linked user can't change `passed_away` on their own row by direct update.
+- A tree member can toggle `passed_away` on an unlinked row.
+- `list_unlinked_people` leaves out flagged people.
+Deno:
+- `create-invite` rejects a flagged `person_id`.
+- `accept-invite` still accepts a pending invite on a flagged person.
+Flutter (one or more each):
+- Add person and Edit person have no date fields and do have the toggle.
+- Edit person is hidden for a signed-in person, owners included.
+- The owner/co-owner view shows only "Mark as passed away" under "Family owners". The confirm calls `mark_passed_away`. Other members see no action.
+- For a flagged signed-in member, the owner/co-owner view shows "Unmark passed away" in the same slot, and its confirm calls `mark_passed_away(p_person_id, false)`.
+- Settings saves DOB and visibility, and Day stays locked until Month is set.
+- Flagged people are absent from the picker and "Not invited yet".
+- The cut copy is absent.
+### Gates (paste every command's output in the PR body)
+- `flutter analyze` ≤ 27 issues.
+- `flutter test` ≥ 436 plus the number of new Flutter tests, with 0 failing. Removed date-field tests are allowed only when each one is listed with its reason in the PR body.
+- pgTAP ≥ 539 plus the new tests.
+- Deno ≥ 41 plus the new tests (run with `--allow-env`).
+- Policy count exactly 47.
+- `mapRpcError` stays at exactly 4 prefixes: `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, `INVITE_INVALID:`.
+**Smoke (Bill, local, second account):** 1) In Settings, set a full DOB with Year only. Signed in as the other account (an owner), the profile shows only the year. 2) Add person and Edit person have no dates and do have the toggle. Flag an unlinked person, and they leave the picker and "Not invited yet". 3) As an owner, open a signed-in member: there's no Edit, only "Mark as passed away" with the confirm. Confirm it, then use "Unmark passed away" and confirm again: the flag clears. 4) Existing people who had a date of passing show as passed away.
+### Agent operating rules
+- Implement only what this section lists. If a file is blocked by an OPEN, stop on that file, do the unblocked work, and report it.
+- Match names exactly (`dob_visibility`, `birth_visibility`, `passed_away`, `my_profile`, `mark_passed_away`, `person_profile`, `list_unlinked_people`).
+- Migrations sort after the latest existing one. Never edit an earlier migration. Local DB: `supabase migration up --local` only. NEVER `db reset`, `db pull` or `migration down`.
+- Definer functions use `search_path = ''`, schema-qualified names and `(select auth.uid())`, and a null uid fails closed.
+- After the milestone, report every check with its output. Open the PR and stop. Bill merges.
+> 🚫 FORBIDDEN: A migration that sorts at or before the latest existing one. Editing an earlier migration. Running `db reset`, `db pull` or `migration down`. A policy count other than 47. A fifth error prefix. Any read of raw `profiles.birth_date`, `birth_precision` or `birth_visibility` by anyone but the member, owners and co-owners included. Any DOB or date-of-passing field on Add person or Edit person. Edit person for a signed-in person, for anyone. Anything for owners and co-owners on a signed-in member beyond "Mark as passed away" and "Unmark passed away". Keeping a backup of the dropped dates. Checking the flag in `accept-invite`. The Family Chronicler badge, the green online dot, the mocks' Timeline/Stories/People header, or any other cut copy. Unmark for anyone but home-family owners and co-owners. Stamping CLOSED.
+**Re-review lanes:** Big Head (spec), Mugatu (visual against the UXD keeper frames, including the Rose Morgan Edit person frame), Dinesh (code), Gilfoyle (architecture, for the schema changes). Bill merges and smokes locally.
+#### Grok Build handoff
+Copy-paste prompt for Grok Build:
+```javascript
+You are implementing milestone M14.3 "DOB and passed away" for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story; Flutter + Supabase; no CI). Do it in ONE PR on branch feat/m14-3-dob-passed-away off main. Do not push to main and do not merge.
+
+Read first, in this order:
+1. Impl Spec §15 "M14.3 DOB and passed away (READY 2026-10-16)": https://app.notion.com/p/3e0c4bcef238814f9686d1d956b1f3f8. This is your task list. Also §0 and §14.
+2. Design Doc "M14.3: DOB visibility and passed away" (LOCKED 2026-10-16): https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7. Wins on SQL, RLS, RPCs.
+3. UXD "M14.3 — Date of birth and passed away" (LOCKED 2026-10-16): https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4. Wins on screens and copy.
+4. PRD "M14.3" items 1-8: https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2.
+
+Build exactly the section: dob_visibility enum; profiles.birth_visibility (default hidden); people.passed_away; carry-over (passed_away = true where passing_date is not null) then drop people.birth_date/birth_precision/passing_date/passing_precision and their checks, no backup; column revoke of profiles birth_date/birth_precision/birth_visibility from authenticated, anon; person_profile trimmed (coarser of visibility and precision, null when hidden, raw for own row); my_profile(); mark_passed_away(p_person_id, p_value) for home-family owners/co-owners on signed-in non-self targets, flag only; guard trigger; list_unlinked_people and create-invite use not passed_away; accept-invite unchanged; client screens per the UXD (Add/Edit person: no dates + Passed away toggle; Edit person only for not-signed-in people; owners/co-owners get only Mark as passed away under "Family owners" with confirm; for a flagged member the same slot shows "Unmark passed away" with confirm, calling mark_passed_away(p_person_id, false) (PRD item 9); Settings DOB + Who can see it). Cut copy as listed.
+
+Constraints:
+- One migration, sorting after the latest on main (20261016120000_member_person_rows.sql at spec time); suggested 20261016130000_dob_visibility_passed_away.sql. Never edit earlier migrations.
+- Local DB: supabase migration up --local only. NEVER db reset, db pull or migration down.
+- Policy count exactly 47. mapRpcError stays at 4 prefixes (VALIDATION:, NOT_FOUND:, FORBIDDEN:, INVITE_INVALID:).
+- Definer functions: search_path = '', schema-qualified names, (select auth.uid()), null uid fails closed.
+- TDD: failing test, implement, green.
+- Implement only what is listed; match names exactly. OPEN: Stitch node ids (match keeper frames by name). If a file is blocked by an OPEN, stop on that file, do the rest, report it. If code and the Spec disagree, stop and report.
+
+Definition of done:
+- Gates: flutter analyze <= 27; flutter test >= 436 + new tests, 0 failing; pgTAP >= 539 + new; Deno >= 41 + new (--allow-env); policies 47; 4 prefixes. Paste every command's output in the PR.
+- PR description: commands run, test counts, OPENs left, screenshots of Add person, Edit person, Settings and the owner view with the Mark and Unmark confirms, and Bill's smoke steps.
+- Then stop. Lanes: Big Head, Mugatu, Dinesh, Gilfoyle. Bill merges.
+```
+### §15 M14.3 item 10 Linked person name follows profile (READY 2026-10-16)
+**Status:** **READY 2026-10-16.** Sources: PRD M14.3 item 10 (Jared, locked by Bill 2026-10-16) [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2); Decisions [✅ Decisions](https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166); Design Doc "M14.3 item 10 — Linked person name follows profile (LOCKED 2026-10-16)" (Gilfoyle) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7); Mugatu locked UX (linked person name comes from the profile; Edit name hidden for linked people). Branch: `feat/m14-3-linked-name-sync`. One PR.
+#### Rule
+- When `people.user_id` is not null, `people.name` equals that user's `profiles.display_name`, in every tree.
+- It syncs on link (insert, or update that changes `user_id`) and whenever `profiles.display_name` changes.
+- No per-tree nickname. Nobody, the member included, renames a linked row directly.
+#### Data: one new migration
+- File: `supabase/migrations/<timestamp after 20261016140000>_linked_person_name_sync.sql`. Never edit an earlier migration. Apply locally with `supabase migration up --local` only.
+- Profile trigger function and trigger: `AFTER UPDATE OF display_name ON public.profiles FOR EACH ROW`, `SECURITY DEFINER`, `set search_path = ''`. Body: `perform set_config('app.name_sync','on',true);` then `update public.people set name = new.display_name where user_id = new.id and name is distinct from new.display_name;`.
+- People guard function and trigger: `BEFORE INSERT OR UPDATE ON public.people FOR EACH ROW`, only when `new.user_id is not null`:
+	- Insert, or update where `new.user_id is distinct from old.user_id`: set `new.name := (select display_name from public.profiles where id = new.user_id)` without error. That covers `accept-invite` and `ensure_member_person`.
+	- Update where `user_id` is unchanged, `new.name is distinct from` the profile's `display_name`, and `coalesce(current_setting('app.name_sync', true), '') <> 'on'`: raise the locked error below.
+	- Updates of other columns that leave `name` equal to `display_name` pass.
+- Backfill in the same migration, idempotent: `update public.people p set name = pr.display_name from public.profiles pr where p.user_id = pr.id and p.name is distinct from pr.display_name;`. Expected on prod: the wfmorgan73 row becomes `William F Morgan`.
+- **Review fixes (2026-10-16, Gilfoyle arch + Dinesh, PR #37):** (a) In `profiles_sync_linked_person_name`, add `perform set_config('app.name_sync','',true);` right after the `update`; delete the manual flag clear in the test. (b) `people_guard_linked_name` becomes `SECURITY DEFINER` with `set search_path = ''`, same as the sync trigger. (c) Move the backfill into `public.backfill_linked_person_names() returns int`; the migration calls it and the pgTAP backfill tests call it (no copied SQL). Revoke it from public, anon, authenticated. Behavior unchanged.
+- **Policy count stays exactly 47.** Triggers are not policies. No new RLS policy, no new RPC, no new Edge function.
+> ⚠️ CONFLICT: Design Doc says `mapRpcError` maps `linked_person_name_locked`, but the spec gate is exactly 4 prefixes. Build it this way: raise `FORBIDDEN: linked_person_name_locked` (errcode `42501`) so it maps under the existing `FORBIDDEN:` prefix. No fifth prefix. **RESOLVED 2026-10-16:** Gilfoyle confirmed `FORBIDDEN: linked_person_name_locked`; gate stays at 4 prefixes.
+> 🔍 INFER: The `app.name_sync` flag is safe as a bypass because clients reach Postgres only through PostgREST on exposed schemas, which can't call `set_config` directly. If any exposed RPC ever runs caller-supplied SQL, this breaks. Trinity checks it in H1.
+#### Client
+- Edit name stays hidden for linked people (already in locked UX). Verify it; do not add UI.
+- `apps/tell_me_a_story/lib/data/people_api.dart` (or the existing `mapRpcError` location): map `FORBIDDEN: linked_person_name_locked` to the existing forbidden handling. No new copy unless Mugatu supplies it.
+- After a profile name save in `settings_page.dart`, refresh any cached people data the way it's already refreshed. Do not add a new cache layer.
+#### Files (change existing files; don't create parallel ones)
+- `supabase/migrations/<new>_linked_person_name_sync.sql`
+- One new pgTAP file in `supabase/tests/`, for example `supabase/tests/linked_person_name_sync_test.sql`
+- `apps/tell_me_a_story/lib/data/people_api.dart` only if the error mapping needs a case
+#### Tests (mandatory, TDD: failing test, implement, green)
+pgTAP:
+1. A profile rename propagates to linked rows in two different trees.
+2. Unlinked rows are untouched by a profile rename.
+3. A direct update of `name` on a linked row raises `FORBIDDEN: linked_person_name_locked`, for the member and for an owner.
+4. Inserting a linked row, or linking an existing row, takes the profile name even if a different name was sent.
+5. The backfill is idempotent: a second run updates 0 rows.
+6. Policy count is exactly 47.
+Flutter: if `people_api.dart` changes, add one test that the new error maps to forbidden.
+#### Gates (paste every command's output in the PR body)
+- `flutter analyze` ≤ 27 issues.
+- `flutter test`: at least main's count at branch point, plus new tests, 0 failing.
+- pgTAP: at least main's count at branch point plus 6, 0 failing.
+- Deno: unchanged and green (`--allow-env`).
+- Policies exactly 47. `mapRpcError` exactly 4 prefixes.
+#### Agent operating rules
+- Implement only what this item lists. Match names, paths and SQL exactly.
+> 🚫 FORBIDDEN: A fifth error prefix. A new policy, RPC or Edge function. A per-tree nickname column. Editing an earlier migration. Running `db reset`, `db pull`, `migration repair` or `migration down`. Changing `profiles` columns.
+- If code and spec disagree, stop and report the diff. Report pass or fail per gate with command output.
+#### Traceability
+- PRD M14.3 item 10 maps to Rule, Data and Tests 1 to 5.
+- UX (linked name from profile; Edit name hidden) maps to Client.
+- Design Doc item 10 maps to Data and Tests, with the error-prefix CONFLICT above.
+### §15 M14.4 Autosave drafts (CLOSED 2026-10-17: PR #40 squash-merged d3c7d22, both migrations live, Trinity PASS post-deploy, Bill smoke passed 7:30 PM CT)
+**Status:** **READY rev 4, 2026-10-17**: fix round on PR #40 (`feat/autosave-drafts`), one push. Gilfoyle's three architecture fixes plus Dinesh's six should-fix items, approved by Bill in the Mortang room. See "Rev 4 fix round" below; where it conflicts with an earlier line, rev 4 wins. Earlier history: (rev 2: drafts author-only folded in; first READY 2026-10-16). Sources: PRD must-have "Save unfinished story drafts" (Jared, updated by Bill 2026-10-16) [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2); Decisions (autosave details, "Not saved", last save wins with two tabs, all locked by Bill 2026-10-16) [✅ Decisions](https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166); Design Doc "Autosave drafts — data side (LOCKED 2026-10-16)" (Gilfoyle) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7); UXD v1 Handoff "Autosave drafts (LOCKED 2026-10-16)" (Mugatu) [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4). Branch: `feat/autosave-drafts`. One PR.
+Also sourced (rev 2): Design Doc "Drafts visible to author only (LOCKED — Bill, 2026-10-17)" (Gilfoyle); Decisions 2026-10-17 (drafts author-only, confirmed by Bill in the Mortang room); PRD drafts must-have (author-only until publish, Jared 2026-10-17).
+> 🔍 INFER: Milestone label M14.4 because the Design Doc names the section "Autosave drafts" without a milestone number, and this follows §15 M14.3.
+#### Rule
+- A story in progress on the New story screen autosaves into the existing Drafts screen (M4.5). No new screen.
+- The draft row is created on the first keystroke, so there are no blank drafts.
+- Autosave runs after a pause in typing and when leaving the page (back, Cancel, navigating away). No leave prompt.
+- Save draft and Publish stay in the header and work as today. Tapping Save draft still saves and returns.
+- A draft can have no date. Publishing still requires a date.
+- Same draft open in two tabs or devices: last save wins. No locking, no merge.
+#### Data: two new migrations
+- Migration A: `supabase/migrations/20261017000000_story_draft_nullable_date.sql`. It sorts after the latest on main, `20261016235950_definer_grants_hotfix.sql` (#39). Never edit an earlier migration. Apply locally with `supabase migration up --local` only.
+- Exact SQL (Design Doc, no additions):
+```sql
+alter table public.stories alter column timeframe_start drop not null;
+alter table public.stories alter column timeframe_end drop not null;
+alter table public.stories alter column date_precision drop not null;
+
+alter table public.stories
+  add constraint stories_published_needs_date
+  check (
+    status <> 'published'
+    or (timeframe_start is not null
+        and timeframe_end is not null
+        and date_precision is not null)
+  );
+```
+- Rev 4: Migration A also redefines `stories_date_guard` (exact SQL under "Rev 4 fix round"). Edit `20261017000000_story_draft_nullable_date.sql` in place, because it is unmerged and not on prod (Design Doc says so). No new migration file. No new columns, no `updated_at`.
+- **Policy count stays exactly 47.** No new RLS policy, RPC or Edge function.
+- A publish with no date is blocked on the client by `PublishReadiness` before any write (Flutter test 6). In the database, the `stories_date_guard` trigger raises `VALIDATION: date required` before the CHECK runs. The CHECK `stories_published_needs_date` stays as a backstop. `mapRpcError` is unchanged; prefix count stays 4. (Rev 4, 2026-10-17: replaces the rev 3 line that accepted SQLSTATE 23514. Gilfoyle's architecture ruling wins.)
+> ✅ RESOLVED 2026-10-17: Draft visibility. Bill confirmed in the Mortang room that a draft is visible only to its author until it is published. Owners and co-owners get no access to other people's drafts. Enforced in RLS by Migration B, not only on the client.
+- Migration B: `supabase/migrations/20261017000100_drafts_author_only.sql`, right after Migration A. `alter policy` only, plus one `create or replace` of an existing function. Policy count stays exactly 47. Definer allowlist stays exactly 29. No new function, RPC, Edge function or error prefix.
+- `stories_select_member`, exact USING (Design Doc):
+```sql
+alter policy stories_select_member on public.stories
+  using (
+    (is_live_family_member(family_id) AND (status = 'published' OR author_id = (select auth.uid())))
+    OR (is_family_tree_readable(family_id) AND status = 'published')
+  );
+```
+- `comments_select_member`, `perspectives_select_member`, `photos_select_member`: the live-member branch becomes `is_live_family_member(family_id) AND EXISTS (select 1 from stories s where s.id = story_id and (s.status = 'published' or s.author_id = (select auth.uid())))`. The tree-readable branch stays byte-for-byte.
+- `story_people_select_member`: inside the existing EXISTS, `is_live_family_member(s.family_id)` becomes `is_live_family_member(s.family_id) AND (s.status = 'published' OR s.author_id = (select auth.uid()))`. Nothing else changes.
+- Storage `story_photos_select_member` on `storage.objects`: the live-member branch also requires the story in folder \[2\] to be published or authored by the caller, using the same EXISTS shape as the existing tree-readable branch. The tree branch stays unchanged.
+- `can_contribute_to_story(fid, sid)`: `create or replace` with the existing body AND `exists (select 1 from public.stories s where s.id = sid and (s.status = 'published' or s.author_id = (select auth.uid())))`. Same signature, language, security and `search_path`. Add no grant or revoke lines; existing grants carry over.
+- Unchanged: `places_select_member` (places are family-level) and `can_edit_story` (already author-only for drafts).
+- PR body: paste each changed policy's USING and the `can_contribute_to_story` body before and after, from `pg_policies` and `pg_get_functiondef` on local.
+- Client: no UI change. `listMyDrafts` keeps its `author_id = auth uid` filter.
+#### Client
+- `apps/tell_me_a_story/lib/data/stories_api.dart`:
+	- `createDraft` takes an optional client-generated `id` (uuid v4) and an optional `timeframeStart` (nullable). Drop the `ensureValidDraftSave` call on the autosave path only; keep `PublishReadiness` and the publish-time date check.
+	- A duplicate-key error on that insert counts as success; the caller switches to `updateDraft` by the same id. A retry never creates a second draft.
+	- `Story.fromJson` / `Story.timeframeStart` tolerate null.
+	- `listMyDrafts` sorts null dates last.
+- `apps/tell_me_a_story/lib/features/stories/new_story_page.dart`:
+	- Generate the story id at the first keystroke and insert once with `status='draft'`. Every later autosave is an UPDATE by that id.
+	- Debounce on a typing pause. Also save on leaving the page (back, Cancel, navigating away). No leave prompt.
+	- One request in flight per story; later edits coalesce into the next save.
+	- After each successful autosave: grey "Saved" in the header, left of Save draft, in muted ink: `albumInk` at alpha 0.55 (`album_theme.dart` has no named muted token; rev 3 correction).
+	- On failure: grey "Not saved" in the same spot and token. Text stays in the editor. Retry quietly at the next pause. No popup, no snackbar.
+	- Save draft and Publish stay manual and show the real error if saving keeps failing.
+- `apps/tell_me_a_story/lib/features/drafts/drafts_page.dart`: render a null-date draft as "No date yet" in the existing muted ink (copy approved by Bill 2026-10-17). Timeline, tree and search read published only and stay unchanged.
+- No other new copy. Only "Saved" and "Not saved" (approved by Bill), and "No date yet" (approved by Bill 2026-10-17).
+- Typing pause: one named constant `kAutosavePause = Duration(seconds: 2)` in `new_story_page.dart`, measured from the last keystroke. Leaving the page saves immediately. (Mugatu locked 2026-10-16.)
+#### Files (change existing files; don't create parallel ones)
+- `supabase/migrations/20261017000000_story_draft_nullable_date.sql`
+- `supabase/migrations/20261017000100_drafts_author_only.sql`
+- One new pgTAP file: `supabase/tests/story_draft_autosave.sql` (covers both migrations)
+- `apps/tell_me_a_story/lib/data/stories_api.dart`
+- `apps/tell_me_a_story/lib/data/rpc_error.dart` stays unchanged
+- `apps/tell_me_a_story/lib/features/stories/new_story_page.dart`
+- `apps/tell_me_a_story/lib/features/drafts/drafts_page.dart`
+- Tests: `apps/tell_me_a_story/test/stories_api_test.dart`, `apps/tell_me_a_story/test/new_story_shell_test.dart`, `apps/tell_me_a_story/test/drafts_page_test.dart`
+#### Tests (mandatory, TDD: failing test, implement, green)
+pgTAP (`supabase/tests/story_draft_autosave.sql`):
+1. Draft insert with null `timeframe_start`, `timeframe_end`, `date_precision` succeeds.
+2. Publishing a draft with a null date fails with `VALIDATION: date required` from the trigger, not 23514 (rev 4).
+3. Publishing with all dates set succeeds.
+4. Existing rows are unaffected (published rows still have dates).
+5. The author sees their own draft and its comments, perspectives, photo rows, story_people rows and photo objects.
+6. A non-author live member, an owner and a co-owner each see none of those for a draft.
+7. After publish, every live member sees all of them.
+8. A tree-readable non-member still sees published stories only.
+9. A non-author member cannot insert a comment, perspective, photo or story_people row on a draft.
+10. Policy count is exactly 47 and the definer allowlist is exactly 29.
+Flutter:
+1. First keystroke inserts exactly once with a client id and `status='draft'`.
+2. A duplicate-key retry on insert becomes an update by the same id.
+3. A typing pause triggers a save; leaving the page triggers a save; no leave prompt appears.
+4. Success shows "Saved" in the header with the muted ink token.
+5. Failure shows "Not saved", keeps the text, shows no dialog, and retries at the next pause.
+6. Save draft and Publish still work; Publish without a date is blocked.
+7. Drafts list renders a null-date draft as "No date yet" and sorts it last.
+#### Rev 4 fix round (2026-10-17, one push to PR #40)
+Sources: Design Doc "M14.4 dateless drafts: date guard and late autosave (LOCKED — Gilfoyle architecture fix, 2026-10-17)", including Fix 3 as revised for Big Head's conflict; Dinesh's review of #40 (six should-fix items); Mugatu's blank-label rule; Decisions 2026-10-17 (Bill: "No date yet" stays, unpublish goes to backlog, fix round approved).
+**Fix 1 and Fix 2 (database).** Append to `supabase/migrations/20261017000000_story_draft_nullable_date.sql`, after the check constraint, exactly:
+```sql
+create or replace function public.stories_date_guard()
+ returns trigger
+ language plpgsql
+ set search_path to ''
+as $function$
+begin
+  -- Old inserts stored a single day as a null end. Fill that shape only.
+  if new.timeframe_end is null then
+    new.timeframe_end := new.timeframe_start;
+  end if;
+  -- Default to day only when a date exists. Dateless drafts keep null precision.
+  if new.date_precision is null
+     and new.timeframe_start is not null
+     and new.timeframe_start is not distinct from new.timeframe_end then
+    new.date_precision := 'day';
+  end if;
+
+  if new.status = 'published'
+     and (new.timeframe_start is null or new.date_precision is null) then
+    raise exception 'VALIDATION: date required';
+  end if;
+
+  if tg_op = 'INSERT'
+     and new.date_precision = 'decade'::public.story_date_precision then
+    raise exception 'VALIDATION: year required';
+  end if;
+
+  if tg_op = 'UPDATE'
+     and new.date_precision = 'decade'::public.story_date_precision
+     and (
+       old.date_precision is distinct from 'decade'::public.story_date_precision
+       or new.timeframe_start is distinct from old.timeframe_start
+       or new.timeframe_end is distinct from old.timeframe_end
+     ) then
+    raise exception 'VALIDATION: year required';
+  end if;
+
+  return new;
+end;
+$function$;
+```
+- Not a definer. Definer allowlist stays 29, policies stay 47, prefixes stay 4.
+**Fix 3 (client API): new ****`autosaveDraft`**** in ****`stories_api.dart`****.**
+- `updateDraft` keeps its filter and return type, because Save changes on a published story goes through it (2026-10-11 lock). Publish and Save changes keep using `updateDraft`.
+- Add `Future<bool> autosaveDraft(...)`, used only by autosave and the save on leave. It filters `.eq('id', id).eq('status', 'draft')` and selects the returned rows. When zero rows match it skips the `story_people` replace and returns `false`; otherwise it returns `true`.
+- `autosaveDraft` and `updateDraft` share one private write helper (story update plus `story_people` replace). The `status = 'draft'` filter is a parameter and is the only difference. No copied update body.
+- On `false`: no error, no retry, the status label goes blank (no "Saved", no "Not saved", no new text, per Mugatu), and the editor stops autosaving that story.
+- No RLS or database change for this fix.
+**Dinesh's six (client and tests).**
+1. `new_story_page.dart`: replace the five `createDraft`/`updateDraft` call sites with one `_writeDraft(snapshot, {bool autosave = false})`. It inserts by the client id when no row exists yet; a duplicate-key error falls through to an update by that id. Updates call `autosaveDraft` when `autosave` is true, else `updateDraft`.
+2. `_autosaveDirty` is cleared in one place, inside `_persistDraft`, whether the write succeeds or returns `false`. Remove the copies in `_onSaveDraft` and `_onSaveChanges`. This stops the stray autosave from `dispose()` after Publish.
+3. `createDraft` drops the hidden `if (id == null) ensureValidDraftSave` coupling. Add an explicit named parameter `allowUndated` (default `false`); autosave passes `true`. With `allowUndated: false`, `ensureValidDraftSave` runs as today.
+4. Replace the roughly 25 `timeframeStart!` assertions with one getter `publishedStart` on the existing `Story` class, which asserts non-null for published stories. Call sites use the getter.
+5. Drafts are sorted once, in `listMyDrafts` (null dates last). Remove the sort from `drafts_page.dart` and any other copy.
+6. `supabase/tests/story_draft_autosave.sql`: replace the seven repeated six-table counts with one helper `pg_temp.m14_visible(story_id uuid)`, `security invoker`, created in the test file. It lives in `pg_temp`, so it does not touch the policy count or definer allowlist.
+> 🔍 INFER: Dinesh offered "validate at the call site or an explicit `allowUndated` flag" for item 3. The spec picks the flag because it keeps one validation point in `createDraft` and makes the autosave exception visible.
+**Added tests (on top of the lists above).**
+- pgTAP: a draft with null `timeframe_start`, `timeframe_end` and `date_precision` keeps all three null after the trigger.
+- pgTAP: a draft with a start date and no precision gets `day`.
+- pgTAP: publishing a dateless draft by UPDATE throws `VALIDATION: date required`; inserting a dateless row as `published` throws the same. Neither raises 23514.
+- pgTAP: the existing `VALIDATION: year required` decade tests still pass unchanged.
+- pgTAP: policy count 47 and definer allowlist 29 (already test 10; keep it).
+- Flutter: publish a draft, then fire a pending `autosaveDraft` with new text. The published row's text and `story_people` are unchanged, `autosaveDraft` returns `false`, no error shows, and the status label is blank.
+- Flutter: Save changes on a published story through `updateDraft` still writes.
+- Flutter: after Publish, disposing the page fires no autosave (Dinesh item 2).
+**PR body (rev 4).** Paste the full pgTAP run output (every test line, at least 734 plus the new tests, 0 failing), plus the `pg_get_functiondef('public.stories_date_guard'::regproc)` output before and after from local.
+**Not in this push.** Trinity's 40-01 (storage tightening) and 40-02 (extra tests) go to the cleanup PR. Author unpublish is a backlog item (Jared). Dinesh's optional nits are not required.
+> 🚫 FORBIDDEN (rev 4): A new migration file for the trigger. Changing `updateDraft`'s filter or return type. Any copy on a `false` autosave. Moving Trinity's 40-01 or 40-02 into this PR. Editing any merged migration.
+#### Gates (paste every command's output in the PR body)
+- `flutter analyze` ≤ 27 issues.
+- `flutter test`: at least main's count at branch point, plus new tests, 0 failing.
+- pgTAP: at least 734 (PR #40 at `bb75a95`) plus the rev 4 tests, 0 failing, full output pasted. Definer allowlist exactly 29.
+- Deno: unchanged and green (`--allow-env`).
+- Policies exactly 47. `mapRpcError` exactly 4 prefixes: `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, `INVITE_INVALID:`.
+#### Agent operating rules
+- Implement only what this item lists. Match names, paths and SQL exactly.
+> 🚫 FORBIDDEN: A fifth error prefix. A new policy, function, RPC or Edge function (`can_contribute_to_story` is redefined, not added). Drop-and-recreate of a policy instead of `alter policy`. Any owner or co-owner access to someone else's draft. A leave prompt, popup or snackbar for autosave. New copy beyond "Saved", "Not saved" and "No date yet". Locking or merge logic for two tabs. Editing an earlier migration. Running `db reset`, `db pull`, `migration repair` or `migration down`.
+- If code and spec disagree, stop and report the diff. Report pass or fail per gate with command output.
+#### Traceability
+- PRD "Save unfinished story drafts" maps to Rule and Flutter tests 1, 3 and 6.
+- UXD "Autosave drafts (LOCKED 2026-10-16)" maps to Client and Flutter tests 3 to 5.
+- Design Doc "Autosave drafts — data side (LOCKED 2026-10-16)" maps to Data, pgTAP tests 1 to 4 and Flutter tests 1, 2 and 7.
+- Decisions 2026-10-16 (last save wins with two tabs, Bill) maps to Rule; no locking is built.
+- Design Doc "Drafts visible to author only (LOCKED — Bill, 2026-10-17)", Decisions 2026-10-17 and the PRD drafts must-have map to Migration B and pgTAP tests 5 to 10.
+- Design Doc "M14.4 dateless drafts: date guard and late autosave (LOCKED 2026-10-17)" maps to Rev 4 Fix 1 to 3 and the added pgTAP and Flutter tests.
+- Dinesh's #40 review maps to Rev 4 items 1 to 6. Mugatu's blank-label rule maps to Fix 3. Decisions 2026-10-17 (Bill) map to "No date yet" and "Not in this push".
