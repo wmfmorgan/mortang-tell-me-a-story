@@ -2598,3 +2598,126 @@ $function$;
 - Design Doc "Drafts visible to author only (LOCKED — Bill, 2026-10-17)", Decisions 2026-10-17 and the PRD drafts must-have map to Migration B and pgTAP tests 5 to 10.
 - Design Doc "M14.4 dateless drafts: date guard and late autosave (LOCKED 2026-10-17)" maps to Rev 4 Fix 1 to 3 and the added pgTAP and Flutter tests.
 - Dinesh's #40 review maps to Rev 4 items 1 to 6. Mugatu's blank-label rule maps to Fix 3. Decisions 2026-10-17 (Bill) map to "No date yet" and "Not in this push".
+
+### §15 M14.5 Multi-add people (#50) (APPROVED by Bill 2026-10-18 (rev 3))
+**Status:** **APPROVED by Bill 2026-10-18 (rev 3).** Bill ruled C1 (PRD: "You can either add multiple existing people, or create a single new person.") and C2 (keep Cancel; it adds nobody, like X). Mugatu's amended UX note (2026-10-18) is pinned in U8. No OPENs remain. Client only. M14.5 is the next free number: the last §15 item on `main` is M14.4 (CLOSED 2026-10-17). Code facts are pinned to `main` @ `f3f3244` (#41, 2026-10-18 08:12 CT).
+**Branch:** `feat/m14-multi-add-people`, one PR off `main`. One milestone per PR. No push to `main`. Don't merge. Stop after opening the PR. Follow the Grok Build CLI Contract.
+**Sources:** PRD addendum "Issue #50 brief: Multi-select people from Add Person (APPROVED 2026-10-18)", last section of [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2); Decisions "2026-10-18: Issue #50 Multi-select people in Add person, LOCKED by Bill" [✅ Decisions](https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166); Mugatu UX `docs/ux/m14-multi-add-people.md` (LOCKED by Bill 2026-10-18, lands in this PR); Gilfoyle, Design Doc gate on #50 (2026-10-18): no Design Doc change, a sequential client loop over the existing `StoriesApi.linkPerson`, no new API, no migration, 47 policies, 29 definers, batch RPC rejected; GitHub issue [#50](https://github.com/wmfmorgan/mortang-tell-me-a-story/issues/50).
+
+#### Code on `main` this item changes (read-only facts)
+- `apps/tell_me_a_story/lib/features/people/add_person_modal.dart` (852 lines):
+	- `class AddPersonResult` (l.14): `{required Person person, required bool sendInvite}`.
+	- `typedef LinkStoryPerson = Future<void> Function({required String storyId, required String personId})` (l.22).
+	- `AddPersonModal` (l.28): `final Set<String> linkedPersonIds` (l.45); `static Future<AddPersonResult?> show(...)` (l.48).
+	- `enum _AddStep { pick, form }` (l.77). State: `Person? _created` (l.88), `_inviteSent` (l.90), `var _busy = false` (l.92).
+	- `void _showSaveError(Object error)` (l.123): a `SnackBar` with `mapRpcError(error) ?? 'Couldn’t save person. Try again.'`. This is "the existing error pop-up".
+	- `Future<void> _saveCreate()` (l.144); `Future<void> _pickPerson(Person person)` (l.209), which links and pops on tap; `Future<AddPersonResult> _linkThenPop(Person person, {required bool sendInvite})` (l.224), which calls `widget.linkPerson` only when `storyId` is non-empty and `linkPerson` is non-null; `void _openCreate()` (l.236).
+	- Header X: `IconButton(tooltip: 'Close')` (l.299). `Widget _footer()` (l.320): an `OutlinedButton` "Cancel" (l.334) on **both** steps, then the terracotta `FilledButton` with `PlusLabel(label: _busy ? 'Adding…' : 'Add person')` (l.349), rendered only `if (_step == _AddStep.form)` (l.337).
+	- `Widget _picker()` (l.361), `List<Person> _visiblePeople()` (l.406), which hides `widget.linkedPersonIds`; `Widget _personRow(Person person)` (l.421): `InkWell(key: Key('add-person-pick-${person.id}'))` (l.432), `onTap: _busy ? null : () => _pickPerson(person)` (l.434), `CircleAvatar` initials (l.440).
+- `apps/tell_me_a_story/lib/features/stories/new_story_page.dart`: `_openAddPerson()` (l.364) reads only `added?.person` (l.381) and adds one person to `_selectedPeople` (l.384). New story and Edit story (`editStoryId`) both use it. Every draft or edit save then runs `_replacePeople` from `_selectedPeople`.
+- `apps/tell_me_a_story/lib/data/stories_api.dart`: `StoriesGateway.linkPerson({required String storyId, required String personId})` (l.352); `StoriesApi.linkPerson` (l.637) does one `story_people` insert. **Unchanged.**
+- `apps/tell_me_a_story/lib/core/theme/album_theme.dart`: `albumParchment`, `albumTerracotta`, `albumSage`, `albumInk` (l.5–8).
+- Tests on `main`: `test/add_person_modal_test.dart` has 19 `testWidgets`. `test/stories_api_test.dart` has 9 tests and none covers `linkPerson`. The fake `createPerson` hands out ids `p1, p2…` (l.48), so seed people in new tests use other ids (`a1`, `a2`…).
+
+#### Files touched (change existing files; don't create parallel ones)
+- `apps/tell_me_a_story/lib/features/people/add_person_modal.dart`
+- `apps/tell_me_a_story/lib/features/stories/new_story_page.dart` (only `_openAddPerson`)
+- `apps/tell_me_a_story/test/add_person_modal_test.dart`
+- `apps/tell_me_a_story/test/new_story_shell_test.dart` (update existing picks; add 1 test)
+- `apps/tell_me_a_story/test/new_story_capture_test.dart` (update the existing pick; extend `_FakeStoriesApi.linkPerson` to record ids; add 1 test)
+- `docs/ux/m14-multi-add-people.md` (Mugatu's note, added verbatim)
+- `docs/impl-spec/impl-spec.md` (this §15 item, appended after M14.4)
+- Unchanged, and the diff must show it: `lib/data/stories_api.dart`, `lib/data/rpc_error.dart`, `lib/core/theme/album_theme.dart`, everything under `supabase/`.
+
+#### State model (`_AddPersonModalState`)
+- `final Set<String> _selectedIds = <String>{};`: the selected pills, in tap order (a Dart `Set` literal keeps insertion order). Search never touches it.
+- `final List<Person> _saved = [];`: people linked during this modal session, in link order.
+- `_busy` (existing): the saving flag. It already drives "Adding…" and disables X, Cancel, the search field and the rows. Don't add a second flag.
+- `AddPersonResult` becomes `const AddPersonResult({required this.people, required this.sendInvite})` with `final List<Person> people;` and `Person get person => people.first;`, so existing `.person` reads keep compiling.
+> 🔍 INFER: The return type has to carry more than one person, because `_openAddPerson` (l.381) reads one `person` and `_replacePeople` would otherwise drop the rest at the next save. The `person` getter keeps the existing tests and the create path source-compatible. `show()`'s signature and `LinkStoryPerson` don't change.
+- New private methods:
+	- `void _toggle(Person person)`: add the id to `_selectedIds` or remove it, inside `setState`. Ignored while `_busy`.
+	- `Future<Object?> _linkEach(List<Person> people)`: the sequential loop (rules G1 and G2). It returns the first error, or `null` when every link succeeds.
+	- `Future<void> _addSelected()`: the commit on the picker step.
+	- `void _close()`: shared by X and Cancel.
+- Remove `_pickPerson` (tap no longer links). `_linkThenPop` is folded into `_linkEach`: the storyId/link null check moves there unchanged.
+
+#### Behavior rules
+UX (Mugatu, LOCKED), one to one:
+- **U1 Toggle.** `_personRow` `onTap: _busy ? null : () => _toggle(person)`. Selected: `Material.color = albumSage.withValues(alpha: 0.18)`, `side: BorderSide(color: albumSage)` (full opacity), and the `CircleAvatar` child becomes `Icon(Icons.check, size: 18, color: albumInk)` instead of the initials. Unselected stays exactly as today (`albumParchment`, `albumSage` 0.45 border, initials). `hoverColor` is unchanged.
+> 🔍 INFER: Check icon size 18 and color `albumInk`, keeping the existing `CircleAvatar` (radius 18, `albumSage` 0.18 background), because the note says "in place of the initials circle" and gives no icon color, and `albumInk` is the initials' current color. Mugatu confirms in visual review.
+- **U2 Screen readers.** Wrap each row in `Semantics(selected: _selectedIds.contains(person.id), button: true, child: …)`.
+- **U3 Search, hidden, cap.** `_visiblePeople` hides `widget.linkedPersonIds` ∪ the ids in `_saved`. Search filters rows only and keeps `_selectedIds`, including people filtered out of view. No cap.
+- **U4 Commit button.** The existing terracotta `FilledButton` renders on both steps (drop the `if (_step == _AddStep.form)` guard). On the pick step: `onPressed: (_busy || _selectedIds.isEmpty) ? null : _addSelected`, the same style, the same `PlusLabel` (`'Adding…'` while `_busy`, else `'Add person'`). The form step is unchanged.
+- **U5 One tap links all.** `_addSelected`: set `_busy`; build the list from `_people` where `_selectedIds` contains the id, in `_selectedIds` order; `await _linkEach(list)`. If it returns `null`, pop `AddPersonResult(people: List.of(_saved), sendInvite: false)`.
+- **U6 X adds nobody.** `_close()`: if `_saved` is empty, `pop()` (null result, as today). No link call in any case.
+> 🔍 INFER: After a partial failure, `_close()` pops `AddPersonResult(people: List.of(_saved), sendInvite: false)` instead of null. It makes no new write. Those people are already in `story_people`, and without this `new_story_page` never learns about them, so its next `_replacePeople` would delete them. That breaks PRD acceptance 2 ("none is dropped").
+- **U7 Partial failure.** If `_linkEach` returns an error: `_showSaveError(firstError)` once (the existing SnackBar and text). The saved people leave `_selectedIds` and the list (U3). The failed ones stay selected. The modal stays open. Tapping Add person again retries only what's still selected.
+> 🔍 INFER: Show only the first error, once, because "the existing error pop-up shows the usual text" means one SnackBar, not one per person.
+- **U8 Create new person (Bill, C1).** Create new person adds only the new person. There's no combined add: pending picker selections are never linked by the form's Add person. Opening Create new person clears every selected pill: `_openCreate` (l.236) adds `_selectedIds.clear()` inside its existing `setState`. `_saved` is kept. The form has no back-to-picker today, and #50 adds none. The form, its fields, its invite confirm, `_created` and `_inviteSent` retry guards stay as they are.
+- **U9 Unchanged.** The Search screen's "Add Person" filter (`lib/features/search/search_page.dart` not touched). No new strings: only "Add person", "Adding…", "Create new person", "Search people in this family", plus the existing error text. Colors only from `album_theme.dart` (the `test/theme/no_hardcoded_colors_test.dart` guard must stay green).
+
+- **U10 Cancel (Bill, C2).** Keep the existing Cancel button and divider on both steps (l.334). Route Cancel through `_close()`, so it adds nobody, exactly like X (U6). Removing Cancel stays with the M14.1 polish item, not #50.
+
+Architecture (Gilfoyle):
+- **G1 Sequential.** `_linkEach` is a plain `for` loop with one `await widget.linkPerson!(storyId: storyId, personId: p.id)` per person. On success, add to `_saved` and remove from `_selectedIds`. On a throw, keep the first error, leave the person selected, and **continue** with the next one. Call `setState` once after the loop. When `storyId` is null or empty, or `linkPerson` is null (New story before its first save), each person counts as saved with no write. That's today's `_linkThenPop` rule, and the draft save writes them.
+- **G2 No duplicates.** Before each call, skip any id in `widget.linkedPersonIds` or already in `_saved`. `_busy` blocks a second tap while a loop runs.
+- **G3 Create-then-link.** `_saveCreate` keeps its create and invite steps, then calls `_linkEach([person])` for the new person only (Bill, C1). Gilfoyle's "new id into the same loop" applies to that one id; the selected people are never added to it.
+- `new_story_page.dart` `_openAddPerson`: replace l.381–384 with one `setState` that appends every `added.people` entry whose id isn't already in `_selectedPeople`, in order. Nothing else in the file changes.
+
+- Pinned UX rule: Mugatu's amended `docs/ux/m14-multi-add-people.md` §Create new person reads: "Opening it clears any selected pills, and the form's Add person button adds only the new person."
+- `_saveCreate` pops `AddPersonResult(people: [..._saved, person], sendInvite: _sendInvite)`; `_saved` holds only people linked by an earlier picker Add in this session (after a partial failure).
+
+#### Tests (mandatory, TDD: failing test, implement, green)
+`apps/tell_me_a_story/test/add_person_modal_test.dart`. New tests, written first; seed ids `a1` Ada, `a2` Grace, `a3` Lin:
+1. `tapping a pill selects it and does not link`: the `links` list stays empty; `find.byKey(_pickerKey)` findsOneWidget; `session.completed` is false; the pill's `Material.color == albumSage.withValues(alpha: 0.18)` and its border side color `== albumSage`; `find.descendant(of: pill, matching: find.byIcon(Icons.check))` findsOneWidget; initials text `'A'` findsNothing in that pill.
+2. `tapping a selected pill clears it`: after a second tap the check is gone, the initials are back, and the pick-step `FilledButton` has `onPressed == null`.
+3. `a selected pill is announced as selected`: `tester.getSemantics(pill)` matches `containsSemantics(isSelected: true)`. An unselected pill matches `containsSemantics(isSelected: false)`.
+4. `Add person is disabled until a pill is selected`: on open, `find.widgetWithText(FilledButton, 'Add person')` findsOneWidget with `onPressed == null`. After one tap, `onPressed != null`.
+5. `selections survive search`: select Ada; enter `'Gr'`; Ada findsNothing; select Grace; clear the search; both pills show the check; tap Add person; `links == [(story-1, a1), (story-1, a2)]`.
+6. `Add person links every selected person one at a time`: `linkPerson` awaits a per-call `Completer`. After the tap, `links.length == 1` until the first completer completes, then 2, then 3. The final `links` are in tap order `[a3, a1, a2]`; `session.result!.people` ids are `[a3, a1, a2]`; the picker is closed.
+7. `the button reads Adding… while saving`: with a pending completer, `find.text('Adding…')` findsOneWidget; `IconButton` with tooltip `'Close'` has `onPressed == null`; the row `InkWell.onTap == null`.
+8. `a partial failure keeps the failed selected and drops the saved`: `linkPerson` throws `PostgrestException(message: 'VALIDATION: Already on this story')` for `a2` only. After the tap, the attempted ids are `[a1, a2, a3]` (it continues); `find.byType(SnackBar)` findsOneWidget; `find.text('Already on this story')` findsOneWidget; the picker is still open; `session.completed` is false; Ada and Lin rows findNothing; the Grace pill shows the check; the button is enabled. With the second call succeeding, a second tap adds exactly one call `(story-1, a2)` and pops with `people` ids `[a1, a3, a2]`.
+9. `X adds nobody`: select Ada and tap `find.byTooltip('Close')`. `links` stays empty, `session.completed` is true, `session.result` is null.
+10. `X after a partial failure returns only the people already saved` (INFER U6): after test 8's first tap, tap Close. `links` gains no new call, and `session.result!.people` ids are `[a1, a3]`.
+11. `no cap`: seed 25 people; select every pill (`scrollUntilVisible` inside the 220 list); tap Add person. `links.length == 25`, and the result has 25 people.
+12. `with no story id, picks return without a link`: `storyId: null`; select Ada and Grace; Add. `links` stays empty, and `session.result!.people` ids are `[a1, a2]`.
+13. `Create new person links only the new person` (Bill, C1): select Ada, tap Create new person, enter a name, tap Add person. `api.createCalls == 1`, `links == [(story-1, <created id>)]`, `session.result!.people.single.id == <created id>`, `session.result!.sendInvite` is false. No picker pill is still selected when the form opens (Mugatu amendment).
+14. `Cancel adds nobody`: select Ada and tap Cancel. `links` stays empty and `session.result` is null (Bill, C2).
+Update existing tests (same names unless noted; no assertion removed):
+- l.335 `tapping a name links that person and closes the modal` → rename it `one picked person then Add person links and closes` (PRD acceptance 4). Tap Ada, then tap Add person; the same assertions.
+- l.418 `an insert error shows the mapped message and stays open` and l.450 `an unmapped error shows the save sentence in a snackbar`: add the Add person tap after tapping Ada. The assertions stay unchanged, and l.450 still asserts `_saveError`.
+- l.220 `Cancel dismisses without returning a person`: unchanged (Bill, C2).
+`apps/tell_me_a_story/test/new_story_shell_test.dart`:
+- l.322, l.657, l.822: after `tap(find.text('Ada'))`, add `tap(find.widgetWithText(FilledButton, 'Add person'))` and `pumpAndSettle`.
+- New `picking two people adds both chips`: seed Ada and Grace; open Add person; tap both, then Add person. `find.widgetWithText(Chip, 'Ada')` and `find.widgetWithText(Chip, 'Grace')` each findsOneWidget.
+`apps/tell_me_a_story/test/new_story_capture_test.dart`:
+- l.584: add the Add person tap. `linkCalls == 0` and `lastPersonIds == ['p1']` stay.
+- New `Edit story links each picked person once and keeps them on save` (`_captureShell(editStoryId: 's1')`, `_FakeStoriesApi` records `linkedIds`): pick two people and tap Add. `linkedIds` holds each id exactly once; tap Save changes; the `personIds` passed to `updateDraft` include both.
+
+#### Gates (paste every command's output in the PR body)
+- `flutter analyze` ≤ 27 issues.
+- `flutter test`: ≥ 467 (main after #40) plus the new tests above, 0 failing; full output pasted. `add_person_modal_test.dart` goes from 19 to 33 `testWidgets`.
+- `supabase test db` (pgTAP): ≥ 739, unchanged, 0 failing, full output. Policies exactly 47 (pin `supabase/tests/fit_and_finish.sql:611`). Definer allowlist exactly 29.
+- `deno test --allow-env supabase/functions`: ≥ 43, unchanged.
+- `mapRpcError` exactly 4 prefixes: `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, `INVITE_INVALID:`.
+- `git diff main -- supabase/ apps/tell_me_a_story/lib/data/ apps/tell_me_a_story/lib/core/` is empty.
+- Local DB: `supabase migration up --local` only.
+
+#### Agent operating rules
+- Implement only what this item lists. Match the names and paths exactly. If code and spec disagree, stop and report the diff. Report pass or fail per gate with command output.
+> 🚫 FORBIDDEN: `Future.wait` or any parallel linking. A batch RPC or bulk `story_people` insert (no reuse of `_replacePeople` for this). Any migration, policy, function, RPC or Edge function. A unique constraint or index on `story_people` (parked). A change to `linkPerson`'s signature or body in `StoriesGateway`/`StoriesApi`. A fifth error prefix or a change to `mapRpcError`. New strings, including per-person error text or a count on the button. New color tokens or literal colors. Checkboxes, a new screen, select-all, bulk remove, or a Stitch edit. Changes to the Search "Add Person" filter, the Create new person form fields or invite flow. Edits outside "Files touched". Running `db reset`, `db pull`, `migration repair` or `migration down`.
+
+#### Done / Bill smoke
+1. New story: open Add person, tap three people. Each shows the sage tint, the border and the check; tap one again and it clears. Search, select a fourth, clear the search: all selections remain. Tap Add person: the modal closes and four chips show.
+2. With nothing selected, Add person is disabled. Select one and close with X: nothing is added.
+3. Edit a published story: add two people, Save changes, reopen. Both are on the story once. Reopen Add person: they're hidden.
+4. Partial failure (if you can force one locally, e.g. stop the DB mid-save): the error pop-up shows, the saved people leave the list, and the rest stay checked. Tap Add person again to finish.
+5. With people picked, tap Create new person and add one: only the new person is added; the invite prompt only concerns them. Opening the form clears the picked pills.
+6. The Search screen's Add Person filter is unchanged.
+
+#### Traceability
+- PRD #50 acceptance 1–4 map to U1–U7, G1–G2 and tests 1–12 and 14. Acceptance 5–6 map to U8, G3 (Bill C1) and test 13. Acceptance 7 maps to the `_openAddPerson` change and the new_story tests. Acceptance 8 maps to U9.
+- Decisions 2026-10-18 (#50: tree people only, no cap, invites unchanged, already-on-story hidden, New and Edit story, Search filter unchanged) map to U3, U8/C1, U9 and the new_story tests.
+- UX `docs/ux/m14-multi-add-people.md` maps to U1–U9 and tests 1–14; U10 (Bill C2) covers its Cancel line; U8 pins the amendment's clear-on-create rule (test 13).
+- Design Doc: no change (Gilfoyle 2026-10-18, #50 comment). Maps to G1–G3, the FORBIDDEN rules and the empty `supabase/` and `lib/data/` diff gates.
