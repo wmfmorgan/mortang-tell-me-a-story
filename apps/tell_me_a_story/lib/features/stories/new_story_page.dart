@@ -378,10 +378,15 @@ class _NewStoryPageState extends State<NewStoryPage> {
           return _stories.linkPerson(storyId: storyId, personId: personId);
         },
       );
-      final person = added?.person;
-      if (!mounted || person == null) return;
-      if (_selectedPeople.any((p) => p.id == person.id)) return;
-      setState(() => _selectedPeople.add(person));
+      if (!mounted || added == null) return;
+      setState(() {
+        for (final person in added.people) {
+          if (_selectedPeople.any((existing) => existing.id == person.id)) {
+            continue;
+          }
+          _selectedPeople.add(person);
+        }
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }

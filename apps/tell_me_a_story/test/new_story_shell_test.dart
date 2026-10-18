@@ -321,9 +321,42 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ada'));
     await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+    await tester.pumpAndSettle();
 
     expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
     expect(find.text('NAME'), findsNothing);
+  });
+
+  testWidgets('picking two people adds both chips', (tester) async {
+    final people = _FakePeopleApi(
+      seed: const [
+        Person(
+          id: 'p1',
+          familyId: _familyId,
+          name: 'Ada',
+          relationship: 'Aunt',
+          createdBy: 'u1',
+        ),
+        Person(id: 'p2', familyId: _familyId, name: 'Grace', createdBy: 'u1'),
+      ],
+    );
+
+    await tester.pumpWidget(_shell(people: people));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
+    await tester.tap(find.widgetWithText(TextButton, 'Add person'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ada'));
+    await tester.pump();
+    await tester.tap(find.text('Grace'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
+    expect(find.widgetWithText(Chip, 'Grace'), findsOneWidget);
   });
 
   testWidgets('selecting place shows label and stub map', (tester) async {
@@ -656,6 +689,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Ada'));
       await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(
         find.widgetWithText(TextButton, 'Choose place'),
       );
@@ -820,6 +855,8 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ada'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.widgetWithText(TextButton, 'Choose place'));
     await tester.tap(find.widgetWithText(TextButton, 'Choose place'));

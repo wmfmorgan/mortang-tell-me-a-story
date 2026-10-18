@@ -10,12 +10,14 @@ import '../../data/people_api.dart';
 import '../../data/rpc_error.dart';
 import '../family/family_blur_dialog.dart';
 
-/// Created person, and whether the caller chose "Send invite".
+/// People added from this modal, and whether the caller chose "Send invite".
 class AddPersonResult {
-  const AddPersonResult({required this.person, required this.sendInvite});
+  const AddPersonResult({required this.people, required this.sendInvite});
 
-  final Person person;
+  final List<Person> people;
   final bool sendInvite;
+
+  Person get person => people.first;
 }
 
 /// Inserts one `story_people` row for a person the picker just chose.
@@ -90,6 +92,8 @@ class _AddPersonModalState extends State<AddPersonModal> {
   var _inviteSent = false;
 
   var _busy = false;
+  final Set<String> _selectedIds = <String>{};
+  final List<Person> _saved = [];
   String? _nameError;
   String? _aboutError;
 
@@ -195,9 +199,15 @@ class _AddPersonModalState extends State<AddPersonModal> {
         _inviteSent = true;
       }
       if (!mounted) return;
-      final result = await _linkThenPop(person, sendInvite: _sendInvite);
+      final linkError = await _linkEach([person]);
       if (!mounted) return;
-      Navigator.of(context).pop(result);
+      if (linkError != null) {
+        _showSaveError(linkError);
+        return;
+      }
+      Navigator.of(context).pop(
+        AddPersonResult(people: [..._saved, person], sendInvite: _sendInvite),
+      );
     } catch (error) {
       if (!mounted) return;
       _showSaveError(error);
@@ -206,31 +216,70 @@ class _AddPersonModalState extends State<AddPersonModal> {
     }
   }
 
-  Future<void> _pickPerson(Person person) async {
+  void _toggle(Person person) {
     if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      final result = await _linkThenPop(person, sendInvite: false);
-      if (!mounted) return;
-      Navigator.of(context).pop(result);
-    } catch (error) {
-      if (!mounted) return;
-      _showSaveError(error);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    setState(() {
+      if (!_selectedIds.add(person.id)) {
+        _selectedIds.remove(person.id);
+      }
+    });
   }
 
-  Future<AddPersonResult> _linkThenPop(
-    Person person, {
-    required bool sendInvite,
-  }) async {
+  Future<Object?> _linkEach(List<Person> people) async {
+    Object? firstError;
     final storyId = widget.storyId;
     final link = widget.linkPerson;
-    if (storyId != null && storyId.isNotEmpty && link != null) {
-      await link(storyId: storyId, personId: person.id);
+    final canWrite = storyId != null && storyId.isNotEmpty && link != null;
+    for (final person in people) {
+      if (widget.linkedPersonIds.contains(person.id)) continue;
+      if (_saved.any((saved) => saved.id == person.id)) continue;
+      final selected = _selectedIds.contains(person.id);
+      try {
+        if (canWrite) {
+          await link(storyId: storyId, personId: person.id);
+        }
+        if (selected) {
+          _saved.add(person);
+          _selectedIds.remove(person.id);
+        }
+      } catch (error) {
+        firstError ??= error;
+      }
     }
-    return AddPersonResult(person: person, sendInvite: sendInvite);
+    if (mounted) setState(() {});
+    return firstError;
+  }
+
+  Future<void> _addSelected() async {
+    if (_busy || _selectedIds.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final people = _people ?? const <Person>[];
+      final byId = {for (final person in people) person.id: person};
+      final selected = <Person>[
+        for (final id in _selectedIds)
+          if (byId[id] != null) byId[id]!,
+      ];
+      final error = await _linkEach(selected);
+      if (!mounted) return;
+      if (error != null) {
+        _showSaveError(error);
+        return;
+      }
+      Navigator.of(context)
+          .pop(AddPersonResult(people: List.of(_saved), sendInvite: false));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _close() {
+    if (_saved.isEmpty) {
+      Navigator.of(context).pop();
+      return;
+    }
+    Navigator.of(context)
+        .pop(AddPersonResult(people: List.of(_saved), sendInvite: false));
   }
 
   void _openCreate() {
@@ -241,6 +290,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
     setState(() {
       _step = _AddStep.form;
       _nameError = null;
+      _selectedIds.clear();
     });
   }
 
@@ -298,7 +348,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
                 IconButton(
                   tooltip: 'Close',
                   visualDensity: VisualDensity.compact,
-                  onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                  onPressed: _busy ? null : _close,
                   icon: const Icon(Icons.close, size: 20),
                 ),
               ],
@@ -324,7 +374,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
     return Row(
       children: [
         OutlinedButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          onPressed: _busy ? null : _close,
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(0, 44),
             foregroundColor: albumInk.withValues(alpha: 0.7),
@@ -334,26 +384,25 @@ class _AddPersonModalState extends State<AddPersonModal> {
           child: const Text('Cancel'),
         ),
         const Spacer(),
-        if (_step == _AddStep.form)
-          FilledButton(
-            onPressed: _busy ? null : _saveCreate,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 48),
-              backgroundColor: albumTerracotta,
-              foregroundColor: albumParchment,
-              disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.35),
-              shape: buttonShape,
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-            ),
-            child: PlusLabel(
-              label: _busy ? 'Adding…' : 'Add person',
-              onTerracotta: true,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: albumParchment,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+        FilledButton(
+          onPressed: _step == _AddStep.form
+              ? (_busy ? null : _saveCreate)
+              : (_busy || _selectedIds.isEmpty ? null : _addSelected),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 48),
+            backgroundColor: albumTerracotta,
+            foregroundColor: albumParchment,
+            disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.35),
+            shape: buttonShape,
+            padding: const EdgeInsets.symmetric(horizontal: 28),
           ),
+          child: PlusLabel(
+            label: _busy ? 'Adding…' : 'Add person',
+            onTerracotta: true,
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(color: albumParchment, fontWeight: FontWeight.w600),
+          ),
+        ),
       ],
     );
   }
@@ -408,9 +457,11 @@ class _AddPersonModalState extends State<AddPersonModal> {
     if (people == null) return const [];
     final query = _searchController.text.trim().toLowerCase();
     final linked = widget.linkedPersonIds;
+    final savedIds = {for (final person in _saved) person.id};
     final rows = [
       for (final person in people)
         if (!linked.contains(person.id) &&
+            !savedIds.contains(person.id) &&
             (query.isEmpty || person.name.toLowerCase().contains(query)))
           person,
     ];
@@ -420,50 +471,60 @@ class _AddPersonModalState extends State<AddPersonModal> {
 
   Widget _personRow(Person person) {
     final years = _yearSpan(person);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: albumParchment,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: albumSage.withValues(alpha: 0.45)),
-        ),
-        child: InkWell(
-          key: Key('add-person-pick-${person.id}'),
-          hoverColor: albumSage.withValues(alpha: 0.12),
-          onTap: _busy ? null : () => _pickPerson(person),
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: albumSage.withValues(alpha: 0.18),
-                  foregroundColor: albumInk,
-                  child: Text(
-                    _initials(person.name),
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: albumInk,
-                      fontWeight: FontWeight.w700,
+    final selected = _selectedIds.contains(person.id);
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Material(
+          color: selected ? albumSage.withValues(alpha: 0.18) : albumParchment,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: selected ? albumSage : albumSage.withValues(alpha: 0.45),
+            ),
+          ),
+          child: InkWell(
+            key: Key('add-person-pick-${person.id}'),
+            hoverColor: albumSage.withValues(alpha: 0.12),
+            onTap: _busy ? null : () => _toggle(person),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: albumSage.withValues(alpha: 0.18),
+                    foregroundColor: albumInk,
+                    child: selected
+                        ? const Icon(Icons.check, size: 18, color: albumInk)
+                        : Text(
+                            _initials(person.name),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: albumInk,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      person.name,
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontSize: 16),
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    person.name,
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontSize: 16),
-                  ),
-                ),
-                if (years.isNotEmpty)
-                  Text(
-                    years,
-                    style: Theme.of(context).textTheme.labelSmall
-                        ?.copyWith(color: albumInk.withValues(alpha: 0.55)),
-                  ),
-              ],
+                  if (years.isNotEmpty)
+                    Text(
+                      years,
+                      style: Theme.of(context).textTheme.labelSmall
+                          ?.copyWith(color: albumInk.withValues(alpha: 0.55)),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -554,9 +615,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(
-              child: Text('Passed away', style: kicker),
-            ),
+            Expanded(child: Text('Passed away', style: kicker)),
             Switch(
               key: const Key('add-person-passed-away'),
               value: _passedAway,

@@ -315,12 +315,15 @@ class _FakeStoriesApi implements StoriesGateway {
   @override
   Future<void> discard(String storyId) async {}
 
+  final List<String> linkedIds = [];
+
   @override
   Future<void> linkPerson({
     required String storyId,
     required String personId,
   }) async {
     linkCalls++;
+    linkedIds.add(personId);
   }
 }
 
@@ -582,6 +585,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
       await tester.tap(find.text('Ada'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
       await tester.pumpAndSettle();
 
       expect(stories.linkCalls, 0);
@@ -1231,4 +1236,59 @@ void main() {
     expect(stories.lastTimeframeEnd, DateTime(1994, 3, 2));
     expect(stories.lastDatePrecision, 'day');
   });
+
+  testWidgets(
+    'Edit story links each picked person once and keeps them on save',
+    (tester) async {
+      const grace = Person(
+        id: 'p2',
+        familyId: _familyId,
+        name: 'Grace',
+        createdBy: 'u1',
+      );
+      final stories = _FakeStoriesApi(
+        story: Story(
+          id: 's1',
+          familyId: _familyId,
+          authorId: 'u1',
+          title: 'Jam',
+          body: 'Porch',
+          timeframeStart: DateTime(1987, 3, 14),
+          timeframeEnd: DateTime(1987, 3, 14),
+          datePrecision: StoryDatePrecision.day,
+          status: StoryStatus.published,
+        ),
+      );
+      await tester.pumpWidget(
+        _captureShell(
+          stories: stories,
+          people: _FakePeopleApi(seed: const [_ada, grace]),
+          editStoryId: 's1',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
+      await tester.tap(find.widgetWithText(TextButton, 'Add person'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ada'));
+      await tester.pump();
+      await tester.tap(find.text('Grace'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+      await tester.pumpAndSettle();
+
+      expect(stories.linkedIds, ['p1', 'p2']);
+      expect(stories.linkedIds.toSet(), {'p1', 'p2'});
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
+      await tester.pumpAndSettle();
+
+      expect(stories.lastPersonIds, containsAll(['p1', 'p2']));
+      expect(stories.lastPersonIds.where((id) => id == 'p1' || id == 'p2'), [
+        'p1',
+        'p2',
+      ]);
+    },
+  );
 }
