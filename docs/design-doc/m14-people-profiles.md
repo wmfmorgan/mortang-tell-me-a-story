@@ -60,8 +60,6 @@ Bill: "yes. I want this fixed in #33"
 - Still 47 policies, 4 prefixes, a new migration only. The app change for the tree-wide picker comes back for Mugatu's recheck. Ships in #33.
 ## M14 amendment: #51, story people from anywhere in the tree (LOCKED 2026-10-18)
 
-Append to `docs/design-doc/m14-people-profiles.md` in the fix PR.
-
 ### Problem
 `story_people_insert_editor` and `story_people_update_editor` require `p.family_id = s.family_id`. Since `20261016120000_member_person_rows.sql` there is one person row per tree, so parent-timeline people live only in the parent family. The tree-wide picker offers them and the insert refuses them (Bill, "Liam is Born" in The WFM Morgans, could not add William F Morgan or txmorgan from WHM Morgans).
 
@@ -70,7 +68,7 @@ A person can be linked to a story when the person's family and the story's famil
 
 `family_tree_root` is security definer and NOT executable by `authenticated` on prod, so it cannot be called directly from a policy. `is_tree_member(p.family_id)` is not enough either: it checks the caller, not the story, so a user in two trees could link a person from tree B onto a story in tree A. We do not widen `family_tree_root` (it would hand any signed-in user the root id of any family uuid). Instead, one boolean-only helper.
 
-### Migration: `<next timestamp after 20261017000100>_story_people_same_tree.sql` (new file, no edits to shipped migrations)
+### Migration: `20261018000000_story_people_same_tree.sql` (new file, no edits to shipped migrations)
 
 ```sql
 create function public.same_family_tree(a uuid, b uuid)
