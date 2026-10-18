@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 
@@ -332,7 +335,7 @@ void main() {
     expect(find.text('Create new person'), findsOneWidget);
   });
 
-  testWidgets('tapping a name links that person and closes the modal', (
+  testWidgets('one picked person then Add person links and closes', (
     tester,
   ) async {
     final api = _FakePeopleGateway(
@@ -351,6 +354,7 @@ void main() {
     );
     await tester.tap(find.text('Ada'));
     await tester.pumpAndSettle();
+    await _tapSave(tester);
 
     expect(links, [(storyId: 'story-1', personId: 'p1')]);
     expect(session.result, isNotNull);
@@ -436,6 +440,7 @@ void main() {
     );
     await tester.tap(find.text('Ada'));
     await tester.pumpAndSettle();
+    await _tapSave(tester);
 
     expect(find.byType(SnackBar), findsOneWidget);
     expect(find.text('Already on this story'), findsOneWidget);
@@ -465,6 +470,7 @@ void main() {
     );
     await tester.tap(find.text('Ada'));
     await tester.pumpAndSettle();
+    await _tapSave(tester);
 
     expect(find.widgetWithText(SnackBar, _saveError), findsOneWidget);
     expect(find.text('Try again'), findsNothing);
@@ -615,6 +621,471 @@ void main() {
     expect(session.result!.person.name, 'Grace Hopper');
     expect(find.byKey(_pickerKey), findsNothing);
   });
+
+  testWidgets('tapping a pill selects it and does not link', (tester) async {
+    final api = _FakePeopleGateway(seed: _trio());
+    final links = <({String storyId, String personId})>[];
+    final session = _ModalSession();
+    await _openModal(
+      tester,
+      api: api,
+      storyId: 'story-1',
+      session: session,
+      linkPerson: _record(links),
+    );
+
+    final pill = find.byKey(const Key('add-person-pick-a1'));
+    await tester.tap(pill);
+    await tester.pump();
+
+    expect(links, isEmpty);
+    expect(find.byKey(_pickerKey), findsOneWidget);
+    expect(session.completed, isFalse);
+    final material = tester.widget<Material>(
+      find.ancestor(of: pill, matching: find.byType(Material)).first,
+    );
+    expect(material.color, albumSage.withValues(alpha: 0.18));
+    final shape = material.shape! as RoundedRectangleBorder;
+    expect(shape.side.color, albumSage);
+    expect(
+      find.descendant(of: pill, matching: find.byIcon(Icons.check)),
+      findsOneWidget,
+    );
+    expect(find.descendant(of: pill, matching: find.text('A')), findsNothing);
+  });
+
+  testWidgets('tapping a selected pill clears it', (tester) async {
+    final api = _FakePeopleGateway(seed: _trio());
+    await _openModal(tester, api: api, storyId: 'story-1');
+
+    final pill = find.byKey(const Key('add-person-pick-a1'));
+    await tester.tap(pill);
+    await tester.pump();
+    await tester.tap(pill);
+    await tester.pump();
+
+    expect(
+      find.descendant(of: pill, matching: find.byIcon(Icons.check)),
+      findsNothing,
+    );
+    expect(find.descendant(of: pill, matching: find.text('A')), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Add person'))
+          .onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets('a selected pill is announced as selected', (tester) async {
+    final handle = tester.ensureSemantics();
+    addTearDown(handle.dispose);
+    await _openModal(tester, api: _FakePeopleGateway(seed: _trio()));
+
+    final ada = find.byKey(const Key('add-person-pick-a1'));
+    final grace = find.byKey(const Key('add-person-pick-a2'));
+    await tester.tap(ada);
+    await tester.pump();
+
+    expect(tester.getSemantics(ada), containsSemantics(isSelected: true));
+    expect(tester.getSemantics(grace), containsSemantics(isSelected: false));
+  });
+
+  testWidgets('Add person is disabled until a pill is selected', (
+    tester,
+  ) async {
+    await _openModal(tester, api: _FakePeopleGateway(seed: _trio()));
+
+    final button = find.widgetWithText(FilledButton, 'Add person');
+    expect(button, findsOneWidget);
+    expect(tester.widget<FilledButton>(button).onPressed, isNull);
+
+    await tester.tap(find.byKey(const Key('add-person-pick-a1')));
+    await tester.pump();
+
+    expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
+  });
+
+  testWidgets('selections survive search', (tester) async {
+    final api = _FakePeopleGateway(seed: _trio());
+    final links = <({String storyId, String personId})>[];
+    await _openModal(
+      tester,
+      api: api,
+      storyId: 'story-1',
+      linkPerson: _record(links),
+    );
+
+    await tester.tap(find.byKey(const Key('add-person-pick-a1')));
+    await tester.pump();
+    await tester.enterText(_search, 'Gr');
+    await tester.pump();
+
+    expect(find.text('Ada'), findsNothing);
+    await tester.tap(find.byKey(const Key('add-person-pick-a2')));
+    await tester.pump();
+    await tester.enterText(_search, '');
+    await tester.pump();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('add-person-pick-a1')),
+        matching: find.byIcon(Icons.check),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('add-person-pick-a2')),
+        matching: find.byIcon(Icons.check),
+      ),
+      findsOneWidget,
+    );
+    await _tapSave(tester);
+
+    expect(links, [
+      (storyId: 'story-1', personId: 'a1'),
+      (storyId: 'story-1', personId: 'a2'),
+    ]);
+  });
+
+  testWidgets('Add person links every selected person one at a time', (
+    tester,
+  ) async {
+    final api = _FakePeopleGateway(seed: _trio());
+    final links = <({String storyId, String personId})>[];
+    final gates = <Completer<void>>[];
+    final session = _ModalSession();
+    await _openModal(
+      tester,
+      api: api,
+      storyId: 'story-1',
+      session: session,
+      linkPerson: ({required String storyId, required String personId}) async {
+        links.add((storyId: storyId, personId: personId));
+        final gate = Completer<void>();
+        gates.add(gate);
+        await gate.future;
+      },
+    );
+    addTearDown(() {
+      for (final gate in gates) {
+        if (!gate.isCompleted) gate.complete();
+      }
+    });
+
+    await tester.tap(find.byKey(const Key('add-person-pick-a3')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('add-person-pick-a1')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('add-person-pick-a2')));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+    await tester.pump();
+
+    expect(links, hasLength(1));
+    gates[0].complete();
+    await tester.pump();
+    expect(links, hasLength(2));
+    gates[1].complete();
+    await tester.pump();
+    expect(links, hasLength(3));
+    gates[2].complete();
+    await tester.pumpAndSettle();
+
+    expect(links, [
+      (storyId: 'story-1', personId: 'a3'),
+      (storyId: 'story-1', personId: 'a1'),
+      (storyId: 'story-1', personId: 'a2'),
+    ]);
+    expect(session.result!.people.map((person) => person.id).toList(), [
+      'a3',
+      'a1',
+      'a2',
+    ]);
+    expect(find.byKey(_pickerKey), findsNothing);
+  });
+
+  testWidgets('the button reads Adding… while saving', (tester) async {
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    await _openModal(
+      tester,
+      api: _FakePeopleGateway(seed: _trio()),
+      storyId: 'story-1',
+      linkPerson: ({required String storyId, required String personId}) {
+        return gate.future;
+      },
+    );
+
+    final pill = find.byKey(const Key('add-person-pick-a1'));
+    await tester.tap(pill);
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+    await tester.pump();
+
+    expect(find.text('Adding…'), findsOneWidget);
+    expect(
+      tester.widget<IconButton>(find.byTooltip('Close')).onPressed,
+      isNull,
+    );
+    expect(tester.widget<InkWell>(pill).onTap, isNull);
+  });
+
+  testWidgets(
+    'a partial failure keeps the failed selected and drops the saved',
+    (tester) async {
+      final api = _FakePeopleGateway(seed: _trio());
+      final links = <({String storyId, String personId})>[];
+      var graceAttempts = 0;
+      final session = _ModalSession();
+      await _openModal(
+        tester,
+        api: api,
+        storyId: 'story-1',
+        session: session,
+        linkPerson:
+            ({required String storyId, required String personId}) async {
+              links.add((storyId: storyId, personId: personId));
+              if (personId == 'a2') {
+                graceAttempts++;
+                if (graceAttempts == 1) {
+                  throw const PostgrestException(
+                    message: 'VALIDATION: Already on this story',
+                  );
+                }
+              }
+            },
+      );
+
+      await tester.tap(find.byKey(const Key('add-person-pick-a1')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('add-person-pick-a2')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('add-person-pick-a3')));
+      await tester.pump();
+      await _tapSave(tester);
+
+      expect(links.map((link) => link.personId).toList(), ['a1', 'a2', 'a3']);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('Already on this story'), findsOneWidget);
+      expect(find.byKey(_pickerKey), findsOneWidget);
+      expect(session.completed, isFalse);
+      expect(find.text('Ada'), findsNothing);
+      expect(find.text('Lin'), findsNothing);
+      final grace = find.byKey(const Key('add-person-pick-a2'));
+      expect(
+        find.descendant(of: grace, matching: find.byIcon(Icons.check)),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Add person'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+
+      final before = links.length;
+      await _tapSave(tester);
+
+      expect(links.sublist(before), [(storyId: 'story-1', personId: 'a2')]);
+      expect(session.result!.people.map((person) => person.id).toList(), [
+        'a1',
+        'a3',
+        'a2',
+      ]);
+    },
+  );
+
+  testWidgets('X adds nobody', (tester) async {
+    final links = <({String storyId, String personId})>[];
+    final session = _ModalSession();
+    await _openModal(
+      tester,
+      api: _FakePeopleGateway(seed: _trio()),
+      storyId: 'story-1',
+      session: session,
+      linkPerson: _record(links),
+    );
+
+    await tester.tap(find.byKey(const Key('add-person-pick-a1')));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+
+    expect(links, isEmpty);
+    expect(session.completed, isTrue);
+    expect(session.result, isNull);
+  });
+
+  testWidgets(
+    'X after a partial failure returns only the people already saved',
+    (tester) async {
+      final links = <({String storyId, String personId})>[];
+      final session = _ModalSession();
+      await _openModal(
+        tester,
+        api: _FakePeopleGateway(seed: _trio()),
+        storyId: 'story-1',
+        session: session,
+        linkPerson:
+            ({required String storyId, required String personId}) async {
+              links.add((storyId: storyId, personId: personId));
+              if (personId == 'a2') {
+                throw const PostgrestException(
+                  message: 'VALIDATION: Already on this story',
+                );
+              }
+            },
+      );
+
+      await tester.tap(find.byKey(const Key('add-person-pick-a1')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('add-person-pick-a2')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('add-person-pick-a3')));
+      await tester.pump();
+      await _tapSave(tester);
+
+      final before = links.length;
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      expect(links, hasLength(before));
+      expect(session.result!.people.map((person) => person.id).toList(), [
+        'a1',
+        'a3',
+      ]);
+    },
+  );
+
+  testWidgets('no cap', (tester) async {
+    final people = [
+      for (var i = 1; i <= 25; i++)
+        _dated(
+          id: 'n${i.toString().padLeft(2, '0')}',
+          name: 'Member ${i.toString().padLeft(2, '0')}',
+          birthYear: 1900 + i,
+        ),
+    ];
+    final links = <({String storyId, String personId})>[];
+    final session = _ModalSession();
+    await tester.binding.setSurfaceSize(const Size(800, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _openModal(
+      tester,
+      api: _FakePeopleGateway(seed: people),
+      storyId: 'story-1',
+      session: session,
+      linkPerson: _record(links),
+    );
+
+    final listScroll = find.descendant(
+      of: find.byKey(_pickerKey),
+      matching: find.byType(Scrollable),
+    );
+    for (final person in people) {
+      final row = find.byKey(Key('add-person-pick-${person.id}'));
+      await tester.scrollUntilVisible(row, 80, scrollable: listScroll);
+      await tester.tap(row);
+      await tester.pump();
+    }
+    await _tapSave(tester);
+
+    expect(links, hasLength(25));
+    expect(session.result!.people, hasLength(25));
+  });
+
+  testWidgets('with no story id, picks return without a link', (tester) async {
+    final links = <({String storyId, String personId})>[];
+    final session = _ModalSession();
+    await _openModal(
+      tester,
+      api: _FakePeopleGateway(seed: _trio()),
+      session: session,
+      linkPerson: _record(links),
+    );
+
+    await tester.tap(find.byKey(const Key('add-person-pick-a1')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('add-person-pick-a2')));
+    await tester.pump();
+    await _tapSave(tester);
+
+    expect(links, isEmpty);
+    expect(session.result!.people.map((person) => person.id).toList(), [
+      'a1',
+      'a2',
+    ]);
+  });
+
+  testWidgets('Create new person links only the new person', (tester) async {
+    final api = _FakePeopleGateway(seed: _trio());
+    final links = <({String storyId, String personId})>[];
+    final session = _ModalSession();
+    await _openModal(
+      tester,
+      api: api,
+      storyId: 'story-1',
+      session: session,
+      linkPerson: _record(links),
+    );
+
+    await tester.tap(find.byKey(const Key('add-person-pick-a1')));
+    await tester.pump();
+    expect(find.byIcon(Icons.check), findsOneWidget);
+    await tester.tap(find.text('Create new person'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.check), findsNothing);
+    await tester.enterText(find.byKey(const Key('add-person-name')), 'Ida');
+    await _tapSave(tester);
+
+    expect(api.createCalls, 1);
+    expect(links, [(storyId: 'story-1', personId: 'p1')]);
+    expect(session.result!.people.single.id, 'p1');
+    expect(session.result!.sendInvite, isFalse);
+  });
+
+  testWidgets('Cancel adds nobody', (tester) async {
+    final links = <({String storyId, String personId})>[];
+    final session = _ModalSession();
+    await _openModal(
+      tester,
+      api: _FakePeopleGateway(seed: _trio()),
+      storyId: 'story-1',
+      session: session,
+      linkPerson: _record(links),
+    );
+
+    await tester.tap(find.byKey(const Key('add-person-pick-a1')));
+    await tester.pump();
+    final cancel = find.text('Cancel');
+    await tester.ensureVisible(cancel);
+    await tester.tap(cancel);
+    await tester.pumpAndSettle();
+
+    expect(links, isEmpty);
+    expect(session.result, isNull);
+  });
 }
 
 Finder get _search => find.byKey(_searchKey);
+
+List<Person> _trio() {
+  return [
+    _dated(id: 'a1', name: 'Ada', birthYear: 1815),
+    _dated(id: 'a2', name: 'Grace', birthYear: 1906),
+    _dated(id: 'a3', name: 'Lin', birthYear: 1912),
+  ];
+}
+
+LinkStoryPerson _record(List<({String storyId, String personId})> links) {
+  return ({required String storyId, required String personId}) async {
+    links.add((storyId: storyId, personId: personId));
+  };
+}
