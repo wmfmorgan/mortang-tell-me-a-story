@@ -64,7 +64,7 @@ Bill: "yes. I want this fixed in #33"
 `story_people_insert_editor` and `story_people_update_editor` require `p.family_id = s.family_id`. Since `20261016120000_member_person_rows.sql` there is one person row per tree, so parent-timeline people live only in the parent family. The tree-wide picker offers them and the insert refuses them (Bill, "Liam is Born" in The WFM Morgans, could not add William F Morgan or txmorgan from WHM Morgans).
 
 ### Decision
-A person can be linked to a story when the person's family and the story's family are in the same live tree. Story-side rights are unchanged (`can_edit_story`).
+A person can be linked to a story when the person's family and the story's family are in the same live tree. Story-side rights are unchanged (`can_edit_story`). The helper also requires the caller to be a live member of both trees (TMAS-53-01), so it answers nothing for outsiders.
 
 `family_tree_root` is security definer and NOT executable by `authenticated` on prod, so it cannot be called directly from a policy. `is_tree_member(p.family_id)` is not enough either: it checks the caller, not the story, so a user in two trees could link a person from tree B onto a story in tree A. We do not widen `family_tree_root` (it would hand any signed-in user the root id of any family uuid). Instead, one boolean-only helper.
 
@@ -76,7 +76,7 @@ returns boolean
 language sql stable security definer
 set search_path = ''
 as $$
-  select coalesce(public.family_tree_root(a) = public.family_tree_root(b), false);
+  select coalesce(public.is_tree_member(a) and public.is_tree_member(b) and public.family_tree_root(a) = public.family_tree_root(b), false);
 $$;
 revoke all on function public.same_family_tree(uuid, uuid) from public, anon;
 grant execute on function public.same_family_tree(uuid, uuid) to authenticated;

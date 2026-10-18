@@ -2722,8 +2722,8 @@ Update existing tests (same names unless noted; no assertion removed):
 - UX `docs/ux/m14-multi-add-people.md` maps to U1–U9 and tests 1–14; U10 (Bill C2) covers its Cancel line; U8 pins the amendment's clear-on-create rule (test 13).
 - Design Doc: no change (Gilfoyle 2026-10-18, #50 comment). Maps to G1–G3, the FORBIDDEN rules and the empty `supabase/` and `lib/data/` diff gates.
 
-### §15 M14.6 Story people from anywhere in the tree (#51) (APPROVED by Bill 2026-10-18, rev 2)
-**Status:** **APPROVED by Bill 2026-10-18 (rev 2)** (Bill: "let's go on #51", 3:19 PM CT, relayed verbatim by Erlich). Earlier: **READY rev 2 2026-10-18.** Rev 2: Gilfoyle approved the three `fit_and_finish.sql` edits (2026-10-18), so the CONFLICT is resolved; his condition (cases 3 and 6 run as a caller in both trees) is an explicit guard assertion and acceptance check. Bug fix to existing behavior. Database only: one new migration, one new pgTAP file, and in-place edits to three existing pgTAP files (`definer_grants.sql`, `story_draft_autosave.sql`, `fit_and_finish.sql`). No client change. PRD and UX are unchanged. M14.6 is the next free number: the last §15 item on `main` is M14.4 (CLOSED 2026-10-17), there is no M14.5 or M14.6 on `main`, and open PR #52 (`feat/m14-multi-add-people`, #50) adds "§15 M14.5 Multi-add people (#50)". Update 2026-10-18 3:10 PM CT: #52 merged as `19bf266`, which adds §15 M14.5 to `impl-spec.md` and touches nothing under `supabase/` or `docs/design-doc/`, so every supabase fact below still holds. Branch off `19bf266` and append M14.6 right after M14.5. Code facts are pinned to `main` @ `f3f3244` (#41, "docs: move build docs from Notion into docs/", 2026-10-18 08:12 CT).
+### §15 M14.6 Story people from anywhere in the tree (#51) (APPROVED by Bill 2026-10-18, rev 3)
+**Status:** **APPROVED by Bill 2026-10-18 (rev 3)** (Bill: "Fix TMAS-53-01 in #53 before merging", 4:13 PM CT, relayed verbatim by Erlich). Rev 3 fixes Trinity's Low finding TMAS-53-01: `same_family_tree` had no check on who was calling it. The helper now also requires the caller to be a live member of both trees. Gilfoyle locked the body on 2026-10-18. This adds four helper checks and folds in the planned #42 helper-tests cleanup. Earlier: **APPROVED rev 2** (Bill: "let's go on #51", 3:19 PM CT, relayed verbatim by Erlich); **READY rev 2 2026-10-18.** Rev 2: Gilfoyle approved the three `fit_and_finish.sql` edits (2026-10-18), so the CONFLICT is resolved; his condition (cases 3 and 6 run as a caller in both trees) is an explicit guard assertion and acceptance check. Bug fix to existing behavior. Database only: one new migration, one new pgTAP file, and in-place edits to three existing pgTAP files (`definer_grants.sql`, `story_draft_autosave.sql`, `fit_and_finish.sql`). No client change. PRD and UX are unchanged. M14.6 is the next free number: the last §15 item on `main` is M14.4 (CLOSED 2026-10-17), there is no M14.5 or M14.6 on `main`, and open PR #52 (`feat/m14-multi-add-people`, #50) adds "§15 M14.5 Multi-add people (#50)". Update 2026-10-18 3:10 PM CT: #52 merged as `19bf266`, which adds §15 M14.5 to `impl-spec.md` and touches nothing under `supabase/` or `docs/design-doc/`, so every supabase fact below still holds. Branch off `19bf266` and append M14.6 right after M14.5. Code facts are pinned to `main` @ `f3f3244` (#41, "docs: move build docs from Notion into docs/", 2026-10-18 08:12 CT).
 **Branch:** `fix/m14-story-people-same-tree`, one PR off `main`. One milestone per PR. No push to `main`. Don't merge. Stop after opening the PR. Follow the Grok Build CLI Contract.
 > 🔍 INFER: Branch `fix/m14-story-people-same-tree` because this is a bug fix and earlier fixes use the `fix/<milestone>-<topic>` prefix (`fix/definer-grants-hotfix`, `fix/m14-3-blank-display-name`). No branch with this name exists yet.
 **Sources:** GitHub issue [#51](https://github.com/wmfmorgan/mortang-tell-me-a-story/issues/51) (Bill, 2026-10-18: on The WFM Morgans story "Liam is Born", adding William F Morgan or txmorgan shows "Couldn't save person. Try again."); Gilfoyle, Design Doc "M14 amendment: #51, story people from anywhere in the tree (LOCKED 2026-10-18)", which wins on all SQL, RLS and pgTAP cases and lands verbatim in `docs/design-doc/m14-people-profiles.md` in this PR. PRD and UX unchanged.
@@ -2770,7 +2770,7 @@ returns boolean
 language sql stable security definer
 set search_path = ''
 as $$
-  select coalesce(public.family_tree_root(a) = public.family_tree_root(b), false);
+  select coalesce(public.is_tree_member(a) and public.is_tree_member(b) and public.family_tree_root(a) = public.family_tree_root(b), false);
 $$;
 revoke all on function public.same_family_tree(uuid, uuid) from public, anon;
 grant execute on function public.same_family_tree(uuid, uuid) to authenticated;
@@ -2804,7 +2804,7 @@ alter policy story_people_update_editor on public.story_people
 - R2 **Soft deletes.** A person in a soft-deleted family is refused (`family_tree_root` returns null, `coalesce` gives false). A child timeline whose parent is soft-deleted counts as its own tree, so people in that parent are refused (M10 lock).
 - R3 **Existing links untouched.** No data change, no backfill. `story_people_select_member` and `story_people_delete_editor` are unchanged.
 - R4 **`alter policy` only.** Policy names and count stay as they are (47).
-- R5 **One new definer.** `same_family_tree` returns a boolean only; `family_tree_root` keeps its grants (no `authenticated` execute).
+- R5 **One new definer.** `same_family_tree` returns a boolean only; `family_tree_root` keeps its grants (no `authenticated` execute). It returns true only when the caller is a live member of both trees (`is_tree_member(a)` and `is_tree_member(b)`). A signed-in outsider always gets false, so it reveals nothing about tree structure (TMAS-53-01).
 - R6 **Errors.** A refusal is the standard RLS error, SQLSTATE `42501` ("new row violates row-level security policy for table "story_people""). The client keeps showing its existing message; `mapRpcError` is unchanged at 4 prefixes.
 - PR body: paste `with_check` and `qual` of both policies from `pg_policies` before and after, and `pg_get_functiondef('public.same_family_tree(uuid,uuid)'::regprocedure)`, from local.
 
@@ -2829,7 +2829,7 @@ select lives_ok(
 #### New pgTAP file (mandatory, TDD: write it first, see it fail on `main`'s policies, apply the migration, green)
 `supabase/tests/story_people_same_tree.sql`, structured like the files above (`begin;` … `select * from finish(); rollback;`), context table `m51_ctx`, uuids with a `51` marker (e.g. `a5100000-0000-4000-8000-0000000000a1`).
 Fixtures (seed as superuser unless noted):
-- Users: `owner_id` (owns the root), `editor_id` (the caller in every refusal and pass).
+- Users: `owner_id` (owns the root), `editor_id` (the caller in every refusal and pass), and `outsider_id` `a5100000-0000-4000-8000-0000000000a3` (seeded in `auth.users`, with no memberships; used only in check 9).
 - Tree A: root `root_id` (`create_family('Root')` as `owner_id`); live child `child_id` (`parent_family_id = root_id`), `editor_id` a `member`; sibling child `gone_sib_id` under `root_id`, soft-deleted at the end of setup.
 - Tree B: `other_root_id`, a separate root, with `editor_id` a `member` (live). This makes case 3 the one `is_tree_member` alone would let through.
 - Tree C: root `dead_parent_id` and its live child `orphan_child_id` (`editor_id` a `member`); `dead_parent_id` is soft-deleted at the end of setup.
@@ -2847,18 +2847,24 @@ Cases (Gilfoyle 1–7):
 4. `throws_ok` 42501, same message: insert (`child_story`, `gone_person`). Person's family soft-deleted.
 5. `throws_ok` 42501, same message: insert (`orphan_story_id`, `dead_parent_person`). Child timeline whose parent is soft-deleted, person in that parent.
 6. `throws_ok(..., '42501', null, ...)`: `update public.story_people set person_id = (select other_person from m51_ctx) where story_id = (select child_story from m51_ctx) and person_id = (select child_person from m51_ctx)`. Move an existing link to an unrelated-tree person.
+Helper checks (rev 3, TMAS-53-01). These run after case 6 and before case 7, never as superuser:
+8a. As `editor_id`: `ok(public.same_family_tree((select child_id from m51_ctx), (select root_id from m51_ctx)), 'same_family_tree is true inside one live tree (#51 helper)')`
+8b. As `editor_id`: `ok(not public.same_family_tree((select child_id from m51_ctx), (select gone_sib_id from m51_ctx)), 'same_family_tree is false for a soft-deleted sibling timeline (#51 helper)')`
+8c. As `editor_id`: `ok(not public.same_family_tree((select orphan_child_id from m51_ctx), (select dead_parent_id from m51_ctx)), 'same_family_tree is false across a soft-deleted parent (#51 helper)')`
+9. `set local request.jwt.claim.sub` = `outsider_id` (role stays `authenticated`), then: `ok(not public.same_family_tree((select child_id from m51_ctx), (select root_id from m51_ctx)), 'a signed-in user outside the tree gets false (TMAS-53-01)')`
+Then case 7 as written (it starts with `reset role`).
 7. After `reset role`, three assertions:
 	- `ok(not has_function_privilege('anon', 'public.same_family_tree(uuid, uuid)', 'execute'), 'anon cannot execute same_family_tree')`
 	- `ok(has_function_privilege('authenticated', 'public.same_family_tree(uuid, uuid)', 'execute'), 'authenticated can execute same_family_tree')`
 	- `ok(exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'same_family_tree' and p.prosecdef and 'search_path=""' = any (p.proconfig)), 'same_family_tree is security definer with search_path=""')`
-**`select plan(10);`**
-> 🔍 INFER: Plan 10 because the guard is one assertion, cases 1–6 are one each, and case 7 is three checks (anon, authenticated, definer plus `search_path`); folding case 7 into one `ok` would hide which grant broke. pgTAP total becomes 739 + 10 = **749**.
+**`select plan(14);`**
+> 🔍 INFER: Plan 14 because the guard is one assertion, cases 1–6 are one each, helper checks 8a–8c and 9 are four, and case 7 is three checks (anon, authenticated, definer plus `search_path`); folding case 7 into one `ok` would hide which grant broke. pgTAP total becomes 739 + 14 = **753**.
 > 🔍 INFER: Case 6 passes `null` as the message because an UPDATE refused by WITH CHECK is matched on SQLSTATE only, the pattern at `story_draft_autosave.sql` l.408–414; inserts keep the full message, the pattern at `fit_and_finish.sql` l.425–431 and `story_photos_tree_read_guard.sql` l.138–147.
 > 🔍 INFER: Case 4 uses a soft-deleted sibling timeline under a live root, not the story's own timeline, because a soft-deleted story family would already fail `can_edit_story` and would not test the person side.
 
 #### Gates (paste every command's full output in the PR body)
-- `supabase test db` (pgTAP): exactly **749** (739 + 10 in the new file; the existing 22 files keep their plans: `definer_grants.sql` 68, `story_draft_autosave.sql` 42, `fit_and_finish.sql` 60), 0 failing, full output pasted.
-- Acceptance (Gilfoyle's condition): in the output, guard 0 `the caller is a live member of both trees (#51 cases 3 and 6)` passes, and cases 3 and 6 throw 42501 as that same `editor_id`. The PR body states the caller of cases 3 and 6 is `editor_id`.
+- `supabase test db` (pgTAP): exactly **753** (739 + 14 in the new file; the existing 22 files keep their plans: `definer_grants.sql` 68, `story_draft_autosave.sql` 42, `fit_and_finish.sql` 60), 0 failing, full output pasted. `fit_and_finish.sql` l.425 `lives_ok` (child-timeline person on a parent-timeline story) must stay green with the gated body.
+- Acceptance (Gilfoyle's condition): in the output, guard 0 `the caller is a live member of both trees (#51 cases 3 and 6)` passes, and cases 3 and 6 throw 42501 as that same `editor_id`. The PR body states the caller of cases 3 and 6 is `editor_id`. Check 9 passes as `outsider_id`, and checks 8a–8c pass as `editor_id`. The PR body states both callers.
 - Policies exactly **47** (pin `supabase/tests/fit_and_finish.sql:611`, the count query; `47` at l.612; unchanged).
 - Definer allowlist exactly **30**. EXPECTED change from 29 (`same_family_tree`), in `definer_grants.sql` and `story_draft_autosave.sql:498`.
 - `mapRpcError` exactly 4 prefixes: `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, `INVITE_INVALID:`.
@@ -2880,6 +2886,7 @@ Cases (Gilfoyle 1–7):
 #### Design Doc append
 - Append Gilfoyle's "M14 amendment: #51, story people from anywhere in the tree (LOCKED 2026-10-18)" section verbatim at the end of `docs/design-doc/m14-people-profiles.md` (after l.60), from its H2 line through pgTAP case 7.
 > 🔍 INFER: Keep his migration heading's `<next timestamp after 20261017000100>` placeholder as written, because the section must land verbatim; the concrete filename is pinned in this item.
+- Rev 3 (TMAS-53-01, Gilfoyle's lock, same push): in that section, the SQL block uses the gated body from the Migration above. Add this sentence to the Decision paragraph: "The helper also requires the caller to be a live member of both trees (TMAS-53-01), so it answers nothing for outsiders."
 
 #### Done / Bill smoke (after deploy)
 1. Open The WFM Morgans timeline, story "Liam is Born", Edit. Open Add person and add William F Morgan (WHM Morgans). It saves with no error and a chip shows.
@@ -2891,3 +2898,4 @@ Cases (Gilfoyle 1–7):
 - Gilfoyle Design Doc "M14 amendment: #51 … (LOCKED 2026-10-18)": Decision maps to R1 and R5; Soft deletes to R2 and cases 4–5; Gates to the Gates list; pgTAP 1–7 to the new file's cases 1–7; "do not widen `family_tree_root`" and "`is_tree_member` is not enough" to case 3 and FORBIDDEN.
 - Existing test edits 1–4 map to Gilfoyle's 2026-10-18 approval (allowlist 29 to 30; policy text and old-behavior pins). Guard 0 maps to his condition on cases 3 and 6.
 - PRD and UX: unchanged (bug fix to existing tree-wide picker behavior, `docs/design-doc/m14-people-profiles.md` l.55).
+- Trinity TMAS-53-01 (Low, `same_family_tree` had no caller check), with Bill's fix-now call (4:13 PM CT): this maps to the gated body in the Migration, R5, helper checks 8a–8c and 9, and the Design Doc rev 3 sentence. The planned #42 helper-tests cleanup is folded in here. Info items 53-02 and 53-03 stay on #42.

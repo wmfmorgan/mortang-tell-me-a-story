@@ -179,40 +179,36 @@ select throws_ok(
   'moving an existing link to an unrelated-tree person is refused (#51 case 6)'
 );
 
-select is(
+select ok(
   public.same_family_tree(
     (select child_id from m51_ctx),
     (select root_id from m51_ctx)
   ),
-  true,
-  'same_family_tree is true for a child and its live root when the caller is in the tree (TMAS-53-01)'
+  'same_family_tree is true inside one live tree (#51 helper)'
 );
-select is(
-  public.same_family_tree(
+select ok(
+  not public.same_family_tree(
     (select child_id from m51_ctx),
     (select gone_sib_id from m51_ctx)
   ),
-  false,
-  'same_family_tree is false for a soft-deleted sibling (TMAS-53-01)'
+  'same_family_tree is false for a soft-deleted sibling timeline (#51 helper)'
 );
-select is(
-  public.same_family_tree(
+select ok(
+  not public.same_family_tree(
     (select orphan_child_id from m51_ctx),
     (select dead_parent_id from m51_ctx)
   ),
-  false,
-  'same_family_tree is false for an orphan child and its soft-deleted parent (TMAS-53-01)'
+  'same_family_tree is false across a soft-deleted parent (#51 helper)'
 );
 
 set local request.jwt.claim.sub = 'a5100000-0000-4000-8000-0000000000a3';
 
-select is(
-  public.same_family_tree(
+select ok(
+  not public.same_family_tree(
     (select child_id from m51_ctx),
     (select root_id from m51_ctx)
   ),
-  false,
-  'same_family_tree is false for an outsider with no memberships (TMAS-53-01)'
+  'a signed-in user outside the tree gets false (TMAS-53-01)'
 );
 
 reset role;

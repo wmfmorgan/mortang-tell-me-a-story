@@ -3,7 +3,7 @@ returns boolean
 language sql stable security definer
 set search_path = ''
 as $$
-  select coalesce(public.family_tree_root(a) = public.family_tree_root(b), false);
+  select coalesce(public.is_tree_member(a) and public.is_tree_member(b) and public.family_tree_root(a) = public.family_tree_root(b), false);
 $$;
 revoke all on function public.same_family_tree(uuid, uuid) from public, anon;
 grant execute on function public.same_family_tree(uuid, uuid) to authenticated;
