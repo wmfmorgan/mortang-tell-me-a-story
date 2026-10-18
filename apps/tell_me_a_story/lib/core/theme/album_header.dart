@@ -33,6 +33,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
     this.onInvite,
     this.onSaveDraft,
     this.onPublish,
+    this.captureStatus,
     this.captureSecondaryLabel = 'Save draft',
     this.capturePrimaryLabel = 'Publish story',
     this.onLogout,
@@ -51,6 +52,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
+  final String? captureStatus;
   final String captureSecondaryLabel;
   final String capturePrimaryLabel;
   final Future<void> Function()? onLogout;
@@ -82,6 +84,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
             final natural = _HeaderMetrics.of(
               page: page,
               familyName: familyName,
+              captureStatus: captureStatus,
             );
             final bar = _HeaderBar(
               page: page,
@@ -96,6 +99,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               onInvite: onInvite,
               onSaveDraft: onSaveDraft,
               onPublish: onPublish,
+              captureStatus: captureStatus,
               captureSecondaryLabel: captureSecondaryLabel,
               capturePrimaryLabel: capturePrimaryLabel,
               onLogout: onLogout,
@@ -152,6 +156,7 @@ class _HeaderBar extends StatelessWidget {
     required this.onInvite,
     required this.onSaveDraft,
     required this.onPublish,
+    required this.captureStatus,
     required this.captureSecondaryLabel,
     required this.capturePrimaryLabel,
     required this.onLogout,
@@ -174,6 +179,7 @@ class _HeaderBar extends StatelessWidget {
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
+  final String? captureStatus;
   final String captureSecondaryLabel;
   final String capturePrimaryLabel;
   final Future<void> Function()? onLogout;
@@ -182,6 +188,68 @@ class _HeaderBar extends StatelessWidget {
   final VoidCallback onDrafts;
   final VoidCallback onNewStory;
   final _HeaderMetrics metrics;
+
+  Widget _captureActions() {
+    final actions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (captureStatus != null) ...[
+          Text(
+            captureStatus!,
+            style: GoogleFonts.sourceSans3(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: albumInk.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+        TextButton(
+          onPressed: onSaveDraft,
+          style: TextButton.styleFrom(
+            foregroundColor: albumInk,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            side: BorderSide(color: albumInk.withValues(alpha: 0.3)),
+            shape: const StadiumBorder(),
+            textStyle: GoogleFonts.sourceSans3(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          child: Text(captureSecondaryLabel),
+        ),
+        const SizedBox(width: 12),
+        FilledButton(
+          onPressed: onPublish,
+          style: FilledButton.styleFrom(
+            backgroundColor: albumTerracotta,
+            foregroundColor: const Color(0xFFFFF6F3),
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            shape: const StadiumBorder(),
+            textStyle: GoogleFonts.sourceSans3(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          child: Text(capturePrimaryLabel),
+        ),
+      ],
+    );
+    if (metrics.loose) return actions;
+    // The capture bar is already at its shrink floor on an 800px window.
+    // Scale the buttons instead of overflowing when Saved or Not saved appears.
+    return Flexible(
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: actions,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -230,45 +298,11 @@ class _HeaderBar extends StatelessWidget {
           ),
           SizedBox(width: metrics.gaps[4]),
           SizedBox(width: metrics.search, child: const _SearchChip()),
-          if (!metrics.loose) const Spacer(),
-          if (page == AlbumHeaderPage.capture) ...[
-            TextButton(
-              onPressed: onSaveDraft,
-              style: TextButton.styleFrom(
-                foregroundColor: albumInk,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 10,
-                ),
-                side: BorderSide(color: albumInk.withValues(alpha: 0.3)),
-                shape: const StadiumBorder(),
-                textStyle: GoogleFonts.sourceSans3(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              child: Text(captureSecondaryLabel),
-            ),
-            const SizedBox(width: 12),
-            FilledButton(
-              onPressed: onPublish,
-              style: FilledButton.styleFrom(
-                backgroundColor: albumTerracotta,
-                foregroundColor: const Color(0xFFFFF6F3),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 10,
-                ),
-                shape: const StadiumBorder(),
-                textStyle: GoogleFonts.sourceSans3(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              child: Text(capturePrimaryLabel),
-            ),
-          ] else if (canWrite) ...[
+          if (!metrics.loose && page != AlbumHeaderPage.capture)
+            const Spacer(),
+          if (page == AlbumHeaderPage.capture)
+            _captureActions()
+          else if (canWrite) ...[
             TextButton(
               key: const Key('header-invite'),
               onPressed: onInvite,
@@ -323,6 +357,7 @@ class _HeaderMetrics {
     required this.search,
     required this.gaps,
     required this.loose,
+    this.captureStatus,
   });
 
   final AlbumHeaderPage page;
@@ -332,6 +367,7 @@ class _HeaderMetrics {
   final double search;
   final List<double> gaps;
   final bool loose;
+  final String? captureStatus;
 
   static const _searchMax = 224.0;
   static const _searchMin = 54.0;
@@ -342,6 +378,7 @@ class _HeaderMetrics {
   static _HeaderMetrics of({
     required AlbumHeaderPage page,
     required String familyName,
+    String? captureStatus,
   }) {
     return _HeaderMetrics(
       page: page,
@@ -351,6 +388,7 @@ class _HeaderMetrics {
       search: _searchMax,
       gaps: const [16, 12, 20, 18, 16],
       loose: true,
+      captureStatus: captureStatus,
     );
   }
 
@@ -417,6 +455,7 @@ class _HeaderMetrics {
       search: search,
       gaps: gaps,
       loose: false,
+      captureStatus: captureStatus,
     );
   }
 
@@ -432,7 +471,19 @@ class _HeaderMetrics {
     const between = 8.0;
     if (page == AlbumHeaderPage.capture) {
       // Keep this in sync with the capture buttons in [_HeaderBar].
-      return _textWidth(
+      final status = captureStatus;
+      final statusWidth = status == null
+          ? 0.0
+          : _textWidth(
+                status,
+                GoogleFonts.sourceSans3(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ) +
+              12;
+      return statusWidth +
+          _textWidth(
             'Save draft',
             GoogleFonts.sourceSans3(fontSize: 14, fontWeight: FontWeight.w600),
           ) +

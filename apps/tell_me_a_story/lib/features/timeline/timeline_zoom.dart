@@ -25,7 +25,7 @@ List<Story> publishedStories(Iterable<Story> stories) {
 List<DecadeBand> decadeBands(Iterable<Story> stories) {
   final grouped = <int, List<Story>>{};
   for (final story in publishedStories(stories)) {
-    final start = decadeStartYear(story.timeframeStart);
+    final start = decadeStartYear(story.publishedStart);
     (grouped[start] ??= []).add(story);
   }
   final years = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -41,7 +41,7 @@ List<DecadeBand> decadeBands(Iterable<Story> stories) {
 /// Oldest story first, for the mid rail.
 List<Story> decadeOldestFirst(Iterable<Story> stories, int startYear) {
   final rows = publishedStories(stories)
-      .where((story) => decadeStartYear(story.timeframeStart) == startYear)
+      .where((story) => decadeStartYear(story.publishedStart) == startYear)
       .toList();
   rows.sort(compareStories);
   return rows;
@@ -235,9 +235,9 @@ List<TreeFamily> marksOnDecade(List<TreeFamily> marks, int startYear) {
 int closestNewerStoryIndex(List<Story> newestFirst, int year) {
   if (newestFirst.isEmpty) return 0;
   var best = 0;
-  var bestDelta = (newestFirst.first.timeframeStart.year - year).abs();
+  var bestDelta = (newestFirst.first.publishedStart.year - year).abs();
   for (var i = 1; i < newestFirst.length; i++) {
-    final delta = (newestFirst[i].timeframeStart.year - year).abs();
+    final delta = (newestFirst[i].publishedStart.year - year).abs();
     if (delta < bestDelta) {
       bestDelta = delta;
       best = i;
@@ -251,7 +251,7 @@ int closestNewerStoryIndex(List<Story> newestFirst, int year) {
 /// that year. A year past both ends sits at that end.
 int fullCardMarkIndex(List<Story> newestFirst, int branchYear) {
   for (var i = 0; i < newestFirst.length; i++) {
-    if (newestFirst[i].timeframeStart.year <= branchYear) return i;
+    if (newestFirst[i].publishedStart.year <= branchYear) return i;
   }
   return newestFirst.length;
 }
@@ -268,7 +268,7 @@ int closestStoryIndex(List<Story> oldestFirst, DateTime createdAt) {
   var best = 0;
   var bestDelta = 1 << 30;
   for (var i = 0; i < oldestFirst.length; i++) {
-    final delta = (oldestFirst[i].timeframeStart.year - createdAt.year).abs();
+    final delta = (oldestFirst[i].publishedStart.year - createdAt.year).abs();
     if (delta < bestDelta) {
       bestDelta = delta;
       best = i;

@@ -532,9 +532,9 @@ class _TimelinePageState extends State<TimelinePage> {
     final rows = dialStories(_published);
     if (rows.isEmpty) return;
     var best = rows.first;
-    var bestDelta = (best.timeframeStart.year - year).abs();
+    var bestDelta = (best.publishedStart.year - year).abs();
     for (final story in rows.skip(1)) {
-      final delta = (story.timeframeStart.year - year).abs();
+      final delta = (story.publishedStart.year - year).abs();
       if (delta < bestDelta) {
         best = story;
         bestDelta = delta;
@@ -1750,10 +1750,10 @@ class _MidRailState extends State<_MidRail> {
   int _focusYear() {
     final id = _centerId ?? widget.focusedId;
     for (final story in widget.stories) {
-      if (story.id == id) return story.timeframeStart.year;
+      if (story.id == id) return story.publishedStart.year;
     }
     if (widget.stories.isEmpty) return 0;
-    return widget.stories.first.timeframeStart.year;
+    return widget.stories.first.publishedStart.year;
   }
 
   @override
@@ -2746,10 +2746,10 @@ class _FullCardRailState extends State<_FullCardRail> {
   int _focusYear() {
     final id = _centerId ?? widget.focusedId;
     for (final story in widget.stories) {
-      if (story.id == id) return story.timeframeStart.year;
+      if (story.id == id) return story.publishedStart.year;
     }
     if (widget.stories.isEmpty) return 0;
-    return widget.stories.first.timeframeStart.year;
+    return widget.stories.first.publishedStart.year;
   }
 
   @override

@@ -21,7 +21,7 @@ class Story {
     required this.authorId,
     this.title,
     this.body,
-    required this.timeframeStart,
+    this.timeframeStart,
     this.timeframeEnd,
     this.datePrecision = StoryDatePrecision.day,
     this.createdAt,
@@ -44,7 +44,17 @@ class Story {
   final String authorId;
   final String? title;
   final String? body;
-  final DateTime timeframeStart; // date only
+  final DateTime? timeframeStart; // date only; null until the author sets one
+
+  /// Start date of a published story. A published row always has one.
+  DateTime get publishedStart {
+    final start = timeframeStart;
+    if (start == null) {
+      throw StateError('published story $id is missing a start date');
+    }
+    return start;
+  }
+
   final DateTime? timeframeEnd;
   final StoryDatePrecision datePrecision;
   final DateTime? createdAt;
@@ -73,7 +83,9 @@ class Story {
       authorId: json['author_id'] as String,
       title: json['title'] as String?,
       body: json['body'] as String?,
-      timeframeStart: _parseDate(json['timeframe_start'] as String),
+      timeframeStart: json['timeframe_start'] == null
+          ? null
+          : _parseDate(json['timeframe_start'] as String),
       timeframeEnd: json['timeframe_end'] != null
           ? _parseDate(json['timeframe_end'] as String)
           : null,
@@ -175,6 +187,7 @@ int _rowCount(Object? rows) => rows is List ? rows.length : 0;
 
 String _profileWhen(Story story) {
   final start = story.timeframeStart;
+  if (start == null) return '';
   const months = [
     'January',
     'February',
@@ -285,18 +298,40 @@ void ensureValidDraftSave({required DateTime? timeframeStart}) {
   }
 }
 
+/// A retried insert of the same client id. The caller updates that row.
+bool isDuplicateStoryKey(Object error) {
+  if (error is! PostgrestException) return false;
+  if (error.code == '23505') return true;
+  final message = error.message.toLowerCase();
+  return message.contains('duplicate key');
+}
+
 abstract class StoriesGateway {
   Future<Story> createDraft({
+    String? id,
     required String familyId,
-    required DateTime timeframeStart,
+    DateTime? timeframeStart,
     DateTime? timeframeEnd,
     String? datePrecision,
     String? title,
     String? body,
     String? placeId,
+    bool allowUndated = false,
     List<String> personIds = const [],
   });
   Future<Story> updateDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  });
+
+  /// Autosave and save-on-leave only. False when the row is no longer a draft.
+  Future<bool> autosaveDraft({
     required String storyId,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
@@ -332,30 +367,36 @@ class StoriesApi implements StoriesGateway {
 
   @override
   Future<Story> createDraft({
+    String? id,
     required String familyId,
-    required DateTime timeframeStart,
+    DateTime? timeframeStart,
     DateTime? timeframeEnd,
     String? datePrecision,
     String? title,
     String? body,
     String? placeId,
+    bool allowUndated = false,
     List<String> personIds = const [],
   }) async {
-    ensureValidDraftSave(timeframeStart: timeframeStart);
+    if (!allowUndated) {
+      ensureValidDraftSave(timeframeStart: timeframeStart);
+    }
     final uid = _client.auth.currentUser!.id;
+    final payload = <String, dynamic>{
+      'family_id': familyId,
+      'author_id': uid,
+      'title': storedStoryTitle(title),
+      'body': body?.trim(),
+      'timeframe_start': timeframeStart == null ? null : _date(timeframeStart),
+      'timeframe_end': timeframeEnd == null ? null : _date(timeframeEnd),
+      if (datePrecision != null) 'date_precision': datePrecision,
+      'place_id': placeId,
+      'status': 'draft',
+    };
+    if (id != null) payload['id'] = id;
     final row = await _client
         .from('stories')
-        .insert({
-          'family_id': familyId,
-          'author_id': uid,
-          'title': storedStoryTitle(title),
-          'body': body?.trim(),
-          'timeframe_start': _date(timeframeStart),
-          'timeframe_end': timeframeEnd == null ? null : _date(timeframeEnd),
-          if (datePrecision != null) 'date_precision': datePrecision,
-          'place_id': placeId,
-          'status': 'draft',
-        })
+        .insert(payload)
         .select(_storySelect)
         .single();
     final story = Story.fromJson(row);
@@ -366,6 +407,56 @@ class StoriesApi implements StoriesGateway {
   @override
   Future<Story> updateDraft({
     required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) async {
+    await _applyStoryWrite(
+      storyId: storyId,
+      draftsOnly: false,
+      timeframeStart: timeframeStart,
+      timeframeEnd: timeframeEnd,
+      datePrecision: datePrecision,
+      title: title,
+      body: body,
+      placeId: placeId,
+      personIds: personIds,
+    );
+    return getStory(storyId);
+  }
+
+  @override
+  Future<bool> autosaveDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) {
+    return _applyStoryWrite(
+      storyId: storyId,
+      draftsOnly: true,
+      timeframeStart: timeframeStart,
+      timeframeEnd: timeframeEnd,
+      datePrecision: datePrecision,
+      title: title,
+      body: body,
+      placeId: placeId,
+      personIds: personIds,
+    );
+  }
+
+  /// Story update plus `story_people` replace. [draftsOnly] is the only fork.
+  Future<bool> _applyStoryWrite({
+    required String storyId,
+    required bool draftsOnly,
     DateTime? timeframeStart,
     DateTime? timeframeEnd,
     String? datePrecision,
@@ -398,12 +489,24 @@ class StoriesApi implements StoriesGateway {
       patch['place_id'] = placeId.isEmpty ? null : placeId;
     }
     if (patch.isNotEmpty) {
-      await _client.from('stories').update(patch).eq('id', storyId);
+      var update = _client.from('stories').update(patch).eq('id', storyId);
+      if (draftsOnly) {
+        update = update.eq('status', 'draft');
+      }
+      final rows = await update.select('id');
+      if (rows.isEmpty) return false;
+    } else if (draftsOnly) {
+      final rows = await _client
+          .from('stories')
+          .select('id')
+          .eq('id', storyId)
+          .eq('status', 'draft');
+      if (rows.isEmpty) return false;
     }
     if (personIds != null) {
       await _replacePeople(storyId, personIds);
     }
-    return getStory(storyId);
+    return true;
   }
 
   @override
@@ -502,11 +605,13 @@ class StoriesApi implements StoriesGateway {
         .eq('family_id', familyId)
         .eq('status', 'draft')
         .eq('author_id', uid)
-        .order('timeframe_start')
+        .order('timeframe_start', nullsFirst: false)
         .order('date_precision')
         .order('created_at')
         .order('id');
-    return rows.map(Story.fromJson).toList();
+    final stories = rows.map(Story.fromJson).toList();
+    stories.sort(compareStories);
+    return stories;
   }
 
   @override
@@ -561,19 +666,19 @@ int decadeStartYear(DateTime start) => (start.year ~/ 10) * 10;
 
 /// Oldest first: start, precision, created_at, id. Newest-first is the reverse.
 int compareStories(Story a, Story b) {
-  final start =
-      DateTime(
-        a.timeframeStart.year,
-        a.timeframeStart.month,
-        a.timeframeStart.day,
-      ).compareTo(
-        DateTime(
-          b.timeframeStart.year,
-          b.timeframeStart.month,
-          b.timeframeStart.day,
-        ),
-      );
-  if (start != 0) return start;
+  final aStart = a.timeframeStart;
+  final bStart = b.timeframeStart;
+  if (aStart == null || bStart == null) {
+    if (aStart == null && bStart != null) return 1;
+    if (aStart != null && bStart == null) return -1;
+  } else {
+    final start = DateTime(
+      aStart.year,
+      aStart.month,
+      aStart.day,
+    ).compareTo(DateTime(bStart.year, bStart.month, bStart.day));
+    if (start != 0) return start;
+  }
   final precision = a.datePrecision.index.compareTo(b.datePrecision.index);
   if (precision != 0) return precision;
   final aCreated = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);

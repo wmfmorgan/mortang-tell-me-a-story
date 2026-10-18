@@ -110,7 +110,7 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
 
   String _prefill(Story? story) {
     if (story == null) return '';
-    return '${story.timeframeStart.year}';
+    return '${story.publishedStart.year}';
   }
 
   void _refresh() {
@@ -303,7 +303,7 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
                 ListTile(
                   key: Key('start-timeline-story-${story.id}'),
                   title: Text(storyTitle(story)),
-                  subtitle: Text('${story.timeframeStart.year}'),
+                  subtitle: Text('${story.publishedStart.year}'),
                   onTap: () {
                     setState(() {
                       _origin = story;
@@ -378,7 +378,7 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${storyTitle(origin)} · ${origin.timeframeStart.year}',
+                            '${storyTitle(origin)} · ${origin.publishedStart.year}',
                             style: GoogleFonts.literata(
                               color: albumInk,
                               fontSize: 16,
