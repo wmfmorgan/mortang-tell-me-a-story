@@ -3,11 +3,12 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(10);
+select plan(14);
 
 create temporary table m51_ctx (
   owner_id uuid primary key,
   editor_id uuid not null,
+  outsider_id uuid not null,
   root_id uuid,
   child_id uuid,
   gone_sib_id uuid,
@@ -27,13 +28,14 @@ create temporary table m51_ctx (
 grant all on table m51_ctx to authenticated, anon, service_role;
 
 insert into m51_ctx (
-  owner_id, editor_id,
+  owner_id, editor_id, outsider_id,
   root_person, child_person, child_person2, gone_person, other_person, dead_parent_person,
   child_story, orphan_story_id
 )
 values (
   'a5100000-0000-4000-8000-0000000000a1',
   'a5100000-0000-4000-8000-0000000000a2',
+  'a5100000-0000-4000-8000-0000000000a3',
   'a5100000-0000-4000-8000-0000000000b1',
   'a5100000-0000-4000-8000-0000000000b2',
   'a5100000-0000-4000-8000-0000000000b3',
@@ -47,7 +49,9 @@ values (
 insert into auth.users (id, email, raw_user_meta_data)
 select owner_id, 'm51-owner@test.local', '{"display_name":"Owner"}'::jsonb from m51_ctx
 union all
-select editor_id, 'm51-editor@test.local', '{"display_name":"Editor"}'::jsonb from m51_ctx;
+select editor_id, 'm51-editor@test.local', '{"display_name":"Editor"}'::jsonb from m51_ctx
+union all
+select outsider_id, 'm51-outsider@test.local', '{"display_name":"Outsider"}'::jsonb from m51_ctx;
 
 set local role authenticated;
 set local request.jwt.claim.sub = 'a5100000-0000-4000-8000-0000000000a1';
@@ -173,6 +177,42 @@ select throws_ok(
   '42501',
   null,
   'moving an existing link to an unrelated-tree person is refused (#51 case 6)'
+);
+
+select is(
+  public.same_family_tree(
+    (select child_id from m51_ctx),
+    (select root_id from m51_ctx)
+  ),
+  true,
+  'same_family_tree is true for a child and its live root when the caller is in the tree (TMAS-53-01)'
+);
+select is(
+  public.same_family_tree(
+    (select child_id from m51_ctx),
+    (select gone_sib_id from m51_ctx)
+  ),
+  false,
+  'same_family_tree is false for a soft-deleted sibling (TMAS-53-01)'
+);
+select is(
+  public.same_family_tree(
+    (select orphan_child_id from m51_ctx),
+    (select dead_parent_id from m51_ctx)
+  ),
+  false,
+  'same_family_tree is false for an orphan child and its soft-deleted parent (TMAS-53-01)'
+);
+
+set local request.jwt.claim.sub = 'a5100000-0000-4000-8000-0000000000a3';
+
+select is(
+  public.same_family_tree(
+    (select child_id from m51_ctx),
+    (select root_id from m51_ctx)
+  ),
+  false,
+  'same_family_tree is false for an outsider with no memberships (TMAS-53-01)'
 );
 
 reset role;
