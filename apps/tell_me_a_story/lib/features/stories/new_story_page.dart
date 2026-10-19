@@ -298,6 +298,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
       _title.text = story.title ?? '';
       _body.text = story.body ?? '';
       _placeId = story.placeId;
+      _unloadedPersonIds
+        ..clear()
+        ..addAll(story.personIds);
       _shellMapFailed = !_tokenOk;
     });
 
