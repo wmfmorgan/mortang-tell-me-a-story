@@ -30,6 +30,13 @@ const _ada = Person(
   createdBy: 'u1',
 );
 
+const _will = Person(
+  id: 'w1',
+  familyId: '00000000-0000-0000-0000-000000000002',
+  name: 'William F Morgan',
+  createdBy: 'u1',
+);
+
 const _bob = Person(
   id: 'p2',
   familyId: _familyId,
@@ -1916,6 +1923,75 @@ void main() {
     );
     expect(find.byKey(const Key('story-edit')), findsNothing);
   });
+
+  testWidgets('a member reader shows story people from the whole tree', (
+    tester,
+  ) async {
+    final people = _WholeTreePeople(seed: const [_ada, _will]);
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(
+          story: _published(
+            title: 'Matt is born',
+            personIds: const ['p1', 'w1'],
+          ),
+        ),
+        people: people,
+        families: _OriginFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'The WFM Morgans',
+              createdAt: DateTime.utc(1990),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ada'), findsWidgets);
+    expect(find.text('William F Morgan'), findsWidgets);
+    expect(people.treeCalls, 1);
+    expect(people.listCalls, 0);
+  });
+
+  testWidgets('members and non-members see the same story people', (
+    tester,
+  ) async {
+    final story = _published(
+      title: 'Matt is born',
+      personIds: const ['p1', 'w1'],
+    );
+    final people = _WholeTreePeople(seed: const [_ada, _will]);
+    final stories = _FakeStoriesApi(story: story);
+
+    await tester.pumpWidget(
+      _readerApp(
+        stories: stories,
+        people: people,
+        families: _OriginFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'The WFM Morgans',
+              createdAt: DateTime.utc(1990),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('William F Morgan'), findsWidgets);
+    expect(find.text('Ada'), findsWidgets);
+
+    await tester.pumpWidget(
+      _readerApp(stories: stories, people: people, families: _NoMembership()),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('William F Morgan'), findsWidgets);
+    expect(find.text('Ada'), findsWidgets);
+  });
 }
 
 class _OriginFamilies extends FamiliesGateway {
@@ -1980,5 +2056,24 @@ class _TreePeople extends _FakePeopleApi {
   Future<List<Person>> listTreePeople(String familyId) async {
     treeCalls++;
     return rows.where((person) => person.familyId == familyId).toList();
+  }
+}
+
+class _WholeTreePeople extends _FakePeopleApi {
+  _WholeTreePeople({super.seed});
+
+  var treeCalls = 0;
+  var listCalls = 0;
+
+  @override
+  Future<List<Person>> listPeople(String familyId) {
+    listCalls++;
+    return super.listPeople(familyId);
+  }
+
+  @override
+  Future<List<Person>> listTreePeople(String familyId) async {
+    treeCalls++;
+    return rows;
   }
 }
