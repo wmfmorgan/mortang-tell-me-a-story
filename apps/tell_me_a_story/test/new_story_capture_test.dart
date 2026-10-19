@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -54,6 +55,7 @@ class _FakePeopleApi extends PeopleGateway {
   final List<Person> rows;
   final List<Person> treeRows;
   var throwOnList = false;
+  Completer<void>? holdTree;
 
   @override
   Future<List<Person>> listPeople(String familyId) async {
@@ -63,6 +65,8 @@ class _FakePeopleApi extends PeopleGateway {
 
   @override
   Future<List<Person>> listTreePeople(String familyId) async {
+    final hold = holdTree;
+    if (hold != null) await hold.future;
     if (throwOnList) throw StateError('people load failed');
     return [...rows.where((p) => p.familyId == familyId), ...treeRows];
   }
@@ -1568,6 +1572,50 @@ void main() {
 
     expect(find.text('Couldn’t save person. Try again.'), findsOneWidget);
     expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
+  });
+
+  testWidgets('a resumed draft does not autosave people before they load', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(
+      story: _mattIsBorn(
+        id: 'draft-1',
+        personIds: const ['p1', 'w1'],
+        status: StoryStatus.draft,
+      ),
+    );
+    final people = _FakePeopleApi(seed: const [_ada], tree: const [_will])
+      ..holdTree = Completer<void>();
+    await tester.pumpWidget(
+      _captureShell(stories: stories, people: people, draftId: 'draft-1'),
+    );
+    for (var i = 0; i < 5; i++) {
+      final title = find.byKey(const Key('story-title'));
+      if (title.evaluate().isNotEmpty &&
+          tester.widget<TextField>(title).controller?.text == 'Matt is born') {
+        break;
+      }
+      await tester.pump();
+    }
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('story-title')))
+          .controller
+          ?.text,
+      'Matt is born',
+    );
+    await tester.enterText(
+      find.byKey(const Key('story-title')),
+      'Matt is born!',
+    );
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+    expect(stories.autosaveCalls, 1);
+    expect(stories.personIdsArgs.last, isNull);
+    people.holdTree!.complete();
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
+    expect(find.widgetWithText(Chip, 'William F Morgan'), findsOneWidget);
   });
 }
 
