@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
@@ -46,13 +48,27 @@ class _FakeInviteApi implements InviteGateway {
 }
 
 class _FakePeopleApi extends PeopleGateway {
-  _FakePeopleApi({List<Person>? seed}) : rows = [...?seed];
+  _FakePeopleApi({List<Person>? seed, List<Person>? tree})
+    : rows = [...?seed],
+      treeRows = [...?tree];
 
   final List<Person> rows;
+  final List<Person> treeRows;
+  var throwOnList = false;
+  Completer<void>? holdTree;
 
   @override
   Future<List<Person>> listPeople(String familyId) async {
+    if (throwOnList) throw StateError('people load failed');
     return rows.where((p) => p.familyId == familyId).toList();
+  }
+
+  @override
+  Future<List<Person>> listTreePeople(String familyId) async {
+    final hold = holdTree;
+    if (hold != null) await hold.future;
+    if (throwOnList) throw StateError('people load failed');
+    return [...rows.where((p) => p.familyId == familyId), ...treeRows];
   }
 
   @override
@@ -156,6 +172,9 @@ class _FakeStoriesApi implements StoriesGateway {
   String? lastBody;
   String? lastPlaceId;
   List<String> lastPersonIds = const [];
+  final List<List<String>?> personIdsArgs = [];
+  Set<String> duplicateLinkIds = {};
+  Object? linkError;
 
   Story _draft({
     required String familyId,
@@ -228,6 +247,7 @@ class _FakeStoriesApi implements StoriesGateway {
     String? placeId,
     List<String>? personIds,
   }) async {
+    personIdsArgs.add(personIds);
     updateDraftCalls++;
     lastUpdatedStoryId = storyId;
     lastTimeframeStart = timeframeStart ?? lastTimeframeStart;
@@ -261,6 +281,7 @@ class _FakeStoriesApi implements StoriesGateway {
     String? placeId,
     List<String>? personIds,
   }) async {
+    personIdsArgs.add(personIds);
     autosaveCalls++;
     lastUpdatedStoryId = storyId;
     lastTimeframeStart = timeframeStart ?? lastTimeframeStart;
@@ -324,6 +345,14 @@ class _FakeStoriesApi implements StoriesGateway {
   }) async {
     linkCalls++;
     linkedIds.add(personId);
+    if (duplicateLinkIds.contains(personId)) {
+      throw const PostgrestException(
+        message: 'duplicate key value violates unique constraint "story_people_pkey"',
+        code: '23505',
+      );
+    }
+    final error = linkError;
+    if (error != null) throw error;
   }
 }
 
@@ -406,6 +435,29 @@ const _ada = Person(
   familyId: _familyId,
   name: 'Ada',
   relationship: 'Aunt',
+  createdBy: 'u1',
+);
+
+const _parentFamilyId = '00000000-0000-0000-0000-000000000002';
+
+const _will = Person(
+  id: 'w1',
+  familyId: _parentFamilyId,
+  name: 'William F Morgan',
+  createdBy: 'u1',
+);
+
+const _tx = Person(
+  id: 'w2',
+  familyId: _parentFamilyId,
+  name: 'txmorgan',
+  createdBy: 'u1',
+);
+
+const _wren = Person(
+  id: 'w3',
+  familyId: _parentFamilyId,
+  name: 'Wren Morgan',
   createdBy: 'u1',
 );
 
@@ -1290,5 +1342,298 @@ void main() {
         'p2',
       ]);
     },
+  );
+
+  testWidgets('Edit story shows linked people from the whole tree', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(
+      story: _mattIsBorn(personIds: const ['p1', 'w1', 'w2']),
+    );
+    await tester.pumpWidget(
+      _captureShell(
+        stories: stories,
+        people: _FakePeopleApi(seed: const [_ada], tree: const [_will, _tx]),
+        editStoryId: 's1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
+    expect(find.widgetWithText(Chip, 'William F Morgan'), findsOneWidget);
+    expect(find.widgetWithText(Chip, 'txmorgan'), findsOneWidget);
+  });
+
+  testWidgets('Add person hides linked people from the whole tree', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(
+      story: _mattIsBorn(personIds: const ['p1', 'w1', 'w2']),
+    );
+    await tester.pumpWidget(
+      _captureShell(
+        stories: stories,
+        people: _FakePeopleApi(
+          seed: const [_ada],
+          tree: const [_will, _tx, _wren],
+        ),
+        editStoryId: 's1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final add = find.widgetWithText(TextButton, 'Add person');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('add-person-pick-w1')), findsNothing);
+    expect(find.byKey(const Key('add-person-pick-w2')), findsNothing);
+    expect(find.byKey(const Key('add-person-pick-p1')), findsNothing);
+    expect(find.byKey(const Key('add-person-pick-w3')), findsOneWidget);
+  });
+
+  testWidgets('Save changes keeps linked people from the whole tree', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(
+      story: _mattIsBorn(personIds: const ['p1', 'w1', 'w2']),
+    );
+    await tester.pumpWidget(
+      _captureShell(
+        stories: stories,
+        people: _FakePeopleApi(seed: const [_ada], tree: const [_will, _tx]),
+        editStoryId: 's1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('story-title')),
+      'Matt is born!',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
+    await tester.pumpAndSettle();
+
+    expect(stories.updateDraftCalls, 1);
+    expect(stories.personIdsArgs.last, unorderedEquals(['p1', 'w1', 'w2']));
+  });
+
+  testWidgets('removing a tree person and saving drops only that link', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(
+      story: _mattIsBorn(personIds: const ['p1', 'w1', 'w2']),
+    );
+    await tester.pumpWidget(
+      _captureShell(
+        stories: stories,
+        people: _FakePeopleApi(seed: const [_ada], tree: const [_will, _tx]),
+        editStoryId: 's1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    tester.widget<Chip>(find.widgetWithText(Chip, 'txmorgan')).onDeleted!();
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
+    await tester.pumpAndSettle();
+
+    expect(stories.personIdsArgs.last, unorderedEquals(['p1', 'w1']));
+  });
+
+  testWidgets('a resumed draft autosaves linked people from the whole tree', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(
+      story: _mattIsBorn(
+        id: 'draft-1',
+        personIds: const ['p1', 'w1', 'w2'],
+        status: StoryStatus.draft,
+      ),
+    );
+    await tester.pumpWidget(
+      _captureShell(
+        stories: stories,
+        people: _FakePeopleApi(seed: const [_ada], tree: const [_will, _tx]),
+        draftId: 'draft-1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('story-title')),
+      'Matt is born!',
+    );
+    await tester.pump(kAutosavePause);
+    await tester.pumpAndSettle();
+
+    expect(stories.autosaveCalls, 1);
+    expect(stories.personIdsArgs.last, unorderedEquals(['p1', 'w1', 'w2']));
+  });
+
+  testWidgets(
+    'Save changes leaves story people alone when people fail to load',
+    (tester) async {
+      final stories = _FakeStoriesApi(
+        story: _mattIsBorn(personIds: const ['p1', 'w1']),
+      );
+      final people = _FakePeopleApi(seed: const [_ada], tree: const [_will])
+        ..throwOnList = true;
+      await tester.pumpWidget(
+        _captureShell(stories: stories, people: people, editStoryId: 's1'),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
+      await tester.pumpAndSettle();
+
+      expect(stories.updateDraftCalls, 1);
+      expect(stories.personIdsArgs.last, isNull);
+    },
+  );
+
+  testWidgets(
+    'Save changes leaves story people alone when a linked person is outside the tree',
+    (tester) async {
+      final stories = _FakeStoriesApi(
+        story: _mattIsBorn(personIds: const ['p1', 'w1', 'gone-1']),
+      );
+      await tester.pumpWidget(
+        _captureShell(
+          stories: stories,
+          people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
+          editStoryId: 's1',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
+      expect(find.widgetWithText(Chip, 'William F Morgan'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
+      await tester.pumpAndSettle();
+
+      expect(stories.personIdsArgs.last, isNull);
+    },
+  );
+
+  testWidgets('re-adding a person already on the story shows no error', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(story: _mattIsBorn(personIds: const ['p1']))
+      ..duplicateLinkIds = {'w1'};
+    await tester.pumpWidget(
+      _captureShell(
+        stories: stories,
+        people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
+        editStoryId: 's1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final add = find.widgetWithText(TextButton, 'Add person');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('William F Morgan'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+    await tester.pumpAndSettle();
+
+    expect(stories.linkedIds, ['w1']);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.byKey(const Key('add-person-picker')), findsNothing);
+    expect(find.widgetWithText(Chip, 'William F Morgan'), findsOneWidget);
+  });
+
+  testWidgets('other link errors still show the save error', (tester) async {
+    final stories = _FakeStoriesApi(story: _mattIsBorn(personIds: const ['p1']))
+      ..linkError = const PostgrestException(
+        message: 'new row violates row-level security policy for table "story_people"',
+        code: '42501',
+      );
+    await tester.pumpWidget(
+      _captureShell(
+        stories: stories,
+        people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
+        editStoryId: 's1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final add = find.widgetWithText(TextButton, 'Add person');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('William F Morgan'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Couldn’t save person. Try again.'), findsOneWidget);
+    expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
+  });
+
+  testWidgets('a resumed draft does not autosave people before they load', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(
+      story: _mattIsBorn(
+        id: 'draft-1',
+        personIds: const ['p1', 'w1'],
+        status: StoryStatus.draft,
+      ),
+    );
+    final people = _FakePeopleApi(seed: const [_ada], tree: const [_will])
+      ..holdTree = Completer<void>();
+    await tester.pumpWidget(
+      _captureShell(stories: stories, people: people, draftId: 'draft-1'),
+    );
+    for (var i = 0; i < 5; i++) {
+      final title = find.byKey(const Key('story-title'));
+      if (title.evaluate().isNotEmpty &&
+          tester.widget<TextField>(title).controller?.text == 'Matt is born') {
+        break;
+      }
+      await tester.pump();
+    }
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('story-title')))
+          .controller
+          ?.text,
+      'Matt is born',
+    );
+    await tester.enterText(
+      find.byKey(const Key('story-title')),
+      'Matt is born!',
+    );
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+    expect(stories.autosaveCalls, 1);
+    expect(stories.personIdsArgs.last, isNull);
+    people.holdTree!.complete();
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
+    expect(find.widgetWithText(Chip, 'William F Morgan'), findsOneWidget);
+  });
+}
+
+Story _mattIsBorn({
+  String id = 's1',
+  List<String> personIds = const [],
+  StoryStatus status = StoryStatus.published,
+}) {
+  return Story(
+    id: id,
+    familyId: _familyId,
+    authorId: 'u1',
+    title: 'Matt is born',
+    body: 'Porch',
+    timeframeStart: DateTime(1987, 3, 14),
+    timeframeEnd: DateTime(1987, 3, 14),
+    datePrecision: StoryDatePrecision.day,
+    status: status,
+    personIds: personIds,
   );
 }
