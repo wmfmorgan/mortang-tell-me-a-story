@@ -120,6 +120,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
   /// same year leaves the decade in place.
   StoryDate? _loadedLegacy;
   final List<Person> _selectedPeople = [];
+
+  /// Linked ids hydrate could not show. While non-empty, saves leave story_people as is.
+  final Set<String> _unloadedPersonIds = <String>{};
   Place? _selectedPlace;
   String? _placeId;
   var _shellMapFailed = false;
@@ -150,6 +153,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
   bool get _canSaveDraft => _actionsEnabled && _storyDate != null;
 
   bool get _canSaveChanges => _actionsEnabled && _storyDate != null;
+
+  List<String>? get _personIdsToWrite => _unloadedPersonIds.isEmpty
+      ? [for (final p in _selectedPeople) p.id]
+      : null;
 
   /// True when the boxes differ from a loaded decade row, or this is any other story.
   bool get _shouldWriteDate {
@@ -209,7 +216,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
     final title = _title.text;
     final body = _body.text;
     final range = _storyDate?.toRange();
-    final personIds = _selectedPeople.map((person) => person.id).toList();
+    final personIds = _personIdsToWrite;
     final placeId = _selectedPlace?.id ?? _placeId;
     try {
       final story = await _persistDraft(
@@ -295,15 +302,26 @@ class _NewStoryPageState extends State<NewStoryPage> {
     });
 
     try {
-      final people = await _people.listPeople(familyId);
+      final people = await _people.listTreePeople(familyId);
       if (!mounted) return;
+      final shown = people
+          .where((p) => story.personIds.contains(p.id))
+          .toList();
       setState(() {
         _selectedPeople
           ..clear()
-          ..addAll(people.where((p) => story.personIds.contains(p.id)));
+          ..addAll(shown);
+        _unloadedPersonIds
+          ..clear()
+          ..addAll(
+            story.personIds.where((id) => !shown.any((p) => p.id == id)),
+          );
       });
     } catch (_) {
       // Story fields already applied; people chips stay empty.
+      _unloadedPersonIds
+        ..clear()
+        ..addAll(story.personIds);
     }
 
     final placeId = story.placeId;
@@ -373,10 +391,18 @@ class _NewStoryPageState extends State<NewStoryPage> {
         api: _people,
         invites: _invite,
         storyId: _storyId,
-        linkedPersonIds: {for (final person in _selectedPeople) person.id},
-        linkPerson: ({required String storyId, required String personId}) {
-          return _stories.linkPerson(storyId: storyId, personId: personId);
+        linkedPersonIds: {
+          for (final person in _selectedPeople) person.id,
+          ..._unloadedPersonIds,
         },
+        linkPerson:
+            ({required String storyId, required String personId}) async {
+              try {
+                await _stories.linkPerson(storyId: storyId, personId: personId);
+              } on PostgrestException catch (error) {
+                if (!isDuplicateStoryKey(error)) rethrow;
+              }
+            },
       );
       if (!mounted || added == null) return;
       setState(() {
@@ -580,7 +606,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         title: title ?? _title.text,
         body: body ?? _body.text,
         placeId: placeId ?? _selectedPlace?.id ?? _placeId,
-        personIds: personIds ?? _selectedPeople.map((p) => p.id).toList(),
+        personIds: personIds ?? _personIdsToWrite,
       ),
       autosave: autosave,
     );
@@ -605,7 +631,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           title: snapshot.title,
           body: snapshot.body,
           placeId: snapshot.placeId,
-          personIds: snapshot.personIds,
+          personIds: snapshot.personIds ?? const [],
         );
         _autosaveInserted = true;
         _storyId = created.id;
@@ -640,7 +666,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         body: snapshot.body,
         timeframeStart: snapshot.start,
         status: StoryStatus.draft,
-        personIds: snapshot.personIds,
+        personIds: snapshot.personIds ?? const [],
       );
     }
     final updated = await _stories.updateDraft(
@@ -1234,5 +1260,5 @@ class _DraftSnapshot {
   final String title;
   final String body;
   final String? placeId;
-  final List<String> personIds;
+  final List<String>? personIds;
 }

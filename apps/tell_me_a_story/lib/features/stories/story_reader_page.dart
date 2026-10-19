@@ -364,9 +364,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
       List<Person> people = const [];
       try {
-        final all = memberOfStoryFamily
-            ? await _people.listPeople(story.familyId)
-            : await _people.listTreePeople(story.familyId);
+        final all = await _people.listTreePeople(story.familyId);
         people = all.where((p) => story.personIds.contains(p.id)).toList();
       } catch (_) {
         loadError = true;
