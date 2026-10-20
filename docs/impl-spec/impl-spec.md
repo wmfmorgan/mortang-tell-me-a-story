@@ -316,7 +316,7 @@ tell-me-a-story/
 - Resend account + SPF/DKIM for invite deliverability; Supabase Auth email for magic links
 > 🚫 FORBIDDEN: Service-role keys in the Flutter app.
 > 🚫 FORBIDDEN: Mapbox secret token / server-side geocode in v1 (Design Doc).
-> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally and CI env vars in pipelines: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.
+> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally or at deploy time only: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). CI injects no dart-defines and no secrets. Defines are local or deploy-time only. Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.
 ---
 ## 5 Architecture for implementers
 ### System components (from SAD; Mail = Resend per Design Doc)

@@ -20,7 +20,7 @@ M1–M4.5 merged. This branch is **M5** Reader / comments / perspectives. M6 zoo
 
 ## Secrets (forbidden in git)
 
-Inject via `--dart-define` / CI — **never commit**:
+Inject via `--dart-define`, locally or at deploy time only — **never commit**. CI injects no dart-defines and no secrets. Defines:
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
