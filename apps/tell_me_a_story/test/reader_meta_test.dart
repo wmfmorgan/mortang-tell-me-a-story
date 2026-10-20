@@ -11,10 +11,7 @@ void main() {
 
   test('recordedEventLabel uses one date or an en-dash range', () {
     final start = DateTime(1974, 7, 24);
-    expect(
-      recordedEventLabel(start: start),
-      albumDate(start),
-    );
+    expect(recordedEventLabel(start: start), albumDate(start));
     expect(
       recordedEventLabel(start: start, end: DateTime(1974, 7, 24)),
       albumDate(start),

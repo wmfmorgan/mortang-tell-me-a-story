@@ -29,9 +29,7 @@ class MapboxSearchHit {
   factory MapboxSearchHit.fromFeature(Map<String, dynamic> feature) {
     final text = feature['text'] as String?;
     final placeName = feature['place_name'] as String?;
-    final label = (text != null && text.isNotEmpty)
-        ? text
-        : (placeName ?? '');
+    final label = (text != null && text.isNotEmpty) ? text : (placeName ?? '');
     final address = (placeName != null && placeName.isNotEmpty)
         ? placeName
         : label;
@@ -90,11 +88,9 @@ abstract class MapboxSearchGateway {
 
 /// HTTP client for Mapbox Geocoding API v5 (public token).
 class MapboxSearchApi implements MapboxSearchGateway {
-  MapboxSearchApi({
-    http.Client? client,
-    String? accessToken,
-  })  : _client = client ?? http.Client(),
-        _accessToken = accessToken ?? Env.mapboxAccessToken;
+  MapboxSearchApi({http.Client? client, String? accessToken})
+    : _client = client ?? http.Client(),
+      _accessToken = accessToken ?? Env.mapboxAccessToken;
 
   final http.Client _client;
   final String _accessToken;
@@ -107,21 +103,17 @@ class MapboxSearchApi implements MapboxSearchGateway {
     if (trimmed.isEmpty) return const [];
 
     if (!Env.isPlausibleMapboxToken(_accessToken)) {
-      throw MapboxSearchException(
-        'Mapbox access token missing or implausible',
-      );
+      throw MapboxSearchException('Mapbox access token missing or implausible');
     }
 
     // encodeComponent so `/` and spaces stay a single path segment (not Uri.https).
-    final uri = Uri.parse(
-      'https://$_baseHost/geocoding/v5/mapbox.places/'
-      '${Uri.encodeComponent(trimmed)}.json',
-    ).replace(
-      queryParameters: {
-        'access_token': _accessToken,
-        'limit': '$limit',
-      },
-    );
+    final uri =
+        Uri.parse(
+          'https://$_baseHost/geocoding/v5/mapbox.places/'
+          '${Uri.encodeComponent(trimmed)}.json',
+        ).replace(
+          queryParameters: {'access_token': _accessToken, 'limit': '$limit'},
+        );
 
     final response = await _client.get(uri);
     if (response.statusCode != 200) {

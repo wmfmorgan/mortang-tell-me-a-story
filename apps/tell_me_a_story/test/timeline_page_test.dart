@@ -886,7 +886,9 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
-      _timeline(stories: _FakeStoriesApi(published: [_published(title: 'Jam')])),
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
@@ -2623,7 +2625,9 @@ void main() {
     expect(find.text('The beginning'), findsOneWidget);
   });
 
-  testWidgets('a narrow origin card stays inside the right edge', (tester) async {
+  testWidgets('a narrow origin card stays inside the right edge', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(700, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     const parent = '00000000-0000-0000-0000-0000000000aa';

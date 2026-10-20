@@ -2,8 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/env.dart';
 import 'auth_callback.dart';
-import 'browser_url_stub.dart'
-    if (dart.library.html) 'browser_url_web.dart';
+import 'browser_url_stub.dart' if (dart.library.html) 'browser_url_web.dart';
 
 /// Initializes the Supabase anon client. Never uses the service role key.
 Future<void> initSupabase() async {
@@ -15,9 +14,7 @@ Future<void> initSupabase() async {
     url: Env.supabaseUrl,
     // ignore: deprecated_member_use
     anonKey: Env.supabaseAnonKey,
-    authOptions: const FlutterAuthClientOptions(
-      detectSessionInUri: false,
-    ),
+    authOptions: const FlutterAuthClientOptions(detectSessionInUri: false),
   );
 
   await recoverSessionFromAuthCallback(Uri.base);

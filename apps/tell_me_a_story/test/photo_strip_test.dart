@@ -22,8 +22,9 @@ Uint8List _solidJpeg() {
 }
 
 void main() {
-  testWidgets('thumb renders Image when preview bytes are provided',
-      (tester) async {
+  testWidgets('thumb renders Image when preview bytes are provided', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: PhotoStrip(

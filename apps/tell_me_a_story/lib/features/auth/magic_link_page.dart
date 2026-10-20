@@ -138,33 +138,34 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
                                 child: SizedBox(
                                   width: double.infinity,
                                   child: wide
-                                    ? Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Expanded(
-                                            flex: 7,
-                                            child: _storyColumn(wide),
-                                          ),
-                                          const SizedBox(width: 64),
-                                          Expanded(
-                                            flex: 5,
-                                            child: Align(
-                                              alignment: Alignment.centerRight,
-                                              child: _signInCard(),
+                                      ? Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
+                                          children: [
+                                            Expanded(
+                                              flex: 7,
+                                              child: _storyColumn(wide),
                                             ),
-                                          ),
-                                        ],
-                                      )
-                                    : Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          _storyColumn(wide),
-                                          const SizedBox(height: 40),
-                                          _signInCard(),
-                                        ],
-                                      ),
+                                            const SizedBox(width: 64),
+                                            Expanded(
+                                              flex: 5,
+                                              child: Align(
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                child: _signInCard(),
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            _storyColumn(wide),
+                                            const SizedBox(height: 40),
+                                            _signInCard(),
+                                          ],
+                                        ),
                                 ),
                               ),
                             ),
@@ -389,10 +390,7 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
           const SizedBox(height: 12),
           Text(
             _error!,
-            style: GoogleFonts.literata(
-              color: albumTerracotta,
-              fontSize: 14,
-            ),
+            style: GoogleFonts.literata(color: albumTerracotta, fontSize: 14),
           ),
         ],
         const SizedBox(height: 20),
@@ -442,10 +440,7 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
           Text(
             _error!,
             key: const Key('magic-link-error'),
-            style: GoogleFonts.literata(
-              color: albumTerracotta,
-              fontSize: 14,
-            ),
+            style: GoogleFonts.literata(color: albumTerracotta, fontSize: 14),
           ),
         ],
         const SizedBox(height: 20),

@@ -31,74 +31,73 @@ const temporaryHardcodedColorSkipPaths = <String>{
 const _albumThemePath = 'core/theme/album_theme.dart';
 
 void main() {
-  test('dart files under lib keep Color(0x and Colors. in album_theme.dart', () {
-    expect(
-      File('lib/$_albumThemePath').existsSync(),
-      isTrue,
-      reason: 'run this test from apps/tell_me_a_story',
-    );
+  test(
+    'dart files under lib keep Color(0x and Colors. in album_theme.dart',
+    () {
+      expect(
+        File('lib/$_albumThemePath').existsSync(),
+        isTrue,
+        reason: 'run this test from apps/tell_me_a_story',
+      );
 
-    final offenders = <String>[];
-    final skipHits = <String, int>{
-      for (final path in temporaryHardcodedColorSkipPaths) path: 0,
-    };
+      final offenders = <String>[];
+      final skipHits = <String, int>{
+        for (final path in temporaryHardcodedColorSkipPaths) path: 0,
+      };
 
-    for (final entity in Directory('lib').listSync(recursive: true)) {
-      if (entity is! File) {
-        continue;
-      }
-      final path = entity.path.replaceAll('\\', '/');
-      if (!path.endsWith('.dart')) {
-        continue;
-      }
-      final relative = _libRelativePath(path);
-      if (relative == _albumThemePath) {
-        continue;
-      }
-      final lines = entity.readAsLinesSync();
-      var hits = 0;
-      for (var i = 0; i < lines.length; i++) {
-        final line = lines[i];
-        if (!line.contains('Color(0x') && !line.contains('Colors.')) {
+      for (final entity in Directory('lib').listSync(recursive: true)) {
+        if (entity is! File) {
           continue;
         }
-        hits++;
-        if (!temporaryHardcodedColorSkipPaths.contains(relative)) {
-          offenders.add('$relative:${i + 1}');
+        final path = entity.path.replaceAll('\\', '/');
+        if (!path.endsWith('.dart')) {
+          continue;
+        }
+        final relative = _libRelativePath(path);
+        if (relative == _albumThemePath) {
+          continue;
+        }
+        final lines = entity.readAsLinesSync();
+        var hits = 0;
+        for (var i = 0; i < lines.length; i++) {
+          final line = lines[i];
+          if (!line.contains('Color(0x') && !line.contains('Colors.')) {
+            continue;
+          }
+          hits++;
+          if (!temporaryHardcodedColorSkipPaths.contains(relative)) {
+            offenders.add('$relative:${i + 1}');
+          }
+        }
+        if (skipHits.containsKey(relative)) {
+          skipHits[relative] = hits;
         }
       }
-      if (skipHits.containsKey(relative)) {
-        skipHits[relative] = hits;
-      }
-    }
 
-    final missing = <String>[];
-    final clean = <String>[];
-    for (final path in skipHits.keys) {
-      final file = File('lib/$path');
-      if (!file.existsSync()) {
-        missing.add(path);
-        continue;
+      final missing = <String>[];
+      final clean = <String>[];
+      for (final path in skipHits.keys) {
+        final file = File('lib/$path');
+        if (!file.existsSync()) {
+          missing.add(path);
+          continue;
+        }
+        if (skipHits[path] == 0) {
+          clean.add(path);
+        }
       }
-      if (skipHits[path] == 0) {
-        clean.add(path);
-      }
-    }
-    missing.sort();
-    clean.sort();
-    offenders.sort();
+      missing.sort();
+      clean.sort();
+      offenders.sort();
 
-    final report = <String>[
-      for (final path in missing) 'missing skip $path',
-      for (final path in clean) 'skip has no hit $path',
-      ...offenders,
-    ];
-    expect(
-      report,
-      <String>[],
-      reason: report.join('\n'),
-    );
-  });
+      final report = <String>[
+        for (final path in missing) 'missing skip $path',
+        for (final path in clean) 'skip has no hit $path',
+        ...offenders,
+      ];
+      expect(report, <String>[], reason: report.join('\n'));
+    },
+  );
 }
 
 String _libRelativePath(String path) {

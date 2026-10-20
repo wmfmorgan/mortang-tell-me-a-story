@@ -80,10 +80,13 @@ void main() {
       row('year-early', StoryDatePrecision.year, DateTime(2020, 1, 1)),
     ];
     rows.sort(compareStories);
-    expect(
-      rows.map((story) => story.id).toList(),
-      ['decade', 'year-early', 'year-late', 'month', 'day'],
-    );
+    expect(rows.map((story) => story.id).toList(), [
+      'decade',
+      'year-early',
+      'year-late',
+      'month',
+      'day',
+    ]);
     final newest = [...rows]..sort((a, b) => compareStories(b, a));
     expect(newest.first.id, 'day');
     expect(newest.last.id, 'decade');
