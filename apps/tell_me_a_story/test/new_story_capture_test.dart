@@ -551,6 +551,16 @@ bool _hasTerracottaBorder(Widget widget) {
   return border.top.color == const Color(0xFF8B5E4B);
 }
 
+Future<void> _pumpUntil(
+  WidgetTester tester,
+  bool Function() done, {
+  int maxPumps = 5,
+}) async {
+  for (var i = 0; i < maxPumps && !done(); i++) {
+    await tester.pump();
+  }
+}
+
 void main() {
   test('1980s decade maps to 1980-01-01..1989-12-31', () {
     const decade = DecadeRange(1980);
@@ -1589,14 +1599,11 @@ void main() {
     await tester.pumpWidget(
       _captureShell(stories: stories, people: people, draftId: 'draft-1'),
     );
-    for (var i = 0; i < 5; i++) {
+    await _pumpUntil(tester, () {
       final title = find.byKey(const Key('story-title'));
-      if (title.evaluate().isNotEmpty &&
-          tester.widget<TextField>(title).controller?.text == 'Matt is born') {
-        break;
-      }
-      await tester.pump();
-    }
+      return title.evaluate().isNotEmpty &&
+          tester.widget<TextField>(title).controller?.text == 'Matt is born';
+    });
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('story-title')))
@@ -1616,7 +1623,304 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
     expect(find.widgetWithText(Chip, 'William F Morgan'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('story-title')),
+      'Matt is born!!',
+    );
+    await tester.pump(kAutosavePause);
+    await tester.pumpAndSettle();
+    expect(stories.autosaveCalls, 2);
+    expect(stories.personIdsArgs.last, ['p1', 'w1']);
   });
+
+  testWidgets(
+    'remove X is hidden on every chip while a linked person is unloaded',
+    (tester) async {
+      final stories = _FakeStoriesApi(
+        story: _mattIsBorn(personIds: const ['p1', 'w1', 'gone-1']),
+      );
+      await tester.pumpWidget(
+        _captureShell(
+          stories: stories,
+          people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
+          editStoryId: 's1',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<Chip>(find.widgetWithText(Chip, 'Ada')).onDeleted,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<Chip>(find.widgetWithText(Chip, 'William F Morgan'))
+            .onDeleted,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Add person'))
+            .onPressed,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets(
+    'remove X shows on every chip once every linked person loaded',
+    (tester) async {
+      final stories = _FakeStoriesApi(
+        story: _mattIsBorn(personIds: const ['p1', 'w1']),
+      );
+      await tester.pumpWidget(
+        _captureShell(
+          stories: stories,
+          people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
+          editStoryId: 's1',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<Chip>(find.widgetWithText(Chip, 'Ada')).onDeleted,
+        isNotNull,
+      );
+      expect(
+        tester
+            .widget<Chip>(find.widgetWithText(Chip, 'William F Morgan'))
+            .onDeleted,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets('a linked person who did not load counts for publishing', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(
+      story: _mattIsBorn(
+        id: 'draft-1',
+        personIds: const ['gone-1'],
+        status: StoryStatus.draft,
+      ),
+    );
+    await tester.pumpWidget(
+      _captureShell(stories: stories, draftId: 'draft-1'),
+    );
+    await tester.pumpAndSettle();
+
+    final publish = find.widgetWithText(FilledButton, 'Publish story');
+    await tester.ensureVisible(publish);
+    await tester.tap(publish);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Finish the highlighted fields to publish.'),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(
+        of: find.text('People'),
+        matching: find.byWidgetPredicate(_hasTerracottaBorder),
+      ),
+      findsNothing,
+    );
+    expect(stories.publishCalls, 0);
+  });
+
+  testWidgets('a story with no linked people still highlights People on publish', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(
+      story: _mattIsBorn(
+        id: 'draft-1',
+        personIds: const [],
+        status: StoryStatus.draft,
+      ),
+    );
+    await tester.pumpWidget(
+      _captureShell(stories: stories, draftId: 'draft-1'),
+    );
+    await tester.pumpAndSettle();
+
+    final publish = find.widgetWithText(FilledButton, 'Publish story');
+    await tester.ensureVisible(publish);
+    await tester.tap(publish);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.ancestor(
+        of: find.text('People'),
+        matching: find.byWidgetPredicate(_hasTerracottaBorder),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a duplicate key on another constraint still shows the save error', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(story: _mattIsBorn(personIds: const ['p1']))
+      ..linkError = const PostgrestException(
+        message:
+            'duplicate key value violates unique constraint "photos_pkey"',
+        code: '23505',
+      );
+    await tester.pumpWidget(
+      _captureShell(
+        stories: stories,
+        people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
+        editStoryId: 's1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final add = find.widgetWithText(TextButton, 'Add person');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('William F Morgan'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Couldn’t save person. Try again.'), findsOneWidget);
+    expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
+  });
+
+  testWidgets(
+    'adding a person to a new story with no other edit autosaves the person',
+    (tester) async {
+      final stories = _FakeStoriesApi();
+      await tester.pumpWidget(_captureShell(stories: stories));
+      await tester.pumpAndSettle();
+
+      final add = find.widgetWithText(TextButton, 'Add person');
+      await tester.ensureVisible(add);
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ada'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
+      expect(stories.linkCalls, 0);
+
+      await tester.pump(kAutosavePause);
+      await tester.pumpAndSettle();
+
+      expect(stories.createDraftCalls, 1);
+      expect(stories.updateDraftCalls, 0);
+      expect(stories.lastPersonIds, ['p1']);
+    },
+  );
+
+  testWidgets(
+    'adding a person to a resumed draft with no other edit autosaves the new person id',
+    (tester) async {
+      final stories = _FakeStoriesApi(
+        story: _mattIsBorn(
+          id: 'draft-1',
+          personIds: const ['p1'],
+          status: StoryStatus.draft,
+        ),
+      );
+      await tester.pumpWidget(
+        _captureShell(
+          stories: stories,
+          people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
+          draftId: 'draft-1',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(stories.autosaveCalls, 0);
+
+      final add = find.widgetWithText(TextButton, 'Add person');
+      await tester.ensureVisible(add);
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('William F Morgan'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+      await tester.pumpAndSettle();
+      expect(stories.linkedIds, ['w1']);
+      expect(find.widgetWithText(Chip, 'William F Morgan'), findsOneWidget);
+
+      await tester.pump(kAutosavePause);
+      await tester.pumpAndSettle();
+
+      expect(stories.autosaveCalls, 1);
+      expect(stories.lastUpdatedStoryId, 'draft-1');
+      expect(stories.personIdsArgs.last, ['p1', 'w1']);
+    },
+  );
+
+  testWidgets('leaving right after adding a person saves the person', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi();
+    await tester.pumpWidget(_captureShell(stories: stories));
+    await tester.pumpAndSettle();
+
+    final add = find.widgetWithText(TextButton, 'Add person');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ada'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+    await tester.pumpAndSettle();
+    expect(stories.createDraftCalls, 0);
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.pump();
+
+    expect(stories.createDraftCalls, 1);
+    expect(stories.lastPersonIds, ['p1']);
+  });
+
+  testWidgets(
+    'adding a person while a linked person is unloaded leaves story people to the link',
+    (tester) async {
+      final stories = _FakeStoriesApi(
+        story: _mattIsBorn(
+          id: 'draft-1',
+          personIds: const ['p1', 'w1', 'gone-1'],
+          status: StoryStatus.draft,
+        ),
+      );
+      await tester.pumpWidget(
+        _captureShell(
+          stories: stories,
+          people: _FakePeopleApi(
+            seed: const [_ada],
+            tree: const [_will, _wren],
+          ),
+          draftId: 'draft-1',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final add = find.widgetWithText(TextButton, 'Add person');
+      await tester.ensureVisible(add);
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Wren Morgan'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+      await tester.pumpAndSettle();
+      expect(stories.linkedIds, ['w3']);
+      expect(find.widgetWithText(Chip, 'Wren Morgan'), findsOneWidget);
+
+      await tester.pump(kAutosavePause);
+      await tester.pumpAndSettle();
+
+      expect(stories.autosaveCalls, 1);
+      expect(stories.personIdsArgs, hasLength(1));
+      expect(stories.personIdsArgs, everyElement(isNull));
+    },
+  );
 }
 
 Story _mattIsBorn({

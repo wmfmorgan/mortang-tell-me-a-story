@@ -144,7 +144,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
     title: _title.text,
     body: _body.text,
     timeframeStart: _storyDate?.toRange().start,
-    personIds: _selectedPeople.map((p) => p.id),
+    personIds: [for (final p in _selectedPeople) p.id, ..._unloadedPersonIds],
     placeId: _selectedPlace?.id ?? _placeId,
   );
 
@@ -310,21 +310,23 @@ class _NewStoryPageState extends State<NewStoryPage> {
       final shown = people
           .where((p) => story.personIds.contains(p.id))
           .toList();
+      final shownIds = {for (final p in shown) p.id};
       setState(() {
         _selectedPeople
           ..clear()
           ..addAll(shown);
         _unloadedPersonIds
           ..clear()
-          ..addAll(
-            story.personIds.where((id) => !shown.any((p) => p.id == id)),
-          );
+          ..addAll(story.personIds.toSet().difference(shownIds));
       });
     } catch (_) {
       // Story fields already applied; people chips stay empty.
-      _unloadedPersonIds
-        ..clear()
-        ..addAll(story.personIds);
+      if (!mounted) return;
+      setState(() {
+        _unloadedPersonIds
+          ..clear()
+          ..addAll(story.personIds);
+      });
     }
 
     final placeId = story.placeId;
@@ -398,14 +400,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           for (final person in _selectedPeople) person.id,
           ..._unloadedPersonIds,
         },
-        linkPerson:
-            ({required String storyId, required String personId}) async {
-              try {
-                await _stories.linkPerson(storyId: storyId, personId: personId);
-              } on PostgrestException catch (error) {
-                if (!isDuplicateStoryKey(error)) rethrow;
-              }
-            },
+        linkPerson: _linkIgnoringDuplicate,
       );
       if (!mounted || added == null) return;
       setState(() {
@@ -416,8 +411,23 @@ class _NewStoryPageState extends State<NewStoryPage> {
           _selectedPeople.add(person);
         }
       });
+      _scheduleAutosave();
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _linkIgnoringDuplicate({
+    required String storyId,
+    required String personId,
+  }) async {
+    try {
+      await _stories.linkPerson(storyId: storyId, personId: personId);
+    } on PostgrestException catch (error) {
+      if (error.code != '23505' ||
+          !error.message.contains('story_people_pkey')) {
+        rethrow;
+      }
     }
   }
 
@@ -658,7 +668,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
       if (!wrote) {
         _autosaveStopped = true;
         _autosaveTimer?.cancel();
-        _autosaveLabel = null;
         return null;
       }
       return Story(
@@ -1134,7 +1143,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
                             horizontal: 10,
                             vertical: 6,
                           ),
-                          onDeleted: () => _removePerson(person),
+                          onDeleted: _unloadedPersonIds.isEmpty ? () => _removePerson(person) : null,
                         ),
                       ),
                     TextButton(

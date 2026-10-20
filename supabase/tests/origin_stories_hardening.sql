@@ -897,7 +897,7 @@ select is(
 select is(
   coalesce((select qual from pg_policies
     where schemaname = 'public' and policyname = 'comments_delete_author'), ''),
-  $pol$((author_id = ( SELECT auth.uid() AS uid)) AND (is_family_member(family_id) OR can_contribute_to_story(family_id, story_id)))$pol$,
+  $pol$((author_id = ( SELECT auth.uid() AS uid)) AND can_contribute_to_story(family_id, story_id))$pol$,
   'comments_delete_author qual matches main'
 );
 select is(
@@ -940,7 +940,7 @@ select is(
 select is(
   coalesce((select qual from pg_policies
     where schemaname = 'public' and policyname = 'perspectives_delete_author'), ''),
-  $pol$((author_id = ( SELECT auth.uid() AS uid)) AND (is_family_member(family_id) OR can_contribute_to_story(family_id, story_id)))$pol$,
+  $pol$((author_id = ( SELECT auth.uid() AS uid)) AND can_contribute_to_story(family_id, story_id))$pol$,
   'perspectives_delete_author qual matches main'
 );
 select is(
@@ -1013,11 +1013,25 @@ select is(
 select is(
   coalesce((select qual from pg_policies
     where schemaname = 'storage' and policyname = 'story_photos_delete_member'), ''),
-  $pol$((bucket_id = 'story-photos'::text) AND (is_family_member(
+  $pol$((bucket_id = 'story-photos'::text) AND ((is_family_member(
 CASE
     WHEN ((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(name))[1])::uuid
     ELSE NULL::uuid
-END) OR ((owner_id = (( SELECT auth.uid() AS uid))::text) AND can_contribute_to_story(
+END) AND ((EXISTS ( SELECT 1
+   FROM stories s
+  WHERE ((s.id =
+        CASE
+            WHEN ((storage.foldername(objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(objects.name))[2])::uuid
+            ELSE NULL::uuid
+        END) AND (s.family_id =
+        CASE
+            WHEN ((storage.foldername(objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(objects.name))[1])::uuid
+            ELSE NULL::uuid
+        END) AND ((s.status = 'published'::story_status) OR (s.author_id = ( SELECT auth.uid() AS uid)))))) OR (NOT story_row_exists(
+CASE
+    WHEN ((storage.foldername(name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(name))[2])::uuid
+    ELSE NULL::uuid
+END)))) OR ((owner_id = (( SELECT auth.uid() AS uid))::text) AND can_contribute_to_story(
 CASE
     WHEN ((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(name))[1])::uuid
     ELSE NULL::uuid
@@ -1091,7 +1105,7 @@ END))) AND (EXISTS ( SELECT 1
         CASE
             WHEN ((storage.foldername(objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(objects.name))[1])::uuid
             ELSE NULL::uuid
-        END)))))$pol$,
+        END) AND ((s.status = 'published'::story_status) OR (s.author_id = ( SELECT auth.uid() AS uid)))))))$pol$,
   'story_photos_update_member qual matches main'
 );
 select is(
@@ -1119,7 +1133,7 @@ END))) AND (EXISTS ( SELECT 1
         CASE
             WHEN ((storage.foldername(objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(objects.name))[1])::uuid
             ELSE NULL::uuid
-        END)))) AND (lower(storage.extension(name)) = ANY (ARRAY['jpg'::text, 'jpeg'::text, 'png'::text, 'webp'::text])))$pol$,
+        END) AND ((s.status = 'published'::story_status) OR (s.author_id = ( SELECT auth.uid() AS uid)))))) AND (lower(storage.extension(name)) = ANY (ARRAY['jpg'::text, 'jpeg'::text, 'png'::text, 'webp'::text])))$pol$,
   'story_photos_update_member with_check matches main'
 );
 
