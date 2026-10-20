@@ -17,3 +17,4 @@ Source: Notion Design Doc https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195
 - `m14.3-dob-passed-away.md` — M14.3: DOB visibility and passed away (LOCKED 2026-10-16)
 - `m14.4-drafts.md` — Autosave drafts — data side (LOCKED 2026-10-16), Drafts visible to author only (LOCKED — Bill, 2026-10-17), M14.4 dateless drafts: date guard and late autosave (LOCKED — Gilfoyle architecture fix, 2026-10-17)
 - `data-model.md` — Family data model — ER diagram (2026-10-16)
+- `ci.md` — CI (minimal) (LOCKED 2026-10-19, Gilfoyle, rev 4)

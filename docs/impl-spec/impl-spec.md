@@ -1,7 +1,7 @@
 # 📐 Tell Me a Story — Impl Spec (Accepted)
 
 > **Three-source SoT (plus PRD pack + Design Doc locks):** (1) PRD [📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2) + User Stories [📝 User Stories](https://app.notion.com/p/3e0c4bcef238810ab885df1d973d35bd) + Decisions [✅ Decisions](https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166) for product must/must-not; (2) Mugatu UX [🎨 UXD — v1 Handoff (locked)](https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4) (Stitch `12192342757314667328`, Memory Album `assets/18104844965535020843`) for screens/flows; (3) SAD System Overview (Accepted) [🏗️ Tell Me a Story — System Architecture (v1)](https://app.notion.com/p/3e0c4bcef238810d8898e79e881f5ac8) for stack/data/API/security **names**; (4) Design Doc (Accepted) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7) for DDL / RLS / Storage / Edge JSON / Resend / Realtime / Mapbox / error codes. Pack: [📖 Tell Me a Story — Product Pack](https://app.notion.com/p/3e0c4bcef238810b9c26ff3e9653debc).
-> **Status:** **Accepted** Implementation Spec for coding agents. Architecture OPENs closed from Design Doc (2026-09-19) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7). Mugatu UX leftovers folded in from [🧵 UXD — Client copy & chrome locks (v1)](https://app.notion.com/p/3e0c4bcef23881e59430d4f904bc59a3). Plumbing locked (Bill green-lit Gilfoyle defaults 2026-09-19): Flutter monorepo `apps/tell_me_a_story` + `supabase/`; `--dart-define` / CI env `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`; `RESEND_API_KEY` Edge-only; tests `flutter test` + Supabase RLS SQL tests. Do not invent past PRD + SAD + Design Doc; do not invent screens/copy past Mugatu. **v1 invites = email + shareable link only; server SMS = fast follow (do not redefine).**
+> **Status:** **Accepted** Implementation Spec for coding agents. Architecture OPENs closed from Design Doc (2026-09-19) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7). Mugatu UX leftovers folded in from [🧵 UXD — Client copy & chrome locks (v1)](https://app.notion.com/p/3e0c4bcef23881e59430d4f904bc59a3). Plumbing locked (Bill green-lit Gilfoyle defaults 2026-09-19): Flutter monorepo `apps/tell_me_a_story` + `supabase/`; `--dart-define` (local or deploy-time; CI injects none) `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`; `RESEND_API_KEY` Edge-only; tests `flutter test` + Supabase RLS SQL tests. Do not invent past PRD + SAD + Design Doc; do not invent screens/copy past Mugatu. **v1 invites = email + shareable link only; server SMS = fast follow (do not redefine).**
 ---
 ## 0 Agent operating rules
 ### Three-source precedence (enforce)
@@ -281,17 +281,17 @@ tell-me-a-story/
 </tr>
 <tr>
 <td>`SUPABASE_URL`</td>
-<td>`--dart-define` / CI env</td>
+<td>`--dart-define`, local or deploy-time; CI injects none</td>
 <td>Public project URL</td>
 </tr>
 <tr>
 <td>`SUPABASE_ANON_KEY`</td>
-<td>`--dart-define` / CI env</td>
+<td>`--dart-define`, local or deploy-time; CI injects none</td>
 <td>Anon key only</td>
 </tr>
 <tr>
 <td>`MAPBOX_ACCESS_TOKEN`</td>
-<td>`--dart-define` / CI env</td>
+<td>`--dart-define`, local or deploy-time; CI injects none</td>
 <td>Public token; restrict by iOS bundle + web URL (Design Doc); no server secret in v1</td>
 </tr>
 </table>
@@ -316,7 +316,7 @@ tell-me-a-story/
 - Resend account + SPF/DKIM for invite deliverability; Supabase Auth email for magic links
 > 🚫 FORBIDDEN: Service-role keys in the Flutter app.
 > 🚫 FORBIDDEN: Mapbox secret token / server-side geocode in v1 (Design Doc).
-> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally and CI env vars in pipelines: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.
+> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally or at deploy time only: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). CI injects no dart-defines and no secrets. Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.
 ---
 ## 5 Architecture for implementers
 ### System components (from SAD; Mail = Resend per Design Doc)
@@ -1939,7 +1939,7 @@ v1 is done when:
 ## 17 Open questions
 **No remaining Bill OPENs.** Plumbing closed 2026-09-19 (Bill green-lit Gilfoyle Design Doc locks):
 - Repo: Flutter monorepo `apps/tell_me_a_story` + `supabase/`
-- Secrets: `--dart-define` / CI — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`; Resend Edge-only (`RESEND_API_KEY`)
+- Secrets: `--dart-define`, local or deploy-time; CI injects none — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`; Resend Edge-only (`RESEND_API_KEY`)
 - Tests: `flutter test` + Supabase RLS SQL tests
 > UX leftovers closed into §10 / §12: empty/loading/no-results copy (Drafts, Search, Place picker, Timeline); invite success/failure toasts + post-accept → `/timeline`; publish required-field list + blocking banner; EN-only localization source table; Mugatu suggested Flutter route path strings + auth redirect.
 > Architecture OPENs closed from Design Doc: DDL/enums, RLS matrix + `is_family_member`, Storage bucket/path, timeframe date range, membership `member` only, invite single-use + Edge JSON, Resend + separate send, Realtime table filters, Mapbox client token only, profile trigger, error codes.
