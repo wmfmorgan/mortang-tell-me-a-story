@@ -3049,8 +3049,8 @@ Existing tests: none edited, and none removed. They must pass unedited. In parti
 - PRD and UX: unchanged (no new strings, screens or controls).
 - TMAS-54-01 (Trinity, Low, Gilfoyle: data loss) → R8, test 12.
 
-### §15 M14.7 Cleanup (#42) (APPROVED rev 3 2026-10-19)
-**Status:** **APPROVED rev 3 2026-10-19** (Bill: "Approve M14.7 rev 2 with the autosave fix, and M14.8 rev 3", 6:59 PM CT, relayed verbatim by Erlich). Rev 3 adds R14, the _openAddPerson autosave fix, as approved. Next: Trinity's audit, then the build on fix/m14-7-cleanup. Earlier: READY rev 2. M14.7 is the next free number: the last `### §15` header on `main` is M14.6b at `docs/impl-spec/impl-spec.md` l.2903, and there is no M14.7. Code facts are pinned to `main` @ `6ac24da24a670cf60259c64c852c0d48b20c53ef` ("docs(impl-spec): stamp M14.6 and M14.6b CLOSED (#56)", 2026-10-19 5:39 AM CT), and are unchanged on the latest `main` @ `f213b466a16c94683dd72efc64b15f01bad9936a` ("docs(ux): #42 unloaded story people note (LOCKED) (#59)", 2026-10-19). `6ac24da..f213b46` touches only `docs/impl-spec/impl-spec.md` (#58, +2/-2 on the M14.5 header and status lines, so no line numbers move) and adds `docs/ux/42-unloaded-people.md` (#59). `caec26d..6ac24da` touches only `docs/impl-spec/impl-spec.md`. Every `supabase/` file cited below was checked blob-for-blob against the `6ac24da` tree. Rev 3 re-check (2026-10-19, 7:00 PM CT): `main` HEAD is still `f213b46`, and `6ac24da..f213b46` still touches only `docs/impl-spec/impl-spec.md` and `docs/ux/42-unloaded-people.md`. `new_story_page.dart` (1267 lines) and `test/new_story_capture_test.dart` (1639 lines) at `f213b46` are byte-identical to the copies the rev 2 line numbers were taken from, so no line number below moves.
+### §15 M14.7 Cleanup (#42) (CLOSED 2026-10-19: #61 merged 4c11c90, Bill smoke passed 8:22 PM CT)
+**Status:** **CLOSED 2026-10-19** (Bill: "m14.7 passed", 8:22 PM CT, relayed verbatim by Erlich, after the live smoke test on main `4c11c90`). PR #61 merged to main as `4c11c90` at 8:19 PM CT from head `a1efdb8` (`966a115` plus a merge of main `a083ed2`, #60 files only). CI run 39350654272 on `a1efdb8` was green. Lanes PASS at `a1efdb8`: Big Head (spec), Gilfoyle (architecture), Mugatu (visual), Dinesh (code quality, nits deferred). Gates: Flutter 504, pgTAP 24 files / 799, Deno 43, analyze 27. R7 erratum folded in below. #42 stays open for the deferred items (R15 fake Story / `Future<String?>`, `isDuplicateStoryPeopleKey`, the dart format CI step, Dinesh #38/#39), which need a Gilfoyle lock and Bill approval as a later §15 item. Do not reopen this milestone. Earlier: **APPROVED rev 3 2026-10-19** (Bill: "Approve M14.7 rev 2 with the autosave fix, and M14.8 rev 3", 6:59 PM CT, relayed verbatim by Erlich). Rev 3 adds R14, the _openAddPerson autosave fix, as approved. Next: Trinity's audit, then the build on fix/m14-7-cleanup. Earlier: READY rev 2. M14.7 is the next free number: the last `### §15` header on `main` is M14.6b at `docs/impl-spec/impl-spec.md` l.2903, and there is no M14.7. Code facts are pinned to `main` @ `6ac24da24a670cf60259c64c852c0d48b20c53ef` ("docs(impl-spec): stamp M14.6 and M14.6b CLOSED (#56)", 2026-10-19 5:39 AM CT), and are unchanged on the latest `main` @ `f213b466a16c94683dd72efc64b15f01bad9936a` ("docs(ux): #42 unloaded story people note (LOCKED) (#59)", 2026-10-19). `6ac24da..f213b46` touches only `docs/impl-spec/impl-spec.md` (#58, +2/-2 on the M14.5 header and status lines, so no line numbers move) and adds `docs/ux/42-unloaded-people.md` (#59). `caec26d..6ac24da` touches only `docs/impl-spec/impl-spec.md`. Every `supabase/` file cited below was checked blob-for-blob against the `6ac24da` tree. Rev 3 re-check (2026-10-19, 7:00 PM CT): `main` HEAD is still `f213b46`, and `6ac24da..f213b46` still touches only `docs/impl-spec/impl-spec.md` and `docs/ux/42-unloaded-people.md`. `new_story_page.dart` (1267 lines) and `test/new_story_capture_test.dart` (1639 lines) at `f213b46` are byte-identical to the copies the rev 2 line numbers were taken from, so no line number below moves.
 **Branch:** `fix/m14-7-cleanup`, one PR off `main` @ `f213b46`. One milestone per PR. Don't push to `main`, and don't merge. Stop after opening the PR. Follow the Grok Build CLI Contract.
 > 🔍 INFER: The branch is `fix/m14-7-cleanup` because the last cleanup used `fix/m14-2-cleanup` (l.2237). No branch with this name exists (checked the branch list on 2026-10-19).
 
@@ -3409,7 +3409,7 @@ alter policy story_photos_delete_member on storage.objects
 	- Comments only.
 - R7 **Set difference (Dinesh #54 nit 2).** In the hydrate `try`:
 	- Right after `shown` (l.310–312), add `final shownIds = {for (final p in shown) p.id};`.
-	- l.319–321 becomes `..addAll(story.personIds.toSet().difference(shownIds)),`.
+	- l.319–321 becomes `..addAll(story.personIds.toSet().difference(shownIds));`. (Erratum 2026-10-19: rev 3 printed a trailing `,`; the shipped code in #61 correctly ends with `;`.)
 	- Behavior is unchanged.
 - R8 **Catch branch uses `setState` (Dinesh #54 nit 3).** l.323–328 becomes:
 ```dart
@@ -3933,3 +3933,552 @@ Existing exact-text pins get updated in place to the new text, and no assertion 
 
 Handoff: Big Head copies this into the #42 cleanup §15 item, and this section lands verbatim in `docs/design-doc/m14.4-drafts.md` in the #42 PR.
 ````
+
+### §15 M14.8 Minimal CI (#43 slice) (CLOSED 2026-10-19: #60 merged a083ed2, first push run 39350399817 green, Bill closed 8:07 PM CT)
+**Status:** **CLOSED 2026-10-19** (Bill: "m14.8 is closed", 8:07 PM CT, relayed verbatim by Erlich). PR #60 merged to main as `a083ed2` from head `ee7ada3`. First push run on main, [run 39350399817](https://github.com/wmfmorgan/mortang-tell-me-a-story/actions/runs/39350399817), concluded success with the `flutter` and `deno` jobs both passing. Lanes PASS at `ee7ada3`: Big Head (spec), Gilfoyle (architecture), Dinesh (code quality). #43 stays open for pgTAP in CI and the required-check setting. Do not reopen this milestone. Earlier: **APPROVED rev 5 2026-10-19** (Bill: "Approve rev 5 and put the docs fixes in #60 before I merge", 7:44 PM CT, relayed verbatim by Erlich). Docs-only delta on APPROVED rev 4 (Bill, 7:20 PM CT): ci.md re-copied from lock rev 4, dart-define/CI wording at impl-spec l.4/284/289/294/1942, duplicate "Defines are local or deploy-time only." sentence dropped from impl-spec l.319 (Dinesh nit, Gilfoyle agreed), README index line. ci.yml unchanged.
+- What rev 5 changes (docs only; `ci.yml` is byte-for-byte unchanged from rev 4):
+	- The embedded `ci.md` is now Gilfoyle's lock rev 4 (56 lines, 4,570 bytes, sha256 `25711b5b9a9a7ff6eaf53946f2ff5e6c778ecf731136a266dfec52d25617e14f`). R8 is updated.
+	- Lock rev 4 vs rev 3 changes only l.1 (rev number), l.14 ("5 of the 15 functions, rev 4 count"), l.41 (versions closed: Flutter `3.47.7` / Dart 3.13.5, Deno `2.9.4`, the same pins `ci.yml` already has), l.53 (adds impl-spec l.4, 284, 289, 294, 1942) and a new l.56 (the design-doc index line). Lines 1–55 keep their numbers, so every `lock l.N` citation below still points at the same text. Nothing changes `ci.yml`.
+	- R11 now edits `impl-spec.md` l.4, l.284, l.289, l.294 and l.1942 to "`--dart-define`, local or deploy-time; CI injects none" (lock rev 4 l.53). l.4 takes it in parentheses (see the INFER under R11).
+	- R11's l.319 text drops the duplicate sentence "Defines are local or deploy-time only." (Dinesh's nit; Gilfoyle agreed, relayed 2026-10-19 7:32 PM CT). The rest of the line is unchanged from rev 4.
+	- New R13: `docs/design-doc/README.md` gets the lock rev 4 l.56 index line as a new l.20.
+	- The two rev 4 OPENs (other impl-spec CI lines, README index) and the "14 vs 15 functions" CONFLICT are closed by lock rev 4.
+	- PR #60 (head `e91f716`) already has rev 4 built. Rev 5 lands as one docs-only commit on `feat/m14-8-ci-minimal`, touching `docs/design-doc/ci.md`, `docs/impl-spec/impl-spec.md` and `docs/design-doc/README.md`.
+- What rev 4 changes:
+	- Both checkouts are pinned to `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0` (TMAS-M148-01).
+	- Both checkouts set `persist-credentials: false` (TMAS-M148-02).
+	- `cancel-in-progress` is `${{ github.event_name == 'pull_request' }}` (TMAS-M148-04).
+	- R1, R5, FORBIDDEN and the no-hardening rule are amended to allow exactly these three changes.
+	- The embedded `ci.md` is now lock rev 3.
+	- Sources: Gilfoyle's lock rev 3 (l.27, l.37–39) and Trinity's review `/workspace/tmas-m14-8-ci-spec-review.md`.
+- What rev 3 changes: the version OPEN is closed. `ci.yml` pins Flutter `3.47.7` (stable) and Deno `2.9.4`. Bill pasted his `flutter --version` and `deno --version` output at 6:43 PM CT on 2026-10-19, relayed verbatim by Erlich: "deno 2.9.4 (stable, release, aarch64-apple-darwin) v8 15.0.245.2-rusty typescript 6.0.3" and "Flutter 3.47.7 • channel stable • Framework revision abaf9c5237 • Tools • Dart 3.13.5 • DevTools 2.60.0". Flutter 3.47.7 / Dart 3.13.5 satisfy `pubspec.lock` (`flutter >=3.47.0`, `dart >=3.13.4 <4.0.0`). Nothing else changed.
+- What rev 2 changes:
+	- The `deno` job gains `deno check` on every function `index.ts` and all of `_shared`.
+	- `README.md` l.23 and `impl-spec.md` l.319 are corrected to say CI injects no defines.
+	- The floating Deno imports are accepted for this slice, with `deno.lock` moved to a new issue.
+	- The branch is `feat/m14-8-ci-minimal`, and the PR says `Refs #43`.
+- Gilfoyle made these rulings in lock rev 2 (rev 4's changes come from lock rev 3). Erlich relayed them, together with the branch and `Refs #43` calls, on 2026-10-19.
+- Nothing is blocked. The version OPEN is closed in rev 3.
+
+M14.8 is the next free number:
+- The last `### §15` header on `main` is M14.6b at `docs/impl-spec/impl-spec.md` l.2903.
+- `main` has no M14.7 or M14.8 header.
+- M14.7 is reserved by the #42 cleanup item (`/workspace/m42/m42_cleanup_spec_rev2.md`, not merged).
+
+Code facts are pinned to `main` @ `f213b466a16c94683dd72efc64b15f01bad9936a` ("docs(ux): #42 unloaded story people note (LOCKED) (#59)", 2026-10-19 5:59 AM CT). It is the latest commit on `main`, and there are no open PRs.
+
+**Branch:** `feat/m14-8-ci-minimal` (Erlich, following the `AGENTS.md` l.18 convention). Make one PR off `main` @ `f213b46`, separate from M14.7 (`fix/m14-7-cleanup`).
+- M14.7 touches `docs/impl-spec/impl-spec.md` too, but in different lines: it appends after l.3050, and this item edits l.4, l.284, l.289, l.294, l.319 and l.1942 (rev 5). A rebase after the other merges is clean.
+- One milestone per PR. Don't push to `main`, and don't merge. Stop after opening the PR. Follow the Grok Build CLI Contract.
+
+**Sources:**
+- Bill's ask, 2026-10-19 1:55 PM CT: lint, typecheck and unit tests on every PR, nothing Supabase.
+- Gilfoyle's "CI (minimal) — LOCKED 2026-10-19 (Gilfoyle)", rev 4 (`/workspace/m-ci/ci-minimal-lock.md`), which supersedes rev 1–3. It is copied verbatim under "Design Doc file" below and wins on tech.
+- Gilfoyle's ruling on Dinesh's l.319 nit (rev 5): drop the duplicate "Defines are local or deploy-time only." sentence from the l.319 replacement. Relayed 2026-10-19 7:32 PM CT. The analyze gate stays inline in `ci.yml` (Gilfoyle).
+- Trinity's spec audit `/workspace/tmas-m14-8-ci-spec-review.md` (PASS, with required edits TMAS-M148-01 and -02, and Info -04).
+- Erlich, 2026-10-19: the branch name and `Refs #43`, not `Closes`.
+- GitHub issue [#43](https://github.com/wmfmorgan/mortang-tell-me-a-story/issues/43): open, label `blocked`, 0 comments.
+- Trinity: TMAS-54-05 (`/workspace/tmas-pr54-security-review.md` l.57–61), which she calls the same gap as TMAS-53-05.
+- PR #54 body (head `019a0a8`, merged as `caec26d`): the baselines `flutter test` 495, `flutter analyze` 27 issues, Deno 43.
+- PRD and UX: unchanged. No app code, copy or screens change.
+
+#### Code on `main` this item relies on (read-only facts, @ `f213b46`)
+Repo layout:
+- There is no `.github/`. None of the 374 tree entries starts with `.github`.
+- There is no `deno.json`, `deno.jsonc`, `deno.lock` or import map anywhere.
+- The Flutter app is `apps/tell_me_a_story/`, with `pubspec.yaml`, `pubspec.lock` and `analysis_options.yaml`.
+	- `test/` has 39 `*_test.dart` files.
+	- Nothing is generated: `**/*.g.dart` is gitignored, and there's no `build_runner`.
+- `apps/tell_me_a_story/pubspec.yaml` l.21–22: `environment:` / `  sdk: ^3.13.4`.
+- `apps/tell_me_a_story/pubspec.lock` l.1005–1007: `sdks:` / `  dart: ">=3.13.4 <4.0.0"` / `  flutter: ">=3.47.0"`. This matches lock l.35.
+- `apps/tell_me_a_story/.metadata` l.7–8: create revision `6a19cca5…`, `stable`. This is not a version pin.
+
+`env_test.dart` (`apps/tell_me_a_story/test/env_test.dart`, 47 lines):
+- l.7–9 assert that `Env.supabaseUrl` and `Env.supabaseAnonKey` are empty and that `Env.validate` throws.
+- l.29–30 assert that `Env.mapboxAccessToken` is empty and `Env.hasMapboxToken` is false.
+- Any `--dart-define` breaks these tests (lock l.16).
+
+`supabase/functions/` has **15** function directories:
+- `accept-invite`, `add-co-owner`, `create-branch-family`, `create-invite`, `create-root-family`, `recover-family`, `remove-co-owner`, `remove-member`, `rename-family`, `resend-invite`, `revoke-invite`, `send-invite-email`, `soft-delete-family`, `transfer-ownership`, `validate-invite-token`.
+- Each has `index.ts`. `validate-invite-token/` also has `invite_decision.ts`.
+- `_shared/` holds `cors.ts`, `invite_email.ts`, `manage.ts` and `supabase.ts`, with **no** `*_test.ts`. `.env.example` is also in `supabase/functions/`.
+
+Tests:
+- Five functions have `index_test.ts`: accept-invite, create-branch-family, create-invite, remove-member, validate-invite-token.
+- There are 40 `Deno.test(` call sites. One call, at `create-branch-family/index_test.ts` l.90–91, sits in a 4-value loop. So 40 − 1 + 4 = **43**, which matches PR #54's `ok | 43 passed | 0 failed`.
+
+Remote imports in the files `deno check` covers:
+- Only `npm:@supabase/supabase-js@2`: `_shared/manage.ts` l.1, `_shared/supabase.ts` l.1, `create-branch-family/index.ts` l.1.
+- `jsr:@std/assert@1` appears in the tests only.
+- There is no `https://` import, `/// <reference …>`, `EdgeRuntime` global, `esm.sh` or `deno.land` URL.
+- The only `https://` string is the `fetch` URL in `_shared/invite_email.ts` l.37.
+
+Permissions:
+- The tested `index.ts` files guard `Deno.serve` with `if (import.meta.main)` (`accept-invite` l.211–212, `create-branch-family` l.108–109, `create-invite` l.158–159, `remove-member` l.33–34).
+- `validate-invite-token/index.ts` l.21 calls `Deno.serve` at top level. That's fine, because `deno check` doesn't execute code and no test imports that file.
+- `deno test` needs only `--allow-env`. `deno check` needs no permissions.
+
+Config:
+- With no `deno.json`, neither command picks up a config, and neither needs `--config`.
+- `supabase/config.toml` l.391 is `deno_version = 2`.
+
+Local dry run on the box, at `f213b46`'s files, with Deno 2.9.7. It is evidence only, not the CI version.
+- `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` from the repo root in bash:
+	- The glob expands to 19 files: 15 `index.ts` plus 4 `_shared`.
+	- Deno downloaded `@supabase/supabase-js` 2.118.0 and its deps from `registry.npmjs.org`.
+	- It printed 19 `Check …` lines and exited 0.
+- `deno test --allow-env supabase/functions` printed `ok | 43 passed | 0 failed` and exited 0.
+- Neither command wrote a `deno.lock`.
+
+`AGENTS.md` (66 lines):
+- l.43: `- The repo has no CI. **The PR body is the evidence**: paste fresh counts and command output from the PR's head commit.`
+- Gates table l.36–41 (unchanged by this item):
+	- l.38: `≤ 27 issues`.
+	- l.41: `deno test --allow-env supabase/functions | all passing, ≥ 41`.
+
+Define and CI text the lock corrects (lock rev 4 l.53). Each line below is identical at `main` and at PR #60 head `e91f716`, except l.319, which `e91f716` already carries as rev 4's R11 text:
+- `README.md` l.23: `Inject via `--dart-define` / CI — **never commit**:`. It is followed by the list `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` at l.25–27.
+- `docs/impl-spec/impl-spec.md` l.319: `> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally and CI env vars in pipelines: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.`
+- Other `impl-spec.md` lines that pair defines with CI, now listed by lock rev 4 l.53: l.4 (status, `` `--dart-define` / CI env `SUPABASE_URL`, … ``), l.284, l.289 and l.294 (`` <td>`--dart-define` / CI env</td> ``, the "Where" column for `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `MAPBOX_ACCESS_TOKEN`), and l.1942 (`` - Secrets: `--dart-define` / CI — … ``, under `## 17 Open questions`). These are the only six `--dart-define` lines in `impl-spec.md`.
+- Historical "no CI" lines inside CLOSED prompts: `impl-spec.md` l.1732, l.1810 and l.2346. Not edited.
+
+Flutter analyze output (PR #54 body; Flutter `stable` `flutter_tools`):
+- Issue lines look like `   info • … • path:l:c • rule`, `warning • …` and `  error • …`.
+- The summary comes from `generateErrorsMessage` (`analyze_base.dart` l.109): `'$issueCount ${pluralize('issue', issueCount)} found.'`, or else `'No issues found!'`. #54 printed `27 issues found. (ran in 10.8s)`.
+- With issues, the summary goes through `throwToolExit` (`analyze_once.dart` l.153) on stderr.
+- The exit is 1 only when `_isFatal` (l.165–178): an error, or a warning or info whose fatal flag is on. So with both `--no-fatal-*` flags, only errors set exit 1, plus `Server error(s) occurred.` (l.161).
+
+Third-party actions (resolved 2026-10-19 by `list_tags`, `get_latest_release` and `git ls-remote`):
+- `subosito/flutter-action` `v2.23.0` = `1a449444c387b1966244ae4d4f8c696479add0b2` (latest release, 2026-03-25). Its `action.yaml` defaults: `cache: "false"`, `pub-cache: ""`, `channel: stable`.
+- `denoland/setup-deno` `v2.0.5` = `22d081ff2d3a40755e97629de92e3bcbfa7cf2ed` (latest release, 2026-07-03). Its `action.yml` defaults: `deno-version: "2.x"`, `cache: "false"`. It runs on `node24`.
+- `actions/checkout` `v4.4.0` = `11d5960a326750d5838078e36cf38b85af677262`. It is a lightweight tag with no `^{}` entry, and `refs/tags/v4` points to the same SHA (`git ls-remote`, 2026-10-19 7:17 PM CT). It declares `node20`. GitHub removed Node 20 on 2026-09-23 and runs such actions on Node 24. The latest major is `v7`.
+
+Cross-checks:
+- The Cursor GitHub App has `workflows: write` (issue #43 `performed_via_github_app.permissions`), so it can push `.github/workflows/ci.yml`.
+- `docs/design-doc/ci.md` does not exist on `main`. `docs/design-doc/README.md` (19 lines, same at `main` and `e91f716`) indexes the design-doc files at l.7–19 as `` - `file.md` — Title (LOCKED …) ``, in the order they were added, not alphabetically. The last entry is l.19, `` - `data-model.md` — Family data model — ER diagram (2026-10-16) ``.
+
+#### Files touched (exhaustive)
+- New: `.github/workflows/ci.yml` (R1–R7).
+- New: `docs/design-doc/ci.md` (R8): Gilfoyle's rev 4 lock, byte for byte.
+- `AGENTS.md`: l.43 only (R9).
+- `README.md`: l.23 only (R10).
+- `docs/impl-spec/impl-spec.md`: l.4, l.284, l.289, l.294, l.319 and l.1942 only (R11).
+	- This M14.8 item itself does **not** land in this PR. It lands later with its CLOSED stamp in a docs PR, as #56 and #58 did.
+- `docs/design-doc/README.md`: one new line, l.20, after l.19 (R13).
+- Unchanged, and the diff must show it:
+	- everything under `apps/` and `supabase/`, including every function file (see R7);
+	- `.cursor/`;
+	- every other line of `AGENTS.md`, `README.md`, `impl-spec.md` and `docs/design-doc/README.md`.
+
+#### Rules
+- R1 **One workflow file.** Create `.github/workflows/ci.yml` with exactly the YAML below. Rev 4 includes three locked changes: the checkout SHA pin, `persist-credentials: false` on both checkouts, and the PR-only `cancel-in-progress` (lock rev 3 l.27, l.37–39). No other edits.
+- R2 **Triggers, concurrency and permissions** come verbatim from lock l.19–30, and `timeout-minutes: 15` per job from l.32.
+	- No `paths`, `paths-ignore`, `workflow_dispatch`, `schedule` or `pull_request_target`.
+- R3 **Two parallel jobs**, ids `flutter` and `deno`.
+	- No `needs:`, `services:`, `container:` or `secrets.*`.
+	- No `env` except `ANALYZE_CEILING`.
+- R4 **Versions.** `flutter-version: "3.47.7"` (stable) and `deno-version: "2.9.4"`, exactly. Both are Bill's (lock l.41), from his smoke machine (rev 3).
+	- CI must print `Flutter 3.47.7` and `deno 2.9.4` in the `--version` steps. If either differs, stop and report.
+	- No `channel:` input: the default is `stable`.
+	- Flutter must satisfy `pubspec.lock` l.1006–1007. Deno must be 2.x (`supabase/config.toml` l.391).
+- R5 **Action pins.**
+	- `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0`, in both jobs, each with `with:` / `persist-credentials: false` (lock rev 3 l.37–38).
+	- `subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0`.
+	- `denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5`.
+	- Re-run `git ls-remote https://github.com/actions/checkout refs/tags/v4.4.0`, `git ls-remote https://github.com/subosito/flutter-action refs/tags/v2.23.0` and `git ls-remote https://github.com/denoland/setup-deno refs/tags/v2.0.5`, and paste the output in the PR body. If a SHA differs, stop and report it.
+	- Pass no `cache`, `pub-cache` or `cache-hash` input.
+- R6 **Analyze gate** (lock l.43–47). Use the bash step exactly as written:
+	- Capture stdout and stderr even on a nonzero exit.
+	- Fail on any `error •` line.
+	- Parse `N issue(s) found.`. `No issues found!` counts as 0.
+	- Fail if the count is over `ANALYZE_CEILING`.
+	- It always prints `flutter analyze: N issues (ceiling 27, exit RC)`.
+	- `ANALYZE_CEILING: 27` is the workflow-level `env`. It only goes down.
+- R7 **Deno check before Deno test** (lock l.11, l.14). In the `deno` job, run `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` and then `deno test --allow-env supabase/functions`, in that order, from the repo root, in bash.
+	- If `deno check` fails (on the PR or locally on `main`), stop and report the full error output.
+	- Don't change any file under `supabase/functions/` in this PR. Don't add `--no-check`, `// @ts-nocheck`, `// @ts-ignore`, `deno.json` or `compilerOptions`.
+- R8 **Design Doc.** Create `docs/design-doc/ci.md` with exactly the lines between ` ````markdown ` and ` ```` ` under "Design Doc file".
+	- It is Gilfoyle's lock rev 4. The file is 56 lines and 4,570 bytes: UTF-8, LF, one trailing newline.
+	- sha256: `25711b5b9a9a7ff6eaf53946f2ff5e6c778ecf731136a266dfec52d25617e14f` (rev 4; rev 3 was `dc37b0fbf987ca1e1968d661f61c6751f6f63eba03e7fb86c15c8042d94fb81d`).
+	- Don't reformat or "fix" it. Its l.53 sentence "Defines are local or deploy-time only." stays: R11's ruling applies to `impl-spec.md` l.319, not to `ci.md`.
+- R9 **AGENTS.md l.43.** Replace the sentence `The repo has no CI.` with the lock's l.54 text, and keep the rest of the line. The new l.43 is:
+	`- CI runs analyze, flutter test and Deno on every PR. pgTAP still runs locally, and its output goes in the PR body. **The PR body is the evidence**: paste fresh counts and command output from the PR's head commit.`
+- R10 **README.md l.23** (lock l.53). Replace the whole line with:
+	`Inject via `--dart-define`, locally or at deploy time only — **never commit**. CI injects no dart-defines and no secrets. Defines:`
+	- l.25–27 (the three names) and every other line stay the same.
+- R11 **impl-spec.md: six lines** (lock rev 4 l.53). Replace each whole line, byte for byte. Old text is quoted as it is at `main`; at PR #60 head `e91f716`, l.319 already reads as rev 4's text (given too). Every line is the same line number at both refs.
+	- l.4. Only `` `--dart-define` / CI env `` changes, to `` `--dart-define` (local or deploy-time; CI injects none) ``. Old:
+		```text
+		> **Status:** **Accepted** Implementation Spec for coding agents. Architecture OPENs closed from Design Doc (2026-09-19) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7). Mugatu UX leftovers folded in from [🧵 UXD — Client copy & chrome locks (v1)](https://app.notion.com/p/3e0c4bcef23881e59430d4f904bc59a3). Plumbing locked (Bill green-lit Gilfoyle defaults 2026-09-19): Flutter monorepo `apps/tell_me_a_story` + `supabase/`; `--dart-define` / CI env `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`; `RESEND_API_KEY` Edge-only; tests `flutter test` + Supabase RLS SQL tests. Do not invent past PRD + SAD + Design Doc; do not invent screens/copy past Mugatu. **v1 invites = email + shareable link only; server SMS = fast follow (do not redefine).**
+		```
+		New:
+		```text
+		> **Status:** **Accepted** Implementation Spec for coding agents. Architecture OPENs closed from Design Doc (2026-09-19) [📐 Tell Me a Story — Design Doc](https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7). Mugatu UX leftovers folded in from [🧵 UXD — Client copy & chrome locks (v1)](https://app.notion.com/p/3e0c4bcef23881e59430d4f904bc59a3). Plumbing locked (Bill green-lit Gilfoyle defaults 2026-09-19): Flutter monorepo `apps/tell_me_a_story` + `supabase/`; `--dart-define` (local or deploy-time; CI injects none) `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`; `RESEND_API_KEY` Edge-only; tests `flutter test` + Supabase RLS SQL tests. Do not invent past PRD + SAD + Design Doc; do not invent screens/copy past Mugatu. **v1 invites = email + shareable link only; server SMS = fast follow (do not redefine).**
+		```
+	- l.284, l.289 and l.294 (the same line three times). Old:
+		```text
+		<td>`--dart-define` / CI env</td>
+		```
+		New:
+		```text
+		<td>`--dart-define`, local or deploy-time; CI injects none</td>
+		```
+	- l.319. Old at `main`:
+		```text
+		> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally and CI env vars in pipelines: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.
+		```
+		Old at `e91f716` (rev 4's R11 text):
+		```text
+		> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally or at deploy time only: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). CI injects no dart-defines and no secrets. Defines are local or deploy-time only. Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.
+		```
+		New (rev 5: rev 4's text minus the duplicate sentence "Defines are local or deploy-time only.", per Gilfoyle):
+		```text
+		> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally or at deploy time only: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). CI injects no dart-defines and no secrets. Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.
+		```
+	- l.1942. Old:
+		```text
+		- Secrets: `--dart-define` / CI — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`; Resend Edge-only (`RESEND_API_KEY`)
+		```
+		New:
+		```text
+		- Secrets: `--dart-define`, local or deploy-time; CI injects none — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`; Resend Edge-only (`RESEND_API_KEY`)
+		```
+	- The leading tabs above are list indentation, not part of the text. Each replacement line starts at column 1.
+	- No other line of `impl-spec.md` changes. Don't append this §15 item.
+> 🔍 INFER: l.4's plumbing clause is a `;`-separated list (monorepo; defines + the three names; `RESEND_API_KEY` Edge-only; tests). Dropping in "`--dart-define`, local or deploy-time; CI injects none" bare would split that list item at the inner `;` and leave the three names dangling. So l.4 takes the same phrase in parentheses, `` `--dart-define` (local or deploy-time; CI injects none) ``, and nothing else on the line moves. l.284/289/294 (a table cell) and l.1942 (`Secrets: <phrase> — <names>; Resend …`) take the phrase as written.
+> 🔍 INFER: lock rev 4 l.53 lists the lines and the intent ("CI injects no dart-defines and no secrets. Defines are local or deploy-time only."). It is not replacement text. l.319 keeps the first sentence. Its "locally or at deploy time only" already says the second, which is why Gilfoyle dropped it.
+- R12 **Issue link.** The PR is titled `M14.8: Minimal CI (#43 slice)`, and its body says `Refs #43`, with no `Closes` or `Fixes` (Erlich).
+	- #43 stays open for pgTAP and the required check.
+	- Don't open, edit, comment on or relabel any issue.
+- R13 **docs/design-doc/README.md index line** (lock rev 4 l.56). Insert one new line, l.20, directly after l.19 (`` - `data-model.md` — Family data model — ER diagram (2026-10-16) ``), the last index entry. It is placed at the end because the index is in the order entries were added. The line is exactly:
+		```text
+		- `ci.md` — CI (minimal) (LOCKED 2026-10-19, Gilfoyle, rev 4)
+		```
+	- It has the same `- ` bullet, backticked file name and ` — ` (U+2014 em dash, with a space on each side) as l.7–19. The text after the bullet is lock l.56's line verbatim. No other line of the file changes, and the file keeps its single trailing newline.
+> 🔍 INFER: R9 keeps "The PR body is the evidence…" because lock l.50 keeps the count floors as PR-body evidence. R10 uses the lock's l.53 sentences word for word. R11 l.319 uses the first one (rev 5, Gilfoyle). Everything else on both lines stays as close to the current text as the sentence allows. R10 ends in "Defines:" so the existing list l.25–27 still reads as a list.
+
+#### Workflow (R1: exact file, `.github/workflows/ci.yml`)
+```yaml
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  ANALYZE_CEILING: 27
+
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/tell_me_a_story
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: "3.47.7"
+
+      - name: flutter --version
+        run: flutter --version
+
+      - name: flutter pub get
+        run: flutter pub get --enforce-lockfile
+
+      - name: flutter analyze (ceiling)
+        run: |
+          out="$RUNNER_TEMP/analyze.txt"
+          set +e
+          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee "$out"
+          rc=${PIPESTATUS[0]}
+          set -e
+          if grep -qF 'error •' "$out"; then
+            echo "flutter analyze: errors found (exit $rc)" >&2
+            exit 1
+          fi
+          if grep -qF 'No issues found!' "$out"; then
+            count=0
+          else
+            count=$( { grep -vF '•' "$out" | grep -Eo '[0-9]+ issues? found\.' | tail -n 1 | grep -Eo '^[0-9]+'; } || true )
+          fi
+          if [ -z "$count" ]; then
+            echo "flutter analyze: no issue count in the output (exit $rc)" >&2
+            exit 1
+          fi
+          echo "flutter analyze: $count issues (ceiling $ANALYZE_CEILING, exit $rc)"
+          if [ "$count" -gt "$ANALYZE_CEILING" ]; then
+            echo "flutter analyze: $count issues is over the ceiling of $ANALYZE_CEILING" >&2
+            exit 1
+          fi
+          if [ "$rc" -ne 0 ]; then
+            echo "flutter analyze: exit $rc with no error lines" >&2
+            exit 1
+          fi
+
+      - name: flutter test
+        run: flutter test
+
+  deno:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: "2.9.4"
+
+      - name: deno --version
+        run: deno --version
+
+      - name: deno check
+        run: deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts
+
+      - name: deno test
+        run: deno test --allow-env supabase/functions
+```
+> Resolved (rev 3): Versions. Flutter `3.47.7` (stable) and Deno `2.9.4`. Bill pasted his `flutter --version` and `deno --version` output at 6:43 PM CT on 2026-10-19, relayed verbatim by Erlich: "deno 2.9.4 (stable, release, aarch64-apple-darwin) v8 15.0.245.2-rusty typescript 6.0.3" and "Flutter 3.47.7 • channel stable • Framework revision abaf9c5237 • Tools • Dart 3.13.5 • DevTools 2.60.0". A later bump is its own PR.
+> Resolved (rev 4): `persist-credentials: false` on both checkouts (lock rev 3 l.38, TMAS-M148-02). No step needs the token after checkout.
+> 🔍 INFER: These choices aren't in the lock:
+> - `runs-on: ubuntu-latest`. It's the cheapest hosted runner, and nothing here needs macOS.
+> - `name: CI` and the step names.
+> - The two `--version` steps. They are the evidence that CI and Bill's smoke match (lock l.41).
+> - `defaults.run.shell: bash` on the `deno` job. It makes the glob expansion explicit.
+> 🔍 INFER: `shell: bash` runs `bash --noprofile --norc -eo pipefail`. So the analyze step brackets the pipe with `set +e`/`set -e` and reads `PIPESTATUS[0]`. It needs `2>&1` because the summary goes to stderr.
+> - The regex is `issues?` because `pluralize('issue', 1)` gives `1 issue found.`.
+> - Lines containing `•` are dropped before matching, so an issue message can't be read as the count.
+> - The step fails closed when the summary is missing, or when the exit is nonzero with no `error •` line (server error).
+> - A dry run against stubbed `flutter` output passed for 27, 1 and 0 issues. It failed as intended for 28 issues, an `error •` line, a server error and a missing count.
+> 🔍 INFER: The `deno check` glob is expanded by bash in the repo root before Deno sees it.
+> - `*/index.ts` matches the 15 function `index.ts` files. It doesn't match `index_test.ts`, `_shared` (which has no `index.ts`) or dot-directories.
+> - `_shared/*.ts` would also match any future `_shared/*_test.ts`. None exists on `main`. If one were added, `deno check` would just type-check it as well, which is harmless: test files type-check under `deno check`, and `deno test` checks them again anyway.
+> - `validate-invite-token/invite_decision.ts` is not in the glob, but its `index.ts` imports it, so it is checked through that import.
+> - If the glob ever matched nothing, bash would pass the literal pattern, and `deno check` would fail. That fails closed.
+> 🔍 INFER: `deno check` fetches `npm:@supabase/supabase-js@2` (and its deps) from `registry.npmjs.org` at check time, and `deno test` also fetches `jsr:@std/assert@1`. Neither needs a runtime permission. A registry outage turns the job red, which is acceptable for this slice.
+> 🔍 INFER: If `flutter pub get --enforce-lockfile` fails because Bill's Flutter SDK pins different SDK-package versions than `pubspec.lock`, stop and report. Don't regenerate `pubspec.lock`.
+> 🔍 INFER: `actions/checkout` v4.4.0 declares `node20`, and runners force it onto Node 24 since 2026-09-23. A deprecation annotation is expected. If checkout itself fails, stop and report: a major bump is its own PR (lock rev 3 l.37).
+
+> 🚫 FORBIDDEN:
+> - `deno lint`, pgTAP, `supabase start`, `supabase test db` in CI, migrations, `flutter build`, coverage, or any `actions/cache` or `cache:`/`pub-cache:` input (lock l.15).
+> - `--dart-define`, `secrets.*`, `GITHUB_TOKEN` use, or any `env` value except `ANALYZE_CEILING` (lock l.16).
+> - Branch protection, rulesets, required checks, or any repo setting (lock l.55).
+> - A `paths`/`paths-ignore` filter (lock l.31), a third trigger, `pull_request_target`, or `permissions` wider than `contents: read`.
+> - `channel: stable` without `flutter-version`, any range version (`2.x`), `flutter-version-file` or `deno-version-file` (lock l.35–36).
+> - Third-party actions by tag only, any action other than the three listed, `actions/checkout` at any ref other than `11d5960a326750d5838078e36cf38b85af677262 # v4.4.0`, or any checkout `with:` input other than `persist-credentials: false`. The SHA pin and `persist-credentials: false` are required by lock rev 3 l.37–39 and are not "extra hardening".
+> - Raising `ANALYZE_CEILING`, `--fatal-*` flags, or a zero-issue gate (lock l.46–47).
+> - Parsing test counts in CI (lock l.50).
+> - Adding `deno.json`, `deno.lock` or an import map (lock l.40: `deno.lock` gets its own issue).
+> - `--config`, `--allow-net`, `--allow-read`, `-A` or `--no-check`.
+> - Any change to app code, tests, `pubspec.*`, `analysis_options.yaml` or anything under `supabase/` to make CI green (lock l.14). If CI is red on `main`'s code, stop and report.
+> - Editing any `docs/design-doc/README.md` line (beyond inserting R13's l.20), any `impl-spec.md` line other than l.4, l.284, l.289, l.294, l.319 and l.1942, any `README.md` line other than l.23, or any `AGENTS.md` line other than l.43.
+> - Any change to `.github/workflows/ci.yml` in the rev 5 commit. That includes moving the analyze gate out of the inline step (Gilfoyle: it stays inline).
+> - Opening, editing, commenting on or relabelling GitHub issues, including #43 and the `deno.lock` issue.
+> - Pushing to `main` or merging.
+
+#### Design Doc file (R8, verbatim lock rev 4; fenced here only so its headings stay out of §15)
+> Note: lock rev 4 l.41 closes the versions line with the same `3.47.7` / `2.9.4` that R4 pins (Bill's own output, rev 3), so `ci.md` and `ci.yml` now agree and `ci.yml` doesn't change.
+````markdown
+# CI (minimal) — LOCKED 2026-10-19 (Gilfoyle), rev 4
+
+Bill's ask, 1:55 PM CT: run lint, typecheck and unit tests on every PR. Nothing Supabase. Lands verbatim as `docs/design-doc/ci.md` in the CI PR.
+
+## Shape
+One file, `.github/workflows/ci.yml`, two parallel jobs, no secrets, no services.
+
+| Job | Runs in | Steps |
+|---|---|---|
+| `flutter` | `apps/tell_me_a_story` | `flutter pub get --enforce-lockfile` → analyze ceiling (below) → `flutter test` |
+| `deno` | repo root | `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` → `deno test --allow-env supabase/functions` |
+
+- `flutter analyze` is the lint and the typecheck for Dart. `flutter test` is the unit tests.
+- `deno test` type-checks only the modules its tests load (5 of the 15 functions, rev 4 count). `deno check` covers every `index.ts` and all of `_shared` (rev 2). If `deno check` fails on main, the build agent stops and reports the errors. It does not fix code in this PR. The 43 Deno tests use injected fake DBs (`AcceptInviteDb` etc.) and need only `--allow-env`, so no database is needed.
+- 🚫 Not in this slice: `deno lint` (never gated, so it has no baseline), pgTAP, `supabase start`, migrations, `flutter build`, coverage, caching beyond what the setup actions do by default.
+- 🚫 No `--dart-define` and no secrets in CI. `env_test.dart` asserts that the defines are empty, so passing any would break it.
+
+## Triggers
+```yaml
+on:
+  pull_request:
+    branches: [main]          # opened, synchronize, reopened (defaults)
+  push:
+    branches: [main]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # rev 3: pushes to main never cancel each other
+permissions:
+  contents: read
+```
+- No `paths` filter, so docs-only PRs also report status and the check can later become required.
+- `timeout-minutes: 15` per job.
+
+## Version pinning
+- Flutter: one exact version (`x.y.z`, stable channel) via `subosito/flutter-action`, `flutter-version: <exact>`. No `channel: stable` floating. It must satisfy `pubspec.lock` (`flutter >=3.47.0`, `dart >=3.13.4`).
+- Deno: one exact version via `denoland/setup-deno`, `deno-version: <exact>`. No `v2.x` range.
+- Actions: every `uses:` is pinned by full commit SHA, with the tag in a trailing comment. That includes `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0` in both jobs (rev 3, TMAS-M148-01; I verified the SHA against the tag). Staying on v4 is deliberate, because a major bump is its own PR.
+- Both checkouts set `with: persist-credentials: false` (rev 3, TMAS-M148-02). No step needs the token after checkout.
+- These two are part of the lock. The spec's FORBIDDEN and no-hardening rules don't apply to them.
+- Dependencies: Flutter uses `--enforce-lockfile`, so CI fails instead of silently resolving new versions. Deno's `jsr:`/`npm:` imports aren't locked (there's no `deno.lock`). That's accepted for this slice because prod Edge deploys resolve the same way. A `deno.lock` gets its own GitHub issue.
+- Versions (closed, rev 4): Flutter `3.47.7` (Dart 3.13.5) and Deno `2.9.4`, which is what Bill's smoke machine reports, so CI and the local smoke agree. A bump is its own PR.
+
+## Analyze: ceiling, not zero
+- Gate: the total issue count is ≤ 27 and errors = 0. It fails on either.
+- How: run `flutter analyze --no-fatal-infos --no-fatal-warnings`, capture the output, then fail if any line contains `error •`, or if the `N issues found` count is > `ANALYZE_CEILING`. "No issues found!" counts as 0.
+- `ANALYZE_CEILING: 27` is a workflow `env`. It only ratchets down: a PR that fixes issues lowers it in the same PR, and no PR raises it without a Gilfoyle/Bill lock.
+- Reaching zero is a separate cleanup item, not this one.
+
+## Test counts
+- CI fails on any failing test. Count floors (flutter ≥ 495, Deno ≥ 43) stay as PR-body evidence for now. They aren't parsed in CI.
+
+## Repo docs touched by the CI PR
+- README l.23 and impl-spec l.4, 284, 289, 294, 319 and 1942 get corrected: CI injects no dart-defines and no secrets. Defines are local or deploy-time only.
+- `AGENTS.md` "The repo has no CI" line becomes: CI runs analyze, flutter test and Deno on every PR. pgTAP still runs locally, and its output goes in the PR body.
+- 🚫 Branch protection and required checks are GitHub settings, which count as hosted config. They're Bill's to turn on after the first green run, and the PR doesn't do it.
+- `docs/design-doc/README.md` gets the index line: `` `ci.md` — CI (minimal) (LOCKED 2026-10-19, Gilfoyle, rev 4) ``.
+````
+
+#### Resolved in rev 2–5, conflicts and open questions
+> Resolved (rev 2): Edge type-check coverage. Gilfoyle's lock rev 2 adds `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` before `deno test` (l.11, l.14). It covers every function `index.ts` and all of `_shared`, so the rev 1 "list the unchecked files in the PR body" requirement is dropped. The box dry run on `f213b46` is green (19 files).
+> Resolved (rev 2): CI secrets wording. The lock now lists `README.md` l.23 and `impl-spec.md` l.319 (l.53), so this PR corrects both (R10, R11).
+> Resolved (rev 2): Floating `npm:`/`jsr:` imports. Gilfoyle accepted them for this slice, because prod Edge deploys resolve the same way (lock l.40). A `deno.lock` gets its own GitHub issue, which Erlich/Gilfoyle open. The builder opens no issue and adds no `deno.lock`.
+> Resolved (rev 2): Branch `feat/m14-8-ci-minimal` (Erlich, per `AGENTS.md` l.18).
+> Resolved (rev 2): `Refs #43`, not `Closes` (Erlich), now R12. #43 keeps pgTAP and the required check (owner: Bill/Gilfoyle). Its `blocked` label is Bill's to change.
+> Resolved (rev 4): Checkout pinned by SHA, `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0` (lock rev 3 l.37, TMAS-M148-01). `git ls-remote` confirms that `refs/tags/v4.4.0` and `refs/tags/v4` are lightweight tags on that SHA, with no `^{}` entry.
+> Resolved (rev 4): PR-only `cancel-in-progress` (lock rev 3 l.27, TMAS-M148-04). Pushes to `main` no longer cancel each other.
+> Resolved (rev 5): the "14 vs 15 functions" CONFLICT. Lock rev 4 l.14 now says "5 of the 15 functions, rev 4 count", which matches the 15 function directories on `main`. Nothing in the build changes.
+> Resolved (rev 4): `persist-credentials: false` on both checkouts (lock rev 3 l.38, Trinity TMAS-M148-02). This closes the rev 2 and rev 3 OPEN.
+> Resolved (rev 5): `impl-spec.md` l.4, l.284, l.289, l.294 and l.1942. Lock rev 4 l.53 lists them, and R11 corrects them to "`--dart-define`, local or deploy-time; CI injects none" (l.4 in parentheses).
+> Resolved (rev 5): `docs/design-doc/README.md` index line. Lock rev 4 l.56 supplies it, and R13 inserts it as l.20.
+> Resolved (rev 5): Dinesh's l.319 nit. Rev 4's l.319 text said "locally or at deploy time only" and then "Defines are local or deploy-time only." Gilfoyle agreed, so rev 5 drops the second sentence (R11).
+> Resolved (rev 5): lock rev 4 changes no `ci.yml`-affecting text. l.41's versions equal R4's pins, and l.14, l.53 and l.56 are docs only. No CONFLICT.
+> 🔍 INFER: If M14.7 merges first:
+> - Local `flutter test` becomes 500, and pgTAP `Files=24, Tests=799`.
+> - The ceiling stays 27, and Deno stays 43.
+> - CI parses no counts, and the only shared file, `impl-spec.md`, is edited in different places, so there is no conflict.
+
+#### Gates (all on the PR branch; paste output in the PR body)
+- **CI on the PR itself:** `flutter` and `deno` are both green on the **final** head commit, which is the rev 5 docs commit, not `e91f716`. Wait for that run to finish. Then replace the PR body's "First CI run" section with that run, in the same format, and paste the Actions run URL and:
+	- `flutter` job:
+		- the first line of `flutter --version`;
+		- the `flutter pub get` result line;
+		- the analyze `N issues found.` line;
+		- `flutter analyze: N issues (ceiling 27, exit 0)`, with N ≤ 27;
+		- the last `flutter test` line (`+495: All tests passed!`).
+	- `deno` job:
+		- `deno --version`;
+		- the full `deno check` output: the npm `Download` lines and the **19 `Check supabase/functions/…` lines**, step green;
+		- the five `running N tests from` lines;
+		- `ok | 43 passed | 0 failed`.
+- **Diff:** `git diff main --stat` lists exactly six files: `.github/workflows/ci.yml`, `docs/design-doc/ci.md`, `docs/design-doc/README.md`, `AGENTS.md`, `README.md` and `docs/impl-spec/impl-spec.md`.
+	- `git diff main -U0 -- AGENTS.md README.md docs/impl-spec/impl-spec.md docs/design-doc/README.md` shows exactly these one-line hunks, each matching R9–R11 and R13 byte for byte: `AGENTS.md` l.43, `README.md` l.23, `impl-spec.md` l.4, l.284, l.289, l.294, l.319 and l.1942, and `docs/design-doc/README.md` +l.20 (an insertion only).
+	- `git diff main -- apps/ supabase/ .cursor/` is empty.
+	- Rev 5 commit only: `git diff e91f716 --stat` lists exactly `docs/design-doc/ci.md`, `docs/design-doc/README.md` and `docs/impl-spec/impl-spec.md`. `git diff e91f716 -- .github/` is empty.
+- **Verbatim file:** `wc -l -c docs/design-doc/ci.md` prints `56 4570 docs/design-doc/ci.md`, and `sha256sum docs/design-doc/ci.md` prints `25711b5b9a9a7ff6eaf53946f2ff5e6c778ecf731136a266dfec52d25617e14f  docs/design-doc/ci.md`.
+- **Doc greps (rev 5):**
+	- `` grep -nF -- '- `ci.md` — CI (minimal) (LOCKED 2026-10-19, Gilfoyle, rev 4)' docs/design-doc/README.md `` prints exactly `` 20:- `ci.md` — CI (minimal) (LOCKED 2026-10-19, Gilfoyle, rev 4) ``.
+	- `grep -n -- '--dart-define' docs/impl-spec/impl-spec.md | grep -E '/ CI|CI env|in pipelines'` prints nothing and exits 1. No `impl-spec.md` line pairs `--dart-define` with CI as an injection source.
+	- `grep -n -- '--dart-define' docs/impl-spec/impl-spec.md | cut -d: -f1 | paste -sd,` prints `4,284,289,294,319,1942`.
+	- `grep -c 'local or deploy-time; CI injects none' docs/impl-spec/impl-spec.md` prints `5`.
+	- `grep -c 'Defines are local or deploy-time only' docs/impl-spec/impl-spec.md` prints `0`.
+	- `grep -c 'CI injects no dart-defines and no secrets' docs/impl-spec/impl-spec.md` prints `1` (l.319).
+- **Pins:** the three `git ls-remote` outputs (R5: checkout `refs/tags/v4.4.0` → `11d5960a326750d5838078e36cf38b85af677262`, flutter-action, setup-deno) are pasted in the PR body and match `ci.yml`. `grep -n 'uses:' .github/workflows/ci.yml` shows exactly four lines, all SHA-pinned. `grep -c 'persist-credentials: false' .github/workflows/ci.yml` prints `2`.
+- **Local gates** (AGENTS.md l.33–43, from the PR head):
+	- `flutter analyze` ≤ 27;
+	- `flutter test` 495, 0 failing;
+	- `supabase test db` `Files=23, Tests=753`;
+	- `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` exit 0;
+	- `deno test --allow-env supabase/functions` 43 passed.
+	- If M14.7 is already merged: 500, ≤ 27, `Files=24, Tests=799`, check exit 0, 43.
+	- Report pass or fail per gate, with command output.
+- **Local analyze-step check:** in `apps/tell_me_a_story`, run the analyze step's script body with `RUNNER_TEMP=$(mktemp -d) ANALYZE_CEILING=27 bash -eo pipefail`. Paste the last line and exit 0.
+> 🔍 INFER: `actionlint` on `ci.yml` is optional. Paste its output if it's installed, but don't add it to the workflow. The spec's YAML passes `actionlint` 1.7.7. For the rev 5 commit, rerun it on the unchanged `ci.yml` and paste the output.
+- A deliberately failing run is **not** required. The lock doesn't ask for one.
+
+#### Agent operating rules
+- Implement only what this item lists. Match names, paths, SHAs, YAML and replacement lines exactly.
+- If an OPEN blocks a file, stop work on that file, do the unblocked work, and report the OPEN.
+- If code on `main` and this spec disagree (a line moved, a quoted line differs, a count differs, a file appeared), stop and report the diff. Don't reconcile it.
+- If `deno check` fails, stop and report. Don't fix function code (R7).
+- Don't improve the design: no extra jobs, steps, caching, matrix, annotations or hardening. The only exceptions are the three locked rev 4 items in R1 (the checkout SHA pin, `persist-credentials: false`, and PR-only `cancel-in-progress`), and nothing more.
+- Run every gate and report pass or fail per gate with its command output.
+- Follow the Grok Build CLI Contract (`/home/box/agent-data/workflows/grok-build-cli-contract/SKILL.md`):
+	- One milestone per PR, titled `M14.8: Minimal CI (#43 slice)`, with `Refs #43` (R12).
+	- Stop after opening the PR. Don't merge.
+	- The completion note lists the commands run, the gate outputs and the OPENs left.
+
+#### After the PR is open (lanes)
+- **Big Head:** spec check against R1–R13.
+	- The YAML matches byte for byte, including the checkout SHA, both `persist-credentials: false` and the `cancel-in-progress` expression.
+	- `ci.md`'s sha256 matches.
+	- The one-line doc hunks match R9–R11 and R13 (eight changed lines and one inserted line).
+- **Gilfoyle:** architecture review. He confirms the workflow implements lock rev 4 (whose `ci.yml`-affecting text equals rev 3's), including `deno check` before `deno test`, and that the rev 5 doc edits match lock rev 4 l.53 and l.56.
+- **Dinesh:** code quality of the analyze bash step: quoting, the `pipefail` handling, and the singular and zero paths.
+- **Trinity:** security re-check:
+	- `permissions: contents: read`;
+	- no `secrets.*` and no `pull_request_target`;
+	- all three actions pinned by full SHA, matching their tags (checkout `v4.4.0`, flutter-action `v2.23.0`, setup-deno `v2.0.5`);
+	- `persist-credentials: false` on both checkouts, and PR-only `cancel-in-progress` (TMAS-M148-01, -02, -04 as built);
+	- the README and `impl-spec.md` wording of "no defines and no secrets in CI".
+	- She closes TMAS-54-05 (and TMAS-53-05) or says why not.
+- **Mugatu:** none (no UI).
+- **Erlich/Gilfoyle:** open the `deno.lock` issue (lock l.40). This is outside the PR.
+- Bill merges.
+
+#### Done / Bill smoke
+- [ ] On the PR, Bill sees two green checks: `CI / flutter (pull_request)` and `CI / deno (pull_request)`.
+- [ ] The `flutter` job shows `flutter analyze: N issues (ceiling 27, …)` with N ≤ 27. The `deno` job shows the `deno check` step green.
+- [ ] The `--version` lines match Bill's machine.
+- [ ] After the merge, the `push` run on `main` is green.
+- [ ] Turning on required checks (`flutter`, `deno`) is Bill's separate GitHub setting after the first green run. It's not part of this PR.
+
+#### Traceability
+| Source | Covered by |
+|---|---|
+| Bill's ask 1:55 PM CT: lint + typecheck + unit tests on every PR | Lock §Shape (l.5–16) → R1, R3, R6, R7: `flutter` job (analyze = lint and Dart typecheck, `flutter test`); `deno` job (`deno check` = typecheck of all 15 functions + `_shared`; `deno test`) |
+| Bill's ask: nothing Supabase | Lock l.15–16 → R3, FORBIDDEN (no pgTAP, `supabase start`, secrets, defines) |
+| Lock §Shape `deno` row (l.11) + l.14 (rev 2, stop on failure) | R7, Gates (19 `Check` lines) |
+| Lock §Triggers (l.18–32) | R2 |
+| Lock §Version pinning (l.34–37, l.41; rev 4 l.41 closes versions at `3.47.7` / `2.9.4`) | R4, R5; Bill's versions (rev 3); `ci.yml` unchanged in rev 5 |
+| Lock rev 3 l.27 (PR-only cancel), l.37 (checkout SHA), l.38 (`persist-credentials: false`), l.39 (exempt from FORBIDDEN and no-hardening) | R1, R2, R5, FORBIDDEN, operating rules, Gates (Pins) |
+| Trinity TMAS-M148-01, -02, -04 | Rev 4 YAML; Trinity lane |
+| Lock l.40 (Deno imports unlocked, accepted; `deno.lock` issue) | Resolved (rev 2); FORBIDDEN (no `deno.lock`); Erlich/Gilfoyle lane |
+| Lock §Analyze (l.43–47) | R6 |
+| Lock §Test counts (l.49–50) | Gates (counts as PR-body evidence; not parsed) |
+| Lock rev 4 l.53 (README l.23; impl-spec l.4, 284, 289, 294, 319, 1942) | R10, R11; Gates (doc greps) |
+| Dinesh's l.319 nit, Gilfoyle's ruling (rev 5) | R11 l.319 (duplicate sentence dropped); Gates (`Defines are local…` count 0) |
+| Lock rev 4 l.56 (design-doc README index line) | R13; Gates (README grep) |
+| Lock rev 4 l.14 ("5 of the 15 functions") | R8 (verbatim); closes the rev 4 CONFLICT |
+| Lock l.54 (`AGENTS.md` "no CI") | R9 |
+| Lock l.55 (branch protection) + l.3 (lands verbatim) | FORBIDDEN; R8 (lock rev 4, sha `25711b5b…`) |
+| TMAS-54-05 "no Flutter CI job" (and TMAS-53-05) | Closes here: the `flutter` job. M14.7 rev 2 left 54-05 to #43 (`/workspace/m42/m42_cleanup_spec_rev2.md` l.452) and forbids a workflow there (l.446) |
+| Issue #43 (Flutter + pgTAP + Deno + required check) | Slice: Flutter and Deno here, `Refs #43` (R12). pgTAP and the required check stay on #43 |
+| Erlich: branch name, `Refs #43` | Branch line, R12 |
+
+#### Open questions (summary)
+1. Resolved (rev 3): Flutter `3.47.7` and Deno `2.9.4` (Bill, 6:43 PM CT).
+2. Resolved (rev 4): `persist-credentials: false` on both checkouts (lock rev 3, Trinity).
+3. Resolved (rev 5): `impl-spec.md` l.4, l.284, l.289, l.294 and l.1942 now say "local or deploy-time; CI injects none" (lock rev 4 l.53, R11).
+4. Resolved (rev 5): `docs/design-doc/README.md` gets l.20, the `ci.md` index line (lock rev 4 l.56, R13).
+5. Resolved (rev 5): lock rev 4 l.14 says "15 functions". The CONFLICT is closed, and `ci.md` stays verbatim.
+6. Resolved (rev 5): l.319 drops the duplicate "Defines are local or deploy-time only." (Dinesh, Gilfoyle).
+
+No OPENs and no CONFLICTs remain. Rev 5 needs only Bill's approval.
