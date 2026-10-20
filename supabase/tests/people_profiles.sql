@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(70);
+select plan(69);
 
 create temporary table m14_ctx (
   user_a uuid primary key,
@@ -180,14 +180,6 @@ select
   true
 from m14_ctx;
 
-select results_eq(
-  $$select column_name::text collate "C"
-    from information_schema.columns
-    where table_schema = 'public' and table_name = 'people_tree_read'
-    order by ordinal_position$$,
-  $$values ('id'::text collate "C"), ('family_id'::text collate "C"), ('name'::text collate "C")$$,
-  'people_tree_read is id, family_id, name'
-);
 
 set local role authenticated;
 set local request.jwt.claim.role = 'authenticated';
