@@ -137,7 +137,7 @@ select person_id, parent_id, 'Draft Kin', 'kin', user_a from m11_ctx;
 insert into public.story_people (story_id, person_id)
 select draft_id, person_id from m11_ctx;
 
-select plan(95);
+select plan(94);
 
 -- Ada's origin is the parent's second published story.
 set local role authenticated;
@@ -837,14 +837,6 @@ select is(
   'authenticated can execute story_row_exists'
 );
 
-select results_eq(
-  $$select column_name::text collate "C"
-    from information_schema.columns
-    where table_schema = 'public' and table_name = 'people_tree_read'
-    order by ordinal_position$$,
-  $$values ('id'::text collate "C"), ('family_id'::text collate "C"), ('name'::text collate "C")$$,
-  'people_tree_read exposes id, family_id, and name only'
-);
 
 insert into public.people (id, family_id, name, relationship, created_by)
 select
@@ -859,8 +851,7 @@ set local request.jwt.claim.sub = 'b11b0000-0000-4000-8000-0000000000b1';
 set local request.jwt.claim.role = 'authenticated';
 
 select results_eq(
-  $$select name::text collate "C" from public.people_tree_read
-    where id = '88888888-11a2-4111-8111-888888888888'$$,
+  $$select name::text collate "C" from public.people where id = '88888888-11a2-4111-8111-888888888888'$$,
   $$values ('Origin Kin'::text collate "C")$$,
   'a child member sees a person tagged on the origin story'
 );

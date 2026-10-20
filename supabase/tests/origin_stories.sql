@@ -680,7 +680,7 @@ select is_empty(
 
 -- 21. A draft-only place stays hidden from a tree reader.
 -- M14: a person who lives in the tree is visible to a tree member, even when
--- the only story tag is a draft. Outside-tree readers still get zero rows.
+-- the only story tag is a draft. Outside-tree readers still get zero rows. (#72: read from `people`; the view is dropped)
 set local request.jwt.claim.sub = 'b11b0000-0000-4000-8000-0000000000b1';
 
 select is(
@@ -689,7 +689,7 @@ select is(
   'a tree reader does not see a draft-only place'
 );
 select is(
-  (select count(*) from public.people_tree_read where id = (select person_id from m11_ctx)),
+  (select count(*) from public.people where id = (select person_id from m11_ctx)),
   1::bigint,
   'a tree reader sees a person who lives in the tree'
 );
@@ -702,7 +702,7 @@ select is(
   'a member still sees a draft-only place'
 );
 select is(
-  (select count(*) from public.people_tree_read where id = (select person_id from m11_ctx)),
+  (select count(*) from public.people where id = (select person_id from m11_ctx)),
   1::bigint,
   'a member still sees a draft-only person'
 );

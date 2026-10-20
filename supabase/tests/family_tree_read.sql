@@ -1,12 +1,12 @@
 -- M12 tree read: a parent member can read a child's published rows and
--- people_tree_read, and cannot read drafts, people, or write.
+-- tree `people`, and cannot read drafts or write.
 -- Soft-deleted families drop out of the walk. A two-family cycle returns
 -- each id once. The script runs in a transaction and rolls back.
 
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(38);
+select plan(36);
 
 create temporary table m12_ctx (
   user_a uuid primary key,
@@ -65,22 +65,6 @@ select is(
   ),
   false,
   'authenticated cannot execute family_tree_root'
-);
-select is(
-  has_table_privilege('anon', 'public.people_tree_read', 'select'),
-  false,
-  'anon cannot select people_tree_read'
-);
-select is(
-  (
-    select count(*)
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'people_tree_read'
-      and column_name = 'email'
-  ),
-  0::bigint,
-  'people_tree_read has no email column'
 );
 
 set local role authenticated;
@@ -291,25 +275,10 @@ select is(
   'Cousin Cora',
   'parent member reads the child person name'
 );
-select is(
-  (
-    select name
-    from public.people_tree_read
-    where id = '33333333-3333-4333-8333-333333333333'
-  ),
-  'Cousin Cora',
-  'parent member reads the child name from people_tree_read'
-);
-select is(
-  (
-    select count(*)
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'people_tree_read'
-      and column_name = 'relationship'
-  ),
-  0::bigint,
-  'people_tree_read does not expose relationship'
+select results_eq(
+  $$select id, family_id, name from public.people where id = '33333333-3333-4333-8333-333333333333'$$,
+  $$select '33333333-3333-4333-8333-333333333333'::uuid, child_id, 'Cousin Cora'::text from m12_ctx$$,
+  'parent member reads the child id, family_id and name from people (#72)'
 );
 
 select throws_ok(
@@ -360,14 +329,24 @@ select is(
 set local request.jwt.claim.sub = 'c12c0000-0000-4000-8000-00000000000c';
 
 select is(
-  (select count(*) from public.people_tree_read),
+  (select count(*) from public.people),
   0::bigint,
-  'a signed-in user outside the tree gets 0 people_tree_read rows'
+  'a signed-in user outside the tree gets 0 people rows (#72)'
 );
 select is(
   (select count(*) from public.stories where id = '11111111-1111-4111-8111-111111111111'),
   0::bigint,
   'a signed-in user outside the tree cannot select the child published story'
+);
+
+set local role anon;
+set local request.jwt.claim.role = 'anon';
+select set_config('request.jwt.claim.sub', '', true);
+
+select is(
+  (select count(*) from public.people where id = '33333333-3333-4333-8333-333333333333'),
+  0::bigint,
+  'anon reads 0 people rows (#72)'
 );
 
 reset role;
