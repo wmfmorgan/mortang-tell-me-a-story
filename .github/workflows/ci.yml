@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  ANALYZE_CEILING: 27
+
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/tell_me_a_story
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: "3.47.7"
+
+      - name: flutter --version
+        run: flutter --version
+
+      - name: flutter pub get
+        run: flutter pub get --enforce-lockfile
+
+      - name: flutter analyze (ceiling)
+        run: |
+          out="$RUNNER_TEMP/analyze.txt"
+          set +e
+          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee "$out"
+          rc=${PIPESTATUS[0]}
+          set -e
+          if grep -qF 'error •' "$out"; then
+            echo "flutter analyze: errors found (exit $rc)" >&2
+            exit 1
+          fi
+          if grep -qF 'No issues found!' "$out"; then
+            count=0
+          else
+            count=$( { grep -vF '•' "$out" | grep -Eo '[0-9]+ issues? found\.' | tail -n 1 | grep -Eo '^[0-9]+'; } || true )
+          fi
+          if [ -z "$count" ]; then
+            echo "flutter analyze: no issue count in the output (exit $rc)" >&2
+            exit 1
+          fi
+          echo "flutter analyze: $count issues (ceiling $ANALYZE_CEILING, exit $rc)"
+          if [ "$count" -gt "$ANALYZE_CEILING" ]; then
+            echo "flutter analyze: $count issues is over the ceiling of $ANALYZE_CEILING" >&2
+            exit 1
+          fi
+          if [ "$rc" -ne 0 ]; then
+            echo "flutter analyze: exit $rc with no error lines" >&2
+            exit 1
+          fi
+
+      - name: flutter test
+        run: flutter test
+
+  deno:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: "2.9.4"
+
+      - name: deno --version
+        run: deno --version
+
+      - name: deno check
+        run: deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts
+
+      - name: deno test
+        run: deno test --allow-env supabase/functions
