@@ -4482,3 +4482,10 @@ permissions:
 6. Resolved (rev 5): l.319 drops the duplicate "Defines are local or deploy-time only." (Dinesh, Gilfoyle).
 
 No OPENs and no CONFLICTs remain. Rev 5 needs only Bill's approval.
+
+### §15 M14 series CLOSED (2026-10-20)
+**Status:** **CLOSED 2026-10-20** (Bill: "let's move the remaining items out of M14 and to the backlog and call m14 closed.", 5:06 AM CT, relayed verbatim by Erlich). M14 and every M14.x item above are stamped CLOSED. The last ones are M14.7 and M14.8, closed in PR #62 (`7cae133`). #42 is closed.
+- Backlog items are not part of M14: #43 (pgTAP in CI and making the check required), #49, #63 through #68 (the items deferred from #42), and #69 (M14.3 item 10, name sync, which never shipped).
+- This supersedes the M14.7 status note that the deferred #42 items would become "a later §15 item". They are backlog only.
+- A backlog issue gets built only once it has its own new §15 item, numbered after M14 and reached through the normal locks and Bill's approval.
+> 🚫 FORBIDDEN: Reopening M14 or any M14.x item. Building a backlog issue (#43, #49, #63–#69) without its own APPROVED §15 item. Adding new M14.x numbers.
