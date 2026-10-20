@@ -3048,3 +3048,888 @@ Existing tests: none edited, and none removed. They must pass unedited. In parti
 - Grok Build CLI Contract: the CONFLICT on "smoke fail → revert" (Bill), Agent operating rules, Gates.
 - PRD and UX: unchanged (no new strings, screens or controls).
 - TMAS-54-01 (Trinity, Low, Gilfoyle: data loss) → R8, test 12.
+
+### §15 M14.7 Cleanup (#42) (APPROVED rev 3 2026-10-19)
+**Status:** **APPROVED rev 3 2026-10-19** (Bill: "Approve M14.7 rev 2 with the autosave fix, and M14.8 rev 3", 6:59 PM CT, relayed verbatim by Erlich). Rev 3 adds R14, the _openAddPerson autosave fix, as approved. Next: Trinity's audit, then the build on fix/m14-7-cleanup. Earlier: READY rev 2. M14.7 is the next free number: the last `### §15` header on `main` is M14.6b at `docs/impl-spec/impl-spec.md` l.2903, and there is no M14.7. Code facts are pinned to `main` @ `6ac24da24a670cf60259c64c852c0d48b20c53ef` ("docs(impl-spec): stamp M14.6 and M14.6b CLOSED (#56)", 2026-10-19 5:39 AM CT), and are unchanged on the latest `main` @ `f213b466a16c94683dd72efc64b15f01bad9936a` ("docs(ux): #42 unloaded story people note (LOCKED) (#59)", 2026-10-19). `6ac24da..f213b46` touches only `docs/impl-spec/impl-spec.md` (#58, +2/-2 on the M14.5 header and status lines, so no line numbers move) and adds `docs/ux/42-unloaded-people.md` (#59). `caec26d..6ac24da` touches only `docs/impl-spec/impl-spec.md`. Every `supabase/` file cited below was checked blob-for-blob against the `6ac24da` tree. Rev 3 re-check (2026-10-19, 7:00 PM CT): `main` HEAD is still `f213b46`, and `6ac24da..f213b46` still touches only `docs/impl-spec/impl-spec.md` and `docs/ux/42-unloaded-people.md`. `new_story_page.dart` (1267 lines) and `test/new_story_capture_test.dart` (1639 lines) at `f213b46` are byte-identical to the copies the rev 2 line numbers were taken from, so no line number below moves.
+**Branch:** `fix/m14-7-cleanup`, one PR off `main` @ `f213b46`. One milestone per PR. Don't push to `main`, and don't merge. Stop after opening the PR. Follow the Grok Build CLI Contract.
+> 🔍 INFER: The branch is `fix/m14-7-cleanup` because the last cleanup used `fix/m14-2-cleanup` (l.2237). No branch with this name exists (checked the branch list on 2026-10-19).
+
+**Sources:**
+- GitHub issue [#42](https://github.com/wmfmorgan/mortang-tell-me-a-story/issues/42): the body and all 15 comments, through "DESIGN LOCKED, unblocked" (2026-10-19 5:55 AM CT).
+- Mugatu's UX note `docs/ux/42-unloaded-people.md` merged to `main` via PR #59 as `f213b46`. Bill locked it on 2026-10-19 at 5:52 AM CT ("Yes, lock both", relayed verbatim by Erlich). Mugatu wins on UI.
+- Gilfoyle's "Cleanup (#42): Trinity TMAS-40-01 and TMAS-40-02 (LOCKED 2026-10-19, Gilfoyle)", copied verbatim under "Design Doc text to append" below. Gilfoyle wins on schema and tests.
+- Trinity's reviews: `/workspace/tmas-pr54-security-review.md` (54-03, 54-04, 54-05), `/workspace/tmas-pr40-security-review.md` (40-01, 40-02), `/workspace/tmas-pr53-security-review.md` (53-02, 53-03).
+- Dinesh's nits, as they are recorded in the #42 issue text. PRs #38, #39, #40 and #54 have no inline review comments and no reviews. Their conversations contain only Netlify bot posts.
+- Bill's approval, 2026-10-19 6:59 PM CT, relayed verbatim by Erlich: "Approve M14.7 rev 2 with the autosave fix, and M14.8 rev 3". "The autosave fix" is Gilfoyle's #52 "dirty mark" note (R14).
+- PRD: unchanged.
+
+Excluded:
+- TMAS-54-02, the atomic `_replacePeople` change. It is issue #55 (Gilfoyle).
+- The #51 helper tests (`same_family_tree` 8a–8c). They were folded into M14.6 rev 3 (l.2850–2854) and are on `main`.
+- Dinesh's #53 reflow nit. Dinesh dropped it (#42 comment, 2026-10-19 00:21Z).
+- Anything listed under OPEN or CONFLICT that is marked "not in this PR".
+
+#### Code on `main` this item changes (read-only facts, @ `6ac24da`)
+Paths under `apps/` are relative to `apps/tell_me_a_story/`.
+
+Database:
+- The latest migration is `supabase/migrations/20261018000000_story_people_same_tree.sql`. `20261019000000` sorts after it.
+- `comments_delete_author` is defined in `20261011150000_origin_stories.sql` l.287–297 and was never redefined:
+	- `using (comments.author_id = (select auth.uid()) and (public.is_family_member(comments.family_id) or public.can_contribute_to_story(comments.family_id, comments.story_id)))`.
+- `perspectives_delete_author` has the same shape, at l.333–343.
+- `photos_delete_uploader_or_author` was last created in `20261011210000_fit_and_finish.sql` l.277–290:
+	- `using ((photos.uploader_id = (select auth.uid()) or public.can_edit_story(photos.story_id)) and (public.is_family_member(photos.family_id) or public.can_contribute_to_story(photos.family_id, photos.story_id)))`.
+- `story_photos_update_member` was last created in `20261011150000_origin_stories.sql` l.447–525.
+	- USING (l.451–487) and WITH CHECK (l.488–525) are both `bucket_id = 'story-photos' and array_length(...) = 2 and (public.is_live_family_member(seg1) or (owner_id = (select auth.uid())::text and public.can_contribute_to_story(seg1, seg2))) and exists (select 1 from public.stories s where s.id = seg2 and s.family_id = seg1)`.
+	- WITH CHECK adds `and lower(storage.extension(storage.objects.name)) in ('jpg', 'jpeg', 'png', 'webp')` (l.524).
+- `story_photos_delete_member` was last created in `20261011150000_origin_stories.sql` l.527–550:
+	- `using (bucket_id = 'story-photos' and (public.is_family_member(seg1) or (owner_id = (select auth.uid())::text and public.can_contribute_to_story(seg1, seg2))))`.
+	- There is no story join.
+- seg1 and seg2 are the CASE expressions written out at `20261011150000_origin_stories.sql` l.456–459 and l.468–471, for example:
+	- `case when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (storage.foldername(storage.objects.name))[1]::uuid end`.
+- `20261017000100_drafts_author_only.sql` alters only SELECT policies (l.5, 11, 34, 57, 80, 100).
+	- `story_photos_select_member` (l.100–149) requires an existing `stories` row for seg2 in both branches.
+	- It redefines `can_contribute_to_story` (l.152–179) as `(is_live_family_member(fid) or <child-origin live member>) and exists (story sid with status = 'published' or author_id = auth.uid())`.
+- `story_row_exists(sid)` is defined in `20261011150000_origin_stories.sql` l.13 and redefined in `20261011190823_origin_stories_hardening.sql` l.125–133 (`search_path = ''`).
+	- It is granted to `authenticated` at `origin_stories.sql` l.236–237.
+	- It is on the allowlist at `supabase/tests/definer_grants.sql` l.312.
+- `family_tree_root` has execute revoked from `authenticated` (`20261010230000_family_tree_read.sql` l.75), so only the superuser can call it.
+- `is_tree_member` requires `(select auth.uid()) is not null` (`20261012100000_people_profiles.sql` l.52–73).
+- `same_family_tree` is `is_tree_member(a) and is_tree_member(b) and family_tree_root(a) = family_tree_root(b)` (`20261018000000` l.6).
+
+pgTAP on `main`:
+- 23 files. The `select plan(n)` values sum to **753**. That matches #54's PR body: `Files=23, Tests=753`.
+- Policy count 47: `supabase/tests/fit_and_finish.sql` l.608–612 (the count query is l.609, and `47` is l.610). It is repeated in `origin_stories.sql` l.777, `origin_stories_hardening.sql` l.891–895, `start_timeline.sql` l.1016, `people_profiles.sql` l.394, `dob_visibility_passed_away.sql` l.109, `linked_person_name_sync_test.sql` l.485 and `story_draft_autosave.sql` l.483–487.
+- Definer allowlist 30: `supabase/tests/story_draft_autosave.sql` l.489–500 (`30,` is l.498). The issue body's "29 auth definers" is out of date: #53 moved it to 30.
+- Exact-text pins that the migration will break:
+	- `origin_stories_hardening.sql` l.897–902: `comments_delete_author` qual. The expected string is l.900.
+	- `origin_stories_hardening.sql` l.940–945: `perspectives_delete_author` qual. The expected string is l.943.
+	- `origin_stories_hardening.sql` l.1013–1030: `story_photos_delete_member` qual. The expected string is l.1016–1028.
+	- `origin_stories_hardening.sql` l.1069–1096: `story_photos_update_member` qual. The expected string is l.1072–1094.
+	- `origin_stories_hardening.sql` l.1097–1124: `story_photos_update_member` with_check. The expected string is l.1100–1122.
+	- `fit_and_finish.sql` l.672–676: `photos_delete_uploader_or_author` qual. The expected string is l.674: `(((uploader_id = ( SELECT auth.uid() AS uid)) OR can_edit_story(story_id)) AND (is_family_member(family_id) OR can_contribute_to_story(family_id, story_id)))`.
+	- The with_check pins of the three delete policies (`''`) stay true.
+	- Plans: `origin_stories_hardening.sql` 95, `fit_and_finish.sql` 60.
+- Deparse references already on `main`:
+	- `comments_update_author` qual (`origin_stories_hardening.sql` l.928) is `((author_id = ( SELECT auth.uid() AS uid)) AND can_contribute_to_story(family_id, story_id))`.
+	- `perspectives_update_author` qual (l.971) is the same.
+- `supabase/tests/story_people_same_tree.sql` (239 lines, `select plan(14);` at l.6, context table `m51_ctx`):
+	- Case 7 runs after `reset role` (l.214–215). Its three assertions are l.217–236. Then `select * from finish();` (l.238).
+	- Fixtures:
+		- `gone_sib_id` is a soft-deleted sibling under `root_id`.
+		- `orphan_child_id` is a live child of the soft-deleted `dead_parent_id`.
+		- `child_id` is a live child of `root_id`.
+- Patterns used in existing files:
+	- Silent refusals are checked as the superuser afterwards: `origin_stories.sql` l.564–586 for storage update with `metadata`, and l.587–607 for storage delete.
+	- A storage delete as `authenticated` needs `select set_config('storage.allow_delete_query', 'true', true);` first (`origin_stories.sql` l.592–593).
+	- Storage insert refusals use `throws_ok(..., '42501', 'new row violates row-level security policy for table "objects"', ...)` (`origin_stories_hardening.sql` l.418–425).
+	- The M14.4 fixture seeding (author, owner, co-owner, member, parent user; parent and child families; `add_co_owner`) is `story_draft_autosave.sql` l.10–104.
+
+Client (`new_story_page.dart`, 1267 lines):
+- l.124–125: `/// Linked ids hydrate could not show. While non-empty, saves leave story_people as is.` and `final Set<String> _unloadedPersonIds = <String>{};`.
+- l.143–149: `PublishReadiness get _readiness => publishReadiness(... personIds: _selectedPeople.map((p) => p.id), ...)`. The `personIds:` line is l.147.
+- l.157–159: `_personIdsToWrite`.
+- `_hydrateDraft` (l.270–374):
+	- The seed `_unloadedPersonIds..clear()..addAll(story.personIds)` is inside the first `setState`, at l.301–303 (R8 of M14.6b).
+	- In the `try` (l.307–322), l.308 is `listTreePeople(familyId)`, followed by `if (!mounted) return;`, `shown` (l.310–312), and the `setState` (l.313–322) that recomputes `..addAll(story.personIds.where((id) => !shown.any((p) => p.id == id)))` (l.319–321).
+	- The `catch (_)` (l.323–328) keeps the comment `// Story fields already applied; people chips stay empty.` and fills `_unloadedPersonIds` **outside** `setState` (l.325–327).
+- `_openAddPerson` (l.385–422):
+	- `linkedPersonIds` (l.397–400).
+	- The `linkPerson:` closure (l.401–408): `try { await _stories.linkPerson(...); } on PostgrestException catch (error) { if (!isDuplicateStoryKey(error)) rethrow; }`.
+	- After the modal returns, l.410 is `if (!mounted || added == null) return;` and l.411–418 is a `setState` that appends each new `added.people` entry to `_selectedPeople`. Nothing after it schedules an autosave. l.419 is `} finally {`.
+- Autosave state (l.99–105): `_autosaveTimer`, `_autosaveInserted`, `_autosaveDirty`, `_autosaveInFlight`, `_autosaveCoalesce`, `_autosaveStopped`, `_autosaveLabel`. There is no other dirty flag.
+- `_scheduleAutosave` (l.193–205): returns if `_editing || _autosaveStopped` (l.194), then `_storyId ??= const Uuid().v4();` (l.195), `_autosaveDirty = true;` (l.196), coalesces into an in-flight run (l.197–200), else restarts a `kAutosavePause` (2 s, l.34) timer that calls `_runAutosave` (l.201–204).
+- Only two call sites: the title and body `onChanged: (_) { setState(() {}); _scheduleAutosave(); }` (l.925–928 and l.965–968). The year box (`_onYearChanged`, l.472–474), month/day (`_onMonth` l.457–463, `_onDay` l.465–470), Choose place (l.439–443) and `_removePerson` don't call it.
+- `_runAutosave` (l.207–248): returns unless `_autosaveDirty && _storyId != null` (l.213), reads `personIds = _personIdsToWrite` before the first await (l.219), and re-runs once if a schedule came in while in flight (l.242–246).
+- Save-on-leave: `dispose` (l.182–191) cancels the timer and runs `_runAutosave` only if `!_editing && !_autosaveStopped && _autosaveDirty && _storyId != null` (l.184).
+- `_persistDraft` clears `_autosaveDirty` first (l.591). On a new story, `_writeDraft`'s first autosave is the `createDraft(id: snapshot.id, allowUndated: autosave, …, personIds: snapshot.personIds ?? const [])` insert (l.624–641). Later ones go through `autosaveDraft(…, personIds: snapshot.personIds)` (l.647–657).
+- The M14.6b guard is `_personIdsToWrite` (l.157–159): null while `_unloadedPersonIds` is non-empty, so autosave still runs but leaves `story_people` as is (`_applyStoryWrite` skips `_replacePeople` on null, `stories_api.dart` l.506–508). Add person can't be tapped while hydrate is loading people: `_actionsEnabled` is `!_loadingFamily && !_busy` (l.151), and `_loadingFamily` is only cleared in `_bootstrap`'s `finally` (l.265–266) after `_hydrateDraft` returns.
+- `_removePerson` (l.449–451) is a bare `setState`. It doesn't schedule an autosave.
+- `_persistDraft` (l.583–618).
+- `_writeDraft` (l.620–687):
+	- Autosave branch: `if (!wrote) { _autosaveStopped = true; _autosaveTimer?.cancel(); _autosaveLabel = null; return null; }` (l.658–663). The label clear is l.661, outside `setState`. `_runAutosave` already clears the label in `setState` when `_autosaveStopped` (l.230–233).
+	- l.664–673: a synthesized `Story(id: _storyId!, ..., authorId: '', ...)` is returned after autosave. Its only readers are `story != null` (l.234) and `_storyId = story.id` (l.616).
+- People card (l.1099–1146):
+	- `_highlightIfMissing(missing: _showPublishBanner && !readiness.hasPerson, ...)` (l.1100).
+	- `Text('People')` (l.1108–1111) and the count `'${_selectedPeople.length}'` (l.1113).
+	- `Chip(... onDeleted: () => _removePerson(person))` (l.1130–1138, `onDeleted` at l.1137).
+	- `TextButton(onPressed: _actionsEnabled ? _openAddPerson : null, child: const PlusLabel(label: 'Add person'))` (l.1140–1143).
+- The banner text is `'Finish the highlighted fields to publish.'` (l.881). `_highlightIfMissing` draws a 2px `albumTerracotta` border (l.1203–1213).
+
+`story_reader_page.dart` (1382 lines):
+- `_personChip` (l.1142–1175) is a `PersonNamePill` around a `DecoratedBox` row. It has no remove control.
+
+`lib/data/stories_api.dart` (706 lines):
+- `publishReadiness` (l.268–282): `hasPerson: personIds.isNotEmpty`.
+- `isDuplicateStoryKey` (l.301–307): code `23505` **or** a message containing `duplicate key`.
+- `StoriesGateway.updateDraft` (l.322–331, `List<String>? personIds` at l.330).
+- `autosaveDraft` (doc l.333 `/// Autosave and save-on-leave only. False when the row is no longer a draft.`, l.334–343, `personIds` at l.342).
+- `StoriesApi.updateDraft` (l.407–430): `await _applyStoryWrite(` (l.418) discards the returned `bool`.
+- `_applyStoryWrite` (l.457–510): `if (personIds != null) { await _replacePeople(storyId, personIds); }` (l.506–508).
+- `publish` (l.512–532) re-reads the story and checks `publishReadiness` on `story.personIds` from the database (l.515).
+- `story_people`'s only unique key is `primary key (story_id, person_id)` (`20260923000002_ddl.sql` l.74–78). Postgres names it `story_people_pkey`.
+- `_replacePeople` (l.647–654) deletes every `story_people` row for the story, then inserts the list.
+- `linkPerson` (l.637–645) inserts one `story_people` row.
+
+`lib/features/people/add_person_modal.dart` (911 lines, unchanged by this PR):
+- `_linkEach` (l.228–251) links only when `canWrite` (l.232: `storyId != null && storyId.isNotEmpty && link != null`). On a new story with no `_storyId`, nothing is linked.
+- Pick and Create new person return through the same pop: create `AddPersonResult(people: [..._saved, person], …)` (l.208–210), pick (l.269–270), close with saved people (l.281–282). So in the page they are one path: `added` at l.410.
+- `_created ??= await widget.api.createPerson(…)` (l.181) reuses the created person on a retry. `_close` pops only `_saved` (l.276–283).
+
+`test/new_story_capture_test.dart` (1639 lines, 38 tests per #54's PR body):
+- `_FakePeopleApi({seed, tree})` with `throwOnList` and `holdTree` (l.49–69).
+- `_FakeStoriesApi` with `personIdsArgs`, `duplicateLinkIds`, `linkError`, `publishCalls` (l.165, l.309).
+- `_ada` `p1` (l.433), `_parentFamilyId` (l.441), `_will` `w1` (l.443).
+- `_hasTerracottaBorder` (l.545–552, color `0xFF8B5E4B`).
+- `_mattIsBorn({id, personIds, status})` (l.1622–1639) has no `placeId`.
+- `re-adding a person already on the story shows no error` (l.1520). Its fake throws `'duplicate key value violates unique constraint "story_people_pkey"'`, `23505`.
+- `other link errors still show the save error` (l.1549).
+- Test 12, `a resumed draft does not autosave people before they load` (l.1577–1619): the manual loop `for (var i = 0; i < 5; i++) { ... }` is at l.1592–1599, and the final chip checks are at l.1615–1618.
+- `_FakeStoriesApi.createDraft` (l.204–237) counts `createDraftCalls` and sets `lastPersonIds`. It doesn't add to `personIdsArgs`. `autosaveDraft` (l.274–305) adds to `personIdsArgs` and counts `autosaveCalls`. `linkPerson` (l.341–356) counts `linkCalls` and records `linkedIds`.
+- `_FakePeopleApi.createPerson` throws `UnimplementedError` (l.75–84).
+- `_wren` `w3` (l.457).
+- `a person picked on a new story is written by the first draft save` (l.628–657) shows `linkCalls` 0 after Add person on a new story.
+- Test 12 shows the M14.6b guard's shape: while people are unloaded, autosave still runs (`autosaveCalls` 1, l.1613) with `personIdsArgs.last` null (l.1614).
+
+Other:
+- `docs/design-doc/m14.4-drafts.md` has 110 lines. Its last section is "M14.4 dateless drafts ... (LOCKED — Gilfoyle architecture fix, 2026-10-17)". It has no #42 section yet.
+- CI: the tree at `6ac24da` has no `.github/` directory, so no workflow runs Flutter, pgTAP or Deno.
+
+#### Files touched (exhaustive)
+- New: `supabase/migrations/20261019000000_draft_write_policies.sql` (R1).
+- New: `supabase/tests/draft_write_policies.sql` (pgTAP groups 1–9).
+- `supabase/tests/origin_stories_hardening.sql`: R2 only, five expected strings, plan stays 95.
+- `supabase/tests/fit_and_finish.sql`: R2 only, one expected string, plan stays 60.
+- `supabase/tests/story_people_same_tree.sql`: R12 only, plan 14 → 17.
+- `apps/tell_me_a_story/lib/features/stories/new_story_page.dart`: R4, R5, R7, R8, R9, R10, R14.
+- `apps/tell_me_a_story/lib/data/stories_api.dart`: R6 and R11 only, comments only, no code change.
+- `apps/tell_me_a_story/test/new_story_capture_test.dart`: new tests F1–F9, the R13 edits to test 12, and one helper.
+- `docs/design-doc/m14.4-drafts.md`: append Gilfoyle's section verbatim after l.110.
+- `docs/impl-spec/impl-spec.md`: this item, appended after l.3050 (the end of M14.6b).
+- Unchanged, and the diff must show it:
+	- every existing file under `supabase/migrations/` and `supabase/functions/`;
+	- `lib/data/rpc_error.dart`, `lib/data/people_api.dart`;
+	- `lib/features/people/add_person_modal.dart`, `lib/features/stories/story_reader_page.dart`;
+	- every other test file;
+	- `docs/ux/42-unloaded-people.md`, which lands through PR #59, not this PR;
+	- `.github/`.
+
+#### Locked UX (Mugatu, `docs/ux/42-unloaded-people.md` @ `2dbed43`, verbatim rules)
+> Rule 1: no remove X while anyone is unloaded
+> - While at least one linked person is unloaded, hide the remove X on **every** person chip on that story. The chips stay visible, but they can't be removed.
+> - Once every linked person has loaded, the X comes back on every chip.
+> - Adding people works exactly as it does today (picker, Create new person, multi-add).
+>
+> Rule 2: unloaded links count for publishing
+> - `publishReadiness` treats an unloaded linked person as a person. A story whose only linked person is unloaded is **not** "missing person".
+>
+> Unchanged / do-nots
+> - No new copy, no tooltip, no banner, no new colors or tokens. Chips keep their current look, minus the X.
+> - How unloaded people show today (or don't) stays the same. Don't add a placeholder chip for them.
+> - Semantics: a chip without an X exposes no remove action.
+
+The note's definition: "Unloaded" = the set the code already tracks as `_unloadedPersonIds`.
+> 🔍 INFER: Rule 1 needs a code change only in `new_story_page.dart`. The note names `story_reader_page.dart` too, but its `_personChip` (l.1142–1175) has no remove X, so the reader stays unchanged.
+
+#### Migration (R1: exact SQL; Gilfoyle's lock with seg1 and seg2 written out exactly as they are on `main`)
+`supabase/migrations/20261019000000_draft_write_policies.sql`:
+```sql
+-- #42 cleanup, TMAS-40-01: author-only drafts, write side (Gilfoyle, LOCKED 2026-10-19).
+-- alter policy only. Policy count stays 47. No new function, no new grant.
+
+alter policy comments_delete_author on public.comments
+  using (author_id = (select auth.uid()) and public.can_contribute_to_story(family_id, story_id));
+
+alter policy perspectives_delete_author on public.perspectives
+  using (author_id = (select auth.uid()) and public.can_contribute_to_story(family_id, story_id));
+
+alter policy photos_delete_uploader_or_author on public.photos
+  using (
+    (uploader_id = (select auth.uid()) or public.can_edit_story(story_id))
+    and public.can_contribute_to_story(family_id, story_id)
+  );
+
+alter policy story_photos_update_member on storage.objects
+  using (
+    bucket_id = 'story-photos'
+    and array_length(storage.foldername(storage.objects.name), 1) = 2
+    and (
+      public.is_live_family_member(
+        case
+          when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          then (storage.foldername(storage.objects.name))[1]::uuid
+        end
+      )
+      or (
+        owner_id = (select auth.uid())::text
+        and public.can_contribute_to_story(
+          case
+            when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (storage.foldername(storage.objects.name))[1]::uuid
+          end,
+          case
+            when (storage.foldername(storage.objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (storage.foldername(storage.objects.name))[2]::uuid
+          end
+        )
+      )
+    )
+    and exists (
+      select 1
+      from public.stories s
+      where s.id = case
+          when (storage.foldername(storage.objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          then (storage.foldername(storage.objects.name))[2]::uuid
+        end
+        and s.family_id = case
+          when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          then (storage.foldername(storage.objects.name))[1]::uuid
+        end
+        and (s.status = 'published' or s.author_id = (select auth.uid()))
+    )
+  )
+  with check (
+    bucket_id = 'story-photos'
+    and array_length(storage.foldername(storage.objects.name), 1) = 2
+    and (
+      public.is_live_family_member(
+        case
+          when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          then (storage.foldername(storage.objects.name))[1]::uuid
+        end
+      )
+      or (
+        owner_id = (select auth.uid())::text
+        and public.can_contribute_to_story(
+          case
+            when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (storage.foldername(storage.objects.name))[1]::uuid
+          end,
+          case
+            when (storage.foldername(storage.objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (storage.foldername(storage.objects.name))[2]::uuid
+          end
+        )
+      )
+    )
+    and exists (
+      select 1
+      from public.stories s
+      where s.id = case
+          when (storage.foldername(storage.objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          then (storage.foldername(storage.objects.name))[2]::uuid
+        end
+        and s.family_id = case
+          when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          then (storage.foldername(storage.objects.name))[1]::uuid
+        end
+        and (s.status = 'published' or s.author_id = (select auth.uid()))
+    )
+    and lower(storage.extension(storage.objects.name)) in ('jpg', 'jpeg', 'png', 'webp')
+  );
+
+alter policy story_photos_delete_member on storage.objects
+  using (
+    bucket_id = 'story-photos'
+    and (
+      (
+        public.is_family_member(
+          case
+            when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (storage.foldername(storage.objects.name))[1]::uuid
+          end
+        )
+        and (
+          exists (
+            select 1
+            from public.stories s
+            where s.id = case
+                when (storage.foldername(storage.objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                then (storage.foldername(storage.objects.name))[2]::uuid
+              end
+              and s.family_id = case
+                when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                then (storage.foldername(storage.objects.name))[1]::uuid
+              end
+              and (s.status = 'published' or s.author_id = (select auth.uid()))
+          )
+          or not public.story_row_exists(
+            case
+              when (storage.foldername(storage.objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              then (storage.foldername(storage.objects.name))[2]::uuid
+            end
+          )
+        )
+      )
+      or (
+        owner_id = (select auth.uid())::text
+        and public.can_contribute_to_story(
+          case
+            when (storage.foldername(storage.objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (storage.foldername(storage.objects.name))[1]::uuid
+          end,
+          case
+            when (storage.foldername(storage.objects.name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (storage.foldername(storage.objects.name))[2]::uuid
+          end
+        )
+      )
+    )
+  );
+```
+- The storage UPDATE USING and WITH CHECK bodies are copied character for character from `20261011150000_origin_stories.sql` l.451–525. The one change is a new line, `        and (s.status = 'published' or s.author_id = (select auth.uid()))`, after the `s.family_id = case … end` in each EXISTS.
+- In storage DELETE, the `owner_id` and `can_contribute_to_story` branch is copied from l.540–552 unchanged. Only the `is_family_member(seg1)` branch gains the story clause.
+> 🔍 INFER: The SQL uses `public.is_family_member`, `public.story_row_exists` and `storage.objects.name` with schema qualification, even though Gilfoyle's comment shorthand leaves them unqualified. His section says "Copy them exactly as they are", and the policies on `main` qualify every one of them.
+
+#### Rules
+- R1 **Write side of author-only drafts (TMAS-40-01).** Apply the migration above exactly.
+	- Use `alter policy` only. Policy names and count stay the same (47).
+	- No new function and no grant change, so the definers stay at 30 and the error prefixes at 4.
+	- No client change follows from R1.
+- R2 **Update existing pins in place.** Every exact-text pin that the five altered policies break gets its expected string replaced with the local post-migration `pg_policies` text. Labels, plans and every other assertion stay the same.
+	- `origin_stories_hardening.sql` l.900 (`comments_delete_author` qual) becomes `((author_id = ( SELECT auth.uid() AS uid)) AND can_contribute_to_story(family_id, story_id))`.
+	- `origin_stories_hardening.sql` l.943 (`perspectives_delete_author` qual) becomes the same string as l.900.
+	- `fit_and_finish.sql` l.674 (`photos_delete_uploader_or_author` qual) becomes `(((uploader_id = ( SELECT auth.uid() AS uid)) OR can_edit_story(story_id)) AND can_contribute_to_story(family_id, story_id))`.
+	- `origin_stories_hardening.sql` l.1072–1094 (`story_photos_update_member` qual) and l.1100–1122 (with_check): see the expected-text INFER below.
+	- `origin_stories_hardening.sql` l.1016–1028 (`story_photos_delete_member` qual): paste the local deparse.
+> 🔍 INFER: The three single-line strings above use the deparse that `main` already prints for the same expressions: `comments_update_author` qual at l.928 and the current l.674. For storage UPDATE, the expected text is the current string with ` AND ((s.status = 'published'::story_status) OR (s.author_id = ( SELECT auth.uid() AS uid)))` inserted right after the `END)` that closes `(s.family_id = CASE … END)`. Nothing else should change. If the local text differs anywhere else, paste it in the PR body and stop.
+> Resolved (rev 2): Gilfoyle confirmed the six pins in R2. Update them in place, and remove no assertion. His rev 2 section lists the same six.
+- R3 **Design Doc.** Append Gilfoyle's section (below) verbatim at the end of `docs/design-doc/m14.4-drafts.md`, after l.110. Copy it byte for byte, including the "Handoff:" line.
+- R4 **No remove X while anyone is unloaded (Mugatu Rule 1; closes TMAS-54-04).**
+	- In the People card chip, l.1137 becomes `onDeleted: _unloadedPersonIds.isEmpty ? () => _removePerson(person) : null,`.
+	- No other change to the chip, `PersonNamePill`, the count text or the Add person button.
+	- `onDeleted == null` makes Flutter render no delete icon and no delete semantics action (the note's Semantics line).
+- R5 **Unloaded links count for publishing (Mugatu Rule 2).** l.147 becomes `personIds: [for (final p in _selectedPeople) p.id, ..._unloadedPersonIds],`.
+	- `publishReadiness` in `stories_api.dart` (l.268–282) is unchanged.
+	- `StoriesApi.publish` already checks the stored `story.personIds` (l.515).
+> 🔍 INFER: R5 changes only the call site, because `publishReadiness` takes ids and `_unloadedPersonIds` holds exactly the linked ids that didn't load. This makes the page agree with the server-side check in `publish`. No copy changes.
+- R6 **Data-layer rule for null `personIds` (Dinesh #54 nit 1).** In `StoriesGateway`, `stories_api.dart`:
+	- Add this line right above `Future<Story> updateDraft({` (l.322): `/// A null [personIds] leaves the story's story_people rows as they are. A list, even an empty one, replaces them.`
+	- Add the same sentence as a second doc line under l.333, above `Future<bool> autosaveDraft({`.
+	- Comments only.
+- R7 **Set difference (Dinesh #54 nit 2).** In the hydrate `try`:
+	- Right after `shown` (l.310–312), add `final shownIds = {for (final p in shown) p.id};`.
+	- l.319–321 becomes `..addAll(story.personIds.toSet().difference(shownIds)),`.
+	- Behavior is unchanged.
+- R8 **Catch branch uses `setState` (Dinesh #54 nit 3).** l.323–328 becomes:
+```dart
+    } catch (_) {
+      // Story fields already applied; people chips stay empty.
+      if (!mounted) return;
+      setState(() {
+        _unloadedPersonIds
+          ..clear()
+          ..addAll(story.personIds);
+      });
+    }
+```
+	It matches the `try` branch (`if (!mounted) return;` then `setState`). After R4, this set drives the chips, so it has to rebuild.
+- R9 **`_linkIgnoringDuplicate` with a stricter matcher (Dinesh #54 nit 4, TMAS-54-03).**
+	- Add a private method to `_NewStoryPageState`, placed right after `_openAddPerson`:
+```dart
+  Future<void> _linkIgnoringDuplicate({
+    required String storyId,
+    required String personId,
+  }) async {
+    try {
+      await _stories.linkPerson(storyId: storyId, personId: personId);
+    } on PostgrestException catch (error) {
+      if (error.code != '23505' ||
+          !error.message.contains('story_people_pkey')) {
+        rethrow;
+      }
+    }
+  }
+```
+	- l.401–408 becomes `linkPerson: _linkIgnoringDuplicate,`.
+	- `isDuplicateStoryKey` stays as it is and is still used at l.643 for `createDraft`.
+> 🔍 INFER: The matcher is Trinity's suggestion as she wrote it (`/workspace/tmas-pr54-security-review.md` l.51). It is in scope because the #42 status comment (2026-10-19 10:52Z) lists 54-03. Bill can drop R9's matcher half and F5 at approval. If he does, the method keeps `if (!isDuplicateStoryKey(error)) rethrow;`.
+- R10 **Remove the stray label clear (Dinesh #40 nit).** Delete l.661 (`        _autosaveLabel = null;`) in `_writeDraft`.
+	- This is safe because `_runAutosave` clears the label inside `setState` whenever `_autosaveStopped` is set (l.230–233).
+	- `_runAutosave` is the only caller with `autosave: true`.
+- R11 **Comment on `updateDraft` ignoring the bool (Dinesh #40 nit).** Right above `await _applyStoryWrite(` at l.418, add:
+	`    // The bool is ignored on purpose. It only reports "no longer a draft" for autosave (draftsOnly); getStory below returns the row as stored.`
+	This is a comment only.
+> 🔍 INFER: The comment text is mine, because the #42 body says only "a comment on `updateDraft` ignoring the bool". Dinesh confirms the wording in code review.
+- R12 **Test `family_tree_root` directly as the superuser (Dinesh #53 recheck nit 1, Gilfoyle's fix, issue comment 2026-10-18 21:20Z).**
+	- In `story_people_same_tree.sql`, after case 7's third assertion (l.236) and before `select * from finish();` (l.238), still as the superuser, add:
+```sql
+select ok(
+  public.family_tree_root((select gone_sib_id from m51_ctx)) is null,
+  'family_tree_root is null for a soft-deleted timeline (#42, superuser)'
+);
+select is(
+  public.family_tree_root((select orphan_child_id from m51_ctx)),
+  (select orphan_child_id from m51_ctx),
+  'family_tree_root stops at a soft-deleted parent (#42, superuser)'
+);
+select is(
+  public.family_tree_root((select child_id from m51_ctx)),
+  (select root_id from m51_ctx),
+  'family_tree_root of a live child is its root (#42, superuser)'
+);
+```
+	- l.6 becomes `select plan(17);`.
+> 🔍 INFER: Labels are mine, because Gilfoyle gave only the expressions. Running these as the superuser is honest because `family_tree_root` has no caller check and `authenticated` can't execute it (`20261010230000_family_tree_read.sql` l.75). They also cover TMAS-53-02's intent ("overlaps Dinesh's nit 1", #42). Trinity's own superuser `same_family_tree` asserts can't be written after TMAS-53-01: `is_tree_member` is false when `auth.uid()` is null (`20261012100000_people_profiles.sql` l.60) and `same_family_tree` calls it (`20261018000000_story_people_same_tree.sql` l.6), so `(child_id, root_id)` would be false as the superuser.
+- R13 **Test 12 hygiene (Dinesh #54 test nits 1 and 2).**
+	- In `new_story_capture_test.dart`, add this top-level helper next to `_hasTerracottaBorder`:
+```dart
+Future<void> _pumpUntil(
+  WidgetTester tester,
+  bool Function() done, {
+  int maxPumps = 5,
+}) async {
+  for (var i = 0; i < maxPumps && !done(); i++) {
+    await tester.pump();
+  }
+}
+```
+	- Replace test 12's loop (l.1592–1599) with:
+```dart
+    await _pumpUntil(tester, () {
+      final title = find.byKey(const Key('story-title'));
+      return title.evaluate().isNotEmpty &&
+          tester.widget<TextField>(title).controller?.text == 'Matt is born';
+    });
+```
+	- After l.1618, add:
+```dart
+    await tester.enterText(
+      find.byKey(const Key('story-title')),
+      'Matt is born!!',
+    );
+    await tester.pump(kAutosavePause);
+    await tester.pumpAndSettle();
+    expect(stories.autosaveCalls, 2);
+    expect(stories.personIdsArgs.last, ['p1', 'w1']);
+```
+	- No existing assertion in test 12 is removed or changed. Its name stays the same.
+> 🔍 INFER: The order `['p1', 'w1']` comes from `_FakePeopleApi.listTreePeople` (family rows first, then `treeRows`, l.67–72) and `_selectedPeople..addAll(shown)` (l.314–316).
+- R14 **Schedule an autosave when Add person returns (Bill, 2026-10-19 6:59 PM CT; Gilfoyle's #52 "dirty mark" note).**
+	- In `_openAddPerson`, l.410–419 is currently:
+```dart
+      if (!mounted || added == null) return;
+      setState(() {
+        for (final person in added.people) {
+          if (_selectedPeople.any((existing) => existing.id == person.id)) {
+            continue;
+          }
+          _selectedPeople.add(person);
+        }
+      });
+    } finally {
+```
+	- It becomes:
+```dart
+      if (!mounted || added == null) return;
+      setState(() {
+        for (final person in added.people) {
+          if (_selectedPeople.any((existing) => existing.id == person.id)) {
+            continue;
+          }
+          _selectedPeople.add(person);
+        }
+      });
+      _scheduleAutosave();
+    } finally {
+```
+	- That one line is the whole change. It's the same call the title and body make after their `setState` (l.925–928, l.965–968). Don't add a flag, a method or a condition around it.
+	- It covers both picking and Create new person, because both return through the same `added` at l.410 (`add_person_modal.dart` l.208–210 and l.269–270).
+	- `_scheduleAutosave` keeps its own guards: no autosave in edit mode or once autosave has stopped (l.194). If an autosave is in flight, it coalesces (l.197–200), and `_runAutosave` re-runs with the current people (l.242–246).
+	- The M14.6b guard is reused as is. `_runAutosave` still reads `_personIdsToWrite` (l.219), which is null while `_unloadedPersonIds` is non-empty (l.157–159). So the autosave leaves `story_people` as is, and the modal's own `linkPerson` insert carries the new link.
+	- Unchanged: `_scheduleAutosave`, `_runAutosave`, `_persistDraft`, `_writeDraft`, `dispose`, `_removePerson`, `_personIdsToWrite`, the R8 hydrate guard, `add_person_modal.dart` and everything in `lib/data/`.
+	- R9 replaces l.401–408 and R14 inserts after l.418. Both use `main`'s line numbers, and they don't overlap.
+> 🔍 INFER: The bug is real. I read this from the code; nothing was run. On `main`, `_openAddPerson` ends with a bare `setState` (l.411–418), and only the title and body call `_scheduleAutosave` (l.927, l.967). So after Add person with no other edit, no timer starts and `_autosaveDirty` stays false. On a new story, `_storyId` also stays null.
+> - New story: the modal can't link without a story id (`add_person_modal.dart` l.232), and the existing test at l.628–657 shows `linkCalls` 0. Leaving the page saves only if `_autosaveDirty && _storyId != null` (l.184). So the person is lost, and so is the unsaved story.
+> - Saved draft: the modal has already inserted the link (`add_person_modal.dart` l.239 → `stories_api.dart` l.641–644), so leaving the page doesn't lose it by itself. But an autosave that started while the modal was open carries the people list it read before the add (l.219). Its `_replacePeople` deletes and re-inserts that list (`stories_api.dart` l.647–653), which can drop the new link. Nothing marks the page dirty afterwards, so nothing writes the link again.
+> - With R14: a new story gets a client id and a 2 s autosave, or a save on leave through l.184. A draft gets a fresh autosave, or a coalesced re-run if one is in flight.
+> 🔍 INFER: The containment gate passes. R14 is client-only and is one call to the existing autosave path. It adds no gateway method, RPC, migration, policy, function, error prefix or copy, and it doesn't change Mugatu's rules or the M14.6b guard. The only visible effect is the existing "Saved" autosave label (l.234) showing after Add person, the same as after typing. Edit mode is unchanged (l.194): there, the modal links right away and Save changes writes the rest.
+> 🔍 INFER: R14 shouldn't change any existing assertion. I haven't run this.
+> - In edit mode, `_scheduleAutosave` returns at l.194. That covers every `editStoryId` test that adds people (`new_story_capture_test.dart` l.1292–1345, l.1520, l.1549).
+> - In `new_story_capture_test.dart` l.628–657 (new story), Save draft is tapped before the 2 s pause. `_onSaveDraft` cancels the timer (l.691) and inserts through `createDraft` with the id R14 minted (l.195, l.627–628). So `createDraftCalls` 1, `updateDraftCalls` 0 and `lastPersonIds` `['p1']` still hold.
+> - `new_story_shell_test.dart` l.303 (`selecting person shows chip in memory only`) and l.331 end before the pause. Teardown disposes the page, and `dispose` cancels the timer (l.183). The save on leave is caught in `_runAutosave` (l.235–237) and asserts nothing. The l.303 name now overstates "in memory only", but its assertions (chip shown, no form) still hold.
+> - `new_story_shell_test.dart` l.639 and l.811 publish after adding. Publish cancels the timer (l.763) and `_persistDraft` clears `_autosaveDirty` (l.591), so l.811's "disposing the page fires no autosave" counts stay the same.
+> - If any existing test breaks in the build, stop and report it. Don't edit those tests.
+> ❓ OPEN: Bill/Gilfoyle. `_removePerson` (l.449–451) doesn't schedule an autosave either, and neither do the year, month and day boxes (l.457–474) or Choose place (l.439–443). Bill approved the add-person path only, so R14 doesn't add the same call to `_removePerson`. Default: not in this PR. A removal with no other edit is still not saved when you leave a new story or draft. With R4, removal is already off while anyone is unloaded.
+
+> 🚫 FORBIDDEN:
+> - Adding, dropping or drop-and-recreating any policy. Touching any SELECT or INSERT policy, including `story_photos_select_member`, `story_photos_insert_member` and every `*_select_member`.
+> - Using `is_live_family_member` in the storage DELETE member branch.
+> - Adding a helper or any new function, RPC, grant or Edge function. Editing any existing migration (including `20261016235900`, `20261016235950`, `20261018000000`). A fifth error prefix or any change to `mapRpcError` or `rpc_error.dart`.
+> - Any code change in `lib/data/` beyond the R6 and R11 comment lines: no change to `_replacePeople`, `linkPerson`, `isDuplicateStoryKey` or `publishReadiness`.
+> - New or changed UI copy, a tooltip, banner or placeholder chip for unloaded people, new colors or tokens, or any change to the chip's look except the missing X.
+> - Disabling or hiding Add person.
+> - Changes to `add_person_modal.dart`, `story_reader_page.dart`, `people_api.dart` or `timeline_page.dart`.
+> - Removing or weakening any pgTAP or Flutter assertion. The only edits to existing tests are R2, R12 and R13.
+> - Adding a CI workflow.
+> - Widening scope to anything under "Not in this PR".
+> - Pushing to `main` or merging.
+> - Running `supabase db reset`, `db pull`, `migration repair` or `migration down`.
+
+#### Not in this PR (each one stays on #42 unless its owner re-homes it)
+> ⚠️ CONFLICT: TMAS-54-05 (CI has no Flutter job) overlaps issue #43, "CI: GitHub Actions runs flutter test + pgTAP + Deno as a required PR check", which is blocked until Gilfoyle locks the CI design. Narrower option: leave 54-05 to #43 and add no workflow here.
+> ❓ OPEN: Erlich/Dinesh. The #42 body lists "Dinesh's four #38/#39 items, in a NEW migration that redefines the functions from `20261016235900` and `20261016235950`", but the four items aren't written anywhere in my sources: PRs #38 and #39 have no review comments or reviews, and the issue doesn't list them. Separately, Gilfoyle's locked migration is "`alter policy` only … no new functions", so redefining functions would need its own lock. Default: not in this PR. Dinesh writes the four items and Gilfoyle locks the SQL, as a later item or a rev 2 of this one.
+> ❓ OPEN: Dinesh. Two of the four #40 nits name a place but no fix: "the fake Story at `new_story_page.dart:633`" (now l.664–673) and "split `_persistDraft` at :549" (now l.583–618). Default: unchanged in this PR. If Dinesh gives the target shape before the build, it goes in as R15 and R16 with no test change (R14 is taken by the autosave fix).
+> ❓ OPEN: Gilfoyle. TMAS-53-03 ("a `story_id`-swap UPDATE negative and a published-story non-editor INSERT negative", `/workspace/tmas-pr53-security-review.md` l.45–49) needs exact fixtures and assertions from Gilfoyle, the owner of tests. Default: not in this PR, so the plan of `story_people_same_tree.sql` stays at 17.
+> ⚠️ CONFLICT: #42 also carries items that this item's brief doesn't name:
+> - Dinesh's #52 nits 1–6 in `add_person_modal.dart`.
+> - Gilfoyle's #52 note: the duplicate person after create-then-link fails.
+> - Dinesh's #53 nit 2 ("consider a helper") and nit 3 ("taste"; the cited `:423`/`:494` don't exist in the 239-line `story_people_same_tree.sql` at `6ac24da`).
+> - Gilfoyle's doc fix: `docs/design-doc/m14-people-profiles.md` l.116 still says "739 plus the new tests" and should list 8a–8c and 9 (753).
+>
+> Narrower option: leave them all out of M14.7, and Erlich/Bill re-home them before #42 closes.
+> Resolved (rev 3): Gilfoyle's #52 "dirty mark" note is in this PR as R14 (Bill, 2026-10-19 6:59 PM CT).
+> Gilfoyle's #52 "duplicate person after create-then-link fails" note stays out. R14 doesn't cover it, because it lives in `add_person_modal.dart` (`_created ??=` l.181, the link-error return l.202–207, `_close` popping only `_saved` l.276–283), which this PR doesn't touch.
+
+#### Fixtures and new pgTAP file (TMAS-40-02)
+`supabase/tests/draft_write_policies.sql`. It runs in a transaction and rolls back, the same as `story_draft_autosave.sql`.
+- Context table: `m42_ctx`.
+- Users: A `…a1` (author), B `…a2` (live member), O `…a3` (owner, creates the child family), C `…a4` (co-owner), R `…a5` (tree reader: creates the parent family), K `…a6` (owner of family K, whose origin is P).
+- Families: `parent_id` (R), `child_id` (O), `k_family_id` (K). As the superuser, set `child.parent_family_id = parent_id` with `branch_year = 1972`, and `k_family.parent_family_id = child_id` with `branch_year = 1990`.
+- Memberships: A, B and C are `member` of `child_id`. O runs `add_co_owner(child_id, C)`.
+- Stories in `child_id` by A, inserted as the superuser:
+	- D `…b1`: draft, title `'Draft'`.
+	- P `…b2`: published, `published_at = now()`, dated `1980-03-14` day.
+	- K runs `set_family_origin(k_family_id, P)`.
+- People `…c1` and `…c2` in `child_id`. `story_people (D, c1)`.
+- Rows, as the superuser:
+	- On D by B: comment `…d1`, perspective `…d2`, photo `…d3`.
+	- On D by A: comment `…d4`, perspective `…d5`, photo `…d6`.
+	- On P by B: comment `…e1`, photo `…e2`.
+- `storage.objects` (`story-photos`):
+	- `child/D/b.jpg` (owner B), `child/D/a.jpg` (owner A), `child/P/p.jpg` (owner A).
+- Uuid pattern `a4200000-0000-4000-8000-0000000000xx`, where `xx` is the code above.
+- Every delete on `storage.objects` runs after `select set_config('storage.allow_delete_query', 'true', true);` (as in `origin_stories.sql` l.593).
+- Every "still there" or "gone" check runs after `reset role;` as the superuser.
+
+Assertions, in this order (G7 runs first so every row still exists). `select plan(43);`
+- **G7 (Gilfoyle 7), 10 assertions.**
+	- As R, then as K: `is(count, 0)` for D separately in each of `comments`, `perspectives`, `photos` (`story_id = D`), `story_people` (`story_id = D`) and `storage.objects` (`name like child::text || '/' || D::text || '/%'`).
+	- Labels: `'<R|K> sees no <table> on D'`.
+- **G6 (Gilfoyle 6), 12 assertions.**
+	- For C, then O: try `update public.stories set title = 'Hijack' where id = D`, `delete from public.stories where id = D`, `update public.story_people set person_id = c2 where story_id = D` and `delete from public.story_people where story_id = D`. These are silent 0-row statements, not assertions.
+	- Two `throws_ok` per user, code `'42501'`:
+		- `insert into public.story_people (story_id, person_id) values (D, c2)` (message `null`).
+		- `insert into storage.objects (bucket_id, name, owner_id)` of `child/D/<user>.jpg`, message `'new row violates row-level security policy for table "objects"'`.
+	- Then, as the superuser, after each user: D's title is still `'Draft'`, D still exists, there's no `(D, c2)` link, and the `(D, c1)` link is still there.
+	- That's 2 × (2 + 4).
+- **G1 (Gilfoyle 1), 3 assertions.** As B, delete `d1`, `d2` and `d3`. Then, as the superuser, each of the three rows still exists (`is(count, 1)`).
+- **G2 (Gilfoyle 2), 2 assertions.**
+	- As B: `update storage.objects set metadata = '{"touched": true}'::jsonb where name = child/D/b.jpg`, then `delete` it.
+	- Superuser: `metadata is null`, and the object still exists.
+- **G3 (Gilfoyle 3), 4 assertions.** As A, delete `d4`, `d5`, `d6` and the object `child/D/a.jpg`. Then, as the superuser, each count is 0.
+- **G4 (Gilfoyle 4), 3 assertions.** As B, delete `e1`, `e2` and the object `child/P/p.jpg` (owner A, so this goes through the member branch). Then, as the superuser, each count is 0.
+- **G8 (Gilfoyle 8), 7 assertions.**
+	- `is(coalesce((select qual from pg_policies where schemaname=… and policyname=…),''), $pol$…$pol$, '<policy> qual matches #42')` for the five altered policies.
+	- `with_check` of `story_photos_update_member`.
+	- The expected strings are byte-identical to the R2 strings.
+	- `is(md5(pg_get_functiondef('public.can_contribute_to_story(uuid,uuid)'::regprocedure)), '<md5>', 'can_contribute_to_story is unchanged')`. `<md5>` is captured on local `main` before the migration and pasted in the PR body.
+- **G9 (Gilfoyle 9), 2 assertions.** Copy the policy-count query from `fit_and_finish.sql` l.608–612 (expect 47) and the definer query from `story_draft_autosave.sql` l.489–500 (expect 30).
+
+> Resolved (rev 2): Gilfoyle dropped test 5. `story_photos_select_member` hides orphaned objects from every authenticated caller, owner included, so orphan cleanup is service-role. `plan(43)`. 🚫 Don't add an owner-deletes-orphan test; it fails too.
+> ⚠️ CONFLICT: The #42 comment says "+9 pgTAP items", but Gilfoyle's item 7 requires per-table counts. Narrower option: treat the 9 as groups (G1–G9), which is 43 assertions.
+> 🔍 INFER: R gets parent-family membership as the "tree reader", because Gilfoyle's fixtures name tree readers without saying who they are, and `story_draft_autosave.sql` uses the parent-family user the same way.
+
+Fail-on-main: only G8 (5 quals and 1 with_check) and the six R2 pins fail before the migration. G1–G4, G6, G7 and G9 are guards that already pass on `main`, because the SELECT policies hide D's rows. That is the defense-in-depth point.
+
+#### Flutter tests (in `test/new_story_capture_test.dart`, before `main()`'s closing brace; 38 → 47)
+1. **F1 `remove X is hidden on every chip while a linked person is unloaded`.**
+	- Setup: `_FakeStoriesApi(story: _mattIsBorn(personIds: const ['p1', 'w1', 'gone-1']))`, `_FakePeopleApi(seed: const [_ada], tree: const [_will])`, `editStoryId: 's1'`, then `pumpAndSettle`.
+	- Expect `tester.widget<Chip>(find.widgetWithText(Chip, 'Ada')).onDeleted` and the same for `'William F Morgan'` to be `isNull`.
+	- Expect `tester.widget<TextButton>(find.widgetWithText(TextButton, 'Add person')).onPressed` to be `isNotNull`.
+	- **Fails on main** (`onDeleted` is set).
+2. **F2 `remove X shows on every chip once every linked person loaded`.** Same setup with `['p1', 'w1']`. Both chips have a non-null `onDeleted`. Guard.
+3. **F3 `a linked person who did not load counts for publishing`.**
+	- Setup: `_mattIsBorn(id: 'draft-1', personIds: const ['gone-1'], status: StoryStatus.draft)`, `draftId: 'draft-1'`, then `pumpAndSettle`. Tap `find.widgetWithText(FilledButton, 'Publish story')` (after `ensureVisible`), then `pumpAndSettle`.
+	- Expect `find.text('Finish the highlighted fields to publish.')` `findsOneWidget`, because the place is still missing.
+	- Expect `find.ancestor(of: find.text('People'), matching: find.byWidgetPredicate(_hasTerracottaBorder))` `findsNothing`.
+	- Expect `stories.publishCalls` to be 0.
+	- **Fails on main** (People is highlighted).
+4. **F4 `a story with no linked people still highlights People on publish`.** Same as F3 with `personIds: const []`. The ancestor finder `findsOneWidget`. Guard.
+5. **F5 `a duplicate key on another constraint still shows the save error`.**
+	- Copy of `other link errors still show the save error` (l.1549–1575), with `linkError = const PostgrestException(message: 'duplicate key value violates unique constraint "photos_pkey"', code: '23505')`.
+	- Expect `'Couldn’t save person. Try again.'` `findsOneWidget`, and `add-person-picker` `findsOneWidget`.
+	- **Fails on main** (`isDuplicateStoryKey` swallows it).
+6. **F6 `adding a person to a new story with no other edit autosaves the person`** (R14).
+```dart
+  testWidgets(
+    'adding a person to a new story with no other edit autosaves the person',
+    (tester) async {
+      final stories = _FakeStoriesApi();
+      await tester.pumpWidget(_captureShell(stories: stories));
+      await tester.pumpAndSettle();
+
+      final add = find.widgetWithText(TextButton, 'Add person');
+      await tester.ensureVisible(add);
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ada'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
+      expect(stories.linkCalls, 0);
+
+      await tester.pump(kAutosavePause);
+      await tester.pumpAndSettle();
+
+      expect(stories.createDraftCalls, 1);
+      expect(stories.updateDraftCalls, 0);
+      expect(stories.lastPersonIds, ['p1']);
+    },
+  );
+```
+	- On a new story, the first autosave is the `createDraft` insert (`_writeDraft` l.624–641), so the person shows up in `createDraftCalls` and `lastPersonIds`, not in `autosaveCalls`.
+	- **Fails on main** (`createDraftCalls` is 0).
+7. **F7 `adding a person to a resumed draft with no other edit autosaves the new person id`** (R14).
+```dart
+  testWidgets(
+    'adding a person to a resumed draft with no other edit autosaves the new person id',
+    (tester) async {
+      final stories = _FakeStoriesApi(
+        story: _mattIsBorn(
+          id: 'draft-1',
+          personIds: const ['p1'],
+          status: StoryStatus.draft,
+        ),
+      );
+      await tester.pumpWidget(
+        _captureShell(
+          stories: stories,
+          people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
+          draftId: 'draft-1',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(stories.autosaveCalls, 0);
+
+      final add = find.widgetWithText(TextButton, 'Add person');
+      await tester.ensureVisible(add);
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('William F Morgan'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+      await tester.pumpAndSettle();
+      expect(stories.linkedIds, ['w1']);
+      expect(find.widgetWithText(Chip, 'William F Morgan'), findsOneWidget);
+
+      await tester.pump(kAutosavePause);
+      await tester.pumpAndSettle();
+
+      expect(stories.autosaveCalls, 1);
+      expect(stories.lastUpdatedStoryId, 'draft-1');
+      expect(stories.personIdsArgs.last, ['p1', 'w1']);
+    },
+  );
+```
+	- The order `['p1', 'w1']` is hydrate's `[_ada]` (l.310–316) followed by the appended pick (l.416).
+	- **Fails on main** (`autosaveCalls` is 0).
+8. **F8 `leaving right after adding a person saves the person`** (R14, save on leave).
+```dart
+  testWidgets('leaving right after adding a person saves the person', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi();
+    await tester.pumpWidget(_captureShell(stories: stories));
+    await tester.pumpAndSettle();
+
+    final add = find.widgetWithText(TextButton, 'Add person');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ada'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+    await tester.pumpAndSettle();
+    expect(stories.createDraftCalls, 0);
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.pump();
+
+    expect(stories.createDraftCalls, 1);
+    expect(stories.lastPersonIds, ['p1']);
+  });
+```
+	- The page is disposed before the 2 s pause, so the write comes from `dispose` (l.183–186). The pump-to-`SizedBox` step is the pattern in `new_story_shell_test.dart` l.876–877.
+	- **Fails on main** (`dispose` sees `_autosaveDirty` false and `_storyId` null, l.184, so `createDraftCalls` stays 0).
+9. **F9 `adding a person while a linked person is unloaded leaves story people to the link`** (R14 with the M14.6b guard).
+```dart
+  testWidgets(
+    'adding a person while a linked person is unloaded leaves story people to the link',
+    (tester) async {
+      final stories = _FakeStoriesApi(
+        story: _mattIsBorn(
+          id: 'draft-1',
+          personIds: const ['p1', 'w1', 'gone-1'],
+          status: StoryStatus.draft,
+        ),
+      );
+      await tester.pumpWidget(
+        _captureShell(
+          stories: stories,
+          people: _FakePeopleApi(
+            seed: const [_ada],
+            tree: const [_will, _wren],
+          ),
+          draftId: 'draft-1',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final add = find.widgetWithText(TextButton, 'Add person');
+      await tester.ensureVisible(add);
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Wren Morgan'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+      await tester.pumpAndSettle();
+      expect(stories.linkedIds, ['w3']);
+      expect(find.widgetWithText(Chip, 'Wren Morgan'), findsOneWidget);
+
+      await tester.pump(kAutosavePause);
+      await tester.pumpAndSettle();
+
+      expect(stories.autosaveCalls, 1);
+      expect(stories.personIdsArgs, hasLength(1));
+      expect(stories.personIdsArgs, everyElement(isNull));
+    },
+  );
+```
+	- `gone-1` stays in `_unloadedPersonIds`, so `_personIdsToWrite` is null (l.157–159) and the autosave doesn't write people. The link comes only from the modal's `linkPerson` (`linkedIds` `['w3']`).
+	- The `personIdsArgs` checks are the M14.6b guard: they hold on `main` (the list is empty) and must hold after R14. The test as a whole **fails on main** at `autosaveCalls` (0).
+	- Add person is tappable here because hydrate has finished (`_loadingFamily` is false). While people are still loading, Add person is off (l.151, l.265–266), so test 12 already covers the in-flight load.
+
+Existing tests that cover the rest:
+- R7 and R8 are covered by test 12 and `re-adding a person already on the story shows no error` (l.1520).
+- R13's new assertions pass on `main` and guard the re-enabled autosave.
+- There's no separate Create new person test. Create returns through the same `added` path as picking (`add_person_modal.dart` l.208–210), and `_FakePeopleApi.createPerson` throws `UnimplementedError` (l.75–84), so a create test would mean changing the shared fake.
+- R6, R10 and R11 change no behavior. R10 stays covered by the existing autosave-stopped tests.
+
+#### Gates (all on the PR branch; paste output in the PR body)
+- `flutter analyze` reports ≤ 27 issues, no new ones (#54 baseline).
+- `flutter test`: main 495 plus 9 new (F1–F9) = **504**, all passing. `test/new_story_capture_test.dart` has 47.
+- `supabase test db`: `Files=24, Tests=799`, all passing.
+	- 23 files and 753 tests on main, plus the new file (43), plus R12 (+3).
+- Deno: 43 passing (unchanged).
+- The policy count is 47, the definer allowlist is 30, and the `mapRpcError` prefixes are still 4. All of these are checked by the existing real-query pgTAP checks and by G9.
+- PR body includes:
+	- the local `pg_policies` `qual`/`with_check` for the five altered policies,
+	- the `<md5>` from G8,
+	- `select policyname, qual from pg_policies where cmd = 'SELECT'` diffed against `main` with no differences ("every replayed SELECT policy byte-for-byte the same").
+- Before the migration, on `main`, run the new test file and attach its output. Only G8 fails. Revert the file afterwards and don't commit that run. Then run F1, F3, F5, F6, F7, F8 and F9 against `main`'s `lib/` and show that they fail. F9 should fail only at `autosaveCalls`.
+
+#### Branch, agent rules, Supabase
+- Branch `fix/m14-7-cleanup` from `main` @ `f213b46`. Use one PR titled `M14.7: Cleanup (#42)`, with `Closes` left out (#42 stays open for the "Not in this PR" items).
+- Builders follow the **Grok Build CLI Contract** (`/home/box/agent-data/workflows/grok-build-cli-contract/SKILL.md`):
+	- Work test-first: write the new tests, show they fail on `main` where marked, then implement R1–R14.
+	- Don't change scope. Stop and ask on any OPEN or CONFLICT.
+- Supabase: `supabase migration up --local` only.
+	- Never run `db reset`, `db pull`, `migration repair` or `migration down`.
+	- Never edit a merged migration. The only new migration is `20261019000000_draft_write_policies.sql`.
+	- No remote `db push` from the agent.
+
+#### After the PR is open (lanes)
+- **Big Head:** checks the spec against the diff (every R, every test, Gates numbers).
+- **Gilfoyle:** architecture review of the migration and pins, confirms the rev 2 rulings on test 5 and the R2 pins are as built, approves the Design Doc text landing verbatim, and confirms R14 closes his #52 "dirty mark" note.
+- **Trinity:** security re-check of TMAS-40-01/40-02 and 54-03, and closes 40-01, 40-02, 53-02 and 54-03/54-04 in her review, or says why not.
+- **Mugatu:** UX check of Rules 1 and 2 against `docs/ux/42-unloaded-people.md`. That note lands through PR #59, not this PR.
+- **Dinesh:** code review of R6–R11, R13 and R14, confirms the R11 comment wording, and answers the #40 OPEN.
+- Bill merges.
+
+#### Done / Bill smoke
+- [ ] Open *Matt is born* to edit. Every person chip shows its remove X. Remove one person, save, and reopen: the person is gone.
+- [ ] Open a story that links someone who doesn't load (someone outside your tree view). No chip has a remove X. Add person still works. Save, reopen: every link is still there.
+- [ ] On a draft whose only linked person doesn't load, tap Publish story: People isn't highlighted.
+- [ ] On your own draft, add a photo and then remove it. Both work.
+- [ ] On a published story, delete your own comment. It goes away.
+- [ ] Resume a draft, change the title, and wait for "Saved". Reopen: the people are still linked.
+- [ ] Start a new story, add one person, change nothing else, and leave. Open Drafts: the draft is there with that person.
+- [ ] Resume a draft, add a person, and wait for "Saved" without other edits. Reopen: the new person is still linked.
+- [ ] CI and local gates match the numbers above.
+
+#### Traceability
+| Source | Covered by |
+|---|---|
+| TMAS-40-01 (Gilfoyle lock §Migration) | R1, R2, R3, G8 |
+| TMAS-40-02 (Gilfoyle lock §Tests 1–9) | G1–G4, G6–G9; test 5 dropped by Gilfoyle (rev 2) |
+| Mugatu Rule 1 / TMAS-54-04 | R4, F1, F2 |
+| Mugatu Rule 2 | R5, F3, F4 |
+| Dinesh #54 nits 1–4 | R6, R7, R8, R9 |
+| TMAS-54-03 (stricter matcher) | R9, F5 |
+| Dinesh #54 test nits 1–2 | R13 |
+| Bill 2026-10-19 6:59 PM CT "with the autosave fix" / Gilfoyle #52 "dirty mark" note | R14, F6, F7, F8, F9 |
+| Dinesh #40 nits (stray label clear, updateDraft bool) | R10, R11 |
+| Dinesh #40 nits (fake Story, split `_persistDraft`) | OPEN, not in PR |
+| Dinesh #53 nit 1 / TMAS-53-02 (`family_tree_root` superuser) | R12 |
+| TMAS-53-03 | OPEN, not in PR |
+| Dinesh #38/#39 four items | OPEN, not in PR |
+| TMAS-54-05 (CI Flutter job) | CONFLICT → #43 |
+| #52 nits, Gilfoyle #52 create-then-link duplicate note, #53 nits 2–3, `m14-people-profiles.md` l.116 | CONFLICT, not in PR |
+| `_removePerson` and date/place edits don't autosave | OPEN, not in PR |
+| Excluded by brief: TMAS-54-02 (#55), #51 helper tests (M14.6 rev 3) | — |
+
+#### Design Doc text to append (R3, verbatim; fenced here only so its headings stay out of §15)
+````markdown
+## Cleanup (#42): Trinity TMAS-40-01 and TMAS-40-02 (LOCKED 2026-10-19, Gilfoyle)
+Defense in depth for author-only drafts. A member who isn't the author must not be able to delete or update rows or files that belong to someone else's draft, even if the SELECT policies stop filtering them someday. One new migration, `alter policy` only. The policy count stays at 47. There are no new functions, so the definer allowlist stays at 30, and there are no new error prefixes. The client doesn't change.
+
+### Migration `20261019000000_draft_write_policies.sql`
+It sorts after `20261018000000_story_people_same_tree.sql`, which is the latest migration on main. `seg1` and `seg2` below are shorthand for the existing uuid-guarded `CASE` expressions over `(storage.foldername(name))[1]` and `[2]` that these policies already use. Copy them exactly as they are, without simplifying them.
+
+```sql
+-- 1. comments, perspectives: own rows, only on a story the caller may contribute to.
+--    can_contribute_to_story already means "live member (or child-origin contributor) AND story is published or authored by caller".
+alter policy comments_delete_author on public.comments
+  using (author_id = (select auth.uid()) and public.can_contribute_to_story(family_id, story_id));
+alter policy perspectives_delete_author on public.perspectives
+  using (author_id = (select auth.uid()) and public.can_contribute_to_story(family_id, story_id));
+
+-- 2. photos rows: uploader or story editor, only on a story the caller may contribute to.
+alter policy photos_delete_uploader_or_author on public.photos
+  using (
+    (uploader_id = (select auth.uid()) or public.can_edit_story(story_id))
+    and public.can_contribute_to_story(family_id, story_id)
+  );
+
+-- 3. storage UPDATE: the existing EXISTS on stories gains the draft check. Everything else stays word for word.
+--    USING and WITH CHECK both get the change. The extension check stays in WITH CHECK only.
+--    exists (select 1 from public.stories s
+--            where s.id = seg2 and s.family_id = seg1
+--              and (s.status = 'published' or s.author_id = (select auth.uid())))
+
+-- 4. storage DELETE: the is_family_member(seg1) branch also needs the story to be visible,
+--    or the story row to be gone. Today story_photos_select_member hides orphans from every
+--    authenticated caller, so this clause is inert until SELECT changes; orphan cleanup is service-role.
+--    The owner_id + can_contribute_to_story branch is unchanged.
+--    is_family_member(seg1) and (
+--      exists (select 1 from public.stories s
+--              where s.id = seg2 and s.family_id = seg1
+--                and (s.status = 'published' or s.author_id = (select auth.uid())))
+--      or not public.story_row_exists(seg2)
+--    )
+```
+
+Why this shape:
+- The comment, perspective and photo delete policies drop the bare `is_family_member(family_id)` branch. That branch only mattered for soft-deleted families, and their content is already dark because the SELECT policies use `is_live_family_member` (Bill, 2026-10-10). So the narrowed version doesn't take away any delete a member could actually do today.
+- Storage DELETE keeps `is_family_member`. The `not public.story_row_exists(seg2)` clause keeps an orphaned file inside the member branch, but Postgres applies `story_photos_select_member` to `DELETE … WHERE`, and that SELECT policy requires the story row. So today no authenticated caller, owner included, can delete an orphan; orphan cleanup is service-role (no RLS). The clause stays so the DELETE policy doesn't need re-locking if SELECT ever exposes orphans. `story_row_exists` already exists and authenticated can already call it (it was accepted as M11A-03), so the allowlist stays at 30.
+- Storage UPDATE already joins `stories`, so the change is one more condition in that join.
+- 🚫 Don't use `is_live_family_member` in the storage DELETE member branch, don't add a helper, and don't touch the storage INSERT or SELECT policies.
+
+### Tests (TMAS-40-02), pgTAP, in a new file `draft_write_policies.sql`
+Use the fixtures already in place: A is the author, B is a live member, O is the owner, C is a co-owner, and K is a member of a child family whose origin is a published story. D is A's draft, and P is a published story in the same family.
+1. B can't delete B's own comment on D, B's own perspective on D, or a photo row B uploaded to D (seed these as superuser). For each one, check as superuser afterwards that the row is still there.
+2. B can't update or delete a `story-photos` object under `seg1/D/`, even when B is the object's `owner_id`. Check as superuser that it's still there.
+3. A can delete A's own comment, perspective and photo row on D, and A's own object under `seg1/D/`.
+4. On P, B's existing positives still pass: B deletes B's own comment and photo row, and B deletes an object under `seg1/P/`.
+5. Dropped (rev 2). An orphaned object is hidden by `story_photos_select_member`, so no authenticated delete can reach it. Not tested here.
+6. C and O can't update D, can't delete D, and can't insert, update or delete `story_people` on D. C and O can't insert a `story-photos` object under `seg1/D/`.
+7. Tree readers and K can't see D's comments, perspectives, photos, `story_people` or objects. Count each table separately, not as one summed count.
+8. Exact-text pins: after the migration, `pg_policies.qual` for the five altered policies, plus `with_check` for storage UPDATE, matches the text the migration sets. Also pin `pg_get_functiondef` for `can_contribute_to_story`, unchanged.
+9. The policy count is 47 and the definer allowlist is 30, using the existing real-query checks.
+
+Existing exact-text pins get updated in place to the new text, and no assertion is removed. There are six: in `origin_stories_hardening.sql`, the `comments_delete_author` qual, the `perspectives_delete_author` qual, the `story_photos_delete_member` qual, and the `story_photos_update_member` qual and with_check; in `fit_and_finish.sql`, the `photos_delete_uploader_or_author` qual. Every replayed SELECT policy must be byte-for-byte the same as on main.
+
+Handoff: Big Head copies this into the #42 cleanup §15 item, and this section lands verbatim in `docs/design-doc/m14.4-drafts.md` in the #42 PR.
+````

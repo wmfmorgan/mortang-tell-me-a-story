@@ -671,7 +671,7 @@ select is(
 );
 select is(
   coalesce((select qual from pg_policies where policyname = 'photos_delete_uploader_or_author'), ''),
-  $pol$(((uploader_id = ( SELECT auth.uid() AS uid)) OR can_edit_story(story_id)) AND (is_family_member(family_id) OR can_contribute_to_story(family_id, story_id)))$pol$,
+  $pol$(((uploader_id = ( SELECT auth.uid() AS uid)) OR can_edit_story(story_id)) AND can_contribute_to_story(family_id, story_id))$pol$,
   'photos_delete_uploader_or_author qual'
 );
 select is(

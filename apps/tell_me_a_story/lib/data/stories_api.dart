@@ -319,6 +319,8 @@ abstract class StoriesGateway {
     bool allowUndated = false,
     List<String> personIds = const [],
   });
+
+  /// A null [personIds] leaves the story's story_people rows as they are. A list, even an empty one, replaces them.
   Future<Story> updateDraft({
     required String storyId,
     DateTime? timeframeStart,
@@ -331,6 +333,7 @@ abstract class StoriesGateway {
   });
 
   /// Autosave and save-on-leave only. False when the row is no longer a draft.
+  /// A null [personIds] leaves the story's story_people rows as they are. A list, even an empty one, replaces them.
   Future<bool> autosaveDraft({
     required String storyId,
     DateTime? timeframeStart,
@@ -415,6 +418,7 @@ class StoriesApi implements StoriesGateway {
     String? placeId,
     List<String>? personIds,
   }) async {
+    // The bool is ignored on purpose. It only reports "no longer a draft" for autosave (draftsOnly); getStory below returns the row as stored.
     await _applyStoryWrite(
       storyId: storyId,
       draftsOnly: false,
