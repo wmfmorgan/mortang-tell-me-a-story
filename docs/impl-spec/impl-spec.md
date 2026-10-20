@@ -4489,3 +4489,429 @@ No OPENs and no CONFLICTs remain. Rev 5 needs only Bill's approval.
 - This supersedes the M14.7 status note that the deferred #42 items would become "a later §15 item". They are backlog only.
 - A backlog issue gets built only once it has its own new §15 item, numbered after M14 and reached through the normal locks and Bill's approval.
 > 🚫 FORBIDDEN: Reopening M14 or any M14.x item. Building a backlog issue (#43, #49, #63–#69) without its own APPROVED §15 item. Adding new M14.x numbers.
+
+### §15 M15 CI pgTAP and dart format (#43) (CLOSED 2026-10-20: #71 merged 769a628, first main run 39432949969 green, pgtap required, Bill 8:53 AM CT)
+**Status:** **CLOSED 2026-10-20** (Bill: "pgtap is in branch protection", 8:53 AM CT, relayed verbatim by Erlich). PR #71 merged by Bill 8:43 AM CT as `769a628`. Spec PASS at `2be6845`, carried to `65c2198` (main merge only). The first run on main, 39432949969, is green for flutter, deno and pgtap. Gilfoyle, Dinesh and Trinity lanes passed. **Erratum (folded at close, Trinity TMAS-71-03):** l.66, l.329 and l.364 named the checksums asset `supabase_2.121.0_checksums.txt`, which returns 404. It is corrected to `checksums.txt`, matching lock R3. The pinned sha256 is unchanged, and `ci.yml` and `ci.md` never named the file. Earlier: **APPROVED rev 2 2026-10-20** (Bill: "M15 approved, launch it", 6:06 AM CT, relayed verbatim by Erlich). Earlier: READY rev 2 2026-10-20. Sources: Gilfoyle's CI lock rev 5.1 (`/workspace/m43/ci-lock-rev5.md`; rev 5 locked 2026-10-20 ~5:46 AM CT, updated in place to rev 5.1 by 5:58 AM CT), which wins on tech; Jared's scope clear (CI only, no PRD change, no Decisions line, #43 comment 6288905443, 5:31 AM CT); Mugatu skipped (no UI). Bill picked #43 at 5:30 AM CT ("let's do 43", relayed by Erlich). Branch `feat/m15-ci-pgtap` (see INFER below). Base: `main` @ `7cae13337e4fa066ed2aa91b9b25c224dd03f518`. The PR says `Refs #43`, not `Closes`: Bill closes #43 himself after he adds `pgtap` as a required check (lock R6). **Does not reopen M14 or any M14.x.**
+- **Rev 2 changes:** follows lock rev 5.1: the install `tar` line extracts `supabase` and `supabase-go` (closes OPEN 1; new `ci.yml` sha256 `a379fa4c5f9894ec87bd177d0e22d253f186edd55ceee7c4e24dfb8ea9495d0a`), l.4287 stays fully in force (closes CONFLICT 1), l.4284 is reworded to match the lock, and the lock l.3/l.5 quotes are re-copied verbatim. The ci.md rev 5 text and its sha256 are unchanged.
+> 🔍 INFER: Branch `feat/m15-ci-pgtap` because the lock names no branch and `AGENTS.md` l.20 says "One §15 milestone per PR, on a `feat/mN-…` branch off `main`."
+> 🔍 INFER: PR title `M15: CI pgTAP and dart format (#43)` because the lock names no title and M14.8 used the pattern `M14.8: Minimal CI (#43 slice)`.
+> 🔍 INFER: `Refs #43` because the lock does not say `Closes`, and #43's own gate 6 (comment 6288899502) puts "Bill marks the checks as required" after the merge, so #43 is not done when the PR merges.
+
+M15 is the next free number:
+- `docs/impl-spec/impl-spec.md` has no `M15` string anywhere, on `main` @ `7cae133` (4,485 lines) or at PR #70 head `b53cc67ee59010ee888f9385dd9e79554b652557` (4,492 lines). Checked with `grep -n 'M15'`: no hits.
+- PR #70 (open, not merged, `mergeable_state: clean`) appends `### §15 M14 series CLOSED (2026-10-20)` at l.4486–4491. Its FORBIDDEN (l.4491) reads: "Reopening M14 or any M14.x item. Building a backlog issue (#43, #49, #63–#69) without its own APPROVED §15 item. Adding new M14.x numbers." Its l.4490: "A backlog issue gets built only once it has its own new §15 item, numbered after M14 and reached through the normal locks and Bill's approval." So #43 gets M15, not M14.9.
+- PR #70 only appends after l.4485, so every line number quoted below is the same on `main` and on `b53cc67`.
+
+#### Supersedes (for this PR only; M14.8 is not reopened)
+Lock rev 5.1 l.3: "rev 5.1: the install step extracts both `supabase` and `supabase-go` (the `supabase` binary delegates to `supabase-go` and errors "supabase-go binary not found" without it). l.4287 (three-action allowlist) stays fully in force and is NOT superseded. The ci.md rev 5 text is unchanged."
+
+Lock rev 5.1 l.5: "Source: Bill picked #43 at 5:30 AM CT ("let's do 43"), relayed by Erlich. Jared: CI only, no PRD change. Mugatu: no UI. This lock supersedes ci.md rev 4 and every M14.8 FORBIDDEN line it contradicts (impl-spec l.4282 pgTAP/`supabase start`/`supabase test db` ban, l.4292 no-app-code-change ban, l.4284 required-checks ban: still Bill-only, see R6). Intake: /workspace/m43/intake.md (main @ 7cae133)."
+
+The M14.8 FORBIDDEN lines the lock names, verbatim from `impl-spec.md` (line numbers checked by content; they match the lock's numbers):
+- **l.4282 (superseded):**
+	```text
+	> - `deno lint`, pgTAP, `supabase start`, `supabase test db` in CI, migrations, `flutter build`, coverage, or any `actions/cache` or `cache:`/`pub-cache:` input (lock l.15).
+	```
+	- Replaced by lock R1/R2: a `pgtap` job runs `supabase db start` then `supabase test db`. Still banned (lock FORBIDDEN, ci.md rev 5): `deno lint`, `supabase start`, `flutter build`, coverage, any cache, any migration command.
+- **l.4292 (superseded for R7's formatter output only):**
+	```text
+	> - Any change to app code, tests, `pubspec.*`, `analysis_options.yaml` or anything under `supabase/` to make CI green (lock l.14). If CI is red on `main`'s code, stop and report.
+	```
+	- Replaced by lock R7: commit 1 is `dart format .` output in `apps/tell_me_a_story`, nothing else. Every other part stays banned (lock FORBIDDEN: no edits under `supabase/`, `pubspec.*`, `analysis_options.yaml`, or "any Dart change beyond R7's formatter output"), and R8 makes a red `pgtap` a stop.
+- **l.4284 (required-checks ban):** superseded only so that `pgtap` can become a required check, and only Bill does that by hand after the first green run on main (lock R6). For the agent, the ban still holds: the PR changes no branch protection, ruleset, required check or repo setting (lock FORBIDDEN).
+	```text
+	> - Branch protection, rulesets, required checks, or any repo setting (lock l.55).
+	```
+
+**Stays fully in force, NOT superseded** (lock rev 5.1 l.3: "l.4287 (three-action allowlist) stays fully in force and is NOT superseded."):
+- **l.4287:**
+	```text
+	> - Third-party actions by tag only, any action other than the three listed, `actions/checkout` at any ref other than `11d5960a326750d5838078e36cf38b85af677262 # v4.4.0`, or any checkout `with:` input other than `persist-credentials: false`. The SHA pin and `persist-credentials: false` are required by lock rev 3 l.37–39 and are not "extra hardening".
+	```
+	- Rev 5.1 complies with it as written: the allowed actions stay checkout, flutter-action and setup-deno; the Supabase CLI comes from a sha256-checked release tarball, not an action; the `pgtap` job uses only `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0` with `persist-credentials: false`.
+
+Also contradicted by rev 5, so superseded by the lock's "every M14.8 FORBIDDEN line it contradicts" clause:
+- **l.4283:** Only the `env` part is superseded: the `pgtap` job adds job-level `env` `SUPABASE_CLI_VERSION` and `SUPABASE_CLI_SHA256` (lock "Workflow delta"). Workflow-level `env` stays `ANALYZE_CEILING: 27` only. `--dart-define`, `secrets.*` and `GITHUB_TOKEN` use stay banned.
+	```text
+	> - `--dart-define`, `secrets.*`, `GITHUB_TOKEN` use, or any `env` value except `ANALYZE_CEILING` (lock l.16).
+	```
+- **l.4293:** Only the `docs/design-doc/README.md` part is superseded: R5 below replaces its l.20. `AGENTS.md` still changes only at l.43, and `impl-spec.md` and `README.md` don't change.
+	```text
+	> - Editing any `docs/design-doc/README.md` line (beyond inserting R13's l.20), any `impl-spec.md` line other than l.4, l.284, l.289, l.294, l.319 and l.1942, any `README.md` line other than l.23, or any `AGENTS.md` line other than l.43.
+	```
+> 🔍 INFER: l.4283 and l.4293 are superseded only in the parts named above because the lock's l.5 clause covers "every M14.8 FORBIDDEN line it contradicts" but names only l.4282, l.4292 and l.4284 (l.4284 superseded only so that `pgtap` can become a required check, which only Bill does by hand after the first green run on main; for the agent the ban still holds), and lock l.3 keeps l.4287 fully in force. Gilfoyle confirms in his lane.
+> 🔍 INFER: M14.8's Rules (`impl-spec.md` l.4073–4159, e.g. l.4077 "R3 **Two parallel jobs**, ids `flutter` and `deno`." and l.4079 "No `env` except `ANALYZE_CEILING`.") governed PR #60 only. They are not edited and not reopened. Rev 5's `ci.md` is the new description of the shape.
+- **The PR does not edit the M14.8 section** (impl-spec l.3937–4485) or any other line of `impl-spec.md`. The supersession is recorded only here, in this M15 item. This M15 item lands in `impl-spec.md` later, in a separate docs PR (as M14.7 and M14.8 did), not in the build PR. Lock "Gates" l.137: "Nothing else (impl-spec edits are Big Head's call)."
+- `docs/design-doc/ci.md` rev 4 (all 56 lines, including l.15 "🚫 Not in this slice: … pgTAP, `supabase start`, migrations …") is replaced in full by rev 5.
+
+#### Code on `main` this item relies on (read-only facts, @ `7cae133`)
+- `.github/workflows/ci.yml`: 97 lines, 2,681 bytes, sha256 `3f636489821dd6ade5c3bddf83f0b3bb8169fa2f29a79fac683a085374f67642`. Jobs `flutter` and `deno`. `flutter pub get` step at l.39–40, `flutter analyze (ceiling)` step starts l.42, `deno test` is the last step (l.96–97).
+- `docs/design-doc/ci.md`: 56 lines, 4,570 bytes, sha256 `25711b5b9a9a7ff6eaf53946f2ff5e6c778ecf731136a266dfec52d25617e14f` (lock rev 4).
+- `docs/design-doc/README.md`: 20 lines, 2,086 bytes, sha256 `ebb305cef20c69c25f93b79962285b357b7034fe9df1736fc109e95cbf7bcac9`. l.20 is `` - `ci.md` — CI (minimal) (LOCKED 2026-10-19, Gilfoyle, rev 4) ``.
+- `AGENTS.md`: 66 lines, 5,219 bytes, sha256 `bc6c6eccb3377e5a9e20ece74cf24c38441d78470a49c3f90e640d84e0ad7e87`. l.43 is:
+	`- CI runs analyze, flutter test and Deno on every PR. pgTAP still runs locally, and its output goes in the PR body. **The PR body is the evidence**: paste fresh counts and command output from the PR's head commit.`
+- `README.md`: 187 lines, sha256 `bf08c4c446495a978ea5c3a9986fcb11f31ca6044aa1601a18271469140d7697`. Not changed.
+- `supabase/`: 34 migrations (`20260923000001_enums.sql` … `20261019000000_draft_write_policies.sql`), 24 pgTAP files in `supabase/tests/` whose `plan()` counts sum to **799**, `config.toml` with `[db] major_version = 17`, `port = 57322`, and `[auth]`, `[storage]`, `[realtime]` all `enabled = true`; `seed.sql` is 0 bytes. Not changed.
+- Branch protection on `main` (`get_branch`): required contexts `["deno", "flutter"]`. Not changed by the PR.
+- Latest CI run on `main`, [run 39405247620](https://github.com/wmfmorgan/mortang-tell-me-a-story/actions/runs/39405247620) (push, `7cae133`, success). `flutter` job log: `Flutter 3.47.7 • channel stable`, `Tools • Dart 3.13.5 • DevTools 2.60.0`, `27 issues found. (ran in 19.0s)`, `flutter analyze: 27 issues (ceiling 27, exit 0)`, `🎉 504 tests passed.`. `deno` job log: `ok | 43 passed | 0 failed`.
+- `dart format --output=none --set-exit-if-changed .` fails on `main` today: "Formatted 107 files (16 changed)", exit 1 (intake §7, Dart SDK 3.13.5 on the box, without `pub get`; baseline diff `/workspace/m43/dart_format.diff`). All 107 `.dart` files are under `apps/tell_me_a_story/lib/` (68) and `test/` (39). No generated Dart is tracked.
+- Supabase CLI `2.121.0` release asset `supabase_2.121.0_linux_amd64.tar.gz`: the release's `checksums.txt` lists `4b481189efbdc57cf2d37bdee5f1a0d29574314398564b32a6dfb76c0fcf275f  supabase_2.121.0_linux_amd64.tar.gz`, the same value as the lock. Re-checked on the box 2026-10-20 ~5:50 AM CT: the downloaded tarball (63,194,390 bytes) passed `sha256sum -c`, and `supabase --version` printed `2.121.0`. The tarball holds two files: `supabase` and `supabase-go`. `supabase` is a shim that forwards to `supabase-go` (its own message: "The Supabase CLI ships as two co-located binaries: `supabase` (this shim) and `supabase-go` (the Go CLI that the shim forwards to)"), so lock rev 5.1 extracts both.
+
+#### Files touched (exhaustive)
+- **Commit 1 (formatter output only, lock R7):** the 16 files below, all under `apps/tell_me_a_story/`:
+	- `lib/core/config/env.dart`
+	- `lib/core/supabase/supabase_init.dart`
+	- `lib/core/theme/album_header.dart`
+	- `lib/data/mapbox_search.dart`
+	- `lib/features/auth/magic_link_page.dart`
+	- `lib/features/search/search_page.dart`
+	- `lib/features/stories/new_story_page.dart`
+	- `lib/features/stories/story_reader_page.dart`
+	- `test/mapbox_search_test.dart`
+	- `test/new_story_capture_test.dart`
+	- `test/photo_strip_test.dart`
+	- `test/reader_meta_test.dart`
+	- `test/story_date_test.dart`
+	- `test/story_reader_page_test.dart`
+	- `test/theme/no_hardcoded_colors_test.dart`
+	- `test/timeline_page_test.dart`
+	- Lock R7: "If the changed-file set is not the 16 in intake §7, report the list and continue (the tool is the authority, not my count)." The formatter's output is what gets committed, even if the set differs. A different set is reported, not a stop.
+- **Commit 2 (CI and docs, lock "Gates" l.137):** exactly four files:
+	- `.github/workflows/ci.yml` (R2, R3)
+	- `docs/design-doc/ci.md` (R4: rev 5, byte for byte)
+	- `docs/design-doc/README.md` (R5: l.20 only)
+	- `AGENTS.md` (R6: l.43 only)
+- **Must NOT change (the diff must show it):**
+	- everything under `supabase/` (migrations, tests, `config.toml`, `seed.sql`, functions, `.gitignore`);
+	- `apps/tell_me_a_story/pubspec.yaml`, `apps/tell_me_a_story/pubspec.lock`, `apps/tell_me_a_story/analysis_options.yaml`, and every `.dart` file outside commit 1's formatter output;
+	- `docs/impl-spec/impl-spec.md` (including the M14.8 section), `README.md`, `.cursor/`;
+	- every other line of `AGENTS.md` and `docs/design-doc/README.md`;
+	- every existing step of the `flutter` and `deno` jobs, and the workflow's `name`, `on`, `concurrency`, `permissions` and `env`.
+
+#### Rules
+- R1 **Commit 1: whole-repo format baseline** (lock R7). On the branch, before any other change:
+	1. `cd apps/tell_me_a_story`
+	2. `flutter --version` must print `Flutter 3.47.7` and `Dart 3.13.5`. If not, stop and report. Don't format with any other version.
+	3. `flutter pub get --enforce-lockfile`. If it fails or changes `pubspec.lock`, stop and report.
+	4. `dart format --output=none --set-exit-if-changed .` and paste the output (expected: `Formatted 107 files (16 changed)` and exit 1).
+	5. `dart format .` (no flags, default page width 80, no `formatter:` config).
+	6. `git status --porcelain` from the repo root must list only `.dart` files under `apps/tell_me_a_story/lib/` and `apps/tell_me_a_story/test/`. If anything else changed (e.g. `pubspec.lock`), stop and report.
+	7. Commit exactly the formatter output. No hand edits, nothing else in this commit. Suggested message: `style: dart format . baseline (#43)`.
+	8. Compare the changed set with the 16 files above. If it differs, paste both lists in the PR body and continue (lock R7).
+	9. `dart format --output=none --set-exit-if-changed .` again: exit 0, `Formatted 107 files (0 changed)`.
+> 🔍 INFER: R1 steps 4 and 9 (format check before and after) are evidence only, because the lock asks that commit 1 be "formatter output only" and Dinesh checks exactly that. They add nothing to CI.
+> 🔍 INFER: Commit message wording because the lock gives none.
+- R2 **`flutter` job: `dart format` step** (lock R5). Insert the lock's two-line step between the `flutter pub get` step and the `flutter analyze (ceiling)` step, with one blank line before and after, like the other steps. It runs in the job's default `working-directory: apps/tell_me_a_story`. No other change to the `flutter` job. It is a step, not a job, so there is no new check name.
+- R3 **New `pgtap` job** (lock R1–R4, R9). Append the lock's `pgtap` block after the `deno` job, after one blank line. Parallel with `flutter` and `deno`: no `needs:`, `services:`, `container:`, `if:`, `secrets.*` or `permissions:` override. `timeout-minutes: 20`. It runs from the repo root (no `working-directory`). The CLI pins are job-level `env` on `pgtap` only.
+	- `supabase db start`, not `supabase start` (lock R1). `supabase test db` takes no flags.
+	- The install step downloads with `curl -fsSL`, verifies with `sha256sum -c -`, and extracts both binaries, `supabase` and `supabase-go`, into `$RUNNER_TEMP/bin` with exactly `tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" supabase supabase-go` (lock rev 5.1 l.47); that directory goes on `$GITHUB_PATH`. Copy the step exactly. Don't add retries, a cache, `SUPABASE_TELEMETRY_DISABLED` or any other env.
+	- `supabase --version` must print `2.121.0` in the CI log. If it doesn't, stop and report.
+- R4 **`docs/design-doc/ci.md` = lock rev 5, byte for byte.** Replace the whole file with exactly the lines between ` ````markdown ` and ` ```` ` under "Design Doc file" below. UTF-8, LF, one trailing newline: **59 lines, 4,989 bytes, sha256 `2b1848957059e36b488b47bd3618a5295f59405d788bc1043671735d096faaf1`**. Don't reformat or "fix" it (e.g. its "flutter ≥ 495" floor stays as written).
+- R5 **`docs/design-doc/README.md` l.20** (lock rev 5 ci.md "Repo docs"). Replace the whole of l.20 with:
+	`` - `ci.md` — CI (LOCKED 2026-10-20, Gilfoyle, rev 5) ``
+	- Same `- ` bullet, backticked file name and ` — ` (U+2014 em dash with a space on each side) as l.7–19. The text after the bullet is the lock's index line verbatim. Keep the single trailing newline. Result: 20 lines, 2,076 bytes, sha256 `4e105d55ba9ad5a603c64af65d2e9dc64a7e8d42f810c820edd32b93e908f4f3`.
+> 🔍 INFER: R5 replaces l.20 in place instead of adding a second `ci.md` line because ci.md rev 5 "replaces rev 4" (lock l.69) and the index has one line per file.
+- R6 **`AGENTS.md` l.43** (lock rev 5 ci.md "Repo docs"). Replace the first two sentences (`CI runs analyze, flutter test and Deno on every PR. pgTAP still runs locally, and its output goes in the PR body.`) with the lock's text and keep the rest of the line. The new l.43 is exactly:
+	`` - CI runs `dart format`, analyze, flutter test, Deno and pgTAP on every PR. Local `supabase test db` is still how you check a migration before pushing. **The PR body is the evidence**: paste fresh counts and command output from the PR's head commit. ``
+	- Result: 66 lines, 5,255 bytes, sha256 `d300781ff8bf23e835f42815e2f806d01da8ac1187b6b418b91bb8460aa33719`. No other line of `AGENTS.md` changes (the gates table at l.36–41, including l.38's `≥ 530` pgTAP baseline, stays).
+> 🔍 INFER: R6 keeps "**The PR body is the evidence**: …" because lock R10 keeps counts as PR-body evidence, and M14.8 R9 kept the same tail when it replaced the same sentence.
+- R7 **Red `pgtap` is a stop** (lock R8). If `pgtap` fails on the PR, stop. Paste the failing test file names, the `not ok` lines and their diagnostics, and the `supabase db start` output in the PR body and the completion note. Don't edit tests, migrations, `config.toml` or `seed.sql`, don't change the job, and don't re-run with different commands. It goes back to Gilfoyle.
+- R8 **No caching** (lock R9). Image pulls on every run are accepted.
+- R9 **Counts are evidence, not parsed** (lock R10). CI parses no counts. The PR body quotes them (Gates).
+- R10 **Required checks are Bill's** (lock R6). The PR touches no branch protection, ruleset, required check or repo setting.
+- R11 **Issue link.** PR body says `Refs #43`. No `Closes`/`Fixes`. Don't open, edit, comment on or relabel any issue.
+
+#### Workflow change (verbatim from lock rev 5.1, `.github/workflows/ci.yml`, commit 2)
+`flutter` job — insert between `flutter pub get` and `flutter analyze (ceiling)`:
+```yaml
+      - name: dart format
+        run: dart format --output=none --set-exit-if-changed .
+```
+New job, appended after `deno`:
+```yaml
+  pgtap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      SUPABASE_CLI_VERSION: "2.121.0"
+      SUPABASE_CLI_SHA256: "4b481189efbdc57cf2d37bdee5f1a0d29574314398564b32a6dfb76c0fcf275f"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: install supabase cli
+        run: |
+          tgz="$RUNNER_TEMP/supabase.tar.gz"
+          curl -fsSL -o "$tgz" "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
+          echo "${SUPABASE_CLI_SHA256}  ${tgz}" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" supabase supabase-go
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: supabase --version
+        run: supabase --version
+
+      - name: supabase db start
+        run: supabase db start
+
+      - name: supabase test db
+        run: supabase test db
+```
+Lock: "Nothing else in ci.yml changes. Workflow `env` stays `ANALYZE_CEILING: 27` only; the two CLI pins are job-level `env` on `pgtap`."
+
+Expected `git diff main -- .github/workflows/ci.yml` (the whole diff):
+```diff
+@@ -39,6 +39,9 @@
+       - name: flutter pub get
+         run: flutter pub get --enforce-lockfile
+ 
++      - name: dart format
++        run: dart format --output=none --set-exit-if-changed .
++
+       - name: flutter analyze (ceiling)
+         run: |
+           out="$RUNNER_TEMP/analyze.txt"
+@@ -95,3 +98,35 @@
+ 
+       - name: deno test
+         run: deno test --allow-env supabase/functions
++
++  pgtap:
++    runs-on: ubuntu-latest
++    timeout-minutes: 20
++    defaults:
++      run:
++        shell: bash
++    env:
++      SUPABASE_CLI_VERSION: "2.121.0"
++      SUPABASE_CLI_SHA256: "4b481189efbdc57cf2d37bdee5f1a0d29574314398564b32a6dfb76c0fcf275f"
++    steps:
++      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
++        with:
++          persist-credentials: false
++
++      - name: install supabase cli
++        run: |
++          tgz="$RUNNER_TEMP/supabase.tar.gz"
++          curl -fsSL -o "$tgz" "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
++          echo "${SUPABASE_CLI_SHA256}  ${tgz}" | sha256sum -c -
++          mkdir -p "$RUNNER_TEMP/bin"
++          tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" supabase supabase-go
++          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
++
++      - name: supabase --version
++        run: supabase --version
++
++      - name: supabase db start
++        run: supabase db start
++
++      - name: supabase test db
++        run: supabase test db
+```
+Resulting file: **132 lines, 3,833 bytes, sha256 `a379fa4c5f9894ec87bd177d0e22d253f186edd55ceee7c4e24dfb8ea9495d0a`** (LF, one trailing newline). Jobs parse (PyYAML) as `flutter`, `deno`, `pgtap`; `flutter` steps in order: checkout, flutter-action, `flutter --version`, `flutter pub get`, `dart format`, `flutter analyze (ceiling)`, `flutter test`.
+> 🔍 INFER: the blank lines around the inserted step and before `  pgtap:`, and therefore the whole-file sha256 above, because the lock gives the two blocks but not the blank lines; one blank line between steps and between jobs is how the file on `main` is laid out. If Big Head or Gilfoyle rules otherwise, only this sha changes.
+
+#### Design Doc file (R4, verbatim lock rev 5; fenced here only so its headings stay out of §15)
+> Note: copy the lines between ` ````markdown ` and ` ```` ` exactly. The file must be 59 lines, 4,989 bytes, sha256 `2b1848957059e36b488b47bd3618a5295f59405d788bc1043671735d096faaf1` (computed from the lock file's block). If the lock file changes, the lock wins and this sha must be recomputed before build.
+````markdown
+# CI — LOCKED 2026-10-20 (Gilfoyle), rev 5
+
+Rev 4 (2026-10-19, M14.8 #60) was Bill's ask to run lint, typecheck and unit tests on every PR. Rev 5 (#43, Bill 2026-10-20: "let's do 43") adds pgTAP and a `dart format` check. CI never touches prod.
+
+## Shape
+One file, `.github/workflows/ci.yml`, three parallel jobs, no secrets.
+
+| Job | Runs in | Steps |
+|---|---|---|
+| `flutter` | `apps/tell_me_a_story` | `flutter pub get --enforce-lockfile` → `dart format --output=none --set-exit-if-changed .` → analyze ceiling (below) → `flutter test` |
+| `deno` | repo root | `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` → `deno test --allow-env supabase/functions` |
+| `pgtap` | repo root | install pinned Supabase CLI (sha256-verified) → `supabase db start` → `supabase test db` |
+
+- `flutter analyze` is the lint and the typecheck for Dart. `flutter test` is the unit tests. `dart format` runs after pub get because the formatter's style follows the package language version.
+- `deno test` type-checks only the modules its tests load. `deno check` covers every `index.ts` and all of `_shared`. The Deno tests use injected fake DBs and need only `--allow-env`.
+- `pgtap` starts only the local database container (with the auth, storage and realtime schemas `config.toml` enables), applies every migration to an empty database, then runs `supabase/tests`. Not bare Postgres: the migrations depend on Supabase's `auth`, `storage`, roles, `extensions` schema and realtime publication.
+- Prod isolation: the job has no secrets, so the CLI has no token and cannot reach the hosted project. No `link`, `--linked`, `--db-url`, `db push`, `db reset`, `db pull` or `migration` commands in CI, ever.
+- 🚫 Not in CI: `deno lint` (never gated, no baseline), `supabase start` (full stack), E2E, `flutter build`, coverage, caching beyond what the setup actions do by default.
+- 🚫 No `--dart-define` and no secrets in CI. `env_test.dart` asserts that the defines are empty.
+
+## Triggers
+```yaml
+on:
+  pull_request:
+    branches: [main]          # opened, synchronize, reopened (defaults)
+  push:
+    branches: [main]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # pushes to main never cancel each other
+permissions:
+  contents: read
+```
+- No `paths` filter, so every PR reports all three checks and they can all be required.
+- `timeout-minutes: 15` for `flutter` and `deno`, `20` for `pgtap`.
+
+## Version pinning
+- Flutter: exact `3.47.7` (Dart 3.13.5) via `subosito/flutter-action`. Deno: exact `2.9.4` via `denoland/setup-deno`. Supabase CLI: exact `2.121.0`, downloaded from the GitHub release and checked against a pinned sha256 (`SUPABASE_CLI_SHA256`, job `env`). Not `supabase/setup-cli`, which resolves from npm and pulls more actions. A bump of any of the three is its own PR.
+- Actions: every `uses:` is pinned by full commit SHA with the tag in a trailing comment, including `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0` in all three jobs, each with `persist-credentials: false`. The allowed actions are checkout, flutter-action and setup-deno. These pins are part of the lock, not extra hardening.
+- Dependencies: Flutter uses `--enforce-lockfile`. Deno's `jsr:`/`npm:` imports aren't locked (no `deno.lock`); that gets its own issue.
+
+## Analyze: ceiling, not zero
+- Gate: the total issue count is ≤ 27 and errors = 0. It fails on either.
+- How: run `flutter analyze --no-fatal-infos --no-fatal-warnings`, capture the output, then fail if any line contains `error •`, or if the `N issues found` count is > `ANALYZE_CEILING`. "No issues found!" counts as 0.
+- `ANALYZE_CEILING: 27` is a workflow `env`. It only ratchets down: a PR that fixes issues lowers it in the same PR, and no PR raises it without a Gilfoyle/Bill lock.
+
+## Format
+- `dart format` with default settings (page width 80, no `formatter:` override). The #43 PR's first commit was formatter output only, so main starts clean. Format churn in a feature PR is still only allowed in files the PR changes on purpose.
+
+## Test counts
+- CI fails on any failing test. Counts aren't parsed in CI. PR bodies quote them: flutter ≥ 495, Deno ≥ 43, pgTAP from the `pgtap` log (`Files=24, Tests=799` at rev 5).
+- A red `pgtap` is never fixed by editing tests, migrations, `config.toml` or `seed.sql` in the same PR without a Gilfoyle lock. Fresh-database differences are findings.
+
+## Required checks
+- `flutter`, `deno` and `pgtap` are required on `main`. Branch protection is a GitHub setting Bill changes by hand; no PR touches it. `pgtap` is added after the first green push run on main following the #43 merge.
+
+## Repo docs
+- `AGENTS.md` CI line: CI runs `dart format`, analyze, flutter test, Deno and pgTAP on every PR. Local `supabase test db` is still how you check a migration before pushing.
+- `docs/design-doc/README.md` index line: `` `ci.md` — CI (LOCKED 2026-10-20, Gilfoyle, rev 5) ``.
+````
+
+#### Gates (on the PR branch; paste output in the PR body)
+**CI on the PR's final head commit** (lock "Gates"): all three jobs green, `CI / flutter`, `CI / deno` and `CI / pgtap`. Paste the Actions run id and URL, and the raw log lines below (copy them from the job logs, not a summary):
+- `pgtap` job:
+	- the `sha256sum -c -` line, ending `: OK`;
+	- `supabase --version` → `2.121.0`;
+	- the full `supabase db start` output (to show it started only the database and applied migrations);
+	- the `supabase test db` summary: `All tests successful.` and `Files=24, Tests=799` (lock R10), plus the 24 per-file `ok` lines;
+	- the job's wall time.
+- `flutter` job:
+	- the first line of `flutter --version` (`Flutter 3.47.7 • channel stable …`);
+	- the `dart format` step output: `Formatted 107 files (0 changed)` and the step green;
+	- `27 issues found.` (or fewer) and `flutter analyze: N issues (ceiling 27, exit 0)`, N ≤ 27, 0 errors;
+	- the final `flutter test` line: `🎉 504 tests passed.`, the same count as `main` run 39405247620 (lock: "`flutter test` count equals main's (formatting changes no behavior)").
+- `deno` job: `ok | 43 passed | 0 failed`.
+- A deliberately failing run is **not** required: the lock doesn't ask for fail-on-main evidence. R1 step 4's local format check on `main`'s code (exit 1, 16 changed) is the "before" evidence for the format step.
+
+**Commits and diff:**
+- `git log --oneline main..HEAD` lists exactly two commits: commit 1 (format) then commit 2 (CI and docs).
+- `git show --stat --format= HEAD~1` lists only `.dart` files under `apps/tell_me_a_story/lib/` and `apps/tell_me_a_story/test/` (expected: the 16 in "Files touched"). Paste the list.
+- Commit 1 is pure formatter output: `git checkout HEAD~2 -- apps/tell_me_a_story && (cd apps/tell_me_a_story && dart format .) && git diff --stat HEAD~1 -- apps/tell_me_a_story` prints nothing (then `git checkout HEAD -- apps/tell_me_a_story` to restore). Paste the empty output.
+- `git show --stat --format= HEAD` lists exactly `.github/workflows/ci.yml`, `AGENTS.md`, `docs/design-doc/README.md` and `docs/design-doc/ci.md`.
+- `git diff main -- supabase/ docs/impl-spec/ README.md .cursor/ apps/tell_me_a_story/pubspec.yaml apps/tell_me_a_story/pubspec.lock apps/tell_me_a_story/analysis_options.yaml` is empty.
+- `git diff main -U0 -- AGENTS.md docs/design-doc/README.md` shows exactly two one-line hunks: `AGENTS.md` l.43 (R6) and `docs/design-doc/README.md` l.20 (R5), byte for byte.
+- `git diff main -- .github/workflows/ci.yml` equals the expected diff above.
+
+**Verbatim files** (`wc -l -c` and `sha256sum`, paste both):
+- `docs/design-doc/ci.md`: `59 4989`, `2b1848957059e36b488b47bd3618a5295f59405d788bc1043671735d096faaf1`.
+- `.github/workflows/ci.yml`: `132 3833`, `a379fa4c5f9894ec87bd177d0e22d253f186edd55ceee7c4e24dfb8ea9495d0a`.
+- `docs/design-doc/README.md`: `20 2076`, `4e105d55ba9ad5a603c64af65d2e9dc64a7e8d42f810c820edd32b93e908f4f3`.
+- `AGENTS.md`: `66 5255`, `d300781ff8bf23e835f42815e2f806d01da8ac1187b6b418b91bb8460aa33719`.
+
+**Workflow greps:**
+- `grep -c 'uses:' .github/workflows/ci.yml` prints `5` (checkout ×3, flutter-action, setup-deno), and every `uses:` line is SHA-pinned with a tag comment.
+- `grep -c 'persist-credentials: false' .github/workflows/ci.yml` prints `3`.
+- `grep -nE 'secrets\.|supabase (link|start|stop)|--linked|--db-url|db (push|reset|pull)|migration |setup-cli|cache|SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD|paths|dart-define|needs:|services:|container:' .github/workflows/ci.yml` prints nothing and exits 1.
+- `grep -n 'timeout-minutes' .github/workflows/ci.yml` prints `15`, `15`, `20` (lines 22, 80, 104).
+- `grep -n -A1 '^env:' .github/workflows/ci.yml` shows only `ANALYZE_CEILING: 27`.
+
+**Supply chain** (Trinity's evidence; paste output):
+- `curl -fsSL https://github.com/supabase/cli/releases/download/v2.121.0/checksums.txt | grep linux_amd64.tar.gz` prints `4b481189efbdc57cf2d37bdee5f1a0d29574314398564b32a6dfb76c0fcf275f  supabase_2.121.0_linux_amd64.tar.gz`. If it differs, stop and report.
+
+**Local gates** (from the PR head, `AGENTS.md` l.33–43; this item's numbers win):
+- `cd apps/tell_me_a_story && dart format --output=none --set-exit-if-changed .` exit 0.
+- `flutter analyze` ≤ 27 issues, 0 errors.
+- `flutter test` 504 passing, 0 failing.
+- `deno test --allow-env supabase/functions` 43 passed.
+- `actionlint .github/workflows/ci.yml` if it is installed (optional; don't add it to the workflow).
+- Report pass or fail per gate, with command output.
+> 🔍 INFER: a local `supabase test db` run is not required because the PR changes nothing under `supabase/` and the lock's evidence for pgTAP is the CI `pgtap` log (lock R10, "Gates"). If the agent does run it locally, it must not run `supabase db reset` or any other banned command to do so (`AGENTS.md` l.24).
+> 🔍 INFER: the expected flutter line is `🎉 504 tests passed.` because that is what `main`'s CI run 39405247620 printed with Flutter 3.47.7 (not the older `+504: All tests passed!` form quoted in M14.8).
+
+#### Stop rules (stop, report, don't fix)
+- `pgtap` is red on the PR (lock R8, R7 above): paste failing file names, `not ok` lines, diagnostics and `db start` output. No edits to tests, migrations, `config.toml`, `seed.sql` or the job.
+- `sha256sum -c` fails, or `supabase --version` isn't `2.121.0`.
+- `flutter --version` isn't 3.47.7 / Dart 3.13.5 for commit 1, `flutter pub get --enforce-lockfile` fails, or formatting touches any non-`.dart` file.
+- The `dart format` CI step is red on the head after commit 1.
+- `flutter test` isn't 504 passing, analyze is over 27 or has an error, or Deno isn't 43 passed.
+- Any banned command, secret, token, new action, cache or repo setting seems needed to make a job pass.
+- Any base file differs from the sha256 quoted under "Code on `main`" (e.g. `main` moved past `7cae133` with a change to `ci.yml`, `ci.md`, `AGENTS.md`, `docs/design-doc/README.md` or a `.dart` file), or any other code/spec mismatch. Report the diff; don't reconcile it.
+- An OPEN below blocks a file: stop work on that file, finish the rest, report it.
+- Not a stop: a formatter-changed set other than the 16 files. Report both lists and continue (lock R7).
+
+> 🚫 FORBIDDEN: Any `secrets.*`, token, password or `--dart-define`; `supabase link`, `--linked`, `--db-url`, `db push|reset|pull`, `migration *` (including `migration up`, `migration repair`, `migration down`), `supabase start`, `supabase stop` (lock FORBIDDEN, R4). `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, or any job that can reach `lchytafmnuefrgkguynt`. `supabase/setup-cli` or any new `uses:`; any cache; `paths` filters; wider `permissions`; a new trigger or `pull_request_target`; `needs:`, `services:` or `container:` (lock FORBIDDEN). Any action, step, env, retry or flag beyond the lock's workflow delta (including `SUPABASE_TELEMETRY_DISABLED`), or any change to the install step's `tar` line. Edits under `supabase/` (migrations, pgTAP tests, `config.toml`, `seed.sql`), `pubspec.*`, `analysis_options.yaml`, or any Dart change beyond R1's formatter output; hand edits in commit 1 (lock FORBIDDEN, R7). Fixing a red `pgtap` by editing tests, migrations, `config.toml` or `seed.sql` (lock R8). Raising `ANALYZE_CEILING`; changing the other `ci.yml` steps; parsing test counts in CI (lock FORBIDDEN, R10). Branch protection, rulesets, required checks or repo settings (lock FORBIDDEN; l.4284 (required-checks ban): superseded only so that `pgtap` can become a required check, and only Bill does that by hand after the first green run on main (lock R6). For the agent, the ban still holds: the PR changes no branch protection, ruleset, required check or repo setting (lock FORBIDDEN).) Editing `docs/impl-spec/impl-spec.md` (including the M14.8 section text), `README.md`, any `AGENTS.md` line but l.43, or any `docs/design-doc/README.md` line but l.20. Reformatting or "fixing" `ci.md` rev 5. Notion edits. Stamping this item, or any item, READY, APPROVED or CLOSED. Opening, editing, commenting on or relabelling issues, including #43. Pushing to `main`, merging, or more than one PR. Relaxing l.4287 (it stays fully in force, lock rev 5.1 l.3).
+
+#### OPENs
+- OPEN 1 (the `supabase-go` binary) is **closed in rev 2**: lock rev 5.1 l.47 extracts `supabase supabase-go`.
+- The l.4287 conflict is **closed in rev 2**: lock rev 5.1 l.3 keeps l.4287 fully in force and NOT superseded.
+> ✅ RESOLVED: [OPEN 2, closed 2026-10-20 6:05 AM CT] Bill's local `supabase --version` printed `2.121.0`, matching the CI pin (relayed by Erlich). No change to the lock or this build.
+- No other OPENs and no conflicts. Every tech choice above (versions, sha256, commands, job shape, docs text, gates 24/799) is in the lock.
+
+#### After the PR is open (lanes)
+- **Gilfoyle (architecture):** the workflow implements lock rev 5.1 (R1–R10); `db start` not `start`; no secrets; job-level pins; `ci.md` rev 5 sha; the supersession list above (l.4282 and l.4292 superseded; l.4284 (required-checks ban): superseded only so that `pgtap` can become a required check, and only Bill does that by hand after the first green run on main (lock R6). For the agent, the ban still holds: the PR changes no branch protection, ruleset, required check or repo setting (lock FORBIDDEN). l.4287 stays fully in force; l.4283/l.4293 in the parts named); the two-binary `tar` line (lock rev 5.1 l.47). A red `pgtap` comes back to him (lock R8).
+- **Big Head (spec):** the diff against this item: two commits; four commit-2 files and their sha256s; the two one-line doc hunks; the `ci.yml` diff; every gate pasted.
+- **Dinesh (code quality):** commit 1 is pure `dart format .` output (the re-format check in Gates prints nothing; no hand edits, no non-Dart file); commit 2's YAML and docs.
+- **Trinity (security, CI supply chain):** the curl + sha256 install: `curl -fsSL` over HTTPS from the `supabase/cli` GitHub release; the pin equals the release's `checksums.txt` entry; `sha256sum -c -` runs before `tar`; only `supabase` and `supabase-go` are extracted into `$RUNNER_TEMP/bin` (lock rev 5.1 l.47), both from the checksum-verified tarball; the job has no secrets, no token and `permissions: contents: read`; checkout pinned by SHA with `persist-credentials: false`. She also decides whether CLI telemetry matters (the binary reads `SUPABASE_TELEMETRY_DISABLED`; the lock sets nothing and the build adds nothing).
+- **Mugatu:** skipped (no UI). **Jared:** skipped (scope cleared, CI only).
+- **Bill merges.**
+
+#### Bill steps (not the agent's)
+- [x] Approve this item (READY → APPROVED) before any build.
+- [x] On the PR, see three green checks: `CI / flutter (pull_request)`, `CI / deno (pull_request)`, `CI / pgtap (pull_request)`.
+- [x] Merge after the lanes pass.
+- [x] After the merge, the first `push` run on `main` is green, including `pgtap`.
+- [x] Then add `pgtap` to `main`'s required status checks by hand (lock R6). Required contexts become `flutter`, `deno`, `pgtap`. This is the only reason l.4284 is superseded; the agent never does it.
+- [ ] Close #43 (Bill), after the required check is set.
+- [x] Paste `supabase --version` from your machine (OPEN 2 closed: `2.121.0`, 6:05 AM CT).
+- Big Head then stamps M15 CLOSED in a separate docs PR, which also lands this item in `impl-spec.md`.
+
+#### Traceability
+| Source | Covered by |
+|---|---|
+| #43 body: one workflow with Flutter, pgTAP and Deno; branch protection requiring it; no E2E; env var names only | `flutter`/`deno` exist (M14.8); R3 adds `pgtap`; required check is Bill's step (lock R6); no secrets (lock R4) |
+| #43 comment 6288566148: the `dart format` CI step carried from #42 | R1 (baseline), R2 (step) |
+| Lock R1 (local Supabase DB via `db start`, not bare Postgres, not `supabase start`) | R3, FORBIDDEN, Gates (`db start` output) |
+| Lock R2 (`pgtap` job, parallel, same triggers/concurrency, 20 min) | R3, Gates (greps) |
+| Lock R3 (CLI 2.121.0 tarball + sha256, no setup-cli) | R3, Workflow change (two-binary `tar`, lock rev 5.1 l.47), Gates (supply chain), Trinity lane |
+| Lock R4 (prod isolation) | R3, FORBIDDEN, Gates (banned grep) |
+| Lock R5 (`dart format` step after pub get, before analyze) | R2, Gates (`dart format` step output) |
+| Lock R6 (required checks are Bill's) | R10, Bill steps; l.4284 (required-checks ban): superseded only so that `pgtap` can become a required check, and only Bill does that by hand after the first green run on main (lock R6). For the agent, the ban still holds: the PR changes no branch protection, ruleset, required check or repo setting (lock FORBIDDEN). |
+| Lock R7 (format baseline commit, 16 files, report-and-continue) | R1, Files touched, Gates (commit 1 checks), Dinesh lane |
+| Lock R8 (red `pgtap` is a stop) | R7, Stop rules, FORBIDDEN |
+| Lock R9 (no caching) | R8, FORBIDDEN |
+| Lock R10 (counts as evidence: `Files=24, Tests=799`, flutter = main, analyze ≤ 27) | R9, Gates |
+| Lock FORBIDDEN list | FORBIDDEN (merged) |
+| Lock ci.md rev 5 (lands verbatim) | R4, Design Doc file, sha `2b184895…` |
+| Lock ci.md rev 5 "Repo docs" (AGENTS.md line, design-doc index line) | R5, R6 |
+| Lock "Gates" (three green jobs, counts, format exit 0, two-commit diff) | Gates |
+| Lock "Lanes after PR" | Lanes |
+| Lock rev 5.1 l.3 (l.4287 stays fully in force; `supabase-go` extracted) and l.5 supersession (impl-spec l.4282, l.4292, l.4284) | Supersedes, R3, FORBIDDEN |
+| PR #70 l.4490–4491 (backlog needs its own new §15 item, no M14.x) | M15 numbering, Status "Does not reopen M14 or any M14.x" |
+| Jared scope clear (CI only, no PRD change); Mugatu skipped | Status, Lanes |
+
+#### Cloud-agent instruction block (copy-paste for the Cursor cloud agent; use only after Bill approves)
+```text
+You are implementing §15 M15 "CI pgTAP and dart format (#43)" for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story; Flutter + Supabase). This is CI only: no app behavior, no UI, no PRD change.
+
+Do it in ONE PR on branch feat/m15-ci-pgtap off main @ 7cae13337e4fa066ed2aa91b9b25c224dd03f518. PR title: "M15: CI pgTAP and dart format (#43)". PR body says "Refs #43" (never Closes/Fixes). Do not push to main. Do not merge. Stop after opening the PR.
+
+Read first: the §15 M15 item (APPROVED version) in docs/impl-spec/impl-spec.md or as handed to you, and AGENTS.md. The item quotes Gilfoyle's CI lock rev 5.1, which wins on tech. Implement only what the item lists. Match names, paths, YAML, SHAs, versions, sha256 values and replacement lines exactly. Do not improve the design: no extra jobs, steps, env, retries, caching, actions or hardening.
+
+Before you start, check the base: sha256 of .github/workflows/ci.yml = 3f636489821dd6ade5c3bddf83f0b3bb8169fa2f29a79fac683a085374f67642, docs/design-doc/ci.md = 25711b5b9a9a7ff6eaf53946f2ff5e6c778ecf731136a266dfec52d25617e14f, docs/design-doc/README.md = ebb305cef20c69c25f93b79962285b357b7034fe9df1736fc109e95cbf7bcac9, AGENTS.md = bc6c6eccb3377e5a9e20ece74cf24c38441d78470a49c3f90e640d84e0ad7e87. If any differs, stop and report the diff.
+
+Exactly two commits:
+1. Commit 1 = formatter output only. In apps/tell_me_a_story: confirm `flutter --version` is Flutter 3.47.7 / Dart 3.13.5 (else stop); `flutter pub get --enforce-lockfile`; run `dart format --output=none --set-exit-if-changed .` and keep the output (expect 16 changed, exit 1); run `dart format .`; `git status --porcelain` must show only .dart files under lib/ and test/ (else stop); commit with no hand edits. Expected 16 files: lib/core/config/env.dart, lib/core/supabase/supabase_init.dart, lib/core/theme/album_header.dart, lib/data/mapbox_search.dart, lib/features/auth/magic_link_page.dart, lib/features/search/search_page.dart, lib/features/stories/new_story_page.dart, lib/features/stories/story_reader_page.dart, test/mapbox_search_test.dart, test/new_story_capture_test.dart, test/photo_strip_test.dart, test/reader_meta_test.dart, test/story_date_test.dart, test/story_reader_page_test.dart, test/theme/no_hardcoded_colors_test.dart, test/timeline_page_test.dart. If the set differs, commit what the formatter produced, paste both lists in the PR body, and continue. Re-run the check: exit 0.
+2. Commit 2 = exactly four files:
+   - .github/workflows/ci.yml: insert the item's two-line `dart format` step between `flutter pub get` and `flutter analyze (ceiling)`, and append the item's `pgtap` job after `deno`, exactly as written in the item (the install step's tar line is exactly: tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" supabase supabase-go). Result: 132 lines, 3833 bytes, sha256 a379fa4c5f9894ec87bd177d0e22d253f186edd55ceee7c4e24dfb8ea9495d0a. Nothing else in ci.yml changes.
+   - docs/design-doc/ci.md: replace it with the item's "Design Doc file" block, byte for byte: 59 lines, 4989 bytes, sha256 2b1848957059e36b488b47bd3618a5295f59405d788bc1043671735d096faaf1.
+   - docs/design-doc/README.md: replace l.20 with "- `ci.md` — CI (LOCKED 2026-10-20, Gilfoyle, rev 5)". sha256 4e105d55ba9ad5a603c64af65d2e9dc64a7e8d42f810c820edd32b93e908f4f3.
+   - AGENTS.md: replace l.43 with the item's R6 line. sha256 d300781ff8bf23e835f42815e2f806d01da8ac1187b6b418b91bb8460aa33719.
+
+Never: secrets, tokens, passwords, --dart-define; supabase link, --linked, --db-url, db push/reset/pull, any migration command (up/repair/down), supabase start, supabase stop; supabase/setup-cli or any new `uses:`; cache; paths filters; wider permissions; edits under supabase/ (migrations, pgTAP tests, config.toml, seed.sql), pubspec.*, analysis_options.yaml, or any Dart change beyond the formatter; editing docs/impl-spec/impl-spec.md (the M14.8 section stays untouched), README.md, or other lines of AGENTS.md / docs/design-doc/README.md; raising ANALYZE_CEILING; relaxing impl-spec l.4287 (the three-action allowlist stays fully in force); branch protection, rulesets, required checks or repo settings (impl-spec l.4284 (required-checks ban): superseded only so that pgtap can become a required check, and only Bill does that by hand after the first green run on main. For you, the ban still holds: the PR changes no branch protection, ruleset, required check or repo setting); Notion edits; stamping anything READY/APPROVED/CLOSED; opening, editing, commenting on or relabelling issues.
+
+Stop and report (do not fix) if: the pgtap job is red (paste failing test files, `not ok` lines, diagnostics and the `supabase db start` output; no edits to tests/migrations/config.toml/seed.sql); sha256sum -c fails or `supabase --version` isn't 2.121.0; the dart format CI step is red; flutter test isn't 504 passing, analyze is over 27 or has an error, or Deno isn't 43 passed; anything banned seems needed; code and the spec disagree (report the diff, don't reconcile). If an OPEN blocks a file, stop work on that file, do the unblocked work, and report the OPEN.
+
+After the milestone, run every check in the item's Gates and report pass/fail for each with its command output: CI run id + URL with all three jobs green on the final head; pgtap raw log lines (sha256sum OK, the install step green with supabase and supabase-go extracted, `2.121.0`, `supabase db start` output, `All tests successful.`, `Files=24, Tests=799`, the 24 per-file lines); flutter (`Flutter 3.47.7`, dart format step `Formatted 107 files (0 changed)`, `flutter analyze: N issues (ceiling 27, exit 0)` with N ≤ 27, `🎉 504 tests passed.`); deno (`ok | 43 passed | 0 failed`); `git log --oneline main..HEAD` (two commits); `git show --stat` of each commit; the commit-1 re-format check printing nothing; the empty `git diff main -- supabase/ docs/impl-spec/ README.md .cursor/ apps/tell_me_a_story/pubspec.yaml apps/tell_me_a_story/pubspec.lock apps/tell_me_a_story/analysis_options.yaml`; `wc -l -c` and `sha256sum` of the four commit-2 files; the workflow greps; the checksums.txt line; local dart format / analyze / flutter test / deno results. The completion note lists commands run, outputs, and OPENs left. Then stop. Lanes: Gilfoyle, Big Head, Dinesh, Trinity. Bill merges, then adds `pgtap` as a required check after the first green run on main, then closes #43.
+```
