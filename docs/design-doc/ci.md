@@ -1,4 +1,4 @@
-# CI (minimal) — LOCKED 2026-10-19 (Gilfoyle), rev 3
+# CI (minimal) — LOCKED 2026-10-19 (Gilfoyle), rev 4
 
 Bill's ask, 1:55 PM CT: run lint, typecheck and unit tests on every PR. Nothing Supabase. Lands verbatim as `docs/design-doc/ci.md` in the CI PR.
 
@@ -11,7 +11,7 @@ One file, `.github/workflows/ci.yml`, two parallel jobs, no secrets, no services
 | `deno` | repo root | `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` → `deno test --allow-env supabase/functions` |
 
 - `flutter analyze` is the lint and the typecheck for Dart. `flutter test` is the unit tests.
-- `deno test` type-checks only the modules its tests load (5 of the 14 functions). `deno check` covers every `index.ts` and all of `_shared` (rev 2). If `deno check` fails on main, the build agent stops and reports the errors. It does not fix code in this PR. The 43 Deno tests use injected fake DBs (`AcceptInviteDb` etc.) and need only `--allow-env`, so no database is needed.
+- `deno test` type-checks only the modules its tests load (5 of the 15 functions, rev 4 count). `deno check` covers every `index.ts` and all of `_shared` (rev 2). If `deno check` fails on main, the build agent stops and reports the errors. It does not fix code in this PR. The 43 Deno tests use injected fake DBs (`AcceptInviteDb` etc.) and need only `--allow-env`, so no database is needed.
 - 🚫 Not in this slice: `deno lint` (never gated, so it has no baseline), pgTAP, `supabase start`, migrations, `flutter build`, coverage, caching beyond what the setup actions do by default.
 - 🚫 No `--dart-define` and no secrets in CI. `env_test.dart` asserts that the defines are empty, so passing any would break it.
 
@@ -38,7 +38,7 @@ permissions:
 - Both checkouts set `with: persist-credentials: false` (rev 3, TMAS-M148-02). No step needs the token after checkout.
 - These two are part of the lock. The spec's FORBIDDEN and no-hardening rules don't apply to them.
 - Dependencies: Flutter uses `--enforce-lockfile`, so CI fails instead of silently resolving new versions. Deno's `jsr:`/`npm:` imports aren't locked (there's no `deno.lock`). That's accepted for this slice because prod Edge deploys resolve the same way. A `deno.lock` gets its own GitHub issue.
-- ❓ OPEN (Bill): the exact Flutter and Deno versions. Default is what's on the machine Bill smokes on (`flutter --version`, `deno --version`), so CI and the local smoke agree. A bump is its own PR.
+- Versions (closed, rev 4): Flutter `3.47.7` (Dart 3.13.5) and Deno `2.9.4`, which is what Bill's smoke machine reports, so CI and the local smoke agree. A bump is its own PR.
 
 ## Analyze: ceiling, not zero
 - Gate: the total issue count is ≤ 27 and errors = 0. It fails on either.
@@ -50,6 +50,7 @@ permissions:
 - CI fails on any failing test. Count floors (flutter ≥ 495, Deno ≥ 43) stay as PR-body evidence for now. They aren't parsed in CI.
 
 ## Repo docs touched by the CI PR
-- README l.23 and impl-spec l.319 get corrected: CI injects no dart-defines and no secrets. Defines are local or deploy-time only.
+- README l.23 and impl-spec l.4, 284, 289, 294, 319 and 1942 get corrected: CI injects no dart-defines and no secrets. Defines are local or deploy-time only.
 - `AGENTS.md` "The repo has no CI" line becomes: CI runs analyze, flutter test and Deno on every PR. pgTAP still runs locally, and its output goes in the PR body.
 - 🚫 Branch protection and required checks are GitHub settings, which count as hosted config. They're Bill's to turn on after the first green run, and the PR doesn't do it.
+- `docs/design-doc/README.md` gets the index line: `` `ci.md` — CI (minimal) (LOCKED 2026-10-19, Gilfoyle, rev 4) ``.
