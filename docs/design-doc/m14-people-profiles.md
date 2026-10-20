@@ -16,7 +16,7 @@ Intake: PRD M14 (7 items, 10 locks, 2026-10-11) · UXD M14 (8 screens, LOCKED 20
 - Drop `story_people_ensure_membership` and `people_ensure_membership` triggers. Tagging a story or adding an email never creates a membership. Membership comes only from accepting an invite. This retires my M10 auto-membership lock.
 ### RLS (people)
 - SELECT full row: `is_tree_member(family_id)`.
-- Name-only for tree readers who aren't members: `people_tree_read` stays `id, family_id, name` (drop `relationship`); no new columns.
+- Tree readers: TMAS-24-05's published-story filter on people_tree_read was retired on purpose in M14 (people SELECT is tree-wide via is_tree_member, so the filter protected nothing). The view became vestigial (tree-scoped, never used by the client) and is dropped by 20261020120000_drop_people_tree_read.sql (#72).
 - INSERT: `is_live_family_member(family_id)`.
 - UPDATE: `user_id is null and is_tree_member(family_id)` OR `user_id = auth.uid()`. Column `user_id` not client-writable (revoke update on that column; Edge/RPC only).
 - DELETE: unchanged.
