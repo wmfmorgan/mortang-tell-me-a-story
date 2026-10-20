@@ -1208,121 +1208,111 @@ void main() {
     expect(find.text('+ Add comment'), findsNothing);
   });
 
-  testWidgets(
-    'a child contributor sees origin people and can still comment',
-    (tester) async {
-      const child = 'ada';
-      final people = _TreePeople(seed: const [_ada]);
-      await tester.pumpWidget(
-        _readerApp(
-          stories: _FakeStoriesApi(story: _published(title: 'Jam')),
-          people: people,
-          currentUserId: 'u-child',
-          families: _OriginFamilies(
-            mine: [
-              MemberFamily(
-                id: child,
-                name: 'Ada',
-                createdAt: DateTime.utc(1990),
-              ),
-            ],
-            tree: [
-              const TreeFamily(id: _familyId, name: 'Parent'),
-              TreeFamily(
-                id: child,
-                name: 'Ada',
-                parentFamilyId: _familyId,
-                originStoryId: _storyId,
-              ),
-            ],
-          ),
+  testWidgets('a child contributor sees origin people and can still comment', (
+    tester,
+  ) async {
+    const child = 'ada';
+    final people = _TreePeople(seed: const [_ada]);
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published(title: 'Jam')),
+        people: people,
+        currentUserId: 'u-child',
+        families: _OriginFamilies(
+          mine: [
+            MemberFamily(id: child, name: 'Ada', createdAt: DateTime.utc(1990)),
+          ],
+          tree: [
+            const TreeFamily(id: _familyId, name: 'Parent'),
+            TreeFamily(
+              id: child,
+              name: 'Ada',
+              parentFamilyId: _familyId,
+              originStoryId: _storyId,
+            ),
+          ],
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.text('Ada'), findsWidgets);
-      expect(people.treeCalls, 1);
-      expect(find.text('+ Add comment'), findsOneWidget);
-    },
-  );
+    expect(find.text('Ada'), findsWidgets);
+    expect(people.treeCalls, 1);
+    expect(find.text('+ Add comment'), findsOneWidget);
+  });
 
-  testWidgets(
-    'a former contributor hides comment delete and photo remove',
-    (tester) async {
-      const child = 'ada';
-      await tester.pumpWidget(
-        _readerApp(
-          stories: _FakeStoriesApi(
-            story: _published(authorId: 'u-author', title: 'Jam'),
-          ),
-          currentUserId: 'u-child',
-          photos: _FakePhotosApi(
-            seed: const [
-              Photo(
-                id: 'ph-child',
-                storyId: _storyId,
-                familyId: _familyId,
-                uploaderId: 'u-child',
-                storagePath: 'f/s/child.jpg',
-                sortOrder: 0,
-              ),
-            ],
-          ),
-          comments: _FakeCommentsApi(
-            seed: [
-              Comment(
-                id: 'c-child',
-                storyId: _storyId,
-                familyId: _familyId,
-                authorId: 'u-child',
-                body: 'A note from Ada',
-                createdAt: DateTime.utc(2026, 9, 27),
-                authorDisplayName: 'Ada',
-              ),
-            ],
-          ),
-          perspectives: _FakePerspectivesApi(
-            seed: [
-              Perspective(
-                id: 'v-child',
-                storyId: _storyId,
-                familyId: _familyId,
-                authorId: 'u-child',
-                body: 'A longer telling',
-                createdAt: DateTime.utc(2026, 9, 27),
-                authorDisplayName: 'Ada',
-              ),
-            ],
-          ),
-          families: _OriginFamilies(
-            mine: [
-              MemberFamily(
-                id: child,
-                name: 'Ada',
-                createdAt: DateTime.utc(1990),
-              ),
-            ],
-            tree: const [
-              TreeFamily(id: _familyId, name: 'Parent'),
-              TreeFamily(
-                id: child,
-                name: 'Ada',
-                parentFamilyId: _familyId,
-                originStoryId: 'other-story',
-              ),
-            ],
-          ),
+  testWidgets('a former contributor hides comment delete and photo remove', (
+    tester,
+  ) async {
+    const child = 'ada';
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(
+          story: _published(authorId: 'u-author', title: 'Jam'),
         ),
-      );
-      await tester.pumpAndSettle();
+        currentUserId: 'u-child',
+        photos: _FakePhotosApi(
+          seed: const [
+            Photo(
+              id: 'ph-child',
+              storyId: _storyId,
+              familyId: _familyId,
+              uploaderId: 'u-child',
+              storagePath: 'f/s/child.jpg',
+              sortOrder: 0,
+            ),
+          ],
+        ),
+        comments: _FakeCommentsApi(
+          seed: [
+            Comment(
+              id: 'c-child',
+              storyId: _storyId,
+              familyId: _familyId,
+              authorId: 'u-child',
+              body: 'A note from Ada',
+              createdAt: DateTime.utc(2026, 9, 27),
+              authorDisplayName: 'Ada',
+            ),
+          ],
+        ),
+        perspectives: _FakePerspectivesApi(
+          seed: [
+            Perspective(
+              id: 'v-child',
+              storyId: _storyId,
+              familyId: _familyId,
+              authorId: 'u-child',
+              body: 'A longer telling',
+              createdAt: DateTime.utc(2026, 9, 27),
+              authorDisplayName: 'Ada',
+            ),
+          ],
+        ),
+        families: _OriginFamilies(
+          mine: [
+            MemberFamily(id: child, name: 'Ada', createdAt: DateTime.utc(1990)),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Parent'),
+            TreeFamily(
+              id: child,
+              name: 'Ada',
+              parentFamilyId: _familyId,
+              originStoryId: 'other-story',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.text('A note from Ada'), findsOneWidget);
-      expect(find.text('A longer telling'), findsOneWidget);
-      expect(find.byKey(const Key('comment-menu-c-child')), findsNothing);
-      expect(find.byKey(const Key('photo-remove')), findsNothing);
-      expect(find.text('Delete'), findsNothing);
-    },
-  );
+    expect(find.text('A note from Ada'), findsOneWidget);
+    expect(find.text('A longer telling'), findsOneWidget);
+    expect(find.byKey(const Key('comment-menu-c-child')), findsNothing);
+    expect(find.byKey(const Key('photo-remove')), findsNothing);
+    expect(find.text('Delete'), findsNothing);
+  });
 
   testWidgets('photo remove shows for the uploader or the story author', (
     tester,
@@ -1415,9 +1405,7 @@ void main() {
     await pump(
       uid: 'owner',
       authorId: 'author',
-      stewarded: [
-        StewardFamily(id: _familyId, name: 'Family', role: 'owner'),
-      ],
+      stewarded: [StewardFamily(id: _familyId, name: 'Family', role: 'owner')],
     );
     expect(find.byKey(const Key('story-edit')), findsOneWidget);
 
@@ -1429,7 +1417,6 @@ void main() {
       ],
     );
     expect(find.byKey(const Key('story-edit')), findsNothing);
-
   });
 
   test('origin menu is empty for a draft and labels name the family', () {

@@ -298,8 +298,7 @@ class _HeaderBar extends StatelessWidget {
           ),
           SizedBox(width: metrics.gaps[4]),
           SizedBox(width: metrics.search, child: const _SearchChip()),
-          if (!metrics.loose && page != AlbumHeaderPage.capture)
-            const Spacer(),
+          if (!metrics.loose && page != AlbumHeaderPage.capture) const Spacer(),
           if (page == AlbumHeaderPage.capture)
             _captureActions()
           else if (canWrite) ...[
@@ -475,13 +474,13 @@ class _HeaderMetrics {
       final statusWidth = status == null
           ? 0.0
           : _textWidth(
-                status,
-                GoogleFonts.sourceSans3(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ) +
-              12;
+                  status,
+                  GoogleFonts.sourceSans3(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ) +
+                12;
       return statusWidth +
           _textWidth(
             'Save draft',

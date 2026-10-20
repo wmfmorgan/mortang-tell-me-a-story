@@ -1667,33 +1667,32 @@ void main() {
     },
   );
 
-  testWidgets(
-    'remove X shows on every chip once every linked person loaded',
-    (tester) async {
-      final stories = _FakeStoriesApi(
-        story: _mattIsBorn(personIds: const ['p1', 'w1']),
-      );
-      await tester.pumpWidget(
-        _captureShell(
-          stories: stories,
-          people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
-          editStoryId: 's1',
-        ),
-      );
-      await tester.pumpAndSettle();
+  testWidgets('remove X shows on every chip once every linked person loaded', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(
+      story: _mattIsBorn(personIds: const ['p1', 'w1']),
+    );
+    await tester.pumpWidget(
+      _captureShell(
+        stories: stories,
+        people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
+        editStoryId: 's1',
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(
-        tester.widget<Chip>(find.widgetWithText(Chip, 'Ada')).onDeleted,
-        isNotNull,
-      );
-      expect(
-        tester
-            .widget<Chip>(find.widgetWithText(Chip, 'William F Morgan'))
-            .onDeleted,
-        isNotNull,
-      );
-    },
-  );
+    expect(
+      tester.widget<Chip>(find.widgetWithText(Chip, 'Ada')).onDeleted,
+      isNotNull,
+    );
+    expect(
+      tester
+          .widget<Chip>(find.widgetWithText(Chip, 'William F Morgan'))
+          .onDeleted,
+      isNotNull,
+    );
+  });
 
   testWidgets('a linked person who did not load counts for publishing', (
     tester,
@@ -1729,65 +1728,67 @@ void main() {
     expect(stories.publishCalls, 0);
   });
 
-  testWidgets('a story with no linked people still highlights People on publish', (
-    tester,
-  ) async {
-    final stories = _FakeStoriesApi(
-      story: _mattIsBorn(
-        id: 'draft-1',
-        personIds: const [],
-        status: StoryStatus.draft,
-      ),
-    );
-    await tester.pumpWidget(
-      _captureShell(stories: stories, draftId: 'draft-1'),
-    );
-    await tester.pumpAndSettle();
-
-    final publish = find.widgetWithText(FilledButton, 'Publish story');
-    await tester.ensureVisible(publish);
-    await tester.tap(publish);
-    await tester.pumpAndSettle();
-
-    expect(
-      find.ancestor(
-        of: find.text('People'),
-        matching: find.byWidgetPredicate(_hasTerracottaBorder),
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('a duplicate key on another constraint still shows the save error', (
-    tester,
-  ) async {
-    final stories = _FakeStoriesApi(story: _mattIsBorn(personIds: const ['p1']))
-      ..linkError = const PostgrestException(
-        message:
-            'duplicate key value violates unique constraint "photos_pkey"',
-        code: '23505',
+  testWidgets(
+    'a story with no linked people still highlights People on publish',
+    (tester) async {
+      final stories = _FakeStoriesApi(
+        story: _mattIsBorn(
+          id: 'draft-1',
+          personIds: const [],
+          status: StoryStatus.draft,
+        ),
       );
-    await tester.pumpWidget(
-      _captureShell(
-        stories: stories,
-        people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
-        editStoryId: 's1',
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        _captureShell(stories: stories, draftId: 'draft-1'),
+      );
+      await tester.pumpAndSettle();
 
-    final add = find.widgetWithText(TextButton, 'Add person');
-    await tester.ensureVisible(add);
-    await tester.tap(add);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('William F Morgan'));
-    await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
-    await tester.pumpAndSettle();
+      final publish = find.widgetWithText(FilledButton, 'Publish story');
+      await tester.ensureVisible(publish);
+      await tester.tap(publish);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Couldn’t save person. Try again.'), findsOneWidget);
-    expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
-  });
+      expect(
+        find.ancestor(
+          of: find.text('People'),
+          matching: find.byWidgetPredicate(_hasTerracottaBorder),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'a duplicate key on another constraint still shows the save error',
+    (tester) async {
+      final stories =
+          _FakeStoriesApi(story: _mattIsBorn(personIds: const ['p1']))
+            ..linkError = const PostgrestException(
+              message: 'duplicate key value violates unique constraint "photos_pkey"',
+              code: '23505',
+            );
+      await tester.pumpWidget(
+        _captureShell(
+          stories: stories,
+          people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
+          editStoryId: 's1',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final add = find.widgetWithText(TextButton, 'Add person');
+      await tester.ensureVisible(add);
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('William F Morgan'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Couldn’t save person. Try again.'), findsOneWidget);
+      expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'adding a person to a new story with no other edit autosaves the person',

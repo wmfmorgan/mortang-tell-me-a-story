@@ -1143,7 +1143,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
                             horizontal: 10,
                             vertical: 6,
                           ),
-                          onDeleted: _unloadedPersonIds.isEmpty ? () => _removePerson(person) : null,
+                          onDeleted: _unloadedPersonIds.isEmpty
+                              ? () => _removePerson(person)
+                              : null,
                         ),
                       ),
                     TextButton(

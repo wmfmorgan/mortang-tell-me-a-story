@@ -1061,8 +1061,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         style: style,
         children: [
           TextSpan(
-            text:
-                'Recorded event: ${storyDateLabelFor(story)}$documented ',
+            text: 'Recorded event: ${storyDateLabelFor(story)}$documented ',
           ),
           WidgetSpan(
             alignment: PlaceholderAlignment.middle,
@@ -1146,30 +1145,30 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       people: _people,
       signedInUserId: _currentUserId,
       child: DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF6F1EB),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE7DECE)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _initialsAvatar(person.name, size: 22),
-            const SizedBox(width: 6),
-            Text(person.name, style: Theme.of(context).textTheme.labelMedium),
-            if ((person.relationship ?? '').trim().isNotEmpty) ...[
-              const SizedBox(width: 4),
-              Text(
-                person.relationship!,
-                style: Theme.of(context).textTheme.labelSmall
-                    ?.copyWith(color: const Color(0xFF6B5E55)),
-              ),
-            ],
-          ],
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6F1EB),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE7DECE)),
         ),
-      ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _initialsAvatar(person.name, size: 22),
+              const SizedBox(width: 6),
+              Text(person.name, style: Theme.of(context).textTheme.labelMedium),
+              if ((person.relationship ?? '').trim().isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Text(
+                  person.relationship!,
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: const Color(0xFF6B5E55)),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

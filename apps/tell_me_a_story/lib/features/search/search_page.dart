@@ -769,12 +769,13 @@ class _ResultCard extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final person in story.people.isNotEmpty
-                          ? story.people
-                          : [
-                              for (final name in story.personNames)
-                                (id: '', name: name),
-                            ])
+                      for (final person
+                          in story.people.isNotEmpty
+                              ? story.people
+                              : [
+                                  for (final name in story.personNames)
+                                    (id: '', name: name),
+                                ])
                         PersonNamePill(
                           personId: person.id,
                           name: person.name,

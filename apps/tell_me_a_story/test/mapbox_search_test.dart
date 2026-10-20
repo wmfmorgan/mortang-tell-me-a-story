@@ -39,7 +39,10 @@ void main() {
 
       expect(hit.id, 'poi.123');
       expect(hit.label, 'Central Park');
-      expect(hit.address, 'Central Park, New York, New York 10024, United States');
+      expect(
+        hit.address,
+        'Central Park, New York, New York 10024, United States',
+      );
       expect(hit.label, isNot(hit.address));
       expect(hit.lng, -73.9654);
       expect(hit.lat, 40.7829);
@@ -75,8 +78,10 @@ void main() {
       expect(hits, hasLength(2));
       expect(hits[0].id, 'poi.123');
       expect(hits[0].label, 'Central Park');
-      expect(hits[0].address,
-          'Central Park, New York, New York 10024, United States');
+      expect(
+        hits[0].address,
+        'Central Park, New York, New York 10024, United States',
+      );
       expect(hits[1].id, 'place.456');
       expect(hits[1].label, 'Brooklyn');
       expect(hits[1].address, 'Brooklyn, New York, United States');
@@ -114,32 +119,38 @@ void main() {
       );
       expect(requested!.scheme, 'https');
       expect(requested!.host, 'api.mapbox.com');
-      expect(requested!.queryParameters['access_token'],
-          'pk.test_token_value_long_enough');
+      expect(
+        requested!.queryParameters['access_token'],
+        'pk.test_token_value_long_enough',
+      );
       expect(requested!.queryParameters['limit'], '5');
       expect(hits, hasLength(2));
       expect(hits.first.label, 'Central Park');
-      expect(hits.first.address,
-          'Central Park, New York, New York 10024, United States');
-    });
-
-    test('returns empty list for blank query without calling network',
-        () async {
-      var called = false;
-      final client = MockClient((request) async {
-        called = true;
-        return http.Response('[]', 200);
-      });
-
-      final api = MapboxSearchApi(
-        client: client,
-        accessToken: 'pk.test_token_value_long_enough',
+      expect(
+        hits.first.address,
+        'Central Park, New York, New York 10024, United States',
       );
-      final hits = await api.search('   ');
-
-      expect(called, isFalse);
-      expect(hits, isEmpty);
     });
+
+    test(
+      'returns empty list for blank query without calling network',
+      () async {
+        var called = false;
+        final client = MockClient((request) async {
+          called = true;
+          return http.Response('[]', 200);
+        });
+
+        final api = MapboxSearchApi(
+          client: client,
+          accessToken: 'pk.test_token_value_long_enough',
+        );
+        final hits = await api.search('   ');
+
+        expect(called, isFalse);
+        expect(hits, isEmpty);
+      },
+    );
 
     test('throws MapboxSearchException on missing/implausible token', () async {
       final api = MapboxSearchApi(
@@ -147,10 +158,7 @@ void main() {
         accessToken: '...',
       );
 
-      expect(
-        () => api.search('park'),
-        throwsA(isA<MapboxSearchException>()),
-      );
+      expect(() => api.search('park'), throwsA(isA<MapboxSearchException>()));
     });
 
     test('throws MapboxSearchException on empty token', () async {
@@ -159,10 +167,7 @@ void main() {
         accessToken: '',
       );
 
-      expect(
-        () => api.search('park'),
-        throwsA(isA<MapboxSearchException>()),
-      );
+      expect(() => api.search('park'), throwsA(isA<MapboxSearchException>()));
     });
 
     test('throws MapboxSearchException on non-200', () async {

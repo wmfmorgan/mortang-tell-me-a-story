@@ -12,7 +12,9 @@ class Env {
   );
 
   /// Public Mapbox token for geocode + basemap. OPEN (Bill) until provided.
-  static const mapboxAccessToken = String.fromEnvironment('MAPBOX_ACCESS_TOKEN');
+  static const mapboxAccessToken = String.fromEnvironment(
+    'MAPBOX_ACCESS_TOKEN',
+  );
 
   /// Soft gate: missing/placeholder token → map failure UX, not startup crash.
   static bool get hasMapboxToken => isPlausibleMapboxToken(mapboxAccessToken);
