@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(17);
 
 create temporary table m51_ctx (
   owner_id uuid primary key,
@@ -233,6 +233,20 @@ select ok(
       and 'search_path=""' = any (p.proconfig)
   ),
   'same_family_tree is security definer with search_path=""'
+);
+select ok(
+  public.family_tree_root((select gone_sib_id from m51_ctx)) is null,
+  'family_tree_root is null for a soft-deleted timeline (#42, superuser)'
+);
+select is(
+  public.family_tree_root((select orphan_child_id from m51_ctx)),
+  (select orphan_child_id from m51_ctx),
+  'family_tree_root stops at a soft-deleted parent (#42, superuser)'
+);
+select is(
+  public.family_tree_root((select child_id from m51_ctx)),
+  (select root_id from m51_ctx),
+  'family_tree_root of a live child is its root (#42, superuser)'
 );
 
 select * from finish();
