@@ -4915,3 +4915,384 @@ Stop and report (do not fix) if: the pgtap job is red (paste failing test files,
 
 After the milestone, run every check in the item's Gates and report pass/fail for each with its command output: CI run id + URL with all three jobs green on the final head; pgtap raw log lines (sha256sum OK, the install step green with supabase and supabase-go extracted, `2.121.0`, `supabase db start` output, `All tests successful.`, `Files=24, Tests=799`, the 24 per-file lines); flutter (`Flutter 3.47.7`, dart format step `Formatted 107 files (0 changed)`, `flutter analyze: N issues (ceiling 27, exit 0)` with N ≤ 27, `🎉 504 tests passed.`); deno (`ok | 43 passed | 0 failed`); `git log --oneline main..HEAD` (two commits); `git show --stat` of each commit; the commit-1 re-format check printing nothing; the empty `git diff main -- supabase/ docs/impl-spec/ README.md .cursor/ apps/tell_me_a_story/pubspec.yaml apps/tell_me_a_story/pubspec.lock apps/tell_me_a_story/analysis_options.yaml`; `wc -l -c` and `sha256sum` of the four commit-2 files; the workflow greps; the checksums.txt line; local dart format / analyze / flutter test / deno results. The completion note lists commands run, outputs, and OPENs left. Then stop. Lanes: Gilfoyle, Big Head, Dinesh, Trinity. Bill merges, then adds `pgtap` as a required check after the first green run on main, then closes #43.
 ```
+
+### §15 M16 Hotfix: drop people_tree_read (#72) (CLOSED 2026-10-21: #76 merged 46957e2, Gate 6 PASS on prod, Bill smoke 6:10 PM CT)
+**Status:** **CLOSED 2026-10-21.** PR #76 (head `c20ba87`) merged by Bill as `46957e2` at 2:00 PM CT 2026-10-20; CI run 39467926349 green; Big Head spec PASS at `c20ba87`. Gate 6 PASS on prod (Gilfoyle, 2026-10-20 ~2:03–2:06 PM CT: `20261020120000` applied, `people_tree_read` gone, A/B/C/E 0, D 66 warn-only, 30 definers on allowlist, advisors 0 ERRORs). Gate 7: Bill, 6:10 PM CT 2026-10-21, relayed verbatim by Erlich: "smoke passed" (reader people chips, new-story people picker, add-person popup). Erratum folded in at close (no build change): Gate 2 test 6 evidence is `# Failed (TODO) test 6` from `supabase test db`, because pg_prove runs non-verbose and never prints the raw `not ok 6 … # TODO` line; that line appears only when the todo really fails. Was: **APPROVED rev 2 2026-10-20.** Bill, 12:28 PM CT 2026-10-20, relayed verbatim by Erlich: "Approve the #72 hotfix spec and launch it". Source: Gilfoyle's fix lock rev 2 (`/workspace/m72/people-tree-read-fix-lock-rev2.md`, 239 lines, sha256 `3299440af4f933299e578c3686eb0303fb67a45ac0952c6ca531ec0f7f965247`, re-verified 2026-10-20), which wins on tech. Lock l.3: "**Status: rev 2, LOCKED 2026-10-20 (Gilfoyle; DROP by Bill 12:15 PM CT)**". Lock source: Bill, 12:15 PM CT 2026-10-20, relayed verbatim by Erlich: "Yes, drop people_tree_read for #72". That approves the lock's DROP decision only. It is not approval of this item. Background: Trinity's assessment `/workspace/tmas-72-people-tree-read-assessment.md`; lock rev 1 `/workspace/m72/people-tree-read-fix-lock-rev1.md`. Base: `main` @ `b025b75bd7e3fc8b9b750ffd76c65cf72c00a17c` ("docs(impl-spec): stamp M15 CLOSED (#43) (#74)"); `get_branch main` re-checked 2026-10-20 after 12:19 PM CT: head is still `b025b75`, required contexts `["deno", "flutter", "pgtap"]`. One PR. **Does not reopen M14, any M14.x, or M15.** Rev 2 (docs-only vs rev 1, no build change): OPENs 1–3 closed by Gilfoyle 2026-10-20 ~12:28 PM CT; OPEN 4 moved to #75 (Bill 12:23 PM CT via Erlich: "i want supabase to come back clean every deploy. how do we integrate that").
+> 🔍 INFER: Branch `feat/m16-drop-people-tree-read` because the lock names no branch and `AGENTS.md` l.18 says "One §15 milestone per PR, on a `feat/mN-…` branch off `main`. No direct push to `main`."
+> 🔍 INFER: PR title `M16: drop people_tree_read (#72)` because the lock names no title and M15 used `M15: CI pgTAP and dart format (#43)`.
+> 🔍 INFER: PR body says `Refs #72`, not `Closes`, because the lock gives no issue link and Gates 6 (post-deploy prod checks) and 7 (Bill's smoke) run after the merge, so #72 is not done when the PR merges. Bill closes #72.
+
+M16 is the next free number:
+- `docs/impl-spec/impl-spec.md` on `main` @ `b025b75` (4,917 lines, sha256 `9354fe652fa49bd23a398fd900ca6766f86a051c3d091cb04baa132c8d0f3de7`, git blob sha verified against the tree) has `### §15 M15 CI pgTAP and dart format (#43) (CLOSED 2026-10-20: …)` at l.4493 as the highest §15 M-number. No `M16` heading exists.
+- l.4486 `### §15 M14 series CLOSED (2026-10-20)` FORBIDDEN (l.4492): "Reopening M14 or any M14.x item. Building a backlog issue (#43, #49, #63–#69) without its own APPROVED §15 item. Adding new M14.x numbers." So #72 gets M16, not M14.9 or M15.x.
+- The lock names no milestone number.
+
+#### Decision (verbatim, lock §1)
+Lock §1: "Bill, 12:15 PM CT 2026-10-20, verbatim: **"Yes, drop people_tree_read for #72"**."
+
+Why dropping is safe (lock §1, verbatim):
+- **Prod dependents: none** (re-checked on 2026-10-20).
+  - `pg_depend` on the view lists only its own row type (18102, `i`) and its `_RETURN` rule (18103, `i`). The row type's only dependent is its array type (18101, `i`).
+  - Zero foreign `pg_rewrite` rules.
+  - Zero functions mention it in `prosrc` or `prosqlbody`, and none takes or returns its row type.
+  - Zero policies, other views, publication rows or triggers reference it.
+  - It is the only v/m object in `public`/`graphql_public`.
+- **Repo dependents: none.** No migration after `20261012100000` touches the view. `apps/.../lib/` and `supabase/functions/` have 0 hits. `listTreePeople` (`lib/data/people_api.dart` l.246) reads `rpc/list_family_tree` + `/rest/v1/people`.
+- **Same rows without the view.** The view's rows are a subset of `people_select_member` (`is_tree_member(family_id)`, TO authenticated).
+  - `is_live_family_member` implies `is_tree_member`, and `is_family_tree_readable` ≡ `is_tree_member`.
+  - anon gets 0 `people` rows, because every `people` policy is TO authenticated.
+
+Lock §1: "**Fallback:** if any dependent appears before merge, STOP and report it to Gilfoyle. Do not improvise a keep or `security_invoker` variant."
+
+#### Code on `main` this item relies on (read-only facts, @ `b025b75`)
+Checked 2026-10-20 with read-only cursor-github (`get_branch`, `get_git_tree` recursive, `get_file_contents`); every file below matched its git blob sha in the `b025b75` tree.
+- `supabase/migrations/`: 34 files, latest `20261019000000_draft_write_policies.sql`. `20261020120000_drop_people_tree_read.sql` sorts last (checked with `sorted()` against the tree) and does not exist yet. `supabase/tests/catalog_acl_guard.sql` does not exist yet.
+- `supabase/tests/`: 24 files; the 24 `select plan(N)` values sum to **799** (lock §3).
+- `supabase/tests/family_tree_read.sql`: 502 lines, 13,480 bytes, sha256 `486f78c131ea31a64b3912988458c6fde44faa0812597a07d6910132c222c73b`. l.9 `select plan(38);`. l.1–2: `-- M12 tree read: a parent member can read a child's published rows and` / `-- people_tree_read, and cannot read drafts, people, or write.`. l.69–73 (anon `has_table_privilege` on the view), l.74–84 (no `email` column), l.294–302 (`'parent member reads the child name from people_tree_read'`), l.303–313 (no `relationship`), l.362–366 (`'a signed-in user outside the tree gets 0 people_tree_read rows'`), l.373 `reset role;`. All match the lock.
+- `supabase/tests/origin_stories.sql`: 783 lines, 23,254 bytes, sha256 `acd09850474c1586c0e8811cc91378389d169472c6c91186d0bb63ceb73fc798`. l.7 `select plan(57);`. l.682–683 the M14 comment; l.691–695 and l.704–708 the two `people_tree_read` counts (expected `1::bigint`). All match the lock.
+- `supabase/tests/origin_stories_hardening.sql`: 1,141 lines, 41,819 bytes, sha256 `4149c0180abf3485be899a9bc240d99c55dd1e204d0b790c2090b0911b58ccea`. l.140 `select plan(95);`. l.840–847 the view column set; l.861–866 `Origin Kin` through the view. All match the lock.
+- `supabase/tests/people_profiles.sql`: 816 lines, 23,095 bytes, sha256 `9f6dd44406303cfe9badbccb79d78d699c8ccad02a696c97fc48ded3f7382a8a`. l.6 `select plan(70);`. l.183–190 the view column set. All match the lock.
+- `rg people_tree_read supabase/tests` today: 18 hits, all inside the lines the lock edits (family_tree_read l.2, 70, 72, 79, 83, 297, 301, 308, 312, 363, 365; origin_stories l.692, 705; origin_stories_hardening l.843, 846, 862; people_profiles l.186, 189). None outside them.
+- `docs/design-doc/m14-people-profiles.md`: 123 lines, 11,688 bytes, sha256 `624c52ffcc52fef48886f0ea6fc7542fd9e025c8acac227e00438adaa037406f`. l.19 is exactly: `` - Name-only for tree readers who aren't members: `people_tree_read` stays `id, family_id, name` (drop `relationship`); no new columns. ``
+- `docs/impl-spec/impl-spec.md`: the three "Replace" strings the lock quotes (l.1692, l.1708, l.1789) each occur exactly once in the file, on the line the lock names. l.1498 starts `4. **`people`**** SELECT stays member-only.**` and ends `The reader uses it only when the viewer is not a member of the session family.`
+- `apps/tell_me_a_story/lib/data/people_api.dart`: `listTreePeople` at l.246 reads `rpc/list_family_tree` + `/rest/v1/people` (lock §1). `apps/tell_me_a_story/test/people_api_test.dart` l.156 is `expect(httpClient.paths, isNot(contains('/rest/v1/people_tree_read')));` (lock §3: stays).
+- Latest CI baseline (lock §3, §7): main run `39435281447` @ `b025b75`, `pgtap` job `118670574169`: `All tests successful.` / `Files=24, Tests=799` / `Result: PASS`.
+
+`impl-spec.md` lines on `main` that mention `people_tree_read` (all 12, `grep -n`), and how the lock treats each:
+| Line | Section (what it is) | Lock §5 |
+|---|---|---|
+| l.1382 | M11 TMAS-24-05 carried from M12 | No edit (history) |
+| l.1408 | M11A-04 finding (`listTreePeople` via the view) | No edit (history) |
+| l.1420 | M11A Trinity "recommended, not required" list | No edit (history) |
+| l.1498 | M12 normative #4 (`people` SELECT member-only; the view) | **Append** |
+| l.1500 | M12 pgTAP adds (view asserts) | No edit (history) |
+| l.1507 | M12 soft-deleted family goes dark (view member branch) | No edit (history) |
+| l.1510 | M12 deferred to M11 (TMAS-24-05) | No edit (history) |
+| l.1515 | M12 FORBIDDEN (`email` column on the view) | No edit (history) |
+| l.1692 | M14 rule 6, RLS on `people` | **Replace** |
+| l.1708 | M14 pgTAP, people RLS | **Replace** |
+| l.1743 | M14 cloud-agent block | No edit (history) |
+| l.1789 | M14.1 client erratum (`listTreePeople`) | **Change** |
+
+Every hit is in the lock's §5, either as an edit or in the no-edit list. Nothing after l.1800 (M14.x, M15) mentions the view.
+
+#### Files touched (exhaustive, lock §7 Gate 1)
+- **New:** `supabase/migrations/20261020120000_drop_people_tree_read.sql` (lock §2).
+- **New:** `supabase/tests/catalog_acl_guard.sql` (lock §4).
+- **Edited tests (lock §3):** `supabase/tests/family_tree_read.sql`, `supabase/tests/origin_stories.sql`, `supabase/tests/origin_stories_hardening.sql`, `supabase/tests/people_profiles.sql`.
+- **Edited docs (lock §5):** `docs/design-doc/m14-people-profiles.md` (l.19 only), `docs/impl-spec/impl-spec.md` (l.1498, l.1692, l.1708, l.1789 only).
+- **Must NOT change (the diff must show it):** every existing migration (including `20261012100000` l.86); every other file under `supabase/` (other tests, `config.toml`, `seed.sql`, `functions/`); everything under `apps/` (including `people_api_test.dart` l.156); `.github/` (CI and workflows: the lock asks for no CI change; the existing `pgtap` job picks up the new test file on its own); `AGENTS.md` (0 references, lock §5); `README.md`; `docs/design-doc/m12-branch-marks.md`; `docs/design-doc/m11a-origin-stories.md`; `docs/superpowers/plans/*`; every other `impl-spec.md` line (including the no-edit lines above and the M14.x/M15 sections).
+> 🔍 INFER: This M16 item itself lands in `impl-spec.md` later, in a separate docs PR (as M14.7, M14.8 and M15 did), not in the build PR, because lock §5 and Gate 1 limit the build's `impl-spec.md` change to l.1498, l.1692, l.1708 and l.1789.
+
+#### Rules
+- R1 **Migration** (lock §2). Add exactly one new file, `supabase/migrations/20261020120000_drop_people_tree_read.sql`. Content = the lines between ` ```sql ` and ` ``` ` under "Migration" below, byte for byte. Lock §2: "That is the whole migration: no grants, no policy changes and no `alter default privileges`." No `cascade`.
+- R2 **Test edits** (lock §3): exactly the table under "pgTAP changes" below. No other assert in any file is deleted, weakened or renamed.
+- R3 **New standing test** (lock §4): `supabase/tests/catalog_acl_guard.sql` = the lines between ` ```sql ` and ` ``` ` under "New standing test" below, byte for byte.
+- R4 **Doc edits** (lock §5): exactly the list under "Doc edits" below. Nothing else in any doc.
+- R5 **Count**: after R1–R3, `Files=25, Tests=803` (lock §3). Any other count is a stop.
+- R6 **Local DB** (`AGENTS.md` l.21–22): apply locally with `supabase migration up --local` only, then `supabase test db` (lock Gate 2: "Run `supabase test db` locally before pushing."). Never `supabase db reset`, `db pull`, `migration down` or `migration repair`.
+- R7 **No prod access for the build agent.** Gates 5 and 6 run on prod; the build agent runs neither and applies nothing to prod (lock §6).
+- R8 **Part D is OUT OF SCOPE** (lock §8.3): no `alter default privileges`, no table-grant revokes, and the D `todo()` line in `catalog_acl_guard.sql` stays.
+- R9 **Issue link**: `Refs #72` (INFER above). Don't open, edit, comment on or relabel any issue.
+> 🔍 INFER: Each new file is the lock block plus one trailing newline (LF), because the lock gives the blocks but not the file ending. Computed from the lock file: migration **9 lines, 639 bytes, sha256 `a81a75afba27ee82cd6022c0c6db725a9578befbb38e4691f1b98358ccefbec3`**; `catalog_acl_guard.sql` **81 lines, 4,512 bytes, sha256 `25fcf5e82adc79149a0b900dd37eddd1b90b87b9513f59ec631ba56ee6bf5027`**. If Gilfoyle rules otherwise, only these shas change.
+
+#### Migration (verbatim, lock §2): `supabase/migrations/20261020120000_drop_people_tree_read.sql`
+Lock §2: "It sorts after main's latest, `20261019000000_draft_write_policies.sql`." Verified against the `b025b75` tree (34 migrations; the new name sorts last).
+```sql
+-- #72: drop the vestigial people_tree_read view (LOCKED, Bill 2026-10-20).
+-- M14 (20261012100000 l.78-87) dropped and re-created it. The revoke on l.86
+-- left out authenticated, so the schema default ACL (20260923000002 l.124-127)
+-- gave authenticated ALL on an owner-postgres, non-invoker, auto-updatable
+-- view. That let callers UPDATE and DELETE people rows past RLS.
+-- people_select_member (is_tree_member) already returns every row the view
+-- returned, and the client reads list_family_tree + people, never this view.
+-- No CASCADE: if anything depends on the view, this must fail.
+drop view if exists public.people_tree_read;
+```
+Lock §2: "That is the whole migration: no grants, no policy changes and no `alter default privileges`."
+
+#### pgTAP changes (verbatim, lock §3)
+**Baseline verified at `b025b75`:**
+- The 24 `select plan(N)` values sum to **799**.
+- CI run `39435281447`, job `pgtap` `118670574169`, prints `All tests successful.` / `Files=24, Tests=799` / `Result: PASS`.
+
+**After the change: `Files=25, Tests=803`.**
+
+| File | Lines @b025b75 (unchanged since rev 1) | Today | Change | Plan |
+|---|---|---|---|---|
+| `family_tree_read.sql` | l.1–2 | header names the view | reword to "…child's published rows and tree `people`…" | — |
+| | l.69–73 | anon cannot select the view | **delete** (replaced by the anon read below) | −1 |
+| | l.74–84 | view has no `email` column | **delete** (view-only) | −1 |
+| | l.294–302 | A reads Cora's name from the view | **swap**: `results_eq($$select id, family_id, name from public.people where id = '33333333-3333-4333-8333-333333333333'$$, $$select '33333333-3333-4333-8333-333333333333'::uuid, child_id, 'Cousin Cora'::text from m12_ctx$$, 'parent member reads the child id, family_id and name from people (#72)')` | 0 |
+| | l.303–313 | view has no `relationship` | **delete** (view-only) | −1 |
+| | l.362–366 | outsider C gets 0 view rows | **swap**: `is((select count(*) from public.people), 0::bigint, 'a signed-in user outside the tree gets 0 people rows (#72)')` | 0 |
+| | insert before l.373 | — | `set local role anon; set local request.jwt.claim.role = 'anon'; select set_config('request.jwt.claim.sub', '', true);` then `is((select count(*) from public.people where id = '33333333-3333-4333-8333-333333333333'), 0::bigint, 'anon reads 0 people rows (#72)')` | +1 |
+| | l.9 | `plan(38)` | `plan(36)` | **38→36** |
+| `origin_stories.sql` | l.682–683 | comment | append "(#72: read from `people`; the view is dropped)" | — |
+| | l.691–695 | tree member B: view count = 1 | **swap** to `public.people`, still 1 | 0 |
+| | l.704–708 | member A: view count = 1 | **swap** to `public.people`, still 1 | 0 |
+| | l.7 | `plan(57)` | unchanged | **57** |
+| `origin_stories_hardening.sql` | l.840–847 | view column set | **delete** (view-only; absence is asserted in the new file) | −1 |
+| | l.861–866 | B sees `Origin Kin` through the view | **swap** to `select name::text collate "C" from public.people where id = '88888888-11a2-4111-8111-888888888888'`, same expected value | 0 |
+| | l.140 | `plan(95)` | `plan(94)` | **95→94** |
+| `people_profiles.sql` | l.183–190 | view column set | **delete** (view-only) | −1 |
+| | l.6 | `plan(70)` | `plan(69)` | **70→69** |
+| **NEW** `catalog_acl_guard.sql` | — | — | §4 | **+8** |
+
+Net change: −2, 0, −1, −1, +8 = **+4**, so 799 → **803** across **25** files.
+
+Not changed:
+- `apps/tell_me_a_story/test/people_api_test.dart` l.156 (`isNot(contains('/rest/v1/people_tree_read'))`) stays as a guard, so the Flutter count is unchanged.
+- The policy count (`fit_and_finish.sql:611`, 47).
+
+Per-file plan check (Gates): `family_tree_read.sql` 36, `origin_stories.sql` 57, `origin_stories_hardening.sql` 94, `people_profiles.sql` 69, `catalog_acl_guard.sql` 8; the 25 `plan()` values sum to 803.
+> 🔍 INFER: For the three rows that say only "**swap** to `public.people`" (`origin_stories.sql` l.691–695 and l.704–708) the only change is `public.people_tree_read` → `public.people` on l.692 and l.705; the expected value (`1::bigint`) and the description strings stay, because the lock gives no new text for them. For `origin_stories_hardening.sql` l.861–866 only the `$$select …$$` on l.862–863 becomes the lock's query; the expected `$$values ('Origin Kin'::text collate "C")$$` and the description stay ("same expected value"). Line numbers in the table are `b025b75` numbers: apply the edits bottom-up in each file, or by content, so earlier deletes don't shift later targets.
+> 🔍 INFER: `origin_stories.sql` l.682–683 "append": the text `(#72: read from `people`; the view is dropped)` goes at the end of l.683, after one space, inside the existing `-- ` comment, because l.682–683 is one two-line comment and the lock says "append".
+> ✅ CLOSED (Gilfoyle 2026-10-20 ~12:28 PM CT): `family_tree_read.sql` l.1 unchanged: `-- M12 tree read: a parent member can read a child's published rows and`. l.2 becomes `` -- tree `people`, and cannot read drafts or write. ``. Comment-only; no count or gate depends on it.
+> 🔍 INFER: Gate 2's "`catalog_acl_guard.sql` test 6 shows `not ok … # TODO`" is expected in CI too, because the fresh CI database applies the same `20260923000002_ddl.sql` l.124–127 default ACL that gives prod its 66 D rows. If test 6 prints `ok 6 … # TODO` (the TODO unexpectedly passes) the count is still 803 but the Gate 2 text differs: stop and report to Gilfoyle, don't delete the `todo()` line.
+
+#### New standing test (verbatim, lock §4): `supabase/tests/catalog_acl_guard.sql`
+Lock §4: "Rules A, B, C and E fail the run; rule D is warn-only. CI's required `pgtap` job runs this file on every PR. The same queries run against prod after deploy."
+```sql
+-- #72 standing catalog guard (Trinity §9 A–E). Enforced by the CI pgtap job.
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(8);
+
+select hasnt_view('public', 'people_tree_read', '#72: public.people_tree_read is dropped');
+
+-- A. anon/authenticated hold no non-SELECT privilege on any exposed view/matview
+select is_empty($$
+  select n.nspname, c.relname, r.rolname, p.priv
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+  cross join (values ('anon'),('authenticated')) r(rolname)
+  cross join (values ('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER')) p(priv)
+  where c.relkind in ('v','m') and n.nspname in ('public','graphql_public')
+    and has_table_privilege(r.rolname, c.oid, p.priv)
+$$, 'A: no non-SELECT privilege for anon/authenticated on any exposed view');
+
+-- B. no exposed view readable by anon; no RLS-bypassing-owner view without security_invoker
+select is_empty($$
+  select n.nspname, c.relname
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+  join pg_roles o on o.oid = c.relowner
+  where c.relkind in ('v','m') and n.nspname in ('public','graphql_public')
+    and ( has_table_privilege('anon', c.oid, 'SELECT')
+       or (c.relkind = 'v' and (o.rolbypassrls or o.rolsuper)
+           and not coalesce('security_invoker=true' = any(c.reloptions)
+                         or 'security_invoker=on' = any(c.reloptions), false)) )
+$$, 'B: no anon-readable view and no definer-owner view without security_invoker');
+
+-- C. every public table has RLS
+select is_empty($$
+  select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+  where c.relkind in ('r','p') and n.nspname = 'public' and not c.relrowsecurity
+$$, 'C: every public table has RLS enabled');
+
+-- E. anon executes no non-trigger public function
+select is_empty($$
+  select p.oid::regprocedure::text
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.prorettype <> 'trigger'::regtype
+    and has_function_privilege('anon', p.oid, 'EXECUTE')
+$$, 'E: anon cannot execute any non-trigger public function');
+
+-- D. WARN-ONLY until the Part D follow-up lands (prod today: 66 rows = 11 tables x 2 roles x 3 privs)
+select todo('Part D follow-up (alter default privileges + revoke 66 grants) not landed; delete this todo when it does', 1);
+select is_empty($$
+  select c.relname, r.rolname, p.priv
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+  cross join (values ('anon'),('authenticated')) r(rolname)
+  cross join (values ('TRUNCATE'),('REFERENCES'),('TRIGGER')) p(priv)
+  where c.relkind in ('r','p') and n.nspname = 'public'
+    and has_table_privilege(r.rolname, c.oid, p.priv)
+$$, 'D: no TRUNCATE/REFERENCES/TRIGGER for anon/authenticated on public tables');
+
+-- Definer allowlist (PR #39). Prod 2026-10-20: exactly these 30.
+select is(
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.prosecdef
+     and has_function_privilege('authenticated', p.oid, 'EXECUTE')),
+  30, 'exactly 30 SECURITY DEFINER functions are executable by authenticated');
+select set_eq($$
+  select format('%s(%s)', p.proname, oidvectortypes(p.proargtypes))
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.prosecdef
+    and has_function_privilege('authenticated', p.oid, 'EXECUTE')
+$$, $$values
+  ('add_co_owner(uuid, uuid)'),('assert_invite_person(uuid, uuid)'),
+  ('can_contribute_to_story(uuid, uuid)'),('can_edit_story(uuid)'),
+  ('create_branch_family(uuid, uuid, text, integer, uuid, uuid[])'),('create_family(text)'),
+  ('is_family_co_owner(uuid)'),('is_family_member(uuid)'),('is_family_owner(uuid)'),
+  ('is_family_tree_readable(uuid)'),('is_live_family_member(uuid)'),('is_tree_member(uuid)'),
+  ('link_accepted_person(uuid)'),('list_family_tree(uuid)'),('list_origin_dependents(uuid)'),
+  ('list_unlinked_people(uuid)'),('mark_passed_away(uuid, boolean)'),('my_profile()'),
+  ('person_profile(uuid)'),('recover_family(uuid)'),('remove_co_owner(uuid, uuid)'),
+  ('remove_member(uuid, uuid)'),('rename_family(uuid, text)'),('resend_invite(uuid)'),
+  ('revoke_invite(uuid)'),('same_family_tree(uuid, uuid)'),('set_family_origin(uuid, uuid)'),
+  ('soft_delete_family(uuid)'),('story_row_exists(uuid)'),('transfer_ownership(uuid, uuid, text)')
+$$, 'authenticated-executable SECURITY DEFINER set equals the PR #39 allowlist');
+
+select * from finish();
+rollback;
+```
+**Why D is a pgTAP `todo`:**
+- It stays a counted test, so `Tests=803` is stable.
+- Every run prints `not ok … # TODO` plus the 66 rows, so the debt stays visible.
+- pg_prove does not count a TODO failure.
+- Once Part D lands, the test reports "TODO passed", and deleting the single `todo()` line makes D a hard fail.
+- A `diag()` alone is not a test and could never become a gate.
+
+The 30 names come from the prod catalog. The advisor's 30 `authenticated_security_definer_function_executable` findings match them, and all 30 are created in repo migrations.
+
+#### Doc edits (verbatim, lock §5; line numbers verified at `b025b75`)
+- **`docs/design-doc/m14-people-profiles.md` l.19** (file unchanged since rev 1). Replace the line with: `- Tree readers: TMAS-24-05's published-story filter on people_tree_read was retired on purpose in M14 (people SELECT is tree-wide via is_tree_member, so the filter protected nothing). The view became vestigial (tree-scoped, never used by the client) and is dropped by 20261020120000_drop_people_tree_read.sql (#72).`
+- **`docs/impl-spec/impl-spec.md` l.1692.** Replace "Outside-tree readers stay name-only: `people_tree_read` stays `id, family_id, name` (drop `relationship`), with no new columns." with: "`people_tree_read` was cut to `id, family_id, name`, and its TMAS-24-05 published filter was retired on purpose. #72 then dropped it as vestigial (`20261020120000`)."
+- **impl-spec l.1708.** Replace "An outside-tree reader sees only `id, family_id, name` through `people_tree_read` (no `relationship`)." with "A signed-in user outside the tree and anon read 0 `people` rows (#72: view dropped)."
+- **impl-spec l.1789** (erratum). Change "(`people_api.dart`, reads `people_tree_read`)" to "(`people_api.dart`, reads `list_family_tree` + `people`)".
+- **impl-spec l.1498** (M12 normative). Append "Superseded: M14 widened `people` SELECT; view dropped in #72."
+- **No edit (history):**
+  - impl-spec l.1382, 1408, 1420, 1500, 1507, 1510, 1515, 1743;
+  - `m12-branch-marks.md` l.73, 76, 142–159, 171;
+  - `m11a-origin-stories.md` l.47;
+  - `docs/superpowers/plans/*`.
+
+  `AGENTS.md` (changed by M15) still has 0 references.
+> 🔍 INFER: The l.1498 "Append" text goes at the end of l.1498, after one space, because the lock says "Append" and gives no position. For l.1692, l.1708 and l.1789 only the quoted string is replaced; the rest of each line stays byte for byte.
+> 🔍 INFER: `m14-people-profiles.md` l.19 becomes the lock's backticked string without the surrounding backticks (starting `- Tree readers:`), as a whole-line replacement, because the lock says "Replace the line with:" and l.18–20 are `- ` bullets.
+> ✅ CLOSED (Gilfoyle 2026-10-20 ~12:28 PM CT): `docs/design-doc/m12-branch-marks.md` l.168 is no-edit history, same as l.73, 76, 142–159 and 171. The file stays untouched.
+
+#### Gates (verbatim, lock §7; paste output in the PR body)
+1. `git diff main --stat` lists exactly:
+   - the new migration;
+   - `supabase/tests/catalog_acl_guard.sql`;
+   - the 4 edited test files;
+   - `docs/design-doc/m14-people-profiles.md`;
+   - `docs/impl-spec/impl-spec.md`.
+
+   In addition, `git diff --diff-filter=M main -- supabase/migrations/` is empty.
+2. The CI `pgtap` job on the PR's final head shows `All tests successful.`, **`Files=25, Tests=803`** and `Result: PASS`. `catalog_acl_guard.sql` test 6 shows `not ok … # TODO`. Run `supabase test db` locally before pushing.
+3. The CI `flutter` and `deno` jobs are green on the same head. Baseline, from main CI run `39435281447` @ `b025b75`:
+   - `dart format` passes;
+   - `flutter analyze: 27 issues (ceiling 27, exit 0)`;
+   - `🎉 504 tests passed.`;
+   - `deno check` green;
+   - `ok | 43 passed | 0 failed`.
+
+   This PR changes none of these: format passes, analyze ≤ 27, flutter 504, deno 43.
+4. `rg -n people_tree_read supabase/tests apps/tell_me_a_story/lib supabase/functions` returns only the `hasnt_view` line and comments, with nothing in `lib/` or `functions/`.
+5. Pre-merge, on prod (catalog only):
+   - the §1 dependency query is still limited to the 3 internal rows;
+   - `pg_stat_statements` still shows no INSERT, UPDATE or DELETE on the view.
+6. Post-deploy, on prod:
+   - `to_regclass('public.people_tree_read') is null`;
+   - `20261020120000` is present in `schema_migrations` (35 rows);
+   - the A–E union gives A 0, B 0, C 0, D 66 (warn), E 0;
+   - the definer count is 30;
+   - `get_advisors(security)` shows no `security_definer_view`, leaving only 30× `authenticated_security_definer_function_executable` WARN and `auth_leaked_password_protection` WARN.
+7. Bill smokes three screens on prod, all via `listTreePeople`: the reader people chips, the new-story people picker and the add-person modal.
+
+Evidence each gate needs in the PR body (Gates 1–4 by the build agent; 5–7 are not the build agent's):
+- **Gate 1:** paste `git diff main --stat` (exactly the 8 files under "Files touched") and the empty output of `git diff --diff-filter=M main -- supabase/migrations/`. Also paste `wc -l -c` and `sha256sum` of the two new files (expected under R1–R3 INFER) and `git diff main -U0 -- docs/` showing only m14 l.19 and impl-spec l.1498, l.1692, l.1708, l.1789.
+- **Gate 2:** the Actions run id and URL on the final head, and from the `pgtap` job log: `All tests successful.`, `Files=25, Tests=803`, `Result: PASS`, the 25 per-file lines, and the `catalog_acl_guard.sql` test 6 line `not ok 6 … # TODO` with its diagnostics (the 66 rows, or however many CI prints). Also paste the local `supabase migration up --local` output and the local `supabase test db` summary from before the push. Paste `grep -n 'select plan(' supabase/tests/*.sql` and the sum 803.
+- **Gate 3:** from the same run: `dart format` green, `flutter analyze: N issues (ceiling 27, exit 0)` with N ≤ 27, `🎉 504 tests passed.`, `deno check` green, `ok | 43 passed | 0 failed`.
+- **Gate 4:** paste the full `rg -n people_tree_read supabase/tests apps/tell_me_a_story/lib supabase/functions` output. Expected: one hit, `supabase/tests/catalog_acl_guard.sql` l.6 (the `hasnt_view` line); nothing in `lib/` or `functions/`.
+- **Gate 5 (pre-merge, prod, catalog only):** the dependency query rows (3 internal rows: 18102 `i`, 18103 `i`, 18101 `i`, lock §1) and the `pg_stat_statements` result (no INSERT, UPDATE or DELETE on the view), posted as a PR comment or completion note by whoever runs it.
+- **Gate 6 (post-deploy, prod):** `to_regclass` null; `20261020120000` present, 35 rows; A 0, B 0, C 0, D 66 (warn), E 0; definer count 30; the `get_advisors(security)` list.
+- **Gate 7:** Bill's smoke result.
+> ✅ CLOSED (Gilfoyle 2026-10-20 ~12:28 PM CT): Gates 5 and 6 are run by Gilfoyle or Trinity (read-only catalog queries plus `get_advisors`), never by the build agent (R7, lock §6).
+> ✅ CLOSED (Gilfoyle 2026-10-20 ~12:28 PM CT): `20261020120000` reaches prod only through the existing path: Bill merges the PR to `main` and migrations auto-apply from `main`. Nothing manual; the lock §6 ban stands. Gate 6 runs after that merge, once prod `schema_migrations` shows `20261020120000`.
+> ✅ MOVED to #75 (Bill 12:23 PM CT 2026-10-20 via Erlich: "i want supabase to come back clean every deploy. how do we integrate that"). Out of scope for M16; #72 Gate 6 stays the one-time manual check.
+
+#### Stop rules (stop, report, don't fix)
+- Any red gate (1–4 for the build agent): paste the failing output. For a red `pgtap`, paste the failing file names, `not ok` lines and diagnostics, and the `supabase db start` output. Don't edit other tests, migrations, `config.toml` or `seed.sql` to make it green (lock §6: "Deleting or weakening other existing asserts to make the count fit.").
+- Any count other than the lock's: pgTAP not `Files=25, Tests=803`, a per-file plan other than 36 / 57 / 94 / 69 / 8, flutter not 504, analyze over 27 or with an error, Deno not 43.
+- `catalog_acl_guard.sql` test 6 is not `not ok … # TODO`, or any of tests 1–5, 7, 8 fails (e.g. the definer count is not 30, or E finds an anon-executable function).
+- The `drop view` fails because something depends on it, or a `CASCADE` seems needed. Lock §1: "if any dependent appears before merge, STOP and report it to Gilfoyle. Do not improvise a keep or `security_invoker` variant."
+- Code and spec disagree: a file differs from the sha256 under "Code on `main`", a "Replace" string isn't found exactly once, a line number doesn't hold the content quoted, `main` has moved past `b025b75` with a change under `supabase/` or to the two docs, or a migration already sorts after `20261020120000`. Report the diff; don't reconcile it.
+- Anything banned seems needed (a secret, a prod action, a CI change, a banned command).
+- An OPEN blocks a file: stop work on that file, finish the rest, report it. (No OPENs remain.)
+
+> 🚫 FORBIDDEN: Lock §6, verbatim:
+> - Editing any existing migration, including `20261012100000` l.86.
+> - `drop view … cascade`.
+> - Any keep, re-create or `security_invoker` variant.
+> - Any change to `people` policies, column grants or functions.
+> - Adding a replacement view or RPC for names.
+> - Touching `apps/`, including removing `people_api_test.dart` l.156.
+> - Part D in this PR: no `alter default privileges` and no table-grant revokes.
+> - `supabase db reset`, `db pull`, `migration down` or `migration repair`.
+> - Applying anything to prod by hand: no MCP `apply_migration`, no SQL editor.
+> - Any DML or data "fix" on prod.
+> - Deleting or weakening other existing asserts to make the count fit.
+
+> 🚫 FORBIDDEN: Lock Part D (lock §8.3) in this PR in any form: no `alter default privileges`, no revoke of the 66 TRUNCATE/REFERENCES/TRIGGER grants, no deleting the D `todo()` line. `supabase db reset`, `db pull`, `migration repair`, `migration down` (`AGENTS.md` l.22). Editing any merged migration. Any secret, token, password or `--dart-define` (`AGENTS.md` l.57). Any change to `.github/` (CI or workflows), branch protection, rulesets, required checks or repo settings: the lock asks for none. Any file outside the 8 in "Files touched", including `apps/`, `AGENTS.md`, `README.md`, `m12-branch-marks.md`, `m11a-origin-stories.md` and `docs/superpowers/plans/*`. Any `impl-spec.md` line other than l.1498, l.1692, l.1708 and l.1789. Notion edits. Stamping this item, or any item, READY, APPROVED or CLOSED. Opening, editing, commenting on or relabelling issues, including #72. Pushing to `main`, merging, or more than one PR. Running Gates 5 or 6, or any query, against prod `lchytafmnuefrgkguynt`.
+
+#### Out of scope
+- **Lock Part D** (lock §8.3, verbatim): "A separate migration should revoke the public-schema default privileges that `20260923000002_ddl.sql` l.124–127 set (`grant all on tables to anon, authenticated, service_role`; prod has 2 `pg_default_acl` rows for `public`/`r`). It should also revoke the existing 66 TRUNCATE/REFERENCES/TRIGGER grants. That PR deletes the D `todo` line, so the D rule becomes a hard fail." Follow-up for Bill, OUT of this PR. It needs its own §15 item and lock.
+- **Restore** (lock §8.2): "**Restore: CLOSED, no restore.**" No data fix, no DML on prod (lock §6).
+
+#### OPENs, CONFLICTs
+- None. OPENs 1–3 closed by Gilfoyle 2026-10-20 ~12:28 PM CT; OPEN 4 (lock §8.4) moved to #75.
+- No CONFLICTs: every lock line number, plan value and quoted string checked against `b025b75` matched.
+
+#### After the PR is open (lanes)
+> 🔍 INFER: The lanes below because the lock names no after-PR lanes; this follows the M15 lane set for a security hotfix. Mugatu skipped (no UI). Jared skipped (no PRD change; a bug fix that removes an unused object).
+- **Gilfoyle (architecture):** the migration is the lock's 9 lines exactly, no `cascade`, no grants; the test edits match the lock §3 table; `catalog_acl_guard.sql` is lock §4 byte for byte; Part D not present; a red `pgtap` or a needed `CASCADE` comes back to him. His OPENs are closed.
+- **Big Head (spec):** the diff against this item: the 8 files in Gate 1, the plan values, the doc hunks, every gate pasted.
+- **Dinesh (code quality):** the SQL test edits (no weakened or renamed asserts beyond the table; descriptions per the INFER), comments, doc wording.
+- **Trinity (security):** that the attack surface is gone (`hasnt_view`, rules A, B, C, E); D is warn-only and visible; no prod action by the agent. Runs Gate 5 before merge and Gate 6 after deploy (or Gilfoyle does).
+- **Mugatu:** skipped (no UI). **Jared:** skipped.
+- **Bill merges.**
+
+#### Bill steps (not the agent's)
+- [x] Approve this item (READY → APPROVED) before any build.
+- [x] On the PR, see three green required checks: `CI / flutter (pull_request)`, `CI / deno (pull_request)`, `CI / pgtap (pull_request)`.
+- [x] Merge after the lanes pass and Gate 5 is green.
+- [x] Merge to `main` (migrations auto-apply from `main`); then Gilfoyle or Trinity runs Gate 6.
+- [x] Gate 7: smoke the three screens on prod, all via `listTreePeople`: the reader people chips, the new-story people picker and the add-person modal.
+- [ ] Close #72.
+- [ ] Decide on Part D as its own follow-up (lock §8.3).
+- Big Head then stamps M16 CLOSED in a separate docs PR, which also lands this item in `impl-spec.md`.
+
+#### Traceability
+| Source | Covered by |
+|---|---|
+| Lock §1 Decision DROP (Bill 12:15 PM CT) and Fallback | Status, Decision, Stop rules (dependent / `CASCADE`) |
+| Lock §2 migration `20261020120000_drop_people_tree_read.sql` | R1, Migration, Gate 1, Gilfoyle lane |
+| Lock §3 pgTAP table, baseline 24/799, target 25/803 | R2, R5, pgTAP changes, Gate 2 |
+| Lock §4 `catalog_acl_guard.sql` (plan 8; D `todo`) | R3, New standing test, Gate 2 (test 6), Trinity lane |
+| Lock §5 doc edits and no-edit lists | R4, Doc edits, impl-spec hit table, Files touched |
+| Lock §6 FORBIDDEN | FORBIDDEN (verbatim, merged with standing bans) |
+| Lock §7 Gates 1–7 | Gates, evidence list, Bill steps |
+| Lock §8.1 Decision CLOSED; §8.2 Restore CLOSED | Decision, Out of scope |
+| Lock §8.3 Part D | R8, Out of scope, FORBIDDEN, Bill steps |
+| Lock §8.4 open question for Bill | Moved to #75 |
+| impl-spec l.4486–4492 (no new M14.x) | M16 numbering |
+| `AGENTS.md` l.18, l.21–22, l.57 | Branch INFER, R6, FORBIDDEN |
+
+#### Cloud-agent instruction block (copy-paste for the Cursor cloud agent; use only after Bill approves)
+```text
+You are implementing §15 M16 "Hotfix: drop people_tree_read (#72)" for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story; Flutter + Supabase). This is a security hotfix: one new migration that drops a view, pgTAP edits, one new pgTAP file, and four doc line edits. No app code, no UI, no CI change.
+
+Do it in ONE PR on branch feat/m16-drop-people-tree-read off main @ b025b75bd7e3fc8b9b750ffd76c65cf72c00a17c. PR title: "M16: drop people_tree_read (#72)". PR body says "Refs #72" (never Closes/Fixes). Do not push to main. Do not merge. Stop after opening the PR.
+
+Read first: the §15 M16 item (APPROVED version) as handed to you, and AGENTS.md. The item quotes Gilfoyle's #72 fix lock rev 2, which wins on tech. Implement only what the item lists. Copy SQL, file names, line edits and replacement text exactly. Do not improve the design.
+
+Before you start, check the base: sha256 of supabase/tests/family_tree_read.sql = 486f78c131ea31a64b3912988458c6fde44faa0812597a07d6910132c222c73b, supabase/tests/origin_stories.sql = acd09850474c1586c0e8811cc91378389d169472c6c91186d0bb63ceb73fc798, supabase/tests/origin_stories_hardening.sql = 4149c0180abf3485be899a9bc240d99c55dd1e204d0b790c2090b0911b58ccea, supabase/tests/people_profiles.sql = 9f6dd44406303cfe9badbccb79d78d699c8ccad02a696c97fc48ded3f7382a8a, docs/design-doc/m14-people-profiles.md = 624c52ffcc52fef48886f0ea6fc7542fd9e025c8acac227e00438adaa037406f, docs/impl-spec/impl-spec.md = 9354fe652fa49bd23a398fd900ca6766f86a051c3d091cb04baa132c8d0f3de7. `ls supabase/migrations | sort | tail -1` must be 20261019000000_draft_write_policies.sql (34 files). If anything differs, stop and report the diff.
+
+Exactly these 8 files change:
+1. NEW supabase/migrations/20261020120000_drop_people_tree_read.sql = the item's "Migration" block byte for byte, plus one trailing newline: 9 lines, 639 bytes, sha256 a81a75afba27ee82cd6022c0c6db725a9578befbb38e4691f1b98358ccefbec3. Its only statement is `drop view if exists public.people_tree_read;`. No CASCADE, no grants, no policies, no alter default privileges.
+2. NEW supabase/tests/catalog_acl_guard.sql = the item's "New standing test" block byte for byte, plus one trailing newline: 81 lines, 4512 bytes, sha256 25fcf5e82adc79149a0b900dd37eddd1b90b87b9513f59ec631ba56ee6bf5027. plan(8). Keep the D todo() line.
+3-6. The four test files, exactly per the item's pgTAP table (line numbers are main@b025b75 numbers; edit bottom-up or by content): family_tree_read.sql plan(38)->plan(36); origin_stories.sql plan(57) unchanged; origin_stories_hardening.sql plan(95)->plan(94); people_profiles.sql plan(70)->plan(69). Delete only the asserts the table deletes; swap only what it swaps; insert the anon block before `reset role;` (l.373). Swapped asserts keep their expected values; use the descriptions the table gives, otherwise keep the existing ones. family_tree_read.sql l.1-2: use the item's text (OPEN default) unless Gilfoyle has given exact lines.
+7. docs/design-doc/m14-people-profiles.md: replace l.19 with the item's line. Nothing else.
+8. docs/impl-spec/impl-spec.md: only l.1692, l.1708, l.1789 (replace exactly the quoted string) and l.1498 (append the given sentence after one space). Nothing else.
+
+Locally: start the local Supabase DB, apply with `supabase migration up --local` only, then `supabase test db`: expect All tests successful, Files=25, Tests=803, and catalog_acl_guard.sql test 6 `not ok 6 ... # TODO`. Never `supabase db reset`, `db pull`, `migration down` or `migration repair`.
+
+Never: edit any existing migration (including 20261012100000 l.86); `drop view ... cascade`; any keep, re-create or security_invoker variant; any change to people policies, column grants or functions; a replacement view or RPC; touching apps/ (keep people_api_test.dart l.156); Part D (no alter default privileges, no table-grant revokes, no deleting the D todo line); applying anything to prod (no MCP apply_migration, no SQL editor, no query at all against lchytafmnuefrgkguynt); any DML on prod; deleting or weakening other asserts to make the count fit; secrets, tokens, passwords, --dart-define; any .github/ (CI/workflow) change, branch protection, rulesets, required checks or repo settings; any file outside the 8 above (AGENTS.md, README.md, m12-branch-marks.md, m11a-origin-stories.md, docs/superpowers/plans/* stay untouched); Notion edits; stamping anything READY/APPROVED/CLOSED; opening, editing, commenting on or relabelling issues, including #72.
+
+Stop and report (do not fix) if: any gate is red; any count differs from Files=25, Tests=803 (plans 36/57/94/69/8), flutter 504, analyze <= 27 with 0 errors, Deno 43; catalog_acl_guard test 6 is not `not ok ... # TODO` or any other of its tests fails; the drop fails on a dependent or CASCADE seems needed (report to Gilfoyle; do not improvise a keep or security_invoker variant); code and the spec disagree (a sha, a line's content, a replace string not found exactly once; report the diff, don't reconcile); anything banned seems needed. If an OPEN blocks a file, stop work on that file, do the unblocked work, and report the OPEN.
+
+After the milestone, report pass/fail with command output in the PR body for: Gate 1 (`git diff main --stat` = the 8 files; `git diff --diff-filter=M main -- supabase/migrations/` empty; wc -l -c and sha256sum of the two new files; `git diff main -U0 -- docs/`); Gate 2 (CI run id + URL on the final head; pgtap `All tests successful.`, `Files=25, Tests=803`, `Result: PASS`, the 25 per-file lines, test 6 `not ok ... # TODO` with diagnostics; local `supabase migration up --local` and `supabase test db` output; `grep -n 'select plan(' supabase/tests/*.sql` summing to 803); Gate 3 (dart format green, `flutter analyze: N issues (ceiling 27, exit 0)`, `🎉 504 tests passed.`, deno check green, `ok | 43 passed | 0 failed`); Gate 4 (`rg -n people_tree_read supabase/tests apps/tell_me_a_story/lib supabase/functions`: only the hasnt_view line in catalog_acl_guard.sql). Gates 5-6 (prod) are not yours: Trinity runs them. Gate 7 is Bill's smoke. The completion note lists commands run, outputs, and OPENs left. Then stop. Lanes: Gilfoyle, Big Head, Dinesh, Trinity. Bill merges, deploys, smokes and closes #72.
+```
