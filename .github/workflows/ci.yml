@@ -159,3 +159,130 @@ jobs:
           python3 -m unittest discover -s scripts/advisors -p 'test_*.py'
           python3 scripts/advisors/check.py --layer local \
             --baseline supabase/advisors-baseline.json --findings "$out"
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      SUPABASE_CLI_VERSION: "2.121.0"
+      SUPABASE_CLI_SHA256: "4b481189efbdc57cf2d37bdee5f1a0d29574314398564b32a6dfb76c0fcf275f"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: install supabase cli
+        run: |
+          tgz="$RUNNER_TEMP/supabase.tar.gz"
+          curl -fsSL -o "$tgz" "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
+          echo "${SUPABASE_CLI_SHA256}  ${tgz}" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" supabase supabase-go
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: supabase --version
+        run: supabase --version
+
+      - name: supabase start (background)
+        run: |
+          ( set +e
+            supabase start -x studio,imgproxy,vector,logflare,supavisor,postgres-meta > "$RUNNER_TEMP/supabase-start.log" 2>&1
+            echo $? > "$RUNNER_TEMP/supabase-start.rc"
+          ) &
+          echo $! > "$RUNNER_TEMP/supabase-start.pid"
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: "3.47.7"
+
+      - name: flutter --version
+        working-directory: apps/tell_me_a_story
+        run: flutter --version
+
+      - name: flutter pub get
+        working-directory: apps/tell_me_a_story
+        run: flutter pub get --enforce-lockfile
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: "2.9.4"
+
+      - name: deno --version
+        run: deno --version
+
+      - name: chrome and chromedriver (preinstalled, versions must match)
+        run: |
+          chrome="$(command -v google-chrome)"
+          driver="${CHROMEWEBDRIVER:?CHROMEWEBDRIVER is not set}/chromedriver"
+          test -x "$driver"
+          cv="$("$chrome" --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
+          dv="$("$driver" --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
+          echo "chrome ${cv} (${chrome})"
+          echo "chromedriver ${dv} (${driver})"
+          if [ -z "$cv" ] || [ -z "$dv" ] || [ "${cv%.*}" != "${dv%.*}" ]; then
+            echo "e2e: chromedriver ${dv} does not match Chrome ${cv} (MAJOR.MINOR.BUILD)" >&2
+            exit 1
+          fi
+          "$driver" --port=4444 > "$RUNNER_TEMP/chromedriver.log" 2>&1 &
+          curl -fsS --retry 20 --retry-connrefused --retry-max-time 30 http://127.0.0.1:4444/status > /dev/null
+          echo "chromedriver listening on 127.0.0.1:4444"
+
+      - name: start e2e relay
+        run: |
+          deno run --no-prompt --allow-net=127.0.0.1:57390,127.0.0.1:57321,localhost:57321,127.0.0.1:57324 e2e/relay.ts > "$RUNNER_TEMP/relay.log" 2>&1 &
+          curl -fsS --retry 20 --retry-connrefused --retry-max-time 30 http://127.0.0.1:57390/health
+
+      - name: await supabase start
+        run: |
+          pid="$(cat "$RUNNER_TEMP/supabase-start.pid")"
+          set +e
+          timeout 600 tail --pid="$pid" -f /dev/null
+          waited=$?
+          set -e
+          sed -E 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[redacted-jwt]/g; s/sb_(secret|publishable)_[A-Za-z0-9_-]+/[redacted-key]/g; s/[0-9a-f]{32,}/[redacted-hex]/g' "$RUNNER_TEMP/supabase-start.log"
+          if [ "$waited" -ne 0 ]; then
+            echo "e2e: supabase start did not finish within 600 s" >&2
+            exit 1
+          fi
+          rc="$(cat "$RUNNER_TEMP/supabase-start.rc")"
+          echo "supabase start: exit ${rc}"
+          test "$rc" = 0
+
+      - name: flutter drive (e2e)
+        working-directory: apps/tell_me_a_story
+        run: |
+          status="$(cd "$GITHUB_WORKSPACE" && supabase status -o env)"
+          url="$(printf '%s\n' "$status" | sed -n 's/^API_URL="\(.*\)"$/\1/p')"
+          anon="$(printf '%s\n' "$status" | sed -n 's/^ANON_KEY="\(.*\)"$/\1/p')"
+          unset status
+          if [ "$url" != "http://127.0.0.1:57321" ]; then
+            echo "e2e: API_URL '${url}' is not the local stack http://127.0.0.1:57321" >&2
+            exit 1
+          fi
+          if [ -z "$anon" ]; then
+            echo "e2e: no ANON_KEY in supabase status -o env" >&2
+            exit 1
+          fi
+          flutter drive \
+            --driver=test_driver/integration_test.dart \
+            --target=integration_test/e2e_test.dart \
+            -d web-server --web-port=3000 --web-hostname=127.0.0.1 \
+            --browser-name=chrome --driver-port=4444 --headless \
+            --chrome-binary="$(command -v google-chrome)" \
+            --dart-define=SUPABASE_URL="$url" \
+            --dart-define=SUPABASE_ANON_KEY="$anon"
+
+      - name: e2e logs (relay, chromedriver)
+        if: always()
+        run: |
+          for f in relay.log chromedriver.log; do
+            if [ -f "$RUNNER_TEMP/$f" ]; then
+              echo "== $f"
+              sed -E 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[redacted-jwt]/g' "$RUNNER_TEMP/$f"
+            fi
+          done
