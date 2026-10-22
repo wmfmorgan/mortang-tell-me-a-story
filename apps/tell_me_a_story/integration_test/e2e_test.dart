@@ -305,9 +305,23 @@ Future<void> _startFamily(WidgetTester tester, String flow, String name) async {
     final field = find.byKey(const Key('start-family-name'));
     await tester.ensureVisible(field);
     await tester.enterText(field, name);
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('start-family-create')));
+    await pumpUntilFound(tester, find.text(name));
+    final create = find.byKey(const Key('start-family-create'));
+    await tester.ensureVisible(create);
+    await tester.tap(create);
     await pumpUntilGone(tester, find.byKey(const Key('start-family-dialog')));
+    // go('/timeline') keeps the open timeline state. Drafts and back forces
+    // the remembered family onto the header.
+    await tester.tap(find.byKey(const Key('drafts-nav')));
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('header-underline-drafts')),
+    );
+    await tester.tap(find.byKey(const Key('timeline-nav')));
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('header-underline-timeline')),
+    );
     await pumpUntilFound(tester, find.text(name));
     await pumpUntilFound(
       tester,
