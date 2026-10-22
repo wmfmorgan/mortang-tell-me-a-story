@@ -29,7 +29,7 @@ Future<void> _pumpUntil(
   }
   throw TestFailure(
     present
-        ? 'finder not found before the deadline'
-        : 'finder still present at the deadline',
+        ? '$finder not found within $timeout (url: ${Uri.base})'
+        : '$finder still present within $timeout (url: ${Uri.base})',
   );
 }

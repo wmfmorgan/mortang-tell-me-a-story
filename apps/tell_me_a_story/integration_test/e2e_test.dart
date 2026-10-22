@@ -18,47 +18,88 @@ void main() {
     final email = e2eEmail(flow: 1, n: 1);
     final name = 'Ada $e2eRunId';
 
-    await app.main();
-    await pumpUntilFound(tester, find.byKey(const Key('magic-link-email')));
-    await tester.enterText(find.byKey(const Key('magic-link-email')), email);
-    await tester.pump();
-    final send = find.text('Email me a sign-in link');
-    await tester.ensureVisible(send);
-    await tester.tap(send);
-    await _untilLinkSent(tester);
+    await _c1Step('boot', () async {
+      await app.main();
+      await pumpUntilFound(tester, find.byKey(const Key('magic-link-email')));
+    });
+    await _c1Step('send-link', () async {
+      await tester.enterText(find.byKey(const Key('magic-link-email')), email);
+      await tester.pump();
+      final send = find.text('Email me a sign-in link');
+      await tester.ensureVisible(send);
+      await tester.tap(send);
+      await _untilLinkSent(tester);
+    });
 
-    final location = await magicLinkLocation(email);
-    expect(_handOff(location), 'pkce', reason: 'magic-link callback hand-off');
+    final location = await _c1Step('magic-link', () async {
+      final location = await magicLinkLocation(email);
+      expect(
+        _handOff(location),
+        'pkce',
+        reason: 'magic-link callback hand-off',
+      );
+      return location;
+    });
 
-    await recoverSessionFromAuthCallback(location);
-    await pumpUntilFound(
-      tester,
-      find.byKey(const Key('header-avatar')),
-      timeout: const Duration(seconds: 45),
-    );
-    await tester.tap(find.byKey(const Key('header-avatar')));
-    await pumpUntilFound(tester, find.byKey(const Key('header-menu-settings')));
-    await tester.tap(find.byKey(const Key('header-menu-settings')));
-    await pumpUntilFound(tester, find.byKey(const Key('settings-name')));
-    await pumpUntilFound(tester, find.text(email));
+    await _c1Step('recover-session', () async {
+      await recoverSessionFromAuthCallback(location);
+    });
+    await _c1Step('avatar', () async {
+      await pumpUntilFound(
+        tester,
+        find.byKey(const Key('header-avatar')),
+        timeout: const Duration(seconds: 45),
+      );
+    });
+    await _c1Step('menu-settings', () async {
+      await tester.tap(find.byKey(const Key('header-avatar')));
+      await pumpUntilFound(
+        tester,
+        find.byKey(const Key('header-menu-settings')),
+      );
+    });
+    await _c1Step('settings-name', () async {
+      await tester.tap(find.byKey(const Key('header-menu-settings')));
+      await pumpUntilFound(tester, find.byKey(const Key('settings-name')));
+    });
+    await _c1Step('settings-email', () async {
+      await pumpUntilFound(tester, find.text(email));
+    });
 
-    await tester.enterText(find.byKey(const Key('settings-name')), name);
-    await tester.pump();
-    final save = find.byKey(const Key('settings-save'));
-    await tester.ensureVisible(save);
-    await tester.tap(save);
-    await pumpUntilFound(tester, find.text('All changes saved to album cloud'));
+    await _c1Step('save', () async {
+      await tester.enterText(find.byKey(const Key('settings-name')), name);
+      await tester.pump();
+      final save = find.byKey(const Key('settings-save'));
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await pumpUntilFound(
+        tester,
+        find.text('All changes saved to album cloud'),
+      );
+    });
 
-    await tester.tap(find.byKey(const Key('timeline-nav')));
-    await pumpUntilFound(
-      tester,
-      find.byKey(const Key('header-underline-timeline')),
-    );
-    expect(
-      find.text('No stories yet. Capture the first one for this family.'),
-      findsOneWidget,
-    );
+    await _c1Step('timeline-nav', () async {
+      await tester.tap(find.byKey(const Key('timeline-nav')));
+      await pumpUntilFound(
+        tester,
+        find.byKey(const Key('header-underline-timeline')),
+      );
+    });
+    await _c1Step('empty-state', () async {
+      expect(
+        find.text('No stories yet. Capture the first one for this family.'),
+        findsOneWidget,
+      );
+    });
   }, timeout: const Timeout(Duration(minutes: 4)));
+}
+
+Future<T> _c1Step<T>(String label, Future<T> Function() body) async {
+  try {
+    return await body();
+  } catch (e) {
+    throw TestFailure('C1 step $label: $e');
+  }
 }
 
 String _handOff(Uri location) {
