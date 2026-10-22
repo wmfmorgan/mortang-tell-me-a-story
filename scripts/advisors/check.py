@@ -485,9 +485,14 @@ def parse_api_document(text):
         raise ParseError()
     findings = []
     for lint in data["lints"]:
-        if not isinstance(lint, dict) or set(lint) != _API_KEYS:
+        if not isinstance(lint, dict):
             raise ParseError()
-        findings.append(_finding_from_fields(lint))
+        if "observed_at" in lint and not isinstance(lint["observed_at"], str):
+            raise ParseError()
+        fields = {key: value for key, value in lint.items() if key != "observed_at"}
+        if set(fields) != _API_KEYS:
+            raise ParseError()
+        findings.append(_finding_from_fields(fields))
     return findings
 
 
