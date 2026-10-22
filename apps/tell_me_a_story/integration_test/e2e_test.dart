@@ -67,11 +67,16 @@ void main() {
     });
 
     await _c1Step('save', () async {
-      await tester.enterText(find.byKey(const Key('settings-name')), name);
+      final nameField = find.byKey(const Key('settings-name'));
+      await tester.ensureVisible(nameField);
+      await tester.tap(nameField);
+      await tester.pump();
+      await tester.enterText(nameField, name);
       await tester.pump();
       final save = find.byKey(const Key('settings-save'));
       await tester.ensureVisible(save);
       await tester.tap(save);
+      await tester.pump();
       await pumpUntilFound(
         tester,
         find.text('All changes saved to album cloud'),
