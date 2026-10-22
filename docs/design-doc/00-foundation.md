@@ -126,6 +126,7 @@ for select using (
 );
 ```
 > 🚫 FORBIDDEN: Denormalize `display_name` / author name onto `comments` or `perspectives`. Read names via `profiles` join. Non-co-members must not read profiles (two-family leak test must cover this).
+**Amendment (#75 / M17a, Gilfoyle 2026-10-21):** Migration `20261022000000_advisors_perf.sql` rewrote 5 policies (`profiles_update_own`, `profiles_delete_own`, `profiles_select_own_or_comember`, `stories_delete_author`, `invites_insert_member_inviter`) with `alter policy`, changing only each bare `auth.uid()` to the initplan form `(select auth.uid())`, so Postgres evaluates it once per statement instead of once per row. There is no semantic change: the predicates, roles, commands and grants are the same, and the policy count stays 47. The SQL sketch above keeps the original form; the migrations are authoritative (refs #75, M17a).
 ## 3. Storage
 - Bucket: **`story-photos`** (private)
 - Path: **`{family_id}/{story_id}/{photo_id}.jpg`** (also `.jpeg` `.png` `.webp`)
