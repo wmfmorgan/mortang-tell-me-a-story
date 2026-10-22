@@ -272,7 +272,6 @@ jobs:
             --driver=test_driver/integration_test.dart \
             --target=integration_test/e2e_test.dart \
             -d web-server --web-port=3000 --web-hostname=127.0.0.1 \
-            --profile \
             --browser-name=chrome --driver-port=4444 --headless \
             --chrome-binary="$(command -v google-chrome)" \
             --dart-define=SUPABASE_URL="$url" \

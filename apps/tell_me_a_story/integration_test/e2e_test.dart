@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:tell_me_a_story/core/supabase/supabase_init.dart';
@@ -20,7 +20,8 @@ void main() {
 
     await app.main();
     await pumpUntilFound(tester, find.byKey(const Key('magic-link-email')));
-    await _enterText(tester, find.byKey(const Key('magic-link-email')), email);
+    await tester.enterText(find.byKey(const Key('magic-link-email')), email);
+    await tester.pump();
     final send = find.text('Email me a sign-in link');
     await tester.ensureVisible(send);
     await tester.tap(send);
@@ -41,7 +42,8 @@ void main() {
     await pumpUntilFound(tester, find.byKey(const Key('settings-name')));
     await pumpUntilFound(tester, find.text(email));
 
-    await _enterText(tester, find.byKey(const Key('settings-name')), name);
+    await tester.enterText(find.byKey(const Key('settings-name')), name);
+    await tester.pump();
     final save = find.byKey(const Key('settings-save'));
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -57,14 +59,6 @@ void main() {
       findsOneWidget,
     );
   }, timeout: const Timeout(Duration(minutes: 4)));
-}
-
-Future<void> _enterText(WidgetTester tester, Finder finder, String text) async {
-  final editable = tester.widget<EditableText>(
-    find.descendant(of: finder, matching: find.byType(EditableText)),
-  );
-  editable.controller.text = text;
-  await tester.pump();
 }
 
 String _handOff(Uri location) {
