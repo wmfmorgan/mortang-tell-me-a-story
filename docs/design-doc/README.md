@@ -18,4 +18,6 @@ Source: Notion Design Doc https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195
 - `m14.4-drafts.md` — Autosave drafts — data side (LOCKED 2026-10-16), Drafts visible to author only (LOCKED — Bill, 2026-10-17), M14.4 dateless drafts: date guard and late autosave (LOCKED — Gilfoyle architecture fix, 2026-10-17)
 - `data-model.md` — Family data model — ER diagram (2026-10-16)
 - `ci.md` — CI (LOCKED 2026-10-21, Gilfoyle, rev 6)
+- `e2e.md` — E2E regression tests #48 (LOCKED 2026-10-20, Gilfoyle, rev 2)
+- `e2e-addendum-a.md` — E2E Addendum A, answers to the M18 spec rev 1 (LOCKED 2026-10-21, Gilfoyle)
 - `82-unsaved-guard.md` — #82 Unsaved-input guard: architecture lock rev 1 (LOCKED — Bill via Erlich, 2026-10-22)

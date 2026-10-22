@@ -316,7 +316,7 @@ tell-me-a-story/
 - Resend account + SPF/DKIM for invite deliverability; Supabase Auth email for magic links
 > 🚫 FORBIDDEN: Service-role keys in the Flutter app.
 > 🚫 FORBIDDEN: Mapbox secret token / server-side geocode in v1 (Design Doc).
-> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally or at deploy time only: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). CI injects no dart-defines and no secrets. Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.
+> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally or at deploy time only: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). CI injects no secrets and no dart-defines, except that the `e2e` job (ci.md rev 6, Exception E2E) passes `SUPABASE_URL` and `SUPABASE_ANON_KEY` taken only from `supabase status -o env` on the runner's local stack (local demo values, never prod). Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.
 ---
 ## 5 Architecture for implementers
 ### System components (from SAD; Mail = Resend per Design Doc)
@@ -7482,3 +7482,890 @@ Source: `/workspace/m82/82_amendment_2.md` (the whole approved file, sha256 `d87
 2. Required test #5 `while saving all three buttons and the scrim are inert` (`unsaved_guard_test.dart`): while the save future is pending, also assert each of the three buttons has `onPressed == null`, and Save's resolved background for `{WidgetState.disabled}` equals `albumTerracotta.withValues(alpha: 0.4)`. No new test; flutter stays 537.
 3. 🚫 FORBIDDEN: CircularProgressIndicator or any spinner, "Saving…" text, changing Stay/Discard styling.
 4. Gate G13: diff of `leave_story_dialog.dart` vs head 7439026 is exactly that l.124 line; test #5 contains the new asserts; `no_hardcoded_colors_test` passes unmodified; counts unchanged (537, analyze ≤ 27).
+
+### §15 M18 E2E regression tests (#48)
+**Status:** **APPROVED for PR0 only, 2026-10-22: Bill, 12:38 PM CT, relayed verbatim by Erlich: "let's do Pr0 of M48" (#48, M18). PR1, PR2 and PR3 remain READY rev 3.1, NOT APPROVED, awaiting Bill's go; each needs its own go.** READY rev 3.1 2026-10-22. Earlier: READY rev 3 2026-10-22 (`/workspace/m48/m18_e2e_spec_rev3.md`, 855 lines, sha256 `24019c915928d67de166c76345d4fcca02314d3e336374830e25780480de3da1`, kept unchanged). READY rev 2 2026-10-21 (`/workspace/m48/m18_e2e_spec_rev2.md`, 849 lines, sha256 `300fc3d34cda3751788501a48093c2a06ab1bcc6ef419fcaa2ec414e7cdaee78`, kept unchanged; the lost 850-line close `1ac83c34…d541` is not recovered). READY rev 1 2026-10-21 (`/workspace/m48/m18_e2e_spec_rev1.md`, 327 lines, sha256 `92431381a25ddff980cb172ec74c93ab06dfc86d1131f24db4eff90450f50797`, kept unchanged). Nothing beyond PR0 is built until Bill gives that PR its go (READY → APPROVED). Sources, which win on tech (Gilfoyle):
+- **Addendum A**, `/workspace/m48/e2e-design-lock-rev2-addendum-A.md` (501 lines, 39,902 bytes, sha256 `67c430e46ff555448af1953baa0b24a068a1bfbbd56984eb524cb20512d8708b`, verified 2026-10-21 ~6:40 PM CT). Addendum l.3: "**Status: Addendum A to rev 2, LOCKED 2026-10-21 (Gilfoyle), answers to M18 spec rev 1**". Addendum l.4: "Where the two differ, this addendum wins."
+- **Lock rev 2**, `/workspace/m48/e2e-design-lock-rev2.md` (240 lines, sha256 `bdeef481a69bf8a42edbc8348a6c3b9497547cbf5e73f7148a1733a815025806`, re-verified). Lock l.3: "**Status: rev 2, LOCKED 2026-10-20 (Gilfoyle; decisions by Bill 1:57 PM CT)**".
+- **Addendum A artifacts**, `/workspace/m48/addendum-A-artifacts/` (8 files; each is listed with lines, bytes and sha256 under "Verbatim files").
+- **Reference only:** the reconciled ci.md rev 6, `/workspace/m-ci/ci-rev6.md` (84 lines, 8,572 bytes, sha256 `a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b`, per Erratum 1). **M17b lands it, not M18** (landed; see "PR0 approval and refresh").
+
+Dependency approval: Bill, 6:07 PM CT 2026-10-21, relayed verbatim by Erlich: "both" (see Decisions). Base: `main` @ `9a7663dc2f74a8888eea77db1ad6dbc1d64b5215` ("docs: stamp §15 M16 CLOSED (#72) (#78)", merged 6:27 PM CT 2026-10-21; its only parent is `46957e2`). `get_branch main` re-checked 2026-10-21 ~6:40 PM CT: head `9a7663d`, required contexts `["deno", "flutter", "pgtap"]`. One milestone, **four ordered PRs** (PR0 docs, PR1 spike, PR2, PR3). **Order across items: M17a, then M17b, then M18 PR1** (addendum R0). **Does not reopen M14, any M14.x, M15 or M16.** M17 (M17a/M17b/M17c) is #75; #75's "PR-1" is M17's, not this item's PR1.
+- **Rev 2 changes (vs rev 1):** follows Addendum A item by item ("Handoff to Big Head"). Spec OPENs 1–7 and the two-rev-6 CONFLICT are CLOSED. PR0 no longer touches `ci.md` or `AGENTS.md`, and adds `e2e-addendum-a.md` and two README lines. PR1 is hard-gated on M17b being merged. The `e2e` YAML, driver, five helper files, relay contract, `--profile` build mode, test names, `flows.md` and `e2e/check_flows.sh` (bash) are now normative and copied verbatim. G2 pgTAP expects the base count (825 after M17b). G4 takes the addendum values. Playwright/Node are forbidden. The 10-green-run count is defined. `e2e.md` lands with the addendum's two citation edits (241 lines). All line numbers rebased on `9a7663d`. Four cloud-agent blocks, one per PR.
+- **Rev 3.1 changes (vs rev 3 `24019c91…3da1`):** Gilfoyle confirmed the rev 3 reconstruction at 12:59–1:00 PM CT 2026-10-22. OPEN 11 CLOSED replaced with Erlich's verbatim closed-rev-2 l.79 (`CLOSED OPEN 11` form). OPEN 10 CLOSED (G4 relative) and L704 stay as in rev 3 (confirmed). Bill step for the small `ci.md` l.34/l.39/Required-checks docs PR reworded ("same sitting"). The three reconstruct `🔍 INFER` tags are gone: L81 deleted; L636 and L730 now `✅ Wording confirmed by Gilfoyle 2026-10-22 1:00 PM CT.` Rev 3 file left untouched.
+
+**E2E flows touched: C1–C9 (all new; this item creates the suite).** (Lock U2.)
+
+> 🔍 INFER: PR titles `M18 PR0: E2E design lock and addendum A (#48)`, `M18 PR1: E2E harness, spike and C1 (#48)`, `M18 PR2: E2E flows C2–C4 (#48)`, `M18 PR3: E2E flows C5–C9 and manifest check (#48)` because neither the lock nor the addendum names titles, and M16 used `M16: drop people_tree_read (#72)`. PR0 drops rev 1's "and ci.md rev 6" because PR0 no longer lands ci.md (R0).
+> 🔍 INFER: Every PR body says `Refs #48`, never `Closes`, because the required-check flip (addendum A4) comes after PR3 merges plus 10 counted runs, so #48 is not done when any PR merges. Bill closes #48.
+
+M18 is still the next free number for this item:
+- `docs/impl-spec/impl-spec.md` on `main` @ `9a7663d` (5,298 lines, 596,780 bytes, sha256 `a5d40cf9a25fb692ed3b6fa52ca9def9e3e5532ecbce6fcf835880a076018362`; fetched with read-only `get_file_contents` and its git blob sha checked against the `9a7663d` tree). The highest §15 heading is now l.4919 `### §15 M16 Hotfix: drop people_tree_read (#72) (CLOSED 2026-10-21: …)`. No M17 or M18 heading or text.
+- #78 only appended to the end of the file. No line ≤ 4917 moved, so l.319 and every other cited line hold.
+- Addendum CONFLICT ruling (b), verbatim: "The lock's "§15 item (M16)" (lock "Lock amendments" and the "Sizing" row PR0) is wrong: M16 is #72. The item is **M18**. M17 is #75 (M17a/M17b/M17c)."
+
+#### PR0 approval and refresh at the PR0 base (2026-10-22)
+- **Approval, PR0 only:** Bill, 12:38 PM CT 2026-10-22, relayed verbatim by Erlich (who speaks for Bill on Mortang decisions): "let's do Pr0 of M48". Bill means #48, M18. **PR1, PR2 and PR3 are NOT approved.** Each stays READY rev 3.1, awaiting Bill's go, and needs its own go.
+- **PR0 base:** `main` @ `31b06400c0fe46cb5a0c7f2360169a9032f6d904` (#114, M19) plus `docs/impl-spec/impl-spec.md` as on #116 (head `a9c66c0458e2b81b9b52238cedd60930ca9f333c`): 7,484 lines, 840,393 bytes, sha256 `de344f446d0b7573d0c14d519622fa0ec70a40d251ece919be15d25fd7f02831`, git blob `d15c296c7cbd2f42b41a1a7d6afbe3415344d181`. #116 was open, not merged, at 12:39 PM CT 2026-10-22. Every other file at `a9c66c0` equals `31b0640`. Required contexts `["deno", "flutter", "pgtap"]`. PR0 is cut only once `main` holds that impl-spec blob.
+- **Re-checked at the PR0 base** (read-only cursor-github; each file checked against its git blob sha):
+  - `docs/impl-spec/impl-spec.md` l.319 is unchanged and holds the addendum's old sentence exactly once. The file has it on 7 lines: l.319, 4126, 4151, 4155, 4168, 4372, 4421. The closed-item copies the addendum cites as l.4107, l.4132 and l.4136 are now l.4126, l.4151 and l.4155 (+19, inserted above them by #114 and #116). "CI injects none" is still on l.284, 289, 294 and 1942. Replacing the sentence gives exactly the addendum's "Full new l.319" (530 bytes, sha256 `cd30572ccf0f475b4aa5d2c4efb98510e1fa6746fb76c294b278174abf076ea3`). With only that edit: 7,484 lines, 840,596 bytes, sha256 `b38412fcb6a3aaefba07667ddc49579612458bccc932260291cfbf0be84ea45d`.
+  - `docs/design-doc/ci.md` = rev 6 as amended by #75 Addendum B: 84 lines, 8,572 bytes, sha256 `a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b` (git blob `48b2b142f1a3aec2c43433b40ee0c7a46619ecfa`). M17b has landed (§15 M17 CLOSED 2026-10-22), so the M17b-merged check passes on this base.
+  - `docs/design-doc/README.md`: 21 lines, 2,194 bytes, sha256 `0944023d24e07e3008839e8c84ddb97a20b310127422602896c27d351fe3bea5`. l.20 is the only line starting `` - `ci.md` — `` and reads `` - `ci.md` — CI (LOCKED 2026-10-21, Gilfoyle, rev 6) ``. l.21 is the `82-unsaved-guard.md` line (#82). The two e2e lines go between l.20 and l.21. Result: 23 lines, 2,373 bytes, sha256 `7ddbd6ad9a881dba8c6fac6c3a0033c5941ed280cf00802cc04c8099980a78a4`.
+  - `e2e.md` artifact (`464bfcf2…a4a0`, 241 lines, 20,264 bytes) and Addendum A (`67c430e4…708b`, 501 lines, 39,902 bytes) re-verified. Neither `docs/design-doc/e2e.md` nor `docs/design-doc/e2e-addendum-a.md` exists on the base.
+  - `AGENTS.md`: 66 lines, 5,308 bytes (M17b's l.43 advisors clause is in). `.github/workflows/ci.yml`: 5,237 bytes, jobs `flutter`, `deno`, `pgtap`; `pgtap` carries M17b's splinter steps. PR0 touches neither.
+  - **Baseline CI:** main run `39822683786` @ `31b0640` (push, success, 12:26 PM CT 2026-10-22): `Flutter 3.47.7 • channel stable`, `Formatted 120 files (0 changed)`, `flutter analyze: 27 issues (ceiling 27, exit 0)`, `🎉 537 tests passed.`, `Image: ubuntu-24.04`; `deno` `ok | 43 passed | 0 failed`; `pgtap` `supabase.tar.gz: OK`, `Files=25, Tests=825`, `All tests successful.`, `Result: PASS`, `Ran 47 tests`, `advisors local: GREEN`, `delegated=30 accepted=0 report-only=9 local-skip=0`.
+  - The highest §15 heading is l.7025 `### §15 M19 …`. There is no M18 heading, so M18 is still the next free number.
+- **Erratum 1 to Addendum A** (Gilfoyle, 2026-10-21 7:15 PM CT; 7 lines, sha256 `486920f7a7a0a8120423770b3a6ec297c9d921308dc913edb0e98c8860100370`), verbatim:
+  > ci.md rev 6 was amended by #75 lock Addendum B (TMAS-M17-03: P1 trigger exclusions, l.60 only).
+  > Every reference to rev 6 sha `4c3611b3715dbf8f02c05e2216c7e945ce9c77a678842fcffd11456ea0493723` (8,437 bytes)
+  > in Addendum A (l.7, l.27) and in M18 spec gates now reads
+  > `a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b` (8,572 bytes, 84 lines).
+  > The rev 6 e2e exception text (quoted in Addendum A) is unchanged. No other change.
+- **Mechanical refresh in this item, vs READY rev 3.1 (no build decision changes):**
+  1. Status line: READY rev 3.1 → APPROVED for PR0 only; PR1–PR3 READY, awaiting go. Decisions: Bill's 12:38 PM CT line added.
+  2. This section added.
+  3. Erratum 1 applied: the rev 6 sha `4c3611b3…3723` (8,437 bytes) now reads `a472f3f4…196b` (8,572 bytes) in Sources, the R0 quote (addendum l.27 as amended), the M17b-merged check, the Verbatim files row, the Stop rule, and the PR1, PR2 and PR3 blocks. "Code on `main` @ `9a7663d`" stays as history.
+  4. PR0 item 3: the README result is refreshed to the `31b0640` README. The rev 2 INFER (22 lines, `007f82eb…`) is superseded because the README gained the #82 line.
+  5. PR0 item 4 re-check and the PR0 block's kept-lines list are rebased on the PR0 base: l.4107, l.4132, l.4136 → l.4126, l.4151, l.4155.
+  6. G2, G6 and the PR0/PR1 blocks: `🎉 504 tests passed.` → `🎉 537 tests passed.`; the `Formatted` base 107 → 120; PR0's pgTAP base `Tests=803` → `Tests=825`.
+  7. G1 PR0 and the PR0 block: the grep count gate counts the lines above this item (CONFLICT B).
+  8. Bill steps: the approval is ticked for PR0 and the M17 merges are ticked. Block headings name the PR0 approval and the go each of PR1–PR3 still needs. The index lists CONFLICTs A and B.
+  9. Rev 3.1 closes (already in the READY rev 3.1 source, not re-applied here): OPEN 10/11 (Gilfoyle 6:52 PM CT; OPEN 11 = Erlich verbatim closed-rev-2 l.79; OPEN 10 G4 relative confirmed; wording confirmed 1:00 PM CT 2026-10-22), OPEN 8 (Mugatu 7:32 PM CT), Bill docs-PR step ("same sitting"), §17 OPEN [Mugatu, Bill] for a designed "not available" state.
+> ⚠️ CONFLICT A (Gilfoyle): Erratum 1 says Addendum A l.7 and l.27 "now read" `a472f3f4…`, but PR0 lands Addendum A byte for byte (`67c430e4…708b`), so the repo copy would still print `4c3611b3…`. Options: (1) land A byte for byte and record the erratum only in this item; (2) land an amended A (new sha); (3) add the erratum as a fifth file plus a README line. Narrower option, taken: (1). PR0 stays at four files and no lock text changes. Landing the erratum in the repo is Gilfoyle's call in a later docs PR. Doesn't block PR0.
+> ⚠️ CONFLICT B (Gilfoyle): Addendum OPEN 3 says that after PR0 the whole-file `grep -c` "drops by one" (7 → 6). This item is appended in the same PR and quotes the old sentence on 8 lines, so the whole-file count after PR0 is 14. Narrower option, taken: the gate counts only the base's 7,484 lines (`head -n 7484`; expected `6`), and the PR body also pastes the whole-file count (expected `14`). No text changes. Doesn't block PR0.
+
+#### Decisions (verbatim, with timestamps)
+From issue #48 (read-only `get_issue` / `list_issue_comments`) and the locks:
+- Issue body (opened 2026-10-18): "Placeholder only. Bill said do not start. Blocked by the CI issue. Gilfoyle locks the E2E design after CI lands, and only on Bill's go." Labels today: `blocked`, `in-pipeline`. Superseded by the three Bill decisions below.
+- **Bill, 10:11 AM CT 2026-10-20** (comment 6294169630): "Yes, have Gilfoyle design and size #48 after #72".
+- **Bill, 1:57 PM CT 2026-10-20** (comment 6298765063; lock l.4): "#48: go with Gilfoyle's recommendations on all four (9 flows, ~11 min CI with the e2e exception, report-only until 10 green then required, lock after #72)".
+- Gilfoyle lock gate (comment 6299042898, 2:10 PM CT 2026-10-20): "Open: Bill's approval for the new Flutter SDK `integration_test` dependency (AGENTS.md rule)." Closed by the next line.
+- **Bill, 6:07 PM CT 2026-10-21, relayed verbatim by Erlich: "both"** (Bill's answer to Gilfoyle's two calls). For #48 this is the dependency approval below. Issue comment 6328567129 (6:07 PM CT 2026-10-21) records it: heading "**Gate: dependency approved (Bill, 6:07 PM CT 2026-10-21)**", quote "> both", then "Bill approved adding Flutter's `integration_test` package. Design is fully locked. Next: Big Head writes the impl spec."
+- **Bill, 12:38 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do Pr0 of M48"** (#48, M18). PR0 only; PR1–PR3 still need their own go.
+- Addendum l.5, verbatim: "Bill's decisions bind, and nothing here goes past them: (1) the 9 thin flows C1–C9; (2) local Supabase in CI only, never prod; (3) about 8–11 min of CI growth; (4) `e2e` is report-only until 10 consecutive green runs, then required; (5) the Flutter SDK `integration_test` dev dependency is approved (Bill, 2026-10-21)."
+- Lock decision record (lock l.232–240): flows "Thin C1–C9 (9 flows), broad only on an escaped regression"; target and tooling "Local Supabase in the CI job; `integration_test` + `flutter drive` web"; sign-in and data "Mailpit + Deno relay (M2 fallback for precondition users only, M3 forbidden); per-test tenants, no reset, fixtures by exception"; upkeep "U1–U5; report-only until 10 consecutive green main runs, then required"; CI growth "Accept about 8–11 min (about 11 min total wall) with the ci.md rev 6 e2e exception"; Mapbox-pinned place "Jared call, only if the spike needs it" ("open, conditional").
+
+#### Dependency approval (`AGENTS.md` l.53)
+`AGENTS.md` l.53: "No new dependencies without approval. Pin majors; no drive-by upgrades mid-milestone."
+- **Approved:** the Flutter SDK `integration_test` package, as a dev dependency of `apps/tell_me_a_story`. Bill, 6:07 PM CT 2026-10-21, relayed verbatim by Erlich: **"both"**.
+- **Exactly what changes** (addendum CONFLICT ruling (a), verbatim): "Allowed: exactly two added lines in `apps/tell_me_a_story/pubspec.yaml` under `dev_dependencies`, directly after the `flutter_test` entry:"
+  ```yaml
+    integration_test:
+      sdk: flutter
+  ```
+  "Plus the `pubspec.lock` changes that `flutter pub get` (Flutter 3.47.7) makes to resolve that one entry, and nothing else. The lock's "lockfile update only" means "no other pubspec change"." "If any existing `pubspec.lock` entry changes version, or anything other than SDK-pinned packages and their transitive pins is added, stop and report (Trinity checks)." "No direct `flutter_driver` entry."
+- **Nothing else is approved.** No pub.dev package, no npm/Node/Playwright, no `package.json`, no Deno `jsr:`/`npm:`/URL import, no new GitHub Action. Helper imports are limited to the addendum's list (PR1 below).
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 CONFLICT "lockfile update only" vs the `pubspec.yaml` entry. Ruling (a) CONFIRMED, as quoted above. On `main` the `flutter_test` entry is l.48–49, so the two lines go in after l.49. Result: `pubspec.yaml` 98 lines, 4,005 bytes, sha256 `1e06c3cd5af48a73d7de07c75863668db88721dd2faa176fd3825a2da91d37f0` (computed from the `9a7663d` file).
+> ❓ OPEN (Bill, conditional): any other dependency the work seems to need. Stop and report; Bill decides. Does not block today. (A Playwright/Node fallback is no longer an option; see A2.)
+
+#### Code on `main` this item relies on (read-only facts, @ `9a7663d`)
+Checked 2026-10-21 ~6:40 PM CT with read-only cursor-github (`get_branch`, `get_git_tree` recursive (not truncated), `get_file_contents`, `list_workflow_runs`, `list_workflow_run_jobs`, `get_job_logs`). Comparing the `9a7663d` tree with the `46957e2` tree, the only changed file is `docs/impl-spec/impl-spec.md`; nothing was added or removed. Every file below matched its git blob sha.
+- `.github/workflows/ci.yml`: 132 lines, 3,833 bytes, sha256 `a379fa4c5f9894ec87bd177d0e22d253f186edd55ceee7c4e24dfb8ea9495d0a` (the addendum's base). Jobs `flutter`, `deno`, `pgtap`. M17b will change `pgtap` before PR1 (addendum R0).
+- `docs/design-doc/ci.md`: rev 5, 59 lines, 4,989 bytes, sha256 `2b1848957059e36b488b47bd3618a5295f59405d788bc1043671735d096faaf1`. **Rev 6 (`4c3611b3…3723`) is not on `main` yet**; M17b lands it.
+- `docs/design-doc/README.md`: 20 lines, 2,076 bytes, sha256 `4e105d55ba9ad5a603c64af65d2e9dc64a7e8d42f810c820edd32b93e908f4f3`. l.20 is `` - `ci.md` — CI (LOCKED 2026-10-20, Gilfoyle, rev 5) ``. No `e2e.md` or `e2e-addendum-a.md` file or line.
+- `AGENTS.md`: 66 lines, 5,255 bytes, sha256 `d300781ff8bf23e835f42815e2f806d01da8ac1187b6b418b91bb8460aa33719`. l.18 branch rule; l.19 OPEN rule; l.22 "Local DB: `supabase migration up --local` only. **Never** `supabase db reset`, `supabase db pull` or `supabase migration down`."; l.43 CI line (M17b changes it; M18 doesn't); l.53 dependency rule; l.57–60 off-limits; l.63 lanes.
+- `docs/impl-spec/impl-spec.md` l.319, exactly: ``> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally or at deploy time only: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). CI injects no dart-defines and no secrets. Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.`` The sentence `CI injects no dart-defines and no secrets.` occurs once on l.319. The whole file has it on 7 lines (l.319, 4107, 4132, 4136, 4149, 4353, 4402). l.284, l.289, l.294 end `CI injects none</td>`; l.1942 starts `` - Secrets: `--dart-define`, local or deploy-time; CI injects none — ``.
+- `apps/tell_me_a_story/pubspec.yaml`: 96 lines, sha256 `de0a6bd4b5d7d5dfc5aca1373ac7b77e7131ba30f751adcc08d687d6752bf495`; `name: tell_me_a_story`; `http` and `supabase_flutter` are direct dependencies; `dev_dependencies` = `flutter_test` (l.48–49) and `flutter_lints`.
+- `apps/tell_me_a_story/pubspec.lock`: sha256 `d4083c10f5a725c8f96f48fe0b164ec570bfc3d2b6ab8d5a6d285460713032be`. No `integration_test` or `flutter_driver` entry.
+- `apps/tell_me_a_story/lib/main.dart`: `main()` calls `initSupabase()` and `runApp`. `lib/core/supabase/supabase_init.dart` has `recoverSessionFromAuthCallback(Uri uri)`. `lib/core/theme/album_header.dart` l.918 `await Supabase.instance.client.auth.signOut();` (the addendum's C9 owner).
+- **Every owning path in the addendum's `flows.md` exists** under `apps/tell_me_a_story/lib/` at `9a7663d` (all 23: `features/auth/`, `features/settings/`, `core/supabase/`, `core/router/`, `data/profile_session.dart`, `features/family/`, `features/timeline/`, `data/families_api.dart`, `features/stories/`, `features/people/`, `features/places/`, `data/stories_api.dart`, `data/places_api.dart`, `features/drafts/`, `features/comments/`, `features/perspectives/`, `data/comments_api.dart`, `data/perspectives_api.dart`, `features/invites/`, `data/invite_api.dart`, `features/search/`, `data/search_api.dart`, `core/theme/album_header.dart`).
+- `supabase/config.toml` (sha256 `0b594af317421dda293c2316e95020964c19cc5f9652b94764ebae8efbd08b8d`): ports 57320, 57321, 57322, 57323, 57324 (`[local_smtp]`), 57327, 57329, 8083. **57390 is not used**, as the addendum says.
+- App tree: **no `integration_test/`, `test_driver/`, `e2e/` or `package.json`.** `supabase/`: latest migration `20261020120000_drop_people_tree_read.sql`, 25 pgTAP files.
+- **Baseline CI:** main run `39693491649` @ `9a7663d` (push, success): `Flutter 3.47.7 • channel stable`, `Formatted 107 files (0 changed)`, `flutter analyze: 27 issues (ceiling 27, exit 0)`, `🎉 504 tests passed.`, `Image: ubuntu-24.04`; `deno` `ok | 43 passed | 0 failed`; `pgtap` `supabase.tar.gz: OK`, `Files=25, Tests=803`, `All tests successful.`, `Result: PASS`.
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 CONFLICT "impl-spec line numbers +2". Addendum: "**impl-spec +2 offset: CONFIRMED** by content (l.317 → l.319, and so on). Cite impl-spec by content plus the current line number." Re-checked at `9a7663d`: unchanged (#78 only appended).
+
+#### Order across items and the M17b gate (addendum R0)
+Addendum R0, verbatim:
+- "**M17b (#75) lands one reconciled rev 6, byte for byte, carrying both exceptions** (P1 prod advisors and E2E). The file is `docs/design-doc/ci.md` rev 6, sha256 `a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b`." (Addendum l.27 as amended by Erratum 1.)
+- "**M18 PR0 does NOT touch `docs/design-doc/ci.md`.** M18 cites rev 6 and does not repeat it."
+- "**M18 PR1 starts only after M17b is merged on `main`.** PR1 is the first PR that adds the `e2e` job, and that job is legal only under rev 6. PR0 (docs only) can merge before or after M17b."
+- "Rev 6 also updates ci.md l.6 (the job count: "Exception E2E adds a fourth job, `e2e`, to this file") and README l.20 (`ci.md` → rev 6). Those edits are M17b's. M18 does not make them."
+- "The lock's PR0 row "ci.md rev 6", lock l.6 "Nothing is built before PR0 (ci.md rev 6) lands" and Risk 1 now read: nothing is built before **M17b (rev 6)** and **M18 PR0** are both on `main`."
+- "**pgTAP baseline:** G2's pgTAP count is `main`'s count at the PR's base: `Files=25, Tests=803` before M17a, `826` after M17a, and **`Files=25, Tests=825` after M17b** (rev 6 l.51 and l.77). PR1–PR3 run after M17b, so they expect **825**. PR0 expects whatever its base shows."
+
+**Rev 6 E2E exception (rev 6 l.67–73), cited, not landed by M18:**
+> **Exception E2E (#48). Local Supabase only, never prod.**
+> One job, `e2e` in `ci.yml`, may:
+> - run `supabase start` against the **local** Supabase stack on the runner (exclusions `studio,imgproxy,vector,logflare,supavisor,postgres-meta`);
+> - build and drive a debug/profile Flutter web app (`flutter drive -d web-server`);
+> - pass `--dart-define` values sourced **only** from `supabase status -o env` (local demo values).
+>
+> It is **local Supabase only, never prod.** It uses no `${{ secrets.* }}`, no `link`, no `--linked`, no `--db-url`, no `db push/pull/reset`, and no `migration` command. Its permissions are `contents: read`. It uses only the allowlisted SHA-pinned actions, and `timeout-minutes: 25`. The job is report-only (not required) until 10 consecutive green runs on main, then it is a required check. Everything else in the Shape bullets on prod isolation and 🚫 (l.17–19) still applies to every job.
+**M17b-merged check (hard stop for PR1, PR2, PR3):** on the PR's base, `sha256sum docs/design-doc/ci.md` must print `a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b` (84 lines), and the M17b PR must show as merged. If not, do not start: stop and report.
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 OPEN 2 (full ci.md rev 6 and the PR that lands it) and the rev 1 CONFLICT "two locks claim ci.md rev 6" (addendum R0, quoted above). M17b lands the one reconciled rev 6; M18 lands no `ci.md` change.
+> ✅ CLOSED OPEN 11 (Gilfoyle, 2026-10-21 6:52 PM CT): rev 6 stays as locked, and M17 is not re-cut. Rev 6 l.34 ("all three checks") and l.39 ("all three jobs") describe the required checks. While `e2e` is report-only there are still exactly three, so the lines are accurate. They get updated, together with Required checks, in a small docs PR in the same change where Bill makes `e2e` required after the 10 green runs (see Bill steps). M18 PR0 to PR3 don't edit ci.md (R0).
+
+#### PR split (lock "Sizing", as amended by Addendum A)
+| PR | Branch | Content | Starts after |
+|---|---|---|---|
+| PR0 (docs) | `feat/m18-e2e-docs` | `e2e.md`, `e2e-addendum-a.md`, README two lines, impl-spec l.319 + this item | Bill approves this item. Before or after M17b. |
+| PR1 | `feat/m18-e2e-spike` | Harness, spike, C1, report-only `e2e` job | PR0 merged **and M17b merged** |
+| PR2 | `feat/m18-e2e-c2-c4` | C2, C3, C4 | PR1 merged |
+| PR3 | `feat/m18-e2e-c5-c9` | C5–C9, `flows.md`, `e2e/check_flows.sh`, manifest step | PR2 merged |
+| (Bill) | — | Make `e2e` required after 10 consecutive green main runs (A4) | Gilfoyle or Trinity posts the 10 runs |
+
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 CONFLICT `AGENTS.md` l.18 vs four PRs. Ruling (c), verbatim (addendum l.461–464):
+> - **(c) CONFIRMED.** One M18 milestone item covers 4 ordered PRs (PR0 docs, PR1, PR2, PR3), all approved together by Bill's approval of the item. This is a named exception to `AGENTS.md` l.18 "One §15 milestone per PR". It matches the lock's "1 milestone, 1 docs PR and 3 code PRs".
+>   - Each PR is on its own `feat/m18-…` branch, cut from `main` after the previous one merges.
+>   - PR1 additionally waits for M17b (R0).
+>   - Only one M18 PR is open at a time.
+> The branch names are rev 1's, unchanged; the addendum gives only the `feat/m18-…` pattern.
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 CONFLICT lock "§15 item M16" → M18 (ruling (b), quoted above).
+
+#### Files touched, per PR (exhaustive)
+- **PR0** (addendum "PR0 file list", l.266–270, verbatim):
+
+> 1. `docs/design-doc/e2e.md`: the lock rev 2 with exactly the two citation edits in Ambiguity A5. Result: 241 lines, 20,264 bytes, sha256 `464bfcf262d0edcd4e310e4671b74dcd79bbc752f115003de0b472ad0386a4a0`. This replaces the spec's "byte for byte, 240 lines, `bdeef481…`".
+> 2. `docs/design-doc/e2e-addendum-a.md`: this addendum, byte for byte (its sha256 is reported with it).
+> 3. `docs/design-doc/README.md`: the two lines above.
+> 4. `docs/impl-spec/impl-spec.md`: l.319 (OPEN 3), plus the APPROVED M18 item appended at the end of the file.
+> - **Not in PR0:** `docs/design-doc/ci.md` (R0), `AGENTS.md` (OPEN 2), `.github/`.
+
+- **PR1:** `apps/tell_me_a_story/pubspec.yaml`, `apps/tell_me_a_story/pubspec.lock`, `apps/tell_me_a_story/integration_test/e2e_test.dart` (C1), `apps/tell_me_a_story/test_driver/integration_test.dart`, `apps/tell_me_a_story/integration_test/support/prod_guard.dart`, `apps/tell_me_a_story/integration_test/support/relay_client.dart`, `apps/tell_me_a_story/integration_test/support/test_users.dart`, `apps/tell_me_a_story/integration_test/support/waits.dart`, `e2e/relay.ts`, `.github/workflows/ci.yml` (the `e2e` job only). 10 files.
+- **PR2:** `apps/tell_me_a_story/integration_test/e2e_test.dart` (+C2–C4); optionally `apps/tell_me_a_story/integration_test/support/preconditions.dart` (new); edits to the PR1 `support/` files only if needed for C2–C4.
+- **PR3:** `apps/tell_me_a_story/integration_test/e2e_test.dart` (+C5–C9), `apps/tell_me_a_story/integration_test/flows.md` (new), `e2e/check_flows.sh` (new), `.github/workflows/ci.yml` (the manifest step inside `e2e` only); edits to `support/` files only if needed for C5–C9.
+- **Must NOT change in any M18 PR (the diff must show it):** everything under `apps/tell_me_a_story/lib/` (lock (c): "There are no `lib/` changes."); every existing file under `apps/tell_me_a_story/test/`; `analysis_options.yaml`; everything under `supabase/`; `docs/design-doc/ci.md`; `AGENTS.md`; the root `README.md`; `.cursor/`; `apps/tell_me_a_story/ios/` and `web/`; in `ci.yml`, every line outside the `e2e` job. In code PRs (PR1–PR3): everything under `docs/`.
+- **Not created in M18** (addendum l.296, verbatim):
+
+> - Not created in M18 (confirming Big Head's INFERs): `integration_test/quarantine/`, `e2e/fixtures/`, the U2 advisory annotation.
+
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 OPEN 6 (paths, driver name, helpers, relay interface) and its default. The paths, the exhaustive file table and the relay contract are under PR1. The rev 1 INFER "no quarantine, fixtures or annotation" is confirmed (quoted above).
+
+#### Rules
+- R1 **Locks win.** Copy the addendum's and the lock's paths, flow ids, test names, YAML, file contents, commands and counts exactly. Where they differ, the addendum wins. Do not improve the design: no extra jobs, steps, flows, screens, tools, retries, caches or actions.
+- R2 **Order:** PR0 → PR1 → PR2 → PR3, one M18 PR open at a time, each off `main` after the previous merges. **PR1 starts only after M17b is merged** (M17b-merged check above).
+- R3 **Flows** = the lock's C1–C9 table, exactly (below). PR1: C1. PR2: C2, C3, C4. PR3: C5–C9. No other flow.
+- R4 **One entry:** `integration_test/e2e_test.dart` per the addendum's file table (PR1).
+- R5 **Target** (lock (b)): local Supabase inside the CI job only. URL and anon key from `supabase status -o env` at runtime; the workflow aborts unless `API_URL` is `http://127.0.0.1:57321`. Exactly two dart-defines, `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the YAML's `flutter drive` step). No `MAPBOX_ACCESS_TOKEN`, no relay URL, no other define.
+- R6 **External keys** (lock (b)): no Mapbox token (soft-fail picker UX); the publish place comes from Favorites, created through the Places API as the signed-in user; no Resend key; no stub defines in app code.
+- R7 **Prod guard:** `support/prod_guard.dart` per the addendum's file table; the relay has its own guard (relay contract step 4).
+- R8 **Build and drive** exactly as the YAML's `flutter drive` step (`-d web-server`, `--web-port=3000`, `--web-hostname=127.0.0.1`, `--profile`, ChromeDriver on port 4444). Switching `--profile` to debug is a Gilfoyle ruling, never an agent's choice (stop rule).
+- R9 **Sign-in** (lock (c), M1): the UI sends the real `signInWithOtp`; the test gets `Location` from the relay (`support/relay_client.dart`, `magicLinkLocation(email)`) and calls `recoverSessionFromAuthCallback(Uri.parse(location))` in the same browser. Password sign-in (M3) is forbidden.
+- R10 **M2 fallback:** not built unless the PR1 spike shows a rate limit biting, and then only after a Gilfoyle ruling (addendum relay contract). Never for C1.
+- R11 **Test data** (lock (c), D1): the flow under test goes through the UI; preconditions through `lib/data/*_api.dart` gateways as the signed-in user, or the real Edge functions. Run id and emails per `support/test_users.dart` (addendum OPEN 5: run id `DateTime.now().toUtc().millisecondsSinceEpoch.toRadixString(36)`; emails `e2e-<run_id>-c<N>-<n>@example.test`). Unique family names; each test its own tenant.
+- R12 **No reset, ever** (lock (c)). Locally (`AGENTS.md` l.22): `supabase migration up --local` only if a local DB needs migrations; never `supabase db reset`, `db pull`, `migration down` or `migration repair`.
+- R13 **No `lib/` change** of any kind, including new `Key`s. A flow that can't be driven without one is a stop.
+- R14 **Report-only** = not in branch protection, and no `continue-on-error` anywhere (addendum OPEN 1, quoted under PR1). No PR touches branch protection.
+- R15 **Waits** (addendum A1, l.469–475, verbatim):
+
+> - A bounded poll on an external condition, with an explicit overall timeout, is **allowed**. That covers:
+>   - the relay's Mailpit poll (250 ms interval, 30 s deadline). This is the only delay in `e2e/relay.ts`, and the PR must list it;
+>   - the `curl --retry-connrefused --retry-max-time 30` readiness probes;
+>   - `timeout 600 tail --pid`;
+>   - `pumpUntilFound` frame pumps with a deadline.
+> - **Forbidden:** any wait not tied to a condition: `sleep`, `Future.delayed`, `setTimeout` used as a pause, or a fixed `pump(Duration(seconds: N))` used to "let things settle".
+> - G5's `rg 'sleep|Future\.delayed'` over `integration_test/` and `test_driver/` must print nothing.
+
+  No automatic retries; during report-only, one diagnostic rerun is allowed (lock U5).
+- R16 **Budget** (lock U4): ≤ 10 thin flows and ≤ 12 min `e2e` job wall time, pruning before adding. `check_flows.sh` enforces ≤ 10.
+- R17 **Analyze and format** (lock Risk 8): the analyze ceiling 27 and `dart format` apply to the new `integration_test/` and `test_driver/` code. `ANALYZE_CEILING` stays 27.
+- R18 **Issue link** `Refs #48` in every PR. Don't open, edit, comment on or relabel any issue.
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 INFERs "no `continue-on-error`" and "relay polling vs no-sleep". Handoff: "The INFER "no `continue-on-error`" is confirmed. The INFER "relay polling" is confirmed (A1)." Folded into R14 and R15. The rev 1 INFER "same tool pins" is folded into the YAML.
+
+#### The 9 flows (lock (a), l.80–90, verbatim) and test names (addendum OPEN 6)
+| ID | Flow | Source |
+|---|---|---|
+| C1 | Magic-link sign-in: enter email → link from Mailpit → callback → profile bootstrap → required name (M8) → lands on `/timeline` | §8 l.557+, M1 l.1095, M8 l.1135, `m08-profile.md`, §14 Auto #4 |
+| C2 | Start a family → lands on its empty timeline | US-1, M10 l.1160 / l.1279, `m10-manage-families.md` |
+| C3 | Capture: title, text, timeframe, add person (create new), place from Favorites → **Publish** → card on timeline | US-3/3a/10, M3 l.1105, M4 l.1110, M14.1 l.1195, publish lock l.916–928, §14 Manual #1 |
+| C4 | Draft: autosave → leave → resume from `/drafts` → publish. Not on the timeline before publish. | US-11, M14.4, `m14.4-drafts.md` |
+| C5 | Reader: open story → comment → add perspective | US-6/6a, M5 l.1120, M9 l.1155, `m09-avatar-reader.md` |
+| C6 | Invite via **Link** tab → second user opens `/invite/:token` → signs in → accepts → sees the family's timeline | US-2, M2 l.1100, §8 accept-invite, `00-foundation.md` §5 |
+| C7 | Search by person, place and timeframe finds the published story | US-9, M7 l.1130 |
+| C8 | Tenant isolation in the UI: user B (other family) opening A's `/stories/:id` sees no content | §14 Auto #1, §13 |
+| C9 | Sign out → guarded routes redirect to `/` | router l.113–115, M10 nav |
+
+(impl-spec line numbers in this table are the lock's, taken on the pre-offset file; add 2 for `main` @ `9a7663d`, per the confirmed offset.)
+
+Addendum l.339–350, verbatim:
+
+> Rule: each name starts with its flow id and a space, uses only `[a-z0-9 ,/-]` after it, is ≤ 64 characters, and is a single string literal that is never split. Each literal appears only as its `testWidgets` description.
+> | Flow | Test name | PR |
+> |---|---|---|
+> | C1 | `C1 magic-link sign-in lands on timeline` | PR1 |
+> | C2 | `C2 start a family lands on its empty timeline` | PR2 |
+> | C3 | `C3 capture and publish shows the card on the timeline` | PR2 |
+> | C4 | `C4 draft autosaves, resumes from drafts and publishes` | PR2 |
+> | C5 | `C5 reader adds a comment and a perspective` | PR3 |
+> | C6 | `C6 invite link lets a second user join and see the timeline` | PR3 |
+> | C7 | `C7 search by person, place and timeframe finds the story` | PR3 |
+> | C8 | `C8 user from another family sees no content on a story url` | PR3 |
+> | C9 | `C9 sign out redirects guarded routes to the landing page` | PR3 |
+
+> 🔍 INFER: `test_users.dart` builds the `<flow>` part of `e2e-<run_id>-<flow>-<n>@example.test` (addendum l.288) as lowercase `c<N>` because addendum l.310 writes the emails as `e2e-<run_id>-c<N>-<n>@example.test` and the relay's 400 rule (l.316) only accepts `c[1-9]`.
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 OPEN 7 (test names, `flows.md` format, manifest check path, owning folders). Names above; `flows.md` and `e2e/check_flows.sh` under PR3.
+> ✅ CLOSED (Mugatu, 2026-10-21 7:32 PM CT): default stands. C8 asserts only that A's story title and text never show for user B. Do not assert any error screen, message or redirect (none is locked). If Bill wants a designed "not available" state, that is a separate §17 OPEN (next line).
+> ❓ OPEN [Mugatu, Bill] (§17): designed "not available" state for an outsider opening a story URL. Mugatu designs it; Bill approves the copy; then C8 gains that check. Raised by Mugatu when closing OPEN 8 (7:32 PM CT 2026-10-21). Fold into impl-spec §17 ("## 17 Open questions") when M18 CLOSED is stamped (same pattern as Post-M17 / Post-M19 OPENs). Does not block any M18 PR.
+> ❓ OPEN 9 (Jared, conditional): lock l.108, verbatim: "**Mapbox-pinned place:** if the spike (PR1) shows that publish needs a Mapbox-pinned place the Favorites path can't supply, that is **a Jared call**. It is raised only if the spike needs it. A test-only bypass is not an option." If raised, it blocks C3, C4, C5, C7, C8.
+
+#### PR0 (docs): `feat/m18-e2e-docs`
+1. **`docs/design-doc/e2e.md`** = artifact `addendum-A-artifacts/e2e.md` byte for byte: **241 lines, 20,264 bytes, sha256 `464bfcf262d0edcd4e310e4671b74dcd79bbc752f115003de0b472ad0386a4a0`**. Checked: `diff` against lock rev 2 shows exactly the two addendum A5 edits, nothing else. Addendum A5 (l.486–492), verbatim:
+
+> - lock l.7 cites `e2e-design-options-rev1.md` (the rev 1 options draft, never committed). **Drop the citation.** l.7 becomes two lines:
+>   ```text
+>   > Supersedes the rev 1 options draft (never committed to the repo). The option menus are removed and only the chosen path remains.
+>   > Amended by Addendum A (`e2e-addendum-a.md`, LOCKED 2026-10-21). Where the two differ, Addendum A wins.
+>   ```
+> - lock l.171 cites `advisors-clean-lock-rev2.md` (the #75 lock, outside the repo). **Correct it**: replace ``(see `advisors-clean-lock-rev2.md`)`` with `(M17b, which lands the reconciled rev 6)`.
+> - No other edit to `e2e.md`. Stale lock statements (PR0 lands ci.md rev 6, M16, the AGENTS.md CI line, the Deno manifest check, the Playwright fallback) are overridden by this addendum, not rewritten in the lock.
+
+2. **`docs/design-doc/e2e-addendum-a.md`** = `/workspace/m48/e2e-design-lock-rev2-addendum-A.md` byte for byte: **501 lines, 39,902 bytes, sha256 `67c430e46ff555448af1953baa0b24a068a1bfbbd56984eb524cb20512d8708b`**.
+3. **`docs/design-doc/README.md`**, addendum OPEN 4 (l.257–263), verbatim:
+
+> - The lock adds a new design-doc file, `docs/design-doc/e2e.md`, and this addendum lands as `docs/design-doc/e2e-addendum-a.md`. So README gets **two new lines**. The `ci.md` line (l.20) is M17b's edit to rev 6, and M18 does not touch it.
+> - Insert these two lines **immediately after the line that starts with `` - `ci.md` — ``** (l.20 today, whichever rev text it holds at PR0's base):
+> ```
+> - `e2e.md` — E2E regression tests #48 (LOCKED 2026-10-20, Gilfoyle, rev 2)
+> - `e2e-addendum-a.md` — E2E Addendum A, answers to the M18 spec rev 1 (LOCKED 2026-10-21, Gilfoyle)
+> ```
+> - No other README change. G1 PR0: `git diff main -U0 -- docs/design-doc/README.md` shows exactly these two added lines.
+
+   Result on the PR0 base (`31b0640`: l.20 = the rev 6 line, l.21 = the `82-unsaved-guard.md` line; the two lines go between them): 23 lines, 2,373 bytes, sha256 `7ddbd6ad9a881dba8c6fac6c3a0033c5941ed280cf00802cc04c8099980a78a4`.
+   > ✅ SUPERSEDED at the PR0 base (README gained the #82 line; result above): If M17b has merged first and l.20 reads exactly `` - `ci.md` — CI (LOCKED 2026-10-21, Gilfoyle, rev 6) `` (rev 6 l.84's index text), the result is 22 lines, 2,255 bytes, sha256 `007f82eb0a979567a50814e0270667f7f99a23aa769bef3fac158e1c35ba9e49`, because only l.20's text differs. If l.20 holds any other text, the gate is the diff (exactly two added lines), not the sha.
+4. **`docs/impl-spec/impl-spec.md`**, addendum OPEN 3 (l.240–252), verbatim:
+
+> - **Line:** on `main` @ `46957e2`, `docs/impl-spec/impl-spec.md` **l.319**. The lock's "l.317" is the old number: Big Head's +2 offset is confirmed by content. The line starts ``> **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally or at deploy time only:``. Open PR #78 only appends after l.4917, so l.319 doesn't move.
+> - **Replace exactly this sentence** (one occurrence on l.319):
+>   `CI injects no dart-defines and no secrets.`
+> - **With exactly:**
+>   ```text
+>   CI injects no secrets and no dart-defines, except that the `e2e` job (ci.md rev 6, Exception E2E) passes `SUPABASE_URL` and `SUPABASE_ANON_KEY` taken only from `supabase status -o env` on the runner's local stack (local demo values, never prod).
+>   ```
+> - **Full new l.319:**
+>   ```text
+>   > **Locked (Bill / Design Doc plumbing):** Inject via `--dart-define` locally or at deploy time only: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN` (public, restricted by iOS bundle ID / web URL). CI injects no secrets and no dart-defines, except that the `e2e` job (ci.md rev 6, Exception E2E) passes `SUPABASE_URL` and `SUPABASE_ANON_KEY` taken only from `supabase status -o env` on the runner's local stack (local demo values, never prod). Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase service role key.
+>   ```
+> - **Only l.319 changes.** l.284, l.289, l.294 and l.1942 ("CI injects none") describe where the app's deploy values come from. The local e2e values aren't deploy values, and the lock names one line, so they stay. The copies at l.4107, l.4132 and l.4136 are inside the closed M14.8 item and stay.
+> - After PR0, `grep -c 'CI injects no dart-defines and no secrets' docs/impl-spec/impl-spec.md` drops by one. The closed M15 gate that once counted it is history, not a live gate.
+
+   Re-checked at the PR0 base (`31b0640` + #116 impl-spec `de344f44…2831`): l.319 is unchanged and holds the sentence exactly once; replacing it gives exactly the addendum's "Full new l.319" (530 bytes, sha256 `cd30572ccf0f475b4aa5d2c4efb98510e1fa6746fb76c294b278174abf076ea3`). The base file has the sentence on 7 lines (l.319, 4126, 4151, 4155, 4168, 4372, 4421; the addendum's l.4107, l.4132, l.4136 are now l.4126, l.4151, l.4155), so after PR0, over the base's 7,484 lines (CONFLICT B), `grep -c 'CI injects no dart-defines and no secrets' docs/impl-spec/impl-spec.md` prints `6`. With only the l.319 edit applied to the base file: 7,484 lines, 840,596 bytes, sha256 `b38412fcb6a3aaefba07667ddc49579612458bccc932260291cfbf0be84ea45d`. Then append one empty line and the APPROVED M18 item after the file's last line.
+   > 🔍 INFER: The appended item is the APPROVED text exactly as Big Head hands it over, because `AGENTS.md` l.60 keeps status changes out of agent hands; the agent changes no status line.
+- **No `ci.md`, no `AGENTS.md`, no `.github/` change in PR0.** Addendum OPEN 2 (l.226–235), verbatim:
+
+> - **Ruling: M18 does not touch `AGENTS.md`.** Rev 6 l.83 quotes the AGENTS.md CI line as M17b sets it:
+>   > `AGENTS.md` CI line: CI runs `dart format`, analyze, flutter test, Deno and pgTAP, and Supabase advisors (splinter) against a baseline on every PR. Local `supabase test db` is still how you check a migration before pushing.
+> - If M18 changed l.43, rev 6's quote would go stale, and M18 PR0 may not edit ci.md. The `e2e` job is report-only and is fully described in rev 6's Exceptions section, so agents don't need it on l.43 to follow the gates. No change is enough.
+> - After M17b, `AGENTS.md` l.43 (cited by content: the line starting `- CI runs`) reads exactly:
+>   ```text
+>   - CI runs `dart format`, analyze, flutter test, Deno and pgTAP, and Supabase advisors (splinter) against a baseline on every PR. Local `supabase test db` is still how you check a migration before pushing. **The PR body is the evidence**: paste fresh counts and command output from the PR's head commit.
+>   ```
+>   That edit is M17b's. Today on `46957e2` it is l.43, without the advisors clause.
+> - The lock's "Also in PR0: the AGENTS.md CI line" is **withdrawn**. The spec drops `AGENTS.md` from PR0's files. G1 PR0: `git diff main -- AGENTS.md` is empty.
+> - When Bill makes `e2e` required, a line change (AGENTS.md and rev 6 l.83 together) is a separate docs PR owned by Gilfoyle. It is not M18.
+
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 OPEN 3 (AGENTS.md CI line): no change (quoted above).
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 OPEN 4 (impl-spec l.319 text), quoted above. The rev 1 INFER "only l.319 changes" is confirmed.
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 OPEN 5 (design-doc README): two lines, quoted above. The `ci.md` line is M17b's.
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 INFER "`e2e.md` byte for byte (240 lines)". Superseded: `e2e.md` is the 241-line artifact with the two A5 citation edits.
+
+#### PR1 (harness, spike, C1): `feat/m18-e2e-spike`
+**Starts only after PR0 and M17b are both merged** (M17b-merged check).
+
+**Paths** (addendum l.277–279, verbatim):
+
+> - `apps/tell_me_a_story/integration_test/`: Flutter resolves it from the package root, next to `test/`. `flutter test` (the `flutter` job) runs only `test/`, so the 504 count is unchanged. `flutter analyze` and `dart format` cover the new folders (ceiling 27, lock Risk 8).
+> - `apps/tell_me_a_story/test_driver/`
+> - `e2e/` at the repo root: Deno and bash, not app code (the same pattern as `supabase/functions/`).
+
+**Files** (addendum l.281–296, verbatim; PR1 creates the PR1 rows):
+
+> ### Files (exhaustive; anything else needs a Gilfoyle ruling)
+> | Path | PR | Content |
+> |---|---|---|
+> | `apps/tell_me_a_story/integration_test/e2e_test.dart` | PR1 (C1), PR2 (+C2–C4), PR3 (+C5–C9) | The one entry. `main()` calls `IntegrationTestWidgetsFlutterBinding.ensureInitialized()`, runs the prod guard in `setUpAll`, and holds **every** `testWidgets(` call. The app is booted through `package:tell_me_a_story/main.dart` and `lib/` APIs only. |
+> | `apps/tell_me_a_story/test_driver/integration_test.dart` | PR1 | **Driver filename: `integration_test.dart`** (Flutter's standard). Exact content below. |
+> | `apps/tell_me_a_story/integration_test/support/prod_guard.dart` | PR1 | The lock (b) guard on `Env.supabaseUrl`: aborts unless it is `http://127.0.0.1:57321` or `http://localhost:57321`, and fails on any `supabase.co` or `lchytafmnuefrgkguynt` match. |
+> | `apps/tell_me_a_story/integration_test/support/relay_client.dart` | PR1 | `const kRelayOrigin = 'http://127.0.0.1:57390';` and `Future<Uri> magicLinkLocation(String email)` over `package:http` (already a direct dependency). |
+> | `apps/tell_me_a_story/integration_test/support/test_users.dart` | PR1 | Run id, `e2e-<run_id>-<flow>-<n>@example.test` emails, unique family names. |
+> | `apps/tell_me_a_story/integration_test/support/waits.dart` | PR1 | `pumpUntilFound` / `pumpUntilGone(tester, finder, {timeout})`: frame pumps until a finder condition holds or a deadline throws `TestFailure`. |
+> | `apps/tell_me_a_story/integration_test/support/preconditions.dart` | PR2 (optional) | Precondition setup through `lib/data/*_api.dart` gateways as the signed-in user, or the real Edge functions (lock D1). |
+> | `apps/tell_me_a_story/integration_test/flows.md` | PR3 | The manifest (OPEN 6). |
+> | `e2e/relay.ts` | PR1 | The Mailpit relay (contract below). |
+> | `e2e/check_flows.sh` | PR3 | The manifest check (OPEN 6). |
+>
+> - **Helper files are allowed**, but only the five under `integration_test/support/` listed above. They hold helpers only: no `main(`, no `testWidgets(` (the manifest check enforces this), no `sleep`/`Future.delayed`. Imports allowed: `package:flutter_test`, `package:integration_test`, `package:http`, `package:supabase_flutter`, `package:tell_me_a_story/...`. No other package.
+> - Not created in M18 (confirming Big Head's INFERs): `integration_test/quarantine/`, `e2e/fixtures/`, the U2 advisory annotation.
+
+**Driver** (addendum l.298–303, verbatim). As a file: 3 lines, 109 bytes, sha256 `2f80a384a6d27eaff7c355e92644a0ab171504857103a4d53579236e8ecdb05f`.
+
+> ### Driver, exact content of `apps/tell_me_a_story/test_driver/integration_test.dart`
+> ```dart
+> import 'package:integration_test/integration_test_driver.dart';
+>
+> Future<void> main() => integrationDriver();
+> ```
+
+> 🔍 INFER: The driver file is the addendum block plus one trailing LF (the sha above), because the addendum gives the block but no file ending, and every artifact file ends in one LF.
+
+**Relay port and run id** (addendum l.305–310, verbatim):
+
+> ### How the test reaches the relay: a fixed localhost port (no dart-define)
+> - **Chosen: the fixed port `127.0.0.1:57390`**, as a Dart `const` in `support/relay_client.dart` and the `--allow-net`/listen port in the YAML.
+> - **Not a dart-define.** Rev 6 allows `--dart-define` values "sourced **only** from `supabase status -o env`", and a relay URL isn't one of them. A fixed port also keeps the drive line identical locally and in CI.
+> - 57390 is outside every port in `supabase/config.toml` (57320–57324, 57327, 57329, 8083) and away from 3000 and 4444.
+> - Why a relay at all: the test code runs inside Chrome. It can't read Mailpit's API cross-origin, and it can't see a `302 Location` (browser `fetch` with `redirect: manual` returns an opaque response). The relay runs on the runner host and does both.
+> - **Run id** (no dart-define): `DateTime.now().toUtc().millisecondsSinceEpoch.toRadixString(36)`, computed once per harness run. Emails are `e2e-<run_id>-c<N>-<n>@example.test`, lowercase, with `n` starting at 1.
+
+**`e2e/relay.ts` contract** (addendum l.312–324, verbatim):
+
+> ### `e2e/relay.ts` contract (PR1)
+> - Deno built-ins only: no `import` of `jsr:`, `npm:` or a URL. Run as `deno run --no-prompt --allow-net=127.0.0.1:57390,127.0.0.1:57321,localhost:57321,127.0.0.1:57324 e2e/relay.ts`, with no `--allow-env`, `--allow-read` or `--allow-run`. It listens on `Deno.serve({ hostname: "127.0.0.1", port: 57390 })`.
+> - `GET /health` → `200` `ok`.
+> - `GET /magic-link?email=<addr>`:
+>   1. Return `400` unless `addr` matches `^e2e-[a-z0-9]+-c[1-9]-[0-9]+@example\.test$`.
+>   2. Poll `GET http://127.0.0.1:57324/api/v1/search?query=to:<addr>` (lock (c)) every 250 ms, with a 30 s overall deadline. Return `504` at the deadline. Return `409` if more than one message matches: each address gets exactly one magic link per run.
+>   3. `GET http://127.0.0.1:57324/api/v1/message/<ID>`, then take the first `…/auth/v1/verify?…` URL from the text body (the HTML body as a fallback, with `&amp;` decoded).
+>   4. **Prod guard:** the verify URL's origin must be `http://127.0.0.1:57321` or `http://localhost:57321`. Any URL containing `supabase.co` or `lchytafmnuefrgkguynt` → `500`.
+>   5. `fetch(verifyUrl, { redirect: "manual" })`. Expect a 3xx with a `Location` starting `http://127.0.0.1:3000` or `http://localhost:3000` (else `502`). Return `200` `{"location":"<Location>"}`.
+> - CORS: every response sends `Access-Control-Allow-Origin: http://127.0.0.1:3000` and `Vary: Origin`. GET only, simple requests, no preflight.
+> - Logging: method, path without the query, and status only. **Never log email bodies, verify URLs, tokens, codes or `Location`.**
+> - The M2 `generate_link` fallback is **not** built unless the PR1 spike shows a rate limit biting (lock (c)). If it is, it needs a Gilfoyle ruling on the endpoint and the `--allow-env` scope.
+> - The test calls `recoverSessionFromAuthCallback(Uri.parse(location))` (`lib/core/supabase/supabase_init.dart`) in the same browser, so a PKCE `code` exchanges with the verifier that `signInWithOtp` stored. That is spike item 2.
+
+**Build mode** (addendum l.326–332, verbatim):
+
+> ### Build mode: `--profile`
+> - **Chosen: `--profile`** (dart2js). This is the rev 6 "debug/profile" allowance.
+> - Why:
+>   - It builds one compiled `main.dart.js` instead of DDC's hundreds of lazily loaded modules. That removes the slow-DDC-load and module-timeout flake class (lock Risk 6) and runs the flows faster, inside the 3–5 min sizing.
+>   - It is closer to the shipped web artifact.
+>   - The cost is that framework asserts are off. Those assert paths are already covered by the 504 debug-mode widget tests. E2E proves wiring, not widgets (lock §0).
+> - If the PR1 spike shows that `--profile` can't drive the flows, stop and report. Switching to debug is a one-line Gilfoyle ruling, never an agent's choice.
+
+**Chrome and semantics** (addendum l.46–61, verbatim):
+
+> ### Choice: the runner's preinstalled Chrome plus its matching ChromeDriver, with a fail-closed version check
+> - **Chosen:** `google-chrome` on PATH and `$CHROMEWEBDRIVER/chromedriver` from the GitHub-hosted image. The step fails the job unless the two agree on MAJOR.MINOR.BUILD, which is ChromeDriver's compatibility rule.
+> - **Why not a Chrome-for-Testing pin now:**
+>   - Google publishes no sha256 for CfT zips. We would hash our own download, and the hash would pin a Chrome that the image's ChromeDriver doesn't match. We would then need two pinned downloads (Chrome plus ChromeDriver, about 170 MB) on every run.
+>   - The image ships Chrome and ChromeDriver as a matched pair. It is the same trust root as the `ubuntu-latest` runner the other three jobs already use, so it adds no new tool, no new download, and no new action.
+>   - Drift (lock Risk 5) can't pass silently: a mismatch fails the job, not the test.
+> - **If the check fails** (for example after `ubuntu-latest` moves to Ubuntu 26.04 in November 2026, #75 Addendum A §A6), stop and report to Gilfoyle. The CfT fallback lands only through a Gilfoyle addendum that names an exact CfT version plus a sha256 for each zip, fetched with `curl` and checked with `sha256sum -c`. **Never download Chrome or ChromeDriver unpinned.**
+>
+> ### Semantics
+> - **Report-only = not in branch protection.** No `continue-on-error` key appears anywhere in the job, at job or step level. `continue-on-error: true` would show a failing `e2e` as passing, which hides real reds and makes the "10 consecutive green runs" count meaningless. A red `e2e` shows red on the PR, but it blocks nothing until Bill adds it to required checks (rev 6 l.80).
+> - `timeout-minutes: 25` (rev 6 l.73). Job-level `permissions: contents: read`. The workflow-level `permissions` stay as they are. No `needs:`, so it runs in parallel with the other three jobs. No `paths`, no cache, no `services:`, no `container:`.
+> - **No secrets.** URL and anon key are read at runtime from `supabase status -o env` (the CLI's fixed local demo values). The workflow re-checks that `API_URL` is exactly `http://127.0.0.1:57321` before driving. The service_role key is never exported, written to a file, or passed anywhere.
+> - **Background start:** `supabase start` runs in the background while flutter-action, pub get, setup-deno, ChromeDriver and the relay come up (lock sizing). It is awaited with `tail --pid` under `timeout 600`, which is a bounded wait on process exit, not a sleep.
+> - **Readiness waits** for ChromeDriver and the relay are `curl --retry-connrefused` with `--retry-max-time 30`: bounded polls on a condition (see Ambiguity A1).
+> - **Logs:** the `supabase start` log is printed with JWTs, `sb_*` keys and long hex strings redacted. The relay and ChromeDriver logs are printed on every outcome (`if: always()`).
+> - **Workflow test-data prod guard:** the workflow aborts unless `API_URL` is `http://127.0.0.1:57321`. The harness keeps the lock's own guard (lock (b)).
+
+**`e2e` job YAML** (addendum OPEN 1, PR1; append after the last line of the `pgtap` job, one blank line before `  e2e:`). Artifact `ci-e2e-job-pr1.yml` = this block byte for byte: **127 lines, 5,303 bytes, sha256 `60b7bf856e42b815f7f64131dcd315655033d16db44549378ec19b1e58bde940`**. PyYAML 6.0.3 parses it. `e2e` steps in order: checkout, `install supabase cli`, `supabase --version`, `supabase start (background)`, flutter-action, `flutter --version`, `flutter pub get`, setup-deno, `deno --version`, `chrome and chromedriver (preinstalled, versions must match)`, `start e2e relay`, `await supabase start`, `flutter drive (e2e)`, `e2e logs (relay, chromedriver)`.
+```yaml
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      SUPABASE_CLI_VERSION: "2.121.0"
+      SUPABASE_CLI_SHA256: "4b481189efbdc57cf2d37bdee5f1a0d29574314398564b32a6dfb76c0fcf275f"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: install supabase cli
+        run: |
+          tgz="$RUNNER_TEMP/supabase.tar.gz"
+          curl -fsSL -o "$tgz" "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
+          echo "${SUPABASE_CLI_SHA256}  ${tgz}" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" supabase supabase-go
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: supabase --version
+        run: supabase --version
+
+      - name: supabase start (background)
+        run: |
+          ( set +e
+            supabase start -x studio,imgproxy,vector,logflare,supavisor,postgres-meta > "$RUNNER_TEMP/supabase-start.log" 2>&1
+            echo $? > "$RUNNER_TEMP/supabase-start.rc"
+          ) &
+          echo $! > "$RUNNER_TEMP/supabase-start.pid"
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: "3.47.7"
+
+      - name: flutter --version
+        working-directory: apps/tell_me_a_story
+        run: flutter --version
+
+      - name: flutter pub get
+        working-directory: apps/tell_me_a_story
+        run: flutter pub get --enforce-lockfile
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: "2.9.4"
+
+      - name: deno --version
+        run: deno --version
+
+      - name: chrome and chromedriver (preinstalled, versions must match)
+        run: |
+          chrome="$(command -v google-chrome)"
+          driver="${CHROMEWEBDRIVER:?CHROMEWEBDRIVER is not set}/chromedriver"
+          test -x "$driver"
+          cv="$("$chrome" --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
+          dv="$("$driver" --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
+          echo "chrome ${cv} (${chrome})"
+          echo "chromedriver ${dv} (${driver})"
+          if [ -z "$cv" ] || [ -z "$dv" ] || [ "${cv%.*}" != "${dv%.*}" ]; then
+            echo "e2e: chromedriver ${dv} does not match Chrome ${cv} (MAJOR.MINOR.BUILD)" >&2
+            exit 1
+          fi
+          "$driver" --port=4444 > "$RUNNER_TEMP/chromedriver.log" 2>&1 &
+          curl -fsS --retry 20 --retry-connrefused --retry-max-time 30 http://127.0.0.1:4444/status > /dev/null
+          echo "chromedriver listening on 127.0.0.1:4444"
+
+      - name: start e2e relay
+        run: |
+          deno run --no-prompt --allow-net=127.0.0.1:57390,127.0.0.1:57321,localhost:57321,127.0.0.1:57324 e2e/relay.ts > "$RUNNER_TEMP/relay.log" 2>&1 &
+          curl -fsS --retry 20 --retry-connrefused --retry-max-time 30 http://127.0.0.1:57390/health
+
+      - name: await supabase start
+        run: |
+          pid="$(cat "$RUNNER_TEMP/supabase-start.pid")"
+          set +e
+          timeout 600 tail --pid="$pid" -f /dev/null
+          waited=$?
+          set -e
+          sed -E 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[redacted-jwt]/g; s/sb_(secret|publishable)_[A-Za-z0-9_-]+/[redacted-key]/g; s/[0-9a-f]{32,}/[redacted-hex]/g' "$RUNNER_TEMP/supabase-start.log"
+          if [ "$waited" -ne 0 ]; then
+            echo "e2e: supabase start did not finish within 600 s" >&2
+            exit 1
+          fi
+          rc="$(cat "$RUNNER_TEMP/supabase-start.rc")"
+          echo "supabase start: exit ${rc}"
+          test "$rc" = 0
+
+      - name: flutter drive (e2e)
+        working-directory: apps/tell_me_a_story
+        run: |
+          status="$(cd "$GITHUB_WORKSPACE" && supabase status -o env)"
+          url="$(printf '%s\n' "$status" | sed -n 's/^API_URL="\(.*\)"$/\1/p')"
+          anon="$(printf '%s\n' "$status" | sed -n 's/^ANON_KEY="\(.*\)"$/\1/p')"
+          unset status
+          if [ "$url" != "http://127.0.0.1:57321" ]; then
+            echo "e2e: API_URL '${url}' is not the local stack http://127.0.0.1:57321" >&2
+            exit 1
+          fi
+          if [ -z "$anon" ]; then
+            echo "e2e: no ANON_KEY in supabase status -o env" >&2
+            exit 1
+          fi
+          flutter drive \
+            --driver=test_driver/integration_test.dart \
+            --target=integration_test/e2e_test.dart \
+            -d web-server --web-port=3000 --web-hostname=127.0.0.1 \
+            --profile \
+            --browser-name=chrome --driver-port=4444 --headless \
+            --chrome-binary="$(command -v google-chrome)" \
+            --dart-define=SUPABASE_URL="$url" \
+            --dart-define=SUPABASE_ANON_KEY="$anon"
+
+      - name: e2e logs (relay, chromedriver)
+        if: always()
+        run: |
+          for f in relay.log chromedriver.log; do
+            if [ -f "$RUNNER_TEMP/$f" ]; then
+              echo "== $f"
+              sed -E 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[redacted-jwt]/g' "$RUNNER_TEMP/$f"
+            fi
+          done
+```
+- The addendum states that on the `46957e2` `ci.yml` (sha256 `a379fa4c…5d0a`) appending the block gives a 260-line file, sha256 `1a95133a6ddd8ef6a2337d80e1bad05acb679bd9f70ceab80dfa615de68a97a7`, and that because M17b changes `pgtap` first, the PR1 gate is the diff: `git diff main -- .github/workflows/ci.yml` adds only this block after the last line of `pgtap`. Re-checked: `ci.yml` is unchanged at `9a7663d`; artifact `ci.yml.pr1-on-a379fa4c` (260 lines, 9,137 bytes, that sha256) = today's `ci.yml` + one blank line + the block; PyYAML parses it; jobs `flutter`, `deno`, `pgtap`, `e2e`; `e2e` has `timeout-minutes: 25`, `permissions: {contents: read}`, no `needs`.
+
+**Spike answers in the PR body** (lock PR1 row): (1) ChromeDriver match (the step's `chrome …`/`chromedriver …` lines); (2) PKCE vs implicit hand-off; (3) Mailpit search API; (4) the email rate limit on the local catcher; (5) the picker without a Mapbox token. Plus: publish with a Favorites place (lock Risk 3), `--profile` drives the flow, and the relay's one delay (A1).
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 OPEN 1 (`e2e` job YAML): build mode `--profile`, the preinstalled Chrome/ChromeDriver with a fail-closed version check, and the fixed relay port `127.0.0.1:57390`, all quoted above. The rev 1 INFERs "`e2e/relay.ts` uses only Deno built-ins" and "same tool pins" are confirmed (relay contract; conformance table "Same SHAs and versions as today").
+
+#### PR2 (C2, C3, C4): `feat/m18-e2e-c2-c4`
+- C2, C3, C4 exactly as the flows table says, added to `integration_test/e2e_test.dart` with the exact test names above. Preconditions per R11 (optionally in `support/preconditions.dart`); the C3 publish place from Favorites per R6.
+- No `ci.yml` change.
+
+#### PR3 (C5–C9, manifest): `feat/m18-e2e-c5-c9`
+- C5–C9 exactly as the flows table says, with the exact test names above.
+- **`apps/tell_me_a_story/integration_test/flows.md`** = artifact `flows.md` byte for byte: **15 lines, 2,015 bytes, sha256 `91e5609169227bf18579869761b234b08a749b5ff3223669cf847fdc77c48b37`** (equals the addendum's block). Addendum l.353–354, verbatim:
+
+> - Spec sources are cited by section, not by line, so the manifest doesn't drift with impl-spec edits.
+> - Owning paths are relative to `apps/tell_me_a_story/lib/` and are checked to exist.
+
+  All 23 owning paths exist at `9a7663d`.
+````markdown
+# E2E flow manifest
+
+Lock: `docs/design-doc/e2e.md` (U1) and `docs/design-doc/e2e-addendum-a.md`. `e2e/check_flows.sh` checks this file in the `e2e` job. One row per flow. The test name is the exact `testWidgets` description in `e2e_test.dart`. Owning paths are relative to `apps/tell_me_a_story/lib/`.
+
+| Flow | Test name | Spec source | Owning paths |
+|---|---|---|---|
+| C1 | `C1 magic-link sign-in lands on timeline` | §8 sign-in; M1; M8; `m08-profile.md`; §14 Automated #4 | `features/auth/`, `features/settings/`, `core/supabase/`, `core/router/`, `data/profile_session.dart` |
+| C2 | `C2 start a family lands on its empty timeline` | US-1; M10; `m10-manage-families.md` | `features/family/`, `features/timeline/`, `data/families_api.dart` |
+| C3 | `C3 capture and publish shows the card on the timeline` | US-3/3a/10; M3; M4; M14.1; publish lock; §14 Manual #1 | `features/stories/`, `features/people/`, `features/places/`, `features/timeline/`, `data/stories_api.dart`, `data/places_api.dart` |
+| C4 | `C4 draft autosaves, resumes from drafts and publishes` | US-11; M14.4; `m14.4-drafts.md` | `features/drafts/`, `features/stories/`, `data/stories_api.dart` |
+| C5 | `C5 reader adds a comment and a perspective` | US-6/6a; M5; M9; `m09-avatar-reader.md` | `features/stories/`, `features/comments/`, `features/perspectives/`, `data/comments_api.dart`, `data/perspectives_api.dart` |
+| C6 | `C6 invite link lets a second user join and see the timeline` | US-2; M2; §8 accept-invite; `00-foundation.md` §5 | `features/invites/`, `features/auth/`, `features/timeline/`, `data/invite_api.dart` |
+| C7 | `C7 search by person, place and timeframe finds the story` | US-9; M7 | `features/search/`, `data/search_api.dart` |
+| C8 | `C8 user from another family sees no content on a story url` | §14 Automated #1; §13 | `features/stories/`, `core/router/` |
+| C9 | `C9 sign out redirects guarded routes to the landing page` | router signed-out guard; M10 nav | `core/theme/album_header.dart`, `core/router/` |
+````
+- **`e2e/check_flows.sh`** = artifact `check_flows.sh` byte for byte: **58 lines, 2,433 bytes, sha256 `9081d559b86c74dda132b25b73d1673af7ef90d4b74ad5e04f00a3f8d9eb3af6`** (equals the addendum's block; `bash -n` passes). This replaces lock U1's Deno check with bash (addendum OPEN 6 heading: "Manifest check: `e2e/check_flows.sh`, bash (no Node, no Deno)").
+```bash
+#!/usr/bin/env bash
+# E2E flow manifest check (lock U1, Addendum A). Run from the repo root.
+# Fails if integration_test/flows.md and the testWidgets names in
+# integration_test/e2e_test.dart diverge. Reads files only; no network.
+set -euo pipefail
+
+app="apps/tell_me_a_story"
+manifest="$app/integration_test/flows.md"
+entry="$app/integration_test/e2e_test.dart"
+support="$app/integration_test/support"
+fail=0
+err() { echo "check_flows: $*" >&2; fail=1; }
+
+[ -f "$manifest" ] || { echo "check_flows: missing $manifest" >&2; exit 1; }
+[ -f "$entry" ] || { echo "check_flows: missing $entry" >&2; exit 1; }
+
+rows="$(grep -E '^\| C[0-9]+ \|' "$manifest" || true)"
+[ -n "$rows" ] || { echo "check_flows: no flow rows in $manifest" >&2; exit 1; }
+
+ids="$(printf '%s\n' "$rows" | awk -F'|' '{gsub(/^ +| +$/, "", $2); print $2}')"
+names="$(printf '%s\n' "$rows" | awk -F'|' '{gsub(/^ +| +$/, "", $3); gsub(/`/, "", $3); print $3}')"
+count="$(printf '%s\n' "$ids" | wc -l)"
+
+dup="$(printf '%s\n' "$ids" | sort | uniq -d)"
+[ -z "$dup" ] || err "duplicate flow ids: $dup"
+[ "$count" -le 10 ] || err "$count flows is over the U4 budget of 10"
+
+while IFS='|' read -r _ id name _ paths _; do
+  id="$(echo "$id" | sed -E 's/^ +| +$//g')"
+  name="$(echo "$name" | sed -E 's/^ +| +$//g; s/`//g')"
+  case "$name" in
+    "$id "*) ;;
+    *) err "$id: test name '$name' does not start with '$id '" ;;
+  esac
+  printf '%s\n' "$name" | grep -qE '^C[0-9]+ [a-z0-9 ,/-]+$' ||
+    err "$id: test name '$name' has characters outside [a-z0-9 ,/-]"
+  [ "${#name}" -le 64 ] || err "$id: test name is over 64 characters"
+  for p in $(printf '%s\n' "$paths" | grep -oE '`[^`]+`' | tr -d '`'); do
+    [ -e "$app/lib/$p" ] || err "$id: owning path lib/$p does not exist"
+  done
+done <<< "$rows"
+
+tests="$(grep -oE "'C[0-9]+ [^']*'" "$entry" | tr -d "'" | sort || true)"
+want="$(printf '%s\n' "$names" | sort)"
+if [ "$tests" != "$want" ]; then
+  err "flows.md and e2e_test.dart disagree:"
+  diff <(printf '%s\n' "$want") <(printf '%s\n' "$tests") >&2 || true
+fi
+
+calls="$(grep -c 'testWidgets(' "$entry" || true)"
+[ "$calls" -eq "$count" ] || err "e2e_test.dart has $calls testWidgets calls; flows.md has $count rows"
+
+if [ -d "$support" ] && grep -rlE 'testWidgets\(' "$support" >/dev/null; then
+  err "testWidgets( found under $support; tests live only in e2e_test.dart"
+fi
+
+[ "$fail" -eq 0 ] || exit 1
+echo "check_flows: $count flows match ($manifest <-> $entry)"
+```
+- **Manifest step** (addendum l.195–201, verbatim):
+
+> ### Exact PR3 manifest-check step
+> In PR3, insert this step in the `e2e` job **immediately after the checkout step** and before `install supabase cli`, so a manifest drift fails in seconds:
+> ```yaml
+>       - name: e2e flow manifest
+>         run: bash e2e/check_flows.sh
+> ```
+> - On the same `46957e2` base, the full PR3 file is 263 lines, sha256 `a19d74033cdcb6f2291b2f735bbccea9010269a024eb8a5a4caad40bb33e463e`. The diff gate is the same: only lines inside `e2e`.
+
+  Artifact `ci-manifest-step-pr3.yml` is 3 lines, 70 bytes, sha256 `0918fb8ae9e516d2dbad7f38e77dc8a7cc0adb6d0788cc6ced0dffc61766bbbc`: the two step lines plus one blank separator line. Artifact `ci-e2e-job-pr3.yml` (130 lines, 5,373 bytes, sha256 `4bcef7f827d18c08fcd6b3c74603a9798b5629eb102993d27c2f862dd854278b`) is the PR1 job with exactly those 3 lines inserted after the checkout's `persist-credentials: false` (checked with `diff`). Artifact `ci.yml.pr3-on-a379fa4c` (263 lines, 9,207 bytes, sha256 `a19d74033cdcb6f2291b2f735bbccea9010269a024eb8a5a4caad40bb33e463e`) = today's `ci.yml` + one blank line + the PR3 job; PyYAML parses it; "e2e flow manifest" is step 2 of `e2e`.
+> 🔍 INFER: The blank line after the step in `ci-manifest-step-pr3.yml` is a separator, not an extra YAML line, because the addendum block is two lines and the 130-line PR3 job keeps one blank line between steps like the rest of the job.
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 INFER "`flows.md` lands in PR3 with the check": confirmed by the addendum's file table.
+
+#### Verbatim files (sha256, lines, bytes; recomputed 2026-10-21)
+| File | Lands as | Lines | Bytes | sha256 |
+|---|---|---|---|---|
+| `e2e-design-lock-rev2-addendum-A.md` | `docs/design-doc/e2e-addendum-a.md` (PR0) | 501 | 39,902 | `67c430e46ff555448af1953baa0b24a068a1bfbbd56984eb524cb20512d8708b` |
+| `addendum-A-artifacts/e2e.md` | `docs/design-doc/e2e.md` (PR0) | 241 | 20,264 | `464bfcf262d0edcd4e310e4671b74dcd79bbc752f115003de0b472ad0386a4a0` |
+| `addendum-A-artifacts/ci-e2e-job-pr1.yml` | `e2e` job block in `ci.yml` (PR1) | 127 | 5,303 | `60b7bf856e42b815f7f64131dcd315655033d16db44549378ec19b1e58bde940` |
+| `addendum-A-artifacts/ci-manifest-step-pr3.yml` | step inserted in `e2e` (PR3) | 3 | 70 | `0918fb8ae9e516d2dbad7f38e77dc8a7cc0adb6d0788cc6ced0dffc61766bbbc` |
+| `addendum-A-artifacts/ci-e2e-job-pr3.yml` | `e2e` job block after PR3 | 130 | 5,373 | `4bcef7f827d18c08fcd6b3c74603a9798b5629eb102993d27c2f862dd854278b` |
+| `addendum-A-artifacts/ci.yml.pr1-on-a379fa4c` | reference only (pre-M17b base) | 260 | 9,137 | `1a95133a6ddd8ef6a2337d80e1bad05acb679bd9f70ceab80dfa615de68a97a7` |
+| `addendum-A-artifacts/ci.yml.pr3-on-a379fa4c` | reference only (pre-M17b base) | 263 | 9,207 | `a19d74033cdcb6f2291b2f735bbccea9010269a024eb8a5a4caad40bb33e463e` |
+| `addendum-A-artifacts/flows.md` | `apps/tell_me_a_story/integration_test/flows.md` (PR3) | 15 | 2,015 | `91e5609169227bf18579869761b234b08a749b5ff3223669cf847fdc77c48b37` |
+| `addendum-A-artifacts/check_flows.sh` | `e2e/check_flows.sh` (PR3) | 58 | 2,433 | `9081d559b86c74dda132b25b73d1673af7ef90d4b74ad5e04f00a3f8d9eb3af6` |
+| driver (addendum block + LF) | `apps/tell_me_a_story/test_driver/integration_test.dart` (PR1) | 3 | 109 | `2f80a384a6d27eaff7c355e92644a0ab171504857103a4d53579236e8ecdb05f` |
+| `pubspec.yaml` after PR1 (on `9a7663d`) | `apps/tell_me_a_story/pubspec.yaml` (PR1) | 98 | 4,005 | `1e06c3cd5af48a73d7de07c75863668db88721dd2faa176fd3825a2da91d37f0` |
+| `/workspace/m-ci/ci-rev6.md` | M17b's `docs/design-doc/ci.md` (not M18) | 84 | 8,572 | `a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b` |
+
+#### Gates (paste output in each PR body)
+**G1 Diff scope** (every PR):
+- `git diff main --stat` lists exactly that PR's files under "Files touched".
+- `git diff main -- apps/tell_me_a_story/lib apps/tell_me_a_story/test supabase apps/tell_me_a_story/analysis_options.yaml README.md AGENTS.md docs/design-doc/ci.md` is empty.
+- **PR0** (addendum handoff: "G1 PR0: `e2e.md` is 241 lines, sha256 `464bfcf2…a4a0`. `git diff main -- AGENTS.md docs/design-doc/ci.md .github/` is empty."):
+  - `wc -l -c docs/design-doc/e2e.md` → `241 20264`; `sha256sum` → `464bfcf262d0edcd4e310e4671b74dcd79bbc752f115003de0b472ad0386a4a0`.
+  - `wc -l -c docs/design-doc/e2e-addendum-a.md` → `501 39902`; `sha256sum` → `67c430e46ff555448af1953baa0b24a068a1bfbbd56984eb524cb20512d8708b`.
+  - `git diff main -U0 -- docs/design-doc/README.md` shows exactly the two added lines.
+  - `git diff main -U0 -- docs/impl-spec/impl-spec.md` shows only l.319 and the appended item; `head -n 7484 docs/impl-spec/impl-spec.md | grep -c 'CI injects no dart-defines and no secrets'` → `6`, and the same grep on the whole file → `14` (CONFLICT B).
+  - `git diff main -- AGENTS.md docs/design-doc/ci.md .github/ apps/ supabase/` is empty.
+- **PR1:**
+  - `git diff main -- apps/tell_me_a_story/pubspec.yaml` shows only the two `integration_test` lines after `flutter_test` (result sha256 `1e06c3cd5af48a73d7de07c75863668db88721dd2faa176fd3825a2da91d37f0` if `pubspec.yaml` is unchanged at the base).
+  - `git diff main -- apps/tell_me_a_story/pubspec.lock`, with the list of added packages and proof that no existing entry changed version.
+  - `sha256sum apps/tell_me_a_story/test_driver/integration_test.dart` → `2f80a384a6d27eaff7c355e92644a0ab171504857103a4d53579236e8ecdb05f`.
+  - `git diff main -- .github/workflows/ci.yml` adds only one blank line plus the 127-line block after the last line of `pgtap`, and the added block equals `ci-e2e-job-pr1.yml` (`60b7bf856e42b815f7f64131dcd315655033d16db44549378ec19b1e58bde940`).
+- **PR3:** `sha256sum apps/tell_me_a_story/integration_test/flows.md e2e/check_flows.sh` → `91e5609169227bf18579869761b234b08a749b5ff3223669cf847fdc77c48b37`, `9081d559b86c74dda132b25b73d1673af7ef90d4b74ad5e04f00a3f8d9eb3af6`; `git diff main -- .github/workflows/ci.yml` adds only the manifest step right after the `e2e` checkout step; the `e2e` job then equals `ci-e2e-job-pr3.yml` (`4bcef7f827d18c08fcd6b3c74603a9798b5629eb102993d27c2f862dd854278b`).
+- **PR1–PR3:** `ls apps/tell_me_a_story/integration_test/support/` lists only files among the addendum's five.
+
+**G2 Existing CI unchanged** (every PR, CI on the final head): `CI / flutter`, `CI / deno`, `CI / pgtap` green with:
+- `Flutter 3.47.7 • channel stable`; `Formatted N files (0 changed)` (N = 120 at `31b0640`, plus the new `.dart` files);
+- `flutter analyze: N issues (ceiling 27, exit 0)`, N ≤ 27, 0 errors;
+- `🎉 537 tests passed.` (unchanged at `31b0640`; `flutter test` runs `test/` only, addendum l.277);
+- `ok | 43 passed | 0 failed`;
+- `supabase.tar.gz: OK`, `All tests successful.`, `Result: PASS`, and the pgTAP count **equal to `main` at the PR's base** (addendum R0): `Files=25, Tests=825` once M17b is merged, so PR1–PR3 expect 825; PR0 expects its base (`Files=25, Tests=825` at `31b0640`). Any step M17b adds to `pgtap` is green.
+
+**G3 `e2e` job** (PR1–PR3, CI on the final head):
+- The `e2e` job is green. Its log shows: `sha256sum -c` `: OK`; `supabase --version` → `2.121.0`; the redacted `supabase start` output and its exit 0; `Flutter 3.47.7`; the `chrome <version>` and `chromedriver <version>` lines, matching on MAJOR.MINOR.BUILD; ChromeDriver ready on 4444; relay `/health` → `ok`; the `flutter drive` line; one passing result per flow in scope (PR1: C1; PR2: C1–C4; PR3: C1–C9) by exact test name; PR3: `check_flows: 9 flows match (…)`; the job's wall time.
+- `e2e` is **not** required: `get_branch main` (or the PR's checks panel) shows required contexts still `["deno", "flutter", "pgtap"]`.
+- PR3: `e2e` wall time ≤ 12 min (lock U4).
+> 🔍 INFER: No exact pass string is fixed for `flutter drive` because neither the lock nor the addendum gives one; paste the raw summary lines it prints.
+
+**G4 Workflow greps** (PR1, PR3). Addendum "G4 values" (l.217–221), verbatim:
+
+> - Jobs are exactly `flutter`, `deno`, `pgtap`, `e2e` (plus whatever M17b adds to `pgtap` steps; no other job in `ci.yml`).
+> - `grep -c 'uses:' .github/workflows/ci.yml` → `8`. `grep -c 'persist-credentials: false'` → `4`. `grep -n 'timeout-minutes'` → `15`, `15`, `20`, `25`.
+> - `grep -nE 'secrets\.|supabase link|--linked|--db-url|db (push|pull|reset)|migration |setup-cli|pull_request_target|paths|continue-on-error|cache|sleep ' .github/workflows/ci.yml` prints nothing.
+> - `grep -c 'dart-define' .github/workflows/ci.yml` → `2`, both inside `e2e`.
+> - `grep -c 'contents: read' .github/workflows/ci.yml` → `2` (workflow + `e2e`), plus any M17b line. Workflow `env` still `ANALYZE_CEILING: 27` only.
+
+- Plus: `python3 -c "import yaml;print(list(yaml.safe_load(open('.github/workflows/ci.yml'))['jobs']))"` prints the four jobs.
+- **G4 counts are relative:** expected = the count on the PR's base plus the `e2e` block's own lines (`uses:` +3, `persist-credentials: false` +1, `timeout-minutes` +1 with value `25`, `dart-define` +2, `contents: read` +1, banned patterns +0). The addendum's absolute numbers above are the e2e-block deltas on a pre-M17b base (then: `uses:` 8, `persist-credentials: false` 4, `timeout-minutes` 15/15/20/25, `dart-define` 2, `contents: read` 2). On any later base, report base and result; do not hardcode absolutes. Jobs remain `flutter`/`deno`/`pgtap`/`e2e`; workflow `env` = `ANALYZE_CEILING: 27` only. Edit nothing outside `e2e`.
+> ✅ CLOSED (Gilfoyle, 2026-10-21 6:52 PM CT): G4 counts are relative (base count plus the e2e block's own lines). Don't hardcode absolutes. PR1 and PR3 cloud-agent evidence updated to match.
+> ✅ Wording confirmed by Gilfoyle 2026-10-22 1:00 PM CT.
+
+**G5 Safety greps** (PR1–PR3):
+- `rg -n 'lchytafmnuefrgkguynt|supabase\.co' apps/tell_me_a_story/integration_test apps/tell_me_a_story/test_driver e2e` → only the guard lines in `support/prod_guard.dart` and `e2e/relay.ts`.
+- `rg -n -i 'service_role' apps/ e2e/ .github/` → nothing.
+- `rg -n 'signInWithPassword|kE2E|fromEnvironment\(.E2E' apps/` → nothing.
+- `rg -n 'sleep|Future\.delayed' apps/tell_me_a_story/integration_test apps/tell_me_a_story/test_driver` → nothing (addendum A1). For `e2e/relay.ts`, list its only delay (the 250 ms Mailpit poll, 30 s deadline).
+- `rg -n 'db reset|db pull|migration' apps/tell_me_a_story/integration_test apps/tell_me_a_story/test_driver e2e` → nothing.
+- `rg -n "import .*(jsr:|npm:|https?://)" e2e` → nothing. `rg -n "^import " apps/tell_me_a_story/integration_test apps/tell_me_a_story/test_driver` → only `dart:` and the five allowed packages.
+- `rg -n 'testWidgets\(|main\(' apps/tell_me_a_story/integration_test/support` → nothing.
+- The relay's log lines print only method, path without query, and status.
+- `ls package.json e2e/fixtures apps/tell_me_a_story/integration_test/quarantine` → all absent.
+
+**G6 Local** (from the PR head; this item's numbers win over `AGENTS.md` l.36–39):
+- `cd apps/tell_me_a_story && flutter --version` (3.47.7), `flutter pub get --enforce-lockfile`, `dart format --output=none --set-exit-if-changed .` exit 0, `flutter analyze` ≤ 27 / 0 errors, `flutter test` 537 passing.
+- `deno test --allow-env supabase/functions` 43 passed. PR3: `bash e2e/check_flows.sh` from the repo root → `check_flows: 9 flows match (…)`.
+- If the agent runs the suite locally: `supabase start` (no reset), the relay command, ChromeDriver and the same `flutter drive` line as the YAML. Never `supabase db reset`.
+
+**G7 Spike** (PR1): the spike answers with evidence (step lines and the relay's status codes; never a verify URL, token, code or `Location` value).
+
+Evidence each gate needs in the PR body:
+- **G1:** the `git diff main --stat` output; the empty diffs; the `wc`/`sha256sum` lines; PR1's `pubspec.yaml` diff and `pubspec.lock` package list; the `ci.yml` diff.
+- **G2:** the Actions run id and URL on the final head, and the raw log lines from each of the three jobs.
+- **G3:** the raw `e2e` log lines, per-flow results by test name, wall time, required-contexts proof. For a diagnostic rerun (report-only only): both run ids and why.
+- **G4, G5:** the full output of each command.
+- **G6:** each command and its output.
+- **G7:** the spike write-up.
+- Completion note: commands run, counts, OPENs left, and "E2E flows touched: …" for that PR.
+
+#### Stop rules (stop, report, don't fix)
+- **PR1, PR2 or PR3 with M17b not merged** (base `docs/design-doc/ci.md` sha256 isn't `a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b`, or the M17b PR isn't merged): don't start. Report.
+- Any red gate: paste the failing output. A red `pgtap`, `flutter` or `deno` job on an M18 PR is never fixed by editing tests, migrations, `config.toml`, `seed.sql` or `lib/`.
+- A red `e2e` job after the one allowed diagnostic rerun: paste the failing step and log. Don't add retries, sleeps, fixed delays or `continue-on-error`, and don't edit the YAML.
+- The Chrome/ChromeDriver version check fails (addendum l.52): report to Gilfoyle. Never download Chrome or ChromeDriver; a CfT pin needs a Gilfoyle addendum with an exact version plus a sha256 per zip (A3).
+- The web callback hand-off fails in the spike (A2): report to Gilfoyle. No Node, npm, `package.json` or Playwright.
+- `--profile` can't drive the flows (addendum l.332): report. Switching to debug is Gilfoyle's one-line ruling.
+- A rate limit bites: report; the M2 fallback needs a Gilfoyle ruling on the endpoint and `--allow-env` scope first (addendum l.323). Never for C1.
+- Publish can't use a Favorites place without a token: stop C3–C8 work and raise OPEN 9 (Jared). No test-only bypass.
+- A YAML step, flag or tool behaves differently from the addendum on the runner (for example a `flutter drive` flag is rejected, `supabase status -o env` lacks `API_URL` or `ANON_KEY`, or port 57390 is taken): report to Gilfoyle. Don't change the YAML.
+- A flow can't be driven without a `lib/` change, a new `Key`, a debug route, an auth bypass or a test hook (R13), or it needs a helper file or import outside the addendum's list: report to Gilfoyle (and Mugatu if anything visible would change).
+- A state can only be built with a SQL fixture: stop; it needs a Gilfoyle sign-off (lock (c)).
+- `pubspec.lock` changes an existing entry's version, or adds anything other than SDK-pinned packages and their transitive pins (ruling (a)); or any other dependency seems needed (OPEN, Bill).
+- `e2e/check_flows.sh` fails, or `e2e` wall time is over 12 min in PR3 (lock U4): report to Gilfoyle. Don't drop, rename or merge flows.
+- Code and spec disagree: a file differs from its sha256 under "Code on `main`" (other than the changes M17a/M17b make to `ci.yml`, `AGENTS.md` l.43, ci.md, README l.20 and `supabase/`), a quoted line doesn't hold (for example the l.319 sentence isn't found exactly once), or a verbatim file's sha256 differs. Report the diff; don't reconcile.
+- Anything banned seems needed (a secret, a prod action, a CI change outside `e2e`, a reset).
+- An OPEN blocks a file: stop work on that file, finish the rest, report it (`AGENTS.md` l.19).
+
+> 🚫 FORBIDDEN: Lock "FORBIDDEN" (l.218–227), verbatim:
+> - Any hosted Supabase as an E2E target. **Prod `lchytafmnuefrgkguynt` is never a target**, and neither are its preview branches. Also banned in the e2e job: `supabase link`, `--linked`, `--db-url`, `db push/pull/reset` and any `migration` command.
+> - Real secrets anywhere in E2E: no `${{ secrets.* }}` in the `e2e` job, no Resend key and no Mapbox token. Only local demo values from `supabase status -o env`.
+> - The service_role key in the Flutter bundle or repo (impl-spec l.315). The local key stays inside the relay process only (M2 fallback).
+> - Test-only code in shipped builds: no `kE2E` or `bool.fromEnvironment('E2E')` hooks, no password sign-in, no debug routes and no auth bypass in `lib/`.
+> - Unpinned actions. Any action besides checkout, flutter-action and setup-deno, including `supabase/setup-cli` and local composite actions. Any tool not pinned by version plus sha256 or an integrity-hashed lockfile.
+> - Editing existing migrations. E2E fixtures in `supabase/seed.sql` or migrations.
+> - `supabase db reset` anywhere.
+> - Fixing a red E2E run by editing pgTAP, migrations or `config.toml`. Raising `ANALYZE_CEILING`.
+> - `sleep`-based waits. Automatic retries in the required gate.
+> - `pull_request_target`, `permissions` wider than `contents: read`, and `paths` filters on the e2e job.
+
+> 🚫 FORBIDDEN: Addendum A, verbatim: "**Never download Chrome or ChromeDriver unpinned.**" "No `continue-on-error` key appears anywhere in the job, at job or step level." "**Forbidden:** any wait not tied to a condition: `sleep`, `Future.delayed`, `setTimeout` used as a pause, or a fixed `pump(Duration(seconds: N))` used to "let things settle"." "**A2. Playwright/Node fallback: FORBIDDEN.**" "No Node, npm, `package.json` or Playwright, in any PR." "No direct `flutter_driver` entry." "with no `--allow-env`, `--allow-read` or `--allow-run`" (relay). "**Never log email bodies, verify URLs, tokens, codes or `Location`.**" "No other package." (helpers). "No agent touches branch protection."
+
+> 🚫 FORBIDDEN: Any CI change beyond what the locks specify: no change to the `flutter`, `deno` or `pgtap` jobs or to the workflow `name`, `on`, `concurrency`, `permissions` or `env`; no new workflow file; nothing in `e2e` beyond the addendum's PR1 block and PR3 step (no cache, step, env, retry or flag). Any edit to `docs/design-doc/ci.md` or `AGENTS.md` in any M18 PR (M17b owns both). Starting PR1, PR2 or PR3 before M17b is merged. Making `e2e` a required check, or touching branch protection, rulesets or repo settings, at any time: Bill alone flips it after the A4 count of 10 green runs. Any prod access: no query, MCP call, CLI command, token or URL aimed at `lchytafmnuefrgkguynt` or any hosted Supabase. Secrets, tokens or passwords in code, the repo, GitHub secrets, logs, `--dart-define` values from anywhere but `supabase status -o env`, or chat (`AGENTS.md` l.57). `supabase db reset`, `db pull`, `migration down`, `migration repair` (`AGENTS.md` l.22), locally or in CI. Any `lib/` change. Any dependency other than the Flutter SDK `integration_test` package. Any flow, screen, route, tool, test language, helper file or test name the locks don't name. Merging, pushing to `main`, or more than one M18 PR open (`AGENTS.md` l.59; ruling (c)). Stamping this item, or any item, READY, APPROVED or CLOSED (`AGENTS.md` l.60). Opening, editing, commenting on or relabelling issues, including #48. Notion edits. Editing the lock or the addendum.
+
+#### Out of scope
+- The broad set (lock l.92): "A broader flow is promoted only when a real regression escapes, one flow at a time, within the U4 budget."
+- Mapbox search, iPad gestures, photo picking (manual smoke; lock Risk 9).
+- Hosted targets (preview branches, staging, prod) for the PR gate (lock (b)).
+- #75 / M17a, M17b, M17c, including ci.md rev 6, the `AGENTS.md` l.43 advisors clause and README l.20.
+- The required-check flip itself (Bill by hand) and the later `AGENTS.md` / rev 6 l.83 line change. The small docs PR that updates `ci.md` l.34, l.39 and Required checks to four rides with that flip (OPEN 11 CLOSED); it is not one of PR0–PR3, and M18 CLOSED waits on it.
+- Quarantine (lock U5) and U4 pruning at later milestone CLOSED stamps (Gilfoyle).
+
+#### OPENs, CONFLICTs, INFERs (index)
+- **CLOSED in rev 2 (Gilfoyle addendum A):** OPENs 1–7. CONFLICTs: "lockfile update only" vs pubspec, impl-spec +2 offset, lock "M16" label, `AGENTS.md` l.18 vs four PRs, two ci.md rev 6 texts. INFERs: "no `continue-on-error`", "relay polling", "10 green", "`e2e.md` byte for byte (240 lines)" (superseded), "only l.319 changes", "relay uses Deno built-ins only", "`flows.md` in PR3", "same tool pins", "no quarantine/fixtures/annotation", the rev 1 G4 `uses:`/`persist-credentials` counts (now addendum values).
+- **OPEN (remaining):** OPEN 9 Mapbox-pinned place (Jared, conditional); §17 OPEN [Mugatu, Bill] designed "not available" state (non-blocking; fold into impl-spec §17 at M18 CLOSED); any dependency beyond `integration_test` (Bill, conditional). CLOSED in rev 3: OPEN 8 (Mugatu), OPEN 10 (Gilfoyle), OPEN 11 (Gilfoyle).
+- **CONFLICT (remaining):** A, Erratum 1 vs the byte-for-byte Addendum A (Gilfoyle, non-blocking, narrower option taken); B, the PR0 grep count with this item appended (Gilfoyle, non-blocking, narrower option taken). Both are under "PR0 approval and refresh". No other lock-vs-repo mismatch at the PR0 base.
+- **INFER (remaining):** PR titles; `Refs #48`; email `<flow>` token is `c<N>`; driver file ending; the manifest artifact's blank separator line; appended item text unchanged; no fixed `flutter drive` pass string; lanes.
+
+#### After each PR is open (lanes)
+> 🔍 INFER: Lanes are `AGENTS.md` l.63's (Gilfoyle, Big Head, Mugatu, Dinesh) plus Trinity for security, as in rev 1, because the item adds a CI job, a relay and a dependency; Mugatu is skipped on every M18 PR (no `lib/` change, no new `Key`); he closed OPEN 8 and will design the §17 "not available" OPEN if Bill wants it. Jared only for OPEN 9.
+- **Gilfoyle (architecture):** the PR1/PR3 `ci.yml` diff equals the addendum block/step; rev 6 conformance; relay contract; prod guard; spike answers; `--profile`; red `e2e` runs and fallbacks come back to him.
+- **Big Head (spec):** the diff against this item per PR: files touched, verbatim file shas, G1–G7 pasted, test names, "E2E flows touched" line.
+- **Dinesh (code quality):** Dart and Deno code: bounded waits only (A1), no swallowed errors (`AGENTS.md` l.47), helpers only in the five files, analyze ≤ 27, format.
+- **Trinity (security):** no secrets; service_role never exported; both prod guards; relay `--allow-net` scope and logging rule; `permissions: contents: read`; SHA-pinned actions; the `pubspec.lock` additions (ruling (a)); no unpinned Chrome download.
+- **Mugatu:** skipped on PRs (OPEN 8 CLOSED; §17 "not available" OPEN is post-M18). **Jared:** only if OPEN 9 is raised.
+- **Bill merges.**
+
+#### Bill steps (not the agent's)
+- [x] Approve PR0 (READY → APPROVED for PR0): Bill, 12:38 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do Pr0 of M48".
+- [ ] Give PR1, PR2 and PR3 their go (each still READY rev 3.1; each needs its own go).
+- [ ] PR0: check the three required checks are green; merge (before or after M17b).
+- [x] Merge M17a, then M17b (separate items): done, §15 M17 CLOSED 2026-10-22. PR1 can't start until M17b is on `main` (it is, at `31b0640`).
+- [ ] PR1, PR2, PR3: check `CI / flutter`, `CI / deno`, `CI / pgtap` green (required) and `CI / e2e` green (report-only); merge each after the lanes pass.
+- [ ] If raised: answer OPEN 9 with Jared, or a dependency OPEN.
+- [ ] After PR3 merges, Gilfoyle or Trinity counts 10 runs per A4 and posts the run ids and head SHAs to you. Then add `e2e` to `main`'s required checks by hand. Required contexts become `deno`, `e2e`, `flutter`, `pgtap`.
+- [ ] When you add `e2e` to required checks, merge in the same sitting a small docs PR that updates `ci.md` l.34, l.39 and Required checks from three to four (text from Gilfoyle). M18 CLOSED waits for that PR.
+> ✅ Wording confirmed by Gilfoyle 2026-10-22 1:00 PM CT.
+- [ ] Remove the `blocked` label from #48 when you choose. Close #48 after `e2e` is required.
+- Big Head then stamps M18 CLOSED in a separate docs PR (after the docs PR above), and folds the §17 OPEN [Mugatu, Bill] into impl-spec §17.
+
+Addendum A4 (l.479–484), verbatim:
+
+> - What counts: runs of workflow `CI` triggered by `push` to `main` whose `e2e` job concluded `success` on **run attempt 1**.
+> - The count starts with the first such run after **PR3 merges** (the full C1–C9 suite plus the manifest check).
+> - What resets it to 0: any `e2e` failure, cancellation or timeout on a main push run, or any rerun of one.
+> - PR runs and manual reruns never count.
+> - Who counts: **Gilfoyle or Trinity**, using read-only `list_workflow_runs` / `list_workflow_run_jobs`. They post the 10 run ids and head SHAs to Bill.
+> - **Bill alone flips** `e2e` into `main`'s required checks by hand (rev 6 l.80). No agent touches branch protection.
+
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 INFER "10 green runs". Handoff: "The INFER "10 green" is confirmed with the A4 details."
+
+#### Traceability
+| Source | Covered by |
+|---|---|
+| Issue #48 body and comments (Bill 10:11 AM CT and 1:57 PM CT 2026-10-20; "both" 6:07 PM CT 2026-10-21) | Decisions, Dependency approval, Bill steps |
+| Addendum numbering map (l.9+) | CLOSED callouts (addendum OPEN n closes spec OPEN n+1; R0 closes spec OPEN 2) |
+| Addendum R0 (l.26–40) | Order and M17b gate, PR split, G2, Stop rules, FORBIDDEN |
+| Addendum OPEN 1 (l.44–221: Chrome, semantics, YAML, PR3 step, conformance, G4) | PR1, PR3, R5, R8, R14, G3, G4, Stop rules |
+| Addendum OPEN 2 (l.225–235, AGENTS.md no change) | PR0, Files touched, G1, FORBIDDEN, Out of scope |
+| Addendum OPEN 3 (l.239–252, impl-spec l.319) | PR0 item 4, G1 |
+| Addendum OPEN 4 and PR0 file list (l.256–270) | PR0 items 1–3, Files touched, G1 |
+| Addendum OPEN 5 (l.274–332) | PR1, R4, R7–R11, G5, Verbatim files |
+| Addendum OPEN 6 (l.336–446) | Test names, PR3, G1, G3, G6 |
+| Addendum CONFLICT rulings (l.450–465) | Dependency approval, PR split, numbering, Code on `main` |
+| Addendum A1–A5 (l.467–492) | R15, Stop rules, FORBIDDEN, Bill steps, PR0 item 1 |
+| Addendum handoff (l.494–501) | Rev 2 changes and every section above |
+| Lock (a)–(d), Sizing, Risks, FORBIDDEN, decision record | Flows, R1–R18, PR split, FORBIDDEN, Decisions |
+| ci.md rev 6 l.67–73, l.51/l.77, l.80 (reference) | Order and M17b gate, G2, Bill steps |
+| `AGENTS.md` l.18, l.19, l.22, l.53, l.57–60, l.63 | PR split, Stop rules, R12, Dependency approval, FORBIDDEN, Lanes |
+
+#### Cloud-agent instruction block, PR0 (copy-paste; PR0 APPROVED by Bill 12:38 PM CT 2026-10-22)
+```text
+You are implementing §15 M18 "E2E regression tests (#48)", PR0 (docs only), for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story). Branch feat/m18-e2e-docs off the current main. Title "M18 PR0: E2E design lock and addendum A (#48)". PR body "Refs #48" (never Closes/Fixes). Do not push to main. Do not merge. Stop after opening the PR. Only one M18 PR may be open.
+
+Read first: the APPROVED §15 M18 item as handed to you, and AGENTS.md. Gilfoyle's E2E lock rev 2 (sha256 bdeef481a69bf8a42edbc8348a6c3b9497547cbf5e73f7148a1733a815025806) and Addendum A (sha256 67c430e46ff555448af1953baa0b24a068a1bfbbd56984eb524cb20512d8708b) win on tech; the addendum wins where they differ. Copy everything exactly.
+
+Base check: docs/impl-spec/impl-spec.md l.319 contains the sentence "CI injects no dart-defines and no secrets." exactly once, and the file has it on 7 lines in total; docs/design-doc/README.md has exactly one line starting "- `ci.md` — ". If not, stop and report.
+
+Exactly these 4 files change:
+1. NEW docs/design-doc/e2e.md = the item's e2e.md artifact byte for byte: 241 lines, 20264 bytes, sha256 464bfcf262d0edcd4e310e4671b74dcd79bbc752f115003de0b472ad0386a4a0.
+2. NEW docs/design-doc/e2e-addendum-a.md = Addendum A byte for byte: 501 lines, 39902 bytes, sha256 67c430e46ff555448af1953baa0b24a068a1bfbbd56984eb524cb20512d8708b.
+3. docs/design-doc/README.md: insert immediately after the line starting "- `ci.md` — " exactly these two lines, and nothing else:
+- `e2e.md` — E2E regression tests #48 (LOCKED 2026-10-20, Gilfoyle, rev 2)
+- `e2e-addendum-a.md` — E2E Addendum A, answers to the M18 spec rev 1 (LOCKED 2026-10-21, Gilfoyle)
+4. docs/impl-spec/impl-spec.md: on l.319 replace exactly "CI injects no dart-defines and no secrets." with exactly "CI injects no secrets and no dart-defines, except that the `e2e` job (ci.md rev 6, Exception E2E) passes `SUPABASE_URL` and `SUPABASE_ANON_KEY` taken only from `supabase status -o env` on the runner's local stack (local demo values, never prod)." (new l.319 sha256 cd30572ccf0f475b4aa5d2c4efb98510e1fa6746fb76c294b278174abf076ea3). No other existing line changes (l.284, 289, 294, 1942, 4126, 4151, 4155 stay). Then append the APPROVED M18 item after the last line, unchanged.
+
+Never in PR0: docs/design-doc/ci.md, AGENTS.md, .github/, apps/, supabase/, root README.md; secrets; prod access; stamping anything READY/APPROVED/CLOSED; editing the lock or addendum; issue edits or comments; Notion; merging.
+
+Stop and report if a base check fails, a sha differs, or the l.319 sentence isn't found exactly once.
+
+PR body evidence: git diff main --stat (the 4 files); wc -l -c and sha256sum of e2e.md and e2e-addendum-a.md; git diff main -U0 -- docs/design-doc/README.md (two added lines); git diff main -U0 -- docs/impl-spec/impl-spec.md (l.319 and the appended item only); head -n 7484 docs/impl-spec/impl-spec.md | grep -c 'CI injects no dart-defines and no secrets' (6) and the whole-file count (14); the empty git diff main -- AGENTS.md docs/design-doc/ci.md .github/ apps/ supabase/; CI run id + URL with flutter, deno, pgtap green and raw lines (Flutter 3.47.7; Formatted N files (0 changed); flutter analyze: N issues (ceiling 27, exit 0); 🎉 537 tests passed.; ok | 43 passed | 0 failed; All tests successful. with main's pgTAP count at your base; Result: PASS). Completion note: commands, outputs, OPENs left, "E2E flows touched: none (docs)". Lanes: Gilfoyle, Big Head, Dinesh, Trinity. Bill merges.
+```
+
+#### Cloud-agent instruction block, PR1 (copy-paste; use only after Bill gives PR1 its go, PR0 is merged and M17b is merged)
+```text
+You are implementing §15 M18 "E2E regression tests (#48)", PR1 (harness, spike, C1), for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story; Flutter + Supabase + Deno; GitHub Actions). Branch feat/m18-e2e-spike off the current main. Title "M18 PR1: E2E harness, spike and C1 (#48)". PR body "Refs #48". Do not push to main. Do not merge. Stop after opening the PR. Only one M18 PR may be open.
+
+Read first: the APPROVED §15 M18 item, AGENTS.md, docs/design-doc/e2e.md and docs/design-doc/e2e-addendum-a.md. The addendum wins on tech. Copy YAML, file contents, paths, names and commands exactly.
+
+HARD GATE, before anything else: sha256sum docs/design-doc/ci.md prints a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b (ci.md rev 6, landed by M17b); the M17b PR is merged; M18 PR0 is merged (docs/design-doc/e2e-addendum-a.md present). If any fails, do not start: stop and report. Also check: no integration_test/, test_driver/, e2e/ or package.json exists yet, and flutter_test is the first entry under dev_dependencies in apps/tell_me_a_story/pubspec.yaml.
+
+Files (exactly these 10):
+- apps/tell_me_a_story/pubspec.yaml: add exactly "  integration_test:" and "    sdk: flutter" directly after the flutter_test entry. Run flutter pub get with Flutter 3.47.7 and commit apps/tell_me_a_story/pubspec.lock. No existing lock entry may change version; only SDK-pinned packages and their transitive pins may be added; no direct flutter_driver entry. flutter pub get --enforce-lockfile must pass.
+- apps/tell_me_a_story/test_driver/integration_test.dart = exactly the item's driver (3 lines, 109 bytes, sha256 2f80a384a6d27eaff7c355e92644a0ab171504857103a4d53579236e8ecdb05f).
+- apps/tell_me_a_story/integration_test/e2e_test.dart: main() calls IntegrationTestWidgetsFlutterBinding.ensureInitialized(), runs the prod guard in setUpAll, holds every testWidgets( call, boots the app through package:tell_me_a_story/main.dart and lib/ APIs only. PR1 adds only the test named exactly 'C1 magic-link sign-in lands on timeline' (C1: enter email → link from Mailpit → callback → profile bootstrap → required name (M8) → lands on /timeline).
+- apps/tell_me_a_story/integration_test/support/prod_guard.dart: guard on Env.supabaseUrl; abort unless http://127.0.0.1:57321 or http://localhost:57321; fail on any supabase.co or lchytafmnuefrgkguynt match.
+- apps/tell_me_a_story/integration_test/support/relay_client.dart: const kRelayOrigin = 'http://127.0.0.1:57390'; and Future<Uri> magicLinkLocation(String email) over package:http.
+- apps/tell_me_a_story/integration_test/support/test_users.dart: run id DateTime.now().toUtc().millisecondsSinceEpoch.toRadixString(36), computed once per run; emails e2e-<run_id>-c<N>-<n>@example.test, lowercase, n from 1; unique family names.
+- apps/tell_me_a_story/integration_test/support/waits.dart: pumpUntilFound / pumpUntilGone(tester, finder, {timeout}), frame pumps until the finder condition holds or a deadline throws TestFailure.
+  Helpers: no main(, no testWidgets(, no sleep/Future.delayed; imports only package:flutter_test, package:integration_test, package:http, package:supabase_flutter, package:tell_me_a_story/...
+- e2e/relay.ts at the repo root, exactly per the item's relay contract: Deno built-ins only (no jsr:, npm: or URL imports); run as deno run --no-prompt --allow-net=127.0.0.1:57390,127.0.0.1:57321,localhost:57321,127.0.0.1:57324 e2e/relay.ts; Deno.serve({ hostname: "127.0.0.1", port: 57390 }); GET /health → 200 ok; GET /magic-link?email=<addr> → 400 unless ^e2e-[a-z0-9]+-c[1-9]-[0-9]+@example\.test$; poll GET http://127.0.0.1:57324/api/v1/search?query=to:<addr> every 250 ms with a 30 s deadline (504 at the deadline, 409 if more than one message matches); GET http://127.0.0.1:57324/api/v1/message/<ID>, take the first …/auth/v1/verify?… URL from the text body (HTML body fallback, &amp; decoded); the verify URL origin must be http://127.0.0.1:57321 or http://localhost:57321, any supabase.co or lchytafmnuefrgkguynt → 500; fetch(verifyUrl, { redirect: "manual" }), expect a 3xx with Location starting http://127.0.0.1:3000 or http://localhost:3000 (else 502); return 200 {"location":"<Location>"}; every response sends Access-Control-Allow-Origin: http://127.0.0.1:3000 and Vary: Origin; GET only; log only method, path without query and status; never log email bodies, verify URLs, tokens, codes or Location. The test calls recoverSessionFromAuthCallback(Uri.parse(location)) in the same browser.
+- .github/workflows/ci.yml: append the item's PR1 e2e job block byte for byte (127 lines, sha256 60b7bf856e42b815f7f64131dcd315655033d16db44549378ec19b1e58bde940) after the last line of the pgtap job, with one blank line before "  e2e:". Nothing else in ci.yml changes.
+
+Rules: no lib/ change (including new Keys); no continue-on-error; no sleep, Future.delayed, setTimeout pauses or fixed pump(Duration) settles, only bounded condition waits; no retries; never download Chrome or ChromeDriver; build mode --profile only; exactly two dart-defines (SUPABASE_URL, SUPABASE_ANON_KEY from supabase status -o env); the relay URL is a const, not a dart-define; no M2 generate_link fallback without a Gilfoyle ruling; no Node, npm, package.json or Playwright; no dependency except integration_test; no secrets, no service_role export, no prod access; no supabase link, --linked, --db-url, db push/pull/reset or migration in CI; locally supabase migration up --local only, never db reset, db pull, migration down or migration repair; no change to the flutter/deno/pgtap jobs or the workflow name/on/concurrency/permissions/env, docs/, AGENTS.md, ci.md, supabase/, existing test/ files, analysis_options.yaml or README.md; never touch branch protection or required checks; no stamping, issue edits, Notion or merging.
+
+Stop and report (do not fix) if: the hard gate fails; any gate is red (one diagnostic e2e rerun allowed); the chrome/chromedriver version check fails; the web callback hand-off fails; --profile can't drive; a rate limit bites; publish needs a Mapbox pin; a YAML step, flag or tool behaves differently from the addendum (don't edit the YAML); a flow needs a lib/ change, an extra helper or an import outside the list; pubspec.lock changes an existing version; code and the item disagree; anything banned seems needed. If an OPEN blocks a file, do the unblocked work and report it.
+
+PR body evidence: G1 (diff stat = the 10 files; empty diffs of lib/, test/, supabase/, analysis_options.yaml, README.md, AGENTS.md, docs/; pubspec.yaml diff; pubspec.lock added-package list with no version changes; driver sha256; ci.yml diff = one blank line + the 127-line block); G2 (run id + URL; Flutter 3.47.7; Formatted N files (0 changed); flutter analyze: N issues (ceiling 27, exit 0) with N <= 27; 🎉 537 tests passed.; ok | 43 passed | 0 failed; Files=25, Tests=825 (main at your base), All tests successful., Result: PASS); G3 (e2e green: sha256sum OK, supabase 2.121.0, redacted supabase start and exit 0, Flutter 3.47.7, chrome/chromedriver versions matching, chromedriver ready, relay /health ok, the flutter drive line, C1 passing by name, wall time, required contexts still deno/flutter/pgtap); G4 (PyYAML jobs flutter/deno/pgtap/e2e; each count = base at your PR plus the e2e block's own lines: uses: +3, persist-credentials: false +1, timeout-minutes +1 with value 25, dart-define +2, contents: read +1, banned patterns +0; report base and result, do not hardcode absolutes; env ANALYZE_CEILING: 27 only); G5 (prod-guard, service_role, password/kE2E, sleep/Future.delayed, reset/migration, import and support/ greps; no package.json, e2e/fixtures or quarantine); G6 (local flutter --version, pub get --enforce-lockfile, dart format, analyze, flutter test 537, deno 43); G7 (spike answers: ChromeDriver match, PKCE vs implicit, Mailpit search API, email rate limit, picker without Mapbox token, Favorites place publishes, --profile drives; list the relay's only delay). Completion note: commands, outputs, OPENs left, "E2E flows touched: C1". Lanes: Gilfoyle, Big Head, Dinesh, Trinity. Bill merges.
+```
+
+#### Cloud-agent instruction block, PR2 (copy-paste; use only after Bill gives PR2 its go and PR1 is merged)
+```text
+You are implementing §15 M18 "E2E regression tests (#48)", PR2 (flows C2, C3, C4), for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story). Branch feat/m18-e2e-c2-c4 off the current main. Title "M18 PR2: E2E flows C2–C4 (#48)". PR body "Refs #48". Do not push to main. Do not merge. Stop after opening the PR. Only one M18 PR may be open.
+
+Read first: the APPROVED §15 M18 item, AGENTS.md, docs/design-doc/e2e.md and docs/design-doc/e2e-addendum-a.md (wins on tech).
+
+Base check: M18 PR1 is merged (the e2e job; e2e_test.dart with exactly one test, 'C1 magic-link sign-in lands on timeline'; the four PR1 support files; e2e/relay.ts); docs/design-doc/ci.md sha256 is a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b. Else stop and report.
+
+Add to apps/tell_me_a_story/integration_test/e2e_test.dart exactly three tests, named exactly:
+- 'C2 start a family lands on its empty timeline' (C2: Start a family → lands on its empty timeline)
+- 'C3 capture and publish shows the card on the timeline' (C3: Capture: title, text, timeframe, add person (create new), place from Favorites → Publish → card on timeline)
+- 'C4 draft autosaves, resumes from drafts and publishes' (C4: Draft: autosave → leave → resume from /drafts → publish. Not on the timeline before publish.)
+Each name is a single unsplit string literal used only as its testWidgets description. Preconditions go through lib/data/*_api.dart gateways as the signed-in user, or the real Edge functions, optionally in NEW apps/tell_me_a_story/integration_test/support/preconditions.dart (helpers only; allowed imports only). The C3 publish place comes from Favorites, created through the Places API as the signed-in user; no Mapbox token. Each test makes its own tenant (e2e-<run_id>-c<N>-<n>@example.test). Edit the PR1 support files only if C2–C4 need it. No ci.yml change.
+
+Rules and Never: the same as PR1 (no lib/ change or new Keys; bounded condition waits only, no sleep/Future.delayed/fixed pumps; no retries or continue-on-error; no extra helper files or packages; no dependency; no secrets, prod access or reset; no CI, docs/, AGENTS.md, ci.md, supabase/ or existing test/ change; no branch protection; no stamping, issue edits, Notion or merging).
+
+Stop and report if: the base check fails; any gate is red (one diagnostic e2e rerun allowed); publish can't use a Favorites place without a token (Jared call, item OPEN 9; no bypass); a flow needs a lib/ change, a SQL fixture, an extra helper or an import outside the list; code and the item disagree; anything banned seems needed.
+
+PR body evidence: G1 (diff stat = e2e_test.dart, optional preconditions.dart, any support edits; empty diffs of lib/, test/, supabase/, .github/, docs/, AGENTS.md); G2 (run id + URL; flutter/deno/pgtap raw lines, pgTAP = main at your base, Files=25, Tests=825); G3 (e2e green; C1, C2, C3, C4 passing by exact name; wall time; required contexts still deno/flutter/pgtap); G5 greps; G6 local results. Completion note: commands, outputs, OPENs left, "E2E flows touched: C2, C3, C4". Lanes: Gilfoyle, Big Head, Dinesh, Trinity. Bill merges.
+```
+
+#### Cloud-agent instruction block, PR3 (copy-paste; use only after Bill gives PR3 its go and PR2 is merged)
+```text
+You are implementing §15 M18 "E2E regression tests (#48)", PR3 (flows C5–C9 and the manifest check), for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story). Branch feat/m18-e2e-c5-c9 off the current main. Title "M18 PR3: E2E flows C5–C9 and manifest check (#48)". PR body "Refs #48". Do not push to main. Do not merge. Stop after opening the PR. Only one M18 PR may be open.
+
+Read first: the APPROVED §15 M18 item, AGENTS.md, docs/design-doc/e2e.md and docs/design-doc/e2e-addendum-a.md (wins on tech).
+
+Base check: M18 PR2 is merged (e2e_test.dart has exactly the tests C1–C4 by their exact names); docs/design-doc/ci.md sha256 is a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b. Else stop and report.
+
+Changes:
+- apps/tell_me_a_story/integration_test/e2e_test.dart: add exactly five tests, named exactly 'C5 reader adds a comment and a perspective' (C5: Reader: open story → comment → add perspective), 'C6 invite link lets a second user join and see the timeline' (C6: Invite via Link tab → second user opens /invite/:token → signs in → accepts → sees the family's timeline), 'C7 search by person, place and timeframe finds the story' (C7: Search by person, place and timeframe finds the published story), 'C8 user from another family sees no content on a story url' (C8: user B (other family) opening A's /stories/:id sees no content; assert only that A's story title and text never show for B; do not assert any error screen, message or redirect — OPEN 8 CLOSED), 'C9 sign out redirects guarded routes to the landing page' (C9: Sign out → guarded routes redirect to /).
+- NEW apps/tell_me_a_story/integration_test/flows.md = the item's flows.md byte for byte (15 lines, 2015 bytes, sha256 91e5609169227bf18579869761b234b08a749b5ff3223669cf847fdc77c48b37).
+- NEW e2e/check_flows.sh = the item's check_flows.sh byte for byte (58 lines, 2433 bytes, sha256 9081d559b86c74dda132b25b73d1673af7ef90d4b74ad5e04f00a3f8d9eb3af6).
+- .github/workflows/ci.yml: insert the item's 2-line manifest step ("      - name: e2e flow manifest" / "        run: bash e2e/check_flows.sh") followed by one blank line, in the e2e job immediately after the checkout step (after its persist-credentials: false line) and before "install supabase cli". The e2e job then equals artifact ci-e2e-job-pr3.yml (130 lines, sha256 4bcef7f827d18c08fcd6b3c74603a9798b5629eb102993d27c2f862dd854278b). Nothing else in ci.yml changes.
+- support/ files only if C5–C9 need it; preconditions per the item.
+
+Rules and Never: the same as PR1. In particular: no lib/ change or new Keys; bounded condition waits only; no continue-on-error, retries or cache; no extra helper files, packages or dependencies; no secrets, prod access or reset; no docs/, AGENTS.md, ci.md, supabase/ or existing test/ change; never touch branch protection or required checks; no stamping, issue edits, Notion or merging.
+
+Stop and report if: the base check fails; check_flows.sh fails; any gate is red (one diagnostic e2e rerun allowed); e2e wall time is over 12 min (don't drop, rename or merge flows); C6 can't get the Link-tab link, or C8 asserts anything beyond "A's title and text never show for B"; a flow needs a lib/ change, a SQL fixture, an extra helper or an import outside the list; code and the item disagree; anything banned seems needed.
+
+PR body evidence: G1 (diff stat = e2e_test.dart, flows.md, check_flows.sh, ci.yml, any support edits; sha256 of flows.md and check_flows.sh; ci.yml diff = the manifest step only; empty diffs of lib/, test/, supabase/, docs/, AGENTS.md); G2 (run id + URL; flutter/deno/pgtap raw lines, pgTAP = main at your base, Files=25, Tests=825); G3 (e2e green; "check_flows: 9 flows match"; C1–C9 passing by exact name; wall time <= 12 min; required contexts still deno/flutter/pgtap); G4 (same relative rule as PR1); G5 greps; G6 local results including bash e2e/check_flows.sh. Completion note: commands, outputs, OPENs left, "E2E flows touched: C5, C6, C7, C8, C9". Lanes: Gilfoyle, Big Head, Dinesh, Trinity. Bill merges. After merge, Gilfoyle or Trinity counts 10 runs per addendum A4; Bill alone flips e2e to required.
+```
