@@ -1,7 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story/app.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/core/router/auth_refresh.dart';
 import 'package:tell_me_a_story/core/supabase/supabase_init.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/profile_api.dart';
+import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/main.dart' as app;
 
@@ -215,13 +224,55 @@ Future<T> _step<T>(String flow, String label, Future<T> Function() body) async {
   }
 }
 
+// The test binding replaces the tree between tests. app.main sets the URL
+// strategy once, so a later flow remounts the same client.
+Future<void> _mountApp(WidgetTester tester) async {
+  var ready = false;
+  try {
+    ready = Supabase.instance.isInitialized;
+  } catch (e) {
+    if (e is! AssertionError) rethrow;
+    ready = false;
+  }
+  if (!ready) {
+    await app.main();
+    return;
+  }
+  final profileApi = ProfileApi();
+  ProfileSession.loadOwn = profileApi.loadOwn;
+  ProfileSession.downloadAvatar = profileApi.downloadAvatar;
+  final authRefresh = AuthRefresh(
+    authStateChanges: Supabase.instance.client.auth.onAuthStateChange,
+    initiallySignedIn: Supabase.instance.client.auth.currentSession != null,
+  );
+  await tester.pumpWidget(
+    TellMeAStoryApp(
+      router: createAppRouter(
+        authRefresh: authRefresh,
+        familiesApi: FamiliesApi(),
+        inviteApi: InviteApi(),
+        peopleApi: PeopleApi(),
+      ),
+    ),
+  );
+}
+
+Future<void> _untilChrome(WidgetTester tester) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 45));
+  while (DateTime.now().isBefore(deadline)) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (find.byKey(const Key('header-avatar')).evaluate().isNotEmpty) return;
+    if (find.byKey(const Key('magic-link-email')).evaluate().isNotEmpty) {
+      return;
+    }
+  }
+  throw TestFailure('sign-in chrome was not on screen before the deadline');
+}
+
 Future<void> _signIn(WidgetTester tester, String flow, String email) async {
   await _step(flow, 'boot', () async {
-    final avatar = find.byKey(const Key('header-avatar'));
-    final emailField = find.byKey(const Key('magic-link-email'));
-    if (avatar.evaluate().isEmpty && emailField.evaluate().isEmpty) {
-      await app.main();
-    }
+    await _mountApp(tester);
+    await _untilChrome(tester);
     if (find.byKey(const Key('header-avatar')).evaluate().isNotEmpty) {
       await tester.tap(find.byKey(const Key('header-avatar')));
       await pumpUntilFound(tester, find.byKey(const Key('header-menu-logout')));
