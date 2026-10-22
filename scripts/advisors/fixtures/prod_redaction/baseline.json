@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "splinter": {
+    "commit": "fccca4b1c4d8b48b8ccd69bd6b30e84adcb92975",
+    "sha256": "d8d558baad3e03832e521c527907fa50a9a172fabd899dd0f5c2504a5a0e9349"
+  },
+  "report_only_lints": [
+    { "name": "unused_index", "reason": "test fixture: report-only", "owner": "Gilfoyle" }
+  ],
+  "local_skip_lints": [],
+  "delegated": [],
+  "accepted": [
+    {
+      "match": { "name": "auth_leaked_password_protection", "metadata.entity": "Auth" },
+      "scope": "prod",
+      "reason": "test fixture: accepted prod config entry",
+      "owner": "Bill",
+      "added": "2026-10-20",
+      "review_by": "2099-12-31",
+      "ref": "#75"
+    }
+  ]
+}
