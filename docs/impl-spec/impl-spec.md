@@ -1956,6 +1956,11 @@ v1 is done when:
 > ❓ OPEN: [Gilfoyle] Dinesh #98 (M17d) nit (iii): the `--layer prod --baseline … --api` argv builder is duplicated again, now a fourth copy. Move it into one shared test helper (see also the #94 test-duplication nit).
 > ❓ OPEN: [Gilfoyle] Dinesh #98 (M17d) nit (iv): the `"observed_at"` literal appears twice in `check.py` (l.490 and l.492 at `29e29be`). Add an `_API_OPTIONAL_KEYS` constant next to `_API_KEYS`.
 > ✅ RESOLVED: Bill, 8:23 AM CT 2026-10-22 (verbatim via Erlich): "Yes, land the full M17 text in a docs PR". Landed under §15 M17.
+**Post-M19 OPENs (folded at §15 M19 CLOSED, 2026-10-22).** These are architecture and code-quality follow-ups for a later milestone. None blocks M19. Line numbers are at main `31b0640`, whose tree is identical to PR #114's head `a43b638`.
+> ❓ OPEN: [Gilfoyle] Inert `UnsavedGuards` registrations: `settings_page.dart` l.93–101 and `manage_family_page.dart` l.88–96 register their guard (built with `exitPrompts: false`) by `pageKey`, but nothing reads those entries. `onExit: storyOnExit` is wired only on the New story and Edit story routes (`app_router.dart` l.156 and l.183), and `UnsavedGuards.anyExitDirty` (`unsaved_guard.dart` l.93–98) skips guards whose `exitPrompts` is false. Drop the registrations and their unregister calls (`settings_page.dart` l.109, `manage_family_page.dart` l.100), or give them a defined job.
+> ❓ OPEN: [Dinesh] Duplicated blocks, including `album_header.dart` `_start` l.634–638, which repeats the `_confirmStoryExit` check (l.539–543) inline instead of calling it. Extract the shared code.
+> ❓ OPEN: [Dinesh] Tests that can't fail: (1) `new_story_guard_test.dart` l.195–200 expects the switch prompt text `findsNothing` after `onePrompt` has already tapped Stay and asserted the dialog is gone (l.162–165). (2) `album_header_family_switch_test.dart` l.103 `expect(FamilySelection.id, 'keep')`: the test's own `onSelected` spy (l.120–125) is the only writer of `FamilySelection`, so l.101 `expect(selected, isEmpty)` already decides the result. Replace each with an assertion that fails if the behavior breaks.
+> ✅ CLOSED (Bill, 2026-10-22 6:15 AM CT): the "Leave this story?" title on the Settings and Manage family prompts is intended. Not an OPEN.
 ---
 ## 18 Traceability
 ### Precedence reminder
@@ -2439,6 +2444,7 @@ Also sourced (rev 2): Design Doc "Drafts visible to author only (LOCKED — Bill
 - Save draft and Publish stay in the header and work as today. Tapping Save draft still saves and returns.
 - A draft can have no date. Publishing still requires a date.
 - Same draft open in two tabs or devices: last save wins. No locking, no merge.
+> ⚠️ CONFLICT (resolved 2026-10-22): M14.4 "No leave prompt" (the Rule above, "Client" and Flutter test 3) and "A leave prompt … for autosave" in the FORBIDDEN line under "Agent operating rules" vs #82. Superseded by M19 (#82). Pick, the narrower option: M19 wins, for unsaved input only. Leaving New story or Edit story with input that isn't saved yet shows the "Leave this story?" Save / Discard / Stay prompt. A fully autosaved draft still leaves quietly, and autosave itself still has no popup or snackbar. See §15 M19.
 #### Data: two new migrations
 - Migration A: `supabase/migrations/20261017000000_story_draft_nullable_date.sql`. It sorts after the latest on main, `20261016235950_definer_grants_hotfix.sql` (#39). Never edit an earlier migration. Apply locally with `supabase migration up --local` only.
 - Exact SQL (Design Doc, no additions):
@@ -7015,3 +7021,464 @@ Then stop.
 
 Lanes: Gilfoyle (arch), Big Head (spec), Dinesh, Trinity. Trinity's security-lane review is MANDATORY before Bill merges (scripts/advisors/**, M17 lock §14). Bill merges. M17 closes on the first green advisors-prod push run on main after merge (delegated=30 accepted=1 report-only=19 new=0 stale=0), cited by Gilfoyle or Trinity.
 ```
+
+### §15 M19 Family switch landing + unsaved-input guard + leave prompt (#82) (CLOSED 2026-10-22: #114 merged 31b0640, CI run 39807110508 green, G1–G13 PASS, Bill smoke passed 12:26 PM CT)
+**Status:** **CLOSED 2026-10-22 12:26 PM CT.** PR #114 "M19: family switch landing + unsaved-input guard (#82)" (branch `feat/m19-unsaved-guard`) merged, and Bill's smoke passed. Bill's words, verbatim via Erlich at 12:26 PM CT: "the merge is in progress and i passed smoke tests". Big Head's spec check passed G1–G13 at the merged head (read-only GitHub tools).
+
+**Prod smoke confirmed:** Bill, verbatim via Erlich at 12:36 PM CT: "Yes, my M19 smoke test ran on prod after the merge deployed". Main push CI run 39822683786 on 31b0640 green.
+
+**Merge (GitHub `merged_at`, CT):**
+- PR #114, head `a43b638d66973406f4872d74bdf631246b069aef`, merged by wmfmorgan as `31b06400c0fe46cb5a0c7f2360169a9032f6d904` (`31b0640`) at 12:26 PM CT 2026-10-22.
+  - The tree at `31b0640` is identical to the tree at head `a43b638` (418 entries, 0 differ).
+  - The earlier head `7439026` failed Big Head's check on G9 (spec text not attached), G10 (no narrow screenshot) and required test #31 (vacuous). The recheck at `a43b638` passed all three.
+
+**CI on the final head** (https://github.com/wmfmorgan/mortang-tell-me-a-story/actions/runs/39807110508, merge ref `1f62b3d` of head `a43b638`, `success`):
+- flutter (job 119923155662): `Formatted 120 files (0 changed)`, `flutter analyze: 27 issues (ceiling 27, exit 0)`, `🎉 537 tests passed.`
+- deno (job 119923155303): `ok | 43 passed | 0 failed`
+- pgtap (job 119923155900): `Files=25, Tests=825`, `Result: PASS`; unittest `Ran 47 tests in 0.291s` `OK`; `summary new=0 stale=0 delegated=30 accepted=0 report-only=9 local-skip=0`, `advisors local: GREEN`.
+
+**Gates:** G1–G13 PASS. G1–G11 come from the spec, G12 from Amendment 1 and G13 from Amendment 2.
+
+**Spec and amendments (approved; full text below under "M19 approved build text"):**
+- Spec: `/workspace/m82/82_impl_spec.md`, 376 lines, sha256 `ca336f8b19ae110f7e246fd5c73e18f1c0f243e76c65aa6b832e864480f1c8c3`. APPROVED by Bill 7:43 AM CT 2026-10-22 ("M19 spec approved, launch it once #99 merges", Erlich relay, verbatim).
+- Amendment 1 (m10 test fixture, G12): `/workspace/m82/82_amendment_1.md`, sha256 `25aa59f42648745d9bdf01a1bb76726d0b96d4ec2b85c16091b6e3a434b4897a`. APPROVED by Bill 9:58 AM CT 2026-10-22 ("Approve M19 Amendment 1", Erlich relay, verbatim).
+- Amendment 2 (Save busy state in the leave dialog, G13): `/workspace/m82/82_amendment_2.md`, sha256 `d875844db04f2fa85bd3f1935f0f6de93336c38d1877b3be94a7cb08102b5fff`. APPROVED by Bill 10:34 AM CT 2026-10-22 ("Approve M19 Amendment 2", Erlich relay, verbatim). Mugatu confirmed alpha 0.4 at 10:17 AM CT 2026-10-22.
+- Architecture lock: `docs/design-doc/82-unsaved-guard.md` (PR #99), sha256 `32bf23aa357b5ff29771f77b91c0518462e6477fbec76c37a47516ee5d62f46f`. UX: `docs/ux/82-family-switch.md` rev 4 (PR #97).
+
+**Caveat:** The G10 screenshots (`leave-prompt-wide.png`, `leave-prompt-500.png`, `family-switch-timeline.png`) are kept on the build box at `/workspace/m82/pr114/shots`. They are not linked in PR #114.
+
+**M14.4:** M19 supersedes the "No leave prompt" lines in §15 M14.4 for unsaved input only. This was a ⚠️ CONFLICT, resolved with the narrower option: M19 wins. See the note under M14.4 "Rule".
+
+**Issue:** Closing #82 is Bill's step (spec "Bill steps"). PR #114 said `Refs #82`.
+
+Post-M19 OPENs are folded into §17 ("Post-M19 OPENs").
+
+#### M19 approved build text (sha ca336f8b…)
+Source: `/workspace/m82/82_impl_spec.md` l.1–376 (the whole approved file, sha256 `ca336f8b19ae110f7e246fd5c73e18f1c0f243e76c65aa6b832e864480f1c8c3`), copied verbatim. The only change is that every heading moves down exactly 2 levels (H3 → H5, H4 → H6). APPROVED by Bill 7:43 AM CT 2026-10-22. Line numbers inside it (for example "M14.4 l.2591") are as of the file on the day it was written.
+
+##### §15 M19 Family switch landing + unsaved-input guard + leave prompt (#82)
+**Status:** APPROVED by Bill, 2026-10-22 7:43 AM CT, verbatim via Erlich relay: "M19 spec approved, launch it once #99 merges". (READY version 350a802a…feb1 kept as 82_impl_spec.ready.bak.) **0 OPENs.** OPEN-A CLOSED by Gilfoyle 7:01 AM CT as option (a). Launch only after PR #99 is merged.
+
+**Sources of truth (precedence: SAD/Design Doc > PRD > Mugatu UX; impl-spec §0 rules apply):**
+- **Design Doc / SAD lock:** `#82 Unsaved-input guard: architecture lock rev 1`. It was LOCKED by Bill via Erlich at 6:44 AM CT 2026-10-22, verbatim: "#82 architecture rev 1: lock it". The box file `/workspace/m82/82-guard-arch-lock-rev1.md` is 168 lines, 21,657 bytes, sha256 `32bf23aa357b5ff29771f77b91c0518462e6477fbec76c37a47516ee5d62f46f`, verified 6:47 AM CT. It lands in the repo as `docs/design-doc/82-unsaved-guard.md` through **its own docs PR #99** (Erlich's call). The file at #99 head `5626327` was re-fetched read-only at ~6:53 AM CT; it is byte-identical, sha256 `32bf23aa…f46f`. #99 also adds one index line to `docs/design-doc/README.md`. Below, "lock §N" means a section of this file.
+  - Compared with the draft `/workspace/m82/82-guard-arch-lock-draft.md` (166 lines, sha256 `38f59c8b650b2c3dc000c85be18d281b268228157c78d783a4360721c4f05166`), `diff` shows **only status lines changed**. Draft l.1 became rev1 l.1 (the LOCKED stamp). Draft l.3 became rev1 l.3–5: the heading changed to "rev 1 (LOCKED)", one blank line was added, and the Status bullet changed to "LOCKED (see line 1)…". Every other line is identical, including §0–§9 and the Resolutions block.
+- **PRD (Jared):** Notion PRD page `3e0c4bcef238813e843af14d12c9a4b2`, section "### Family switch landing (#82)". Its status reads "Approved by Bill 2026-10-21 8:53 PM CT", with narrowings sourced to Bill 2026-10-22 at 5:52, 6:06, 6:10 and 6:11–6:13 AM CT. It was read read-only at ~6:52 AM CT. The PRD also amends its "Save unfinished story drafts" must-have: "<b>Amended 2026-10-22 by #82:</b> autosave stays; a leave prompt now appears only when input hasn't saved yet".
+  - The repo has **no `docs/prd/`**: the main tree has 397 entries and none of them is a PRD. No impl-spec §1, §2 or §17 line mentions #82.
+  - GitHub issue #82 "Correct Timeline Switches" (open, labels `enhancement`, `in-pipeline`) has this body: "When I switch families in the header, it should take me to their timeline regardless of my current page. if the family i pick is the timeline/family that i'm on, nothing should change."
+  - Erlich's issue comment of 2026-10-22 6:15 AM CT lists the 5 PRD rules. Its wording matches the Notion text.
+- **Mugatu UX (LOCKED):** `docs/ux/82-family-switch.md` rev 4 on `main` (merged in PR #97 as `c72d041`, 6:44 AM CT). It is 90 lines, 7,742 bytes, sha256 `6fb00654c530798d5e6a8ae10cf86e562152a35cf1907f62db7933811843024c`, and its git blob matches the tree. Below, "UX :N" uses **main** line numbers.
+  - The box copy `/workspace/m82/82-family-switch.md` (89 lines, sha256 `6666219c…92b1`) is the pre-lock text. It differs in only 3 places: l.1 title "ready to lock" → "LOCKED 2026-10-22"; a new l.3 lock line, "Locked: Bill 2026-10-22 6:18 AM CT, relayed by Erlich: "Lock #82 UX rev 4, including the first-sentence-only body on non-switch exits""; and l.27, where "PRD update pending" is gone and the facts pointer now names the code check instead of the `/workspace` path. No rule, copy or behavior differs. Main is the authority.
+  - `docs/ux/uxd-handoff.md` on main (792 lines, sha256 `3081e335…49d6`) l.160 is amended: "Amended 2026-10-22 (#82, Bill): leaving New story or Edit story with input that isn't saved yet shows the "Leave this story?" Save / Discard / Stay prompt. A fully autosaved draft still leaves quietly. See [82-family-switch.md](82-family-switch.md)."
+- **Code facts (Gilfoyle):** `/workspace/m82/unsaved-input-facts.md` (169 lines, sha256 `c5b11bdc…f0f`). Every path and line it cites for the in-scope surfaces was verified against `main` (see "Code on main").
+
+> 🔍 INFER: Milestone number **M19**. M18 is reserved for #48 (E2E regression tests, ON HOLD by Bill; rev 2 at `/workspace/m48/m18_e2e_spec_rev2.md`), so this is M19. The highest §15 M-number in `impl-spec.md` on main (5,298 lines, sha256 `a5d40cf9a25fb692ed3b6fa52ca9def9e3e5532ecbce6fcf835880a076018362`) is M16 (l.4919). M17/M17a–d (#75) is in flight off-repo (`/workspace/m-adv/m17_advisors_clean_spec_rev3.md`, M17d PR #98), and impl-spec l.4486–4492 forbids new M14.x numbers.
+> 🔍 INFER: Branch `feat/m19-unsaved-guard`, PR title `M19: family switch landing + unsaved-input guard (#82)`. The lock names neither; `AGENTS.md` l.18 says "One §15 milestone per PR, on a `feat/mN-…` branch off `main`"; and M16 used the `MN: … (#issue)` title form.
+> 🔍 INFER: The PR body says `Refs #82` (never Closes/Fixes), because Bill's smoke runs after merge and Bill closes #82 (brief rule; same as M16 `Refs #72`).
+> 🔍 INFER: This item lands in `impl-spec.md` later, in a separate Big Head docs PR, as M14.7/M14.8/M15/M16 did. The build PR touches no `docs/` file.
+
+---
+
+###### Decision (verbatim)
+- Lock l.1: "Status: LOCKED by Bill via Erlich 2026-10-22 6:44 AM CT ("#82 architecture rev 1: lock it"), 0 OPENs."
+- Lock Resolutions (l.164–168), verbatim:
+  - "OPEN-2 resolved (Gilfoyle; Mugatu confirmed): leave prompt first, then Start-a-family dialog. Stay creates nothing; Save/Discard then opens Start-a-family."
+  - "OPEN-3 resolved (Mugatu): buttons stack < 640 px (story_reader_page.dart:1301), Save on top."
+  - ""Existing error" = that page's current save-path error; Edit story = Save changes date check, not the Publish banner (uxd-handoff :58 is Publish)."
+  - "OPEN-1 RESOLVED (Bill via Erlich, 2026-10-22 6:36 AM CT, verbatim: "#82 no-date Save: (a) blocked, dialog closes, stay on the story, nothing lost"). Prompt Save on an undated New story: no write, dialog closes, user stays on the page, unsaved input retained; no new copy."
+- UX l.3: "Locked: Bill 2026-10-22 6:18 AM CT, relayed by Erlich: "Lock #82 UX rev 4, including the first-sentence-only body on non-switch exits"."
+
+###### Product musts (PRD "Family switch landing (#82)", verbatim)
+1. "Picking a different family in the existing header family menu always lands on that family's timeline, from any screen that shows that menu. The menu itself is unchanged, and no family menu is added to the story reader, the shared-link reader, or the person pop-up."
+2. "If switching would lose typed input, the app asks first: Save, Discard, or Stay. Save saves then switches; Discard drops the input and switches; Stay cancels the switch. This applies only on screens where typing would actually be lost: new story (an unsaved date or place), edit story, settings, and the manage-family rename field. Screens with nothing unsaved switch instantly. Pop-up dialogs (add or edit person, comments, perspectives, invite) block the header, so they are out of scope."
+3. "Picking the family you're already in changes nothing: you stay on the current page, even on a screen like a story or person page."
+4. "A story or draft always stays in the family it was started in. Switching families never moves it; Save on the switch prompt saves it to its original family."
+5. "Leaving a story with unsaved input (extends rule 2 beyond family switches): on the new-story and edit-story screens, if leaving would lose input that hasn't saved yet, the app asks Save, Discard, or Stay. … Exits that trigger it: in-app links and back, the family switch, and browser back. Tab close and refresh show the browser's own generic leave warning instead … Settings and family rename keep the prompt for family switches only (rule 2)."
+
+> ⚠️ CONFLICT: [Big Head; superseded text] impl-spec §15 M14.4 on main says "No leave prompt" (l.2425, l.2474, l.2506) and its FORBIDDEN list (l.2591) includes "A leave prompt, popup or snackbar for autosave". The PRD's 2026-10-22 amendment and the uxd-handoff l.160 amendment are newer locks. **Pick (narrower):** #82 supersedes M14.4 **only** for the one "Leave this story?" prompt specified here, on New/Edit story. Every other part of l.2591 stands: no autosave popup or snackbar, and no new copy beyond the locked strings. The M14.4 lines are not edited in the build PR. The docs PR that lands this item adds a "superseded by M19 (#82)" note there.
+
+###### Screen behavior (Mugatu UX rev 4; applies where the lock is silent)
+- **Rule 1** (UX :7–21): picking a different family sets the session family and goes to `/timeline` from Drafts, Settings, New story / resumed draft / Edit story (after the Rule 2 prompt when needed), and Manage hub/detail. Timeline is unchanged. Related-family rows behave the same. There is no toast, banner or animation.
+- **Rule 3** (UX :23–24): picking the current family only closes the menu: no navigation, no reload, no re-save of the selection.
+- **Prompt** (UX :43–51). Copy is exact; no other new copy:
+  - Title: `Leave this story?` on every screen.
+  - Body on a family switch: `You have changes that aren't saved. Save them before switching to <family name>?`
+  - Body on any other exit: `You have changes that aren't saved.`
+  - Buttons: `Stay` (ink text button), `Discard` (outlined: ink text, sage border), `Save` (filled terracotta). They are right-aligned; below 640 px they stack full-width with Save on top, then Discard, then Stay (Resolution OPEN-3).
+  - Stay, the X, a tap outside and Esc all mean Stay. While Save runs, all three buttons are disabled and an outside tap does nothing.
+- **Buttons** (UX :53–58, :77–82):
+  - Stay: nothing changes.
+  - Discard: drops the unsaved input and finishes the exit.
+  - Save: runs that screen's own save. On success it finishes the exit. On failure or a blocked check, the dialog closes, the user stays, the screen shows its existing error, and there's no new copy.
+- **Rule 5** (UX :64–82): only on New story / resumed draft and Edit story.
+  - Prompting exits: Timeline, Drafts, Search, Settings, Logout, Start a family, Manage families, the page's own back, Cancel on Edit story, a family switch, and browser/system back.
+  - Tab close and refresh get only the browser's generic warning.
+  - Logout: Save runs before sign-out.
+  - Publish, Save draft and Save changes never prompt.
+
+###### Code on `main` this item relies on (read-only facts)
+`main` = **`c72d041775e9ded2c171b40613488d29e6d8859d`**: PR #97, parent `5161164`, committed 2026-10-22 6:44:15 AM CT. Per `get_commit`, it touched only `docs/ux/82-family-switch.md` (A) and `docs/ux/uxd-handoff.md` (M), so every `lib/`, `test/` and pubspec file is identical to the lock's `5161164`.
+- Checked 2026-10-22 ~6:50 AM CT with read-only cursor-github (`list_commits`, `get_commit`, `get_git_tree` recursive at `c72d041`, `get_file_contents`). Every file below matches its **git blob sha in the `c72d041` tree**. The box copies in `/workspace/m82/src` had wrapper-trailing newlines normalized and were then blob-verified.
+- `lib/core/navigation/` does not exist on main. Test files live flat under `apps/tell_me_a_story/test/` (plus `test/theme/`). None of the 8 new test names below exists yet.
+
+| File (under `apps/tell_me_a_story/`) | Lines | Bytes | sha256 | Role |
+|---|---|---|---|---|
+| `lib/core/theme/album_header.dart` | 963 | 29,324 | `4b97f8b77cb989935b58a3513acd83565d05836ef696d370a2493b9cb2fa6878` | M |
+| `lib/core/router/app_router.dart` | 295 | 10,017 | `32b180aeb7dd7bc58dd72b431210f9dc3ae0cc151906263833ee7a006aa3de2b` | M |
+| `lib/main.dart` | 40 | 1,186 | `a42485215cb04183d373d96afabc423d3489d5e1147171041d766d3168a1df9b` | M |
+| `lib/features/stories/new_story_page.dart` | 1,278 | 40,053 | `46f67f1064ebbdcf82de3d284f66a7aa489e0af3ec31c534e114fbdc50b504a3` | M |
+| `lib/features/settings/settings_page.dart` | 878 | 27,207 | `cddb6983f22efb5777bfc1b5365e3db5c219eb6d6a62bee1954f4afcd39ecdd1` | M |
+| `lib/features/family/manage_family_page.dart` | 1,179 | 42,996 | `4ce91aebc515fe1c4396fceecb5ab99e86429885194af22236e8dbff3a41d1e2` | M |
+| `lib/features/family/family_blur_dialog.dart` | 458 | 18,537 | `f7c5a1a08da75bcba87505bd822f8218b6d49cb27ea9b2f77f9bf59e87ed5597` | read-only (reused `familyBlurShell`) |
+| `lib/core/theme/album_theme.dart` | 143 | 4,686 | `fd8b13e44402db44e1f4ce1847e2d76db7c151c0acf0919621372a267355219a` | M (two tokens, OPEN-A (a)) |
+| `lib/data/family_selection.dart` | 53 | 1,480 | `6d3422ae87048b8edc383f8fcf4f807cb8f2a0247cb3a359fa47abfc67cd0ea2` | unchanged |
+| `lib/data/stories_api.dart` | 710 | 21,288 | `e7e1e912de02a0dbe254a8f537ce4489a592e2afd5dea18ab973566665922898` | unchanged |
+| `lib/features/drafts/drafts_page.dart` | 458 | 12,971 | `6815f6f2c58004bd0255fbb9f58b42e125222e93304f94e3925b38238b1dbe2a` | unchanged |
+| `lib/features/timeline/timeline_page.dart` | 3,662 | 117,618 | `a4bb7996e36b5654c8035c9e97c3bfdbcdccfa3af479136e0e3055fc76a3269d` | unchanged |
+| `lib/features/family/manage_families_page.dart` | 507 | 17,768 | `c5d3b832165e9fbdfd06f6e5283d86070b434ff79480f094d6d24962381f20f7` | unchanged |
+| `lib/features/stories/story_reader_page.dart` | 1,381 | 42,492 | `b102bf2844d09dbfac4978b43a1937b50ca7b92d8db5b7c0d8810d02a0042949` | unchanged (640 breakpoint source) |
+| `test/theme/no_hardcoded_colors_test.dart` | 114 | 3,439 | `e068c69cc8391438ab3606b94279b8ed0f01d4f45358d14577331e7236c9fc12` | unchanged; must pass unmodified |
+| `pubspec.yaml` | 96 | 3,968 | `de0a6bd4b5d7d5dfc5aca1373ac7b77e7131ba30f751adcc08d687d6752bf495` | unchanged |
+| `pubspec.lock` | 1,007 | 29,770 | `d4083c10f5a725c8f96f48fe0b164ec570bfc3d2b6ab8d5a6d285460713032be` | unchanged |
+| repo-root `AGENTS.md` | 66 | 5,308 | `5d3edabb50f43d68e4a3fbc7574a582dfed45d576b849951607f5f74fa3d33e9` | unchanged |
+| repo-root `docs/ux/82-family-switch.md` | 90 | 7,742 | `6fb00654c530798d5e6a8ae10cf86e562152a35cf1907f62db7933811843024c` | unchanged |
+
+Line facts the lock relies on (all hold at `c72d041`):
+- **`album_header.dart`:**
+  - `enum AlbumHeaderPage { timeline, drafts, capture, settings, manageFamilies }` l.18.
+  - `_openTimeline` `go` l.130–133; `_openDrafts` `push` l.135–138.
+  - `_FamilyMenu` l.561 onward.
+  - `_openFamilyTimeline` l.590–599: it uses `GoRouter.maybeOf` and goes only on `/manage-families…`.
+  - `_start` l.601–609: dialog → `FamilySelection.remember` → `go('/timeline')`.
+  - `onSelected` l.624–642: Manage `go` l.636–638; `onSelected(value); _openFamilyTimeline(context);` l.640–641.
+  - Search `push` l.832; `_logout` l.912–919; Settings `push` l.934–938; `await _logout()` l.940.
+- **`app_router.dart`:**
+  - `createAppRouter({required AuthRefresh authRefresh, …, Future<void> Function()? onLogout})` l.78–95; `optionURLReflectsImperativeAPIs = true` l.99.
+  - redirect l.103–133, with the signed-out branch at l.113–115; routes l.134–285, flat, with no shell.
+  - `/stories/new` builder l.148–163 and `/stories/:storyId/edit` builder l.173–185. Neither passes `onLogout`.
+- **`main.dart`:** `url_strategy_stub.dart` `if (dart.library.html)` l.7–8; `configureUrlStrategy()` l.18.
+- **`new_story_page.dart`:**
+  - `kAutosavePause` = 2 s (l.33–34); `_title`/`_body`/`_year` controllers l.90–92; `_familyId` l.94 and `_menuFamilyId` l.95.
+  - `_editing` l.138; `_canSaveDraft`/`_canSaveChanges` require `_storyDate != null` (l.153, l.155); `_personIdsToWrite` l.157–159.
+  - `dispose` flush l.181–191 (condition l.184); `_scheduleAutosave` l.193–205; `_runAutosave` l.207–248, with captures l.216–220, the "Not saved" catch l.235–237 and the coalesce `finally` l.238–247.
+  - `_hydrateDraft` l.270, which sets `_familyId` at l.294; `_ensureFamilyId` l.378–385; `_scheduleAutosave()` after Add person l.414; `linkPerson` l.425.
+  - place pick l.449–453 and `_removePerson` l.459–461, neither of which autosaves; `_onMonth`/`_onDay`/`_onYearChanged` l.467–484, which do not autosave either.
+  - `_persistDraft`: `_ensureFamilyId()` is called at l.602, and the create path's `allowUndated: autosave` is at l.637–640.
+  - `_onSaveDraft` l.698–717, with the snackbars `Draft saved` and `Couldn’t save draft. Try again.`; `_clearNewTimelineFrom` l.719–734; `_returnToReader` l.736–745; `_onCancel` l.747–750; `_onSaveChanges` l.752–768; `_onPublish` l.770–803.
+  - `_selectFamily` l.835–838; `_shownFamilyId` l.840; header `currentFamilyId: _shownFamilyId` l.858.
+- **`settings_page.dart`:**
+  - controllers l.50–52 and `_loaded*` l.65–70; `_selectFamily` l.162–165; `_rememberLoaded` l.187–194; `_cancel` l.196–208.
+  - `_save` l.228–289: empty-name return l.231, the 500-character snackbar l.232–236, `_rememberLoaded()` at **l.262**, the email reset at l.264–271, and the catch snackbar `Couldn’t save your profile. Try again.` at l.274–285.
+  - Back to Timeline `go` l.398; Save button l.818; `_storedBirth` l.844.
+- **`manage_family_page.dart`:** `_name` l.58; `_load` sets `_name.text = detail.name` at l.112; `_rename` l.134–143 (snack on `ManageFamiliesException` at l.140–142); the header's `onFamilySelected` l.354–357; the Rename button l.430–437.
+- **`family_blur_dialog.dart`:**
+  - `familyBlurShell` l.9–14 and `showBlurredCard` l.17–43; `showFamilyBlurDialog` l.47–81, which has 2 buttons.
+  - `_FamilyBlurDialog` card l.106–220: the scrim always pops at l.108; card `Color(0xFFFFF8F6)` at l.118; Newsreader title l.140, Literata body l.151, X l.212–216.
+- **`drafts_page.dart`:** `_selectFamily` l.147–152 (`remember`, then an early return). **`timeline_page.dart`:** `_selectFamily` l.356–358 (same). **`story_reader_page.dart`:** `maxWidth < 640` at l.1301.
+- **`pubspec.yaml`:** l.30–45 list no state-management package, and `go_router: ^18.0.1` is at l.38. **`pubspec.lock`:** `go_router` 18.0.1, direct main (l.280–287); `web` 1.1.1, transitive (l.949–956).
+- **`test/theme/no_hardcoded_colors_test.dart`:** it fails on any `Color(0x` or `Colors.` in a `lib/` dart file outside `album_theme.dart` unless the file is one of the 23 skip paths (l.5–29). `lib/core/navigation/*` is not on that list. `album_theme.dart` defines only `albumParchment` #FBF7F2, `albumTerracotta`, `albumSage` and `albumInk` (l.5–8). It has no #FFF8F6 token on main, so this item adds one (OPEN-A, CLOSED).
+- **Existing tests that drive the family menu** (code search, `family-menu`): `m10_navigation_test.dart`, `drafts_page_test.dart` (l.493 'drafts bar keeps Drafts and switches the family list'), `timeline_page_test.dart`, `start_timeline_test.dart` and `story_reader_page_test.dart`. Every one that switches families pumps the header under a plain `MaterialApp`, with no GoRouter, except `m10_navigation_test.dart` l.~350–405 (Manage → `/timeline`, unchanged behavior).
+
+> ✅ RESOLVED (Gilfoyle 7:01 AM CT 2026-10-22, accepted; was CONFLICT, cosmetic): Lock §0 cites `pubspec.lock:282-289` (go_router) and `:951-958` (web). On main the blocks are l.280–287 and l.949–956. The content matches (`version: "18.0.1"`, `dependency: transitive`). **Pick:** content governs; no file changes.
+> ✅ RESOLVED (Gilfoyle 7:01 AM CT 2026-10-22, accepted; was CONFLICT, cosmetic): Lock §6 cites `StoriesApi.createDraft/updateDraft/autosaveDraft (data/stories_api.dart:437-509)`. On main they are at l.372, l.411 and l.437 (helper l.495–509). **Pick:** content governs; `stories_api.dart` stays unchanged.
+> ⚠️ CONFLICT: [Erlich] Erlich's issue #82 comment of 6:44 AM CT (id 6339926655) says "Bill locked architecture rev 1 (sha256 62481e0b…)". The locked file, and #99's copy, are sha256 `32bf23aa…f46f`. No box file hashes to `62481e0b`, including with newline or CRLF variants. **Pick:** `32bf23aa…` governs, because it is the file Bill's quote and PR #99 point to. Erlich should correct the comment; the build agent never touches issues.
+
+---
+
+###### Files touched (exhaustive; lock §1–§4, §7)
+**New (A), app code**: 5 files, all under `apps/tell_me_a_story/lib/core/navigation/`:
+1. `unsaved_guard.dart`. Contains `UnsavedGuard extends ChangeNotifier`, `UnsavedGuardScope extends InheritedNotifier<UnsavedGuard>` and `abstract final class UnsavedGuards` (lock §2).
+2. `leave_story_dialog.dart`. Contains `showLeaveStoryDialog(...)` (lock §2). Uses only `album*` tokens: `albumDialogSurface` for the card and `albumBackdropClear` for the barrier (OPEN-A, CLOSED).
+3. `before_unload.dart`. It exports `before_unload_stub.dart` `if (dart.library.js_interop) 'before_unload_web.dart'` (lock §3).
+4. `before_unload_stub.dart`. A no-op `installBeforeUnloadGuard()`.
+5. `before_unload_web.dart`. Uses `dart:js_interop` `@JS()` extension types on `window`, plus the `beforeunload` listener.
+
+**Modified (M), app code (7):**
+6. `lib/core/theme/album_header.dart`: `_FamilyMenu` (gains a `page` param; Rule 3 return; `confirmLeave` before `onSelected`; `go('/timeline')` unless `page == timeline`), replacing the l.590–599 path check; `_start`, with the leave prompt **before** the Start-a-family dialog (Resolution OPEN-2); Drafts, Search, avatar → Settings and Logout guarded through `UnsavedGuardScope.maybeOf(context)` on `exitPrompts` guards (lock §3).
+7. `lib/core/router/app_router.dart`: `onExit` on the `/stories/new` and `/stories/:storyId/edit` routes only, using a closure built in `createAppRouter` that returns true when `!authRefresh.isSignedIn`; passes `onLogout` to both `NewStoryPage` builders (lock §3, §4).
+8. `lib/main.dart`: `installBeforeUnloadGuard()` once, after `configureUrlStrategy()` (lock §3).
+9. `lib/features/stories/new_story_page.dart` (lock §1, §2, §4, §5).
+10. `lib/features/settings/settings_page.dart`: guard with `exitPrompts: false`; `_save` returns `bool`; moves the l.262 `_rememberLoaded()` after the email reset at l.264–271 (lock §1, §2, §4).
+11. `lib/features/family/manage_family_page.dart`: guard with `exitPrompts: false`; `_rename` returns `bool` (lock §1, §2, §4).
+12. `lib/core/theme/album_theme.dart`: add exactly two lines right after `albumInk` (l.8, the end of the l.5–8 token block), in this order: `const albumDialogSurface = Color(0xFFFFF8F6);` and `const albumBackdropClear = Colors.transparent;`. Nothing else in the file changes (OPEN-A, CLOSED by Gilfoyle 7:01 AM CT).
+
+**New (A), tests (8)**, under `apps/tell_me_a_story/test/` (lock §7):
+13. `unsaved_guard_test.dart`
+14. `leave_story_dialog_test.dart`
+15. `album_header_family_switch_test.dart`
+16. `new_story_guard_test.dart`
+17. `edit_story_guard_test.dart`
+18. `settings_guard_test.dart`
+19. `manage_family_rename_guard_test.dart`
+20. `logout_ordering_test.dart`
+
+**Total: 20 files (13 A, 7 M).**
+
+> 🔍 INFER: The test files go in the flat `apps/tell_me_a_story/test/` directory, because the lock gives bare file names and every existing widget test lives there.
+> 🔍 INFER: `drafts_page.dart`, `timeline_page.dart` and `manage_families_page.dart` stay unchanged. Lock §5 says the header's early return "replaces" their per-page early returns but names no edit to those files. With the header returning first, their `if (id == _familyId) return;` lines become unreachable for the same id, so nothing changes in behavior.
+> 🔍 INFER: Header navigation keeps today's null-safe `GoRouter.maybeOf(context)` (l.591–592) for the new `go('/timeline')` and for Start a family. That way the router-less existing tests (`drafts_page_test.dart` l.493, the `timeline_page_test.dart` and `m10_navigation_test.dart` `_SwitchHost` cases) stay green **unchanged**. Lock §3 says `go('/timeline')` but not `GoRouter.of` vs `maybeOf`, and editing existing tests isn't in the file list.
+
+**Must NOT change (the diff must show it):**
+- `docs/design-doc/82-unsaved-guard.md` (it lands in #99; the agent never adds or edits it). `docs/design-doc/README.md` (its index line lands in #99).
+- Everything else under `docs/`, including `docs/impl-spec/impl-spec.md`, `docs/ux/82-family-switch.md` and `docs/ux/uxd-handoff.md`.
+- Everything under `supabase/`: migrations, tests, functions, `config.toml`, `seed.sql` and `advisors-baseline.json`. Lock §6: "None. There are no schema, migration, RLS, RPC or Edge Function changes."
+- Everything under `.github/`, and `scripts/`.
+- `apps/tell_me_a_story/pubspec.yaml` and `pubspec.lock` (lock §0: no new package, no pubspec change).
+- Every existing file under `apps/tell_me_a_story/test/`, including `test/theme/no_hardcoded_colors_test.dart` and its skip list.
+- Every other `lib/` file, and every line of `album_theme.dart` other than the two added ones: `family_blur_dialog.dart`, `album_chrome.dart`, `family_selection.dart`, `stories_api.dart`, `drafts_page.dart`, `timeline_page.dart`, `manage_families_page.dart`, `story_reader_page.dart`, the dialog-only surfaces (Add/Edit person, comments, perspectives, invite), and `url_strategy_*`.
+- `AGENTS.md` and `README.md`.
+
+###### Precondition (before the build starts)
+- **PR #99 is merged to `main`.** On the launch base, `docs/design-doc/82-unsaved-guard.md` exists with sha256 **`32bf23aa357b5ff29771f77b91c0518462e6477fbec76c37a47516ee5d62f46f`**. If it is missing or the sha differs, **stop and report**; don't add or fix it.
+- Every sha256 in the "Code on main" table still matches on the launch base. `main` may have moved past `c72d041`, for example with #99 or M17d #98. Any change to a listed file is a stop.
+
+---
+
+###### Rules
+- **R1 Dirty model (lock §1).** Implement the table in lock §1 exactly. `UnsavedGuard` is page-owned, gets `isDirty`/`save`/`discard` and one `exitPrompts` flag, and is notified from the existing `setState` sites.
+  - New story / resumed draft: dirty = `_autosaveDirty || _autosaveCoalesce`, or year/month/day/place-id/person-id set ≠ snapshot.
+    - Snapshot points: end of `initState` (new story), end of `_hydrateDraft`, after a successful autosave (using the values captured at l.216–220, not live fields), and after a successful Save draft.
+    - A brand-new empty form snapshots as empty, so date-only or place-only input counts as dirty.
+    - Photos are not in the snapshot (lock §1 Assumption).
+  - Edit story: any field ≠ snapshot. Snapshot points: end of `_hydrateDraft`, and after Save changes succeeds.
+  - Settings: name/email/about text, `_storedBirth(_birth)`, `_visibility` or `_pending != null` ≠ `_loaded*`. **Move l.262 `_rememberLoaded()` after l.264–271.**
+  - Manage family detail: `_canAdmin && _detail != null && _name.text != _detail!.name`.
+- **R2 Guard API (lock §2).**
+  - `confirmLeave(BuildContext, {String? switchToFamilyName})` → `Future<bool>`:
+    - clean → true with no dialog;
+    - re-entrant → false;
+    - Stay/X/scrim/Esc → false;
+    - Discard → `discard()`, then true;
+    - Save → awaits `save()`: success true, failure or false → false (the page shows its own error).
+  - Also provides `skipNextPrompt()` (one-shot).
+  - `UnsavedGuards`: a static registry keyed by `GoRouterState.pageKey`. Register in `didChangeDependencies`, unregister in `dispose`. Provides `UnsavedGuards.onExit(context, state)` and `anyExitDirty`.
+- **R3 Dialog (lock §2; UX :43–51).**
+  - `showGeneralDialog(barrierDismissible: false)` with a `StatefulWidget` that maps scrim tap, X and Esc (`CallbackShortcuts` + autofocus `Focus`) to Stay. These are ignored while `_saving`, and `PopScope(canPop: !_saving)` blocks system back during a save.
+  - The dialog runs `save()` itself and disables all 3 buttons while it runs.
+  - Reuse `familyBlurShell` and the `_FamilyBlurDialog` look. Do **not** reuse `showFamilyBlurDialog`.
+  - Copy exactly as in "Screen behavior". Buttons are right-aligned Stay, Discard, Save; below 640 px they stack full-width as Save, Discard, Stay.
+  - Colors: only `album*` tokens from `album_theme.dart`: `albumDialogSurface` (card), `albumBackdropClear` (`barrierColor`), `albumInk`, `albumSage`, `albumTerracotta`. No `Color(0x` and no `Colors.` in this file (OPEN-A, CLOSED; G11).
+- **R4 Interception (lock §3).** Each exit has exactly one prompt site:
+  - **Header:** family row (Rule 3 return first; then `confirmLeave(ctx, switchToFamilyName: name)`; on true `onSelected(value)`, then `go('/timeline')` unless `page == timeline`); Start a family; Drafts, Search and Settings pushes; Logout (`confirmLeave` → only on true, the callback or `signOut`). These run only on `exitPrompts` guards, except the family row, which prompts for every guard.
+  - **`onExit`:** story routes only, for go, pop and browser exits. Signed-out returns true.
+  - **`PopScope`** on the story pages: `canPop: !guard.isDirty` through a `ListenableBuilder`; on a blocked pop, `confirmLeave`, then `GoRouter.of(context).pop()` in the next frame.
+  - **beforeunload:** only while `anyExitDirty`, with no custom text.
+  - Settings and Manage detail get no `onExit` and no PopScope.
+- **R5 Start a family order (Resolution OPEN-2).** On an `exitPrompts` guard: `confirmLeave` first. Stay → no dialog, nothing created. Save/Discard → `showStartFamilyDialog` → id → `remember` → `go('/timeline')`. On a clean page or a non-story page, the order is as today.
+  > ✅ RESOLVED (Gilfoyle 7:01 AM CT 2026-10-22; was CONFLICT): Lock §3 table row "Start a family" says "dialog → id → `confirmLeave` … See OPEN-2", but the Resolutions block says "leave prompt first, then Start-a-family dialog". Gilfoyle ruled that the Resolutions supersede the §3 table: prompt first. If the dialog is then cancelled after Save or Discard, the user stays with the input already saved or dropped (lock OPEN-2 (b) text).
+- **R6 Save semantics (lock §4).**
+  - New story: `Future<bool> _saveDraftCore()` is refactored out of `_onSaveDraft`. It keeps `_canSaveDraft`, `_persistDraft()`, the same snackbars and the same `_busy`. The button ignores the bool.
+    - **Undated new story** (Resolution OPEN-1): `_canSaveDraft` is false, so Save returns false. There is no write; the dialog closes, the user stays, the input is kept, and there's no new copy.
+  - Edit story: `Future<bool> _saveChangesCore()`, without `_returnToReader`. The button calls the core, then `skipNextPrompt()`, then `_returnToReader(true)`. From the prompt, success finishes the original exit. An undated edit fails the `_canSaveChanges` date check, so the result is false and the user stays (Resolution "existing error").
+  - Settings `_save` returns `bool`: false on an empty name, on the >500 snackbar and on the catch snackbar. `_rename` returns `bool`: false on the `ManageFamiliesException` snack, and the guard catches any other throw as false.
+  - Rule 4:
+    - Delete `_menuFamilyId`. `_shownFamilyId` becomes `_familyId`, so `currentFamilyId` is `_familyId`.
+    - `_selectFamily` = `FamilySelection.remember(id)` only.
+    - Save runs before `remember`, so writes keep the original `family_id`.
+  - Discard: `_autosaveTimer?.cancel()`, `_autosaveDirty = _autosaveCoalesce = false`, then restore the snapshot. Add `_disposed = true` at the top of `dispose()`, and skip the coalesced re-run in `_runAutosave`'s `finally` when disposed.
+  - Publish calls `skipNextPrompt()` before its `go`. Save draft stays on the page and re-snapshots.
+  - `NewStoryPage` gains an `onLogout` param, passed from the router.
+- **R7 No data change (lock §6).** There are no schema, migration, RLS, RPC or Edge Function changes, and no new `StoriesGateway`/`ProfileGateway`/`ManageFamiliesGateway` method. `family_id` is never changed on an existing row. `FamilySelection` stays in memory.
+- **R8 Out of scope.** Dialog-only surfaces (UX :41; PRD rule 2), the story reader, the shared-link reader and the person pop-up get no family menu and no guard. There is no new copy beyond the four prompt strings.
+> 🔍 INFER: The lock §8 R1 mitigation (`router.go(currentUri)` on Stay after browser back) is **not built**. Lock §8 calls it a "Candidate mitigation, to be verified manually" and §3 does not list it. The agent reports what the URL bar shows in the manual web check, and Gilfoyle decides on a follow-up.
+
+###### Tests (lock §7; TDD per `AGENTS.md` l.24–29: commit the failing tests first)
+Use fake gateways through the existing `*Gateway` injection, plus a test `GoRouter`. **Exactly these 33 new tests** (`testWidgets` unless pure-Dart), with the names verbatim:
+
+| # | File | Test name |
+|---|---|---|
+| 1 | `unsaved_guard_test.dart` | `clean guard proceeds with no dialog` |
+| 2 | | `Stay, X, scrim tap and Esc return false` |
+| 3 | | `Discard calls discard and returns true` |
+| 4 | | `Save ok returns true; Save failure or false returns false and stays` |
+| 5 | | `while saving all three buttons and the scrim are inert` |
+| 6 | | `a re-entrant confirmLeave returns false` |
+| 7 | `leave_story_dialog_test.dart` | `title, both body variants and button labels are exact` |
+| 8 | | `buttons are right-aligned Stay, Discard, Save` |
+| 9 | | `below 640 px buttons stack full-width Save, Discard, Stay` |
+| 10 | `album_header_family_switch_test.dart` | `Rule 1: a different family goes to /timeline from Drafts, Settings, New, Edit and Manage; Timeline stays in place` |
+| 11 | | `Rule 1: related-family rows behave the same` |
+| 12 | | `Rule 3: the current family is a no-op` (no `onSelected`, no navigation, `FamilySelection.id` unchanged) |
+| 13 | `new_story_guard_test.dart` | `prompts for year, month, day, place, person removal, a date-only new form and typing inside 2 s` |
+| 14 | | `no prompt after Saved` (pump past `kAutosavePause` + fake autosave ok) |
+| 15 | | `every exit prompts: Timeline, Drafts, Search, Settings, Start a family, Manage families, family switch, system back, router pop` |
+| 16 | | `Discard writes nothing after dispose` |
+| 17 | | `Save writes with the original familyId, then lands on /timeline` |
+| 18 | | `Save failure stays and shows Couldn’t save draft. Try again.` |
+| 19 | | `Publish and Save draft never prompt` |
+| 20 | | `Save on an undated new story writes nothing, closes the dialog and stays` |
+| 21 | | `Start a family: the leave prompt comes first; Stay opens no dialog` |
+| 22 | `edit_story_guard_test.dart` | `any field change prompts` |
+| 23 | | `Cancel and back prompt` |
+| 24 | | `the Save changes button never prompts and returns to the reader` |
+| 25 | | `Save from the prompt finishes the exit, not the reader` |
+| 26 | | `Save on an undated edit is blocked by the Save changes date check and stays` |
+| 27 | `settings_guard_test.dart` | `dirty + family switch prompts` |
+| 28 | | `dirty + Back to Timeline, Drafts or Logout do not prompt` |
+| 29 | | `clean after a saved email change` |
+| 30 | `manage_family_rename_guard_test.dart` | `a changed rename + family switch prompts` |
+| 31 | | `Rename failure stays with the snack` |
+| 32 | `logout_ordering_test.dart` | `Save runs before onLogout` (spy order `[updateDraft|createDraft, onLogout]`) |
+| 33 | | `Stay never signs out` |
+
+> 🔍 INFER: There is one test per lock §7 bullet or clause (tests 1–19, 22–25, 27–33), and the names paraphrase the lock text. The lock lists cases, not `test()` names, and an exact count is needed for the gate.
+> 🔍 INFER: Tests 20, 21 and 26 prove the three locked Resolutions (OPEN-1, OPEN-2, "existing error"). Lock §7 predates them, and every locked behavior needs a test. Dropping them would leave Bill's 6:36 AM CT decision untested.
+- The flutter count after the change is **504 + 33 = 537**. Any other number is a stop.
+- Manual checks (lock §7), reported in the PR body:
+  - Chrome web build: refresh and tab close while dirty show the generic warning, and nothing when clean; browser back while dirty prompts, and Stay keeps the editor (report the URL bar, R1); browser forward afterwards.
+  - The iPad swipe-back check and the flaky-network Save check go to Bill's smoke if the agent has no iPad or simulator.
+
+---
+
+###### Gates (paste every command's output in the PR body)
+Baselines from main CI run **39772836036** @ `c72d041` (push, 2026-10-22 6:44–6:47 AM CT, all green): job `flutter` 119804373105, `pgtap` 119804372676, `deno` 119804372990. They are the same as M17d's `5161164` numbers. (The `advisors-prod` run 39772836059 on the same sha is red. That is #75/M17d, not this item.)
+- **G1 Files (D1-style).** `git fetch origin main && git diff --name-status origin/main...HEAD` lists **exactly** the 20 files under "Files touched" (13 A, 7 M). Also paste `git diff --stat origin/main...HEAD`.
+- **G2 Off-limits empty.** All of these print nothing:
+  - `git diff --name-only origin/main...HEAD -- supabase/ .github/ docs/ scripts/ AGENTS.md README.md apps/tell_me_a_story/pubspec.yaml apps/tell_me_a_story/pubspec.lock`
+  - `git diff --name-only --diff-filter=MD origin/main...HEAD -- apps/tell_me_a_story/test/` (no existing test changed or deleted)
+  - `git diff --name-only origin/main...HEAD -- apps/tell_me_a_story/lib/ | grep -vE '^apps/tell_me_a_story/lib/(core/navigation/(unsaved_guard|leave_story_dialog|before_unload|before_unload_stub|before_unload_web)\.dart|core/theme/album_header\.dart|core/router/app_router\.dart|main\.dart|features/stories/new_story_page\.dart|features/settings/settings_page\.dart|features/family/manage_family_page\.dart|core/theme/album_theme\.dart)$'`.
+  - `sha256sum docs/design-doc/82-unsaved-guard.md` = `32bf23aa357b5ff29771f77b91c0518462e6477fbec76c37a47516ee5d62f46f`, unchanged on the head.
+- **G3 Format.** `cd apps/tell_me_a_story && dart format --output=none --set-exit-if-changed .` exits 0.
+- **G4 Analyze.** `cd apps/tell_me_a_story && flutter analyze` must give **≤ 27 issues** and no `error •`. CI prints `flutter analyze: N issues (ceiling 27, exit 0)` with N ≤ 27. Baseline: `27 issues found.` / `flutter analyze: 27 issues (ceiling 27, exit 0)`.
+- **G5 Flutter.**
+  - `cd apps/tell_me_a_story && flutter test` gives **`🎉 537 tests passed.`** (baseline `🎉 504 tests passed.` + 33).
+  - Then `flutter test -r expanded test/unsaved_guard_test.dart test/leave_story_dialog_test.dart test/album_header_family_switch_test.dart test/new_story_guard_test.dart test/edit_story_guard_test.dart test/settings_guard_test.dart test/manage_family_rename_guard_test.dart test/logout_ordering_test.dart` shows the 33 names verbatim, each passing.
+  - `flutter test test/theme/no_hardcoded_colors_test.dart` passes unchanged.
+  - Also paste the failing-first run: the commit with the tests only, red.
+- **G6 pgTAP unchanged.** CI `pgtap` job on the final head: `Files=25, Tests=825`, `Result: PASS` (baseline 11:46:50Z line `Files=25, Tests=825`).
+- **G7 Deno unchanged.** CI `deno` job: `ok | 43 passed | 0 failed`, and `deno check` green.
+- **G8 Advisors unittest (inside the `pgtap` job), unchanged by this PR.** `python3 -m unittest discover -s scripts/advisors -p 'test_*.py'` gives **`Ran 47 tests` OK if M17d (#98) has merged to main before the launch base, or `Ran 42 tests` OK if it hasn't**. The baseline at `c72d041` is `Ran 42 tests`. State which base applies: branch off `main` at launch and paste `git log -1 origin/main`. The CI line `advisors local: GREEN` with `summary new=0 stale=0 delegated=30 accepted=0 report-only=9 local-skip=0` also stays unchanged.
+- **G9 PR hygiene.** Branch `feat/m19-unsaved-guard`; title `M19: family switch landing + unsaved-input guard (#82)`; body contains `Refs #82` and none of `Closes`, `Fixes` or `Resolves`. **This spec item's text is attached** to the PR body (pasted or as a collapsed block), and paste `sha256sum` of it.
+- **G10 Manual.** Chrome checks per Tests. Screenshots of the prompt, both at ≥ 640 px and below 640 px, over New story (`AGENTS.md` l.44, for Mugatu).
+- **G11 Theme tokens (OPEN-A (a), Gilfoyle 7:01 AM CT).** From the repo root:
+  - `grep -nxF 'const albumDialogSurface = Color(0xFFFFF8F6);' apps/tell_me_a_story/lib/core/theme/album_theme.dart` prints exactly one line, `9:const albumDialogSurface = Color(0xFFFFF8F6);`.
+  - `grep -nxF 'const albumBackdropClear = Colors.transparent;' apps/tell_me_a_story/lib/core/theme/album_theme.dart` prints exactly one line, `10:const albumBackdropClear = Colors.transparent;`.
+  - `git diff -U0 origin/main...HEAD -- apps/tell_me_a_story/lib/core/theme/album_theme.dart` shows one hunk `@@ -8,0 +9,2 @@` with exactly those two `+` lines and no `-` line.
+  - `grep -nE 'Color\(0x|Colors\.' apps/tell_me_a_story/lib/core/navigation/leave_story_dialog.dart` prints nothing (exit 1).
+  - `grep -cE 'albumDialogSurface|albumBackdropClear' apps/tell_me_a_story/lib/core/navigation/leave_story_dialog.dart` is ≥ 2 (both tokens used).
+  - `cd apps/tell_me_a_story && flutter test test/theme/no_hardcoded_colors_test.dart` passes, and `git diff --name-only origin/main...HEAD -- apps/tell_me_a_story/test/theme/` prints nothing.
+  - Expected `album_theme.dart` after the change: 145 lines, 4,779 bytes, sha256 `2675d2b617ced6c387d765a6af23b4b776cefb03d92391a8cd8fa56584f59863`; paste `wc -l -c` and `sha256sum`.
+> 🔍 INFER: G11's expected line numbers (9, 10) and the post-change sha come from inserting the two lines after main's l.8 with LF endings (computed on the box from the blob-verified main file), because Gilfoyle's ruling says "right after albumInk (l.5–8)". If `dart format` would reflow them (it doesn't: both are under 80 columns), only that sha changes.
+
+###### Stop rules (stop, report, don't fix)
+- The precondition fails: #99 isn't merged, or `docs/design-doc/82-unsaved-guard.md` is missing on main or its sha256 ≠ `32bf23aa…f46f`.
+- A "Code on main" sha256 differs on the launch base, or a cited line doesn't hold the quoted content. **Code and spec disagree: report the diff; don't reconcile.**
+- Any gate is red, or any count differs: flutter ≠ 537, analyze > 27 or any error, pgTAP ≠ 25/825, deno ≠ 43, unittest ≠ 42/47 per G8.
+- An existing test fails and seems to need editing, or a change seems needed in a file outside "Files touched".
+- go_router 18.0.1 can't do what lock §0/§3 states (for example, `onExit` doesn't fire on pop or browser back, or `pageKey` isn't stable). Report to Gilfoyle; don't swap in a different mechanism or package.
+- A new package, a pubspec change, a schema/RLS/Edge change or any new copy seems needed.
+- G11 fails: either token line is missing or not exact in `album_theme.dart`, anything else in that file changed, `leave_story_dialog.dart` contains `Color(0x` or `Colors.`, or `no_hardcoded_colors_test.dart` fails unmodified. Don't touch the skip list.
+
+> 🚫 FORBIDDEN:
+> - Adding or editing `docs/design-doc/82-unsaved-guard.md` or `docs/design-doc/README.md` (they land in #99); any other `docs/` edit, including `impl-spec.md`.
+> - Any change under `supabase/`, `.github/` or `scripts/`; any migration, RLS, RPC, Edge function or advisors change.
+> - Any new dependency or pubspec change; importing `package:web`.
+> - Editing or deleting existing tests, or adding a path to the `no_hardcoded_colors_test.dart` skip list.
+> - New screens or copy beyond `Leave this story?`, the two body strings, and `Stay`/`Discard`/`Save`; a toast, banner or animation on switch; a custom tab-close message.
+> - A family menu or guard on the reader, shared-link reader, person pop-up or any dialog-only surface.
+> - Moving a draft's `family_id`; changing autosave timing or the `Saved`/`Not saved` labels; an autosave popup or snackbar (M14.4 l.2591 stands outside the prompt).
+> - "Improving" auth, schema or API shape; touching prod or secrets (`AGENTS.md` l.56–58).
+> - Pushing to `main`, merging, commenting on or relabelling issues or PRs, stamping the spec, or opening more than one PR.
+
+###### OPENs, CONFLICTs, INFERs
+> ✅ OPEN-A CLOSED (Gilfoyle 7:01 AM CT 2026-10-22, option (a), binding: he owns tech). It was the card color vs the no-hardcoded-colors gate: lock §2 and UX :44 need the #FFF8F6 card and a transparent `barrierColor`, while `AGENTS.md` l.48–49 and `test/theme/no_hardcoded_colors_test.dart` fail any `Color(0x`/`Colors.` outside `album_theme.dart` and the skip list. Ruling: add `const albumDialogSurface = Color(0xFFFFF8F6);` and `const albumBackdropClear = Colors.transparent;` to `album_theme.dart` right after `albumInk`. `leave_story_dialog.dart` uses only `album*` tokens. No skip-list change; the test passes unmodified. Gate: G11.
+
+The open CONFLICTs below are listed in full above:
+> ⚠️ CONFLICT: [Big Head] M14.4 "No leave prompt" / l.2591 vs #82. Pick: #82 supersedes only for this prompt.
+> ⚠️ CONFLICT: [Erlich] The issue comment's `62481e0b…` vs `32bf23aa…`. Pick: `32bf23aa…`.
+
+Resolved by Gilfoyle at 7:01 AM CT: OPEN-A (option (a)); the Start-a-family order (the Resolutions supersede the §3 table); the `pubspec.lock` and `stories_api.dart` line cites (accepted).
+
+The INFERs are listed in full above:
+> 🔍 INFER: M19 number; branch and title; `Refs #82`; the item lands in impl-spec via a later docs PR.
+> 🔍 INFER: Flat `test/` directory; one test per lock §7 bullet, plus 3 Resolution tests (33); names paraphrase the lock.
+> 🔍 INFER: Drafts, Timeline and Manage-hub pages stay unchanged.
+> 🔍 INFER: Header navigation stays `GoRouter.maybeOf` (existing tests unchanged).
+> 🔍 INFER: The R1 browser-back URL mitigation is not built (report only).
+
+No PRD OPEN: Jared's text was found and cited (Notion PRD "Family switch landing (#82)"). No Design Doc OPEN: #99 carries the lock (Erlich's call, resolved). **0 OPENs remain.**
+
+###### After the PR is open (lanes)
+- **Gilfoyle (architecture):** guard/registry/dialog/beforeunload match lock §2–§4; one prompt site per exit; no data change; the two `album_theme.dart` tokens exactly as ruled (G11).
+- **Big Head (spec):** G1–G10 against this item; the 33 names; the Must-NOT list.
+- **Mugatu (visual):** the prompt vs Stitch `0c0f60eae17b44bfbbfc12298c2ae4e3` and UX rev 4 (copy, button styles, < 640 px stack). The mock's "PROPOSED COPY" label and the open menu are not shipped (UX :86).
+- **Dinesh (code quality):** no swallowed errors (`AGENTS.md` l.47), listener and registry cleanup in `dispose`.
+- **Trinity:** optional. No auth, RLS, schema or Edge change (lock §6); only if Erlich routes it.
+- **Jared:** only if product scope drifted.
+- **Bill merges and smokes.**
+
+###### Bill steps (not the agent's)
+- [x] Approve this item (READY → APPROVED): Bill, 7:43 AM CT 2026-10-22, verbatim via Erlich.
+- [ ] Merge #99 (Design Doc) before the build launches.
+- [ ] On the PR, see three green required checks: `CI / flutter`, `CI / deno`, `CI / pgtap`.
+- [ ] Merge after the lanes pass.
+- [ ] Smoke on prod: family switch from Drafts and Settings lands on the timeline; the current family is a no-op; New story date-only → Timeline prompts (Stay/Discard/Save); Edit story Cancel while dirty prompts; iPad swipe-back while dirty prompts; refresh while dirty shows the generic warning.
+- [ ] Close #82.
+
+###### Traceability
+| Source | Covered by |
+|---|---|
+| PRD rule 1 / UX Rule 1 / lock §3 row 1 | R4, test 10–11, G5 |
+| PRD rule 2 / UX Rule 2 / lock §1 | R1, R6, tests 13, 27, 30 |
+| PRD rule 3 / UX Rule 3 / lock §5 | R4, test 12 |
+| PRD rule 4 / UX :62 / lock §4 Rule 4 | R6, test 17 |
+| PRD rule 5 / UX Rule 5 / lock §3 | R4, tests 15, 23, 32–33, G10 |
+| UX prompt copy and buttons / lock §2 | R3, tests 7–9, G11 |
+| Resolutions OPEN-1 / OPEN-2 / OPEN-3 / existing error | R6 / R5 / R3 / R6; tests 20, 21, 9, 26 |
+| Lock §6 no data change | R7, G2, G6–G8 |
+| Lock §7 tests and baselines | Tests table, G4–G5 |
+| Lock §8 risks R1–R6 | R1 INFER (not built), Stop rules, R6 |
+| `AGENTS.md` l.18, 24–29, 44, 47–49 | Branch INFER, TDD, G10, G11 |
+| Gilfoyle rulings 7:01 AM CT (OPEN-A (a); Resolutions over §3; line cites) | Files touched #12, R3, R5, G11, OPENs/CONFLICTs |
+
+###### Cloud-agent instruction block: M19 (APPROVED 2026-10-22 7:43 AM CT; launch only after #99 merges)
+The launch block is `/workspace/m82/82_launch_block.txt` (214 lines, sha256 `2c3026f3dae31afaf6a19854bf201cf0f135368310c40cb76128ff547435b11f`), used verbatim. Its precondition is that PR #99 has merged and `docs/design-doc/82-unsaved-guard.md` on main has sha256 `32bf23aa…f46f`.
+
+#### M19 Amendment 1 approved text (sha 25aa59f4…)
+Source: `/workspace/m82/82_amendment_1.md` (the whole approved file, sha256 `25aa59f42648745d9bdf01a1bb76726d0b96d4ec2b85c16091b6e3a434b4897a`), copied verbatim. The only change is that every heading outside code fences moves down exactly 4 levels (H1 → H5, H2 → H6). APPROVED by Bill 9:58 AM CT 2026-10-22.
+
+##### M19 (#82) Amendment 1: m10 test fixture fix (APPROVED)
+
+**Status:** APPROVED by Bill, 2026-10-22 9:58 AM CT, verbatim via Erlich relay: "Approve M19 Amendment 1". (READY version 1e1ba551…42e6 kept as 82_amendment_1.ready.bak; build text identical.) Amends APPROVED spec `82_impl_spec.md` (ca336f8b…c8c3). Not a locked-rule change: Rule 3 (UX :23–24, PRD rule 3, lock §5) is unchanged and the implementation follows it. 0 OPENs.
+
+###### Finding
+- Failing test: `apps/tell_me_a_story/test/m10_navigation_test.dart`, `'picking a family on Manage opens that timeline'` (l.334–403 at main 09f97b3, blob 2ee4d503, 681 lines).
+- Step 1 switches ada → bea, so the session family is `bea` (l.392 asserts `FamilySelection.id == 'bea'`).
+- Step 2 opens `/manage-families/ada`. That route's header hard-codes `currentFamilyId: 'ada'` (l.365), then taps `ada` and expects the timeline.
+- In the real app the header's `currentFamilyId` on Manage is the session family (`bea` here), so tapping `ada` is a real switch. The fixture is stale: it pretends `ada` is current while the session says `bea`. Under Rule 3 the code correctly does nothing.
+- > ⚠️ CONFLICT: spec l.121 and the l.160 INFER said m10 stays unchanged. That was wrong for this one fixture. **Pick:** fix the fixture to match real state; keep every assertion.
+
+###### Amendment (exact)
+1. File list: add one MODIFIED file, making **21 files (13 added, 8 modified)**:
+   - `apps/tell_me_a_story/test/m10_navigation_test.dart`
+2. Allowed edit, exactly one hunk, `@@ -365 +365 @@`:
+   ```
+   -              currentFamilyId: 'ada',
+   +              currentFamilyId: 'bea',
+   ```
+   No other line changes. Do not touch l.347 (the hub route), any `expect`, any tap, or `familyName`.
+3. 🚫 FORBIDDEN: changing `_FamilyMenu`'s Rule 3 early return, adding a navigate-on-current-family path, or editing any other existing test.
+4. New gate **G12**:
+   - `git diff origin/main -- apps/tell_me_a_story/test/m10_navigation_test.dart` is exactly the hunk above.
+   - After: 681 lines, git blob `3d9ad07dd2c2aac79370d164bd81006abb811681`, sha256 `37546cd22ab93007b22b31cb35016731f7630c278a326c9d8ff761da0e2f5b35`.
+   - `flutter test test/m10_navigation_test.dart` all pass.
+5. Counts unchanged: flutter **537/537** (no test added or removed), analyze ≤ 27, pgTAP 25/825, Deno 43, unittest 47.
+6. Spec l.121 / l.160 / l.337 wording: "unchanged" becomes "unchanged except the G12 fixture line".
+
+#### M19 Amendment 2 approved text (sha d875844d…)
+Source: `/workspace/m82/82_amendment_2.md` (the whole approved file, sha256 `d875844db04f2fa85bd3f1935f0f6de93336c38d1877b3be94a7cb08102b5fff`), copied verbatim. The only change is that every heading moves down exactly 4 levels (H1 → H5, H2 → H6). APPROVED by Bill 10:34 AM CT 2026-10-22.
+
+##### M19 (#82) Amendment 2: Save busy state in the leave dialog (APPROVED)
+
+**Status:** APPROVED by Bill, 2026-10-22 10:34 AM CT, verbatim via Erlich relay: "Approve M19 Amendment 2". (READY version 034847c6…6cc1 kept as 82_amendment_2.ready.bak; build text identical.) Amends APPROVED spec `82_impl_spec.md` (ca336f8b…c8c3) + Amendment 1 (25aa59f4…897a). 0 OPENs. Alpha 0.4 confirmed by Mugatu 10:17 AM CT 2026-10-22.
+
+###### Finding
+- UX rev 4 l.57 (locked, Mugatu): "While it saves, all three buttons are disabled and tapping outside does nothing. There's no new spinner copy; Save shows its existing busy state."
+- Spec l.49 carried only the "disabled" half. The SAD/lock is silent on the visual, so Mugatu governs. > ⚠️ CONFLICT: spec omission vs UX l.57. **Pick:** follow UX.
+- PR #114 head 7439026, `lib/core/navigation/leave_story_dialog.dart` l.120–125: all three buttons get `onPressed: null` while `_saving` (meets "disabled"), but `disabledBackgroundColor: albumTerracotta` and `disabledForegroundColor: albumParchment` force the disabled Save to look identical to enabled, so no busy state shows.
+- ✅ CONFIRMED (Mugatu 10:17 AM CT: "yes, use 0.4 … Stay and Discard keep their current disabled look"; was INFER): "existing busy state" = the repo's disabled-primary pattern in dialogs, `albumTerracotta.withValues(alpha: 0.4)` (`features/family/start_timeline_dialog.dart:523-525`, `features/invites/invite_modal.dart:884`), because the M10 blur dialog this card copies has no busy state and those are the existing dialog primaries.
+
+###### Amendment (exact)
+1. `leave_story_dialog.dart` l.124 only: `disabledBackgroundColor: albumTerracotta,` → `disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.4),`. Keep `disabledForegroundColor: albumParchment`. No spinner, no label change, no new copy, no new token, no `Color(0x` / `Colors.`.
+2. Required test #5 `while saving all three buttons and the scrim are inert` (`unsaved_guard_test.dart`): while the save future is pending, also assert each of the three buttons has `onPressed == null`, and Save's resolved background for `{WidgetState.disabled}` equals `albumTerracotta.withValues(alpha: 0.4)`. No new test; flutter stays 537.
+3. 🚫 FORBIDDEN: CircularProgressIndicator or any spinner, "Saving…" text, changing Stay/Discard styling.
+4. Gate G13: diff of `leave_story_dialog.dart` vs head 7439026 is exactly that l.124 line; test #5 contains the new asserts; `no_hardcoded_colors_test` passes unmodified; counts unchanged (537, analyze ≤ 27).
