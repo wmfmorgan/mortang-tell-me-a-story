@@ -134,7 +134,7 @@ select public.set_family_origin(
 reset role;
 select set_config('request.jwt.claim.sub', '', true);
 
-select plan(60);
+select plan(83);
 
 -- Null end fills to start and day. A decade-shaped row stays decade.
 insert into public.stories (
@@ -679,6 +679,60 @@ select is(
   '',
   'photos_delete_uploader_or_author with_check'
 );
+
+-- #75 M17a: auth_rls_initplan rewrite (alter policy only; semantics unchanged).
+select is(
+  coalesce((select qual from pg_policies where policyname = 'profiles_update_own'), ''),
+  $pol$(id = ( SELECT auth.uid() AS uid))$pol$,
+  'profiles_update_own qual uses (select auth.uid())'
+);
+select is(
+  coalesce((select with_check from pg_policies where policyname = 'profiles_update_own'), ''),
+  $pol$(id = ( SELECT auth.uid() AS uid))$pol$,
+  'profiles_update_own with_check uses (select auth.uid())'
+);
+select is(
+  coalesce((select qual from pg_policies where policyname = 'profiles_delete_own'), ''),
+  $pol$(id = ( SELECT auth.uid() AS uid))$pol$,
+  'profiles_delete_own qual uses (select auth.uid())'
+);
+select is(
+  coalesce((select qual from pg_policies where policyname = 'profiles_select_own_or_comember'), ''),
+  $pol$((id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1
+   FROM (memberships mine
+     JOIN memberships theirs ON ((theirs.family_id = mine.family_id)))
+  WHERE ((mine.user_id = ( SELECT auth.uid() AS uid)) AND (theirs.user_id = profiles.id)))))$pol$,
+  'profiles_select_own_or_comember qual uses (select auth.uid())'
+);
+select is(
+  coalesce((select qual from pg_policies where policyname = 'stories_delete_author'), ''),
+  $pol$((author_id = ( SELECT auth.uid() AS uid)) AND is_family_member(family_id))$pol$,
+  'stories_delete_author qual uses (select auth.uid())'
+);
+select is(
+  coalesce((select with_check from pg_policies where policyname = 'invites_insert_member_inviter'), ''),
+  $pol$(is_family_member(family_id) AND (invited_by = ( SELECT auth.uid() AS uid)))$pol$,
+  'invites_insert_member_inviter with_check uses (select auth.uid())'
+);
+
+-- #75 M17a: one covering index per FK (unindexed_foreign_keys).
+select has_index('public', 'comments', 'comments_author_id_idx', 'author_id', 'comments_author_id_idx exists');
+select has_index('public', 'comments', 'comments_family_id_idx', 'family_id', 'comments_family_id_idx exists');
+select has_index('public', 'comments', 'comments_story_id_idx', 'story_id', 'comments_story_id_idx exists');
+select has_index('public', 'families', 'families_created_by_idx', 'created_by', 'families_created_by_idx exists');
+select has_index('public', 'invites', 'invites_accepted_by_idx', 'accepted_by', 'invites_accepted_by_idx exists');
+select has_index('public', 'invites', 'invites_family_id_idx', 'family_id', 'invites_family_id_idx exists');
+select has_index('public', 'invites', 'invites_invited_by_idx', 'invited_by', 'invites_invited_by_idx exists');
+select has_index('public', 'invites', 'invites_person_id_idx', 'person_id', 'invites_person_id_idx exists');
+select has_index('public', 'people', 'people_created_by_idx', 'created_by', 'people_created_by_idx exists');
+select has_index('public', 'people', 'people_user_id_idx', 'user_id', 'people_user_id_idx exists');
+select has_index('public', 'perspectives', 'perspectives_author_id_idx', 'author_id', 'perspectives_author_id_idx exists');
+select has_index('public', 'perspectives', 'perspectives_family_id_idx', 'family_id', 'perspectives_family_id_idx exists');
+select has_index('public', 'perspectives', 'perspectives_story_id_idx', 'story_id', 'perspectives_story_id_idx exists');
+select has_index('public', 'photos', 'photos_family_id_idx', 'family_id', 'photos_family_id_idx exists');
+select has_index('public', 'photos', 'photos_story_id_idx', 'story_id', 'photos_story_id_idx exists');
+select has_index('public', 'photos', 'photos_uploader_id_idx', 'uploader_id', 'photos_uploader_id_idx exists');
+select has_index('public', 'stories', 'stories_author_id_idx', 'author_id', 'stories_author_id_idx exists');
 
 select * from finish();
 rollback;
