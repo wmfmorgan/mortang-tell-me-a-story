@@ -1,0 +1,43 @@
+name: advisors-prod
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  checks: read
+concurrency:
+  group: advisors-prod
+  cancel-in-progress: false
+jobs:
+  prod-advisors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: prod-advisors
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: wait for the Supabase deploy of this commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/advisors/check.py --wait-deploy \
+            --repo "${{ github.repository }}" --sha "${{ github.sha }}" \
+            --check-name "Supabase Preview" --check-app supabase --timeout-s 900
+      - name: fetch prod advisors (GET only)
+        env:
+          SUPABASE_ADVISORS_TOKEN: ${{ secrets.SUPABASE_ADVISORS_TOKEN }}
+        run: |
+          set -euo pipefail
+          for t in security performance; do
+            printf 'header = "Authorization: Bearer %s"\n' "$SUPABASE_ADVISORS_TOKEN" |
+              curl --config - -fsS --proto '=https' --max-time 30 -X GET \
+                "https://api.supabase.com/v1/projects/lchytafmnuefrgkguynt/advisors/${t}" \
+                -o "$RUNNER_TEMP/${t}.json"
+          done
+      - name: check vs baseline (prod layer)
+        run: |
+          python3 scripts/advisors/check.py --layer prod \
+            --baseline supabase/advisors-baseline.json \
+            --api "$RUNNER_TEMP/security.json" "$RUNNER_TEMP/performance.json"
