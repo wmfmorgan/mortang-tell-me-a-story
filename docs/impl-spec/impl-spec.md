@@ -1943,6 +1943,19 @@ v1 is done when:
 - Tests: `flutter test` + Supabase RLS SQL tests
 > UX leftovers closed into §10 / §12: empty/loading/no-results copy (Drafts, Search, Place picker, Timeline); invite success/failure toasts + post-accept → `/timeline`; publish required-field list + blocking banner; EN-only localization source table; Mugatu suggested Flutter route path strings + auth redirect.
 > Architecture OPENs closed from Design Doc: DDL/enums, RLS matrix + `is_family_member`, Storage bucket/path, timeframe date range, membership `member` only, invite single-use + Edge JSON, Resend + separate send, Realtime table filters, Mapbox client token only, profile trigger, error codes.
+**Post-M17 OPENs (folded at §15 M17 CLOSED, 2026-10-22).** These are code-quality and hardening follow-ups for a later milestone. None blocks M17.
+> ❓ OPEN: [Gilfoyle] Dinesh #93 (M17a) nits: (1) catalog-wide auth.uid() initplan guard; (2) tablename filter on the assert; (3) move the M17a asserts out of fit_and_finish.sql into their own test file.
+> ❓ OPEN: [Gilfoyle] Dinesh #94 (M17b) should-fix: (1) check.py raises (~40 sites, e.g. l.323, 344, 366–466) carry no reason; print a reason at --layer local only; bare `except Exception` (l.1009) hides real bugs as kind=parse on local. (2) load_baseline l.347–477 ~130 lines; _exact_keys(obj, required, optional=()) should check missing keys too; split per section.
+> ❓ OPEN: [Gilfoyle] Dinesh #94 nits: (3) l.1023 fallback prints "advisors prod: RED" on --layer local; (4) dead code l.418, l.906, _mode_of l.950; (5) hoist repeated ident regexes l.535/640/642/446; (6) test duplication (api_definer helper; duplicate fixture-exact-lines test; test_unconfirmed_deploy vs test_wait_nonsuccess; run_body ignores status for list bodies); (7) ci.yml:42 unittest in the "advisors" step, split to its own step; (8) no Python lint, ruff step = ci.md change (Gilfoyle took it).
+> ❓ OPEN: [Gilfoyle] TMAS-94-01 (Trinity, Low; quoted via Erlich, report 8:06 PM CT, full text /workspace/tmas-pr94-security-review.md): "the baseline loader accepts an `accepted` entry with no metadata key, so it would cover a whole lint (check.py l.296–316; lock §7.1 forbids this). ERROR and security lints are still excluded. Fix: require at least one metadata.* key, plus a test."
+> ❓ OPEN: [Gilfoyle] TMAS-94-02 (Trinity, Low; same source): "report_only_lints and local_skip_lints accept any non-ERROR lint, including security lints like function_search_path_mutable and unknown names (l.237–254). Fix: pin both lists to the A5 sets, plus a test."
+> ❓ OPEN: [Gilfoyle] Dinesh #95 (M17c) nits: (1) advisors-prod.yml:35 redundant `-X GET`; (2) l.36 hardcoded project ref, use job-level env PROJECT_REF; (3) l.26–27 `${{ github.repository }}`/`${{ github.sha }}` expanded into shell; pass via env (injection question is Trinity's).
+> ❓ OPEN: [Gilfoyle] actionlint step in CI (ci.md change), with the ruff item.
+> ❓ OPEN: [Gilfoyle] Dinesh #98 (M17d) should-fix (i): `scripts/advisors/fixtures/observed_at/*_mixed.json` duplicate the base fixtures (~980 lines). Instead, derive the mixed docs in the test by dropping observed_at from the base fixture.
+> ❓ OPEN: [Gilfoyle] Dinesh #98 (M17d) nit (ii): `test_observed_at.py` asserts `Finding.__dataclass_fields__`/`hasattr` (l.136 and l.141 at `29e29be`), which are implementation details.
+> ❓ OPEN: [Gilfoyle] Dinesh #98 (M17d) nit (iii): the `--layer prod --baseline … --api` argv builder is duplicated again, now a fourth copy. Move it into one shared test helper (see also the #94 test-duplication nit).
+> ❓ OPEN: [Gilfoyle] Dinesh #98 (M17d) nit (iv): the `"observed_at"` literal appears twice in `check.py` (l.490 and l.492 at `29e29be`). Add an `_API_OPTIONAL_KEYS` constant next to `_API_KEYS`.
+> ❓ OPEN: [Bill] The full approved M17 item text (rev 3, M17a/b/c, plus M17d) is not in this file; only the §15 M17 CLOSED record is. M17 rev 3 said "This M17 item lands in `impl-spec.md` later, in a separate docs PR (as M15 did)." Land the full text in a later docs PR, or keep the box specs (cited by sha256 in §15 M17) as the record.
 ---
 ## 18 Traceability
 ### Precedence reminder
@@ -5296,3 +5309,53 @@ Stop and report (do not fix) if: any gate is red; any count differs from Files=2
 
 After the milestone, report pass/fail with command output in the PR body for: Gate 1 (`git diff main --stat` = the 8 files; `git diff --diff-filter=M main -- supabase/migrations/` empty; wc -l -c and sha256sum of the two new files; `git diff main -U0 -- docs/`); Gate 2 (CI run id + URL on the final head; pgtap `All tests successful.`, `Files=25, Tests=803`, `Result: PASS`, the 25 per-file lines, test 6 `not ok ... # TODO` with diagnostics; local `supabase migration up --local` and `supabase test db` output; `grep -n 'select plan(' supabase/tests/*.sql` summing to 803); Gate 3 (dart format green, `flutter analyze: N issues (ceiling 27, exit 0)`, `🎉 504 tests passed.`, deno check green, `ok | 43 passed | 0 failed`); Gate 4 (`rg -n people_tree_read supabase/tests apps/tell_me_a_story/lib supabase/functions`: only the hasnt_view line in catalog_acl_guard.sql). Gates 5-6 (prod) are not yours: Trinity runs them. Gate 7 is Bill's smoke. The completion note lists commands run, outputs, and OPENs left. Then stop. Lanes: Gilfoyle, Big Head, Dinesh, Trinity. Bill merges, deploys, smokes and closes #72.
 ```
+
+### §15 M17 Advisors clean on every deploy (#75) (CLOSED 2026-10-22: #93 7d47fdd, #94 3fabf64, #95 5161164, #98 29e29be; advisors-prod run 39784151364 GREEN on 29e29be)
+**Status:** **CLOSED 2026-10-22.** The close gate passed. Per the M17 lock §5(b) and the M17d lock "Closing gate for M17", that gate is "the first advisors-prod push run on main after merge shows GREEN with the counts above". The run is `advisors-prod` 39784151364, a `push` to `main` on #98's merge commit `29e29bef2326e761cc3a692c1b04b6d970a638ce`, conclusion `success`. Trinity's close check passed at 8:13 AM CT 2026-10-22 (relayed by Erlich), and Big Head re-verified it from the GitHub run and job logs (read-only).
+
+**Merges (GitHub `merged_at`, CT):**
+- M17a: PR #93 "perf: advisors clean (initplan + FK indexes)", merged as `7d47fdd3fb90781b686899196d6783d246643a0f` at 7:36 PM CT 2026-10-21.
+- M17b: PR #94 "ci: supabase advisors gate", merged as `3fabf6495fcd03349a6636c1a77466cfbe56fc6a` at 8:28 PM CT 2026-10-21.
+- M17c: PR #95 "ci: prod advisors workflow", merged as `51611641398ae0d442ff36b8dcd6dc564b223938` at 8:57 PM CT 2026-10-21.
+- M17d: PR #98 "fix: accept observed_at in advisors API parse", merged as `29e29bef2326e761cc3a692c1b04b6d970a638ce` at 8:07 AM CT 2026-10-22.
+  - The merged head is `769a48f`. Its 6 files are byte-identical to `4006b5c`, the head that got Big Head's spec check: CODE PASS on D1–D7 and D9. D8 failed at that check on the PR body only, because the approved spec wasn't attached.
+
+**Close run** (https://github.com/wmfmorgan/mortang-tell-me-a-story/actions/runs/39784151364): job `prod-advisors` 119842751324, 8:07:51–8:08:30 AM CT. The checkout, `wait for the Supabase deploy of this commit`, `fetch prod advisors (GET only)` and `check vs baseline (prod layer)` steps all succeeded. The `Supabase Preview` check on `29e29be` was `success` (check run 119843008775). Raw lines:
+```
+2026-10-22T13:08:25.2179539Z deploy confirmed
+2026-10-22T13:08:27.8223560Z class=delegated name=authenticated_security_definer_function_executable level=WARN count=30
+2026-10-22T13:08:27.8224186Z class=accepted name=auth_leaked_password_protection level=WARN count=1
+2026-10-22T13:08:27.8224556Z class=report-only name=unused_index level=INFO count=19
+2026-10-22T13:08:27.8224905Z summary new=0 stale=0 delegated=30 accepted=1 report-only=19
+2026-10-22T13:08:27.8225196Z advisors prod: GREEN
+```
+
+**CI on the merge commit** (https://github.com/wmfmorgan/mortang-tell-me-a-story/actions/runs/39784151350, `push`, `29e29be`, `success`):
+- pgtap (job 119842752375):
+  ```
+  2026-10-22T13:10:17.4222939Z All tests successful.
+  2026-10-22T13:10:17.4223751Z Files=25, Tests=825,  2 wallclock secs ( 0.06 usr  0.04 sys +  0.15 cusr  0.11 csys =  0.36 CPU)
+  2026-10-22T13:10:17.4224149Z Result: PASS
+  2026-10-22T13:10:18.0805217Z /home/runner/work/_temp/splinter.sql: OK
+  2026-10-22T13:10:18.5392527Z Ran 47 tests in 0.190s
+  2026-10-22T13:10:18.5392712Z OK
+  2026-10-22T13:10:18.5946755Z summary new=0 stale=0 delegated=30 accepted=0 report-only=9 local-skip=0
+  2026-10-22T13:10:18.5946961Z advisors local: GREEN
+  ```
+- flutter (job 119842752471):
+  ```
+  2026-10-22T13:09:02.4844049Z 27 issues found. (ran in 13.3s)
+  2026-10-22T13:09:02.4982450Z flutter analyze: 27 issues (ceiling 27, exit 0)
+  2026-10-22T13:10:17.9356369Z 🎉 504 tests passed.
+  ```
+- deno (job 119842752669): `2026-10-22T13:07:58.9083197Z ok | 43 passed | 0 failed (488ms)`
+
+**Earlier red prod runs (all before #98; closed by M17d):** 39708666769 on `5161164`, 39772836059 on `c72d041` (#97) and 39781231426 on `b63e53f` (#99). Each one confirmed the deploy, then failed at `check vs baseline (prod layer)` with `error kind=parse` / `advisors prod: RED`. The cause was the 11th API key, `observed_at`, which M17d accepts.
+
+**Specs (approved, kept on the build box; not in the repo):**
+- M17a/b/c: M17 rev 3, `/workspace/m-adv/m17_advisors_clean_spec_rev3.md`, sha256 `8f8e8fde982b7dedf29187de666c938cb3caf140e8faf5a779aacd42c2d67d37`. APPROVED by Bill 7:19 PM CT 2026-10-21 ("Approved", Erlich relay, verbatim). Source: Gilfoyle's lock rev 2 with Addenda A and B.
+- M17d: `/workspace/m-adv/m17d_observed_at_spec.md`, sha256 `b102b543f40b92942387bc22bc2b20f105d3423586daa44b1b81834640099756`. APPROVED by Bill 6:23 AM CT 2026-10-22 ("M17d spec approved, launch it", Erlich relay, verbatim). Source: Gilfoyle's M17d lock, sha256 `6ac194765975906db098f56e1266bee1e783250d990393c4d50e6b5de9c3bb84`.
+
+**Issue:** #75 stays open for Bill. The M17 lock and the M17d lock never say #75 closes when M17 closes. M17 rev 3 says "Bill closes #75". Every M17 PR said `Refs #75`.
+
+Post-M17 OPENs are folded into §17 ("Post-M17 OPENs").
