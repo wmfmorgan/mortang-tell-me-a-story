@@ -121,7 +121,7 @@ class _LeaveStoryDialogState extends State<_LeaveStoryDialog> {
       style: FilledButton.styleFrom(
         backgroundColor: albumTerracotta,
         foregroundColor: albumParchment,
-        disabledBackgroundColor: albumTerracotta,
+        disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.4),
         disabledForegroundColor: albumParchment,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
