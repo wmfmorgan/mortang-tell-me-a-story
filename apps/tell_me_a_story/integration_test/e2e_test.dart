@@ -224,17 +224,19 @@ Future<T> _step<T>(String flow, String label, Future<T> Function() body) async {
   }
 }
 
+bool _supabaseReady() {
+  try {
+    return Supabase.instance.isInitialized;
+  } catch (e) {
+    if (e is! AssertionError) rethrow;
+    return false;
+  }
+}
+
 // The test binding replaces the tree between tests. app.main sets the URL
 // strategy once, so a later flow remounts the same client.
 Future<void> _mountApp(WidgetTester tester) async {
-  var ready = false;
-  try {
-    ready = Supabase.instance.isInitialized;
-  } catch (e) {
-    if (e is! AssertionError) rethrow;
-    ready = false;
-  }
-  if (!ready) {
+  if (!_supabaseReady()) {
     await app.main();
     return;
   }
@@ -257,27 +259,12 @@ Future<void> _mountApp(WidgetTester tester) async {
   );
 }
 
-Future<void> _untilChrome(WidgetTester tester) async {
-  final deadline = DateTime.now().add(const Duration(seconds: 45));
-  while (DateTime.now().isBefore(deadline)) {
-    await tester.pump(const Duration(milliseconds: 100));
-    if (find.byKey(const Key('header-avatar')).evaluate().isNotEmpty) return;
-    if (find.byKey(const Key('magic-link-email')).evaluate().isNotEmpty) {
-      return;
-    }
-  }
-  throw TestFailure('sign-in chrome was not on screen before the deadline');
-}
-
 Future<void> _signIn(WidgetTester tester, String flow, String email) async {
   await _step(flow, 'boot', () async {
-    await _mountApp(tester);
-    await _untilChrome(tester);
-    if (find.byKey(const Key('header-avatar')).evaluate().isNotEmpty) {
-      await tester.tap(find.byKey(const Key('header-avatar')));
-      await pumpUntilFound(tester, find.byKey(const Key('header-menu-logout')));
-      await tester.tap(find.byKey(const Key('header-menu-logout')));
+    if (_supabaseReady()) {
+      await resetAppState();
     }
+    await _mountApp(tester);
     await pumpUntilFound(tester, find.byKey(const Key('magic-link-email')));
   });
   await _step(flow, 'send-link', () async {
