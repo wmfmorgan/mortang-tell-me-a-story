@@ -47,22 +47,6 @@ def _run(security, performance):
     )
 
 
-def _metadata_strings(value):
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, dict):
-        found = []
-        for item in value.values():
-            found.extend(_metadata_strings(item))
-        return found
-    if isinstance(value, list):
-        found = []
-        for item in value:
-            found.extend(_metadata_strings(item))
-        return found
-    return []
-
-
 def _hidden_strings(doc):
     found = []
     for lint in doc["lints"]:
@@ -70,7 +54,9 @@ def _hidden_strings(doc):
             found.append(lint["observed_at"])
         for key in ("detail", "title", "description", "remediation", "cache_key"):
             found.append(lint[key])
-        found.extend(_metadata_strings(lint["metadata"]))
+        marker = lint["metadata"].get("marker")
+        if isinstance(marker, str):
+            found.append(marker)
     return found
 
 
