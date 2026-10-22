@@ -157,7 +157,7 @@ Gilfoyle owns how the session family is stored. No new table unless he says the 
 ## Autosave drafts (LOCKED 2026-10-16)
 - Source: PRD must-have 'Save unfinished story drafts' ([📋 PRD](https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2)), locked by Bill 2026-10-16.
 - No new screen. The New story header stays as locked in R2: Save draft and Publish remain.
-- An in-progress story autosaves into the existing Drafts screen (M4.5). There is no leave prompt.
+- An in-progress story autosaves into the existing Drafts screen (M4.5). Amended 2026-10-22 (#82, Bill): leaving New story or Edit story with input that isn't saved yet shows the "Leave this story?" Save / Discard / Stay prompt. A fully autosaved draft still leaves quietly. See [82-family-switch.md](82-family-switch.md).
 - Saves happen after a pause in typing and when leaving the page (back, cancel, navigating away).
 - The draft is created on the first keystroke, so no blank drafts.
 - After each successful autosave, a small grey 'Saved' label shows in the New story header, left of Save draft, in the existing muted ink token from album_theme.dart. The copy 'Saved' was approved by Bill. No other new copy, except "No date yet" (approved by Bill 2026-10-17): shown in the same muted ink on a Drafts row with no start date, and those drafts sort last.
