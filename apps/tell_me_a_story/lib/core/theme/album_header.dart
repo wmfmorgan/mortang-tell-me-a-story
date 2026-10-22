@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,6 +11,7 @@ import '../../data/manage_families_api.dart';
 import '../../data/profile_session.dart';
 import '../../features/family/family_role.dart';
 import '../../features/family/start_family_dialog.dart';
+import '../navigation/unsaved_guard.dart';
 import '../router/app_router.dart';
 import 'album_chrome.dart';
 import 'album_theme.dart';
@@ -105,7 +108,9 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               onLogout: onLogout,
               onStartTimeline: onStartTimeline,
               onTimeline: () => _openTimeline(context),
-              onDrafts: () => _openDrafts(context),
+              onDrafts: () {
+                unawaited(_openDrafts(context));
+              },
               onNewStory: () => _openNewStory(context),
               metrics: width <= _scaleAt ? natural : natural.fit(width),
             );
@@ -132,8 +137,9 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
     GoRouter.of(context).go(AppRoutes.timeline);
   }
 
-  void _openDrafts(BuildContext context) {
+  Future<void> _openDrafts(BuildContext context) async {
     if (page == AlbumHeaderPage.drafts) return;
+    if (!await _confirmStoryExit(context) || !context.mounted) return;
     GoRouter.of(context).push(AppRoutes.drafts);
   }
 
@@ -269,6 +275,7 @@ class _HeaderBar extends StatelessWidget {
           SizedBox(
             width: metrics.family,
             child: _FamilyMenu(
+              page: page,
               familyName: familyName,
               families: families,
               currentFamilyId: currentFamilyId,
@@ -529,6 +536,23 @@ class _HeaderMetrics {
   );
 }
 
+Future<bool> _confirmStoryExit(BuildContext context) async {
+  final guard = UnsavedGuardScope.maybeOf(context);
+  if (guard == null || !guard.exitPrompts) return true;
+  return guard.confirmLeave(context);
+}
+
+Future<bool> _confirmFamilySwitch(BuildContext context, String? name) async {
+  final guard = UnsavedGuardScope.maybeOf(context);
+  if (guard == null) return true;
+  return guard.confirmLeave(context, switchToFamilyName: name);
+}
+
+Future<void> _openSearch(BuildContext context) async {
+  if (!await _confirmStoryExit(context) || !context.mounted) return;
+  GoRouter.of(context).push(AppRoutes.search);
+}
+
 double _textWidth(String text, TextStyle style) {
   final painter = TextPainter(
     text: TextSpan(text: text, style: style),
@@ -560,6 +584,7 @@ class _Wordmark extends StatelessWidget {
 
 class _FamilyMenu extends StatelessWidget {
   const _FamilyMenu({
+    required this.page,
     required this.familyName,
     required this.families,
     required this.currentFamilyId,
@@ -575,6 +600,7 @@ class _FamilyMenu extends StatelessWidget {
   static const _timelineValue = 'start-timeline';
   static const _manageValue = 'manage-families';
 
+  final AlbumHeaderPage page;
   final String familyName;
   final List<MemberFamily> families;
   final String? currentFamilyId;
@@ -585,27 +611,38 @@ class _FamilyMenu extends StatelessWidget {
   final VoidCallback? onStartTimeline;
   final bool active;
 
-  /// Manage hub and detail keep their own screens. A picked family is the
-  /// session family, and the timeline is where that family is read.
-  void _openFamilyTimeline(BuildContext context) {
-    final router = GoRouter.maybeOf(context);
-    if (router == null) return;
-    final path = router.routerDelegate.currentConfiguration.uri.path;
-    final onManage =
-        path == AppRoutes.manageFamilies ||
-        path.startsWith('${AppRoutes.manageFamilies}/');
-    if (!onManage) return;
-    router.go(AppRoutes.timeline);
+  String? _nameFor(String id) {
+    for (final family in families) {
+      if (family.id == id) return family.name;
+    }
+    for (final family in relatedFamilies) {
+      if (family.id == id) return family.name;
+    }
+    return null;
+  }
+
+  Future<void> _pickFamily(BuildContext context, String value) async {
+    if (value == currentFamilyId) return;
+    final leave = await _confirmFamilySwitch(context, _nameFor(value));
+    if (!leave || !context.mounted) return;
+    onSelected(value);
+    if (page == AlbumHeaderPage.timeline) return;
+    GoRouter.maybeOf(context)?.go(AppRoutes.timeline);
   }
 
   Future<void> _start(BuildContext context) async {
+    final guard = UnsavedGuardScope.maybeOf(context);
+    if (guard != null && guard.exitPrompts) {
+      final leave = await guard.confirmLeave(context);
+      if (!leave || !context.mounted) return;
+    }
     final id = await showStartFamilyDialog(
       context,
       api: manageApi ?? ManageFamiliesApi(),
     );
     if (id == null || !context.mounted) return;
     FamilySelection.remember(id);
-    GoRouter.of(context).go(AppRoutes.timeline);
+    GoRouter.maybeOf(context)?.go(AppRoutes.timeline);
   }
 
   @override
@@ -626,7 +663,7 @@ class _FamilyMenu extends StatelessWidget {
       padding: EdgeInsets.zero,
       onSelected: (value) {
         if (value == _startValue) {
-          _start(context);
+          unawaited(_start(context));
           return;
         }
         if (value == _timelineValue) {
@@ -637,8 +674,7 @@ class _FamilyMenu extends StatelessWidget {
           GoRouter.of(context).go(AppRoutes.manageFamilies);
           return;
         }
-        onSelected(value);
-        _openFamilyTimeline(context);
+        unawaited(_pickFamily(context, value));
       },
       itemBuilder: (context) {
         return [
@@ -829,7 +865,9 @@ class _SearchChip extends StatelessWidget {
       child: InkWell(
         key: const Key('timeline-search'),
         customBorder: const StadiumBorder(),
-        onTap: () => GoRouter.of(context).push(AppRoutes.search),
+        onTap: () {
+          unawaited(_openSearch(context));
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: Row(
@@ -918,6 +956,17 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
     await Supabase.instance.client.auth.signOut();
   }
 
+  Future<void> _onAvatarSelected(BuildContext context, String value) async {
+    if (value == 'settings') {
+      if (widget.page == AlbumHeaderPage.settings) return;
+      if (!await _confirmStoryExit(context) || !context.mounted) return;
+      GoRouter.of(context).push(AppRoutes.settings);
+      return;
+    }
+    if (!await _confirmStoryExit(context) || !context.mounted) return;
+    await _logout();
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ProfileSession.instance;
@@ -931,13 +980,8 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
         borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: Color(0xFFE6DCD1)),
       ),
-      onSelected: (value) async {
-        if (value == 'settings') {
-          if (widget.page == AlbumHeaderPage.settings) return;
-          GoRouter.of(context).push(AppRoutes.settings);
-          return;
-        }
-        await _logout();
+      onSelected: (value) {
+        unawaited(_onAvatarSelected(context, value));
       },
       itemBuilder: (context) {
         return [

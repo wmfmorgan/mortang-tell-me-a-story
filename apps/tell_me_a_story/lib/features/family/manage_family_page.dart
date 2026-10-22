@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/navigation/unsaved_guard.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
@@ -56,6 +57,8 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
   var _loading = true;
   var _missing = false;
   final _name = TextEditingController();
+  late final UnsavedGuard _guard;
+  ValueKey<String>? _pageKey;
   final _resendNotes = <String, String>{};
   String? _resendBusyId;
 
@@ -67,11 +70,35 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
   @override
   void initState() {
     super.initState();
+    _guard = UnsavedGuard(
+      exitPrompts: false,
+      isDirty: () =>
+          _canAdmin && _detail != null && _name.text != _detail!.name,
+      save: _rename,
+      discard: () {
+        final detail = _detail;
+        if (detail == null) return;
+        _name.text = detail.name;
+      },
+    );
     _load();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (GoRouter.maybeOf(context) == null) return;
+    final key = GoRouterState.of(context).pageKey;
+    if (_pageKey == key) return;
+    if (_pageKey != null) UnsavedGuards.unregister(_pageKey!, _guard);
+    _pageKey = key;
+    UnsavedGuards.register(key, _guard);
+  }
+
+  @override
   void dispose() {
+    if (_pageKey != null) UnsavedGuards.unregister(_pageKey!, _guard);
+    _guard.dispose();
     _name.dispose();
     super.dispose();
   }
@@ -131,14 +158,16 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     return _detail?.name ?? 'Family';
   }
 
-  Future<void> _rename() async {
+  Future<bool> _rename() async {
     final detail = _detail;
-    if (detail == null) return;
+    if (detail == null) return false;
     try {
       await _manage.renameFamily(familyId: detail.id, name: _name.text);
       await _load();
+      return true;
     } on ManageFamiliesException catch (e) {
       _snack(e.message);
+      return false;
     }
   }
 
@@ -343,212 +372,373 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
   @override
   Widget build(BuildContext context) {
     final detail = _detail;
-    return Scaffold(
-      key: const Key('manage-family-detail'),
-      backgroundColor: albumParchment,
-      appBar: AlbumHeader(
-        page: AlbumHeaderPage.manageFamilies,
-        familyName: _sessionName,
-        families: _families,
-        currentFamilyId: _sessionFamilyId,
-        onFamilySelected: (id) {
-          FamilySelection.remember(id);
-          setState(() => _sessionFamilyId = id);
-        },
-        stewarded: _stewarded,
-        manageApi: widget.manageApi,
-        onInvite: _inviteSession,
-        onLogout: widget.onLogout,
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _missing || detail == null
-          ? const Center(child: Text('Not found'))
-          : ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-              children: [
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1024),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextButton.icon(
-                          key: const Key('manage-family-back'),
-                          onPressed: () => context.go(AppRoutes.manageFamilies),
-                          style: TextButton.styleFrom(
-                            foregroundColor: albumTerracotta,
-                            padding: EdgeInsets.zero,
+    return UnsavedGuardScope(
+      guard: _guard,
+      child: Scaffold(
+        key: const Key('manage-family-detail'),
+        backgroundColor: albumParchment,
+        appBar: AlbumHeader(
+          page: AlbumHeaderPage.manageFamilies,
+          familyName: _sessionName,
+          families: _families,
+          currentFamilyId: _sessionFamilyId,
+          onFamilySelected: (id) {
+            FamilySelection.remember(id);
+            setState(() => _sessionFamilyId = id);
+          },
+          stewarded: _stewarded,
+          manageApi: widget.manageApi,
+          onInvite: _inviteSession,
+          onLogout: widget.onLogout,
+        ),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _missing || detail == null
+            ? const Center(child: Text('Not found'))
+            : ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 40,
+                ),
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1024),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextButton.icon(
+                            key: const Key('manage-family-back'),
+                            onPressed: () =>
+                                context.go(AppRoutes.manageFamilies),
+                            style: TextButton.styleFrom(
+                              foregroundColor: albumTerracotta,
+                              padding: EdgeInsets.zero,
+                            ),
+                            icon: const Icon(Icons.arrow_back, size: 16),
+                            label: Text('Manage families', style: _label),
                           ),
-                          icon: const Icon(Icons.arrow_back, size: 16),
-                          label: Text('Manage families', style: _label),
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          detail.name,
-                          style: GoogleFonts.newsreader(
-                            color: albumInk,
-                            fontSize: 36,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.4,
+                          const SizedBox(height: 32),
+                          Text(
+                            detail.name,
+                            style: GoogleFonts.newsreader(
+                              color: albumInk,
+                              fontSize: 36,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.4,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Manage family settings, co-owners, members, and archival access permissions.',
-                          style: _helper.copyWith(fontSize: 16),
-                        ),
-                        const SizedBox(height: 32),
-                        _DetailCard(
-                          child: _split(
-                            left: Column(
+                          const SizedBox(height: 8),
+                          Text(
+                            'Manage family settings, co-owners, members, and archival access permissions.',
+                            style: _helper.copyWith(fontSize: 16),
+                          ),
+                          const SizedBox(height: 32),
+                          _DetailCard(
+                            child: _split(
+                              left: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('FAMILY NAME', style: _kicker),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'The primary display name for this shared family heritage archive.',
+                                    style: _helper,
+                                  ),
+                                ],
+                              ),
+                              right: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 288,
+                                    child: TextField(
+                                      key: const Key('manage-family-name'),
+                                      controller: _name,
+                                      readOnly: !_canAdmin,
+                                      style: GoogleFonts.literata(
+                                        color: albumInk,
+                                        fontSize: 16,
+                                      ),
+                                      decoration: _field,
+                                    ),
+                                  ),
+                                  if (_canAdmin) ...[
+                                    const SizedBox(width: 12),
+                                    OutlinedButton(
+                                      key: const Key('manage-family-rename'),
+                                      onPressed: _rename,
+                                      style: _outlineButton,
+                                      child: const Text('Rename'),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          _DetailCard(
+                            child: _split(
+                              left: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('YOUR ROLE', style: _kicker),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _roleHelp(detail.myRole),
+                                    style: _helper,
+                                  ),
+                                ],
+                              ),
+                              right: _RolePill(role: detail.myRole),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          _DetailCard(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('FAMILY NAME', style: _kicker),
-                                const SizedBox(height: 6),
+                                _split(
+                                  left: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Co-owners (up to two)',
+                                        style: _section,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Co-owners share full administrative privileges with the primary owner.',
+                                        style: _helper,
+                                      ),
+                                    ],
+                                  ),
+                                  right: _canAdmin && _coOwners.length < 2
+                                      ? OutlinedButton(
+                                          key: const Key(
+                                            'manage-family-add-co-owner',
+                                          ),
+                                          onPressed: _members.isEmpty
+                                              ? null
+                                              : _addCoOwner,
+                                          style: _quietButton,
+                                          child: const PlusLabel(
+                                            label: 'Add co-owner',
+                                          ),
+                                        )
+                                      : const SizedBox.shrink(),
+                                ),
+                                const SizedBox(height: 8),
                                 Text(
-                                  'The primary display name for this shared family heritage archive.',
+                                  '${_coOwners.length} of 2',
+                                  key: const Key(
+                                    'manage-family-co-owner-count',
+                                  ),
                                   style: _helper,
                                 ),
-                              ],
-                            ),
-                            right: Row(
-                              children: [
-                                SizedBox(
-                                  width: 288,
-                                  child: TextField(
-                                    key: const Key('manage-family-name'),
-                                    controller: _name,
-                                    readOnly: !_canAdmin,
-                                    style: GoogleFonts.literata(
-                                      color: albumInk,
-                                      fontSize: 16,
-                                    ),
-                                    decoration: _field,
+                                const SizedBox(height: 16),
+                                _PeopleList(
+                                  children: [
+                                    for (final person in _coOwners)
+                                      _PersonRow(
+                                        person: person,
+                                        onMakeMember:
+                                            _isOwner && _canActOn(person)
+                                            ? () => _makeMember(person)
+                                            : null,
+                                        onRemove: _isOwner && _canActOn(person)
+                                            ? () => _removeMember(person)
+                                            : null,
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Co-owners have the same powers as the owner.',
+                                  style: _helper.copyWith(
+                                    fontSize: 12,
+                                    fontStyle: FontStyle.italic,
+                                    fontFamily:
+                                        GoogleFonts.sourceSans3().fontFamily,
                                   ),
                                 ),
-                                if (_canAdmin) ...[
-                                  const SizedBox(width: 12),
-                                  OutlinedButton(
-                                    key: const Key('manage-family-rename'),
-                                    onPressed: _rename,
-                                    style: _outlineButton,
-                                    child: const Text('Rename'),
-                                  ),
-                                ],
                               ],
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 24),
-                        _DetailCard(
-                          child: _split(
-                            left: Column(
+                          const SizedBox(height: 24),
+                          _DetailCard(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('YOUR ROLE', style: _kicker),
-                                const SizedBox(height: 6),
-                                Text(_roleHelp(detail.myRole), style: _helper),
+                                _split(
+                                  left: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Members', style: _section),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Family members with access to read and contribute stories to the album.',
+                                        style: _helper,
+                                      ),
+                                    ],
+                                  ),
+                                  right: FilledButton(
+                                    key: const Key('manage-family-invite'),
+                                    onPressed: _inviteThisFamily,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: albumTerracotta,
+                                      foregroundColor: albumParchment,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      textStyle: _label,
+                                    ),
+                                    child: const Text('Invite'),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                _PeopleList(
+                                  children: [
+                                    for (final person in _roster)
+                                      _PersonRow(
+                                        person: person,
+                                        trailing: person.role == 'owner'
+                                            ? 'Primary'
+                                            : person.role == 'co_owner'
+                                            ? 'Co-owner'
+                                            : null,
+                                        onRemove:
+                                            person.role == 'member' &&
+                                                _canAdmin &&
+                                                _canActOn(person)
+                                            ? () => _removeMember(person)
+                                            : null,
+                                      ),
+                                  ],
+                                ),
+                                if (_canAdmin &&
+                                    detail.pendingInvites.isNotEmpty) ...[
+                                  const SizedBox(height: 24),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'PENDING INVITES',
+                                        style: GoogleFonts.sourceSans3(
+                                          color: _detailVariant,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        '${detail.pendingInvites.length} waiting',
+                                        key: const Key(
+                                          'manage-family-pending-count',
+                                        ),
+                                        style: GoogleFonts.sourceSans3(
+                                          color: _detailVariant,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _PeopleList(
+                                    children: [
+                                      for (final invite
+                                          in detail.pendingInvites)
+                                        _PendingInviteRow(
+                                          invite: invite,
+                                          note: _resendNotes[invite.id],
+                                          busy: _resendBusyId == invite.id,
+                                          onResend:
+                                              invite.email?.trim().isNotEmpty ==
+                                                  true
+                                              ? () => _resendInvite(invite)
+                                              : null,
+                                          onCancel: () => _cancelInvite(invite),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Resend emails the invite again and gives it 7 more days. Cancel stops the link from working.',
+                                    style: GoogleFonts.sourceSans3(
+                                      color: _detailVariant,
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
-                            right: _RolePill(role: detail.myRole),
                           ),
-                        ),
-                        const SizedBox(height: 24),
-                        _DetailCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _split(
+                          if (_isOwner && _coOwners.isNotEmpty) ...[
+                            const SizedBox(height: 24),
+                            _DetailCard(
+                              child: _split(
                                 left: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    Text('Ownership Transfer', style: _section),
+                                    const SizedBox(height: 6),
                                     Text(
-                                      'Co-owners (up to two)',
-                                      style: _section,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Co-owners share full administrative privileges with the primary owner.',
+                                      'Transfer primary ownership of ${detail.name} album and archive to another co-owner.',
                                       style: _helper,
                                     ),
                                   ],
                                 ),
-                                right: _canAdmin && _coOwners.length < 2
-                                    ? OutlinedButton(
-                                        key: const Key(
-                                          'manage-family-add-co-owner',
-                                        ),
-                                        onPressed: _members.isEmpty
-                                            ? null
-                                            : _addCoOwner,
-                                        style: _quietButton,
-                                        child: const PlusLabel(
-                                          label: 'Add co-owner',
-                                        ),
-                                      )
-                                    : const SizedBox.shrink(),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '${_coOwners.length} of 2',
-                                key: const Key('manage-family-co-owner-count'),
-                                style: _helper,
-                              ),
-                              const SizedBox(height: 16),
-                              _PeopleList(
-                                children: [
-                                  for (final person in _coOwners)
-                                    _PersonRow(
-                                      person: person,
-                                      onMakeMember:
-                                          _isOwner && _canActOn(person)
-                                          ? () => _makeMember(person)
-                                          : null,
-                                      onRemove: _isOwner && _canActOn(person)
-                                          ? () => _removeMember(person)
-                                          : null,
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Co-owners have the same powers as the owner.',
-                                style: _helper.copyWith(
-                                  fontSize: 12,
-                                  fontStyle: FontStyle.italic,
-                                  fontFamily:
-                                      GoogleFonts.sourceSans3().fontFamily,
+                                right: OutlinedButton(
+                                  key: const Key('manage-family-transfer'),
+                                  onPressed: _transfer,
+                                  style: _outlineButton,
+                                  child: const Text('Transfer ownership…'),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        _DetailCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _split(
+                            ),
+                          ],
+                          if (_isOwner) ...[
+                            const SizedBox(height: 24),
+                            _DetailCard(
+                              borderColor: _detailError.withValues(alpha: 0.4),
+                              child: _split(
                                 left: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Members', style: _section),
-                                    const SizedBox(height: 4),
                                     Text(
-                                      'Family members with access to read and contribute stories to the album.',
+                                      'Soft-delete this family',
+                                      style: _section.copyWith(
+                                        color: _detailError,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Hidden for 60 days, then permanently removed. Owner only. Recover from Manage families.',
                                       style: _helper,
                                     ),
                                   ],
                                 ),
-                                right: FilledButton(
-                                  key: const Key('manage-family-invite'),
-                                  onPressed: _inviteThisFamily,
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: albumTerracotta,
-                                    foregroundColor: albumParchment,
+                                right: OutlinedButton(
+                                  key: const Key('manage-family-delete'),
+                                  onPressed: _delete,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: _detailError,
+                                    backgroundColor: _detailError.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    side: BorderSide(
+                                      color: _detailError.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                    ),
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
+                                      horizontal: 20,
                                       vertical: 12,
                                     ),
                                     shape: RoundedRectangleBorder(
@@ -556,163 +746,19 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
                                     ),
                                     textStyle: _label,
                                   ),
-                                  child: const Text('Invite'),
+                                  child: const Text('Delete family…'),
                                 ),
-                              ),
-                              const SizedBox(height: 16),
-                              _PeopleList(
-                                children: [
-                                  for (final person in _roster)
-                                    _PersonRow(
-                                      person: person,
-                                      trailing: person.role == 'owner'
-                                          ? 'Primary'
-                                          : person.role == 'co_owner'
-                                          ? 'Co-owner'
-                                          : null,
-                                      onRemove:
-                                          person.role == 'member' &&
-                                              _canAdmin &&
-                                              _canActOn(person)
-                                          ? () => _removeMember(person)
-                                          : null,
-                                    ),
-                                ],
-                              ),
-                              if (_canAdmin &&
-                                  detail.pendingInvites.isNotEmpty) ...[
-                                const SizedBox(height: 24),
-                                Row(
-                                  children: [
-                                    Text(
-                                      'PENDING INVITES',
-                                      style: GoogleFonts.sourceSans3(
-                                        color: _detailVariant,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.6,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      '${detail.pendingInvites.length} waiting',
-                                      key: const Key(
-                                        'manage-family-pending-count',
-                                      ),
-                                      style: GoogleFonts.sourceSans3(
-                                        color: _detailVariant,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                _PeopleList(
-                                  children: [
-                                    for (final invite in detail.pendingInvites)
-                                      _PendingInviteRow(
-                                        invite: invite,
-                                        note: _resendNotes[invite.id],
-                                        busy: _resendBusyId == invite.id,
-                                        onResend:
-                                            invite.email?.trim().isNotEmpty ==
-                                                true
-                                            ? () => _resendInvite(invite)
-                                            : null,
-                                        onCancel: () => _cancelInvite(invite),
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Resend emails the invite again and gives it 7 more days. Cancel stops the link from working.',
-                                  style: GoogleFonts.sourceSans3(
-                                    color: _detailVariant,
-                                    fontSize: 12,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        if (_isOwner && _coOwners.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          _DetailCard(
-                            child: _split(
-                              left: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Ownership Transfer', style: _section),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Transfer primary ownership of ${detail.name} album and archive to another co-owner.',
-                                    style: _helper,
-                                  ),
-                                ],
-                              ),
-                              right: OutlinedButton(
-                                key: const Key('manage-family-transfer'),
-                                onPressed: _transfer,
-                                style: _outlineButton,
-                                child: const Text('Transfer ownership…'),
                               ),
                             ),
-                          ),
+                          ],
+                          const SizedBox(height: 64),
                         ],
-                        if (_isOwner) ...[
-                          const SizedBox(height: 24),
-                          _DetailCard(
-                            borderColor: _detailError.withValues(alpha: 0.4),
-                            child: _split(
-                              left: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Soft-delete this family',
-                                    style: _section.copyWith(
-                                      color: _detailError,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Hidden for 60 days, then permanently removed. Owner only. Recover from Manage families.',
-                                    style: _helper,
-                                  ),
-                                ],
-                              ),
-                              right: OutlinedButton(
-                                key: const Key('manage-family-delete'),
-                                onPressed: _delete,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: _detailError,
-                                  backgroundColor: _detailError.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  side: BorderSide(
-                                    color: _detailError.withValues(alpha: 0.3),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  textStyle: _label,
-                                ),
-                                child: const Text('Delete family…'),
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 64),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+      ),
     );
   }
 

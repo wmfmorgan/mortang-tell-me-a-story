@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/config/env.dart';
+import '../../core/navigation/unsaved_guard.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
@@ -49,6 +50,7 @@ class NewStoryPage extends StatefulWidget {
     this.draftId,
     this.editStoryId,
     this.familiesApi,
+    this.onLogout,
   });
 
   final InviteGateway? inviteApi;
@@ -74,6 +76,7 @@ class NewStoryPage extends StatefulWidget {
   final String? editStoryId;
 
   final FamiliesGateway? familiesApi;
+  final Future<void> Function()? onLogout;
 
   @override
   State<NewStoryPage> createState() => _NewStoryPageState();
@@ -92,7 +95,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
   final _year = TextEditingController();
 
   String? _familyId;
-  String? _menuFamilyId;
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
   String? _storyId;
@@ -126,6 +128,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
   Place? _selectedPlace;
   String? _placeId;
   var _shellMapFailed = false;
+
+  late final UnsavedGuard _guard;
+  _FormSnapshot? _snapshot;
+  ValueKey<String>? _pageKey;
+  var _disposed = false;
 
   bool get _tokenOk => widget.hasMapboxToken ?? Env.hasMapboxToken;
 
@@ -175,15 +182,44 @@ class _NewStoryPageState extends State<NewStoryPage> {
     _places = widget.placesApi ?? PlacesApi();
     _search = widget.mapboxSearch ?? MapboxSearchApi();
     _shellMapFailed = !_tokenOk;
+    _guard = UnsavedGuard(
+      exitPrompts: true,
+      isDirty: _formDirty,
+      save: () => _editing ? _saveChangesCore() : _saveDraftCore(),
+      discard: _discardUnsaved,
+    );
+    if (widget.draftId == null && widget.editStoryId == null) {
+      _snapshot = _captureSnapshot();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (GoRouter.maybeOf(context) == null) return;
+    final key = GoRouterState.of(context).pageKey;
+    if (_pageKey == key) return;
+    if (_pageKey != null) UnsavedGuards.unregister(_pageKey!, _guard);
+    _pageKey = key;
+    UnsavedGuards.register(key, _guard);
+  }
+
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    if (!_disposed) _guard.changed();
+  }
+
+  @override
   void dispose() {
+    _disposed = true;
     _autosaveTimer?.cancel();
     if (!_editing && !_autosaveStopped && _autosaveDirty && _storyId != null) {
       unawaited(_runAutosave());
     }
+    if (_pageKey != null) UnsavedGuards.unregister(_pageKey!, _guard);
+    _guard.dispose();
     _title.dispose();
     _body.dispose();
     _year.dispose();
@@ -215,6 +251,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
     // Read the fields before the first await so dispose can still save.
     final title = _title.text;
     final body = _body.text;
+    final yearText = _year.text;
+    final month = _month;
+    final day = _day;
+    final people = List<Person>.from(_selectedPeople);
+    final place = _selectedPlace;
     final range = _storyDate?.toRange();
     final personIds = _personIdsToWrite;
     final placeId = _selectedPlace?.id ?? _placeId;
@@ -231,13 +272,25 @@ class _NewStoryPageState extends State<NewStoryPage> {
         if (mounted) setState(() => _autosaveLabel = null);
         return;
       }
-      if (story != null && mounted) setState(() => _autosaveLabel = 'Saved');
+      if (story != null && mounted) {
+        _snapshot = _FormSnapshot(
+          title: title,
+          body: body,
+          year: yearText,
+          month: month,
+          day: day,
+          placeId: placeId,
+          place: place,
+          people: people,
+        );
+        setState(() => _autosaveLabel = 'Saved');
+      }
     } catch (_) {
       _autosaveDirty = true;
       if (mounted) setState(() => _autosaveLabel = 'Not saved');
     } finally {
       _autosaveInFlight = false;
-      if (_autosaveStopped) {
+      if (_autosaveStopped || _disposed) {
         _autosaveCoalesce = false;
       } else if (_autosaveCoalesce) {
         _autosaveCoalesce = false;
@@ -373,6 +426,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
     } catch (_) {
       // Story fields already applied; photo strip stays empty.
     }
+    if (!mounted) return;
+    _autosaveDirty = false;
+    _autosaveCoalesce = false;
+    _snapshot = _captureSnapshot();
   }
 
   Future<String?> _ensureFamilyId() async {
@@ -695,25 +752,33 @@ class _NewStoryPageState extends State<NewStoryPage> {
     return updated;
   }
 
-  Future<void> _onSaveDraft() async {
-    if (!_canSaveDraft) return;
+  Future<bool> _saveDraftCore() async {
+    if (!_canSaveDraft) return false;
     _autosaveTimer?.cancel();
     setState(() => _busy = true);
     try {
       final story = await _persistDraft();
-      if (!mounted) return;
-      if (story == null) return;
+      if (!mounted || story == null) return false;
+      _autosaveDirty = false;
+      _autosaveCoalesce = false;
+      _snapshot = _captureSnapshot();
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Draft saved')));
       _clearNewTimelineFrom();
+      return true;
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t save draft. Try again.')),
       );
+      return false;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _onSaveDraft() async {
+    await _saveDraftCore();
   }
 
   void _clearNewTimelineFrom() {
@@ -735,12 +800,20 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   void _returnToReader(bool saved) {
     final id = _storyId ?? widget.editStoryId;
-    if (context.canPop()) {
-      context.pop(saved);
+    final router = GoRouter.maybeOf(context);
+    if (router == null) {
+      final navigator = Navigator.maybeOf(context);
+      if (navigator != null && navigator.canPop()) {
+        navigator.pop(saved);
+      }
+      return;
+    }
+    if (router.canPop()) {
+      router.pop(saved);
       return;
     }
     if (id != null && id.isNotEmpty) {
-      context.go(AppRoutes.storyPath(id));
+      router.go(AppRoutes.storyPath(id));
     }
   }
 
@@ -749,22 +822,33 @@ class _NewStoryPageState extends State<NewStoryPage> {
     _returnToReader(false);
   }
 
-  Future<void> _onSaveChanges() async {
-    if (!_canSaveChanges) return;
+  Future<bool> _saveChangesCore() async {
+    if (!_canSaveChanges) return false;
     _autosaveTimer?.cancel();
     setState(() => _busy = true);
     try {
       final story = await _persistDraft();
-      if (!mounted || story == null) return;
-      _returnToReader(true);
+      if (!mounted || story == null) return false;
+      _autosaveDirty = false;
+      _autosaveCoalesce = false;
+      _snapshot = _captureSnapshot();
+      return true;
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t save draft. Try again.')),
       );
+      return false;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _onSaveChanges() async {
+    final saved = await _saveChangesCore();
+    if (!saved || !mounted) return;
+    _guard.skipNextPrompt();
+    _returnToReader(true);
   }
 
   Future<void> _onPublish() async {
@@ -783,6 +867,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       if (!mounted) return;
       final router = GoRouter.maybeOf(context);
       if (router != null) {
+        _guard.skipNextPrompt();
         final from = GoRouterState.of(context)
             .uri
             .queryParameters['newTimelineFrom'];
@@ -834,14 +919,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   void _selectFamily(String id) {
     FamilySelection.remember(id);
-    setState(() => _menuFamilyId = id);
   }
-
-  String get _shownFamilyId => _menuFamilyId ?? _familyId ?? '';
 
   String get _familyName {
     for (final family in _families) {
-      if (family.id == _shownFamilyId) return family.name;
+      if (family.id == _familyId) return family.name;
     }
     return 'Family';
   }
@@ -850,55 +932,135 @@ class _NewStoryPageState extends State<NewStoryPage> {
   Widget build(BuildContext context) {
     final place = _selectedPlace;
 
-    return Scaffold(
-      appBar: AlbumHeader(
-        page: AlbumHeaderPage.capture,
-        familyName: _familyName,
-        families: _families,
-        currentFamilyId: _shownFamilyId,
-        onFamilySelected: _selectFamily,
-        stewarded: _stewarded,
-        onSaveDraft: !_actionsEnabled
-            ? null
-            : (_editing ? _onCancel : (_canSaveDraft ? _onSaveDraft : null)),
-        onPublish: !_actionsEnabled
-            ? null
-            : (_editing
-                  ? (_canSaveChanges ? _onSaveChanges : null)
-                  : _onPublish),
-        captureStatus: _editing ? null : _autosaveLabel,
-        captureSecondaryLabel: _editing ? 'Cancel' : 'Save draft',
-        capturePrimaryLabel: _editing ? 'Save changes' : 'Publish story',
-      ),
-      body: SafeArea(
-        child: AlbumColumn(
-          maxWidth: 720,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_editing) ...[
-                  Text(
-                    'Edit story',
-                    style: Theme.of(context).textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w700),
+    return UnsavedGuardScope(
+      guard: _guard,
+      child: ListenableBuilder(
+        listenable: _guard,
+        builder: (context, _) {
+          return PopScope(
+            canPop: !_formDirty(),
+            onPopInvokedWithResult: (didPop, _) {
+              if (didPop) return;
+              unawaited(_confirmBlockedPop());
+            },
+            child: Scaffold(
+              appBar: AlbumHeader(
+                page: AlbumHeaderPage.capture,
+                familyName: _familyName,
+                families: _families,
+                currentFamilyId: _familyId,
+                onFamilySelected: _selectFamily,
+                onLogout: widget.onLogout,
+                stewarded: _stewarded,
+                onSaveDraft: !_actionsEnabled
+                    ? null
+                    : (_editing
+                          ? _onCancel
+                          : (_canSaveDraft ? _onSaveDraft : null)),
+                onPublish: !_actionsEnabled
+                    ? null
+                    : (_editing
+                          ? (_canSaveChanges ? _onSaveChanges : null)
+                          : _onPublish),
+                captureStatus: _editing ? null : _autosaveLabel,
+                captureSecondaryLabel: _editing ? 'Cancel' : 'Save draft',
+                capturePrimaryLabel: _editing
+                    ? 'Save changes'
+                    : 'Publish story',
+              ),
+              body: SafeArea(
+                child: AlbumColumn(
+                  maxWidth: 720,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_editing) ...[
+                          Text(
+                            'Edit story',
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        if (_showPublishBanner) ...[
+                          const Text(
+                            'Finish the highlighted fields to publish.',
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        _storyColumn(),
+                        const SizedBox(height: _storyCardGap),
+                        _contextColumn(place),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                ],
-                if (_showPublishBanner) ...[
-                  const Text('Finish the highlighted fields to publish.'),
-                  const SizedBox(height: 12),
-                ],
-                _storyColumn(),
-                const SizedBox(height: _storyCardGap),
-                _contextColumn(place),
-              ],
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
+  }
+
+  Future<void> _confirmBlockedPop() async {
+    final leave = await _guard.confirmLeave(context);
+    if (!leave || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GoRouter.of(context).pop();
+    });
+  }
+
+  bool _formDirty() {
+    final snap = _snapshot;
+    if (snap == null) return false;
+    final fieldsDiffer = !snap.matches(
+      title: _title.text,
+      body: _body.text,
+      year: _year.text,
+      month: _month,
+      day: _day,
+      placeId: _selectedPlace?.id ?? _placeId,
+      people: _selectedPeople,
+    );
+    if (_editing) return fieldsDiffer;
+    return _autosaveDirty || _autosaveCoalesce || fieldsDiffer;
+  }
+
+  _FormSnapshot _captureSnapshot() {
+    return _FormSnapshot(
+      title: _title.text,
+      body: _body.text,
+      year: _year.text,
+      month: _month,
+      day: _day,
+      placeId: _selectedPlace?.id ?? _placeId,
+      place: _selectedPlace,
+      people: List<Person>.from(_selectedPeople),
+    );
+  }
+
+  void _discardUnsaved() {
+    _autosaveTimer?.cancel();
+    _autosaveDirty = false;
+    _autosaveCoalesce = false;
+    final snap = _snapshot;
+    if (snap == null) return;
+    _title.text = snap.title;
+    _body.text = snap.body;
+    _year.text = snap.year;
+    setState(() {
+      _month = snap.month;
+      _day = snap.day;
+      _placeId = snap.placeId;
+      _selectedPlace = snap.place;
+      _selectedPeople
+        ..clear()
+        ..addAll(snap.people);
+    });
   }
 
   Widget _storyColumn() {
@@ -1275,4 +1437,48 @@ class _DraftSnapshot {
   final String body;
   final String? placeId;
   final List<String>? personIds;
+}
+
+class _FormSnapshot {
+  const _FormSnapshot({
+    required this.title,
+    required this.body,
+    required this.year,
+    required this.month,
+    required this.day,
+    required this.placeId,
+    required this.place,
+    required this.people,
+  });
+
+  final String title;
+  final String body;
+  final String year;
+  final int? month;
+  final int? day;
+  final String? placeId;
+  final Place? place;
+  final List<Person> people;
+
+  bool matches({
+    required String title,
+    required String body,
+    required String year,
+    required int? month,
+    required int? day,
+    required String? placeId,
+    required List<Person> people,
+  }) {
+    if (this.title != title ||
+        this.body != body ||
+        this.year != year ||
+        this.month != month ||
+        this.day != day ||
+        this.placeId != placeId) {
+      return false;
+    }
+    final live = people.map((person) => person.id).toSet();
+    final saved = this.people.map((person) => person.id).toSet();
+    return live.length == saved.length && live.containsAll(saved);
+  }
 }
