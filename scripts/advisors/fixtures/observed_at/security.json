@@ -1,0 +1,623 @@
+{
+  "lints": [
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-00",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-00",
+      "detail": "synthetic-detail-sentinel-00",
+      "remediation": "synthetic-remediation-sentinel-00",
+      "metadata": {
+        "schema": "public",
+        "name": "add_co_owner",
+        "arguments": "uuid, uuid",
+        "marker": "synthetic-metadata-sentinel-00"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-00",
+      "observed_at": "synthetic-stamp-sentinel-00"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-01",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-01",
+      "detail": "synthetic-detail-sentinel-01",
+      "remediation": "synthetic-remediation-sentinel-01",
+      "metadata": {
+        "schema": "public",
+        "name": "assert_invite_person",
+        "arguments": "uuid, uuid",
+        "marker": "synthetic-metadata-sentinel-01"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-01",
+      "observed_at": "synthetic-stamp-sentinel-01"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-02",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-02",
+      "detail": "synthetic-detail-sentinel-02",
+      "remediation": "synthetic-remediation-sentinel-02",
+      "metadata": {
+        "schema": "public",
+        "name": "can_contribute_to_story",
+        "arguments": "uuid, uuid",
+        "marker": "synthetic-metadata-sentinel-02"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-02",
+      "observed_at": "synthetic-stamp-sentinel-02"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-03",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-03",
+      "detail": "synthetic-detail-sentinel-03",
+      "remediation": "synthetic-remediation-sentinel-03",
+      "metadata": {
+        "schema": "public",
+        "name": "can_edit_story",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-03"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-03",
+      "observed_at": "synthetic-stamp-sentinel-03"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-04",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-04",
+      "detail": "synthetic-detail-sentinel-04",
+      "remediation": "synthetic-remediation-sentinel-04",
+      "metadata": {
+        "schema": "public",
+        "name": "create_branch_family",
+        "arguments": "uuid, uuid, text, integer, uuid, uuid[]",
+        "marker": "synthetic-metadata-sentinel-04"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-04",
+      "observed_at": "synthetic-stamp-sentinel-04"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-05",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-05",
+      "detail": "synthetic-detail-sentinel-05",
+      "remediation": "synthetic-remediation-sentinel-05",
+      "metadata": {
+        "schema": "public",
+        "name": "create_family",
+        "arguments": "text",
+        "marker": "synthetic-metadata-sentinel-05"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-05",
+      "observed_at": "synthetic-stamp-sentinel-05"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-06",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-06",
+      "detail": "synthetic-detail-sentinel-06",
+      "remediation": "synthetic-remediation-sentinel-06",
+      "metadata": {
+        "schema": "public",
+        "name": "is_family_co_owner",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-06"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-06",
+      "observed_at": "synthetic-stamp-sentinel-06"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-07",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-07",
+      "detail": "synthetic-detail-sentinel-07",
+      "remediation": "synthetic-remediation-sentinel-07",
+      "metadata": {
+        "schema": "public",
+        "name": "is_family_member",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-07"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-07",
+      "observed_at": "synthetic-stamp-sentinel-07"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-08",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-08",
+      "detail": "synthetic-detail-sentinel-08",
+      "remediation": "synthetic-remediation-sentinel-08",
+      "metadata": {
+        "schema": "public",
+        "name": "is_family_owner",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-08"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-08",
+      "observed_at": "synthetic-stamp-sentinel-08"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-09",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-09",
+      "detail": "synthetic-detail-sentinel-09",
+      "remediation": "synthetic-remediation-sentinel-09",
+      "metadata": {
+        "schema": "public",
+        "name": "is_family_tree_readable",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-09"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-09",
+      "observed_at": "synthetic-stamp-sentinel-09"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-10",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-10",
+      "detail": "synthetic-detail-sentinel-10",
+      "remediation": "synthetic-remediation-sentinel-10",
+      "metadata": {
+        "schema": "public",
+        "name": "is_live_family_member",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-10"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-10",
+      "observed_at": "synthetic-stamp-sentinel-10"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-11",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-11",
+      "detail": "synthetic-detail-sentinel-11",
+      "remediation": "synthetic-remediation-sentinel-11",
+      "metadata": {
+        "schema": "public",
+        "name": "is_tree_member",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-11"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-11",
+      "observed_at": "synthetic-stamp-sentinel-11"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-12",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-12",
+      "detail": "synthetic-detail-sentinel-12",
+      "remediation": "synthetic-remediation-sentinel-12",
+      "metadata": {
+        "schema": "public",
+        "name": "link_accepted_person",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-12"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-12",
+      "observed_at": "synthetic-stamp-sentinel-12"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-13",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-13",
+      "detail": "synthetic-detail-sentinel-13",
+      "remediation": "synthetic-remediation-sentinel-13",
+      "metadata": {
+        "schema": "public",
+        "name": "list_family_tree",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-13"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-13",
+      "observed_at": "synthetic-stamp-sentinel-13"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-14",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-14",
+      "detail": "synthetic-detail-sentinel-14",
+      "remediation": "synthetic-remediation-sentinel-14",
+      "metadata": {
+        "schema": "public",
+        "name": "list_origin_dependents",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-14"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-14",
+      "observed_at": "synthetic-stamp-sentinel-14"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-15",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-15",
+      "detail": "synthetic-detail-sentinel-15",
+      "remediation": "synthetic-remediation-sentinel-15",
+      "metadata": {
+        "schema": "public",
+        "name": "list_unlinked_people",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-15"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-15",
+      "observed_at": "synthetic-stamp-sentinel-15"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-16",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-16",
+      "detail": "synthetic-detail-sentinel-16",
+      "remediation": "synthetic-remediation-sentinel-16",
+      "metadata": {
+        "schema": "public",
+        "name": "mark_passed_away",
+        "arguments": "uuid, boolean",
+        "marker": "synthetic-metadata-sentinel-16"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-16",
+      "observed_at": "synthetic-stamp-sentinel-16"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-17",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-17",
+      "detail": "synthetic-detail-sentinel-17",
+      "remediation": "synthetic-remediation-sentinel-17",
+      "metadata": {
+        "schema": "public",
+        "name": "my_profile",
+        "arguments": "",
+        "marker": "synthetic-metadata-sentinel-17"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-17",
+      "observed_at": "synthetic-stamp-sentinel-17"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-18",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-18",
+      "detail": "synthetic-detail-sentinel-18",
+      "remediation": "synthetic-remediation-sentinel-18",
+      "metadata": {
+        "schema": "public",
+        "name": "person_profile",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-18"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-18",
+      "observed_at": "synthetic-stamp-sentinel-18"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-19",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-19",
+      "detail": "synthetic-detail-sentinel-19",
+      "remediation": "synthetic-remediation-sentinel-19",
+      "metadata": {
+        "schema": "public",
+        "name": "recover_family",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-19"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-19",
+      "observed_at": "synthetic-stamp-sentinel-19"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-20",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-20",
+      "detail": "synthetic-detail-sentinel-20",
+      "remediation": "synthetic-remediation-sentinel-20",
+      "metadata": {
+        "schema": "public",
+        "name": "remove_co_owner",
+        "arguments": "uuid, uuid",
+        "marker": "synthetic-metadata-sentinel-20"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-20",
+      "observed_at": "synthetic-stamp-sentinel-20"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-21",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-21",
+      "detail": "synthetic-detail-sentinel-21",
+      "remediation": "synthetic-remediation-sentinel-21",
+      "metadata": {
+        "schema": "public",
+        "name": "remove_member",
+        "arguments": "uuid, uuid",
+        "marker": "synthetic-metadata-sentinel-21"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-21",
+      "observed_at": "synthetic-stamp-sentinel-21"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-22",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-22",
+      "detail": "synthetic-detail-sentinel-22",
+      "remediation": "synthetic-remediation-sentinel-22",
+      "metadata": {
+        "schema": "public",
+        "name": "rename_family",
+        "arguments": "uuid, text",
+        "marker": "synthetic-metadata-sentinel-22"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-22",
+      "observed_at": "synthetic-stamp-sentinel-22"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-23",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-23",
+      "detail": "synthetic-detail-sentinel-23",
+      "remediation": "synthetic-remediation-sentinel-23",
+      "metadata": {
+        "schema": "public",
+        "name": "resend_invite",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-23"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-23",
+      "observed_at": "synthetic-stamp-sentinel-23"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-24",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-24",
+      "detail": "synthetic-detail-sentinel-24",
+      "remediation": "synthetic-remediation-sentinel-24",
+      "metadata": {
+        "schema": "public",
+        "name": "revoke_invite",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-24"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-24",
+      "observed_at": "synthetic-stamp-sentinel-24"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-25",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-25",
+      "detail": "synthetic-detail-sentinel-25",
+      "remediation": "synthetic-remediation-sentinel-25",
+      "metadata": {
+        "schema": "public",
+        "name": "same_family_tree",
+        "arguments": "uuid, uuid",
+        "marker": "synthetic-metadata-sentinel-25"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-25",
+      "observed_at": "synthetic-stamp-sentinel-25"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-26",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-26",
+      "detail": "synthetic-detail-sentinel-26",
+      "remediation": "synthetic-remediation-sentinel-26",
+      "metadata": {
+        "schema": "public",
+        "name": "set_family_origin",
+        "arguments": "uuid, uuid",
+        "marker": "synthetic-metadata-sentinel-26"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-26",
+      "observed_at": "synthetic-stamp-sentinel-26"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-27",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-27",
+      "detail": "synthetic-detail-sentinel-27",
+      "remediation": "synthetic-remediation-sentinel-27",
+      "metadata": {
+        "schema": "public",
+        "name": "soft_delete_family",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-27"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-27",
+      "observed_at": "synthetic-stamp-sentinel-27"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-28",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-28",
+      "detail": "synthetic-detail-sentinel-28",
+      "remediation": "synthetic-remediation-sentinel-28",
+      "metadata": {
+        "schema": "public",
+        "name": "story_row_exists",
+        "arguments": "uuid",
+        "marker": "synthetic-metadata-sentinel-28"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-28",
+      "observed_at": "synthetic-stamp-sentinel-28"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-29",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-29",
+      "detail": "synthetic-detail-sentinel-29",
+      "remediation": "synthetic-remediation-sentinel-29",
+      "metadata": {
+        "schema": "public",
+        "name": "transfer_ownership",
+        "arguments": "uuid, uuid, text",
+        "marker": "synthetic-metadata-sentinel-29"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-29",
+      "observed_at": "synthetic-stamp-sentinel-29"
+    },
+    {
+      "name": "auth_leaked_password_protection",
+      "title": "synthetic-title-sentinel-30",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-30",
+      "detail": "synthetic-detail-sentinel-30",
+      "remediation": "synthetic-remediation-sentinel-30",
+      "metadata": {
+        "type": "auth",
+        "entity": "Auth",
+        "marker": "synthetic-metadata-sentinel-30"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-30",
+      "observed_at": "synthetic-stamp-sentinel-30"
+    }
+  ]
+}

@@ -1,0 +1,384 @@
+{
+  "lints": [
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-31",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-31",
+      "detail": "synthetic-detail-sentinel-31",
+      "remediation": "synthetic-remediation-sentinel-31",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_00",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-31"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-31",
+      "observed_at": "synthetic-stamp-sentinel-31"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-32",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-32",
+      "detail": "synthetic-detail-sentinel-32",
+      "remediation": "synthetic-remediation-sentinel-32",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_01",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-32"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-32",
+      "observed_at": "synthetic-stamp-sentinel-32"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-33",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-33",
+      "detail": "synthetic-detail-sentinel-33",
+      "remediation": "synthetic-remediation-sentinel-33",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_02",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-33"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-33",
+      "observed_at": "synthetic-stamp-sentinel-33"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-34",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-34",
+      "detail": "synthetic-detail-sentinel-34",
+      "remediation": "synthetic-remediation-sentinel-34",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_03",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-34"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-34",
+      "observed_at": "synthetic-stamp-sentinel-34"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-35",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-35",
+      "detail": "synthetic-detail-sentinel-35",
+      "remediation": "synthetic-remediation-sentinel-35",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_04",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-35"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-35",
+      "observed_at": "synthetic-stamp-sentinel-35"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-36",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-36",
+      "detail": "synthetic-detail-sentinel-36",
+      "remediation": "synthetic-remediation-sentinel-36",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_05",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-36"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-36",
+      "observed_at": "synthetic-stamp-sentinel-36"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-37",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-37",
+      "detail": "synthetic-detail-sentinel-37",
+      "remediation": "synthetic-remediation-sentinel-37",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_06",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-37"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-37",
+      "observed_at": "synthetic-stamp-sentinel-37"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-38",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-38",
+      "detail": "synthetic-detail-sentinel-38",
+      "remediation": "synthetic-remediation-sentinel-38",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_07",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-38"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-38",
+      "observed_at": "synthetic-stamp-sentinel-38"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-39",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-39",
+      "detail": "synthetic-detail-sentinel-39",
+      "remediation": "synthetic-remediation-sentinel-39",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_08",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-39"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-39",
+      "observed_at": "synthetic-stamp-sentinel-39"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-40",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-40",
+      "detail": "synthetic-detail-sentinel-40",
+      "remediation": "synthetic-remediation-sentinel-40",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_09",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-40"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-40",
+      "observed_at": "synthetic-stamp-sentinel-40"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-41",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-41",
+      "detail": "synthetic-detail-sentinel-41",
+      "remediation": "synthetic-remediation-sentinel-41",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_10",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-41"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-41",
+      "observed_at": "synthetic-stamp-sentinel-41"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-42",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-42",
+      "detail": "synthetic-detail-sentinel-42",
+      "remediation": "synthetic-remediation-sentinel-42",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_11",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-42"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-42",
+      "observed_at": "synthetic-stamp-sentinel-42"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-43",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-43",
+      "detail": "synthetic-detail-sentinel-43",
+      "remediation": "synthetic-remediation-sentinel-43",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_12",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-43"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-43",
+      "observed_at": "synthetic-stamp-sentinel-43"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-44",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-44",
+      "detail": "synthetic-detail-sentinel-44",
+      "remediation": "synthetic-remediation-sentinel-44",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_13",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-44"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-44",
+      "observed_at": "synthetic-stamp-sentinel-44"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-45",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-45",
+      "detail": "synthetic-detail-sentinel-45",
+      "remediation": "synthetic-remediation-sentinel-45",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_14",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-45"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-45",
+      "observed_at": "synthetic-stamp-sentinel-45"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-46",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-46",
+      "detail": "synthetic-detail-sentinel-46",
+      "remediation": "synthetic-remediation-sentinel-46",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_15",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-46"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-46",
+      "observed_at": "synthetic-stamp-sentinel-46"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-47",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-47",
+      "detail": "synthetic-detail-sentinel-47",
+      "remediation": "synthetic-remediation-sentinel-47",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_16",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-47"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-47",
+      "observed_at": "synthetic-stamp-sentinel-47"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-48",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-48",
+      "detail": "synthetic-detail-sentinel-48",
+      "remediation": "synthetic-remediation-sentinel-48",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_17",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-48"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-48",
+      "observed_at": "synthetic-stamp-sentinel-48"
+    },
+    {
+      "name": "unused_index",
+      "title": "synthetic-title-sentinel-49",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": [
+        "PERFORMANCE"
+      ],
+      "description": "synthetic-description-sentinel-49",
+      "detail": "synthetic-detail-sentinel-49",
+      "remediation": "synthetic-remediation-sentinel-49",
+      "metadata": {
+        "schema": "public",
+        "name": "synthetic_index_18",
+        "type": "index",
+        "marker": "synthetic-metadata-sentinel-49"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-49",
+      "observed_at": "synthetic-stamp-sentinel-49"
+    }
+  ]
+}

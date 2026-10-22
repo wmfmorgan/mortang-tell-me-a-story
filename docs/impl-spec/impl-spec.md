@@ -1943,6 +1943,19 @@ v1 is done when:
 - Tests: `flutter test` + Supabase RLS SQL tests
 > UX leftovers closed into §10 / §12: empty/loading/no-results copy (Drafts, Search, Place picker, Timeline); invite success/failure toasts + post-accept → `/timeline`; publish required-field list + blocking banner; EN-only localization source table; Mugatu suggested Flutter route path strings + auth redirect.
 > Architecture OPENs closed from Design Doc: DDL/enums, RLS matrix + `is_family_member`, Storage bucket/path, timeframe date range, membership `member` only, invite single-use + Edge JSON, Resend + separate send, Realtime table filters, Mapbox client token only, profile trigger, error codes.
+**Post-M17 OPENs (folded at §15 M17 CLOSED, 2026-10-22).** These are code-quality and hardening follow-ups for a later milestone. None blocks M17.
+> ❓ OPEN: [Gilfoyle] Dinesh #93 (M17a) nits: (1) catalog-wide auth.uid() initplan guard; (2) tablename filter on the assert; (3) move the M17a asserts out of fit_and_finish.sql into their own test file.
+> ❓ OPEN: [Gilfoyle] Dinesh #94 (M17b) should-fix: (1) check.py raises (~40 sites, e.g. l.323, 344, 366–466) carry no reason; print a reason at --layer local only; bare `except Exception` (l.1009) hides real bugs as kind=parse on local. (2) load_baseline l.347–477 ~130 lines; _exact_keys(obj, required, optional=()) should check missing keys too; split per section.
+> ❓ OPEN: [Gilfoyle] Dinesh #94 nits: (3) l.1023 fallback prints "advisors prod: RED" on --layer local; (4) dead code l.418, l.906, _mode_of l.950; (5) hoist repeated ident regexes l.535/640/642/446; (6) test duplication (api_definer helper; duplicate fixture-exact-lines test; test_unconfirmed_deploy vs test_wait_nonsuccess; run_body ignores status for list bodies); (7) ci.yml:42 unittest in the "advisors" step, split to its own step; (8) no Python lint, ruff step = ci.md change (Gilfoyle took it).
+> ❓ OPEN: [Gilfoyle] TMAS-94-01 (Trinity, Low; quoted via Erlich, report 8:06 PM CT, full text /workspace/tmas-pr94-security-review.md): "the baseline loader accepts an `accepted` entry with no metadata key, so it would cover a whole lint (check.py l.296–316; lock §7.1 forbids this). ERROR and security lints are still excluded. Fix: require at least one metadata.* key, plus a test."
+> ❓ OPEN: [Gilfoyle] TMAS-94-02 (Trinity, Low; same source): "report_only_lints and local_skip_lints accept any non-ERROR lint, including security lints like function_search_path_mutable and unknown names (l.237–254). Fix: pin both lists to the A5 sets, plus a test."
+> ❓ OPEN: [Gilfoyle] Dinesh #95 (M17c) nits: (1) advisors-prod.yml:35 redundant `-X GET`; (2) l.36 hardcoded project ref, use job-level env PROJECT_REF; (3) l.26–27 `${{ github.repository }}`/`${{ github.sha }}` expanded into shell; pass via env (injection question is Trinity's).
+> ❓ OPEN: [Gilfoyle] actionlint step in CI (ci.md change), with the ruff item.
+> ❓ OPEN: [Gilfoyle] Dinesh #98 (M17d) should-fix (i): `scripts/advisors/fixtures/observed_at/*_mixed.json` duplicate the base fixtures (~980 lines). Instead, derive the mixed docs in the test by dropping observed_at from the base fixture.
+> ❓ OPEN: [Gilfoyle] Dinesh #98 (M17d) nit (ii): `test_observed_at.py` asserts `Finding.__dataclass_fields__`/`hasattr` (l.136 and l.141 at `29e29be`), which are implementation details.
+> ❓ OPEN: [Gilfoyle] Dinesh #98 (M17d) nit (iii): the `--layer prod --baseline … --api` argv builder is duplicated again, now a fourth copy. Move it into one shared test helper (see also the #94 test-duplication nit).
+> ❓ OPEN: [Gilfoyle] Dinesh #98 (M17d) nit (iv): the `"observed_at"` literal appears twice in `check.py` (l.490 and l.492 at `29e29be`). Add an `_API_OPTIONAL_KEYS` constant next to `_API_KEYS`.
+> ✅ RESOLVED: Bill, 8:23 AM CT 2026-10-22 (verbatim via Erlich): "Yes, land the full M17 text in a docs PR". Landed under §15 M17.
 ---
 ## 18 Traceability
 ### Precedence reminder
@@ -5295,4 +5308,1710 @@ Never: edit any existing migration (including 20261012100000 l.86); `drop view .
 Stop and report (do not fix) if: any gate is red; any count differs from Files=25, Tests=803 (plans 36/57/94/69/8), flutter 504, analyze <= 27 with 0 errors, Deno 43; catalog_acl_guard test 6 is not `not ok ... # TODO` or any other of its tests fails; the drop fails on a dependent or CASCADE seems needed (report to Gilfoyle; do not improvise a keep or security_invoker variant); code and the spec disagree (a sha, a line's content, a replace string not found exactly once; report the diff, don't reconcile); anything banned seems needed. If an OPEN blocks a file, stop work on that file, do the unblocked work, and report the OPEN.
 
 After the milestone, report pass/fail with command output in the PR body for: Gate 1 (`git diff main --stat` = the 8 files; `git diff --diff-filter=M main -- supabase/migrations/` empty; wc -l -c and sha256sum of the two new files; `git diff main -U0 -- docs/`); Gate 2 (CI run id + URL on the final head; pgtap `All tests successful.`, `Files=25, Tests=803`, `Result: PASS`, the 25 per-file lines, test 6 `not ok ... # TODO` with diagnostics; local `supabase migration up --local` and `supabase test db` output; `grep -n 'select plan(' supabase/tests/*.sql` summing to 803); Gate 3 (dart format green, `flutter analyze: N issues (ceiling 27, exit 0)`, `🎉 504 tests passed.`, deno check green, `ok | 43 passed | 0 failed`); Gate 4 (`rg -n people_tree_read supabase/tests apps/tell_me_a_story/lib supabase/functions`: only the hasnt_view line in catalog_acl_guard.sql). Gates 5-6 (prod) are not yours: Trinity runs them. Gate 7 is Bill's smoke. The completion note lists commands run, outputs, and OPENs left. Then stop. Lanes: Gilfoyle, Big Head, Dinesh, Trinity. Bill merges, deploys, smokes and closes #72.
+```
+
+### §15 M17 Advisors clean on every deploy (#75) (CLOSED 2026-10-22: #93 7d47fdd, #94 3fabf64, #95 5161164, #98 29e29be; advisors-prod run 39784151364 GREEN on 29e29be)
+**Status:** **CLOSED 2026-10-22.** The close gate passed. Per the M17 lock §5(b) and the M17d lock "Closing gate for M17", that gate is "the first advisors-prod push run on main after merge shows GREEN with the counts above". The run is `advisors-prod` 39784151364, a `push` to `main` on #98's merge commit `29e29bef2326e761cc3a692c1b04b6d970a638ce`, conclusion `success`. Trinity's close check passed at 8:13 AM CT 2026-10-22 (relayed by Erlich), and Big Head re-verified it from the GitHub run and job logs (read-only).
+
+**Merges (GitHub `merged_at`, CT):**
+- M17a: PR #93 "perf: advisors clean (initplan + FK indexes)", merged as `7d47fdd3fb90781b686899196d6783d246643a0f` at 7:36 PM CT 2026-10-21.
+- M17b: PR #94 "ci: supabase advisors gate", merged as `3fabf6495fcd03349a6636c1a77466cfbe56fc6a` at 8:28 PM CT 2026-10-21.
+- M17c: PR #95 "ci: prod advisors workflow", merged as `51611641398ae0d442ff36b8dcd6dc564b223938` at 8:57 PM CT 2026-10-21.
+- M17d: PR #98 "fix: accept observed_at in advisors API parse", merged as `29e29bef2326e761cc3a692c1b04b6d970a638ce` at 8:07 AM CT 2026-10-22.
+  - The merged head is `769a48f`. Its 6 files are byte-identical to `4006b5c`, the head that got Big Head's spec check: CODE PASS on D1–D7 and D9. D8 failed at that check on the PR body only, because the approved spec wasn't attached.
+
+**Close run** (https://github.com/wmfmorgan/mortang-tell-me-a-story/actions/runs/39784151364): job `prod-advisors` 119842751324, 8:07:51–8:08:30 AM CT. The checkout, `wait for the Supabase deploy of this commit`, `fetch prod advisors (GET only)` and `check vs baseline (prod layer)` steps all succeeded. The `Supabase Preview` check on `29e29be` was `success` (check run 119843008775). Raw lines:
+```
+2026-10-22T13:08:25.2179539Z deploy confirmed
+2026-10-22T13:08:27.8223560Z class=delegated name=authenticated_security_definer_function_executable level=WARN count=30
+2026-10-22T13:08:27.8224186Z class=accepted name=auth_leaked_password_protection level=WARN count=1
+2026-10-22T13:08:27.8224556Z class=report-only name=unused_index level=INFO count=19
+2026-10-22T13:08:27.8224905Z summary new=0 stale=0 delegated=30 accepted=1 report-only=19
+2026-10-22T13:08:27.8225196Z advisors prod: GREEN
+```
+
+**CI on the merge commit** (https://github.com/wmfmorgan/mortang-tell-me-a-story/actions/runs/39784151350, `push`, `29e29be`, `success`):
+- pgtap (job 119842752375):
+  ```
+  2026-10-22T13:10:17.4222939Z All tests successful.
+  2026-10-22T13:10:17.4223751Z Files=25, Tests=825,  2 wallclock secs ( 0.06 usr  0.04 sys +  0.15 cusr  0.11 csys =  0.36 CPU)
+  2026-10-22T13:10:17.4224149Z Result: PASS
+  2026-10-22T13:10:18.0805217Z /home/runner/work/_temp/splinter.sql: OK
+  2026-10-22T13:10:18.5392527Z Ran 47 tests in 0.190s
+  2026-10-22T13:10:18.5392712Z OK
+  2026-10-22T13:10:18.5946755Z summary new=0 stale=0 delegated=30 accepted=0 report-only=9 local-skip=0
+  2026-10-22T13:10:18.5946961Z advisors local: GREEN
+  ```
+- flutter (job 119842752471):
+  ```
+  2026-10-22T13:09:02.4844049Z 27 issues found. (ran in 13.3s)
+  2026-10-22T13:09:02.4982450Z flutter analyze: 27 issues (ceiling 27, exit 0)
+  2026-10-22T13:10:17.9356369Z 🎉 504 tests passed.
+  ```
+- deno (job 119842752669): `2026-10-22T13:07:58.9083197Z ok | 43 passed | 0 failed (488ms)`
+
+**Earlier red prod runs (all before #98; closed by M17d):** 39708666769 on `5161164`, 39772836059 on `c72d041` (#97) and 39781231426 on `b63e53f` (#99). Each one confirmed the deploy, then failed at `check vs baseline (prod layer)` with `error kind=parse` / `advisors prod: RED`. The cause was the 11th API key, `observed_at`, which M17d accepts.
+
+**Specs (approved, kept on the build box; not in the repo):**
+- M17a/b/c: M17 rev 3, `/workspace/m-adv/m17_advisors_clean_spec_rev3.md`, sha256 `8f8e8fde982b7dedf29187de666c938cb3caf140e8faf5a779aacd42c2d67d37`. APPROVED by Bill 7:19 PM CT 2026-10-21 ("Approved", Erlich relay, verbatim). Source: Gilfoyle's lock rev 2 with Addenda A and B.
+- M17d: `/workspace/m-adv/m17d_observed_at_spec.md`, sha256 `b102b543f40b92942387bc22bc2b20f105d3423586daa44b1b81834640099756`. APPROVED by Bill 6:23 AM CT 2026-10-22 ("M17d spec approved, launch it", Erlich relay, verbatim). Source: Gilfoyle's M17d lock, sha256 `6ac194765975906db098f56e1266bee1e783250d990393c4d50e6b5de9c3bb84`.
+
+**Issue:** #75 was closed by Bill at 8:21 AM CT 2026-10-22 (relayed by Erlich), after the M17 close. The M17 lock and the M17d lock never say #75 closes when M17 closes. M17 rev 3 says "Bill closes #75". Every M17 PR said `Refs #75`.
+
+Post-M17 OPENs are folded into §17 ("Post-M17 OPENs").
+
+#### M17a/b/c approved build text (rev 3, sha 8f8e8fde…)
+Source: M17 rev 3, `/workspace/m-adv/m17_advisors_clean_spec_rev3.md` l.1–1322 (the whole approved file, sha256 `8f8e8fde982b7dedf29187de666c938cb3caf140e8faf5a779aacd42c2d67d37`), copied verbatim. The only change is that every heading outside code fences is shifted down two levels (### → #####, #### → ######). Landed per Bill, 8:23 AM CT 2026-10-22 (verbatim via Erlich): "Yes, land the full M17 text in a docs PR".
+
+##### §15 M17 Advisors clean on every deploy (#75)
+**Status:** **APPROVED rev 3 2026-10-21 (Bill, 7:19 PM CT: "Approved" (Erlich relay, verbatim, answering "Approve M17 rev 3 so the performance PR can go to a coding agent?")).** Approved file: READY rev 3 sha256 `55281fe432d7e2d0223bccf9e1657084e2cecde0df94151485e326b425094fb0`; this stamp changes only l.2, l.3, l.1179, l.1204 and the three cloud-agent block headings (l.1256, l.1280, l.1309). Rev 3 adds only Gilfoyle's lock rev 2 Addendum B (Trinity's TMAS-M17 security review); scope, sub-parts and order are unchanged. Rev 2 (`/workspace/m-adv/m17_advisors_clean_spec_rev2.md`, 986 lines, sha256 `b08da792803546375b955f5ef854075db6dafd954c7c669b8b7aefa2e0729449`, APPROVED by Bill 2026-10-21 6:55 PM CT, "Approve M17 only; hold M18") and rev 1 (`/workspace/m-adv/m17_advisors_clean_spec_rev1.md`, 714 lines, sha256 `7602bea67b04e761ed49a07c9af40d5ab4324c2bc333594928fd686510919530`) are kept unchanged as history.
+> ✅ CLOSED (Bill, 2026-10-21 7:19 PM CT): l.2 status CONFLICT (Addendum B4 vs READY). Bill re-approved rev 3 explicitly ("Approved" (Erlich relay, verbatim, answering "Approve M17 rev 3 so the performance PR can go to a coding agent?")), which B4 allows ("If Bill wants to re-approve rev 3 explicitly, that is his call, and l.2 then cites his new time"). l.2 cites the new time.
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-12 (Addendum B4). The quote "Approve M17 only; hold M18" and 6:55 PM CT match Erlich's verbatim relay and Trinity's l.215 character for character. B4's "Source note" (check against Bill's message) is done; see "Bill-quote check" below.
+
+Sources (sha256 re-verified on the box 2026-10-21 ~6:40 PM CT; every prefix matched the brief):
+- Gilfoyle's design lock rev 2: `/workspace/m-adv/advisors-clean-lock-rev2.md` (378 lines, sha256 `30527612df979c159eb5d774304b80d03944dfabdc573f2480bb71790f20a892`). Lock l.3: "**Status: rev 2, LOCKED 2026-10-20 (Gilfoyle; decisions by Bill 1:59/2:00 PM CT)**".
+- **Addendum A** to rev 2: `/workspace/m-adv/advisors-clean-lock-rev2-addendum-A.md` (504 lines, sha256 `0cc4d02e026278ab2728ba0d5adc826a3c082c256696fe70bb3b4bb24222022b`). Addendum l.3: "**Status: Addendum A to rev 2, LOCKED 2026-10-21 (Gilfoyle), answers to M17 spec rev 1 OPENs/CONFLICTs**". Addendum l.5: "Where this addendum and rev 2 disagree, this addendum wins. Everything rev 2 says that is not changed here still holds."
+- Addendum drafts `/workspace/m-adv/addA/`: `20261022000000_advisors_perf.sql` (60 lines, 3,072 bytes, sha256 `75aa731ccd4b2491aabe433ac9253340c4f516076c410eaec6764d20ece80679`) and `fit_and_finish_asserts.sql` (54 lines, 3,647 bytes, sha256 `5bd37404a3e3cfbd2fe0395bc47973dd49f6dd392fc2910d7bd30d75bd8e1de9`). Each is byte-identical to its block in the addendum (A1.4, A1.7), checked by script. The other four files there (`before.txt` `acd89215…f9949ed`, `after.txt` `046a7a61…4b975`, `scaffold.sql` `236910d2…13d184`, `repo_policies.sql` `bdd2f304…7f65ba`) are Gilfoyle's scratch-PG proof artifacts, not repo files.
+- ci.md rev 6 **as amended by Addendum B2.3**: `/workspace/m-ci/ci-rev6.md` (84 lines, 8,572 bytes, sha256 `a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b`). Gilfoyle overwrote that path; the rev 2 file (84 lines, 8,437 bytes, `4c3611b3715dbf8f02c05e2216c7e945ce9c77a678842fcffd11456ea0493723`) is kept byte for byte as `/workspace/m-ci/ci-rev6-pre-B.md`. `diff` of the two: only l.60 differs (B2.3). No `ci-rev6b.md` was needed or written.
+- **Addendum B** to rev 2: `/workspace/m-adv/advisors-clean-lock-rev2-addendum-B.md` (549 lines, 40,806 bytes, sha256 `aad4e6ea8a563c1e3a191528e77a71f4749421a2e8c0e81d2f019bb110f9171d`; prefix `aad4e6ea` and suffix `9171d` match Gilfoyle's). Addendum B l.3: "**Status: Addendum B to rev 2, LOCKED 2026-10-21 (Gilfoyle), Trinity M17 review findings**". Addendum B l.6: "**Precedence:** Addendum B > Addendum A > lock rev 2 > the M17 spec. Where B and A disagree, B wins (the overlaps are listed in B8)." Its `spec l.N` references are rev 2 lines (`b08da792…`), re-checked: every cited line holds.
+- Addendum B files `/workspace/m-adv/addB/`: `advisors-prod.yml` (43 lines, 1,564 bytes, `07100fb9416dc6dcc606ebc592b646d59273a59804b4cb22fd2885d7c6f9767b`); `advisors-prod.pre-B.yml` (`390a4ab2…a317c5`, = rev 2 R-c1, byte-identical to rev 2's expected file); `scripts/advisors/test_prod_redaction.py` (68, 2,703, `70d1c8e0a4d3a3e9cdc37b91489e314fcaf8650f16234a8cac3d11ad8bd63ed9`); `scripts/advisors/fixtures/prod_redaction/security.json` (40, 1,739, `3d6212fb88b06adb56547861764fae9ce8104190bccda9933eb7f6f2a8489bc5`), `performance.json` (52, 2,609, `801b68ec33ac51cbab57a2b98ec73a5e6db217d64f50022fbdb0c6129af834b4`), `baseline.json` (23, 654, `7a11d56e9bc9775c64cc80dea7d30c002556d167df263aaaf9607d85f87d9ff7`). Each equals its Addendum B block byte for byte (checked by script). `scratch-stub-check.py.txt`, `fill.py` and `addendum-B.template.md` are Gilfoyle's scratch files, not deliverables.
+- Trinity's review of rev 2: `/workspace/tmas-m17-advisors-spec-review.md` (274 lines, sha256 `b934ea049577a517c91cbdfa9b389bdf419058aa620277139a2b854bb79c39df`, the value Addendum B l.7 names; verdict PASS, ~7:00 PM CT). Addendum B adopts TMAS-M17-01, -03, -04, -12, -02 (as process), -06 (no new text) and -07. **Not adopted** (no rev 3 change): TMAS-M17-05 (Bill setting; B6 "Passed to Bill unchanged. No lock change."), and TMAS-M17-08, -09, -10, -11 (confirmations; "No ruling needed."). Where Trinity and B differ, B governs (CONFLICTs listed under "OPENs, CONFLICTs, INFERs").
+- Precedence: Addendum B > Addendum A > lock rev 2 > this item. Background only (not a source of truth): `/workspace/m-adv/advisors-clean-design-rev1.md` and `/workspace/m-adv/research/`.
+
+Base: `main` @ `9a7663dc2f74a8888eea77db1ad6dbc1d64b5215` ("docs: stamp §15 M16 CLOSED (#72) (#78)", committed 6:27 PM CT 2026-10-21). `get_branch main` re-checked 2026-10-21 ~7:15 PM CT for rev 3 (main has not moved): head `9a7663d`, required contexts `["deno", "flutter", "pgtap"]`. The addendum's base was `46957e2`; the recursive tree diff `46957e2` → `9a7663d` changes exactly one blob, `docs/impl-spec/impl-spec.md`, so every other line and hash the lock and addendum cite still holds (re-checked below). **Does not reopen M14, any M14.x, M15 or M16.** This item is not #48 (E2E, drafted separately as M18). #48's "PR1" (the e2e spike) is a different thing from this item's PR-1.
+
+###### Rev 3 changes (vs rev 2)
+All from Addendum B; nothing else changed. rev 2 = `b08da792…9449`.
+1. **l.2 status** → READY rev 3, NOT APPROVED (re-approval needed), with a CONFLICT against B4's APPROVED text (TMAS-M17-12).
+2. **Sources** add Addendum B, the addB files and Trinity's review; ci.md rev 6 moves to the B2.3 file `a472f3f4…` (8,572 bytes) everywhere (rev 2 l.8, 57, 559, 564, 627, 673, 804, 961; grep found no others).
+3. **TMAS-M17-01 (B1):** lock §7.2 rule 3 replaced and §7.2a (prod-layer output grammar) embedded at R-b3; `scripts/advisors/test_prod_redaction.py` + 3 fixtures embedded byte for byte and added to M17b Files touched, the unit-test list, B2 and B6; three FORBIDDEN bullets (no `$GITHUB_STEP_SUMMARY`, no `upload-artifact`, no printing advisor JSON); C2 rows 7–8; M17b cloud block items 3, 4 and "Never".
+4. **TMAS-M17-03 (B2):** FORBIDDEN trigger bullet, §8.2 Triggers line, C2 row 3 grep and rev 6 l.60 name `workflow_run`, `pull_request_target`, `repository_dispatch` and `issue_comment`.
+5. **TMAS-M17-04 (B3):** fetch step is `printf … | curl --config - -fsS --proto '=https' --max-time 30`; R-c1 re-embedded (43 lines, 1,564 bytes, `07100fb9…`); token lines now wf l.30 and l.34; §8.2 Secret line and one FORBIDDEN bullet added; C1, C2 rows 2, 9, 10; M17c cloud block.
+6. **TMAS-M17-02 (B5):** lock §14 standing lane rule embedded under Lanes; Trinity's lane mandatory for M17b/M17c and any PR touching `.github/workflows/**`, `scripts/advisors/**` or `supabase/advisors-baseline.json`; no CODEOWNERS; Bill steps and every cloud-agent lane note updated.
+7. **TMAS-M17-06/-07 (B6):** lock §11 risk 6 quoted under M17c; the unit-test INFER gains the documented API-shape rule.
+8. **Gate C2** replaced whole by B7 (10 rows, expected values re-run on the box). Stop-rule and C1 hashes updated. Expected files recomputed in `/workspace/m-adv/expected3/`.
+9. **Bill steps:** rev 2 approval recorded as done; a new "re-approve rev 3" step.
+10. New CONFLICTs (Trinity vs B, B governs; owner Gilfoyle) and the not-adopted list, under "OPENs, CONFLICTs, INFERs".
+
+###### Bill-quote check (rev 3, 2026-10-21 ~7:15 PM CT)
+Every Bill quote in this item and in Addendum B was compared character for character with Bill's words as relayed, and the #75 ones against the live issue (read-only `get_issue` / `list_issue_comments`):
+- "i want supabase to come back clean every deploy. how do we integrate that" (12:23 PM CT 2026-10-20): matches the relay and the #75 body exactly.
+- "1) run in Github 2) accept the warning 3) yes": matches comment 6298803405 (2026-10-20 18:59:39Z = 1:59 PM CT) exactly.
+- "Make an exception: allow one read-only post-deploy GitHub job against prod for #75": matches comment 6298820767 (19:00:33Z = 2:00 PM CT) exactly.
+- "both": matches the relay and comment 6328567784 (2026-10-21 23:07:54Z = 6:07 PM CT) exactly.
+- "Approve M17 only; hold M18" (6:55 PM CT): matches the relay, Addendum B4 and Trinity l.215 exactly. The #75 approval comment 6329222599 (23:55:34Z = 6:55 PM CT) records the approval but does not quote these words; the relay is the source.
+- "Yes, drop people_tree_read for #72" (12:15 PM CT 2026-10-20): not quoted anywhere in this item or in Addendum B, so nothing to check or change.
+- Result: **no difference**; no quote CONFLICT.
+
+**Three PRs, in a fixed order** (lock §10 "Sizing (locked order)"):
+| Sub-part | Lock row | PR title (lock §10, verbatim) | Branch |
+|---|---|---|---|
+| **M17a** | PR-1 | `perf: advisors clean (initplan + FK indexes)` | `feat/m17a-advisors-perf` |
+| **M17b** | PR-2 | `ci: supabase advisors gate` | `feat/m17b-advisors-gate` |
+| **M17c** | PR-3 | `ci: prod advisors workflow` | `feat/m17c-advisors-prod` |
+
+**Hard ordering rule.** Each sub-part is its own PR off `main`, built only after the one before it has merged. The order is **M17a, then M17b, then M18** (Addendum A3.1):
+- M17b starts only after M17a has merged **and** prod reads clean except the 30 delegated + 1 accepted (lock §10: "PR-1 merged, and prod clean except the 30 delegated + 1 accepted").
+- M17c starts only after M17b has merged, and it merges only after Bill has created the scoped PAT, the `prod-advisors` environment and the secret (lock §10: "PR-2; Bill creates the scoped PAT, the `prod-advisors` environment and the secret").
+- Lock §10 PR-1: "**Lands before the gate goes live.**" Lock l.332: "The gate goes live when PR-2 merges. Its first push run (plus PR-3's first run) must be green against prod."
+- **M17b lands ci.md rev 6 with both exceptions** (P1 #75 and E2E #48) plus the README l.20 change. Addendum A3.1 (verbatim):
+  > **M17b lands rev 6, byte for byte, with BOTH exceptions:** P1, the #75 prod advisors job, and E2E, the #48 local-only `e2e` job, even though neither job exists yet. Rev 6 is a lock document, and it describes the allowed shape ahead of the code.
+  > **M18 PR0 does not touch `docs/design-doc/ci.md`.** M18 references rev 6 and does not repeat it.
+  > **Ordering this creates:** M18 PR1, the first PR that adds the `e2e` job, starts only after M17b, which carries rev 6, is merged on `main`. M18 PR0 (docs) can merge before or after M17b, because it no longer touches ci.md.
+- So: M18 PR0 touches neither `docs/design-doc/ci.md` nor `AGENTS.md` (Addendum A3.2: "The simplest way to close M18 OPEN 3 is for M18 to leave AGENTS.md l.43 as M17b sets it."); M18 PR1 starts only after M17b is merged on `main`. Enforcing that is M18's gate; no M17 sub-part waits on M18.
+
+> 🔍 INFER: Three sub-parts (M17a/b/c), not two, because lock §10 lists three PRs (PR-1, PR-2, PR-3). The brief's "the perf fix, then the advisors job" names PR-1 and then the job, but the lock wins on the split.
+> 🔍 INFER: Branches `feat/m17a-advisors-perf`, `feat/m17b-advisors-gate` and `feat/m17c-advisors-prod` because the lock names no branches and `AGENTS.md` l.18 says "One §15 milestone per PR, on a `feat/mN-…` branch off `main`. No direct push to `main`." One PR per sub-part follows the lock's PR split.
+> 🔍 INFER: PR titles are the lock §10 "PR" column, verbatim, because the lock names them. Each PR body says `Refs #75` (never `Closes`/`Fixes`), because #75 is done only after M17c's first prod run is green, which happens after the merge. Bill closes #75.
+
+M17 is the next free number:
+- `docs/impl-spec/impl-spec.md` on `main` @ `9a7663d` has 5,298 lines and sha256 `a5d40cf9a25fb692ed3b6fa52ca9def9e3e5532ecbce6fcf835880a076018362` (git blob sha verified against the `9a7663d` tree). Its highest §15 heading is l.4919 `### §15 M16 Hotfix: drop people_tree_read (#72) (CLOSED 2026-10-21: #76 merged 46957e2, Gate 6 PASS on prod, Bill smoke 6:10 PM CT)`. `grep -n 'M17\|M18'`: no hits.
+- M16 (#72) is now stamped CLOSED by #78. Rev 1's "not yet stamped" note is resolved.
+- l.4492 (M14 series CLOSED) FORBIDDEN: "Reopening M14 or any M14.x item. Building a backlog issue (#43, #49, #63–#69) without its own APPROVED §15 item. Adding new M14.x numbers."
+- The #48 E2E item is drafted separately as M18. The lock names no milestone number.
+
+###### Requirement and decisions (verbatim)
+Issue #75 (opened 2026-10-20 12:24 PM CT), body: "Bill's words at 12:23 PM CT on 2026-10-20: "i want supabase to come back clean every deploy. how do we integrate that"."
+
+Bill's decisions, relayed verbatim by Erlich and recorded on #75 (comments posted from the `wmfmorgan` account; the quoted lines are Bill's):
+- **Comment 6298803405, 2026-10-20 1:59 PM CT** ("Gate: design decisions (Bill, 1:59 PM CT 2026-10-20)"): "1) run in Github 2) accept the warning 3) yes". Recorded as: "2. Leaked-password advisor: LOCKED. Accept it in advisors-baseline.json as a known item, owner Bill (Free plan; no Pro upgrade)." and "3. "Clean" scope: LOCKED. Includes the performance lints (5 RLS initplan, 17 FK indexes, fixed in one PR before the check goes live). Stats-based lints stay out."
+- **Comment 6298820767, 2026-10-20 2:00 PM CT** ("CONFLICT resolved (Bill, 2:00 PM CT 2026-10-20)"): "Make an exception: allow one read-only post-deploy GitHub job against prod for #75". Recorded as: "1. Where the prod check runs: LOCKED. One GitHub workflow job, read-only, runs after deploy against prod, using a Supabase token stored as a GitHub repo secret (name only in the repo, never the value). This is the only exception to the rule that CI never touches prod."
+- **Comment 6299044381, 2026-10-20 2:10 PM CT** ("Gate: design LOCKED (Gilfoyle, rev 2, ~2:10 PM CT)"): "Open: Bill confirms that "after deploy" means the job waits for the `Supabase Preview` check on the merge commit, and a timeout counts as red."
+- **Comment 6328567784, 2026-10-21 6:07 PM CT** ("Gate: post-deploy trigger confirmed (Bill, 6:07 PM CT 2026-10-21)"): "both". Recorded as: "The prod advisors job waits for the `Supabase Preview` check on the merge commit to succeed, and a timeout counts as red. Design is fully locked. Next: Big Head writes the impl spec (perf PR first)."
+- Bill's 6:07 PM "both" also answers a second Gilfoyle call, the integration_test dependency. That one belongs to #48 (M18) and is **not** part of this item.
+
+Lock l.7–9 (verbatim): "**Decisions** (Bill, verbatim):" / "- 1:59 PM CT: "1) run in Github 2) accept the warning 3) yes"" / "- 2:00 PM CT: "Make an exception: allow one read-only post-deploy GitHub job against prod for #75"".
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): CONFLICT token storage (rev 1 l.37). Addendum A4 (verbatim): "The environment secret wins: `SUPABASE_ADVISORS_TOKEN` is stored as a GitHub Actions **environment** secret in the `prod-advisors` environment, whose deployment-branch policy is `main` only." and "**There is no repository-level secret of that name**, and no other environment carries it." The narrow reading rev 1 chose is confirmed ("Big Head's handling at spec l.37 and l.624 is **confirmed**."). Bill's words stay as quoted above; "Stored as a GitHub repo secret" was a paraphrase in the recorded decision (A4).
+
+###### Code on `main` this item relies on (read-only facts, @ `9a7663d`)
+Checked 2026-10-21 ~6:40 PM CT with read-only cursor-github (`get_branch`, `get_git_tree` recursive, `get_file_contents`, `list_check_runs_for_ref`, `get_job_logs`). Every file below matched its git blob sha in the `9a7663d` tree. All except `impl-spec.md` have the same blob as at `46957e2`, so rev 1's facts carry over unchanged; the new facts the addendum relies on were read at `9a7663d`.
+- **Migrations:** 35 files in `supabase/migrations/`. The latest is `20261020120000_drop_people_tree_read.sql`. M17a's new migration must sort after it.
+- **Workflows:** `.github/` holds exactly one workflow, `.github/workflows/ci.yml` (132 lines, 3,833 bytes, sha256 `a379fa4c5f9894ec87bd177d0e22d253f186edd55ceee7c4e24dfb8ea9495d0a`). Jobs `flutter`, `deno`, `pgtap`. Workflow `permissions: contents: read`, workflow `env` `ANALYZE_CEILING: 27` only. The `pgtap` job: l.102 `pgtap:`, l.104 `timeout-minutes: 20`, l.108–110 job `env` (`SUPABASE_CLI_VERSION: "2.121.0"`, `SUPABASE_CLI_SHA256: "4b481189efbdc57cf2d37bdee5f1a0d29574314398564b32a6dfb76c0fcf275f"`), l.131–132 the last step `supabase test db`. 5 `uses:`, all SHA-pinned. No secrets. `scripts/` does not exist. No `advisors` path exists anywhere.
+- **`docs/design-doc/ci.md`:** rev 5, 59 lines, 4,989 bytes, sha256 `2b1848957059e36b488b47bd3618a5295f59405d788bc1043671735d096faaf1` (the value Addendum A3.1 names). l.3 ends "CI never touches prod." l.17: "No `link`, `--linked`, `--db-url`, `db push`, `db reset`, `db pull` or `migration` commands in CI, ever." l.51 quotes "`Files=24, Tests=799` at rev 5". `diff` of this file against `/workspace/m-ci/ci-rev6.md` (run on the box) gives exactly Addendum A3.4's hunks, with the `+` line for rev 6 l.60 as amended by Addendum B2.3: replaced rev 5 l.1, 3, 6, 12, 51, 55, 58, 59; 25 lines inserted after rev 5 l.53 (rev 6 l.54–78). No other line differs.
+- **`docs/design-doc/README.md`:** 20 lines, 2,076 bytes. l.20: `` - `ci.md` — CI (LOCKED 2026-10-20, Gilfoyle, rev 5) `` (matches Addendum A3.3 "old").
+- **`docs/design-doc/00-foundation.md`:** 178 lines, 8,046 bytes, sha256 `63d860189c9c9f97d0a61c978b743a9bb21fd04915ac450b16b8ed6d9dc0be3e`. l.38 `## 2. RLS`; l.112 the Bill 2026-09-27 `profiles` SELECT amendment; l.113–127 the SQL sketch (fence l.113 and l.127); **l.128** `` > 🚫 FORBIDDEN: Denormalize `display_name` / author name onto `comments` or `perspectives`. … ``; l.129 `## 3. Storage`. This matches Addendum A2 ("the `> 🚫 FORBIDDEN: Denormalize …` line" at l.128, before "l.129 `## 3. Storage`").
+- **`supabase/tests/fit_and_finish.sql`:** 684 lines, 25,222 bytes, sha256 `8059fc01e9704cb41d765e65a5d8e7318bdbfcbf7da20b48099287ee01abc1fb`. l.137 `select plan(60);` (the only `plan`); l.594 `reset role;`; l.608–612 the "policy count is 47" assert (l.609 the `count(*)` line, l.611 the description, cited by `AGENTS.md` l.41 as `fit_and_finish.sql:611`); l.677–681 the `photos_delete_uploader_or_author with_check` assert, closed by l.681 `);`; l.682 blank; l.683 `select * from finish();`; l.684 `rollback;`. This matches Addendum A1.7.
+- **`supabase/tests/people_profiles.sql` l.311–315:** the `profiles_select_own_or_comember` qual `not like '%is_tree_member%'` assert (Addendum A1.7 says it stays green).
+- **`AGENTS.md`:** 66 lines, 5,255 bytes, sha256 `d300781ff8bf23e835f42815e2f806d01da8ac1187b6b418b91bb8460aa33719`.
+  - l.21–22 cover the migration and local-DB rules.
+  - l.41: policy count 47 (`fit_and_finish.sql:611`).
+  - l.43 is the CI line: "- CI runs `dart format`, analyze, flutter test, Deno and pgTAP on every PR. Local `supabase test db` is still how you check a migration before pushing. **The PR body is the evidence**: paste fresh counts and command output from the PR's head commit."
+  - l.53: "No new dependencies without approval. Pin majors; no drive-by upgrades mid-milestone."
+  - l.57: "No secrets in code, Notion or chat. `.env.example` only."
+  - l.58: "No production or hosted config changes (hosted Supabase, auth redirects, Edge secrets)."
+  - l.59: "No merging. **Stop after opening the PR.**"
+- **`supabase/config.toml`:** `[api]` l.13 `schemas = ["public", "graphql_public"]`; `[db]` l.35 `port = 57322`, l.42 `major_version = 17`. No `[storage.buckets.*]` is enabled.
+- **`supabase/tests/`:** 25 files. `catalog_acl_guard.sql` has sha256 `25fcf5e82adc79149a0b900dd37eddd1b90b87b9513f59ec631ba56ee6bf5027`, `plan(8)`, and a `set_eq` of 30 signatures. `definer_grants.sql` has 435 lines, sha256 `f63ba6e0bc96e409db417db121bc9e08b94f96469febc5ab0dc878a8ee5a10a5`, l.4 `select plan(68);`. l.262–273 is the anon `is_empty`, which stays. **l.275–317** is the 30-`regprocedure` `is_empty` ("'every public security definer authenticated can execute is on the allowlist'"), followed by blank l.318 and then `create temporary table dg_ctx (` at l.319. The two 30-lists are set-equal (checked by script: 30 = 30, equal).
+- **The 5 `auth_rls_initplan` policies exist exactly as lock §1.3 names them.** I tracked every `create`/`alter`/`drop policy` across the 35 migrations: 47 live policies. Of those whose text has a bare `auth.uid()` with no `select auth.uid()`, exactly these 5 are outside `storage`, the schema splinter excludes:
+  - `profiles_update_own` and `profiles_delete_own` (`20260923000004_rls.sql` l.66–75);
+  - `stories_delete_author` (`20260923000004_rls.sql` l.171–177);
+  - `invites_insert_member_inviter` (`20260923000004_rls.sql` l.353–359);
+  - `profiles_select_own_or_comember` (`20260927000001_profiles_select_comember.sql` l.3–16).
+
+  None was altered later. Their current text is under M17a below.
+- **The 17 `unindexed_foreign_keys` exist exactly as lock §1.3 names them.** Each is an inline or `add column … references` with a default `<table>_<col>_fkey` name, and none has an index whose leading column is the FK column:
+  - comments `author_id`, `family_id`, `story_id` (`20260923000002_ddl.sql` l.89–93);
+  - families `created_by` (l.15);
+  - invites `family_id` (l.111), `invited_by` (l.112), `accepted_by` (l.117) and `person_id` (`20261012100000_people_profiles.sql` l.280);
+  - people `created_by` (l.39) and `user_id` (`20261007000002_manage_families.sql` l.12; `people_family_user_uidx` leads with `family_id`);
+  - perspectives `author_id`, `family_id`, `story_id` (l.99–103);
+  - photos `story_id`, `family_id`, `uploader_id` (l.80–84);
+  - stories `author_id` (l.57).
+
+  The other FKs are already covered: `families_parent_family_id_idx`, `memberships_*_idx`, `stories_family_id_status_idx`, `stories_place_id_idx`, `families_origin_story_id_idx`, `people_family_id_name_idx`, `places_family_id_label_idx`, the `story_people` PK `(story_id, person_id)`, and `story_people_person_id_idx`. The 3 `unused_index` objects of lock §1.3 exist in the repo; on prod, Addendum A l.10 reports `unused_index` is now 2 (`stories_place_id_idx` was used), a stats lint that needs no action.
+- **No migration ≥ `20261022000000`** in the `9a7663d` tree (latest `20261020120000_drop_people_tree_read.sql`; 35 files; no file starts with `20261022`), so Addendum A1.3's name is still free.
+- **Splinter pin:** `curl -sI https://raw.githubusercontent.com/supabase/splinter/fccca4b1c4d8b48b8ccd69bd6b30e84adcb92975/splinter.sql` returned `HTTP/2 200` (checked on its own, with no fallback). The downloaded file passed `sha256sum -c` against `d8d558baad3e03832e521c527907fa50a9a172fabd899dd0f5c2504a5a0e9349`. It is 1,876 lines with 29 lint names, and every lint name used in the baseline exists in it. Its `auth_rls_initplan` test is `qual like '%auth.uid()%' and lower(qual) not like '%select auth.uid()%'` (the same for `with_check`). Its `unindexed_foreign_keys` test matches an index whose leading columns equal the FK columns. Its cache keys are `auth_rls_init_plan_%s_%s_%s` and `unindexed_foreign_keys_%s_%s_%s`.
+- **Deploy check:** `Supabase Preview` (app slug `supabase`) completed `success` on `9a7663d` at 6:27:35 PM CT 2026-10-21 (and on `46957e2` at 2:01:13 PM CT 2026-10-20, lock §1.1). It also reports `success` on docs-only and CI-only `main` pushes (`b025b75`, `769a628`, now `9a7663d`), so on `main` pushes it reports `success` even with no migration. On PR heads it reports `skipped` (seen on PR #76), and the prod job never runs on PRs. The wait step reads it with the job's `GITHUB_TOKEN` (Addendum A6(b)), not unauthenticated.
+- **Gate baselines (CI run `39693491649` on `9a7663d`; jobs pgtap `119545133927`, flutter `119545134157`, deno `119545134206`, all `success`):** `All tests successful.` / `Files=25, Tests=803` / `Result: PASS`; `Formatted 107 files (0 changed)`; `27 issues found.` / `flutter analyze: 27 issues (ceiling 27, exit 0)`; `🎉 504 tests passed.`; `ok | 43 passed | 0 failed`. These match the lock (l.11: "pgTAP `Files=25, Tests=803`") and the brief (Flutter 504, analyze 27, Deno 43, pgTAP 25/803).
+
+###### Standing rules (all three sub-parts)
+- R1 **One PR per sub-part, in order** (hard ordering rule above). Never two sub-parts in one PR. Never build a later sub-part on top of an unmerged earlier one.
+- R2 **Copy the lock verbatim.** SQL, paths, YAML, env names, the token scope, counts and commands come from the blocks quoted in this item. No added steps, env, retries, flags, actions, triggers or hardening.
+- R3 **Migrations** (`AGENTS.md` l.21): new files only, sorting after `20261020120000_drop_people_tree_read.sql`. Never edit an earlier migration.
+- R4 **Local DB** (`AGENTS.md` l.22): `supabase migration up --local` only. Never `supabase db reset`, `db pull`, `migration down` or `migration repair`.
+- R5 **The agent never touches prod.** No Supabase MCP, no SQL editor, no Management API call, no `supabase link`/`--linked`/`--db-url` to anything but localhost. Never run `advisors-prod` (including `workflow_dispatch`), and never read, create, print or echo `SUPABASE_ADVISORS_TOKEN` or any token. Bill creates the token, the environment and the secret. Prod reads after a merge are Gilfoyle's or Trinity's (as in #72 Gate 6).
+- R6 **No secret in `ci.yml`, ever** (lock §12, ci.md rev 6 "`ci.yml` keeps "no secrets" unchanged."). The `PGPASSWORD: postgres` in lock §8.1 is the local container default, which the lock labels "not secrets".
+- R7 **Required checks are Bill's.** No PR touches branch protection, rulesets, required checks, environments, secrets or repo settings. `advisors-prod` is never made a required check (lock §12).
+- R8 **Counts are evidence:**
+  - M17a moves pgTAP to `Files=25, Tests=826` (803 + 23 new asserts, Addendum A1.7). Flutter 504, analyze ≤ 27, Deno 43 and the policy count 47 stay.
+  - M17b moves pgTAP to `Files=25, Tests=825` (826 − 1 definer fold). Flutter, analyze and Deno stay the same. Addendum A1.7 (verbatim): This replaces "802" in rev 2 §7.3, §8.3, §10 row 2 and every M17 or M18 gate that quotes 802 or 803 after M17a. "Any other count in that PR is a red flag" (rev 2 §7.3) now reads 825.
+  - M17c changes no count (825).
+- R9 **Issue link:** `Refs #75` in each PR body. Don't open, edit, comment on or relabel any issue.
+- R10 **M-close rule (lock §5(b), verbatim):** "A milestone cannot be stamped CLOSED while the latest post-deploy run is red. The M-close note cites a green run (time, main SHA, counts)." This applies to every milestone after M17c merges, M17 included.
+> 🔍 INFER: Splinter (fetched at run time, pinned by commit and sha256) and `scripts/advisors/check.py` (stdlib only) count as approved dependencies under `AGENTS.md` l.53 because Bill chose "run in Github" (1:59 PM CT), Gilfoyle locked the pin (lock §2, §8.1), and Bill's approval of this item is the approval. No pip, npm or apt install, and no new action.
+> 🔍 INFER: This M17 item lands in `impl-spec.md` later, in a separate docs PR (as M15 did). None of M17a/b/c edits `impl-spec.md`, because lock §10 lists no impl-spec change.
+
+Lock §5 (block semantics, verbatim):
+- Prod migrations auto-apply on merge, so nothing after the merge can block a deploy.
+- **(a) Pre-merge = BLOCKING.** The splinter step in the required `pgtap` job checks against the baseline.
+- **(b) Post-deploy = ALERT plus a red M-close gate.** The one read-only GitHub job runs against prod (§8.2).
+  - A red result triggers the hotfix path (the #72 pattern).
+  - A milestone cannot be stamped CLOSED while the latest post-deploy run is red. The M-close note cites a green run (time, main SHA, counts).
+
+---
+
+###### M17a: perf fix (lock PR-1), branch `feat/m17a-advisors-perf`
+Lock §10 row 1 (verbatim): "| 1 | `perf: advisors clean (initplan + FK indexes)` | **One** new migration: `alter policy` ×5 with `(select auth.uid())` and 17 `create index` (tiny tables, non-concurrent is fine in a migration). pgTAP behaviour unchanged. Design Doc note for the RLS edits (policy count 47 unchanged). | Gilfoyle lock on the policy text. **Lands before the gate goes live.** |"
+Addendum A7 amends that row (verbatim): "adds `supabase/tests/fit_and_finish.sql` (+23 asserts; `Tests=826`) and the Design Doc file `docs/design-doc/00-foundation.md` (A2); migration text per A1.4". Addendum A1.5 item 4 (verbatim): "**Correction: spec l.109 INFER is overruled.** M17a **does** add pgTAP asserts (A1.7). It touches one existing test file and no new file, so `Files=25` is unchanged and `Tests` goes 803 → 826. "pgTAP behaviour unchanged" (rev 2 §10) now means no existing assert changes meaning; only new asserts are added."
+
+**Files touched (exhaustive; Addendum A2: "`git diff main --stat` lists exactly `supabase/migrations/20261022000000_advisors_perf.sql`, `supabase/tests/fit_and_finish.sql` and `docs/design-doc/00-foundation.md`."):**
+- NEW `supabase/migrations/20261022000000_advisors_perf.sql`: Addendum A1.4 byte for byte (= `/workspace/m-adv/addA/20261022000000_advisors_perf.sql`): **60 lines, 3,072 bytes, sha256 `75aa731ccd4b2491aabe433ac9253340c4f516076c410eaec6764d20ece80679`**, LF, one trailing newline.
+- `supabase/tests/fit_and_finish.sql`: exactly the 2 Addendum A1.7 edits. Result: **738 lines, 28,869 bytes, sha256 `1cf1e316096d6ee912feeddfd90a4de57f10e67d6acb9d1cc2b050d73fb04ee9`** (from 684 lines, 25,222 bytes, `8059fc01…abc1fb`).
+- `docs/design-doc/00-foundation.md`: exactly the one Addendum A2 line after l.128. Result: **179 lines, 8,684 bytes, sha256 `0c2ac37a302f5bd2897182c045b6ab2ce8404bb2da094623064c0524e6adf165`** (from 178 lines, 8,046 bytes, `63d86018…dc0be3e`).
+- Must NOT change: every existing migration, every other file in `supabase/tests/` (Addendum A8.1: "Must NOT change `supabase/tests/*`" gains "except `fit_and_finish.sql` per Addendum A1.7"), `.github/`, `apps/`, `scripts/`, `AGENTS.md`, `docs/design-doc/ci.md`, `docs/design-doc/README.md`, every other design doc, `impl-spec.md`.
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): the migration filename (rev 1 l.108 INFER → CONFIRMED). Addendum A1.3: "CONFIRMED `supabase/migrations/20261022000000_advisors_perf.sql`". It sorts after `20261020120000_drop_people_tree_read.sql`, and no file on `main` @ `9a7663d` starts with `20261022`. Addendum A1.3 keeps the stop rule: "Big Head's stop rule (spec l.658) stays: if `main` gains a migration ≥ `20261022000000` before M17a is cut, stop and report."
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 l.109 INFER ("M17a adds no pgTAP test") is **overruled** (Addendum A1.5 item 4, A8.1). M17a adds 23 asserts to `fit_and_finish.sql`; `Files=25` stays, `Tests` goes 803 → 826.
+
+**Current policy text on `main` (verbatim from the migrations; the `alter policy` targets):**
+```sql
+-- supabase/migrations/20260923000004_rls.sql l.66–70
+create policy profiles_update_own
+  on public.profiles for update
+  to authenticated
+  using (id = auth.uid())
+  with check (id = auth.uid());
+
+-- supabase/migrations/20260923000004_rls.sql l.72–75
+create policy profiles_delete_own
+  on public.profiles for delete
+  to authenticated
+  using (id = auth.uid());
+
+-- supabase/migrations/20260927000001_profiles_select_comember.sql l.3–16
+create policy profiles_select_own_or_comember
+  on public.profiles for select
+  to authenticated
+  using (
+    id = auth.uid()
+    or exists (
+      select 1
+      from public.memberships mine
+      join public.memberships theirs
+        on theirs.family_id = mine.family_id
+      where mine.user_id = auth.uid()
+        and theirs.user_id = profiles.id
+    )
+  );
+
+-- supabase/migrations/20260923000004_rls.sql l.171–177
+create policy stories_delete_author
+  on public.stories for delete
+  to authenticated
+  using (
+    author_id = auth.uid()
+    and public.is_family_member(family_id)
+  );
+
+-- supabase/migrations/20260923000004_rls.sql l.353–359
+create policy invites_insert_member_inviter
+  on public.invites for insert
+  to authenticated
+  with check (
+    public.is_family_member(family_id)
+    and invited_by = auth.uid()
+  );
+```
+Addendum A1.2: "No later migration runs `alter policy` or `drop policy` on any of the 5. I grepped all 35 migrations; the 21 `alter policy` statements on `main` touch other policies only. Big Head's quoted text at spec l.111–158 matches the repo byte for byte." "**Drift: none.**" (prod has the same 35 migration versions, `max(version)` = `20261020120000`, and 47 policies in public plus storage).
+
+**R-a1 The migration (Addendum A1.4, verbatim).**
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): OPEN M17a policy text (rev 1 l.160). Build the migration from A1.4 byte for byte (Addendum A8.2). Rev 1's "mechanical reading" is confirmed with 4 corrections (A1.5): clause shape is per command, the indexes gain `if not exists`, the l.109 INFER is overruled, and the header comment is part of the locked text.
+Addendum A1.4 rules (verbatim):
+- Use `alter policy`, never drop/create, so names, roles (`to authenticated`), command, permissive flag and grants are untouched.
+- Change only `auth.uid()` → `(select auth.uid())`.
+- Each statement carries only the clauses its command allows. SELECT and DELETE take `using` only, INSERT takes `with check` only, and UPDATE takes both. Postgres rejects `with check` on SELECT or DELETE and `using` on INSERT. "using (...) with check (...)" in the request means "the clauses the policy has".
+- The repo text is kept: `public.is_family_member`, `public.memberships`, line breaks and indentation.
+```sql
+-- #75 M17a: Supabase advisors clean, performance (Gilfoyle, LOCKED 2026-10-21, lock rev 2 Addendum A).
+-- auth_rls_initplan: alter policy only. Each bare auth.uid() becomes (select auth.uid()) so it is
+-- evaluated once per statement (initplan), not once per row. No semantic change. Roles, commands,
+-- names and grants unchanged. Policy count stays 47. No new function, no new grant.
+-- unindexed_foreign_keys: one btree index per FK (17, all single-column). Tiny tables; the migration
+-- runs in one transaction, so no CONCURRENTLY.
+
+-- profiles (20260923000004_rls.sql l.66-75; 20260927000001_profiles_select_comember.sql l.3-16)
+alter policy profiles_update_own on public.profiles
+  using (id = (select auth.uid()))
+  with check (id = (select auth.uid()));
+
+alter policy profiles_delete_own on public.profiles
+  using (id = (select auth.uid()));
+
+alter policy profiles_select_own_or_comember on public.profiles
+  using (
+    id = (select auth.uid())
+    or exists (
+      select 1
+      from public.memberships mine
+      join public.memberships theirs
+        on theirs.family_id = mine.family_id
+      where mine.user_id = (select auth.uid())
+        and theirs.user_id = profiles.id
+    )
+  );
+
+-- stories (20260923000004_rls.sql l.171-177)
+alter policy stories_delete_author on public.stories
+  using (
+    author_id = (select auth.uid())
+    and public.is_family_member(family_id)
+  );
+
+-- invites (20260923000004_rls.sql l.353-359)
+alter policy invites_insert_member_inviter on public.invites
+  with check (
+    public.is_family_member(family_id)
+    and invited_by = (select auth.uid())
+  );
+
+-- FK covering indexes (advisor 0001 unindexed_foreign_keys, 17 findings)
+create index if not exists comments_author_id_idx on public.comments (author_id);
+create index if not exists comments_family_id_idx on public.comments (family_id);
+create index if not exists comments_story_id_idx on public.comments (story_id);
+create index if not exists families_created_by_idx on public.families (created_by);
+create index if not exists invites_accepted_by_idx on public.invites (accepted_by);
+create index if not exists invites_family_id_idx on public.invites (family_id);
+create index if not exists invites_invited_by_idx on public.invites (invited_by);
+create index if not exists invites_person_id_idx on public.invites (person_id);
+create index if not exists people_created_by_idx on public.people (created_by);
+create index if not exists people_user_id_idx on public.people (user_id);
+create index if not exists perspectives_author_id_idx on public.perspectives (author_id);
+create index if not exists perspectives_family_id_idx on public.perspectives (family_id);
+create index if not exists perspectives_story_id_idx on public.perspectives (story_id);
+create index if not exists photos_family_id_idx on public.photos (family_id);
+create index if not exists photos_story_id_idx on public.photos (story_id);
+create index if not exists photos_uploader_id_idx on public.photos (uploader_id);
+create index if not exists stories_author_id_idx on public.stories (author_id);
+```
+File facts (Addendum A1.4, re-verified on the box): 60 lines, 3072 bytes, sha256 `75aa731ccd4b2491aabe433ac9253340c4f516076c410eaec6764d20ece80679`, LF line endings, one trailing newline.
+
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): the 17 index names (rev 1 l.170 INFER → confirmed with `if not exists`, Addendum A1.5 item 3, A1.6). They are the last 17 lines of the block above. Addendum A1.6 (verbatim):
+- The statements are exactly the 17 `create index if not exists <table>_<column>_idx on public.<table> (<column>);` lines in A1.4. They use plain btree and no CONCURRENTLY, because the CLI applies each migration in one transaction and the tables are tiny.
+- **Name collisions: none.** Prod `pg_indexes` (schema `public`) has 26 indexes, and none of the 17 names is among them. `pg_class` in `public` has 0 relations with any of the 17 names (checked because `if not exists` would also skip a same-named relation that is not an index).
+- None of the 26 indexes has any of these 17 columns as its leading column. `people_family_user_uidx (family_id, user_id)` and `people_family_id_name_idx (family_id, name)` lead with `family_id`, which is why splinter flags `people.user_id`. `people(user_id)` is therefore needed and is not a duplicate. This does not trip 0009 `duplicate_index`, because no existing index has the same key.
+- The 11 FKs that splinter does not flag are already covered: the PK `profiles_id_fkey`, plus `memberships_*`, `families_parent_family_id`, `families_origin_story_id`, `people_family_id`, `places_family_id`, `stories_family_id` (via `stories_family_id_order_idx`), `stories_place_id`, and `story_people_*`.
+- Rev 2 §9 still applies: the 17 new indexes will show as `unused_index` on prod until they are used. That lint is report-only, so the expected count is up to 19.
+
+**R-a2 pgTAP asserts (Addendum A1.7, verbatim), in `supabase/tests/fit_and_finish.sql`.**
+Addendum A1.7 (verbatim):
+- **Why this file:** it already holds the repo's policy-text asserts (`is(coalesce((select qual from pg_policies …), ''), $pol$…$pol$, …)`), the index asserts (`hasnt_index`), and the "policy count is 47" assert. This is not `catalog_acl_guard.sql`: `check.py` parses that file's `set_eq` block (rev 2 §7.3), and it must stay the definer allowlist only.
+- **Edits, exactly 2:**
+  - l.137 `select plan(60);` → `select plan(83);`.
+  - Insert the block below **immediately after l.681** (the `);` that closes the `photos_delete_uploader_or_author with_check` assert). Rev 5 l.682 (blank) and l.683 `select * from finish();` then follow it unchanged.
+- The insertion point runs as `postgres`, after the `reset role;` at l.594. `pg_policies` and pgTAP resolve as they do for the asserts around it.
+```sql
+
+-- #75 M17a: auth_rls_initplan rewrite (alter policy only; semantics unchanged).
+select is(
+  coalesce((select qual from pg_policies where policyname = 'profiles_update_own'), ''),
+  $pol$(id = ( SELECT auth.uid() AS uid))$pol$,
+  'profiles_update_own qual uses (select auth.uid())'
+);
+select is(
+  coalesce((select with_check from pg_policies where policyname = 'profiles_update_own'), ''),
+  $pol$(id = ( SELECT auth.uid() AS uid))$pol$,
+  'profiles_update_own with_check uses (select auth.uid())'
+);
+select is(
+  coalesce((select qual from pg_policies where policyname = 'profiles_delete_own'), ''),
+  $pol$(id = ( SELECT auth.uid() AS uid))$pol$,
+  'profiles_delete_own qual uses (select auth.uid())'
+);
+select is(
+  coalesce((select qual from pg_policies where policyname = 'profiles_select_own_or_comember'), ''),
+  $pol$((id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1
+   FROM (memberships mine
+     JOIN memberships theirs ON ((theirs.family_id = mine.family_id)))
+  WHERE ((mine.user_id = ( SELECT auth.uid() AS uid)) AND (theirs.user_id = profiles.id)))))$pol$,
+  'profiles_select_own_or_comember qual uses (select auth.uid())'
+);
+select is(
+  coalesce((select qual from pg_policies where policyname = 'stories_delete_author'), ''),
+  $pol$((author_id = ( SELECT auth.uid() AS uid)) AND is_family_member(family_id))$pol$,
+  'stories_delete_author qual uses (select auth.uid())'
+);
+select is(
+  coalesce((select with_check from pg_policies where policyname = 'invites_insert_member_inviter'), ''),
+  $pol$(is_family_member(family_id) AND (invited_by = ( SELECT auth.uid() AS uid)))$pol$,
+  'invites_insert_member_inviter with_check uses (select auth.uid())'
+);
+
+-- #75 M17a: one covering index per FK (unindexed_foreign_keys).
+select has_index('public', 'comments', 'comments_author_id_idx', 'author_id', 'comments_author_id_idx exists');
+select has_index('public', 'comments', 'comments_family_id_idx', 'family_id', 'comments_family_id_idx exists');
+select has_index('public', 'comments', 'comments_story_id_idx', 'story_id', 'comments_story_id_idx exists');
+select has_index('public', 'families', 'families_created_by_idx', 'created_by', 'families_created_by_idx exists');
+select has_index('public', 'invites', 'invites_accepted_by_idx', 'accepted_by', 'invites_accepted_by_idx exists');
+select has_index('public', 'invites', 'invites_family_id_idx', 'family_id', 'invites_family_id_idx exists');
+select has_index('public', 'invites', 'invites_invited_by_idx', 'invited_by', 'invites_invited_by_idx exists');
+select has_index('public', 'invites', 'invites_person_id_idx', 'person_id', 'invites_person_id_idx exists');
+select has_index('public', 'people', 'people_created_by_idx', 'created_by', 'people_created_by_idx exists');
+select has_index('public', 'people', 'people_user_id_idx', 'user_id', 'people_user_id_idx exists');
+select has_index('public', 'perspectives', 'perspectives_author_id_idx', 'author_id', 'perspectives_author_id_idx exists');
+select has_index('public', 'perspectives', 'perspectives_family_id_idx', 'family_id', 'perspectives_family_id_idx exists');
+select has_index('public', 'perspectives', 'perspectives_story_id_idx', 'story_id', 'perspectives_story_id_idx exists');
+select has_index('public', 'photos', 'photos_family_id_idx', 'family_id', 'photos_family_id_idx exists');
+select has_index('public', 'photos', 'photos_story_id_idx', 'story_id', 'photos_story_id_idx exists');
+select has_index('public', 'photos', 'photos_uploader_id_idx', 'uploader_id', 'photos_uploader_id_idx exists');
+select has_index('public', 'stories', 'stories_author_id_idx', 'author_id', 'stories_author_id_idx exists');
+```
+- The block begins with one blank line. It holds 6 policy-text asserts (one for each non-null `qual`/`with_check`) and 17 `has_index(schema, table, index, column, description)` asserts, which check existence and the column.
+- Line placement in the result (computed on the box): l.137 `select plan(83);`; the inserted block is l.682–735 (l.682 its leading blank line, l.683 `-- #75 M17a: auth_rls_initplan rewrite …`, l.735 the `stories_author_id_idx` `has_index`); then l.736 blank, l.737 `select * from finish();`, l.738 `rollback;`. `git diff -U0` aligns the same change as `@@ -137 +137 @@` and `@@ -682,0 +683,54 @@`, because the block starts with a blank line; the resulting file is identical.
+- The existing "policy count is 47" assert (l.609) and `people_profiles.sql` l.311–315 (`profiles_select_own_or_comember` qual `not like '%is_tree_member%'`) stay green: `alter policy` changes neither the count nor that property.
+
+**R-a3 Design Doc note (Addendum A2, verbatim).**
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): OPEN M17a Design Doc note (rev 1 l.191). Addendum A2 (verbatim):
+- **File:** `docs/design-doc/00-foundation.md`, section `## 2. RLS` (l.38–128). That section owns the profiles, stories and invites policy matrix, and it quotes `profiles_select_own_or_comember`. It is the section where all 5 policies are designed. `data-model.md` is the ER diagram and is the wrong place.
+- **Position:** insert one new line **after l.128** (the `> 🚫 FORBIDDEN: Denormalize …` line) and before l.129 `## 3. Storage`. Nothing else in the file changes. The l.113–126 SQL sketch keeps its historical bare `auth.uid()` form; the note says the migrations are authoritative.
+- **Exact text (one paragraph, 3 sentences, one line):**
+
+```markdown
+**Amendment (#75 / M17a, Gilfoyle 2026-10-21):** Migration `20261022000000_advisors_perf.sql` rewrote 5 policies (`profiles_update_own`, `profiles_delete_own`, `profiles_select_own_or_comember`, `stories_delete_author`, `invites_insert_member_inviter`) with `alter policy`, changing only each bare `auth.uid()` to the initplan form `(select auth.uid())`, so Postgres evaluates it once per statement instead of once per row. There is no semantic change: the predicates, roles, commands and grants are the same, and the policy count stays 47. The SQL sketch above keeps the original form; the migrations are authoritative (refs #75, M17a).
+```
+- Result: the note is the new l.129, and `## 3. Storage` moves to l.130. Nothing else in the file changes.
+
+**Gates M17a (paste in the PR body):**
+- **A1 Diff:**
+  - `git diff main --stat` lists exactly `supabase/migrations/20261022000000_advisors_perf.sql`, `supabase/tests/fit_and_finish.sql` and `docs/design-doc/00-foundation.md` (Addendum A2, A8.3).
+  - `git diff --diff-filter=M main -- supabase/migrations/` is empty.
+  - `git diff main -- supabase/tests ':(exclude)supabase/tests/fit_and_finish.sql' .github apps scripts AGENTS.md docs/design-doc/ci.md docs/design-doc/README.md docs/impl-spec` is empty.
+  - `git diff main -U0 -- supabase/tests/fit_and_finish.sql` shows only l.137 and the inserted block (Addendum A8.4): hunks `@@ -137 +137 @@` and `@@ -682,0 +683,54 @@`.
+  - `git diff main -U0 -- docs/design-doc/00-foundation.md` shows one hunk, `@@ -128,0 +129 @@`, adding the A2 line.
+  - `wc -l -c` + `sha256sum`: migration `60 3072` `75aa731c…e80679`; `fit_and_finish.sql` `738 28869` `1cf1e316…b04ee9`; `00-foundation.md` `179 8684` `0c2ac37a…adf165` (full shas under Files touched).
+- **A2 pgTAP:**
+  - CI `pgtap` on the final head shows `All tests successful.`, **`Files=25, Tests=826`** and `Result: PASS`, with `fit_and_finish.sql` green (the 23 new asserts and the policy count 47) and `people_profiles.sql` green.
+  - Also paste a local `supabase migration up --local` (applying only the new file) and a local `supabase test db` summary (`Files=25, Tests=826`).
+- **A3 Other jobs:** `flutter` and `deno` are green on the same run: `Formatted 107 files (0 changed)`, `flutter analyze: N issues (ceiling 27, exit 0)` with N ≤ 27, `🎉 504 tests passed.`, `ok | 43 passed | 0 failed`.
+- **A4 Local splinter proof:** after `supabase migration up --local`, run the lock §8.1 fetch and psql pipeline by hand against the local DB, with the same commands and env as the lock's two steps, and without `check.py`, which doesn't exist yet. Paste:
+  - `sha256sum -c` `: OK`;
+  - `grep -c '^auth_rls_initplan,' advisors.csv` → `0`;
+  - `grep -c '^unindexed_foreign_keys,' advisors.csv` → `0`;
+  - before the migration (on `main`'s schema), the same two greps → `5` and `17`.
+- **A5 Policy dump:** `select schemaname, tablename, policyname, cmd, roles, qual, with_check from pg_policies where policyname in ('profiles_update_own','profiles_delete_own','profiles_select_own_or_comember','stories_delete_author','invites_insert_member_inviter') order by 2,3;` on the local DB. Every `qual`/`with_check` that mentions `auth.uid()` shows `( SELECT auth.uid() AS uid)`, and roles/cmd are unchanged. Also paste `select count(*) from pg_policies where schemaname in ('public','storage');`, which must match the count before the migration.
+- **A6 Indexes:** paste `select indexname, indexdef from pg_indexes where schemaname='public' and indexname in (<the 17 names>) order by 1;`, which returns 17 rows.
+> 🔍 INFER: Gates A4–A6 are local-only evidence because the gate itself (M17b) doesn't exist yet, lock §7.1 says "the gate starts at zero for them", and lock §10 makes PR-2 depend on prod being clean. They read the local container only.
+
+**After M17a merges (not the agent's; precondition for M17b):**
+- `Supabase Preview` shows `success` on the merge commit.
+- Gilfoyle or Trinity then reads prod advisors read-only, as in #72 Gate 6 (`get_advisors` security + performance). Expected, from lock §9:
+  - Security: exactly 30 `authenticated_security_definer_function_executable` + 1 `auth_leaked_password_protection`, 0 ERROR.
+  - Performance: 0 `auth_rls_initplan`, 0 `unindexed_foreign_keys`. `unused_index` (2 today per Addendum A l.10, up to 19 with the 17 new FK indexes per A1.6) is report-only.
+- Any other finding stops M17b, and the finding goes to Gilfoyle.
+
+---
+
+###### M17b: advisors gate (lock PR-2), branch `feat/m17b-advisors-gate`
+Lock §10 row 2 (verbatim): "| 2 | `ci: supabase advisors gate` | §8.1 pgtap step; `scripts/advisors/check.py` + unit tests; `supabase/advisors-baseline.json` (§7.1); definer-allowlist fold (§7.3, 802 tests); ci.md rev 6 (§8.3); AGENTS.md line | PR-1 merged, and prod clean except the 30 delegated + 1 accepted |"
+Addendum A7 amends that row (verbatim): "adds `docs/design-doc/README.md` l.20 (A3.3). ci.md = rev 6 file byte for byte. 825 tests". Every 802 in rev 1 is now 825 (Addendum A8.5).
+
+**Files touched (exhaustive):**
+- `.github/workflows/ci.yml` (lock §8.1 delta, `pgtap` job only);
+- NEW `scripts/advisors/check.py` (stdlib python3);
+- NEW `scripts/advisors/test_*.py` (unit tests; `unittest` discover pattern from lock §8.1), plus any fixture files under `scripts/advisors/` only;
+  - including, byte for byte from Addendum B1.4 (R-b3a): `scripts/advisors/test_prod_redaction.py` and `scripts/advisors/fixtures/prod_redaction/{security,performance,baseline}.json` (Addendum B8: "adds the 4 B1.4 files (inside the existing pattern)").
+- NEW `supabase/advisors-baseline.json` (lock §7.1, byte for byte);
+- `supabase/tests/definer_grants.sql` (lock §7.3 fold);
+- `docs/design-doc/ci.md` (rev 6 = `/workspace/m-ci/ci-rev6.md` byte for byte; R-b5);
+- `docs/design-doc/README.md` (l.20 only; Addendum A3.3);
+- `AGENTS.md` (l.43 only).
+- Must NOT change: `supabase/tests/catalog_acl_guard.sql` (the single source), `supabase/tests/fit_and_finish.sql` (M17a's), every migration, `config.toml`, `seed.sql`, `apps/`, `flutter`/`deno` jobs, every other design doc, `impl-spec.md`. No `.github/workflows/advisors-prod.yml` (that is M17c).
+
+**R-b1 `ci.yml` delta (lock §8.1, verbatim; `pgtap` job only; no new actions, no secrets):**
+```diff
+   pgtap:
+     env:
+       SUPABASE_CLI_VERSION: "2.121.0"
+       SUPABASE_CLI_SHA256: "4b481189efbdc57cf2d37bdee5f1a0d29574314398564b32a6dfb76c0fcf275f"
++      SPLINTER_COMMIT: "fccca4b1c4d8b48b8ccd69bd6b30e84adcb92975"
++      SPLINTER_SHA256: "d8d558baad3e03832e521c527907fa50a9a172fabd899dd0f5c2504a5a0e9349"
+     steps:
+       ...
+       - name: supabase test db
+         run: supabase test db
++
++      - name: fetch splinter (pinned)
++        run: |
++          f="$RUNNER_TEMP/splinter.sql"
++          curl -fsSL -o "$f" "https://raw.githubusercontent.com/supabase/splinter/${SPLINTER_COMMIT}/splinter.sql"
++          echo "${SPLINTER_SHA256}  ${f}" | sha256sum -c -
++
++      - name: advisors (splinter vs supabase/advisors-baseline.json)
++        env:
++          # local container defaults from config.toml [db] port; not secrets
++          PGHOST: 127.0.0.1
++          PGPORT: "57322"
++          PGUSER: postgres
++          PGPASSWORD: postgres
++          PGDATABASE: postgres
++        run: |
++          out="$RUNNER_TEMP/advisors.csv"
++          {
++            echo "set transaction read only;"
++            echo "set local pgrst.db_schemas = 'public, graphql_public';"
++            cat "$RUNNER_TEMP/splinter.sql"
++          } | psql -X -q -v ON_ERROR_STOP=1 --single-transaction --csv -f - > "$out"
++          python3 -m unittest discover -s scripts/advisors -p 'test_*.py'
++          python3 scripts/advisors/check.py --layer local \
++            --baseline supabase/advisors-baseline.json --findings "$out"
+```
+- Lock §8.1: "Calibrate in the gate PR: the local postgres creds and port (fall back to `supabase status -o env`), and whether the local stack installs `pg_graphql`."
+- The only allowed calibration is that fallback for the DB connection, and it is reported in the PR body. Any other YAML change is a stop.
+
+**Addendum A6(a) adds the psql guard (verbatim):**
+- **Ruling:**
+  - Do not add a `postgresql-client` install. That would be a new apt dependency with no pin.
+  - Add a fail-closed guard as the **first lines of the `advisors` step's `run:`** in rev 2 §8.1, before the `out=` line:
+
+```yaml
+          command -v psql >/dev/null 2>&1 || { echo "::error::psql not found on runner; advisors step fails closed"; exit 1; }
+          psql --version
+```
+- `psql --version` puts the client version in the log, which serves as PR evidence.
+- If the guard ever fires, after an image change, the fix is its own PR with a Gilfoyle lock: a pinned install, or `docker exec` into the `supabase db start` container. The step is never skipped and never made non-fatal.
+- So the `advisors` step's `run: |` begins with the two guard lines, then `out="$RUNNER_TEMP/advisors.csv"`. The guard is also stated in rev 6 l.76 ("The step fails closed if `psql` is missing.").
+> 🔍 INFER: The diff's first hunk is schematic because on `main`, l.103–107 (`runs-on`/`timeout-minutes`/`defaults`) sit between `pgtap:` and `env:`, and `...` stands for l.111–130. It means: add the two `SPLINTER_*` lines right after `SUPABASE_CLI_SHA256` (l.110), and append the two steps after the `supabase test db` step (l.131–132), with one blank line before each, like the other steps. The A6(a) guard is the first 2 lines of the advisors step's `run:` block (10-space indent, as the addendum block shows).
+>
+> The resulting file, computed on the box from `main`'s `ci.yml` @ `9a7663d` (unchanged since `46957e2`, sha256 `a379fa4c…5d0a`): **161 lines, 5,237 bytes, sha256 `c1d0ae67cf3b9c4e5876346c0211087ac6ace4ef09e62089e6cd9b1d0e561f88`** (rev 1: 159 lines, 5,085 bytes, `d70b2db8…137f4c`; +2 guard lines). PyYAML parses workflow `permissions` `{contents: read}` and `pgtap` with steps checkout, install supabase cli, `supabase --version`, `supabase db start`, `supabase test db`, `fetch splinter (pinned)`, `advisors (splinter vs supabase/advisors-baseline.json)`; the only step `env` is the advisors step's `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`; its `run` starts with `command -v psql`. If the calibration fallback is used, only that step's connection lines and this sha change.
+
+**R-b2 `supabase/advisors-baseline.json` (lock §7.1, verbatim):**
+```json
+{
+  "version": 1,
+  "splinter": {
+    "commit": "fccca4b1c4d8b48b8ccd69bd6b30e84adcb92975",
+    "sha256": "d8d558baad3e03832e521c527907fa50a9a172fabd899dd0f5c2504a5a0e9349"
+  },
+  "report_only_lints": [
+    { "name": "unused_index", "reason": "depends on pg_stat idx_scan; fresh CI DB and new prod indexes always flag", "owner": "Gilfoyle" },
+    { "name": "table_bloat", "reason": "depends on pg_stats", "owner": "Gilfoyle" }
+  ],
+  "local_skip_lints": [
+    { "name": "extension_versions_outdated", "reason": "local image versions differ from prod; checked at prod layer", "owner": "Gilfoyle" },
+    { "name": "pg_graphql_anon_table_exposed", "reason": "pg_graphql absent on prod; checked at prod layer", "owner": "Gilfoyle" },
+    { "name": "pg_graphql_authenticated_table_exposed", "reason": "same", "owner": "Gilfoyle" }
+  ],
+  "delegated": [
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "source": "supabase/tests/catalog_acl_guard.sql",
+      "reason": "PR #39 SECURITY DEFINER allowlist; the catalog_acl_guard.sql set_eq list is the single source of truth",
+      "owner": "Gilfoyle"
+    }
+  ],
+  "accepted": [
+    {
+      "match": { "name": "auth_leaked_password_protection", "metadata.entity": "Auth" },
+      "scope": "prod",
+      "reason": "Accepted by Bill 2026-10-20 1:59 PM CT. Free plan: HIBP requires Pro; no Pro upgrade. App is magic-link only (signInWithOtp); no password UI.",
+      "owner": "Bill",
+      "added": "2026-10-20",
+      "review_by": "2027-01-20",
+      "ref": "#75"
+    }
+  ]
+}
+```
+Lock §7.1 (verbatim):
+- There are **no** `unindexed_foreign_keys` or `auth_rls_initplan` entries. Those findings are fixed (§10 PR-1) before the gate goes live, so the gate starts at zero for them.
+- Keys:
+  - The key is `cache_key`, or an exact `match` on `name` plus metadata fields where there is no `cache_key`.
+  - No regex and no wildcards.
+  - The only whole-lint rule is the single `delegated` 0029 entry.
+- Required per entry: `reason`, `owner`, `added`. `review_by` is also required for `accepted` entries.
+> 🔍 INFER: The file is the block plus one trailing newline (LF), because the lock gives the block but not the file ending: **35 lines, 1,548 bytes, sha256 `c9324fad9db5dd37f958a5a59bdb4fa88d532747139d88b416b2f5956531d0c2`**. It parses as JSON.
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): CONFLICT lints 0025/0030 (rev 1 l.323). Ruling: "both are GATED in both layers (Big Head's choice confirmed)" (Addendum A5). Under Bill's decision 3, security and performance lints are gated and only stats lints are excluded. Neither 0025 nor 0030 is a stats lint, so **both are gated**, pre-merge and at the prod layer. The baseline in rev 2 §7.1 is already right: it has no entry for either lint. Neither fires on prod today: the security advisors show only the 30 delegated and the 1 accepted findings. Lock rev 2 §2 "Lint classes" is replaced by (Addendum A5, verbatim; each of the 29 lints appears exactly once):
+> - **Lint classes** (each lint is in exactly one class; 29 lints):
+>   - **Gated, both layers** (pre-merge `pgtap` step and the prod job). These are deterministic schema lints: 0001–0004, 0006–0011, 0013–0019, 0021, 0023–0025, 0028–0030 (24 lints).
+>   - **Report-only, both layers** (stats lints; `report_only_lints`): 0005 `unused_index`, 0020 `table_bloat` (2 lints).
+>   - **Prod layer only** (environment lints; `local_skip_lints`): 0022 `extension_versions_outdated`, 0026 `pg_graphql_anon_table_exposed`, 0027 `pg_graphql_authenticated_table_exposed` (3 lints). Gated at the prod layer, skipped locally.
+>   - 0029 is gated through the single `delegated` entry (§7.3). That is a gate, not an exclusion.
+>   - `auth_leaked_password_protection` is platform config. It is not in splinter, is visible only at the prod layer, and is `accepted` (owner Bill).
+- Rev 2's old text had two errors. It listed 0025, 0026 and 0027 both as gated ("0023–0029") and as report-only. It also left 0030 out of both lists. The replacement fixes both errors.
+- 0026 and 0027 are prod-layer-only, consistent with the baseline's `local_skip_lints`. `pg_graphql` is not installed on prod, so they don't fire there either.
+
+**R-b3 `scripts/advisors/check.py` (stdlib python3; lock §7.2 rules, verbatim):**
+1. Parse the findings: psql CSV for the local layer, API JSON for the prod layer.
+2. Drop `report_only_lints` (print only). In the local layer, also drop `local_skip_lints`.
+Lock §7.2 rule 3 and §7.2a, Addendum B1, verbatim:
+3. **New finding** (not `accepted` in scope and not `delegated`): **FAIL**.
+   - `--layer local`: print the name, level, detail, cache_key and remediation.
+   - `--layer prod`: print only the §7.2a lines. Never the `detail`, `cache_key`, `remediation`, `metadata`, `title` or `description`, and never an object name (schema, table, view, function, policy, index or signature). Bill or Trinity read the details from the dashboard or `get_advisors`. (Addendum B1, TMAS-M17-01)
+**7.2a Prod-layer output (`--layer prod`), exact (Addendum B1, TMAS-M17-01).** Every stdout line has one of these forms, and nothing else is printed:
+- `class=<c> name=<lint name> level=<ERROR|WARN|INFO|-> count=<n>`, one line per (class, lint name, level) whose count is at least 1. `<c>` is one of `new`, `stale`, `delegated`, `accepted`, `report-only`. Lines are ordered by class in that order, then by name, then by level. `level=-` appears only on `stale` lines, because a baseline entry has no level.
+- `amber name=<lint name> review_by=<YYYY-MM-DD>` (rule 7; both values come from the public baseline).
+- `error kind=<input|parse|baseline>`: a missing or unreadable file, a JSON or shape error, or an invalid baseline.
+- `summary new=<n> stale=<n> delegated=<n> accepted=<n> report-only=<n>`
+- The last line is `advisors prod: <GREEN|AMBER|RED>`.
+
+Rules at the prod layer:
+- Rule 2: report-only lints appear only as their `class=report-only` line.
+- Rule 4: a stale `accepted` entry is `class=stale name=<the entry's match.name> level=- count=<n>`.
+- Rule 6 (0029), all under `name=authenticated_security_definer_function_executable`: a matched finding counts as `delegated`, a finding that is not in the list counts as `new`, and a listed function with no finding counts as `stale`. No signature is printed.
+- Any error or exception (rule 8 parse errors and unknown shapes included) prints `error kind=…` and then `advisors prod: RED`, and exits 1. There is no traceback and no exception message, and no file content is printed. stderr stays empty.
+- Exit codes are unchanged (rule 8).
+- The local layer is unchanged and keeps its details (spec l.680, gate B3).
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-01 (B1.1, B1.2). Lock §7.2 rule 3 now prints details only at `--layer local`; `--layer prod` prints only the §7.2a lines. Rules 4–8 below are unchanged.
+4. **Stale entry** (an `accepted` entry in scope with no matching finding): **FAIL**, with "remove this entry in the same PR that fixed it". The baseline only ratchets down.
+5. **An ERROR can never be accepted.**
+   - Any `ERROR`-level finding fails regardless of the baseline.
+   - A baseline that carries an `accepted` or `delegated` entry for an ERROR-level lint is rejected as invalid (**FAIL**).
+   - The same applies to any SECURITY entry other than the `delegated` 0029 rule and Bill-owned `prod` config entries.
+6. **Delegated cross-check (0029):**
+   - Parse the signature list from `catalog_acl_guard.sql`'s `set_eq` `values` block.
+   - Every 0029 finding must be in the list (otherwise FAIL: new definer).
+   - Every listed function must have a finding (otherwise FAIL: stale).
+   - Compare `schema.name` plus normalized arg types from `metadata.arguments`.
+7. A past `review_by` gives **AMBER, prod layer only**. Pre-merge results never depend on the calendar.
+8. Exit codes: 0 green, 1 red. The prod layer also exits non-zero on HTTP 401/403, a parse error, or an unconfirmed deploy.
+Command-line interface (verbatim from the lock's two workflow blocks):
+- `python3 scripts/advisors/check.py --layer local --baseline supabase/advisors-baseline.json --findings "$out"` (psql CSV).
+- `python3 scripts/advisors/check.py --layer prod --baseline supabase/advisors-baseline.json --api "$RUNNER_TEMP/security.json" "$RUNNER_TEMP/performance.json"` (API JSON).
+- `python3 scripts/advisors/check.py --wait-deploy --repo "${{ github.repository }}" --sha "${{ github.sha }}" --check-name "Supabase Preview" --check-app supabase --timeout-s 900`.
+> 🔍 INFER: M17b's `check.py` implements all three modes, including `--wait-deploy`, with unit tests, because lock §10 puts `check.py` + unit tests in PR-2 and PR-3's only file is the workflow.
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 l.346 `--wait-deploy` INFER is replaced by Addendum A6(b): token-authenticated polling, 30 s interval confirmed (A8.7). Addendum A6(b) (verbatim):
+- Rev 2 §8.2's wait step polled unauthenticated. GitHub limits unauthenticated calls to 60 per hour **per runner IP**, and hosted runners share IPs, so a false red is likely.
+- `GITHUB_TOKEN` is limited to 1,000 requests per hour **per repository** (GitHub docs: "Rate limits for the REST API" and "Actions limits").
+- `--wait-deploy` rules for `check.py`. This resolves the spec l.346 INFER; the 30 s interval is confirmed.
+  1. It reads only `GET https://api.github.com/repos/{repo}/commits/{sha}/check-runs?check_name=Supabase%20Preview&per_page=100`, with `Authorization: Bearer $GITHUB_TOKEN`, `Accept: application/vnd.github+json` and `X-GitHub-Api-Version: 2022-11-28`. It polls every 30 s up to `--timeout-s 900`, which is 30 polls or fewer, well under 1,000 per hour.
+  2. It sends the token **only** to `https://api.github.com`. It never prints, logs or writes the token, and never sends it to any other host. The token never leaves the runner except in that request header to GitHub, and it expires when the job ends.
+  3. It is green (exit 0) only when a run named exactly `Supabase Preview` with `app.slug == "supabase"` has `status == "completed"` and `conclusion == "success"`.
+  4. It is red (exit 1) at once on:
+     - any other completed conclusion;
+     - a missing or empty `GITHUB_TOKEN`;
+     - HTTP 401, 403 or 429, or any other non-2xx response;
+     - a network or parse error.
+  5. It is red on timeout ("deploy not confirmed"), per Bill's decision 3. There are no retries beyond the polling loop, and the result is never a false green.
+  6. The unit tests use a fake HTTP layer. They assert that the header goes only to `api.github.com` and that a missing token, a 403 and a 429 are each red.
+> 🔍 INFER: AMBER (rule 7) prints `AMBER` with the entry and its `review_by`, and exits 0, because rule 8 defines only "0 green, 1 red" and AMBER is not one of the red cases. Gilfoyle confirms.
+> 🔍 INFER: Rule 6 maps each `catalog_acl_guard.sql` `set_eq` entry (e.g. `'add_co_owner(uuid, uuid)'`, which has no schema) to `public.<name>`, because that file's query filters `n.nspname = 'public'`. Types compare after normalizing whitespace.
+> 🔍 INFER: The unit tests run offline (no network; fake HTTP and fixtures under `scripts/advisors/`) and cover each rule 1–8, each mode and A6(b) rules 1–6, because CI runs them with `python3 -m unittest discover -s scripts/advisors -p 'test_*.py'` before the real check. Also (Addendum B6, TMAS-M17-07): every `--layer prod` fixture uses the documented per-entity Management API shape (lock §4); the MCP grouped shape is a parse error, red. They cover at least:
+> - a new finding fails;
+> - a stale `accepted` entry fails;
+> - an ERROR fails even when baselined, and a baseline with an ERROR entry is invalid;
+> - a missing `reason`/`owner`/`added` (or `review_by` on `accepted`) is invalid;
+> - regex or wildcard keys are rejected;
+> - report-only lints are dropped, and local-skip lints are dropped in the local layer only;
+> - 0029: an extra finding fails, and a missing one fails;
+> - a past `review_by` gives AMBER on prod and does nothing locally;
+> - a parse error, HTTP 401/403 or an unconfirmed deploy exits non-zero;
+> - wait-deploy: success, non-success, timeout and API error; and (A6(b) rule 6, normative) the `Authorization` header goes only to `api.github.com`, and a missing token, a 403 and a 429 are each red.
+> - (Addendum B1, normative) prod-layer redaction: `scripts/advisors/test_prod_redaction.py` plus `scripts/advisors/fixtures/prod_redaction/{security,performance,baseline}.json`, byte for byte from Addendum B1.4. stdout and stderr hold no detail, cache_key, remediation, metadata or object name, every line matches lock §7.2a, and the counts are exactly as in B1.4.
+
+**R-b3a Prod-layer redaction test (Addendum B1.4, verbatim; M17b).** Addendum B1.4 (verbatim):
+These files are new in M17b and lie inside its existing "`scripts/advisors/test_*.py` … plus any fixture files under `scripts/advisors/` only" (spec l.376). No new path pattern, no new runner and no dependency (stdlib `unittest` and `subprocess` only, offline).
+
+| File | lines | bytes | sha256 |
+|---|---|---|---|
+| `scripts/advisors/test_prod_redaction.py` | 68 | 2,703 | `70d1c8e0a4d3a3e9cdc37b91489e314fcaf8650f16234a8cac3d11ad8bd63ed9` |
+| `scripts/advisors/fixtures/prod_redaction/security.json` | 40 | 1,739 | `3d6212fb88b06adb56547861764fae9ce8104190bccda9933eb7f6f2a8489bc5` |
+| `scripts/advisors/fixtures/prod_redaction/performance.json` | 52 | 2,609 | `801b68ec33ac51cbab57a2b98ec73a5e6db217d64f50022fbdb0c6129af834b4` |
+| `scripts/advisors/fixtures/prod_redaction/baseline.json` | 23 | 654 | `7a11d56e9bc9775c64cc80dea7d30c002556d167df263aaaf9607d85f87d9ff7` |
+
+Each file is the block below plus one trailing newline (LF), byte for byte.
+
+- **How it works:** the test runs `check.py --layer prod` as a subprocess on fixture responses in the documented Management API shape (TMAS-M17-07). Every forbidden field carries a `SENTINEL` marker: `detail`, `cache_key`, `remediation`, `title`, `description`, and object names in `metadata` and `detail`.
+- **What it asserts:**
+  - exit 1;
+  - neither stdout nor stderr contains `sentinel`, `detail`, `cache_key`, `remediation`, `metadata` or `http` (case-insensitive);
+  - stderr is empty;
+  - every stdout line matches the §7.2a grammar;
+  - the counts are exactly: new `security_definer_view` ERROR 2, new `auth_rls_initplan` WARN 1, accepted `auth_leaked_password_protection` WARN 1, report-only `unused_index` INFO 3, `summary new=3 stale=0 delegated=0 accepted=1 report-only=3`, and `advisors prod: RED`.
+- **Why the fixture baseline:** it is self-contained (`delegated: []`, `review_by` `2099-12-31`), so the test does not depend on `catalog_acl_guard.sql` or the calendar (lock §12 "No date-dependent pass/fail pre-merge").
+
+`scripts/advisors/test_prod_redaction.py`:
+```python
+"""Lock rev 2 Addendum B (TMAS-M17-01): at --layer prod, check.py prints only
+lint name, level and per-class counts. No detail, cache_key, remediation,
+metadata, title, description or object names reach stdout or stderr."""
+import os
+import re
+import subprocess
+import sys
+import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+CHECK = os.path.join(HERE, "check.py")
+FIX = os.path.join(HERE, "fixtures", "prod_redaction")
+
+ALLOWED_LINE = re.compile(
+    r"^(?:"
+    r"class=(?:new|stale|delegated|accepted|report-only) name=[a-z0-9_]+ level=(?:ERROR|WARN|INFO|-) count=[0-9]+"
+    r"|summary new=[0-9]+ stale=[0-9]+ delegated=[0-9]+ accepted=[0-9]+ report-only=[0-9]+"
+    r"|amber name=[a-z0-9_]+ review_by=[0-9]{4}-[0-9]{2}-[0-9]{2}"
+    r"|error kind=(?:input|parse|baseline)"
+    r"|advisors prod: (?:GREEN|AMBER|RED)"
+    r")$"
+)
+
+
+class ProdLayerRedactionTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("GITHUB_TOKEN", "SUPABASE_ADVISORS_TOKEN", "GITHUB_STEP_SUMMARY")}
+        cls.proc = subprocess.run(
+            [sys.executable, CHECK, "--layer", "prod",
+             "--baseline", os.path.join(FIX, "baseline.json"),
+             "--api", os.path.join(FIX, "security.json"), os.path.join(FIX, "performance.json")],
+            cwd=HERE, env=env, capture_output=True, text=True, timeout=60, check=False,
+        )
+
+    def test_exit_red_on_new_findings(self):
+        self.assertEqual(self.proc.returncode, 1)
+
+    def test_no_finding_details_in_output(self):
+        out = (self.proc.stdout + self.proc.stderr).lower()
+        for needle in ("sentinel", "detail", "cache_key", "remediation", "metadata", "http"):
+            self.assertNotIn(needle, out)
+
+    def test_stderr_empty(self):
+        self.assertEqual(self.proc.stderr, "")
+
+    def test_every_line_is_name_level_or_count(self):
+        lines = [l for l in self.proc.stdout.splitlines() if l.strip()]
+        self.assertTrue(lines)
+        for line in lines:
+            self.assertRegex(line, ALLOWED_LINE)
+
+    def test_counts(self):
+        lines = set(self.proc.stdout.splitlines())
+        for expected in (
+            "class=new name=security_definer_view level=ERROR count=2",
+            "class=new name=auth_rls_initplan level=WARN count=1",
+            "class=accepted name=auth_leaked_password_protection level=WARN count=1",
+            "class=report-only name=unused_index level=INFO count=3",
+            "summary new=3 stale=0 delegated=0 accepted=1 report-only=3",
+            "advisors prod: RED",
+        ):
+            self.assertIn(expected, lines)
+
+
+if __name__ == "__main__":
+    unittest.main()
+```
+`scripts/advisors/fixtures/prod_redaction/security.json`:
+```json
+{
+  "lints": [
+    {
+      "name": "security_definer_view",
+      "title": "SENTINEL-TITLE-sdv",
+      "level": "ERROR",
+      "facing": "EXTERNAL",
+      "categories": ["SECURITY"],
+      "description": "SENTINEL-DESCRIPTION-sdv",
+      "detail": "SENTINEL-DETAIL-sdv-1 View `public.sentinel_object_view_1` is defined with the SECURITY DEFINER property",
+      "remediation": "https://sentinel-remediation.invalid/0010_security_definer_view",
+      "metadata": { "name": "sentinel_object_view_1", "type": "view", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_security_definer_view_public_sentinel_object_view_1"
+    },
+    {
+      "name": "security_definer_view",
+      "title": "SENTINEL-TITLE-sdv",
+      "level": "ERROR",
+      "facing": "EXTERNAL",
+      "categories": ["SECURITY"],
+      "description": "SENTINEL-DESCRIPTION-sdv",
+      "detail": "SENTINEL-DETAIL-sdv-2 View `public.sentinel_object_view_2` is defined with the SECURITY DEFINER property",
+      "remediation": "https://sentinel-remediation.invalid/0010_security_definer_view",
+      "metadata": { "name": "sentinel_object_view_2", "type": "view", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_security_definer_view_public_sentinel_object_view_2"
+    },
+    {
+      "name": "auth_leaked_password_protection",
+      "title": "SENTINEL-TITLE-lpp",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": ["SECURITY"],
+      "description": "SENTINEL-DESCRIPTION-lpp",
+      "detail": "SENTINEL-DETAIL-lpp",
+      "remediation": "https://sentinel-remediation.invalid/password-security",
+      "metadata": { "type": "auth", "entity": "Auth" },
+      "cache_key": "SENTINEL_CACHE_KEY_auth_leaked_password_protection"
+    }
+  ]
+}
+```
+`scripts/advisors/fixtures/prod_redaction/performance.json`:
+```json
+{
+  "lints": [
+    {
+      "name": "auth_rls_initplan",
+      "title": "SENTINEL-TITLE-initplan",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": ["PERFORMANCE"],
+      "description": "SENTINEL-DESCRIPTION-initplan",
+      "detail": "SENTINEL-DETAIL-initplan Table `public.sentinel_object_table` has a row level security policy `sentinel_object_policy` that re-evaluates auth.uid() for each row",
+      "remediation": "https://sentinel-remediation.invalid/0003_auth_rls_initplan",
+      "metadata": { "name": "sentinel_object_table", "type": "table", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_auth_rls_init_plan_public_sentinel_object_table_sentinel_object_policy"
+    },
+    {
+      "name": "unused_index",
+      "title": "SENTINEL-TITLE-unused",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": ["PERFORMANCE"],
+      "description": "SENTINEL-DESCRIPTION-unused",
+      "detail": "SENTINEL-DETAIL-unused-1 Index `sentinel_object_idx_1` on table `public.sentinel_object_table` has not been used",
+      "remediation": "https://sentinel-remediation.invalid/0005_unused_index",
+      "metadata": { "name": "sentinel_object_table", "type": "table", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_unused_index_public_sentinel_object_table_sentinel_object_idx_1"
+    },
+    {
+      "name": "unused_index",
+      "title": "SENTINEL-TITLE-unused",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": ["PERFORMANCE"],
+      "description": "SENTINEL-DESCRIPTION-unused",
+      "detail": "SENTINEL-DETAIL-unused-2 Index `sentinel_object_idx_2` on table `public.sentinel_object_table` has not been used",
+      "remediation": "https://sentinel-remediation.invalid/0005_unused_index",
+      "metadata": { "name": "sentinel_object_table", "type": "table", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_unused_index_public_sentinel_object_table_sentinel_object_idx_2"
+    },
+    {
+      "name": "unused_index",
+      "title": "SENTINEL-TITLE-unused",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": ["PERFORMANCE"],
+      "description": "SENTINEL-DESCRIPTION-unused",
+      "detail": "SENTINEL-DETAIL-unused-3 Index `sentinel_object_idx_3` on table `public.sentinel_object_table` has not been used",
+      "remediation": "https://sentinel-remediation.invalid/0005_unused_index",
+      "metadata": { "name": "sentinel_object_table", "type": "table", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_unused_index_public_sentinel_object_table_sentinel_object_idx_3"
+    }
+  ]
+}
+```
+`scripts/advisors/fixtures/prod_redaction/baseline.json`:
+```json
+{
+  "version": 1,
+  "splinter": {
+    "commit": "fccca4b1c4d8b48b8ccd69bd6b30e84adcb92975",
+    "sha256": "d8d558baad3e03832e521c527907fa50a9a172fabd899dd0f5c2504a5a0e9349"
+  },
+  "report_only_lints": [
+    { "name": "unused_index", "reason": "test fixture: report-only", "owner": "Gilfoyle" }
+  ],
+  "local_skip_lints": [],
+  "delegated": [],
+  "accepted": [
+    {
+      "match": { "name": "auth_leaked_password_protection", "metadata.entity": "Auth" },
+      "scope": "prod",
+      "reason": "test fixture: accepted prod config entry",
+      "owner": "Bill",
+      "added": "2026-10-20",
+      "review_by": "2099-12-31",
+      "ref": "#75"
+    }
+  ]
+}
+```
+Expected prod output of the real `check.py` on these fixtures (Addendum B1.5, verbatim):
+```text
+class=new name=auth_rls_initplan level=WARN count=1
+class=new name=security_definer_view level=ERROR count=2
+class=accepted name=auth_leaked_password_protection level=WARN count=1
+class=report-only name=unused_index level=INFO count=3
+summary new=3 stale=0 delegated=0 accepted=1 report-only=3
+advisors prod: RED
+```
+- Re-run on the box 2026-10-21 ~7:15 PM CT with Gilfoyle's scratch stub as `check.py` (scratch dir, not the repo): `Ran 5 tests … OK`.
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-01 unit test (B1.4).
+
+**R-b4 Definer-allowlist fold (lock §7.3, verbatim):**
+- **The source is `supabase/tests/catalog_acl_guard.sql`**: the `set_eq` list plus the count of 30.
+- `supabase/tests/definer_grants.sql`:
+  - Its final `is_empty(... p.oid <> all(array[30 '…'::regprocedure]))` assertion is **removed**.
+  - Its per-function `has_function_privilege` asserts and its anon `is_empty` asserts stay.
+  - `plan(68)` → `plan(67)`.
+- Expected pgTAP after the fold: 25 files / **825** tests, down from 826 (Addendum A7 "§7.3 count | "25 files / 802 tests" → "25 files / 825 tests" (803 + 23 M17a asserts − 1 fold)"). Any other count in that PR is a red flag.
+- The baseline delegates 0029 to that one file. check.py reads the same list, so there is one list and no copies.
+- In `definer_grants.sql`, delete l.275–318: the `select is_empty(` … `'every public security definer authenticated can execute is on the allowlist'` / `);` block, plus the blank line after it. l.4 becomes `select plan(67);`. Nothing else changes.
+> 🔍 INFER: "final `is_empty`" means the l.275–317 block, because it is the last `is_empty` in the file and the only one with the 30-`regprocedure` array, although asserts follow it (l.319–432). Deleting l.318 too leaves one blank line before `create temporary table dg_ctx (`. Result (from `main` @ `9a7663d`, sha256 `f63ba6e0…5d0a5`, unchanged): **391 lines, 12,838 bytes, sha256 `d85d129329aedf88260c4308f782cc5e41938b4d9116a304acfcb36365a641dd`**. `git diff -U0` shows `@@ -4 +4 @@` and `@@ -275,44 +274,0 @@`.
+
+**R-b5 `docs/design-doc/ci.md` rev 6 = `/workspace/m-ci/ci-rev6.md`, byte for byte (Addendum A3).**
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): OPEN M17b ci.md rev 6 (rev 1 l.405). Addendum A3.1 (verbatim): "**There is ONE reconciled ci.md rev 6:** `/workspace/m-ci/ci-rev6.md`. It is the whole file (see A3.4 for size and sha256), based on `main`'s rev 5 (59 lines, 4,989 bytes, sha256 `2b1848957059e36b488b47bd3618a5295f59405d788bc1043671735d096faaf1`)." Lock rev 2 §8.3's quoted section (rev 1 R-b5) is superseded by the file (A3.2: "Rev 2 §8.3's quoted section is superseded by the file.").
+- File: **84 lines, 8,572 bytes, sha256 `a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b`**, LF, one trailing newline. Addendum A3.4 as amended by B2.3: "M17b gate: `sha256sum docs/design-doc/ci.md` must equal this value."
+- Addendum A3.2 on the text (verbatim):
+  - **Exception text:** the two locks' E2E texts differed. Rev 6 uses the **#48 lock's E2E text**, with two changes:
+    1. It takes #75's heading and lead-in: "**Exception E2E (#48). Local Supabase only, never prod.**" and "One job, `e2e` in `ci.yml`, may:".
+    2. "Everything else in rev 5 l.17–19 still applies to every job" becomes "Everything else in the Shape bullets on prod isolation and 🚫 (l.17–19) still applies to every job". Those bullets are still l.17–19 in rev 6.
+  - Rev 6 uses **#75's P1 text**, amended only by A6(b) (`checks: read`) and Bill's decision 3 ("a timeout is red"). Addendum B2.3 adds one sentence to P1's trigger bullet (rev 6 l.60).
+  - Rev 2 §8.3's quoted section is superseded by the file.
+- Addendum A3.3, line-by-line rulings (rev 5 line numbers, verbatim):
+
+| rev 5 line | Big Head asked? | ruling |
+|---|---|---|
+| l.1 header | yes | **changes** → `# CI — LOCKED 2026-10-21 (Gilfoyle), rev 6` |
+| l.3 intro | yes | **changes** (a Rev 6 sentence is appended, and "CI never touches prod" gains its one exception; text in A3.4) |
+| l.6 Shape lead | no | **changes**: rev 5's "three parallel jobs" would go stale when `e2e` lands, and M18 may not edit ci.md |
+| l.12 `pgtap` row | yes | **changes**: adds the splinter fetch and advisors check steps |
+| l.17–19 | no | **unchanged**. The Exceptions section overrides them, as the #48 text says |
+| l.34, l.35, l.39 | no | **unchanged**. The three required checks stay; e2e's 25-min timeout and P1's checkout-only rule are in the Exceptions section; the action allowlist is unchanged |
+| l.51 counts | yes | **changes** → `(`Files=25, Tests=825` at rev 6)` |
+| l.55 required | yes | **changes**: adds the e2e and prod-advisors sentences |
+| l.58 AGENTS line | yes | **changes**: mirrors the AGENTS.md l.43 phrase |
+| l.59 README line | yes | **changes** → rev 6, 2026-10-21 |
+| new section | yes | `## Exceptions (rev 6)` goes **between `## Test counts` and `## Required checks`**: inserted after rev 5 l.53 (blank), before rev 5 l.54. This is Big Head's proposed spot, confirmed |
+
+**README.md l.20 changes**, and it joins M17b's file list:
+- old: `` - `ci.md` — CI (LOCKED 2026-10-20, Gilfoyle, rev 5) ``
+- new: `` - `ci.md` — CI (LOCKED 2026-10-21, Gilfoyle, rev 6) ``
+- Nothing else in README changes in M17b.
+
+Big Head's "change nothing else" default (spec l.417) is **replaced** by the table above: 8 rev 5 lines change and 25 lines are inserted.
+
+- Addendum A3.4, every diff line rev 5 → rev 6 (verbatim). Re-run on the box against `ci.md` @ `9a7663d`: identical hunks.
+```diff
+--- ci.md@rev5
++++ ci.md@rev6
+@@ -1,15 +1,15 @@
+-# CI — LOCKED 2026-10-20 (Gilfoyle), rev 5
++# CI — LOCKED 2026-10-21 (Gilfoyle), rev 6
+ 
+-Rev 4 (2026-10-19, M14.8 #60) was Bill's ask to run lint, typecheck and unit tests on every PR. Rev 5 (#43, Bill 2026-10-20: "let's do 43") adds pgTAP and a `dart format` check. CI never touches prod.
++Rev 4 (2026-10-19, M14.8 #60) was Bill's ask to run lint, typecheck and unit tests on every PR. Rev 5 (#43, Bill 2026-10-20: "let's do 43") adds pgTAP and a `dart format` check. Rev 6 (#75, Bill 2026-10-20: "Make an exception: allow one read-only post-deploy GitHub job against prod for #75"; #48, Bill 2026-10-20 1:57 PM CT) adds the Supabase advisors (splinter) step to `pgtap` and exactly two exceptions, listed under Exceptions. CI never touches prod, except the one read-only job in Exception P1.
+ 
+ ## Shape
+-One file, `.github/workflows/ci.yml`, three parallel jobs, no secrets.
++One file, `.github/workflows/ci.yml`, three parallel jobs, no secrets. Exception E2E adds a fourth job, `e2e`, to this file. Exception P1 is the only other workflow, `.github/workflows/advisors-prod.yml`.
+ 
+ | Job | Runs in | Steps |
+ |---|---|---|
+ | `flutter` | `apps/tell_me_a_story` | `flutter pub get --enforce-lockfile` → `dart format --output=none --set-exit-if-changed .` → analyze ceiling (below) → `flutter test` |
+ | `deno` | repo root | `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` → `deno test --allow-env supabase/functions` |
+-| `pgtap` | repo root | install pinned Supabase CLI (sha256-verified) → `supabase db start` → `supabase test db` |
++| `pgtap` | repo root | install pinned Supabase CLI (sha256-verified) → `supabase db start` → `supabase test db` → fetch pinned splinter (commit + sha256) → advisors check against `supabase/advisors-baseline.json` |
+ 
+ - `flutter analyze` is the lint and the typecheck for Dart. `flutter test` is the unit tests. `dart format` runs after pub get because the formatter's style follows the package language version.
+ - `deno test` type-checks only the modules its tests load. `deno check` covers every `index.ts` and all of `_shared`. The Deno tests use injected fake DBs and need only `--allow-env`.
+@@ -48,12 +48,37 @@
+ - `dart format` with default settings (page width 80, no `formatter:` override). The #43 PR's first commit was formatter output only, so main starts clean. Format churn in a feature PR is still only allowed in files the PR changes on purpose.
+ 
+ ## Test counts
+-- CI fails on any failing test. Counts aren't parsed in CI. PR bodies quote them: flutter ≥ 495, Deno ≥ 43, pgTAP from the `pgtap` log (`Files=24, Tests=799` at rev 5).
++- CI fails on any failing test. Counts aren't parsed in CI. PR bodies quote them: flutter ≥ 495, Deno ≥ 43, pgTAP from the `pgtap` log (`Files=25, Tests=825` at rev 6).
+ - A red `pgtap` is never fixed by editing tests, migrations, `config.toml` or `seed.sql` in the same PR without a Gilfoyle lock. Fresh-database differences are findings.
+ 
++## Exceptions (rev 6)
++The rules above apply to every job and workflow. Only these two exceptions exist.
++
++**Exception P1: prod advisors (#75). The only CI exception to "CI never touches prod".**
++Exactly one job, `prod-advisors` in `.github/workflows/advisors-prod.yml`, may read from prod `lchytafmnuefrgkguynt`.
++- It calls only `GET https://api.supabase.com/v1/projects/lchytafmnuefrgkguynt/advisors/security` and `GET …/advisors/performance`. It runs no SQL and no writes, calls no other Supabase endpoint and runs no Supabase CLI.
++- It triggers only on `push` to `main` (after confirming the Supabase deploy check for that commit) and `workflow_dispatch`. A deploy that is not confirmed, including a timeout, is red. It has no other trigger, and it is never triggered by `workflow_run`, `pull_request_target`, `repository_dispatch` or `issue_comment`.
++- Its `permissions` are `contents: read` and `checks: read`, and its only action is SHA-pinned checkout. `checks: read` exists only for the deploy-wait step, which sends the job's `GITHUB_TOKEN` only to `api.github.com` to read that commit's check runs.
++- It reads one secret, `SUPABASE_ADVISORS_TOKEN`, from the dedicated `prod-advisors` environment (deployment branches: `main` only). That token is a Supabase scoped PAT for this one project with only "Advisors: Read". Classic PATs are forbidden.
++- It is never a required check.
++- No other job, step or workflow may use that environment, that secret, `api.supabase.com`, or any prod connection.
++- `ci.yml` keeps "no secrets" unchanged.
++
++**Exception E2E (#48). Local Supabase only, never prod.**
++One job, `e2e` in `ci.yml`, may:
++- run `supabase start` against the **local** Supabase stack on the runner (exclusions `studio,imgproxy,vector,logflare,supavisor,postgres-meta`);
++- build and drive a debug/profile Flutter web app (`flutter drive -d web-server`);
++- pass `--dart-define` values sourced **only** from `supabase status -o env` (local demo values).
++
++It is **local Supabase only, never prod.** It uses no `${{ secrets.* }}`, no `link`, no `--linked`, no `--db-url`, no `db push/pull/reset`, and no `migration` command. Its permissions are `contents: read`. It uses only the allowlisted SHA-pinned actions, and `timeout-minutes: 25`. The job is report-only (not required) until 10 consecutive green runs on main, then it is a required check. Everything else in the Shape bullets on prod isolation and 🚫 (l.17–19) still applies to every job.
++
++**Also in rev 6:**
++- The `pgtap` job runs splinter (pinned by commit plus sha256; a bump is its own PR) against `supabase/advisors-baseline.json`. New findings fail, stale entries fail, and an ERROR can never be accepted. The step fails closed if `psql` is missing.
++- pgTAP count note: 25 files / 825 tests after the M17a policy and index asserts (+23) and the definer-allowlist fold (−1).
++
+ ## Required checks
+-- `flutter`, `deno` and `pgtap` are required on `main`. Branch protection is a GitHub setting Bill changes by hand; no PR touches it. `pgtap` is added after the first green push run on main following the #43 merge.
++- `flutter`, `deno` and `pgtap` are required on `main`. Branch protection is a GitHub setting Bill changes by hand; no PR touches it. `pgtap` is added after the first green push run on main following the #43 merge. `e2e` is added only after 10 consecutive green runs on `main` (Exception E2E). `prod-advisors` is never a required check (Exception P1).
+ 
+ ## Repo docs
+-- `AGENTS.md` CI line: CI runs `dart format`, analyze, flutter test, Deno and pgTAP on every PR. Local `supabase test db` is still how you check a migration before pushing.
+-- `docs/design-doc/README.md` index line: `` `ci.md` — CI (LOCKED 2026-10-20, Gilfoyle, rev 5) ``.
++- `AGENTS.md` CI line: CI runs `dart format`, analyze, flutter test, Deno and pgTAP, and Supabase advisors (splinter) against a baseline on every PR. Local `supabase test db` is still how you check a migration before pushing.
++- `docs/design-doc/README.md` index line: `` `ci.md` — CI (LOCKED 2026-10-21, Gilfoyle, rev 6) ``.
+```
+Summary: 8 lines are replaced (rev 5 l.1, 3, 6, 12, 51, 55, 58, 59), and 25 lines are inserted after rev 5 l.53: the 24-line Exceptions section plus 1 blank separator. Rev 6 is 84 lines.
+- The Exceptions section is rev 6 l.54–77, followed by blank l.78 and `## Required checks` at l.79.
+- `docs/design-doc/README.md` l.20 → `` - `ci.md` — CI (LOCKED 2026-10-21, Gilfoyle, rev 6) ``. Result: **20 lines, 2,076 bytes, sha256 `611cbce3c2bc0f004ba59be438dad0b9edcc206c0cc47b8b5b4150f9b377f521`** (same length as before).
+
+**R-b6 `AGENTS.md` l.43** (lock l.315, verbatim): "The AGENTS.md CI line gains "and Supabase advisors (splinter) against a baseline"."
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 l.422 AGENTS.md INFER → CONFIRMED (Addendum A3.2: "Big Head's spec l.422 INFER text for AGENTS.md l.43 is **confirmed**."; A8.5). l.43 becomes `` - CI runs `dart format`, analyze, flutter test, Deno and pgTAP, and Supabase advisors (splinter) against a baseline on every PR. Local `supabase test db` is still how you check a migration before pushing. **The PR body is the evidence**: paste fresh counts and command output from the PR's head commit. ``. Result: **66 lines, 5,308 bytes, sha256 `5d3edabb50f43d68e4a3fbc7574a582dfed45d576b849951607f5f74fa3d33e9`**. It must match rev 6 l.83 word for word ("CI runs `dart format`, analyze, flutter test, Deno and pgTAP, and Supabase advisors (splinter) against a baseline on every PR."). No other `AGENTS.md` line changes (l.36–41's stale baselines stay).
+
+**Gates M17b (paste in the PR body):**
+- **B1 Diff:**
+  - `git diff main --stat` lists exactly the files under "Files touched": `.github/workflows/ci.yml`, `scripts/advisors/check.py`, `scripts/advisors/test_*.py` (+ fixtures under `scripts/advisors/`), `supabase/advisors-baseline.json`, `supabase/tests/definer_grants.sql`, `docs/design-doc/ci.md`, `docs/design-doc/README.md`, `AGENTS.md`.
+  - `git diff main -- supabase/migrations supabase/tests/catalog_acl_guard.sql supabase/tests/fit_and_finish.sql supabase/config.toml supabase/seed.sql apps docs/impl-spec docs/design-doc/00-foundation.md .github/workflows/advisors-prod.yml` is empty.
+  - `git diff main -U0 -- supabase/tests/definer_grants.sql AGENTS.md docs/design-doc/README.md` shows only the fold (`@@ -4 +4 @@`, `@@ -275,44 +274,0 @@`), `@@ -43 +43 @@` and `@@ -20 +20 @@`.
+- **B2 Verbatim files** (`wc -l -c` + `sha256sum`):
+  - `ci.yml` `161 5237` `c1d0ae67…b04f88`;
+  - `supabase/advisors-baseline.json` `35 1548` `c9324fad…31d0c2`;
+  - `definer_grants.sql` `391 12838` `d85d1293…a641dd`;
+  - `AGENTS.md` `66 5308` `5d3edabb…3d33e9`;
+  - `docs/design-doc/ci.md` `84 8572` `a472f3f4…46196b`;
+  - `docs/design-doc/README.md` `20 2076` `611cbce3…77f521` (full shas under R-b1, R-b2, R-b4, R-b5 and R-b6).
+- **B3 CI `pgtap` on the final head:**
+  - `All tests successful.`, **`Files=25, Tests=825`** and `Result: PASS`;
+  - the `fetch splinter (pinned)` step's `sha256sum -c` `: OK`;
+  - the advisors step's `psql --version` line (A6(a) evidence);
+  - the `unittest` summary (`OK`);
+  - the full `check.py --layer local` output: green, exit 0, with 30 delegated 0029 findings matched, 0 new, 0 stale, and report-only/local-skip lines listed.
+  - The job still reports as `pgtap`, and there is no new check name.
+- **B4 Other jobs:** `flutter` and `deno` are green with the same numbers as A3.
+- **B5 Greps on `ci.yml`:**
+  - `grep -c 'uses:'` → `5`;
+  - `grep -nE 'secrets\.|api\.supabase\.com|supabase (link|start)|--linked|db (push|reset|pull)|migration |SUPABASE_ADVISORS_TOKEN|SUPABASE_ACCESS_TOKEN|GITHUB_TOKEN|github\.token'` prints nothing;
+  - `--db-url`, if the calibration fallback is used, points only at `127.0.0.1`/`localhost`.
+  - `grep -n 'command -v psql'` → exactly 1 line, the first line of the advisors step's `run:`.
+- **B6 Negative proof:** paste the unit-test names showing each case in the unit-test INFER above (including the A6(b) token cases). Also paste one local run of `check.py --layer local` against a findings file with one added fake finding, exiting 1. Include `test_prod_redaction` (all 5 test names) and the `sha256sum` of the four Addendum B1.4 files.
+- **B7 Calibration report:** the creds and port used (lock defaults or the `supabase status -o env` fallback), and whether the local stack has `pg_graphql` (`select extname from pg_extension`).
+
+**After M17b merges (not the agent's):** the first push run of `CI` on `main` is green, including the advisors step (lock l.332).
+
+---
+
+###### M17c: prod advisors workflow (lock PR-3), branch `feat/m17c-advisors-prod`
+Lock §10 row 3 (verbatim): "| 3 | `ci: prod advisors workflow` | `.github/workflows/advisors-prod.yml` (§8.2) | PR-2; Bill creates the scoped PAT, the `prod-advisors` environment and the secret |"
+
+**Files touched (exhaustive):** NEW `.github/workflows/advisors-prod.yml`, nothing else. `ci.yml`, `check.py`, the baseline and every doc are unchanged.
+
+**R-c1 `.github/workflows/advisors-prod.yml` (lock §8.2, verbatim, with the two Addendum A6(b) replacements applied: the `permissions:` block and the wait step's `env:`, and the Addendum B3 fetch step):**
+```yaml
+name: advisors-prod
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  checks: read
+concurrency:
+  group: advisors-prod
+  cancel-in-progress: false
+jobs:
+  prod-advisors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: prod-advisors
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: wait for the Supabase deploy of this commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/advisors/check.py --wait-deploy \
+            --repo "${{ github.repository }}" --sha "${{ github.sha }}" \
+            --check-name "Supabase Preview" --check-app supabase --timeout-s 900
+      - name: fetch prod advisors (GET only)
+        env:
+          SUPABASE_ADVISORS_TOKEN: ${{ secrets.SUPABASE_ADVISORS_TOKEN }}
+        run: |
+          set -euo pipefail
+          for t in security performance; do
+            printf 'header = "Authorization: Bearer %s"\n' "$SUPABASE_ADVISORS_TOKEN" |
+              curl --config - -fsS --proto '=https' --max-time 30 -X GET \
+                "https://api.supabase.com/v1/projects/lchytafmnuefrgkguynt/advisors/${t}" \
+                -o "$RUNNER_TEMP/${t}.json"
+          done
+      - name: check vs baseline (prod layer)
+        run: |
+          python3 scripts/advisors/check.py --layer prod \
+            --baseline supabase/advisors-baseline.json \
+            --api "$RUNNER_TEMP/security.json" "$RUNNER_TEMP/performance.json"
+```
+Addendum A6(b) (verbatim): "The workflow `permissions:` block becomes:" `permissions:` / `  contents: read` / `  checks: read`; "The wait step becomes. Only this step gets the token; the fetch and check steps do not:" (the 8-line wait step above, l.21–27 of the file). Addendum A8.7: "M17c's workflow uses the A6(b) `permissions` and wait-step `env`."
+> 🔍 INFER: The file is the block plus one trailing newline (LF), because neither the lock nor the addendum gives the file ending: **43 lines, 1,564 bytes, sha256 `07100fb9416dc6dcc606ebc592b646d59273a59804b4cb22fd2885d7c6f9767b`** (rev 2: 43 lines, 1,515 bytes, `390a4ab2…a317c5`; Addendum B3 replaces l.34–37 of the file, and the line count is unchanged). PyYAML parses one job, `prod-advisors`, with `environment: prod-advisors`, `timeout-minutes: 20`, triggers `push` (main) and `workflow_dispatch`, `permissions` `{contents: read, checks: read}`, concurrency `advisors-prod` (no cancel), and steps checkout (no env), `wait for the Supabase deploy of this commit` (env `GITHUB_TOKEN` only), `fetch prod advisors (GET only)` (env `SUPABASE_ADVISORS_TOKEN` only), `check vs baseline (prod layer)` (no env).
+- Addendum B3.1 (verbatim): "The loop makes exactly these two requests. Each gets its header from stdin, so the token is never in argv:"
+```text
+printf 'header = "Authorization: Bearer %s"\n' "$SUPABASE_ADVISORS_TOKEN" | curl --config - -fsS --proto '=https' --max-time 30 -X GET "https://api.supabase.com/v1/projects/lchytafmnuefrgkguynt/advisors/security" -o "$RUNNER_TEMP/security.json"
+printf 'header = "Authorization: Bearer %s"\n' "$SUPABASE_ADVISORS_TOKEN" | curl --config - -fsS --proto '=https' --max-time 30 -X GET "https://api.supabase.com/v1/projects/lchytafmnuefrgkguynt/advisors/performance" -o "$RUNNER_TEMP/performance.json"
+```
+- **`--fail` (the `-f` in `-fsS`), not `--fail-with-body`.**
+  - The two flags are mutually exclusive.
+  - `--fail` already exits 22 on any HTTP ≥ 400, which matches the lock's fail-closed rule (rule 8; lock §11.7).
+  - With `--fail`, curl writes no error body anywhere. That keeps B1's "no response body in the prod log". `--fail-with-body` would only save a body that nothing may print.
+  - `-S` prints only curl's one-line error (`curl: (22) The requested URL returned error: 401`), with no body and no header.
+- **`--max-time 30`** is what this lock specifies. Trinity suggested 60 (her l.137, l.253); the lock takes 30. A hang becomes `curl: (28)` → red, instead of waiting out the 20-minute job timeout (wf l.15).
+- `printf` is a bash builtin (the `run:` shell is bash), so the token never appears in any process's argv. `set -o pipefail` makes a curl failure fail the pipeline, and `set -e` then fails the step.
+- `-X GET`, `--proto '=https'`, the URL, `-o` and the loop are as locked. There is no `-L`, no `-v` and no `--trace`.
+- Re-checked on the box: the embedded block equals `/workspace/m-adv/addB/advisors-prod.yml` byte for byte; PyYAML gives the same triggers, `permissions` `{contents: read, checks: read}`, and step `env` (wait `GITHUB_TOKEN` only, fetch `SUPABASE_ADVISORS_TOKEN` only, check none).
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-04 (B3). Trinity's `--max-time 60` is replaced by the lock's 30 (CONFLICT note under "OPENs, CONFLICTs, INFERs").
+
+Lock §8.2 "Scope (all of these must hold)", verbatim, with the Addendum A6(b) "Lock text replacements" applied (each marked ⟨A6(b)⟩):
+Scope (all of these must hold):
+- **Calls only** the two advisors GET endpoints (§4). No SQL, no writes, no other Supabase endpoint, no Supabase CLI.
+- **Triggers:** `push` to `main` (it waits for the deploy, then reads) and `workflow_dispatch`. Nothing else: no `schedule`, no `pull_request*` (including `pull_request_target`), no `workflow_run`, no `repository_dispatch`, no `issue_comment`. ⟨B2⟩
+- **Permissions:** `contents: read` and `checks: read` only. `checks: read` is for the wait step, the only step given `GITHUB_TOKEN`. ⟨A6(b)⟩
+- **Actions:** SHA-pinned checkout only. The fetch is `curl`, and the check is stdlib python3.
+- **Secret:**
+  - One Supabase token, `SUPABASE_ADVISORS_TOKEN`. It is stored as a GitHub Actions secret on this repo, scoped to the **dedicated environment `prod-advisors`**, whose deployment-branch policy is `main` only.
+  - Only the env var name appears in the repo. The token is never echoed. It is never on a command line (Addendum B3).
+  - Bill creates the scoped PAT (§4: project `lchytafmnuefrgkguynt`, Advisors: Read only, shortest expiry), the environment and the secret by hand.
+  - No other job or workflow references this environment or secret.
+- **Deploy confirmation:**
+  - The wait step polls the public check-runs of `github.sha` for the `Supabase Preview` check from the `supabase` app (observed on `46957e2`). It uses the job's `GITHUB_TOKEN` (`checks: read`), sent only to `api.github.com`, never printed. ⟨A6(b)⟩
+  - The job goes on to the advisors calls only when that check is `success`. Timeout, a non-success conclusion, or an API error gives **red** ("deploy not confirmed"), never a false green.
+  - Calibrate the check name and app slug in the PR. If they differ, the step fails closed.
+- **On red:** GitHub's built-in failed-workflow notification is the alert, and the hotfix path follows. No new alert channel.
+- **Never a required check.**
+- Addendum A6(b): "§8.3 P1 bullet: superseded by rev 6 l.61. `ci.yml`'s own `permissions: contents: read` is unchanged." Rev 6 l.61: "Its `permissions` are `contents: read` and `checks: read`, and its only action is SHA-pinned checkout. `checks: read` exists only for the deploy-wait step, which sends the job's `GITHUB_TOKEN` only to `api.github.com` to read that commit's check runs."
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): the Supabase token storage is the `prod-advisors` environment secret only (Addendum A4; see Requirement above).
+
+Lock §4, token scope, verbatim:
+- **Token scope, stated plainly:**
+  - The only option is **not** a full personal access token. Supabase **scoped PATs are GA**, and the narrowest scope that reaches these endpoints is a scoped PAT for **one project (`lchytafmnuefrgkguynt`) with the single permission "Advisors: Read"** (`advisors_read`), using the shortest workable expiry (max one year). Scoped tokens start with `sbp_fc`.
+  - "Advisors: Read" also covers "Run project advisors". That can't be split off, and the job never calls it.
+  - A scoped PAT can only narrow Bill's own account rights.
+  - **Classic/legacy (full-access) PATs are forbidden.**
+- `advisors_read` can't read migration history, so the job confirms the deploy through the GitHub check run instead (§8.2).
+- The `--wait-deploy` call to `api.github.com` is part of the locked design (Addendum A6(b); rev 6 l.61). It is not a third Supabase endpoint: "Calls only the two advisors GET endpoints" and rev 6 l.59 ("It calls only `GET …/advisors/security` and `GET …/advisors/performance`") are about Supabase. The fetch step is the only step that calls `api.supabase.com` and the only step that sees `SUPABASE_ADVISORS_TOKEN`; the wait step is the only step given `GITHUB_TOKEN`.
+- Lock §11 risk 6 (verbatim, Addendum B6 / TMAS-M17-06): "6. **Experimental Management API.** check.py fails closed on any shape change." Lock §4 l.85: "Supabase labels these endpoints **experimental**, so check.py fails closed on a parse error."
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-06 (B6: "ADOPT, no new text") and TMAS-M17-03 (B2.2 Triggers line above).
+> ✅ CLOSED (Gilfoyle, 2026-10-21 6:45 PM CT): Addendum A6(b)'s "no `GITHUB_TOKEN` in any step but the deploy wait" means no step other than the deploy wait *references* `GITHUB_TOKEN` or `secrets.GITHUB_TOKEN` (in `env:`, a `with:` input, or a `run` line). Gate C2's grep is the check. The locked checkout step (`actions/checkout@11d5960a…`, `persist-credentials: false`, no `token:` input) uses the default job token, which is allowed and is not a reference. Job-level `permissions` stay `contents: read`, `checks: read`. No file changes; do not add a `token:` input (R2).
+
+**Gates M17c (paste in the PR body):**
+- **C1 Diff:** `git diff main --stat` lists exactly `.github/workflows/advisors-prod.yml`. `wc -l -c` `43 1564` and sha256 `07100fb9…f9767b`.
+- **C2 Greps on `advisors-prod.yml`** (expected output computed on the box from the final file, lock rev 2 + Addenda A and B):
+  1. `grep -c 'uses:' .github/workflows/advisors-prod.yml` → `1`;
+  2. `grep -n 'SUPABASE_ADVISORS_TOKEN' .github/workflows/advisors-prod.yml` → exactly 2 lines, l.30 (`SUPABASE_ADVISORS_TOKEN: ${{ secrets.SUPABASE_ADVISORS_TOKEN }}`) and l.34 (the `printf 'header = …' "$SUPABASE_ADVISORS_TOKEN" |` line), both inside `fetch prod advisors (GET only)`; ⟨B3⟩
+  3. `grep -nE 'schedule|pull_request|workflow_run|repository_dispatch|issue_comment|-X (POST|PUT|PATCH|DELETE)|supabase |psql|secrets\.' .github/workflows/advisors-prod.yml` → only l.27 and l.30; ⟨B2⟩
+  4. `grep -c 'api.supabase.com' .github/workflows/advisors-prod.yml` → `1`;
+  5. `grep -n 'GITHUB_TOKEN\|github\.token' .github/workflows/advisors-prod.yml` → exactly l.23 (`GITHUB_TOKEN: ${{ github.token }}`), inside `wait for the Supabase deploy of this commit`;
+  6. `grep -n -A2 '^permissions:' .github/workflows/advisors-prod.yml` → l.6–8: `permissions:`, `contents: read`, `checks: read`;
+  7. `grep -nE 'GITHUB_STEP_SUMMARY|upload-artifact|(cat|echo|tee|jq|head|tail|less|more)[^|]*\.json|--trace' .github/workflows/advisors-prod.yml` → prints nothing (exit 1); ⟨B1⟩
+  8. `grep -cF -- '-o "$RUNNER_TEMP/${t}.json"' .github/workflows/advisors-prod.yml` → `1` (the response goes only to the file); ⟨B1⟩
+  9. `awk '{ if (sub(/\\$/, "")) { buf = buf $0; next } print NR ": " buf $0; buf = "" }' .github/workflows/advisors-prod.yml | grep -E 'curl' | grep -E 'SUPABASE_ADVISORS_TOKEN|Authorization|Bearer|(-H|--header|-u|--user|--oauth2-bearer)[ =]'` → prints nothing (exit 1). It joins `\`-continued lines into one logical command and fails if any curl command carries the token, an auth header or a credential flag; ⟨B3⟩
+  10. `grep -nF -- "curl --config - -fsS --proto '=https' --max-time 30 -X GET" .github/workflows/advisors-prod.yml` → exactly l.35. ⟨B3⟩
+- Re-run on the box 2026-10-21 ~7:15 PM CT against `/workspace/m-adv/expected3/advisors-prod.yml`: rows 1–10 give exactly these values (row 7 and row 9 exit 1 with no output). On the rev 2 file, row 9 prints the joined old `-H "Authorization: Bearer …"` curl command, as Addendum B7 says.
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-01 (rows 7–8), -03 (row 3), -04 (rows 2, 9, 10).
+- **C3 CI on the PR:** `flutter`, `deno` and `pgtap` are green, as in B3/B4 (`Files=25, Tests=825`). `advisors-prod` does **not** run on the PR (no `pull_request` trigger). That is expected, not missing evidence.
+- **C4 Statement in the PR body:** "The agent did not run `advisors-prod`, did not use `workflow_dispatch`, and never saw or printed a token."
+
+**After M17c merges (not the agent's):**
+- The first `push` run of `advisors-prod` on the merge commit is green.
+- The wait step shows `Supabase Preview` `success`.
+- Both GETs succeed, and `check.py --layer prod` exits 0: 30 delegated 0029 + 1 accepted leaked-password, 0 new, 0 stale, 0 ERROR.
+- Gilfoyle or Trinity cites the run (time, main SHA, counts). That run is the M17 M-close evidence (R10).
+- A red result follows the hotfix path (lock §5(b)).
+
+---
+
+###### Stop rules (stop, report, don't fix)
+- Any red gate. pgTAP not `Files=25, Tests=826` (M17a) or `Files=25, Tests=825` (M17b, M17c); flutter not 504; analyze over 27 or with an error; Deno not 43; the policy count not 47.
+- Starting or opening a sub-part before its precondition holds (hard ordering rule), or M17a's post-merge prod read showing any finding beyond 30 delegated + 1 accepted + report-only.
+- An OPEN that blocks a file: skip that file, do the unblocked work, report the OPEN (`AGENTS.md` l.19). No OPEN in this item blocks a file at rev 2.
+- A built file does not match its byte-for-byte facts (migration `75aa731c…`, `fit_and_finish.sql` `1cf1e316…`, `00-foundation.md` `0c2ac37a…`, `ci.yml` `c1d0ae67…`, baseline `c9324fad…`, `definer_grants.sql` `d85d1293…`, `AGENTS.md` `5d3edabb…`, `ci.md` `a472f3f4…`, README `611cbce3…`, `advisors-prod.yml` `07100fb9…`), or a base file differs from the `9a7663d` values in "Code on `main`".
+- `main` gains a migration ≥ `20261022000000` before M17a is cut (Addendum A1.3).
+- The splinter `sha256sum -c` fails, or the fetched file isn't 1,876 lines.
+- A local advisors finding the baseline doesn't cover (e.g. 0025, 0030, `multiple_permissive_policies`), or a 0029 mismatch. Report the full `check.py` output to Gilfoyle. **Never** add a baseline entry, edit tests, migrations, `config.toml` or `seed.sql` to go green (lock §12).
+- The A6(a) guard fires (`psql not found on runner`), or the local DB isn't reachable with the lock defaults and the `supabase status -o env` fallback. Report; don't install anything (Addendum A6(a): "Do not add a `postgresql-client` install." and "The step is never skipped and never made non-fatal.").
+- Any banned command, secret, token, prod access, new action or setting seems needed.
+- Code and spec disagree (a base sha, a line's content, a count). Report the diff; don't reconcile (`AGENTS.md` l.20).
+
+> 🚫 FORBIDDEN: Lock §12, verbatim:
+> - In `ci.yml` (every job, including `pgtap` and `e2e`):
+>   - no `supabase link`, `--linked`, `--db-url` to anything but localhost, `db push|reset|pull`, `migration`, or `supabase db advisors --linked`;
+>   - no Supabase token or other secret;
+>   - no call to `api.supabase.com` or the prod DB.
+> - In `advisors-prod.yml`, anything beyond §8.2:
+>   - no SQL;
+>   - no non-GET request;
+>   - no endpoint other than the two advisors GETs;
+>   - no Supabase CLI;
+>   - no trigger other than `push` to `main` and `workflow_dispatch`: no `schedule`, `pull_request*`, `pull_request_target`, `workflow_run`, `repository_dispatch` or `issue_comment` trigger; ⟨B2⟩
+>   - no permission beyond `contents: read` and `checks: read`; ⟨A6(b)⟩
+>   - no `GITHUB_TOKEN` in any step but the deploy wait; ⟨A6(b)⟩
+>   - no unpinned or third-party action;
+>   - no second prod job;
+>   - no use of the token outside the fetch step.
+>   - no write to `$GITHUB_STEP_SUMMARY`; ⟨B1⟩
+>   - no `actions/upload-artifact` (any version) and no other artifact upload; ⟨B1⟩
+>   - no printing or echoing of raw advisor JSON, or of any part of an API response body, in the prod job: no `cat`, `echo`, `tee`, `jq`, `head`, `tail`, `less`, `more` or `--trace` on it. The response goes only to `"$RUNNER_TEMP/${t}.json"` (curl `-o`), and `check.py --layer prod` prints only the §7.2a lines; ⟨B1⟩
+>   - no `SUPABASE_ADVISORS_TOKEN` on any command line: it reaches `curl` only as `printf 'header = "Authorization: Bearer %s"\n' "$SUPABASE_ADVISORS_TOKEN" | curl --config - …`; no `-H`, `--header`, `-u`, `--user` or `--oauth2-bearer` on the curl call; `--max-time 30` and `--fail` (`-f`) stay; no `--fail-with-body`; ⟨B3⟩
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-01 (B1.3), -03 (B2.1), -04 (B3.3).
+> - Never a classic/legacy PAT, and never a token with more than Advisors: Read on `lchytafmnuefrgkguynt`. Never print the token.
+> - No new third-party actions (`supabase/setup-cli`, marketplace advisor actions). Splinter is fetched only by full commit SHA plus sha256.
+> - No baselining of an **ERROR** finding.
+> - No baseline entry without `reason`, `owner` and `added`. No regex or wildcard keys.
+> - No editing the baseline, tests, migrations, `config.toml` or `seed.sql` to turn a red advisors step green without a Gilfoyle lock.
+> - No date-dependent pass/fail pre-merge.
+> - No second definer allowlist (§7.3).
+> - No agent toggles hosted auth settings or plan (Bill only).
+> - Never make the post-deploy workflow a required check. Branch protection is changed only by Bill.
+
+> 🚫 FORBIDDEN: (standing, all sub-parts)
+> - `supabase db reset`, `db pull`, `migration down` or `migration repair`; editing any merged migration (`AGENTS.md` l.21–22).
+> - Any agent access to prod `lchytafmnuefrgkguynt`: Supabase MCP, SQL editor, Management API, `get_advisors`, CLI `--linked`. Running `advisors-prod` or `workflow_dispatch`. Creating, reading, printing or echoing any token or secret. Creating or editing GitHub environments, secrets, branch protection, rulesets, required checks or repo settings (Bill only).
+> - Any secret in code, chat or Notion (`AGENTS.md` l.57). Hosted config changes (`AGENTS.md` l.58), including auth settings and plan (lock §12).
+> - Any new dependency beyond splinter (pinned) and stdlib python3: no pip, npm, apt or new action.
+> - More than one sub-part per PR, or a later sub-part before its precondition. Editing `impl-spec.md`. Editing `catalog_acl_guard.sql`. A second definer allowlist (including a copy inside `check.py` or the baseline).
+> - Notion edits. Stamping this item, or any item, READY, APPROVED or CLOSED. Opening, editing, commenting on or relabelling issues, including #75 and #48. Pushing to `main`, merging, or more than one PR per sub-part.
+> - Anything from #48 (M18): no `e2e` job, no `supabase start`, no `integration_test`. The #48 exception lands as reconciled in rev 6 (Addendum A3.2); M17b lands it, and M18 PR0 does not touch ci.md (A3.1).
+
+###### Out of scope
+- #48 E2E (M18), including Bill's 6:07 PM "both" on the integration_test dependency.
+- A Pro upgrade or enabling leaked-password protection (lock §6: "There is **no Pro upgrade**.").
+- Fixing `unused_index` or `table_bloat` (report-only, lock §9).
+- Lock Part D of #72 (default privileges, the 66 grants) and the catalog guard's D `todo`.
+- A new alert channel (lock §8.2: "No new alert channel.").
+- A splinter or CLI version bump (each is its own PR, lock §8.3 and §11.1).
+
+###### OPENs, CONFLICTs, INFERs (rev 3)
+Closed by Gilfoyle addendum A (2026-10-21):
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): OPEN M17a policy text → R-a1 (A1.4).
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): OPEN M17a Design Doc note → R-a3 (A2).
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): OPEN M17b ci.md rev 6, README l.20 and M18 coordination → R-b5 and the hard ordering rule (A3).
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): CONFLICT token storage → environment secret in `prod-advisors`, `main` only; no repo secret (A4).
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): CONFLICT 0025/0030 → gated in both layers; §2 Lint classes replaced, 29 lints once each (A5).
+> ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): INFERs rev 1 l.108 (filename) confirmed, l.109 (no pgTAP) overruled, l.170 (index names) confirmed with `if not exists`, l.346 (`--wait-deploy` unauthenticated) replaced by A6(b), l.422 (AGENTS.md l.43) confirmed.
+Closed by Gilfoyle addendum B (2026-10-21):
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-01 → R-b3 rule 3/§7.2a, R-b3a, FORBIDDEN, C2 rows 7–8.
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-02 → lock §14 under Lanes, Bill steps, cloud-agent lane notes.
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-03 → FORBIDDEN, §8.2 Triggers, C2 row 3, rev 6 l.60.
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-04 → R-c1 fetch step, §8.2 Secret, FORBIDDEN, C1, C2 rows 2, 9, 10.
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-06 → lock §11.6 quoted under M17c (no new text).
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-07 → unit-test INFER (API shape).
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-12 → l.2 (with the CONFLICT below).
+Not adopted by Addendum B (no rev 3 change): TMAS-M17-05 (Bill setting) and TMAS-M17-08, -09, -10, -11 (Info confirmations).
+Trinity vs Addendum B (B governs; owner Gilfoyle to confirm):
+> ⚠️ CONFLICT: [Gilfoyle] TMAS-M17-04: Trinity recommends `--max-time 60` (her l.137, l.253); Addendum B3.1 locks `--max-time 30` ("Trinity suggested 60 …; the lock takes 30."). Narrower option, and the one built: 30.
+> ⚠️ CONFLICT: [Gilfoyle] TMAS-M17-02: Trinity recommends recording the lane rule in "ci.md or AGENTS.md" (her l.116); Addendum B5 puts it in lock §14 only and adds it to neither (B5.3). Built per B: lock §14 text embedded in this item; ci.md rev 6 and AGENTS.md unchanged beyond M17b's locked edits.
+> ✅ CLOSED (Bill, 2026-10-21 7:19 PM CT): TMAS-M17-12 l.2 status; Bill re-approved rev 3 (see l.3).
+Still open: **no OPEN.**
+- ✅ CLOSED (Gilfoyle, 2026-10-21 6:45 PM CT): checkout's default job token is allowed under A6(b); only explicit references count (gate C2). No file changes.
+- No lock-vs-repo CONFLICT at `main` @ `9a7663d` (re-checked for rev 3; main has not moved).
+Remaining INFERs: three sub-parts, branch names, PR titles (top); the deps and impl-spec-landing INFERs (Standing rules); Gates A4–A6 local-only (M17a); the `ci.yml` schematic-hunk reading and result file, the baseline file ending, `check.py` three modes, AMBER, rule 6 mapping, offline unit tests, the `definer_grants.sql` block (M17b); the `advisors-prod.yml` file ending (M17c, now 1,564 bytes); the lanes.
+
+###### After each PR is open (lanes)
+> 🔍 INFER: The lanes below because the lock names none and `AGENTS.md` l.63 lists Gilfoyle, Big Head, Mugatu and Dinesh, with Jared only on scope drift. Trinity is added for the RLS edits and the prod token, as in M15 and M16. Mugatu is skipped (no UI). Jared is skipped (Bill's 1:59 PM "3) yes" settles scope). Trinity's lane is no longer inferred for M17b/M17c: lock §14 (Addendum B5) makes it mandatory for those paths.
+- **Gilfoyle (architecture):** answers the remaining non-blocking OPEN. M17a: the migration equals A1.4, the asserts equal A1.7, the note equals A2. M17b: the YAML equals lock §8.1 + A6(a), the baseline equals §7.1, check.py implements §7.2 and A6(b) rules 1–6, the fold equals §7.3, ci.md equals rev 6. M17c: the workflow equals §8.2 + A6(b). A red advisors step or new finding comes back to him.
+- **Big Head (spec):** the diff and every gate against this item, per sub-part.
+- **Dinesh (code quality):** `check.py` and its tests (stdlib, fail-closed, no swallowed errors), SQL style.
+- **Trinity (security):** **Mandatory** for M17b and M17c (lock §14, Addendum B5): any PR touching `.github/workflows/**`, `scripts/advisors/**` or `supabase/advisors-baseline.json` gets her review before Bill merges. M17a: the RLS semantics are unchanged (A5 dump, the A1.7 asserts). M17b: no secret, token or prod path in `ci.yml`, an ERROR can't be baselined, `check.py` sends `GITHUB_TOKEN` only to `api.github.com` and never prints it. M17b also: `check.py` prod-layer output per lock §7.2a and the B1.4 test. M17c: the B3 fetch step (the token appears only on wf l.30 and l.34, never in curl's argv; no step summary, artifact or JSON print), the token scope, environment and branch policy, `SUPABASE_ADVISORS_TOKEN` used only in the fetch step, `GITHUB_TOKEN` only in the wait step, GET-only, `contents: read` + `checks: read`, never required. She or Gilfoyle runs the post-merge prod reads.
+- **Bill merges** each PR.
+
+Lock rev 2 §14 (Addendum B5.1, verbatim):
+> ## 14. Lanes (standing, Addendum B5, TMAS-M17-02)
+> - Any PR whose diff touches `.github/workflows/**`, `scripts/advisors/**` or `supabase/advisors-baseline.json` gets a **Trinity security-lane review before Bill merges**. This covers every M17 sub-part that touches these paths (M17b, M17c) and every later PR, including hotfixes, splinter or CLI bumps, baseline ratchets and any other workflow change.
+> - Why: everything on `main` is inside the `SUPABASE_ADVISORS_TOKEN` trust boundary. The wait step runs `scripts/advisors/check.py` before the fetch step, so code on `main` can reach the token (TMAS-M17-02).
+> - Bill still merges. The lane is a review gate, not a merge right.
+> - There is **no `CODEOWNERS` file**: bots can't be GitHub code owners, and agent PRs are authored as Bill, so code-owner review can't be satisfied (Trinity l.118). Adding one would be new scope.
+> - Branch protection, environments and rulesets stay Bill's settings (lock §12; spec R7).
+> ✅ CLOSED (Gilfoyle addendum B, 2026-10-21): TMAS-M17-02 (B5). No `CODEOWNERS` file is added (B5.1).
+
+###### Bill steps (not the agent's)
+- [x] Approve rev 2 (READY → APPROVED). Done: Bill, 2026-10-21 6:55 PM CT ("Approve M17 only; hold M18").
+- [x] Re-approve this item at rev 3 (READY → APPROVED): done, Bill 7:19 PM CT 2026-10-21, "Approved".
+- [ ] M17a: merge after the lanes pass. Gilfoyle or Trinity confirms prod is clean (30 + 1) before M17b starts.
+- [ ] M17b: merge after the lanes pass, including Trinity's mandatory security-lane review (lock §14). The first push run on `main` is green. Don't add a required check (the advisors step is inside `pgtap`). M18 PR1 may start only after this merge (Addendum A3.1).
+- [ ] Before merging M17c, create by hand:
+  - (1) a Supabase **scoped PAT** for project `lchytafmnuefrgkguynt` with only "Advisors: Read" (`advisors_read`) and the shortest workable expiry (≤ 1 year; it starts with `sbp_fc`; never a classic PAT);
+  - (2) a GitHub environment `prod-advisors` whose deployment branches are `main` only;
+  - (3) the environment secret `SUPABASE_ADVISORS_TOKEN` in it.
+  - No repo-level secret (Addendum A4).
+- [ ] M17c: merge after Trinity's mandatory security-lane review (lock §14). The first `advisors-prod` run is green. Never make it a required check.
+- [ ] Own the accepted leaked-password entry (`review_by` `2027-01-20`) and rotate the PAT before it expires (lock §11.7).
+- [ ] Close #75 after M17c's first green prod run.
+- Big Head then stamps M17 CLOSED in a separate docs PR, citing the green `advisors-prod` run (R10).
+- [ ] Every later PR touching `.github/workflows/**`, `scripts/advisors/**` or `supabase/advisors-baseline.json` (hotfixes, splinter or CLI bumps, baseline ratchets) is merged only after Trinity's review (lock §14). Bill's own settings in Trinity's list (TMAS-M17-05) are his and not part of this item.
+
+###### Traceability
+| Source | Covered by |
+|---|---|
+| #75 body; Bill 12:23 PM "come back clean every deploy" | Status, Requirement |
+| Bill 1:59 PM "1) run in Github 2) accept the warning 3) yes" | M17a (perf in scope), R-b2 accepted entry, M17c |
+| Bill 2:00 PM exception for one read-only post-deploy job | M17c, ci.md rev 6 P1, R5, FORBIDDEN |
+| Bill 6:07 PM 2026-10-21 "both" (wait for `Supabase Preview`, timeout red) | R-b3 `--wait-deploy` (A6(b) rules 3–5), M17c, rev 6 l.60 |
+| Lock §1 intake | Code on `main` |
+| Lock §2, §3 (splinter, no `supabase db advisors`) | R-b1, R-b3, FORBIDDEN, R-b2 lint classes (A5) |
+| Lock §4 token scope | M17c token scope, Bill steps |
+| Lock §5 block semantics | Standing rules, R10 |
+| Lock §6 leaked password accepted | R-b2, Bill steps, Out of scope |
+| Lock §7.1 baseline | R-b2, B2 |
+| Lock §7.2 check rules | R-b3, B3, B6 |
+| Lock §7.3 fold (825 per A7) | R-b4, B3 |
+| Lock §8.1 pgtap step + A6(a) psql guard | R-b1, B3, B5, B7 |
+| Lock §8.2 prod job + A6(b) | R-c1, C1–C4 |
+| Lock §8.3 ci.md rev 6 (superseded by `/workspace/m-ci/ci-rev6.md`, A3), AGENTS line | R-b5, R-b6 |
+| Lock §9 end state | After M17a / M17c |
+| Lock §10 sizing and order | Sub-parts, hard ordering rule |
+| Lock §11 risks | Stop rules, Bill steps |
+| Lock §12 FORBIDDEN | FORBIDDEN (verbatim + standing) |
+| `AGENTS.md` l.18–22, l.53, l.57–59, l.63 | Branch INFER, R3, R4, deps INFER, FORBIDDEN, lanes |
+| Addendum A1 (policy text, name, indexes, asserts) | R-a1, R-a2, A1–A6 |
+| Addendum A2 (Design Doc note) | R-a3, A1 |
+| Addendum A3 (ci.md rev 6, README, M18 order) | Hard ordering rule, R-b5, B1, B2 |
+| Addendum A4, A5 (CONFLICT rulings) | Requirement, R-b2 |
+| Addendum A6 (runner risks) | R-b1 guard, R-b3 A6(b), R-c1, Stop rules, FORBIDDEN |
+| Addendum B1 (TMAS-M17-01) | R-b3 rule 3/§7.2a, R-b3a, B6, FORBIDDEN, C2 rows 7–8, M17b block |
+| Addendum B2 (TMAS-M17-03) | §8.2 Triggers, FORBIDDEN, C2 row 3, R-b5 rev 6 l.60, ci.md hashes |
+| Addendum B3 (TMAS-M17-04) | R-c1, §8.2 Secret, FORBIDDEN, C1, C2 rows 2, 9, 10, M17c block |
+| Addendum B4 (TMAS-M17-12) | l.2 (CONFLICT), Bill steps |
+| Addendum B5 (TMAS-M17-02) | Lanes (lock §14), Bill steps, cloud-agent lane notes |
+| Addendum B6 (TMAS-M17-06, -07) | M17c §11.6 quote, unit-test INFER |
+| Addendum B7 | Gate C2 |
+| Trinity review `b934ea04…` | Sources, CONFLICTs, not-adopted list |
+| Addendum A8 (corrections to rev 1) | the whole of rev 2 (changelog in the report) |
+
+###### Cloud-agent instruction block: M17a (rev 3 APPROVED by Bill 7:19 PM CT 2026-10-21)
+```text
+You are implementing §15 M17a "perf: advisors clean (initplan + FK indexes)" (#75) for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story; Flutter + Supabase). One migration, 23 pgTAP asserts in one existing test file, one Design Doc line. No app code, no CI change.
+
+ONE PR on branch feat/m17a-advisors-perf off main (base 9a7663dc2f74a8888eea77db1ad6dbc1d64b5215 or later; if main moved, check that the latest migration is still 20261020120000_drop_people_tree_read.sql and no migration >= 20261022000000 exists, else stop). PR title: "perf: advisors clean (initplan + FK indexes)". PR body says "Refs #75" (never Closes/Fixes). Do not push to main. Do not merge. Stop after opening the PR.
+
+Read first: the APPROVED §15 M17 item (M17a section, R-a1..R-a3) and AGENTS.md. Copy every block byte for byte.
+
+Check the base: supabase/tests/fit_and_finish.sql sha256 8059fc01e9704cb41d765e65a5d8e7318bdbfcbf7da20b48099287ee01abc1fb (l.137 "select plan(60);", l.681 ");", l.682 blank, l.683 "select * from finish();"); docs/design-doc/00-foundation.md sha256 63d860189c9c9f97d0a61c978b743a9bb21fd04915ac450b16b8ed6d9dc0be3e (l.128 "> 🚫 FORBIDDEN: Denormalize ...", l.129 "## 3. Storage"). If either differs, stop and report.
+
+Files, exactly:
+1. NEW supabase/migrations/20261022000000_advisors_perf.sql = the item's R-a1 block byte for byte + one trailing newline: 60 lines, 3072 bytes, sha256 75aa731ccd4b2491aabe433ac9253340c4f516076c410eaec6764d20ece80679. (5 alter policy statements, each with only the clauses its command allows; 17 create index if not exists.)
+2. supabase/tests/fit_and_finish.sql: l.137 "select plan(60);" -> "select plan(83);", and insert the item's R-a2 block (54 lines, starting with one blank line) immediately after l.681. Nothing else. Result 738 lines, 28869 bytes, sha256 1cf1e316096d6ee912feeddfd90a4de57f10e67d6acb9d1cc2b050d73fb04ee9.
+3. docs/design-doc/00-foundation.md: insert the item's R-a3 "**Amendment (#75 / M17a, Gilfoyle 2026-10-21):** ..." line (one line) after l.128, before "## 3. Storage". Nothing else. Result 179 lines, 8684 bytes, sha256 0c2ac37a302f5bd2897182c045b6ab2ce8404bb2da094623064c0524e6adf165.
+
+Locally: supabase migration up --local only (never db reset/pull, migration down/repair). Then supabase test db: All tests successful, Files=25, Tests=826. Then fetch splinter by hand exactly as lock §8.1 (curl the pinned commit fccca4b1c4d8b48b8ccd69bd6b30e84adcb92975, sha256sum -c d8d558baad3e03832e521c527907fa50a9a172fabd899dd0f5c2504a5a0e9349) and run the lock's psql pipeline against the LOCAL DB only; show grep counts auth_rls_initplan 5 -> 0 and unindexed_foreign_keys 17 -> 0. Dump pg_policies for the 5 policies (every auth.uid() shows as ( SELECT auth.uid() AS uid); cmd/roles unchanged; count in public+storage still 47) and pg_indexes for the 17 names (17 rows).
+
+Never: touch prod (no Supabase MCP, SQL editor, Management API, --linked, --db-url other than localhost); create or print any token or secret; edit any existing migration, any test file other than fit_and_finish.sql, any design doc other than 00-foundation.md, .github/, apps/, scripts/, AGENTS.md, ci.md, README.md or impl-spec.md; change any policy beyond the locked text; add dependencies; Notion edits; stamping; issue edits; merging; more than one PR.
+
+Stop and report (do not fix) if: any gate is red; any count differs (pgTAP 25/826, flutter 504, analyze <= 27, Deno 43, policy count 47); any of the 3 files is not byte-identical to its sha256; the greps aren't 0/0 after the migration; code and spec disagree; anything banned seems needed.
+
+PR body: Gates A1-A6 with command output (git diff --stat = the 3 files; empty diff-filter=M on migrations; empty forbidden-path diff; -U0 of fit_and_finish.sql (@@ -137 +137 @@, @@ -682,0 +683,54 @@) and 00-foundation.md (@@ -128,0 +129 @@); wc -l -c and sha256sum of the 3 files; CI run id + URL with pgtap All tests successful / Files=25, Tests=826 / Result: PASS; flutter Formatted 107 files (0 changed), flutter analyze: N issues (ceiling 27, exit 0), 🎉 504 tests passed.; deno ok | 43 passed | 0 failed; local migration up and test db; splinter sha256 OK and the before/after grep counts; pg_policies and pg_indexes dumps). Then stop. Lanes: Gilfoyle, Big Head, Dinesh, Trinity (lock §14's mandatory Trinity lane is not triggered: M17a touches none of .github/workflows/**, scripts/advisors/** or supabase/advisors-baseline.json; if the diff ever does, stop). Bill merges; Gilfoyle/Trinity read prod advisors before M17b starts.
+```
+
+###### Cloud-agent instruction block: M17b (rev 3 APPROVED; use only after M17a has merged, and Gilfoyle/Trinity report prod clean except 30 delegated + 1 accepted)
+```text
+You are implementing §15 M17b "ci: supabase advisors gate" (#75) for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story). CI + a stdlib python checker + a baseline + one pgTAP fold + ci.md rev 6 + README and AGENTS lines. No app code. No prod access.
+
+ONE PR on branch feat/m17b-advisors-gate off main after M17a merged. PR title: "ci: supabase advisors gate". PR body "Refs #75". Do not push to main. Do not merge. Stop after opening the PR.
+
+Read first: the APPROVED §15 M17 item (M17b section) and AGENTS.md. Copy every block verbatim.
+
+Check the base: .github/workflows/ci.yml sha256 a379fa4c5f9894ec87bd177d0e22d253f186edd55ceee7c4e24dfb8ea9495d0a; supabase/tests/definer_grants.sql f63ba6e0bc96e409db417db121bc9e08b94f96469febc5ab0dc878a8ee5a10a5; AGENTS.md d300781ff8bf23e835f42815e2f806d01da8ac1187b6b418b91bb8460aa33719; docs/design-doc/ci.md 2b1848957059e36b488b47bd3618a5295f59405d788bc1043671735d096faaf1; docs/design-doc/README.md l.20 "- `ci.md` — CI (LOCKED 2026-10-20, Gilfoyle, rev 5)"; supabase/tests/fit_and_finish.sql 1cf1e316096d6ee912feeddfd90a4de57f10e67d6acb9d1cc2b050d73fb04ee9 (M17a merged). If any differs, stop and report.
+
+Files, exactly:
+1. .github/workflows/ci.yml: in the pgtap job only, add SPLINTER_COMMIT/SPLINTER_SHA256 after SUPABASE_CLI_SHA256 and append the two steps "fetch splinter (pinned)" and "advisors (splinter vs supabase/advisors-baseline.json)" after "supabase test db", exactly as the item's diff, with the A6(a) guard ("command -v psql >/dev/null 2>&1 || { echo "::error::psql not found on runner; advisors step fails closed"; exit 1; }" then "psql --version") as the first two lines of the advisors step's run:, before out=. Result 161 lines, 5237 bytes, sha256 c1d0ae67cf3b9c4e5876346c0211087ac6ace4ef09e62089e6cd9b1d0e561f88. Only allowed calibration: the DB connection fallback `supabase status -o env`, reported in the PR body. Never install psql.
+2. NEW supabase/advisors-baseline.json: the item's block + trailing newline; 35 lines, 1548 bytes, sha256 c9324fad9db5dd37f958a5a59bdb4fa88d532747139d88b416b2f5956531d0c2.
+3. NEW scripts/advisors/check.py (python3 stdlib only) implementing lock §7.2 rules 1-8 and the three CLIs in the item (--layer local --findings CSV; --layer prod --api two JSON files; --wait-deploy per Addendum A6(b) rules 1-6: GET only https://api.github.com/repos/{repo}/commits/{sha}/check-runs?check_name=Supabase%20Preview&per_page=100 with Authorization: Bearer $GITHUB_TOKEN, Accept: application/vnd.github+json, X-GitHub-Api-Version: 2022-11-28; every 30 s up to --timeout-s 900; green only on a run named exactly "Supabase Preview" with app.slug "supabase", status completed, conclusion success; red at once on any other conclusion, a missing/empty GITHUB_TOKEN, HTTP 401/403/429 or any non-2xx, network or parse error; red on timeout; never print/log/write the token or send it to any other host). Fail closed on any parse error. At --layer prod print only the lock §7.2a lines (class=… name=… level=… count=…, amber …, error kind=…, summary …, and the last line "advisors prod: GREEN|AMBER|RED"); never detail, cache_key, remediation, metadata, title, description or any object name; no traceback; stderr empty (Addendum B1).
+4. NEW scripts/advisors/test_*.py (+ fixtures under scripts/advisors/ only), offline, covering every case listed in the item, including: the Authorization header goes only to api.github.com; a missing token, a 403 and a 429 are each red. Include scripts/advisors/test_prod_redaction.py and scripts/advisors/fixtures/prod_redaction/{security,performance,baseline}.json byte for byte from Addendum B1.4 (sha256 70d1c8e0…, 3d6212fb…, 801b68ec…, 7a11d56e…).
+5. supabase/tests/definer_grants.sql: delete l.275-318 (the 30-regprocedure is_empty and its trailing blank line); plan(68) -> plan(67). Result 391 lines, 12838 bytes, sha256 d85d129329aedf88260c4308f782cc5e41938b4d9116a304acfcb36365a641dd.
+6. AGENTS.md l.43 per the item. Result 66 lines, 5308 bytes, sha256 5d3edabb50f43d68e4a3fbc7574a582dfed45d576b849951607f5f74fa3d33e9. Nothing else.
+7. docs/design-doc/ci.md = ci.md rev 6 byte for byte: apply the item's R-b5 diff (Addendum A3.4 with B2.3's l.60) to rev 5. Result 84 lines, 8572 bytes, sha256 a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b. Both exceptions (P1 and E2E) land here, even though no e2e job exists.
+8. docs/design-doc/README.md l.20 -> "- `ci.md` — CI (LOCKED 2026-10-21, Gilfoyle, rev 6)". Result 20 lines, 2076 bytes, sha256 611cbce3c2bc0f004ba59be438dad0b9edcc206c0cc47b8b5b4150f9b377f521. Nothing else.
+
+Expected CI: pgtap All tests successful, Files=25, Tests=825, Result: PASS; splinter sha256 OK; psql --version printed; unittest OK; check.py local green (30 delegated matched, 0 new, 0 stale). flutter 504, analyze <= 27, deno 43.
+
+Never: secrets or tokens in ci.yml (no secrets., GITHUB_TOKEN or github.token); api.supabase.com, supabase link/start, --linked, --db-url other than localhost, db push/reset/pull, migration commands, supabase db advisors; new actions; a postgresql-client or any other install; editing catalog_acl_guard.sql, fit_and_finish.sql, migrations, config.toml, seed.sql, apps/, other design docs, impl-spec.md; adding any baseline entry or regex/wildcard key; any ERROR in the baseline; a second definer allowlist; advisors-prod.yml (that's M17c); any e2e job (that's M18); touching prod; branch protection/required checks/environments/secrets; Notion; stamping; issue edits; merging; at --layer prod, printing finding details or object names (Addendum B1).
+
+Stop and report (do not fix) if: any gate is red; pgTAP is not 25/825; a local advisors finding is not covered by the baseline (e.g. 0025, 0030) or 0029 doesn't match; splinter sha fails; the psql guard fires or the DB isn't reachable; any file is not byte-identical to its sha256; code and spec disagree; anything banned seems needed.
+
+PR body: Gates B1-B7 with command output (diff stat; empty forbidden-path diff; -U0 of definer_grants, AGENTS and README; wc/sha of the six verbatim files; CI run id + URL with the pgtap lines, psql --version, unittest OK and full check.py output; flutter/deno lines; ci.yml greps; unit-test names + one failing fake-finding run; calibration report). Then stop. Lanes: Gilfoyle, Big Head, Dinesh, Trinity; Trinity's security-lane review is mandatory before Bill merges (lock §14, Addendum B5). Bill merges. M18 PR1 may start only after this PR merges.
+```
+
+###### Cloud-agent instruction block: M17c (rev 3 APPROVED; use only after M17b has merged)
+```text
+You are implementing §15 M17c "ci: prod advisors workflow" (#75) for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story). One new workflow file. You never touch prod and never see a token.
+
+ONE PR on branch feat/m17c-advisors-prod off main after M17b merged. PR title: "ci: prod advisors workflow". PR body "Refs #75". Do not push to main. Do not merge. Stop after opening the PR.
+
+File, exactly: NEW .github/workflows/advisors-prod.yml = the item's R-c1 block byte for byte + trailing newline: 43 lines, 1564 bytes, sha256 07100fb9416dc6dcc606ebc592b646d59273a59804b4cb22fd2885d7c6f9767b. permissions are exactly contents: read and checks: read; only the wait step has env GITHUB_TOKEN: ${{ github.token }}; only the fetch step has SUPABASE_ADVISORS_TOKEN, and the token reaches curl only via printf … | curl --config - (never on curl's command line; no -H/--header). Nothing else changes (ci.yml, check.py, baseline, docs untouched).
+
+Never: run the workflow (no workflow_dispatch, no manual runs); create, read or print SUPABASE_ADVISORS_TOKEN, GITHUB_TOKEN or any token; create or edit the prod-advisors environment, secrets, branch protection or required checks (Bill only); add triggers (schedule, pull_request*), permissions beyond contents: read and checks: read, a GITHUB_TOKEN in any step but the deploy wait, a token: input on checkout, actions beyond the SHA-pinned checkout, SQL, non-GET requests, other endpoints or the Supabase CLI; touch prod; Notion; stamping; issue edits; merging; workflow_run, pull_request_target, repository_dispatch or issue_comment triggers; writing to $GITHUB_STEP_SUMMARY; upload-artifact; printing advisor JSON; the token on a curl command line.
+
+Stop and report if: the file can't be byte-identical; CI (flutter, deno, pgtap 25/825) is red; anything banned seems needed.
+
+PR body: C1 (diff stat, wc/sha), C2 greps rows 1-10 (uses: 1; SUPABASE_ADVISORS_TOKEN only at l.30 and l.34; the schedule/pull_request/workflow_run/repository_dispatch/issue_comment/non-GET/supabase/psql/secrets grep shows only l.27 and l.30; one api.supabase.com; GITHUB_TOKEN/github.token only at l.23; permissions l.6-8 contents: read, checks: read; no GITHUB_STEP_SUMMARY/upload-artifact/JSON print/--trace; one -o "$RUNNER_TEMP/${t}.json"; no curl command carrying the token, an auth header or a credential flag; the --config/--max-time 30 curl at l.35), C3 (CI run id + URL green; advisors-prod not run on the PR, as expected), C4 statement ("The agent did not run advisors-prod, did not use workflow_dispatch, and never saw or printed a token."). Then stop. Lanes: Gilfoyle, Big Head, Dinesh, Trinity; Trinity's security-lane review is mandatory before Bill merges (lock §14, Addendum B5). Bill creates the scoped PAT, environment and secret, merges, and Gilfoyle/Trinity cite the first green advisors-prod run.
+```
+
+#### M17d approved build text (sha b102b543…)
+Source: M17d spec, `/workspace/m-adv/m17d_observed_at_spec.md` l.1–326 (the whole approved file, sha256 `b102b543f40b92942387bc22bc2b20f105d3423586daa44b1b81834640099756`), copied verbatim. The only change is the same two-level heading shift.
+
+##### §15 M17d Prod advisors parser accepts optional `observed_at` (#75)
+**Status:** APPROVED by Bill, 2026-10-22 6:23 AM CT, verbatim via Erlich relay: "M17d spec approved, launch it". (READY version 07fd7690…73df kept as m17d_observed_at_spec.ready.bak.) Gilfoyle architecture PASS 5:53 AM CT: CONFLICT resolved to the stricter version (mixed fixture GREEN, full 30/1/19 output); all 5 INFERs accepted.
+
+**Source of truth:** Gilfoyle's lock `/workspace/m-adv/m17d-observed-at-lock.md` (24 lines, sha256 `6ac194765975906db098f56e1266bee1e783250d990393c4d50e6b5de9c3bb84`, verified on the box 2026-10-22 ~5:50 AM CT). Its evidence is `/workspace/m-adv/pr95/DIAG-run39708666769.md` (sha256 `ed012fc1ca2814714cc882510ec7d576143d743ad947b253d6f1d6ef521f3317`, matching the lock's `ed012fc1…`) and `/workspace/m-adv/pr95/repro/proto2.py`. This item follows the style of the M17 rev 3 sub-parts (`/workspace/m-adv/m17_advisors_clean_spec_rev3.md`, sha256 `8f8e8fde982b7dedf29187de666c938cb3caf140e8faf5a779aacd42c2d67d37`). M17 rev 3 is unchanged. M17d is a fourth sub-part of M17: one PR, after M17a, M17b and M17c.
+
+**One PR**, branch `fix/m17d-observed-at` off `main`, title `fix: accept observed_at in advisors API parse`, body `Refs #75` (never `Closes`/`Fixes`; #75 closes only when M17 closes).
+
+---
+
+###### Why (lock l.3, verbatim)
+> Cause: run 39708666769 @5161164 RED kind=parse. The Management API now returns an 11th per-finding field, `observed_at` (Supabase docs v1-get-security-advisors). check.py parse_api_document l.490 requires exactly the 10 _API_KEYS. Evidence: pr95/DIAG-run39708666769.md (sha ed012fc1…), repro/proto2.py.
+
+**Run 39708666769, checked read-only on 2026-10-22 ~5:50 AM CT** (`list_workflow_run_jobs` + `get_job_logs`):
+- Workflow `advisors-prod`, job `prod-advisors` (id `119594544230`), `head_sha` `51611641398ae0d442ff36b8dcd6dc564b223938` on `main`, attempt 1, conclusion `failure`. It ran 2026-10-21 8:57–8:59 PM CT (01:57:35Z–01:59:18Z UTC).
+- Steps: checkout `success`, `wait for the Supabase deploy of this commit` `success`, `fetch prod advisors (GET only)` `success`, `check vs baseline (prod layer)` **`failure`**.
+- Failure lines (job log, UTC timestamps as logged):
+  ```
+  2026-10-22T01:59:16.1653484Z error kind=parse
+  2026-10-22T01:59:16.1751917Z advisors prod: RED
+  2026-10-22T01:59:16.1762962Z ##[error]Process completed with exit code 1.
+  ```
+- The same commit's other checks were green: `Supabase Preview` `success`, `deno`, `flutter` and `pgtap` `success`.
+> 🔍 INFER (evidence limit): The log proves only `kind=parse`. By design (M17 §7.2a), the prod layer never prints the response, so the log can't show which key failed. The `observed_at` cause rests on the Supabase docs and the proto2 reconstruction (DIAG "REVISION 2026-10-21 ~9:10 PM CT"). The lock's closing gate (the first green push run after merge) is what confirms it. If that run is still `kind=parse`, the hotfix path applies (M17 rev 3, "After M17c merges": "A red result follows the hotfix path (lock §5(b))"). The agent doesn't chase it.
+
+**Code on `main` @ `5161164` (read-only, `get_file_contents`, wrapper stripped; each file's git blob sha matches the tree):**
+- `scripts/advisors/check.py`, 885 lines, 29,167 bytes, sha256 `110ba8504d91a4ba41f8f0736976e7444ca54ef7b9dbdec8dbcba2d059ea7f19`:
+  - l.65–76 `_CSV_COLUMNS`, the 10 keys `name,title,level,facing,categories,description,detail,remediation,metadata,cache_key`;
+  - l.77 `_API_KEYS = frozenset(_CSV_COLUMNS)`;
+  - l.91–101 `_PROD_LINE`;
+  - l.112 `class ParseError` (`kind = "parse"`);
+  - l.121–130 `Finding` (9 fields; no `observed_at`);
+  - l.406–439 `_finding_from_fields`;
+  - l.460–476 `parse_csv_findings`;
+  - **l.479–491 `parse_api_document`**. l.484 is the envelope check `set(data) != {"lints"}`. **l.488** is the failing equality `if not isinstance(lint, dict) or set(lint) != _API_KEYS:`, and l.490 is `findings.append(_finding_from_fields(lint))`. The lock's "l.490" names the function's append line. The check itself is l.488.
+- `scripts/advisors/test_rules.py` 541 lines, 22,525 bytes, `5f3e4b01071bfc66a007229708a43777eb970ee506e8e72980c01f020d456f5f`.
+- `scripts/advisors/test_wait_deploy.py` 199 lines, 6,769 bytes, `e657fb8bd407905d8a32309ac3fee17ae89571a3848209d9e8044096cf0d9674`.
+- `scripts/advisors/test_prod_redaction.py` 68 lines, 2,703 bytes, `70d1c8e0a4d3a3e9cdc37b91489e314fcaf8650f16234a8cac3d11ad8bd63ed9`.
+- `scripts/advisors/fixtures/prod_redaction/`: `baseline.json` `7a11d56e…7d9ff7`, `performance.json` `801b68ec…f834b4`, `security.json` `3d6212fb…8489bc5`.
+- `supabase/advisors-baseline.json` 35 lines, 1,548 bytes, `c9324fad9db5dd37f958a5a59bdb4fa88d532747139d88b416b2f5956531d0c2`.
+- Out-of-scope files, all byte-identical to the M17 rev 3 expected files: `.github/workflows/advisors-prod.yml` `07100fb9416dc6dcc606ebc592b646d59273a59804b4cb22fd2885d7c6f9767b`, `.github/workflows/ci.yml` `c1d0ae67cf3b9c4e5876346c0211087ac6ace4ef09e62089e6cd9b1d0e561f88`, `docs/design-doc/ci.md` `a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b`, `AGENTS.md` `5d3edabb50f43d68e4a3fbc7574a582dfed45d576b849951607f5f74fa3d33e9` and `supabase/tests/catalog_acl_guard.sql` `25fcf5e82adc79149a0b900dd37eddd1b90b87b9513f59ec631ba56ee6bf5027`.
+- Gate numbers on `5161164` (CI run of the same commit, job logs):
+  - `pgtap`: `Files=25, Tests=825`, `Result: PASS`, `Ran 42 tests`, and `summary new=0 stale=0 delegated=30 accepted=0 report-only=9 local-skip=0` / `advisors local: GREEN`;
+  - `flutter`: `504 tests passed`, `27 issues found`, `flutter analyze: 27 issues (ceiling 27, exit 0)`;
+  - `deno`: `ok | 43 passed | 0 failed`.
+- `main` head is `5161164` (`get_branch main`, 2026-10-22 ~5:50 AM CT; required checks `deno`, `flutter`, `pgtap`). The box reproduces it too: those 7 `scripts/advisors/**` files plus the baseline and the catalog file give `Ran 42 tests … OK`.
+
+**Offline prototype (lock evidence; not for commit), re-run on the box 2026-10-22 ~5:50 AM CT.** `cd /workspace/m-adv/pr95/repro && python3 proto2.py`. `repro/` is `main@5161164` `check.py` with 2 extra trailing newlines (a wrapper artifact; the logic is identical), plus the baseline and `catalog_acl_guard.sql`. Output, verbatim:
+```
+main parser: (1, 'error kind=parse\nadvisors prod: RED\n')
+patched: (0, 'class=delegated name=authenticated_security_definer_function_executable level=WARN count=30\nclass=accepted name=auth_leaked_password_protection level=WARN count=1\nclass=report-only name=unused_index level=INFO count=19\nsummary new=0 stale=0 delegated=30 accepted=1 report-only=19\nadvisors prod: GREEN\n')
+12th field: (1, 'error kind=parse\nadvisors prod: RED\n')
+```
+This confirms main RED, patch GREEN 30/1/19 new=0 stale=0, and a 12th key RED. proto2's `patched()` is **evidence, not locked code**. The lock gives behavior, not a diff, so this item specifies behavior and tests (R-d1, R-d2).
+
+A box-only feasibility check (`/workspace/m-adv/m17d/feas/feas.py`, not for commit, synthetic values only) used the real baseline, the real catalog (30 sigs) and `today=2026-10-22`:
+- On the main parser: (a) all-`observed_at`, (b) mixed, (c) null/number and (d) a 12th key all give `kind=parse` RED. The same lints with only the 10 keys give GREEN 30/1/19.
+- On a proto2-style parser: (a) and (b) give GREEN `delegated=30 accepted=1 report-only=19 new=0 stale=0` exit 0; (c) null, (c) number and (d) give `error kind=parse` / `advisors prod: RED` exit 1.
+- Every output line matched `_PROD_LINE`, and no synthetic `observed_at` or detail value was printed.
+- So tests (a) and (b) fail on `main` and pass with the fix; (c) and (d) pin the fail-closed behavior.
+
+---
+
+###### Scope (lock l.6–15, verbatim)
+> ## Scope (scripts/advisors/** and its tests only)
+> 1. parse_api_document: each lint dict = exactly _API_KEYS, plus optionally `observed_at`. If present, observed_at must be a str, otherwise ParseError. It is dropped before _finding_from_fields: not stored on Finding and never printed in any layer.
+> 2. Any other key (missing or extra) -> ParseError, as today. The envelope stays exactly {"lints": list}.
+> 3. CSV/local layer: unchanged (splinter CSV has no observed_at).
+> 4. Tests and fixtures, synthetic values only, no prod data:
+>    a. a prod fixture with observed_at on every lint, shaped like expected prod (30 delegated definer sigs, 1 leaked-password, 19 unused_index) -> GREEN, delegated=30 accepted=1 report-only=19 new=0 stale=0, exit 0;
+>    b. a mix of lints with and without observed_at -> parses;
+>    c. observed_at non-string (null or number) -> kind=parse RED;
+>    d. a 12th unknown key alongside observed_at -> kind=parse RED;
+>    e. the redaction test: stdout never contains the observed_at value (or detail/metadata), and every line matches _PROD_LINE.
+> 5. Existing tests stay green. The pgTAP baseline stays 25/825, and flutter, deno and analyze are unchanged.
+
+###### Out of scope (lock l.17–20, verbatim)
+> ## Out of scope
+> - No change to .github/workflows/**, the token, the prod-advisors environment, the baseline JSON, catalog_acl_guard.sql, ci.md or the output grammar.
+> - No new error kinds (the separate format-error code was not chosen).
+> - Post-M17 OPENs stay deferred.
+
+###### Lanes and close (lock l.22–24, verbatim)
+> ## Gates
+> Big Head writes the spec addendum and launch block. A cloud agent builds it. Lanes: Gilfoyle (arch), Big Head (spec), Dinesh, Trinity (MANDATORY: scripts/advisors). Bill merges.
+> Closing gate for M17: the first advisors-prod push run on main after merge shows GREEN with the counts above. Gilfoyle or Trinity cites the run.
+
+Trinity's review is required before Bill merges. That's the M17 lock §14 standing lane rule (any PR touching `scripts/advisors/**`), as embedded in M17 rev 3 under Lanes.
+
+---
+
+###### Files touched (exhaustive)
+- **M** `scripts/advisors/check.py`: only the body of `parse_api_document` (l.479–491 on `main`).
+- **A** `scripts/advisors/test_observed_at.py`: the five new tests (R-d2).
+- **A** `scripts/advisors/fixtures/observed_at/security.json`, `scripts/advisors/fixtures/observed_at/performance.json`: fixture (a).
+- **A** `scripts/advisors/fixtures/observed_at/security_mixed.json`, `scripts/advisors/fixtures/observed_at/performance_mixed.json`: fixture (b).
+> 🔍 INFER: The test file name, the fixture directory and the four fixture names are Big Head's choice. The lock names none, and the brief limits files to "new scripts/advisors/test_*.py + fixtures under scripts/advisors/". `test_*.py` is what CI already discovers (`ci.yml` l.159 `python3 -m unittest discover -s scripts/advisors -p 'test_*.py'`). Cases (c) and (d) build their documents in a temp dir from fixture (a), like `test_rules.py`'s `write_api`, so they add no fixture file. Gilfoyle may rename. Any rename must keep every path under `scripts/advisors/`.
+> 🔍 INFER: The `check.py` diff stays inside `parse_api_document`. No new module-level constant, and `_API_KEYS` (l.77) is unchanged, because lock item 1 changes only "parse_api_document" and the lock rules out everything else that could move. This is the narrowest reading, and gate D2 enforces it.
+
+###### Must NOT change
+- `.github/workflows/**` (`advisors-prod.yml`, `ci.yml`), the `SUPABASE_ADVISORS_TOKEN` secret, the `prod-advisors` environment, branch protection and required checks.
+- `supabase/advisors-baseline.json`, `supabase/tests/catalog_acl_guard.sql`, and everything else under `supabase/` (migrations, tests, `config.toml`, `seed.sql`).
+- `docs/**` (including `docs/design-doc/ci.md` rev 6 and `docs/impl-spec/impl-spec.md`), `AGENTS.md`, `README.md`, `apps/**`, `.cursor/**`, `r1-shots/**`.
+- In `scripts/advisors/check.py`, everything outside `parse_api_document`, including:
+  - `_CSV_COLUMNS` and `_API_KEYS` (l.65–77);
+  - `_PROD_LINE` and the output grammar (l.91–101, `format_prod`, `format_local`);
+  - the error classes and kinds (`input|parse|baseline`; no new kind and no new exit code);
+  - `Finding` (no `observed_at` field);
+  - `_finding_from_fields`, `parse_csv_findings` and `_parse_pg_categories` (the CSV/local layer);
+  - the `--wait-deploy` code, `execute` and `main`.
+- Existing tests and fixtures, byte for byte: `test_rules.py`, `test_wait_deploy.py`, `test_prod_redaction.py`, `fixtures/prod_redaction/*` (including `test_mcp_grouped_shape_is_parse_error`, which must still pass).
+- No new dependency (stdlib `python3` only; no pip, npm, apt or action).
+
+---
+
+###### R-d1 `parse_api_document` behavior (lock item 1–3; behavior, not a diff)
+1. The envelope is unchanged: the document must be a JSON object whose key set is exactly `{"lints"}`, and `lints` must be a list. Anything else raises `ParseError`.
+2. Each lint must be a dict. Let K be its key set:
+   - if `observed_at` ∈ K, `lint["observed_at"]` must be a `str` (else `ParseError`), and K minus `observed_at` must equal `_API_KEYS`;
+   - if `observed_at` ∉ K, K must equal `_API_KEYS`, as today.
+   - Any missing key or any other extra key raises `ParseError`.
+3. `observed_at` is removed before the fields reach `_finding_from_fields`. The `Finding` gets only the 10 keys, so the value is not stored and can't be printed in either layer. The input object isn't required to be mutated: passing a copy without the key is fine.
+4. Other per-field checks are unchanged (`_finding_from_fields`). Every failure keeps today's mapping: `error kind=parse` + `advisors prod: RED`, exit 1.
+5. `parse_csv_findings` is untouched. The CSV header must still be exactly `_CSV_COLUMNS`, so an `observed_at` column in local CSV is still `ParseError`. Lock item 3 says "unchanged", so no test is added for this, and the existing tests cover the CSV header.
+> 🔍 INFER: "must be a str" is `isinstance(value, str)`. That accepts any string, including `""`. The lock gives no format check (ISO-8601 or otherwise), so none is added. `bool`/`int`/`float`/`None`/list/dict are all "non-string", so they raise `ParseError`. Adding a format check would be new behavior and needs a Gilfoyle lock.
+
+###### R-d2 Tests (`scripts/advisors/test_observed_at.py`, offline, synthetic values only)
+Common rules for all five tests:
+- Run against the **real** `supabase/advisors-baseline.json` and the real catalog (`check.catalog_path()`), read-only. That way "shaped like expected prod" means the 30 delegated sigs match `catalog_acl_guard.sql`, and `auth_leaked_password_protection` matches the real `accepted` entry (`metadata.entity` `Auth`).
+- Fixture values are synthetic: the function names and argument types come from the repo's `catalog_acl_guard.sql`, not from prod; detail, title, description, remediation, cache_key and the `observed_at` value are made-up sentinels. No prod pull (`pr95/*.json`, `pr95/repro/*.json`) and no `get_advisors` output is copied in.
+- In-process calls pass `today=date(2026, 10, 22)`, like `test_rules.py`. Lock §12 bans date-dependent pass/fail pre-merge.
+- The baseline's `review_by` is `2027-01-20`. After that date the subprocess test (e) would see AMBER, so (e) asserts exit 0 and grammar only, never `GREEN`.
+
+The five tests are:
+1. **`test_observed_at_on_every_lint_is_green`** (a): fixture (a) has the 10 keys + `observed_at` (a str) on all 50 lints: 30 `authenticated_security_definer_function_executable` WARN (one per catalog sig), 1 `auth_leaked_password_protection` WARN, and 19 `unused_index` INFO across security + performance. Expect exit 0 and stdout exactly:
+   ```
+   class=delegated name=authenticated_security_definer_function_executable level=WARN count=30
+   class=accepted name=auth_leaked_password_protection level=WARN count=1
+   class=report-only name=unused_index level=INFO count=19
+   summary new=0 stale=0 delegated=30 accepted=1 report-only=19
+   advisors prod: GREEN
+   ```
+   This is the proto2 `patched` output, line for line.
+2. **`test_observed_at_mixed_is_green`** (b): fixture (b) is fixture (a) with `observed_at` removed from some lints, in both files, so each file has lints with and without it. Expect the same exit 0 and the same five lines as test 1.
+3. **`test_observed_at_non_string_is_parse_error`** (c): fixture (a) with one lint's `observed_at` set to `null`, and separately to a number (two `subTest`s). Each gives exit 1 and output exactly `error kind=parse\nadvisors prod: RED\n`.
+4. **`test_twelfth_key_with_observed_at_is_parse_error`** (d): fixture (a) with one lint carrying `observed_at` (a str) plus one more unknown key. Expect exit 1 and output exactly `error kind=parse\nadvisors prod: RED\n`.
+5. **`test_observed_at_never_printed`** (e): run `check.py --layer prod --baseline supabase/advisors-baseline.json --api <fixture (a) security> <fixture (a) performance>` in a **subprocess** (stdout is what the lock names), with `GITHUB_TOKEN`, `SUPABASE_ADVISORS_TOKEN` and `GITHUB_STEP_SUMMARY` stripped from the env, as in `test_prod_redaction.py`. Expect:
+   - exit 0 and empty stderr;
+   - every non-empty stdout line `check._PROD_LINE.fullmatch`es;
+   - stdout contains none of the fixture's `observed_at` value(s), its detail/metadata sentinels, or the string `observed_at`;
+   - `"observed_at" not in check.Finding.__dataclass_fields__`, and no `Finding` returned by `check.parse_api_document(<fixture (a) text>)` has an `observed_at` attribute (lock item 1, "not stored on Finding").
+
+> 🔍 INFER: the five test names, test 5's subprocess form, its exit-0-not-GREEN assertion and its `Finding` field check are Big Head's choices. They implement lock items 1 and 4e and add no behavior. Gilfoyle may rename.
+> ⚠️ CONFLICT: [Gilfoyle] Lock 4b says the mixed fixture "-> parses". The brief (5:45 AM CT) says "(b) mixed -> GREEN". The narrower option, and the one built: test 2 asserts **GREEN with the full 30/1/19 output**, which implies "parses". Fixture (b) is fixture (a) with some `observed_at` removed, so both readings hold and the stricter one is tested. If Gilfoyle wants parse-only, test 2 is relaxed. Nothing else changes.
+
+---
+
+###### Gates M17d (paste in the PR body)
+- **D1 Diff stat:** `git diff main --stat` lists exactly these 6 paths and nothing else:
+  - `scripts/advisors/check.py`
+  - `scripts/advisors/test_observed_at.py`
+  - `scripts/advisors/fixtures/observed_at/security.json`
+  - `scripts/advisors/fixtures/observed_at/performance.json`
+  - `scripts/advisors/fixtures/observed_at/security_mixed.json`
+  - `scripts/advisors/fixtures/observed_at/performance_mixed.json`
+  
+  `git diff main --name-status` shows `M` for `check.py` and `A` for the other five.
+- **D2 `check.py` hunk range:** `git diff main -U0 -- scripts/advisors/check.py | grep '^@@'`. Every hunk's `-` range lies within l.479–491 (`parse_api_document`), and the function name and signature line `def parse_api_document(text):` are unchanged. `git diff main -- scripts/advisors/check.py | grep -P '^[-+](?![-+]).*(_API_KEYS *=|_CSV_COLUMNS|_PROD_LINE *=|class |kind *=|def (?!parse_api_document))'` prints nothing (exit 1).
+- **D3 Out of scope is untouched:** `git diff main -- .github supabase docs AGENTS.md README.md apps .cursor r1-shots .gitignore scripts/advisors/test_rules.py scripts/advisors/test_wait_deploy.py scripts/advisors/test_prod_redaction.py scripts/advisors/fixtures/prod_redaction` is **empty**. `sha256sum` on the head still gives:
+  - `test_rules.py` `5f3e4b01…0d456f5f`
+  - `test_wait_deploy.py` `e657fb8b…6cf0d9674`
+  - `test_prod_redaction.py` `70d1c8e0…bd63ed9`
+  - `supabase/advisors-baseline.json` `c9324fad…31d0c2`
+  - `.github/workflows/advisors-prod.yml` `07100fb9…f9767b`
+  - `.github/workflows/ci.yml` `c1d0ae67…561f88`
+  - `docs/design-doc/ci.md` `a472f3f4…46196b`
+  - `supabase/tests/catalog_acl_guard.sql` `25fcf5e8…6bf5027`
+- **D4 Unit tests:** `python3 -m unittest discover -s scripts/advisors -p 'test_*.py' -v`. Expect `Ran 47 tests` (42 on `main` + 5 new), `OK`, and these five names, each `... ok`:
+  - `test_observed_at_on_every_lint_is_green`
+  - `test_observed_at_mixed_is_green`
+  - `test_observed_at_non_string_is_parse_error`
+  - `test_twelfth_key_with_observed_at_is_parse_error`
+  - `test_observed_at_never_printed`
+- **D5 Negative proof:**
+  - Run the new file against `main`'s `check.py` (`git stash` or `git show main:scripts/advisors/check.py` into a temp copy; don't commit). Tests 1 and 2 must **fail** there (`error kind=parse`); paste the two failure lines.
+  - Fixture counts: `python3 -c 'import json,sys; [print(f, len(d["lints"]), sum("observed_at" in l for l in d["lints"])) for f in sys.argv[1:] for d in [json.load(open(f))]]' scripts/advisors/fixtures/observed_at/*.json` prints, for each file, its lint count and how many carry `observed_at`. Fixture (a): `security.json` + `performance.json` total 50 lints, all 50 with `observed_at`. Fixture (b): `security_mixed.json` + `performance_mixed.json` total 50 lints, and each file has some lints with `observed_at` and some without. Paste the output.
+- **D6 Synthetic-only proof:** `grep -rlE 'lchytafmnuefrgkguynt|eyJ|sbp_' scripts/advisors/fixtures/observed_at scripts/advisors/test_observed_at.py` prints nothing. The PR body states the fixtures were built from `catalog_acl_guard.sql` signatures and made-up values, not from any prod pull.
+- **D7 CI on the PR head:**
+  - `pgtap`: `All tests successful.`, **`Files=25, Tests=825`**, `Result: PASS`, the unittest step `Ran 47 tests` / `OK`, and `check.py --layer local` `summary new=0 stale=0 delegated=30 accepted=0 report-only=9 local-skip=0` / `advisors local: GREEN` (new=0, stale=0, delegated=30, as on `5161164`);
+  - `flutter`: `504 tests passed`, `27 issues found`, ceiling 27, exit 0;
+  - `deno`: `43 passed | 0 failed`;
+  - no new check name.
+  - `advisors-prod` does **not** run on the PR (no `pull_request` trigger). That is expected, not missing evidence.
+- **D8 PR metadata:** branch `fix/m17d-observed-at`, title `fix: accept observed_at in advisors API parse`. The body contains `Refs #75` and does **not** contain `Closes`, `Fixes` or `Resolves` (any case). This spec is attached in the body.
+- **D9 Statement in the PR body:** "The agent did not run `advisors-prod`, did not use `workflow_dispatch`, did not touch prod, and never saw or printed a token."
+
+**After M17d merges (not the agent's):**
+- The merge's `push` run of `advisors-prod` on `main` waits for `Supabase Preview`, fetches both GETs, and `check.py --layer prod` prints `summary new=0 stale=0 delegated=30 accepted=1 report-only=19` / `advisors prod: GREEN`, exit 0.
+- Gilfoyle or Trinity cites the run (run id, time CT, main SHA, counts). That run is the **M17 closing gate** (lock l.24).
+- A red result (including `kind=parse` again) follows the hotfix path. No agent re-runs it.
+
+###### Stop rules (stop, report, don't fix)
+- The base check fails: `main` is not `5161164`, or any base sha256 in the launch block differs. Report the new head and the differing files.
+- `Ran 42 tests` / `OK` doesn't hold on `main` before any change.
+- Any gate needs a file outside "Files touched", a change outside `parse_api_document`, a new error kind or exit code, or a change to the output grammar or the baseline.
+- Fixture (a) can't reach GREEN 30/1/19 without editing the baseline or the catalog.
+- CI `pgtap`, `flutter` or `deno` is red, or the counts differ from D7.
+- Anything banned below seems needed.
+
+> 🚫 FORBIDDEN:
+> - Everything in the M17 rev 3 standing FORBIDDEN list. In particular: no prod access (no Supabase MCP, SQL editor, Management API, `get_advisors` or CLI `--linked`); never running `advisors-prod` or `workflow_dispatch`; never creating, reading, printing or echoing any token or secret; no GitHub environment, secret, branch-protection or required-check edits (Bill only).
+> - Copying any prod or connector advisor output into fixtures (`/workspace/m-adv/pr95/**` is box evidence, not repo input).
+> - Storing, logging or printing `observed_at` anywhere. Adding it to `Finding`, `_CSV_COLUMNS` or `_API_KEYS`. Format-checking it beyond `str`.
+> - Accepting any key other than `observed_at` beyond the 10. Loosening the envelope.
+> - New error kinds, a format-error code, or output-grammar changes (lock "Out of scope").
+> - Editing `impl-spec.md`, Notion, issues (#75 included), stamping any item, pushing to `main`, merging, or more than one PR.
+
+###### OPENs, CONFLICTs, INFERs (M17d)
+> ⚠️ CONFLICT: [Gilfoyle] Lock 4b "parses" vs the brief's "mixed -> GREEN". Built: GREEN (stricter, implies parses). See R-d2.
+> 🔍 INFER: Evidence limit on the cause (log shows only `kind=parse`); the closing gate confirms it. See "Why".
+> 🔍 INFER: Test and fixture names and paths. See Files touched / R-d2.
+> 🔍 INFER: The `check.py` change is confined to `parse_api_document`. See Files touched / D2.
+> 🔍 INFER: "str" means `isinstance(…, str)`, with no format check. See R-d1.
+> 🔍 INFER: Test 5 is a subprocess test asserting exit 0, not GREEN, so it isn't date-dependent. See R-d2.
+Still open: **no OPEN.**
+
+---
+
+###### Cloud-agent instruction block: M17d (APPROVED 2026-10-22 6:23 AM CT)
+The launch block is `/workspace/m-adv/m17d_launch_block.txt`, verbatim.
+```
+You are implementing §15 M17d "fix: accept observed_at in advisors API parse" (#75) for Tell Me a Story (repo wmfmorgan/mortang-tell-me-a-story). It is a parser fix in scripts/advisors/check.py plus new offline tests. You never touch prod and never see a token. Attach the M17d spec (/workspace/m-adv/m17d_observed_at_spec.md, the item text) to the PR body; it governs. If it and this block differ, stop and report.
+
+ONE PR on branch fix/m17d-observed-at off main. PR title: "fix: accept observed_at in advisors API parse". PR body "Refs #75" (no Closes/Fixes/Resolves). Do not push to main. Do not merge. Stop after opening the PR.
+
+Base check, before any change. Stop and report if any of these differ:
+- main head = 51611641398ae0d442ff36b8dcd6dc564b223938.
+- sha256 on main of each file:
+  - scripts/advisors/check.py = 110ba8504d91a4ba41f8f0736976e7444ca54ef7b9dbdec8dbcba2d059ea7f19 (885 lines, 29167 bytes)
+  - scripts/advisors/test_rules.py = 5f3e4b01071bfc66a007229708a43777eb970ee506e8e72980c01f020d456f5f
+  - scripts/advisors/test_wait_deploy.py = e657fb8bd407905d8a32309ac3fee17ae89571a3848209d9e8044096cf0d9674
+  - scripts/advisors/test_prod_redaction.py = 70d1c8e0a4d3a3e9cdc37b91489e314fcaf8650f16234a8cac3d11ad8bd63ed9
+  - scripts/advisors/fixtures/prod_redaction/baseline.json = 7a11d56e9bc9775c64cc80dea7d30c002556d167df263aaaf9607d85f87d9ff7
+  - scripts/advisors/fixtures/prod_redaction/performance.json = 801b68ec33ac51cbab57a2b98ec73a5e6db217d64f50022fbdb0c6129af834b4
+  - scripts/advisors/fixtures/prod_redaction/security.json = 3d6212fb88b06adb56547861764fae9ce8104190bccda9933eb7f6f2a8489bc5
+  - supabase/advisors-baseline.json = c9324fad9db5dd37f958a5a59bdb4fa88d532747139d88b416b2f5956531d0c2
+  - supabase/tests/catalog_acl_guard.sql = 25fcf5e82adc79149a0b900dd37eddd1b90b87b9513f59ec631ba56ee6bf5027
+  - .github/workflows/advisors-prod.yml = 07100fb9416dc6dcc606ebc592b646d59273a59804b4cb22fd2885d7c6f9767b
+  - .github/workflows/ci.yml = c1d0ae67cf3b9c4e5876346c0211087ac6ace4ef09e62089e6cd9b1d0e561f88
+  - docs/design-doc/ci.md = a472f3f411c826196f4e67a46f94a1823f2a551f14a917307b8a70be3e46196b
+- python3 -m unittest discover -s scripts/advisors -p 'test_*.py' gives "Ran 42 tests" OK.
+
+Change (behavior per spec R-d1; the lock gives no code, so write the smallest change):
+- In check.py, change only the body of parse_api_document (main l.479-491).
+- The envelope stays exactly {"lints": list}.
+- Each lint dict has exactly the 10 _API_KEYS, optionally plus "observed_at". If observed_at is present it must be a str (isinstance), else ParseError. It is dropped before _finding_from_fields, so it is never stored on Finding and never printed.
+- Any other missing or extra key raises ParseError, as today.
+- Do not touch _API_KEYS, _CSV_COLUMNS, _PROD_LINE, Finding, _finding_from_fields, the CSV/local parser, error kinds, exit codes or output lines.
+
+Files, exactly:
+- M scripts/advisors/check.py
+- A scripts/advisors/test_observed_at.py
+- A scripts/advisors/fixtures/observed_at/security.json
+- A scripts/advisors/fixtures/observed_at/performance.json
+- A scripts/advisors/fixtures/observed_at/security_mixed.json
+- A scripts/advisors/fixtures/observed_at/performance_mixed.json
+
+Fixtures: synthetic values only.
+- The 30 definer sigs come from catalog_acl_guard.sql.
+- 1 auth_leaked_password_protection WARN with metadata.entity "Auth".
+- 19 unused_index INFO.
+- Made-up detail, cache_key, title, description, remediation and observed_at sentinels.
+- Never copy prod or connector output.
+
+Tests (stdlib unittest, offline, real baseline + real catalog read-only; in-process calls use today=date(2026, 10, 22)). Exactly these 5 new tests:
+- test_observed_at_on_every_lint_is_green: (a) all 50 lints carry observed_at. Exit 0, and stdout is exactly:
+  class=delegated name=authenticated_security_definer_function_executable level=WARN count=30
+  class=accepted name=auth_leaked_password_protection level=WARN count=1
+  class=report-only name=unused_index level=INFO count=19
+  summary new=0 stale=0 delegated=30 accepted=1 report-only=19
+  advisors prod: GREEN
+- test_observed_at_mixed_is_green: (b) is (a) with observed_at removed from some lints in each file. Same exit 0 and output.
+- test_observed_at_non_string_is_parse_error: (c) observed_at null, and a number (subTests). Each gives exit 1 and "error kind=parse\nadvisors prod: RED\n".
+- test_twelfth_key_with_observed_at_is_parse_error: (d) observed_at plus one more unknown key. Exit 1 and "error kind=parse\nadvisors prod: RED\n".
+- test_observed_at_never_printed: (e) run as a subprocess with GITHUB_TOKEN, SUPABASE_ADVISORS_TOKEN and GITHUB_STEP_SUMMARY stripped from the env.
+  - Exit 0 and empty stderr.
+  - Every stdout line fullmatches check._PROD_LINE.
+  - The observed_at value(s), the detail/metadata sentinels and the string "observed_at" are not in stdout.
+  - "observed_at" is not in Finding.__dataclass_fields__, and no Finding returned by parse_api_document has an observed_at attribute.
+  - Assert exit 0 and grammar, not GREEN, because review_by is 2027-01-20.
+- Cases (c) and (d) build their documents in a temp dir from fixture (a).
+
+Never:
+- run advisors-prod or workflow_dispatch;
+- touch prod (Supabase MCP, Management API, get_advisors, SQL editor, CLI --linked);
+- create, read or print any token or secret;
+- edit environments, secrets, branch protection or required checks;
+- change .github/**, supabase/** (including the baseline and catalog_acl_guard.sql), docs/** (including ci.md and impl-spec.md), AGENTS.md, README.md, apps/**, or the existing tests and fixtures;
+- add a dependency, a new error kind or format-error code, or an output-grammar change;
+- edit Notion or issues, stamp anything, push to main, merge, or open more than one PR.
+
+Stop and report if:
+- the base check fails;
+- a gate needs a file or change outside the list above;
+- fixture (a) can't reach GREEN 30/1/19 without editing the baseline or catalog;
+- CI is red or the counts differ;
+- anything banned seems needed.
+
+PR body (paste the evidence):
+- D1: git diff main --stat and --name-status = exactly the 6 files (M check.py, A the other 5).
+- D2: git diff main -U0 -- scripts/advisors/check.py | grep '^@@'. Every "-" range is within l.479-491. The spec's grep -P for _API_KEYS =/_CSV_COLUMNS/_PROD_LINE =/class/kind =/other def prints nothing.
+- D3: git diff main -- .github supabase docs AGENTS.md README.md apps .cursor r1-shots .gitignore scripts/advisors/test_rules.py scripts/advisors/test_wait_deploy.py scripts/advisors/test_prod_redaction.py scripts/advisors/fixtures/prod_redaction is empty, and the base sha256s above are unchanged on the head (all but check.py).
+- D4: unittest -v gives "Ran 47 tests" OK (42 + 5), with the 5 names above each "... ok".
+- D5: tests 1 and 2 fail against main's check.py (temp copy, not committed), with kind=parse. Also the per-file fixture counts (a: 50/50 observed_at; b: 50 lints, each file mixed).
+- D6: grep -rlE 'lchytafmnuefrgkguynt|eyJ|sbp_' on the new fixtures and test prints nothing, plus the synthetic-source statement.
+- D7: CI run id + URL green:
+  - pgtap: Files=25, Tests=825, Result: PASS, the unittest step "Ran 47 tests" OK, and advisors local GREEN with "summary new=0 stale=0 delegated=30 accepted=0 report-only=9 local-skip=0";
+  - flutter: 504 tests passed, 27 issues (ceiling 27);
+  - deno: 43 passed;
+  - advisors-prod is not run on the PR (expected).
+- D8: branch, title, and "Refs #75" with no Closes/Fixes/Resolves; the spec attached.
+- D9: "The agent did not run advisors-prod, did not use workflow_dispatch, did not touch prod, and never saw or printed a token."
+
+Then stop.
+
+Lanes: Gilfoyle (arch), Big Head (spec), Dinesh, Trinity. Trinity's security-lane review is MANDATORY before Bill merges (scripts/advisors/**, M17 lock §14). Bill merges. M17 closes on the first green advisors-prod push run on main after merge (delegated=30 accepted=1 report-only=19 new=0 stale=0), cited by Gilfoyle or Trinity.
 ```
