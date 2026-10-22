@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
+import 'core/navigation/before_unload.dart';
 import 'core/router/app_router.dart';
 import 'core/router/auth_refresh.dart';
 import 'core/router/url_strategy_stub.dart'
@@ -16,6 +17,7 @@ import 'data/profile_session.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   configureUrlStrategy();
+  installBeforeUnloadGuard();
   await initSupabase();
 
   final profileApi = ProfileApi();

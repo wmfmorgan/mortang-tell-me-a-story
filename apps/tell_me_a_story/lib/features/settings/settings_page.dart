@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/navigation/unsaved_guard.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
@@ -70,14 +71,33 @@ class _SettingsPageState extends State<SettingsPage> {
   Uint8List? _loadedBytes;
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
+  late final UnsavedGuard _guard;
+  ValueKey<String>? _pageKey;
 
   @override
   void initState() {
     super.initState();
     _profile = widget.profileApi ?? ProfileApi();
     _invite = widget.inviteApi ?? InviteApi();
+    _guard = UnsavedGuard(
+      exitPrompts: false,
+      isDirty: _isDirty,
+      save: _save,
+      discard: _cancel,
+    );
     _about.addListener(_onAbout);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (GoRouter.maybeOf(context) == null) return;
+    final key = GoRouterState.of(context).pageKey;
+    if (_pageKey == key) return;
+    if (_pageKey != null) UnsavedGuards.unregister(_pageKey!, _guard);
+    _pageKey = key;
+    UnsavedGuards.register(key, _guard);
   }
 
   void _onAbout() {
@@ -86,6 +106,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
+    if (_pageKey != null) UnsavedGuards.unregister(_pageKey!, _guard);
+    _guard.dispose();
     _about.removeListener(_onAbout);
     _name.dispose();
     _email.dispose();
@@ -225,15 +247,29 @@ class _SettingsPageState extends State<SettingsPage> {
     return file.readAsBytes();
   }
 
-  Future<void> _save() async {
-    if (_saving) return;
+  bool _isDirty() {
+    final birth = _storedBirth(_birth);
+    final loadedBirth = _storedBirth(_loadedBirth);
+    final birthDiffers =
+        birth?.date != loadedBirth?.date ||
+        birth?.precision != loadedBirth?.precision;
+    return _name.text != _loadedName ||
+        _email.text != _loadedEmail ||
+        _about.text != _loadedAbout ||
+        birthDiffers ||
+        _visibility != _loadedVisibility ||
+        _pending != null;
+  }
+
+  Future<bool> _save() async {
+    if (_saving) return false;
     final name = _name.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty) return false;
     if (_about.text.length > 500) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('About must be 500 characters or fewer.')),
       );
-      return;
+      return false;
     }
     setState(() => _saving = true);
     var nameSaved = false;
@@ -259,7 +295,6 @@ class _SettingsPageState extends State<SettingsPage> {
         _savedBytes = _pending;
         _pending = null;
       }
-      _rememberLoaded();
       _savedNotice = true;
       final typed = _email.text.trim();
       final stored = _storedEmail ?? '';
@@ -269,10 +304,12 @@ class _SettingsPageState extends State<SettingsPage> {
         await _profile.updateEmail(typed);
         _email.text = stored;
       }
-      if (!mounted) return;
+      _rememberLoaded();
+      if (!mounted) return true;
       setState(() {});
+      return true;
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) return false;
       if (!nameSaved) {
         ProfileSession.instance.apply(
           displayName: _displayName,
@@ -283,6 +320,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t save your profile. Try again.')),
       );
+      return false;
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -292,95 +330,113 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final preview = _preview;
     final aboutCount = _about.text.length;
-    return Scaffold(
-      backgroundColor: albumParchment,
-      appBar: AlbumHeader(
-        page: AlbumHeaderPage.settings,
-        familyName: _familyName,
-        families: _families,
-        currentFamilyId: _familyId,
-        onFamilySelected: _selectFamily,
-        stewarded: _stewarded,
-        onInvite: _openInvite,
-        onLogout: widget.onLogout,
-      ),
-      body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : AlbumColumn(
-                maxWidth: 720,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 40),
-                  children: [
-                    _breadcrumb(context),
-                    const SizedBox(height: 28),
-                    Text(
-                      'Settings',
-                      style: GoogleFonts.newsreader(
-                        color: albumInk,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w700,
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(height: 1, color: Color(0xFFE8DFD5)),
-                    const SizedBox(height: 18),
-                    _tabs(),
-                    const SizedBox(height: 22),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFDF9),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE8DFD5)),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _cardHeading(),
-                            const SizedBox(height: 22),
-                            const Divider(height: 1, color: Color(0xFFE8DFD5)),
-                            const SizedBox(height: 24),
-                            Text('PROFILE PHOTO', style: _kicker),
-                            const SizedBox(height: 10),
-                            _photoRow(preview),
-                            const SizedBox(height: 28),
-                            _nameBlock(),
-                            const SizedBox(height: 22),
-                            const Divider(height: 1, color: Color(0xB3E8DFD5)),
-                            const SizedBox(height: 22),
-                            _birthBlock(),
-                            const SizedBox(height: 22),
-                            const Divider(height: 1, color: Color(0xB3E8DFD5)),
-                            const SizedBox(height: 22),
-                            _aboutBlock(aboutCount),
-                            const SizedBox(height: 22),
-                            const Divider(height: 1, color: Color(0xB3E8DFD5)),
-                            const SizedBox(height: 22),
-                            _emailBlock(),
-                            const SizedBox(height: 22),
-                            const Divider(height: 1, color: Color(0xFFE8DFD5)),
-                            const SizedBox(height: 16),
-                            _actions(),
-                          ],
+    return UnsavedGuardScope(
+      guard: _guard,
+      child: Scaffold(
+        backgroundColor: albumParchment,
+        appBar: AlbumHeader(
+          page: AlbumHeaderPage.settings,
+          familyName: _familyName,
+          families: _families,
+          currentFamilyId: _familyId,
+          onFamilySelected: _selectFamily,
+          stewarded: _stewarded,
+          onInvite: _openInvite,
+          onLogout: widget.onLogout,
+        ),
+        body: SafeArea(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : AlbumColumn(
+                  maxWidth: 720,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 40),
+                    children: [
+                      _breadcrumb(context),
+                      const SizedBox(height: 28),
+                      Text(
+                        'Settings',
+                        style: GoogleFonts.newsreader(
+                          color: albumInk,
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                          height: 1.1,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 36),
-                    Text(
-                      '“Every family possesses a treasure chest of small tales that keep us anchored.”',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.literata(
-                        color: const Color(0xCC665D5A),
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
+                      const SizedBox(height: 16),
+                      const Divider(height: 1, color: Color(0xFFE8DFD5)),
+                      const SizedBox(height: 18),
+                      _tabs(),
+                      const SizedBox(height: 22),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFDF9),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE8DFD5)),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _cardHeading(),
+                              const SizedBox(height: 22),
+                              const Divider(
+                                height: 1,
+                                color: Color(0xFFE8DFD5),
+                              ),
+                              const SizedBox(height: 24),
+                              Text('PROFILE PHOTO', style: _kicker),
+                              const SizedBox(height: 10),
+                              _photoRow(preview),
+                              const SizedBox(height: 28),
+                              _nameBlock(),
+                              const SizedBox(height: 22),
+                              const Divider(
+                                height: 1,
+                                color: Color(0xB3E8DFD5),
+                              ),
+                              const SizedBox(height: 22),
+                              _birthBlock(),
+                              const SizedBox(height: 22),
+                              const Divider(
+                                height: 1,
+                                color: Color(0xB3E8DFD5),
+                              ),
+                              const SizedBox(height: 22),
+                              _aboutBlock(aboutCount),
+                              const SizedBox(height: 22),
+                              const Divider(
+                                height: 1,
+                                color: Color(0xB3E8DFD5),
+                              ),
+                              const SizedBox(height: 22),
+                              _emailBlock(),
+                              const SizedBox(height: 22),
+                              const Divider(
+                                height: 1,
+                                color: Color(0xFFE8DFD5),
+                              ),
+                              const SizedBox(height: 16),
+                              _actions(),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 36),
+                      Text(
+                        '“Every family possesses a treasure chest of small tales that keep us anchored.”',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.literata(
+                          color: const Color(0xCC665D5A),
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }

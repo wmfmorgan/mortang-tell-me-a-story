@@ -19,6 +19,7 @@ import '../../features/settings/settings_page.dart';
 import '../../features/drafts/drafts_page.dart';
 import '../../features/perspectives/add_perspective_page.dart';
 import '../../features/stories/new_story_page.dart';
+import '../navigation/unsaved_guard.dart';
 import '../../features/search/search_page.dart';
 import '../../data/manage_families_api.dart';
 import '../../features/family/manage_families_page.dart';
@@ -97,6 +98,11 @@ GoRouter createAppRouter({
   // context.push keeps the page under it. The address bar still shows the
   // pushed path, including the reader modal.
   GoRouter.optionURLReflectsImperativeAPIs = true;
+  Future<bool> storyOnExit(BuildContext context, GoRouterState state) {
+    if (!authRefresh.isSignedIn) return Future<bool>.value(true);
+    return UnsavedGuards.onExit(context, state);
+  }
+
   return GoRouter(
     initialLocation: AppRoutes.magicLink,
     refreshListenable: authRefresh,
@@ -147,6 +153,7 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRoutes.newStory,
+        onExit: storyOnExit,
         builder: (context, state) {
           final draft = state.uri.queryParameters['draft'];
           return NewStoryPage(
@@ -158,6 +165,7 @@ GoRouter createAppRouter({
             photosApi: photosApi,
             familiesApi: familiesApi,
             draftId: (draft != null && draft.isNotEmpty) ? draft : null,
+            onLogout: onLogout,
           );
         },
       ),
@@ -172,6 +180,7 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRoutes.storyEdit,
+        onExit: storyOnExit,
         builder: (context, state) => NewStoryPage(
           inviteApi: inviteApi,
           peopleApi: peopleApi,
@@ -181,6 +190,7 @@ GoRouter createAppRouter({
           photosApi: photosApi,
           familiesApi: familiesApi,
           editStoryId: state.pathParameters['storyId'],
+          onLogout: onLogout,
         ),
       ),
       GoRoute(

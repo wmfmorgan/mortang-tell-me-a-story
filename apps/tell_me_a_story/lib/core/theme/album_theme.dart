@@ -6,6 +6,8 @@ const albumParchment = Color(0xFFFBF7F2);
 const albumTerracotta = Color(0xFF8B5E4B);
 const albumSage = Color(0xFF7A8B74);
 const albumInk = Color(0xFF2C2416);
+const albumDialogSurface = Color(0xFFFFF8F6);
+const albumBackdropClear = Colors.transparent;
 
 const albumCardRadius = 12.0;
 

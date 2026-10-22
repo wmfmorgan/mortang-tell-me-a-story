@@ -362,7 +362,7 @@ void main() {
                 _live('ada', 'Ada Archive'),
                 _live('bea', 'Bea Archive'),
               ],
-              currentFamilyId: 'ada',
+              currentFamilyId: 'bea',
               onFamilySelected: FamilySelection.remember,
               stewarded: const [],
               manageApi: _Manage(),
