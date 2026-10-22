@@ -7025,6 +7025,8 @@ Lanes: Gilfoyle (arch), Big Head (spec), Dinesh, Trinity. Trinity's security-lan
 ### §15 M19 Family switch landing + unsaved-input guard + leave prompt (#82) (CLOSED 2026-10-22: #114 merged 31b0640, CI run 39807110508 green, G1–G13 PASS, Bill smoke passed 12:26 PM CT)
 **Status:** **CLOSED 2026-10-22 12:26 PM CT.** PR #114 "M19: family switch landing + unsaved-input guard (#82)" (branch `feat/m19-unsaved-guard`) merged, and Bill's smoke passed. Bill's words, verbatim via Erlich at 12:26 PM CT: "the merge is in progress and i passed smoke tests". Big Head's spec check passed G1–G13 at the merged head (read-only GitHub tools).
 
+**Prod smoke confirmed:** Bill, verbatim via Erlich at 12:36 PM CT: "Yes, my M19 smoke test ran on prod after the merge deployed". Main push CI run 39822683786 on 31b0640 green.
+
 **Merge (GitHub `merged_at`, CT):**
 - PR #114, head `a43b638d66973406f4872d74bdf631246b069aef`, merged by wmfmorgan as `31b06400c0fe46cb5a0c7f2360169a9032f6d904` (`31b0640`) at 12:26 PM CT 2026-10-22.
   - The tree at `31b0640` is identical to the tree at head `a43b638` (418 entries, 0 differ).
