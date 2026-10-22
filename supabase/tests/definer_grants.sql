@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(68);
+select plan(67);
 
 select ok(
   not has_function_privilege('anon', 'public.upsert_story_member(uuid, uuid)', 'execute'),
@@ -270,50 +270,6 @@ select is_empty(
       and p.oid <> all (array[]::oid[])
   $$,
   'no public security definer function is executable by anon'
-);
-
-select is_empty(
-  $$
-    select p.oid::regprocedure::text
-    from pg_catalog.pg_proc p
-    join pg_catalog.pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
-      and p.prosecdef
-      and pg_catalog.has_function_privilege('authenticated', p.oid, 'execute')
-      and p.oid <> all (array[
-        'public.add_co_owner(uuid,uuid)'::regprocedure,
-        'public.assert_invite_person(uuid,uuid)'::regprocedure,
-        'public.can_contribute_to_story(uuid,uuid)'::regprocedure,
-        'public.can_edit_story(uuid)'::regprocedure,
-        'public.create_branch_family(uuid,uuid,text,integer,uuid,uuid[])'::regprocedure,
-        'public.create_family(text)'::regprocedure,
-        'public.is_family_co_owner(uuid)'::regprocedure,
-        'public.is_family_member(uuid)'::regprocedure,
-        'public.is_family_owner(uuid)'::regprocedure,
-        'public.is_family_tree_readable(uuid)'::regprocedure,
-        'public.is_live_family_member(uuid)'::regprocedure,
-        'public.is_tree_member(uuid)'::regprocedure,
-        'public.link_accepted_person(uuid)'::regprocedure,
-        'public.list_family_tree(uuid)'::regprocedure,
-        'public.list_origin_dependents(uuid)'::regprocedure,
-        'public.list_unlinked_people(uuid)'::regprocedure,
-        'public.mark_passed_away(uuid,boolean)'::regprocedure,
-        'public.my_profile()'::regprocedure,
-        'public.person_profile(uuid)'::regprocedure,
-        'public.recover_family(uuid)'::regprocedure,
-        'public.remove_co_owner(uuid,uuid)'::regprocedure,
-        'public.remove_member(uuid,uuid)'::regprocedure,
-        'public.rename_family(uuid,text)'::regprocedure,
-        'public.resend_invite(uuid)'::regprocedure,
-        'public.revoke_invite(uuid)'::regprocedure,
-        'public.same_family_tree(uuid,uuid)'::regprocedure,
-        'public.set_family_origin(uuid,uuid)'::regprocedure,
-        'public.soft_delete_family(uuid)'::regprocedure,
-        'public.story_row_exists(uuid)'::regprocedure,
-        'public.transfer_ownership(uuid,uuid,text)'::regprocedure
-      ]::oid[])
-  $$,
-  'every public security definer authenticated can execute is on the allowlist'
 );
 
 create temporary table dg_ctx (

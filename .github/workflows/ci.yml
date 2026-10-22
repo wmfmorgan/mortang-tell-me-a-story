@@ -108,6 +108,8 @@ jobs:
     env:
       SUPABASE_CLI_VERSION: "2.121.0"
       SUPABASE_CLI_SHA256: "4b481189efbdc57cf2d37bdee5f1a0d29574314398564b32a6dfb76c0fcf275f"
+      SPLINTER_COMMIT: "fccca4b1c4d8b48b8ccd69bd6b30e84adcb92975"
+      SPLINTER_SHA256: "d8d558baad3e03832e521c527907fa50a9a172fabd899dd0f5c2504a5a0e9349"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -130,3 +132,30 @@ jobs:
 
       - name: supabase test db
         run: supabase test db
+
+      - name: fetch splinter (pinned)
+        run: |
+          f="$RUNNER_TEMP/splinter.sql"
+          curl -fsSL -o "$f" "https://raw.githubusercontent.com/supabase/splinter/${SPLINTER_COMMIT}/splinter.sql"
+          echo "${SPLINTER_SHA256}  ${f}" | sha256sum -c -
+
+      - name: advisors (splinter vs supabase/advisors-baseline.json)
+        env:
+          # local container defaults from config.toml [db] port; not secrets
+          PGHOST: 127.0.0.1
+          PGPORT: "57322"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          command -v psql >/dev/null 2>&1 || { echo "::error::psql not found on runner; advisors step fails closed"; exit 1; }
+          psql --version
+          out="$RUNNER_TEMP/advisors.csv"
+          {
+            echo "set transaction read only;"
+            echo "set local pgrst.db_schemas = 'public, graphql_public';"
+            cat "$RUNNER_TEMP/splinter.sql"
+          } | psql -X -q -v ON_ERROR_STOP=1 --single-transaction --csv -f - > "$out"
+          python3 -m unittest discover -s scripts/advisors -p 'test_*.py'
+          python3 scripts/advisors/check.py --layer local \
+            --baseline supabase/advisors-baseline.json --findings "$out"

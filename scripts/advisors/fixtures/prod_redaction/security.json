@@ -1,0 +1,40 @@
+{
+  "lints": [
+    {
+      "name": "security_definer_view",
+      "title": "SENTINEL-TITLE-sdv",
+      "level": "ERROR",
+      "facing": "EXTERNAL",
+      "categories": ["SECURITY"],
+      "description": "SENTINEL-DESCRIPTION-sdv",
+      "detail": "SENTINEL-DETAIL-sdv-1 View `public.sentinel_object_view_1` is defined with the SECURITY DEFINER property",
+      "remediation": "https://sentinel-remediation.invalid/0010_security_definer_view",
+      "metadata": { "name": "sentinel_object_view_1", "type": "view", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_security_definer_view_public_sentinel_object_view_1"
+    },
+    {
+      "name": "security_definer_view",
+      "title": "SENTINEL-TITLE-sdv",
+      "level": "ERROR",
+      "facing": "EXTERNAL",
+      "categories": ["SECURITY"],
+      "description": "SENTINEL-DESCRIPTION-sdv",
+      "detail": "SENTINEL-DETAIL-sdv-2 View `public.sentinel_object_view_2` is defined with the SECURITY DEFINER property",
+      "remediation": "https://sentinel-remediation.invalid/0010_security_definer_view",
+      "metadata": { "name": "sentinel_object_view_2", "type": "view", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_security_definer_view_public_sentinel_object_view_2"
+    },
+    {
+      "name": "auth_leaked_password_protection",
+      "title": "SENTINEL-TITLE-lpp",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": ["SECURITY"],
+      "description": "SENTINEL-DESCRIPTION-lpp",
+      "detail": "SENTINEL-DETAIL-lpp",
+      "remediation": "https://sentinel-remediation.invalid/password-security",
+      "metadata": { "type": "auth", "entity": "Auth" },
+      "cache_key": "SENTINEL_CACHE_KEY_auth_leaked_password_protection"
+    }
+  ]
+}

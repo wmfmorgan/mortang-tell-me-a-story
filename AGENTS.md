@@ -40,7 +40,7 @@ The §15 item's own gates override these baselines. Otherwise, no regressions, a
 
 - Policy count is asserted by `supabase/tests/fit_and_finish.sql:611` and runs in `supabase test db`; it changes only when the Design Doc changes it (47 today).
 
-- CI runs `dart format`, analyze, flutter test, Deno and pgTAP on every PR. Local `supabase test db` is still how you check a migration before pushing. **The PR body is the evidence**: paste fresh counts and command output from the PR's head commit.
+- CI runs `dart format`, analyze, flutter test, Deno and pgTAP, and Supabase advisors (splinter) against a baseline on every PR. Local `supabase test db` is still how you check a migration before pushing. **The PR body is the evidence**: paste fresh counts and command output from the PR's head commit.
 - PR body / completion note: commands run, counts, Spec-allowed fills, OPENs left, and screenshots of each locked screen touched.
 
 ## Code quality
