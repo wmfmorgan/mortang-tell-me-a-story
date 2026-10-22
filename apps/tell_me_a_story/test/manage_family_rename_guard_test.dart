@@ -47,14 +47,28 @@ void main() {
 
   testWidgets('Rename failure stays with the snack', (tester) async {
     await _surface(tester);
+    FamilySelection.remember('keep');
     final router = await _mount(tester, failRename: true);
-    await tester.ensureVisible(find.byKey(const Key('manage-family-rename')));
-    await tester.tap(find.byKey(const Key('manage-family-rename')));
+    await tester.ensureVisible(find.byKey(const Key('manage-family-name')));
+    await tester.enterText(
+      find.byKey(const Key('manage-family-name')),
+      'Ada renamed',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu-item-$_bea')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Leave this story?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Rename failed'), findsOneWidget);
     expect(find.text('Leave this story?'), findsNothing);
     expect(router.state.uri.path, '/manage-families/ada');
+    expect(FamilySelection.id, 'keep');
+    expect(_name(tester), 'Ada renamed');
   });
 }
 

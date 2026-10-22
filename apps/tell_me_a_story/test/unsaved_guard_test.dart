@@ -121,11 +121,13 @@ void main() {
           .onPressed,
       isNull,
     );
+    final save = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(save.onPressed, isNull);
     expect(
-      tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Save'))
-          .onPressed,
-      isNull,
+      save.style?.backgroundColor?.resolve({WidgetState.disabled}),
+      albumTerracotta.withValues(alpha: 0.4),
     );
 
     await tester.tap(find.text('Stay'));
