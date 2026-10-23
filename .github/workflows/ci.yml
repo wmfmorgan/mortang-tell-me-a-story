@@ -176,6 +176,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: e2e flow manifest
+        run: bash e2e/check_flows.sh
+
       - name: install supabase cli
         run: |
           tgz="$RUNNER_TEMP/supabase.tar.gz"

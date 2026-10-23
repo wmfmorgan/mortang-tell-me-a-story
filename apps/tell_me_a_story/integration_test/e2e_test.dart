@@ -194,6 +194,155 @@ void main() {
     });
     await _publish(tester, 'C4', title);
   }, timeout: const Timeout(Duration(minutes: 6)));
+
+  testWidgets('C5 reader adds a comment and a perspective', (tester) async {
+    final email = e2eEmail(flow: 5, n: 1);
+    final family = e2eFamilyName(flow: 5, n: 1);
+    final title = 'Lantern $e2eRunId';
+    const body = 'A story for the reader.';
+    final person = 'Ruth $e2eRunId';
+    final placeLabel = 'Lantern Park $e2eRunId';
+    const comment = 'A short note from the reader';
+    const perspective = 'Another telling from the reader';
+    final story = await _publishAlbumStory(
+      tester,
+      'C5',
+      email: email,
+      family: family,
+      title: title,
+      body: body,
+      person: person,
+      placeLabel: placeLabel,
+      address: '5 Archive Lane',
+    );
+    await _openPublished(tester, 'C5', story);
+    await _addComment(tester, 'C5', comment);
+    await _addPerspective(tester, 'C5', perspective);
+  }, timeout: const Timeout(Duration(minutes: 8)));
+
+  testWidgets('C6 invite link lets a second user join and see the timeline', (
+    tester,
+  ) async {
+    final host = e2eEmail(flow: 6, n: 1);
+    final guest = e2eEmail(flow: 6, n: 2);
+    final family = e2eFamilyName(flow: 6, n: 1);
+    await _signIn(tester, 'C6', host);
+    await _startFamily(tester, 'C6', family);
+    final link = await _linkTabInvite(tester, 'C6');
+    final location = _inviteLocation(link);
+    await _step('C6', 'close-invite', () async {
+      await tester.tap(find.byKey(const Key('invite-close')));
+      await pumpUntilGone(tester, find.byKey(const Key('invite-link')));
+    });
+    await _step('C6', 'guest-signed-out', () async {
+      await resetAppState();
+      await pumpUntilFound(tester, find.byKey(const Key('magic-link-email')));
+    });
+    await _step('C6', 'open-invite', () async {
+      _go(tester, location);
+      await pumpUntilFound(tester, find.byKey(const Key('invite-email')));
+    });
+    await _step('C6', 'send-link', () async {
+      await tester.enterText(find.byKey(const Key('invite-email')), guest);
+      await tester.pump();
+      final send = find.text('Email me a sign-in link');
+      await tester.ensureVisible(send);
+      await tester.tap(send);
+      await pumpUntilFound(tester, find.byKey(const Key('invite-sent')));
+    });
+    final callback = await _step('C6', 'magic-link', () async {
+      final callback = await magicLinkLocation(guest);
+      expect(
+        _handOff(callback),
+        'pkce',
+        reason: 'magic-link callback hand-off',
+      );
+      return callback;
+    });
+    await _step('C6', 'recover-session', () async {
+      await recoverSessionFromAuthCallback(callback);
+    });
+    await _step('C6', 'joined-timeline', () async {
+      await pumpUntilFound(
+        tester,
+        find.byKey(const Key('header-underline-timeline')),
+        timeout: const Duration(seconds: 45),
+      );
+      await pumpUntilFound(tester, find.text(family));
+      expect(find.byKey(const Key('invite-email')), findsNothing);
+    });
+  }, timeout: const Timeout(Duration(minutes: 6)));
+
+  testWidgets('C7 search by person, place and timeframe finds the story', (
+    tester,
+  ) async {
+    final email = e2eEmail(flow: 7, n: 1);
+    final family = e2eFamilyName(flow: 7, n: 1);
+    final title = 'Meadow $e2eRunId';
+    const body = 'A story for the search.';
+    final person = 'Leah $e2eRunId';
+    final placeLabel = 'Meadow Park $e2eRunId';
+    final story = await _publishAlbumStory(
+      tester,
+      'C7',
+      email: email,
+      family: family,
+      title: title,
+      body: body,
+      person: person,
+      placeLabel: placeLabel,
+      address: '7 Archive Lane',
+    );
+    await _searchStory(tester, 'C7', story: story, person: person);
+  }, timeout: const Timeout(Duration(minutes: 8)));
+
+  testWidgets('C8 user from another family sees no content on a story url', (
+    tester,
+  ) async {
+    final host = e2eEmail(flow: 8, n: 1);
+    final guest = e2eEmail(flow: 8, n: 2);
+    final familyA = e2eFamilyName(flow: 8, n: 1);
+    final familyB = e2eFamilyName(flow: 8, n: 2);
+    final title = 'Cedar $e2eRunId';
+    const body = 'A private story for family A.';
+    final person = 'Mina $e2eRunId';
+    final placeLabel = 'Cedar Park $e2eRunId';
+    final story = await _publishAlbumStory(
+      tester,
+      'C8',
+      email: host,
+      family: familyA,
+      title: title,
+      body: body,
+      person: person,
+      placeLabel: placeLabel,
+      address: '8 Archive Lane',
+    );
+    await _signIn(tester, 'C8', guest);
+    await _startFamily(tester, 'C8', familyB);
+    await _step('C8', 'other-family', () async {
+      _go(tester, '/stories/${story.id}');
+      await _untilOtherFamilySeesNoStory(tester, title: title, body: body);
+    });
+  }, timeout: const Timeout(Duration(minutes: 8)));
+
+  testWidgets('C9 sign out redirects guarded routes to the landing page', (
+    tester,
+  ) async {
+    final email = e2eEmail(flow: 9, n: 1);
+    await _signIn(tester, 'C9', email);
+    await _signOut(tester);
+    for (final route in const [
+      '/timeline',
+      '/drafts',
+      '/search',
+      '/settings',
+    ]) {
+      await _step('C9', route, () async {
+        await _expectGuardedRedirect(tester, route);
+      });
+    }
+  }, timeout: const Timeout(Duration(minutes: 4)));
 }
 
 Future<T> _c1Step<T>(String label, Future<T> Function() body) async {
@@ -302,10 +451,13 @@ Future<void> _signIn(WidgetTester tester, String flow, String email) async {
 Future<void> _startFamily(WidgetTester tester, String flow, String name) async {
   await _step(flow, 'open-menu', () async {
     await tester.tap(find.byKey(const Key('family-menu')));
-    await pumpUntilFound(tester, find.byKey(const Key('family-menu-start')));
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('family-menu-start')).hitTestable(),
+    );
   });
   await _step(flow, 'start-dialog', () async {
-    await tester.tap(find.byKey(const Key('family-menu-start')));
+    await tester.tap(find.byKey(const Key('family-menu-start')).hitTestable());
     await pumpUntilFound(tester, find.byKey(const Key('start-family-name')));
   });
   await _step(flow, 'create-family', () async {
@@ -483,4 +635,273 @@ Future<void> _untilDraftReady(
     }
   }
   throw TestFailure('draft $title was not autosaved before the deadline');
+}
+
+TellMeAStoryApp _app(WidgetTester tester) {
+  return tester.widget<TellMeAStoryApp>(find.byType(TellMeAStoryApp));
+}
+
+void _go(WidgetTester tester, String location) {
+  _app(tester).router.go(location);
+}
+
+String _path(WidgetTester tester) {
+  return _app(tester).router.routerDelegate.currentConfiguration.uri.path;
+}
+
+Finder _loadingIndicator() {
+  return find.byWidgetPredicate(
+    (widget) => widget.runtimeType.toString() == 'CircularProgressIndicator',
+  );
+}
+
+Future<Story> _publishedStory({
+  required String familyId,
+  required String title,
+}) async {
+  final rows = await StoriesApi().listPublished(familyId);
+  for (final story in rows) {
+    if (story.title == title) return story;
+  }
+  throw TestFailure('published story $title was not listed');
+}
+
+Future<Story> _publishAlbumStory(
+  WidgetTester tester,
+  String flow, {
+  required String email,
+  required String family,
+  required String title,
+  required String body,
+  required String person,
+  required String placeLabel,
+  required String address,
+}) async {
+  await _signIn(tester, flow, email);
+  await _startFamily(tester, flow, family);
+  final place = await _step(flow, 'favorite', () {
+    return createFavoritePlace(label: placeLabel, address: address);
+  });
+  await _openCapture(tester, flow, family);
+  await _enterYear(tester, flow);
+  await _chooseFavorite(tester, flow, place.label);
+  await _addPerson(tester, flow, person);
+  await _enterStory(tester, flow, title: title, body: body);
+  await _publish(tester, flow, title);
+  return _step(flow, 'published', () {
+    return _publishedStory(familyId: place.familyId, title: title);
+  });
+}
+
+Future<void> _openPublished(
+  WidgetTester tester,
+  String flow,
+  Story story,
+) async {
+  await _step(flow, 'open-story', () async {
+    final card = find.byKey(Key('timeline-card-${story.id}'));
+    await pumpUntilFound(tester, card);
+    await tester.ensureVisible(card);
+    await tester.tap(card);
+    await pumpUntilFound(tester, find.byKey(const Key('story-reader-modal')));
+    final title = story.title;
+    if (title == null || title.isEmpty) {
+      throw TestFailure('published story has no title');
+    }
+    await pumpUntilFound(tester, find.text(title));
+  });
+}
+
+Future<void> _addComment(
+  WidgetTester tester,
+  String flow,
+  String comment,
+) async {
+  await _step(flow, 'comment', () async {
+    final add = find.text('+ Add comment');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    final composer = find.byKey(const Key('comment-composer'));
+    await pumpUntilFound(tester, composer);
+    await tester.enterText(composer, comment);
+    await tester.pump();
+    final post = find.text('Post');
+    await tester.ensureVisible(post);
+    await tester.tap(post);
+    await pumpUntilFound(tester, find.text(comment));
+  });
+}
+
+Future<void> _addPerspective(
+  WidgetTester tester,
+  String flow,
+  String perspective,
+) async {
+  await _step(flow, 'perspective', () async {
+    final add = find.text('+ Add your perspective');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    final body = find.byKey(const Key('perspective-body'));
+    await pumpUntilFound(tester, body);
+    await tester.enterText(body, perspective);
+    await tester.pump();
+    final publish = find.text('Publish perspective');
+    await tester.ensureVisible(publish);
+    await tester.tap(publish);
+    await pumpUntilGone(tester, body);
+    await pumpUntilFound(tester, find.text(perspective));
+  });
+}
+
+Future<String> _linkTabInvite(WidgetTester tester, String flow) async {
+  return _step(flow, 'link-tab', () async {
+    final invite = find.byKey(const Key('header-invite'));
+    await tester.ensureVisible(invite);
+    await tester.tap(invite);
+    final linkTab = find.byKey(const Key('invite-tab-link'));
+    await pumpUntilFound(tester, linkTab);
+    await tester.tap(linkTab);
+    final someoneNew = find.byKey(const Key('invite-person-new'));
+    await pumpUntilFound(tester, someoneNew);
+    await tester.ensureVisible(someoneNew);
+    await tester.tap(someoneNew);
+    final link = find.byWidgetPredicate((widget) {
+      if (widget.key != const Key('invite-link')) return false;
+      final text = (widget as dynamic).controller?.text;
+      return text is String &&
+          (text.contains('invite=') || text.contains('/invite/'));
+    });
+    await pumpUntilFound(tester, link);
+    return _controllerText(tester, link);
+  });
+}
+
+String _controllerText(WidgetTester tester, Finder field) {
+  final controller = (tester.widget(field) as dynamic).controller;
+  final text = controller?.text;
+  if (text is! String) {
+    throw TestFailure('invite link field has no text');
+  }
+  return text.trim();
+}
+
+String _inviteLocation(String url) {
+  final uri = Uri.parse(url);
+  final token = uri.queryParameters['invite'];
+  if ((token == null || token.isEmpty) && !uri.path.contains('/invite/')) {
+    throw TestFailure('Link tab did not show an invite link');
+  }
+  if (!uri.hasScheme) return url;
+  final path = uri.path.isEmpty ? '/' : uri.path;
+  if (!uri.hasQuery) return path;
+  return '$path?${uri.query}';
+}
+
+Future<void> _searchStory(
+  WidgetTester tester,
+  String flow, {
+  required Story story,
+  required String person,
+}) async {
+  await _step(flow, 'search', () async {
+    final placeId = story.placeId;
+    if (placeId == null || placeId.isEmpty || story.personIds.isEmpty) {
+      throw TestFailure('published story is missing a person or place');
+    }
+    final open = find.byKey(const Key('timeline-search'));
+    await tester.ensureVisible(open);
+    await tester.tap(open);
+    await pumpUntilFound(tester, find.byKey(const Key('search-field')));
+    final placeChip = find.byKey(Key('search-suggest-place-$placeId'));
+    await pumpUntilFound(tester, placeChip);
+    final addPerson = find.byKey(const Key('search-add-person'));
+    await tester.ensureVisible(addPerson);
+    await tester.tap(addPerson);
+    final personTile = find.text(person).hitTestable();
+    await pumpUntilFound(tester, personTile);
+    await tester.tap(personTile.last);
+    await pumpUntilFound(
+      tester,
+      find.byKey(Key('search-filter-person-${story.personIds.first}')),
+    );
+    await tester.ensureVisible(placeChip);
+    await tester.tap(placeChip);
+    await pumpUntilFound(tester, find.byKey(const Key('search-filter-place')));
+    final decade = find.byKey(const Key('search-add-decade'));
+    await tester.ensureVisible(decade);
+    await tester.tap(decade);
+    final eighties = find.text('1980s').hitTestable();
+    await pumpUntilFound(tester, eighties);
+    await tester.tap(eighties);
+    await pumpUntilFound(tester, find.byKey(const Key('search-filter-decade')));
+    await pumpUntilFound(tester, find.byKey(Key('search-result-${story.id}')));
+  });
+}
+
+Future<void> _untilOtherFamilySeesNoStory(
+  WidgetTester tester, {
+  required String title,
+  required String body,
+}) async {
+  final settled = find.byWidgetPredicate((widget) {
+    if (widget is! TellMeAStoryApp) return false;
+    if (_loadingIndicator().evaluate().isNotEmpty) return false;
+    if (find.text(title).evaluate().isNotEmpty) return false;
+    if (find.text(body).evaluate().isNotEmpty) return false;
+    return find.byKey(const Key('story-reader')).evaluate().isNotEmpty ||
+        find.byKey(const Key('magic-link-email')).evaluate().isNotEmpty ||
+        find
+            .byKey(const Key('header-underline-timeline'))
+            .evaluate()
+            .isNotEmpty;
+  });
+  try {
+    await pumpUntilFound(tester, settled);
+  } on TestFailure {
+    expect(find.text(title), findsNothing);
+    expect(find.text(body), findsNothing);
+    return;
+  }
+  expect(find.text(title), findsNothing);
+  expect(find.text(body), findsNothing);
+}
+
+Future<void> _signOut(WidgetTester tester) async {
+  await _step('C9', 'sign-out', () async {
+    final avatar = find.byKey(const Key('header-avatar'));
+    await tester.ensureVisible(avatar);
+    await tester.tap(avatar);
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('header-menu-logout')).hitTestable(),
+    );
+    await tester.tap(find.byKey(const Key('header-menu-logout')).hitTestable());
+    await pumpUntilFound(tester, find.byKey(const Key('magic-link-email')));
+    expect(find.byKey(const Key('family-menu')), findsNothing);
+    expect(_path(tester), '/');
+  });
+}
+
+Future<void> _expectGuardedRedirect(WidgetTester tester, String route) async {
+  _go(tester, route);
+  final home = find.byWidgetPredicate((widget) {
+    if (widget is! TellMeAStoryApp) return false;
+    if (_path(tester) != '/') return false;
+    if (find.byKey(const Key('family-menu')).evaluate().isNotEmpty) {
+      return false;
+    }
+    if (find.byKey(const Key('settings-name')).evaluate().isNotEmpty) {
+      return false;
+    }
+    if (find.byKey(const Key('search-field')).evaluate().isNotEmpty) {
+      return false;
+    }
+    if (find.byKey(const Key('story-title')).evaluate().isNotEmpty) {
+      return false;
+    }
+    return find.byKey(const Key('magic-link-email')).evaluate().isNotEmpty;
+  });
+  await pumpUntilFound(tester, home);
+  expect(find.byKey(const Key('magic-link-email')), findsOneWidget);
+  expect(_path(tester), '/');
 }
