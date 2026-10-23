@@ -159,7 +159,12 @@ void main() {
     await _enterStory(tester, 'C4', title: title, body: body);
     await _step('C4', 'autosave', () async {
       await _untilDraftReady(tester, familyId: place.familyId, title: title);
-      expect(find.text('Saved'), findsOneWidget);
+      await pumpUntilFound(
+        tester,
+        find.text('Saved'),
+        timeout: const Duration(seconds: 10),
+      );
+      expect(find.text('Not saved'), findsNothing);
     });
     await _step('C4', 'leave', () async {
       await tester.tap(find.byKey(const Key('timeline-nav')));
