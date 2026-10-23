@@ -458,11 +458,20 @@ Future<void> _startFamily(WidgetTester tester, String flow, String name) async {
     await tester.tap(find.byKey(const Key('family-menu')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('family-menu-start')).hitTestable(),
+      find.byKey(const Key('family-menu-manage')).hitTestable(),
+    );
+  });
+  await _step(flow, 'open-hub', () async {
+    await tester.tap(find.byKey(const Key('family-menu-manage')).hitTestable());
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('manage-families-start')).hitTestable(),
     );
   });
   await _step(flow, 'start-dialog', () async {
-    await tester.tap(find.byKey(const Key('family-menu-start')).hitTestable());
+    await tester.tap(
+      find.byKey(const Key('manage-families-start')).hitTestable(),
+    );
     await pumpUntilFound(tester, find.byKey(const Key('start-family-name')));
   });
   await _step(flow, 'create-family', () async {

@@ -6,11 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/families_api.dart';
-import '../../data/family_selection.dart';
 import '../../data/manage_families_api.dart';
 import '../../data/profile_session.dart';
 import '../../features/family/family_role.dart';
-import '../../features/family/start_family_dialog.dart';
+import '../../features/family/family_tree_order.dart';
 import '../navigation/unsaved_guard.dart';
 import '../router/app_router.dart';
 import 'album_chrome.dart';
@@ -60,7 +59,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   final String capturePrimaryLabel;
   final Future<void> Function()? onLogout;
 
-  /// Timeline page only. Null hides "Start a new timeline".
+  /// Timeline page only. Null hides the timeline branch row.
   final VoidCallback? onStartTimeline;
 
   static const height = 72.0;
@@ -95,10 +94,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               families: families,
               currentFamilyId: currentFamilyId,
               onFamilySelected: onFamilySelected,
-              stewarded: stewarded,
-              relatedFamilies: relatedFamilies,
               canWrite: canWrite,
-              manageApi: manageApi,
               onInvite: onInvite,
               onSaveDraft: onSaveDraft,
               onPublish: onPublish,
@@ -155,10 +151,7 @@ class _HeaderBar extends StatelessWidget {
     required this.families,
     required this.currentFamilyId,
     required this.onFamilySelected,
-    required this.stewarded,
-    required this.relatedFamilies,
     required this.canWrite,
-    required this.manageApi,
     required this.onInvite,
     required this.onSaveDraft,
     required this.onPublish,
@@ -178,10 +171,7 @@ class _HeaderBar extends StatelessWidget {
   final List<MemberFamily> families;
   final String? currentFamilyId;
   final ValueChanged<String> onFamilySelected;
-  final List<StewardFamily> stewarded;
-  final List<TreeFamily> relatedFamilies;
   final bool canWrite;
-  final ManageFamiliesGateway? manageApi;
   final VoidCallback? onInvite;
   final VoidCallback? onSaveDraft;
   final VoidCallback? onPublish;
@@ -280,9 +270,6 @@ class _HeaderBar extends StatelessWidget {
               families: families,
               currentFamilyId: currentFamilyId,
               onSelected: onFamilySelected,
-              showManage: stewarded.any((family) => family.countsForManage()),
-              relatedFamilies: relatedFamilies,
-              manageApi: manageApi,
               onStartTimeline: onStartTimeline,
               active: page == AlbumHeaderPage.manageFamilies,
             ),
@@ -589,14 +576,10 @@ class _FamilyMenu extends StatelessWidget {
     required this.families,
     required this.currentFamilyId,
     required this.onSelected,
-    required this.showManage,
-    required this.relatedFamilies,
-    required this.manageApi,
     required this.onStartTimeline,
     required this.active,
   });
 
-  static const _startValue = 'start-family';
   static const _timelineValue = 'start-timeline';
   static const _manageValue = 'manage-families';
 
@@ -605,17 +588,11 @@ class _FamilyMenu extends StatelessWidget {
   final List<MemberFamily> families;
   final String? currentFamilyId;
   final ValueChanged<String> onSelected;
-  final bool showManage;
-  final List<TreeFamily> relatedFamilies;
-  final ManageFamiliesGateway? manageApi;
   final VoidCallback? onStartTimeline;
   final bool active;
 
   String? _nameFor(String id) {
     for (final family in families) {
-      if (family.id == id) return family.name;
-    }
-    for (final family in relatedFamilies) {
       if (family.id == id) return family.name;
     }
     return null;
@@ -630,23 +607,26 @@ class _FamilyMenu extends StatelessWidget {
     GoRouter.maybeOf(context)?.go(AppRoutes.timeline);
   }
 
-  Future<void> _start(BuildContext context) async {
-    final guard = UnsavedGuardScope.maybeOf(context);
-    if (guard != null && guard.exitPrompts) {
-      final leave = await guard.confirmLeave(context);
-      if (!leave || !context.mounted) return;
-    }
-    final id = await showStartFamilyDialog(
-      context,
-      api: manageApi ?? ManageFamiliesApi(),
+  Widget _familyActionRow(IconData icon, String label) {
+    return Row(
+      children: [
+        Icon(icon, size: 19, color: albumSage),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.sourceSans3(
+              color: albumInk,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w400,
+              letterSpacing: -0.15,
+            ),
+          ),
+        ),
+      ],
     );
-    if (id == null || !context.mounted) return;
-    FamilySelection.remember(id);
-    if (page == AlbumHeaderPage.timeline) {
-      onSelected(id);
-      return;
-    }
-    GoRouter.maybeOf(context)?.go(AppRoutes.timeline);
   }
 
   @override
@@ -661,15 +641,21 @@ class _FamilyMenu extends StatelessWidget {
       textDirection: TextDirection.ltr,
       maxLines: 1,
     )..layout();
+    final width = MediaQuery.sizeOf(context).width;
+    final menuConstraints = width < 640
+        ? BoxConstraints.tightFor(width: width - 32)
+        : const BoxConstraints(maxWidth: 320);
     return PopupMenuButton<String>(
       key: const Key('family-menu'),
       tooltip: familyName,
       padding: EdgeInsets.zero,
+      color: albumDialogSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE6DCD1)),
+      ),
+      constraints: menuConstraints,
       onSelected: (value) {
-        if (value == _startValue) {
-          unawaited(_start(context));
-          return;
-        }
         if (value == _timelineValue) {
           onStartTimeline?.call();
           return;
@@ -681,86 +667,67 @@ class _FamilyMenu extends StatelessWidget {
         unawaited(_pickFamily(context, value));
       },
       itemBuilder: (context) {
+        final rows = nestFamilies(families);
+        final branchLabel = 'Add a timeline branch to $familyName';
         return [
-          for (final family in families)
+          for (final row in rows)
             PopupMenuItem<String>(
-              key: Key('family-menu-item-${family.id}'),
-              value: family.id,
+              key: Key('family-menu-item-${row.family.id}'),
+              value: row.family.id,
               child: Row(
                 children: [
+                  FamilyIndentGuide(depth: row.depth, height: 48),
                   SizedBox(
                     width: 24,
-                    child: family.id == currentFamilyId
-                        ? const Icon(Icons.check, size: 16)
+                    child: row.family.id == currentFamilyId
+                        ? const Icon(
+                            Icons.check,
+                            size: 16,
+                            color: albumTerracotta,
+                          )
                         : null,
                   ),
                   FamilyMonogram(
-                    key: Key('family-monogram-${family.id}'),
-                    name: family.name,
+                    key: Key('family-monogram-${row.family.id}'),
+                    name: row.family.name,
                   ),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      family.name,
+                      row.family.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      style: row.family.id == currentFamilyId
+                          ? const TextStyle(fontWeight: FontWeight.w500)
+                          : null,
                     ),
                   ),
                 ],
               ),
             ),
-          const PopupMenuDivider(key: Key('family-menu-divider')),
-          const PopupMenuItem<String>(
-            key: Key('family-menu-start'),
-            value: _startValue,
-            child: PlusLabel(label: 'Start a family'),
+          PopupMenuDivider(
+            key: const Key('family-menu-divider'),
+            height: 1,
+            thickness: 1,
+            color: albumSage.withValues(alpha: 0.3),
           ),
           if (onStartTimeline != null)
-            const PopupMenuItem<String>(
-              key: Key('family-menu-start-timeline'),
+            PopupMenuItem<String>(
+              key: const Key('family-menu-start-timeline'),
               value: _timelineValue,
-              child: Text('Start a new timeline'),
-            ),
-          if (showManage)
-            const PopupMenuItem<String>(
-              key: Key('family-menu-manage'),
-              value: _manageValue,
-              child: Text('Manage families'),
-            ),
-          if (relatedFamilies.isNotEmpty) ...[
-            const PopupMenuDivider(key: Key('family-menu-related-divider')),
-            const PopupMenuItem<String>(
-              enabled: false,
-              child: Text('Related families'),
-            ),
-            for (final family in relatedFamilies)
-              PopupMenuItem<String>(
-                key: Key('family-menu-related-${family.id}'),
-                value: family.id,
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 24,
-                      child: family.id == currentFamilyId
-                          ? const Icon(Icons.check, size: 16)
-                          : null,
-                    ),
-                    FamilyMonogram(
-                      key: Key('family-monogram-related-${family.id}'),
-                      name: family.name,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        family.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+              child: Tooltip(
+                message: branchLabel,
+                child: _familyActionRow(
+                  Icons.account_tree_outlined,
+                  branchLabel,
                 ),
               ),
-          ],
+            ),
+          PopupMenuItem<String>(
+            key: const Key('family-menu-manage'),
+            value: _manageValue,
+            child: _familyActionRow(Icons.group_outlined, 'Manage families'),
+          ),
         ];
       },
       child: Padding(
