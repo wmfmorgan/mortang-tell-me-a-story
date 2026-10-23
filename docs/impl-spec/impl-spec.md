@@ -1961,6 +1961,9 @@ v1 is done when:
 > ❓ OPEN: [Dinesh] Duplicated blocks, including `album_header.dart` `_start` l.634–638, which repeats the `_confirmStoryExit` check (l.539–543) inline instead of calling it. Extract the shared code.
 > ❓ OPEN: [Dinesh] Tests that can't fail: (1) `new_story_guard_test.dart` l.195–200 expects the switch prompt text `findsNothing` after `onePrompt` has already tapped Stay and asserted the dialog is gone (l.162–165). (2) `album_header_family_switch_test.dart` l.103 `expect(FamilySelection.id, 'keep')`: the test's own `onSelected` spy (l.120–125) is the only writer of `FamilySelection`, so l.101 `expect(selected, isEmpty)` already decides the result. Replace each with an assertion that fails if the behavior breaks.
 > ✅ CLOSED (Bill, 2026-10-22 6:15 AM CT): the "Leave this story?" title on the Settings and Manage family prompts is intended. Not an OPEN.
+**Post-M18 OPENs (folded at §15 M18 CLOSED, 2026-10-23).** None blocks M18. The parked backlog (post-M18 items 1–21 and the #122/#123 review items) is listed once, under §15 M18 "M18 closing record"; it is not repeated here.
+> ❓ OPEN: [Mugatu, Bill] Designed "not available" state for an outsider opening a story URL. Mugatu designs it; Bill approves the copy. Raised by Mugatu when closing M18 OPEN 8 (7:32 PM CT 2026-10-21). When it lands, C8 switches from the reader's current "Not found" marker to the designed marker, ideally Keyed (Trinity, TMAS-123-01).
+> ✅ CLOSED (Trinity, TMAS-122-01, #123 `34249aa`, 2026-10-23): C8 is end-to-end authz evidence for §14 Automated #1, alongside the pgTAP RLS suite (`rls_two_family_isolation`).
 ---
 ## 18 Traceability
 ### Precedence reminder
@@ -7483,8 +7486,8 @@ Source: `/workspace/m82/82_amendment_2.md` (the whole approved file, sha256 `d87
 3. 🚫 FORBIDDEN: CircularProgressIndicator or any spinner, "Saving…" text, changing Stay/Discard styling.
 4. Gate G13: diff of `leave_story_dialog.dart` vs head 7439026 is exactly that l.124 line; test #5 contains the new asserts; `no_hardcoded_colors_test` passes unmodified; counts unchanged (537, analyze ≤ 27).
 
-### §15 M18 E2E regression tests (#48)
-**Status:** **APPROVED for PR0–PR3 (#48, M18); M18 not CLOSED. PR0: Bill, 12:38 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do Pr0 of M48"; merged as #117 (`583a54d`) at 1:13 PM CT 2026-10-22. PR1: Bill, 1:13 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do PR1. 82 is closed"; merged as #118 (`c47665c`) at 3:37 PM CT 2026-10-22. PR2: Bill, 3:37 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do PR2"; merged as #119 (`d230dd1`) at 5:31 AM CT 2026-10-23 (PR2 closing record under PR2). PR3: Bill, 5:38 AM CT 2026-10-23, relayed verbatim by Erlich: "gon on PR3"; not built yet.** READY rev 3.1 2026-10-22. Earlier: READY rev 3 2026-10-22 (`/workspace/m48/m18_e2e_spec_rev3.md`, 855 lines, sha256 `24019c915928d67de166c76345d4fcca02314d3e336374830e25780480de3da1`, kept unchanged). READY rev 2 2026-10-21 (`/workspace/m48/m18_e2e_spec_rev2.md`, 849 lines, sha256 `300fc3d34cda3751788501a48093c2a06ab1bcc6ef419fcaa2ec414e7cdaee78`, kept unchanged; the lost 850-line close `1ac83c34…d541` is not recovered). READY rev 1 2026-10-21 (`/workspace/m48/m18_e2e_spec_rev1.md`, 327 lines, sha256 `92431381a25ddff980cb172ec74c93ab06dfc86d1131f24db4eff90450f50797`, kept unchanged). Each PR has its go (READY → APPROVED). Sources, which win on tech (Gilfoyle):
+### §15 M18 E2E regression tests (#48) (CLOSED 2026-10-23: #117 583a54d, #118 c47665c, #119 d230dd1, #122 1481b66, follow-up #123 34249aa; on Bill's approval of the closing record)
+**Status:** **CLOSED 2026-10-23 for the build (PR0–PR3 plus the #123 follow-up), on Bill's approval of the M18 closing record (Erlich, 9:49 AM CT 2026-10-23: the block goes to Bill for approval). `main` is `34249aa` (#123, merged by wmfmorgan at 9:46 AM CT 2026-10-23). See "M18 closing record" after the PR3 section. Still Bill's and not part of this stamp: the A4 10-run count, adding `e2e` to required checks, the `ci.md` docs PR and closing #48 (CONFLICT in the closing record).** Earlier: **APPROVED for PR0–PR3 (#48, M18). PR0: Bill, 12:38 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do Pr0 of M48"; merged as #117 (`583a54d`) at 1:13 PM CT 2026-10-22. PR1: Bill, 1:13 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do PR1. 82 is closed"; merged as #118 (`c47665c`) at 3:37 PM CT 2026-10-22. PR2: Bill, 3:37 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do PR2"; merged as #119 (`d230dd1`) at 5:31 AM CT 2026-10-23 (PR2 closing record under PR2). PR3: Bill, 5:38 AM CT 2026-10-23, relayed verbatim by Erlich: "gon on PR3"; merged as #122 (`1481b66`) at 9:20 AM CT 2026-10-23. Follow-up #123 (TMAS-122-01): merged as `34249aa` at 9:46 AM CT 2026-10-23.** READY rev 3.1 2026-10-22. Earlier: READY rev 3 2026-10-22 (`/workspace/m48/m18_e2e_spec_rev3.md`, 855 lines, sha256 `24019c915928d67de166c76345d4fcca02314d3e336374830e25780480de3da1`, kept unchanged). READY rev 2 2026-10-21 (`/workspace/m48/m18_e2e_spec_rev2.md`, 849 lines, sha256 `300fc3d34cda3751788501a48093c2a06ab1bcc6ef419fcaa2ec414e7cdaee78`, kept unchanged; the lost 850-line close `1ac83c34…d541` is not recovered). READY rev 1 2026-10-21 (`/workspace/m48/m18_e2e_spec_rev1.md`, 327 lines, sha256 `92431381a25ddff980cb172ec74c93ab06dfc86d1131f24db4eff90450f50797`, kept unchanged). Each PR has its go (READY → APPROVED). Sources, which win on tech (Gilfoyle):
 - **Addendum A**, `/workspace/m48/e2e-design-lock-rev2-addendum-A.md` (501 lines, 39,902 bytes, sha256 `67c430e46ff555448af1953baa0b24a068a1bfbbd56984eb524cb20512d8708b`, verified 2026-10-21 ~6:40 PM CT). Addendum l.3: "**Status: Addendum A to rev 2, LOCKED 2026-10-21 (Gilfoyle), answers to M18 spec rev 1**". Addendum l.4: "Where the two differ, this addendum wins."
 - **Lock rev 2**, `/workspace/m48/e2e-design-lock-rev2.md` (240 lines, sha256 `bdeef481a69bf8a42edbc8348a6c3b9497547cbf5e73f7148a1733a815025806`, re-verified). Lock l.3: "**Status: rev 2, LOCKED 2026-10-20 (Gilfoyle; decisions by Bill 1:57 PM CT)**".
 - **Addendum A artifacts**, `/workspace/m48/addendum-A-artifacts/` (8 files; each is listed with lines, bytes and sha256 under "Verbatim files").
@@ -7543,6 +7546,9 @@ From issue #48 (read-only `get_issue` / `list_issue_comments`) and the locks:
 - **Bill, 6:07 PM CT 2026-10-21, relayed verbatim by Erlich: "both"** (Bill's answer to Gilfoyle's two calls). For #48 this is the dependency approval below. Issue comment 6328567129 (6:07 PM CT 2026-10-21) records it: heading "**Gate: dependency approved (Bill, 6:07 PM CT 2026-10-21)**", quote "> both", then "Bill approved adding Flutter's `integration_test` package. Design is fully locked. Next: Big Head writes the impl spec."
 - **Bill, 12:38 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do Pr0 of M48"** (#48, M18). PR0 only; PR1–PR3 still need their own go.
 - **Bill, 5:38 AM CT 2026-10-23, relayed verbatim by Erlich: "gon on PR3"** (#48, M18; quoted exactly as written). PR3 only. PR2 is merged (#119, `d230dd1`), so PR3 may start.
+- **Bill, 9:12 AM CT 2026-10-23, relayed verbatim by Erlich: "Fix C8 (122-01) before M18 closes"** (TMAS-122-01; fix block r1 l.1).
+- **Bill, 9:16 AM CT 2026-10-23, relayed verbatim by Erlich: "Approved C8 fix r1, launch after #122 merges"** (fix block r1, sha256 `4f0928df…bd94`). Bill merged #122 at 9:20 AM CT and #123 at 9:46 AM CT 2026-10-23 (GitHub `merged_at`).
+- **Jared Dunn, 9:49 AM CT 2026-10-23, verbatim: "please close OPEN 9, the Mapbox-pinned place item, as "not raised." The spike never needed it, every publish goes through Favorites, and the PRD doesn't change."** Erlich, 9:49 AM CT, asked Big Head to fold it in and close it as "not raised", and noted the block goes to Bill for approval.
 - Addendum l.5, verbatim: "Bill's decisions bind, and nothing here goes past them: (1) the 9 thin flows C1–C9; (2) local Supabase in CI only, never prod; (3) about 8–11 min of CI growth; (4) `e2e` is report-only until 10 consecutive green runs, then required; (5) the Flutter SDK `integration_test` dev dependency is approved (Bill, 2026-10-21)."
 - Lock decision record (lock l.232–240): flows "Thin C1–C9 (9 flows), broad only on an escaped regression"; target and tooling "Local Supabase in the CI job; `integration_test` + `flutter drive` web"; sign-in and data "Mailpit + Deno relay (M2 fallback for precondition users only, M3 forbidden); per-test tenants, no reset, fixtures by exception"; upkeep "U1–U5; report-only until 10 consecutive green main runs, then required"; CI growth "Accept about 8–11 min (about 11 min total wall) with the ci.md rev 6 e2e exception"; Mapbox-pinned place "Jared call, only if the spike needs it" ("open, conditional").
 
@@ -7695,9 +7701,17 @@ Addendum l.339–350, verbatim:
 
 > 🔍 INFER: `test_users.dart` builds the `<flow>` part of `e2e-<run_id>-<flow>-<n>@example.test` (addendum l.288) as lowercase `c<N>` because addendum l.310 writes the emails as `e2e-<run_id>-c<N>-<n>@example.test` and the relay's 400 rule (l.316) only accepts `c[1-9]`.
 > ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 OPEN 7 (test names, `flows.md` format, manifest check path, owning folders). Names above; `flows.md` and `e2e/check_flows.sh` under PR3.
-> ✅ CLOSED (Mugatu, 2026-10-21 7:32 PM CT): default stands. C8 asserts only that A's story title and text never show for user B. Do not assert any error screen, message or redirect (none is locked). If Bill wants a designed "not available" state, that is a separate §17 OPEN (next line).
+> ✅ CLOSED (Mugatu, 2026-10-21 7:32 PM CT): default stands. C8 asserts only that A's story title and text never show for user B. Do not assert any error screen, message or redirect (none is locked). If Bill wants a designed "not available" state, that is a separate §17 OPEN (next line). **Superseded for C8 only by Mugatu's amendment A-2026-10-23-C8 (next line); kept as history.**
+> ✅ AMENDED (Mugatu, UX amendment A-2026-10-23-C8, sent 9:38 AM CT 2026-10-23): supersedes the 2026-10-21 ruling above for C8 only. Mugatu, verbatim:
+> "What C8 now asserts: under Key('story-reader'), the existing "Not found" copy is shown, "Try again" is not, and getPublished(storyId) returns null for family B. This follows Bill's approval of block r1 (4f0928df), relayed by you, and matches PR #123 at 2872fa1.
+> Scope: tests only. No screen, copy, or token changes. "Not found" and "Try again" are the reader's existing strings, not new copy. The 10-21 ruling still covers every other flow.
+> On the record: Dinesh's nit, matching on a Key instead of on-screen text, stays parked as item 11. If either string is ever reworded, C8 has to change in the same PR.
+> Big Head can fold this into the M18 CLOSED block. It closes Trinity's Info 123-01 for my lane."
+> ✅ CLOSED TMAS-123-01 (Trinity, Info, spec/ruling conflict; owner Mugatu, Bill): closed by A-2026-10-23-C8. Bill's half is his approval of the M18 closing record (INFER there).
 > ❓ OPEN [Mugatu, Bill] (§17): designed "not available" state for an outsider opening a story URL. Mugatu designs it; Bill approves the copy; then C8 gains that check. Raised by Mugatu when closing OPEN 8 (7:32 PM CT 2026-10-21). Fold into impl-spec §17 ("## 17 Open questions") when M18 CLOSED is stamped (same pattern as Post-M17 / Post-M19 OPENs). Does not block any M18 PR.
+> ❓ OPEN [Mugatu, Bill] (§17), carried at M18 CLOSED 2026-10-23: still open; folded into §17 "Post-M18 OPENs". When the designed state lands, C8 switches to the designed marker, ideally Keyed (Trinity, TMAS-123-01 fix). Until then C8 asserts the current deny marker per A-2026-10-23-C8.
 > ❓ OPEN 9 (Jared, conditional): lock l.108, verbatim: "**Mapbox-pinned place:** if the spike (PR1) shows that publish needs a Mapbox-pinned place the Favorites path can't supply, that is **a Jared call**. It is raised only if the spike needs it. A test-only bypass is not an option." If raised, it blocks C3, C4, C5, C7, C8.
+> ✅ CLOSED OPEN 9 (Jared), not raised, subject to Bill's approval of the M18 closing record. Jared Dunn, 9:49 AM CT 2026-10-23, verbatim: "please close OPEN 9, the Mapbox-pinned place item, as "not raised." The spike never needed it, every publish goes through Favorites, and the PRD doesn't change." Erlich, 9:49 AM CT, asked Big Head to fold it in and close it as "not raised". No PRD change. C3, C4, C5, C7, C8 were never blocked by it.
 
 #### PR0 (docs): `feat/m18-e2e-docs`
 1. **`docs/design-doc/e2e.md`** = artifact `addendum-A-artifacts/e2e.md` byte for byte: **241 lines, 20,264 bytes, sha256 `464bfcf262d0edcd4e310e4671b74dcd79bbc752f115003de0b472ad0386a4a0`**. Checked: `diff` against lock rev 2 shows exactly the two addendum A5 edits, nothing else. Addendum A5 (l.486–492), verbatim:
@@ -8147,6 +8161,97 @@ echo "check_flows: $count flows match ($manifest <-> $entry)"
 > 🔍 INFER: The blank line after the step in `ci-manifest-step-pr3.yml` is a separator, not an extra YAML line, because the addendum block is two lines and the 130-line PR3 job keeps one blank line between steps like the rest of the job.
 > ✅ CLOSED (Gilfoyle addendum A, 2026-10-21): rev 1 INFER "`flows.md` lands in PR3 with the check": confirmed by the addendum's file table.
 
+#### M18 closing record (CLOSED 2026-10-23)
+> 🔍 INFER: This record sits after the PR3 section and before "Verbatim files", in the same shape as the PR2 closing record (bold fields, raw CI lines, lane PASSes, carried OPENs), because §15 M18 has one section per PR and the M18 CLOSED stamp covers all of them plus the #123 follow-up.
+
+**Stamp:** M18 (#48) is CLOSED for the build: PR0 #117 (`583a54d`), PR1 #118 (`c47665c`), PR2 #119 (`d230dd1`), PR3 #122 (`1481b66`) and the follow-up #123 (`34249aa`). `main` is `34249aa7cbf3ff757db4c60972a7664daab5a32a` (#123 merge). This stamp takes effect on Bill's approval of this block (Erlich, 9:49 AM CT 2026-10-23: the block goes to Bill for approval).
+> ❓ OPEN: [Bill, via Erlich] Approve this M18 CLOSED block. That approval also confirms OPEN 9 CLOSED as "not raised" (below).
+> ⚠️ CONFLICT: [Bill, Gilfoyle] At `34249aa`, Bill steps (§15 M18 "Bill steps", the 10-run count, required-flip and docs-PR lines) and "Out of scope" say M18 CLOSED waits for: the A4 count of 10 green runs, Bill adding `e2e` to required checks, and the small docs PR for `ci.md` l.34, l.39 and Required checks. GitHub branch protection on `main` at `34249aa` still requires only `deno`, `flutter`, `pgtap`. No counted run ids are posted and no such docs PR is known. This block was briefed to stamp M18 CLOSED now. Narrower option taken: CLOSED covers the build only (PR0–PR3 plus #123). The A4 count, the `e2e` flip, the `ci.md` docs PR and closing #48 stay unticked Bill steps, and nothing here claims them done. If Bill wants the original order, this stamp waits and only the #123 record below lands.
+
+**PR3 merge (GitHub `merged_at`, CT):** #122 "M18 PR3: E2E flows C5–C9 and manifest check (#48)", branch `feat/m18-e2e-c5-c9`, head `1c8e43fa6fb870446f6c60e20e86d5188606ca05`, base `1d5e402` (#120 docs merge). Merged by wmfmorgan at 9:20 AM CT 2026-10-23 as `1481b6634bea991d852d949397441723431656d7`. GitHub counts 4 files, +499/−2, 2 commits. Run 39957940305 on the head: e2e, flutter, deno, pgtap success (architecture-lane review `/workspace/m48/pr122-final/REVIEW.md`, 8:11 AM CT, all items PASS).
+- Lanes on #122 at `1c8e43fa`: Dinesh (code quality) PASS 8:11 AM CT; Trinity (security) PASS 8:14 AM CT (`/workspace/tmas-pr122-security-review.md`); architecture lane PASS (REVIEW.md above). Their parked items are in the backlog below.
+> ❓ OPEN: [Big Head] A full PR3 closing record in the PR3 section (CI raw lines on `1c8e43fa`, Big Head and Gilfoyle PASS times) is not part of this block. The facts above are GitHub's and the lane files'. No other PR3 lane times are recorded here.
+
+**Follow-up #123 / TMAS-122-01 (merged):** "M18 follow-up: C8 positive deny check (TMAS-122-01) (#48)".
+- Branch `test/m18-c8-deny-marker`, head `2872fa1be8b47041d13422c20b7656e4adcc6b97`, base `1481b66` (#122 merge). 1 commit.
+- One file: `apps/tell_me_a_story/integration_test/e2e_test.dart`, blob `36586b5a5069330b216ae7e5f59131d8f59bfb73`, sha256 `7329acc6b4aaa4bfea325b3e38b1ab8b73082c8d7e6704267018f67caef43917`. GitHub counts +16/−26.
+- Fix block r1: `/workspace/m48/tmas-122-01/tmas_122_01_fix_block.r1.txt`, sha256 `4f0928df568e507dde14c3aaffc1900a25dd7c4f5bb22a7f39397c9bcc34bd94`.
+> 🔍 INFER: The block's "+17/-25 in one file (3 hunks)" against GitHub's +16/−26 is a diff-alignment difference, not a content difference, because the head blob and sha256 equal the block's "Expected result" (`36586b5…`, `7329acc6…3917`).
+- Bill's decisions, relayed verbatim by Erlich: 9:12 AM CT 2026-10-23, "Fix C8 (122-01) before M18 closes"; 9:16 AM CT 2026-10-23, "Approved C8 fix r1, launch after #122 merges".
+- Merge (GitHub `merged_at`, CT): opened 9:25 AM CT; merged by wmfmorgan at 9:46 AM CT 2026-10-23 as `34249aa7cbf3ff757db4c60972a7664daab5a32a` ("test(e2e): require C8 to see Not found (#123)", one parent `1481b66`).
+
+**CI on the final head** (`2872fa1`): one run, 39969543387, attempt 1, event `pull_request`, completed / success. e2e job 9:25:49–9:30:36 AM CT (GitHub 14:25:49–14:30:36Z). Jobs: flutter 120468242457, e2e 120468242688, pgtap 120468242793, deno 120468242885, all success. Count lines as quoted in the PR #123 body:
+```
+flutter: Formatted 127 files (0 changed); analyze 27 issues (ceiling 27); 538 tests passed; Flutter 3.47.7
+deno: 43 passed
+pgtap: Files=25, Tests=825, PASS
+e2e (debug mode): check_flows: 9 flows match ... All tests passed
+```
+Trinity checked "check_flows: 9 flows match" (e2e log l.148) and "All tests passed." (l.997) herself; she did not read the flutter, deno or pgtap logs. Push CI on `main` after the merges: run 39968742382 on `1481b66` and run 39972531751 on `34249aa`, both completed / success (GitHub). Neither has been counted under A4 by Gilfoyle or Trinity.
+
+**Lanes on #123 at `2872fa1`:** all PASS.
+- Big Head (spec): PASS, 9:33 AM CT.
+- Gilfoyle (architecture): PASS, ~9:34 AM CT.
+- Dinesh (code quality): PASS, ~9:34 AM CT. #122 SF1 is resolved by #123.
+- Trinity (security): **PASS**, "I found no Critical, High, Medium or Low issues." (`/workspace/tmas-pr123-security-review.md`; the report says "Reviewed Fri 2026-10-23, about 9:45 AM CT"; the file's mtime is 9:37 AM CT.) TMAS-122-01: "Close it. C8 now counts as E2E authz evidence for §14 Automated #1." Three new Info items, none blocking: TMAS-123-01 (spec/ruling conflict with the l.7698 Mugatu ruling, owner Mugatu, Bill); TMAS-123-02 and TMAS-123-03 (optional hardening, owner Gilfoyle/Dinesh).
+- Mugatu (UX): no review needed (no UI change). His C8 amendment is below.
+
+**C8 ruling and findings closed at this stamp:**
+- ✅ TMAS-122-01 / post-M18 item 21: FIXED in #123 (`34249aa`, 9:46 AM CT 2026-10-23). Trinity closed it (report above).
+- ✅ C8 is now end-to-end authz evidence for §14 Automated #1 (client route → reader → StoriesApi → PostgREST/RLS), alongside the pgTAP RLS suite `rls_two_family_isolation` (server side). Per Trinity's TMAS-122-01 closure.
+- ✅ Mugatu UX amendment A-2026-10-23-C8 (sent 9:38 AM CT 2026-10-23) is recorded verbatim under the C8 ruling in "The 9 flows" section. It supersedes the 2026-10-21 7:32 PM CT ruling for C8 only; that ruling stays as history.
+- ✅ TMAS-123-01: CLOSED by A-2026-10-23-C8 (Mugatu: "It closes Trinity's Info 123-01 for my lane.").
+> 🔍 INFER: Bill's half of TMAS-123-01 is his approval of this block, because Trinity's fix is "A doc stamp only, with no code change" and this block is that stamp.
+- ✅ OPEN 9 (Jared, conditional, Mapbox-pinned place): CLOSED as "not raised", subject to Bill's approval of this block. Jared Dunn, 9:49 AM CT 2026-10-23, verbatim: "please close OPEN 9, the Mapbox-pinned place item, as "not raised." The spike never needed it, every publish goes through Favorites, and the PRD doesn't change." Erlich, 9:49 AM CT, asked Big Head to fold it in and close it as "not raised", and noted the block goes to Bill for approval. No PRD change.
+- §17 history note: the brief asked to remove a §17 item saying "C8 asserts absence only". No such §17 item exists at `34249aa` (§17 has only the Post-M17 and Post-M19 OPENs). The only absence-only wording is Mugatu's 2026-10-21 ruling (amended, kept as history) and the PR3 cloud-agent block (history, unchanged). Nothing was removed from §17. Had it existed, it would have been removed because TMAS-122-01 landed in #123.
+- N1 (PR2 closing record): the path is `integration_test/support/preconditions.dart`. Searched this file at `34249aa`: every `preconditions.dart` path carries `support/`. The wrong path `apps/tell_me_a_story/integration_test/preconditions.dart` is only in the box file `/workspace/m48/pr2/m18_pr2_amendment_1_rev6.md` l.253 (§7), which is not part of this spec. Nothing to fix here.
+- l.7564 (l.7565 at `34249aa`, under "Code on `main` this item relies on"), "**Rev 6 (`4c3611b3…3723`) is not on `main` yet**", stays as history. That answers the PR2 record's OPEN [Big Head] on it the way its INFER proposed; Bill or Gilfoyle can overrule.
+
+**Carried OPENs (M18 lanes):**
+> ❓ OPEN: [Gilfoyle] (post-M18 20) Apply `.hitTestable()` to every e2e PopupMenu item tap (C1 `header-menu-settings` and others); consider a shared `tapMenuItem` helper in `waits.dart`. Deferred by the PR3 run 3 ruling. Parked until Bill says go.
+> ❓ OPEN: [Mugatu, Bill] (§17) designed "not available" state for an outsider opening a story URL. Folded into §17 "Post-M18 OPENs". When it lands, C8 switches to the designed marker, ideally Keyed (Trinity, TMAS-123-01).
+> ❓ OPEN: [Bill, conditional] any dependency beyond `integration_test` (unchanged; none raised in this item).
+
+**Post-M18 parked backlog.** Sources: `/workspace/m48/post-m18-opens.md` (items 1–21) and `/workspace/m48/post-m18-parked-pr122.md` (#122 and #123 reviews). Each item keeps its number and source. Items 1, 2, 4, 5, 9, 10 and 11 are included at Gilfoyle's request (2026-10-23); the PR2 record left them out. None blocks M18. All are parked until Bill says go.
+> 🔍 INFER: Where a source names no owner, the owner is the reviewer who raised it, because the PR2 record tagged items that way.
+> ❓ OPEN: [Dinesh] (1; Dinesh, #118) `deno check`/`lint`/`fmt` on `e2e/` (first).
+> ❓ OPEN: [Dinesh] (2; Dinesh items 2–4, missed in PR1) `relay_client` `fail()` reports status only; no client timeouts; the relay swallows errors (distinct response bodies OK, no extra logging).
+> ❓ OPEN: [Dinesh] (3; Dinesh #118 `a25c634` should-fix 1) `_c1Step` keeps the stack (`catch (e, st)` + `Error.throwWithStackTrace`). Superseded by item 12.
+> ❓ OPEN: [Dinesh] (4; Dinesh, #118) Nits: `waits.dart` "still present after $timeout"; comment on the save-step tap-to-focus; rename the shadowed location in the magic-link step.
+> ❓ OPEN: [Dinesh, Trinity] (5; Dinesh, #118; Trinity) Dinesh items 7, 8 and the `ci.yml` nits; Trinity's relay `Location` prefix nit; optional C1 name-persistence assert.
+> ❓ OPEN: [Gilfoyle] (6; Erratum 4) Extract a `buildApp()` composition root in `lib/main.dart`; e2e `_mountApp` duplicates it.
+> ❓ OPEN: [Dinesh] (7; Dinesh, #119 @`73dc7b8`, 2026-10-22 4:35 PM CT) `_step` should keep the stack trace (same as item 3). Superseded by item 12.
+> ❓ OPEN: [Gilfoyle] (8; Dinesh, #119 @`73dc7b8`) `buildApp()` extraction. Duplicate of item 6 (confirmed by Dinesh).
+> ❓ OPEN: [Dinesh] (9; Dinesh, #119 @`73dc7b8`) `_draftStory` helper for the shared C3/C4 capture sequence.
+> ❓ OPEN: [Dinesh] (10; Dinesh, #119 @`73dc7b8`) `_untilDraftReady` failure message names the family id, title and timeout.
+> ❓ OPEN: [Dinesh] (11; Dinesh, #119 @`73dc7b8`) Add a Key to the 'Add person' control; stop finding it by text. Also covers: the 'Add person' `.last` OPEN in the PR2 record (duplicate of 11, not a separate item); Dinesh #119 @`10dc46f` item 3 (`find.text('Add person').last`); Dinesh #122 nit `personTile.last`; Dinesh #123 nit: 'Not found' / 'Try again' text matches → Keys. Per Mugatu's A-2026-10-23-C8, this stays parked here, and if either string is reworded, C8 changes in the same PR.
+> ❓ OPEN: [Dinesh] (12; Dinesh, #119 @`73dc7b8`) One `_step` with `Error.throwWithStackTrace`; move C1 onto it (supersedes 3 and 7; the C1 edit is allowed only post-M18).
+> ❓ OPEN: [Dinesh] (13; Dinesh, #119 @`73dc7b8`) `_goTab(tester, tab)` helper for the tab/underline/back sequence (C4 :85–99).
+> ❓ OPEN: [Dinesh] (14; Dinesh, #119 @`73dc7b8`) Nits: empty-state copy constant; `_kFixtureLatLng`; comment that `_supabaseReady` needs asserts (debug only); comment or drop the trailing pump in `_openCapture`.
+> ❓ OPEN: [Dinesh] (15; Dinesh, #119 @`73dc7b8`) `_untilDraftReady`: poll ~1 s, report the last draft seen.
+> ❓ OPEN: [Dinesh] (16; Dinesh, #119 @`10dc46f`, merged 5:31 AM CT 2026-10-23) `timeline_page_test.dart`: `_FakeManage extends Fake implements ManageFamiliesGateway`, overriding only `createRootFamily`; one shared const for the '…000b' id; assert the header shows 'Family B' instead of checking `FamilySelection.id`; comment why the test zooms to full.
+> ❓ OPEN: [Dinesh] (17; Dinesh, #119 @`10dc46f`) Move the e2e `_publish` latch loop into `support/waits.dart` as an optional `describe` callback on `pumpUntilFound`, with UI copy in shared constants. Under the M18 rule `waits.dart` stayed untouched until M18 closes.
+> ❓ OPEN: [Gilfoyle] (18; Big Head note, 2026-10-23, Erratum 6) `check_flows.sh` l.43: the filter checks only characters, so any 'C<n> lowercase…' literal counts as a test name. Extract `testWidgets(` first-argument strings only (handle the `dart format` wrap).
+> ❓ OPEN: [Gilfoyle] (19; PR3 run 2 ruling, 2026-10-23) If CI shows C9 sign-out (avatar Logout → `magic-link-email`) or C5/C7/C8 publish with `statusAtTap=none`, Gilfoyle diagnoses. Conditional; #122's final run 39957940305 and #123's run 39969543387 were green.
+> ❓ OPEN: [Gilfoyle] (20) `.hitTestable()` on PopupMenu taps. Carried above.
+- ✅ (21) CLOSED: the C8 `_untilOtherFamilySeesNoStory` on-timeout pass bug (Dinesh #122 should-fix 1; Trinity TMAS-122-01). FIXED in #123 (`34249aa`, 9:46 AM CT 2026-10-23).
+
+From #122 (`1c8e43fa`):
+> ❓ OPEN: [Dinesh] (#122 SF2; Dinesh PASS 8:11 AM CT) `(widget as dynamic).controller` and the runtimeType-string `CircularProgressIndicator` check → Keys / `EditableText`; consider the `avoid_dynamic_calls` lint. (#123 removed `_loadingIndicator`, the runtimeType-string check; `(widget as dynamic).controller` remains at l.769 and l.779 of the #123 head.)
+> ❓ OPEN: [Dinesh] (#122 SF3) Finder predicates used as polling waits → `pumpUntil(condition)` in `waits.dart` (same as item 16 in the source; see also item 17).
+> ❓ OPEN: [Dinesh] (#122 nits) `personTile.last` (under item 11); `_signOut` hardcodes 'C9'; `check_flows.sh` parses rows twice.
+- ✅ (#122 SF1) Resolved by #123 (the try/catch is gone).
+> ❓ OPEN: [Gilfoyle] (Trinity 122-02, Info, bundled with 118-08 / 119-01 / 119-03) C6 failure output prints `Uri.base` on `/invite/<token>`. The parked fix is to drop the URL entirely, not just `.path` (`waits.dart` l.32–33; `_publish` l.602 at `2872fa1`).
+- ✅ (Trinity 122-03, Info) `actions/cache@v5` by tag, caching off: accepted. 118-01, 118-02 and 118-07 are unchanged (Trinity #123 report, "deferred/accepted").
+
+From #123 (`2872fa1`):
+> ❓ OPEN: [Dinesh] (#123 nit; Dinesh PASS ~9:34 AM CT) Rename `_untilOtherFamilySeesNoStory` → `_expectOtherFamilyDenied`.
+> ❓ OPEN: [Dinesh] (#123 nit) 'Not found' / 'Try again' text matches → Keys. Under item 11.
+> ❓ OPEN: [Gilfoyle, Dinesh] (TMAS-123-02, Info, optional) Assert who is signed in before `getPublished` (e.g. `expect(Supabase.instance.client.auth.currentUser?.email, guest)`, or `!= host`).
+> ❓ OPEN: [Gilfoyle, Dinesh] (TMAS-123-03, Info, optional) As the host, before `_signIn(guest)`, assert `getPublished(story.id)` is non-null.
+
+**Index note:** the rev 3.1 index line "OPEN (remaining)" is as of rev 3.1. Current state: OPEN 9 CLOSED (not raised, pending Bill's approval of this block); the §17 OPEN [Mugatu, Bill] is folded into §17; the conditional dependency OPEN is unchanged.
+
 #### Verbatim files (sha256, lines, bytes; recomputed 2026-10-21)
 | File | Lands as | Lines | Bytes | sha256 |
 |---|---|---|---|---|
@@ -8296,13 +8401,13 @@ Evidence each gate needs in the PR body:
 - [x] Give PR1, PR2 and PR3 their go: PR1, Bill, 1:13 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do PR1. 82 is closed" (`/workspace/m48/m18_pr1_handoff_block.txt` l.2). PR2, Bill, 3:37 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do PR2" (`/workspace/m48/pr2/m18_pr2_handoff_block.txt` l.3). PR3, Bill, 5:38 AM CT 2026-10-23, relayed verbatim by Erlich: "gon on PR3".
 - [x] PR0: check the three required checks are green; merge (before or after M17b): merged by wmfmorgan as #117 (`583a54d6f3a1c875d393278656d7c5eae8e6ff45`) at 1:13 PM CT 2026-10-22.
 - [x] Merge M17a, then M17b (separate items): done, §15 M17 CLOSED 2026-10-22. PR1 can't start until M17b is on `main` (it is, at `31b0640`).
-- [ ] PR1, PR2, PR3: check `CI / flutter`, `CI / deno`, `CI / pgtap` green (required) and `CI / e2e` green (report-only); merge each after the lanes pass. PR1: merged by wmfmorgan as #118 (`c47665c1d34801cb4338aad662fb5e94d0ef1480`) at 3:37 PM CT 2026-10-22. PR2: merged by wmfmorgan as #119 (`d230dd14bca9b73796d12e66979b51c7357da738`) at 5:31 AM CT 2026-10-23. PR3: not built yet.
-- [ ] If raised: answer OPEN 9 with Jared, or a dependency OPEN.
-- [ ] After PR3 merges, Gilfoyle or Trinity counts 10 runs per A4 and posts the run ids and head SHAs to you. Then add `e2e` to `main`'s required checks by hand. Required contexts become `deno`, `e2e`, `flutter`, `pgtap`.
-- [ ] When you add `e2e` to required checks, merge in the same sitting a small docs PR that updates `ci.md` l.34, l.39 and Required checks from three to four (text from Gilfoyle). M18 CLOSED waits for that PR.
+- [x] PR1, PR2, PR3: check `CI / flutter`, `CI / deno`, `CI / pgtap` green (required) and `CI / e2e` green (report-only); merge each after the lanes pass. PR1: merged by wmfmorgan as #118 (`c47665c1d34801cb4338aad662fb5e94d0ef1480`) at 3:37 PM CT 2026-10-22. PR2: merged by wmfmorgan as #119 (`d230dd14bca9b73796d12e66979b51c7357da738`) at 5:31 AM CT 2026-10-23. PR3: merged by wmfmorgan as #122 (`1481b6634bea991d852d949397441723431656d7`) at 9:20 AM CT 2026-10-23. Follow-up #123 (TMAS-122-01): merged by wmfmorgan as `34249aa7cbf3ff757db4c60972a7664daab5a32a` at 9:46 AM CT 2026-10-23 (run 39969543387 green on head `2872fa1`).
+- [ ] If raised: answer OPEN 9 with Jared, or a dependency OPEN. OPEN 9: not raised; Jared asked to close it as "not raised" (9:49 AM CT 2026-10-23). Approving the M18 closing record answers it. No dependency OPEN is recorded.
+- [ ] After PR3 merges, Gilfoyle or Trinity counts 10 runs per A4 and posts the run ids and head SHAs to you. Then add `e2e` to `main`'s required checks by hand. Required contexts become `deno`, `e2e`, `flutter`, `pgtap`. PR3 merged at 9:20 AM CT 2026-10-23. Push CI runs on `main` since then (GitHub): 39968742382 on `1481b66` and 39972531751 on `34249aa`, both completed / success; not yet counted or posted by Gilfoyle or Trinity. Required contexts at `34249aa`: `deno`, `flutter`, `pgtap`.
+- [ ] When you add `e2e` to required checks, merge in the same sitting a small docs PR that updates `ci.md` l.34, l.39 and Required checks from three to four (text from Gilfoyle). M18 CLOSED waits for that PR. Not done at `34249aa`; the M18 closing record stamps the build CLOSED ahead of it (CONFLICT there).
 > ✅ Wording confirmed by Gilfoyle 2026-10-22 1:00 PM CT.
 - [ ] Remove the `blocked` label from #48 when you choose. Close #48 after `e2e` is required.
-- Big Head then stamps M18 CLOSED in a separate docs PR (after the docs PR above), and folds the §17 OPEN [Mugatu, Bill] into impl-spec §17.
+- Big Head then stamps M18 CLOSED in a separate docs PR (after the docs PR above), and folds the §17 OPEN [Mugatu, Bill] into impl-spec §17. Done in the M18 closing record, ahead of the docs PR above (CONFLICT there); the §17 OPEN [Mugatu, Bill] is folded into §17 "Post-M18 OPENs".
 
 Addendum A4 (l.479–484), verbatim:
 
