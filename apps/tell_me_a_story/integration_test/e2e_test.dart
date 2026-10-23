@@ -163,10 +163,12 @@ void main() {
     });
     await _step('C4', 'leave', () async {
       await tester.tap(find.byKey(const Key('timeline-nav')));
+      await pumpUntilGone(tester, find.byKey(const Key('story-title')));
       await pumpUntilFound(
         tester,
         find.text('No stories yet. Capture the first one for this family.'),
       );
+      expect(find.text(title), findsNothing);
     });
     await _step('C4', 'drafts', () async {
       await tester.tap(find.byKey(const Key('drafts-nav')));
@@ -310,18 +312,6 @@ Future<void> _startFamily(WidgetTester tester, String flow, String name) async {
     await tester.ensureVisible(create);
     await tester.tap(create);
     await pumpUntilGone(tester, find.byKey(const Key('start-family-dialog')));
-    // go('/timeline') keeps the open timeline state. Drafts and back forces
-    // the remembered family onto the header.
-    await tester.tap(find.byKey(const Key('drafts-nav')));
-    await pumpUntilFound(
-      tester,
-      find.byKey(const Key('header-underline-drafts')),
-    );
-    await tester.tap(find.byKey(const Key('timeline-nav')));
-    await pumpUntilFound(
-      tester,
-      find.byKey(const Key('header-underline-timeline')),
-    );
     await pumpUntilFound(tester, find.text(name));
     await pumpUntilFound(
       tester,
