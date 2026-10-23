@@ -322,7 +322,12 @@ void main() {
     await _startFamily(tester, 'C8', familyB);
     await _step('C8', 'other-family', () async {
       _go(tester, '/stories/${story.id}');
-      await _untilOtherFamilySeesNoStory(tester, title: title, body: body);
+      await _untilOtherFamilySeesNoStory(
+        tester,
+        storyId: story.id,
+        title: title,
+        body: body,
+      );
     });
   }, timeout: const Timeout(Duration(minutes: 8)));
 
@@ -649,12 +654,6 @@ String _path(WidgetTester tester) {
   return _app(tester).router.routerDelegate.currentConfiguration.uri.path;
 }
 
-Finder _loadingIndicator() {
-  return find.byWidgetPredicate(
-    (widget) => widget.runtimeType.toString() == 'CircularProgressIndicator',
-  );
-}
-
 Future<Story> _publishedStory({
   required String familyId,
   required String title,
@@ -840,30 +839,21 @@ Future<void> _searchStory(
 
 Future<void> _untilOtherFamilySeesNoStory(
   WidgetTester tester, {
+  required String storyId,
   required String title,
   required String body,
 }) async {
-  final settled = find.byWidgetPredicate((widget) {
-    if (widget is! TellMeAStoryApp) return false;
-    if (_loadingIndicator().evaluate().isNotEmpty) return false;
-    if (find.text(title).evaluate().isNotEmpty) return false;
-    if (find.text(body).evaluate().isNotEmpty) return false;
-    return find.byKey(const Key('story-reader')).evaluate().isNotEmpty ||
-        find.byKey(const Key('magic-link-email')).evaluate().isNotEmpty ||
-        find
-            .byKey(const Key('header-underline-timeline'))
-            .evaluate()
-            .isNotEmpty;
-  });
-  try {
-    await pumpUntilFound(tester, settled);
-  } on TestFailure {
-    expect(find.text(title), findsNothing);
-    expect(find.text(body), findsNothing);
-    return;
-  }
+  await pumpUntilFound(
+    tester,
+    find.descendant(
+      of: find.byKey(const Key('story-reader')),
+      matching: find.text('Not found'),
+    ),
+  );
+  expect(find.text('Try again'), findsNothing);
   expect(find.text(title), findsNothing);
   expect(find.text(body), findsNothing);
+  expect(await StoriesApi().getPublished(storyId), isNull);
 }
 
 Future<void> _signOut(WidgetTester tester) async {
