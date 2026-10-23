@@ -828,67 +828,54 @@ void main() {
     expect(find.byKey(const Key('timeline-dot-old')), findsNothing);
   });
 
-  testWidgets('starting a family on the timeline opens its empty timeline', (
-    tester,
-  ) async {
-    addTearDown(FamilySelection.clear);
-    await tester.binding.setSurfaceSize(const Size(1400, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    const familyBId = '00000000-0000-0000-0000-00000000000b';
-    FamilySelection.remember(_familyId);
-    final families = _FakeFamilies([
-      MemberFamily(id: _familyId, name: 'Ada', createdAt: DateTime.utc(2020)),
-    ]);
-    final stories = _FakeStoriesApi(
-      published: [_published(id: 'oldA', title: 'Old A', familyId: _familyId)],
-    );
-    final router = GoRouter(
-      initialLocation: AppRoutes.timeline,
-      routes: [
-        GoRoute(
-          path: AppRoutes.timeline,
-          builder: (context, state) => TimelinePage(
-            api: _FakeInviteApi(),
-            storiesApi: stories,
-            familiesApi: families,
-            live: _FakeLive(),
-            manageApi: _FakeManage(families),
+  testWidgets(
+    'the timeline dropdown has Manage families and no Start a family',
+    (tester) async {
+      addTearDown(FamilySelection.clear);
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      FamilySelection.remember(_familyId);
+      final families = _FakeFamilies([
+        MemberFamily(id: _familyId, name: 'Ada', createdAt: DateTime.utc(2020)),
+      ]);
+      final stories = _FakeStoriesApi(
+        published: [
+          _published(id: 'oldA', title: 'Old A', familyId: _familyId),
+        ],
+      );
+      final router = GoRouter(
+        initialLocation: AppRoutes.timeline,
+        routes: [
+          GoRoute(
+            path: AppRoutes.timeline,
+            builder: (context, state) => TimelinePage(
+              api: _FakeInviteApi(),
+              storiesApi: stories,
+              familiesApi: families,
+              live: _FakeLive(),
+              manageApi: _FakeManage(families),
+            ),
           ),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('No stories yet. Capture the first one for this family.'),
-      findsNothing,
-    );
-    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
-    await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
-    expect(find.text('Old A'), findsOneWidget);
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('No stories yet. Capture the first one for this family.'),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+      await tester.pumpAndSettle();
+      expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+      expect(find.text('Old A'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('family-menu')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('family-menu-start')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('start-family-name')),
-      'Family B',
-    );
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('start-family-create')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('start-family-dialog')), findsNothing);
-    expect(
-      find.text('No stories yet. Capture the first one for this family.'),
-      findsOneWidget,
-    );
-    expect(find.text('Old A'), findsNothing);
-    expect(FamilySelection.id, familyBId);
-  });
+      await tester.tap(find.byKey(const Key('family-menu')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('family-menu-start')), findsNothing);
+      expect(find.byKey(const Key('family-menu-manage')), findsOneWidget);
+    },
+  );
 
   testWidgets('returning to timeline after publish reloads published list', (
     tester,
@@ -1941,7 +1928,7 @@ void main() {
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
     expect(find.text('Related families'), findsNothing);
-    expect(find.byKey(const Key('family-menu-start')), findsOneWidget);
+    expect(find.byKey(const Key('family-menu-start')), findsNothing);
     await tester.tapAt(const Offset(8, 8));
     await tester.pumpAndSettle();
 
@@ -2283,7 +2270,7 @@ void main() {
     expect(find.byKey(const Key('timeline-dot-ada')), findsNothing);
   });
 
-  testWidgets('the open related family is checked and memberships are not', (
+  testWidgets('a tree-read open family is not listed and no row is checked', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
@@ -2316,15 +2303,8 @@ void main() {
 
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
-    expect(find.text('Related families'), findsOneWidget);
-    expect(find.byKey(Key('family-menu-related-$bea')), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(Key('family-menu-related-$bea')),
-        matching: find.byIcon(Icons.check),
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Related families'), findsNothing);
+    expect(find.byKey(Key('family-menu-related-$bea')), findsNothing);
     expect(
       find.descendant(
         of: find.byKey(Key('family-menu-item-$ada')),
@@ -2332,11 +2312,8 @@ void main() {
       ),
       findsNothing,
     );
-    final start = tester.getTopLeft(find.byKey(const Key('family-menu-start')));
-    final manage = tester.getTopLeft(
-      find.byKey(const Key('family-menu-manage')),
-    );
-    expect(start.dy, lessThan(manage.dy));
+    expect(find.byKey(const Key('family-menu-start')), findsNothing);
+    expect(find.byKey(const Key('family-menu-manage')), findsOneWidget);
   });
 
   testWidgets(

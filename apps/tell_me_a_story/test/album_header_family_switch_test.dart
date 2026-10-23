@@ -50,22 +50,29 @@ void main() {
     },
   );
 
-  testWidgets('Rule 1: related-family rows behave the same', (tester) async {
+  testWidgets('Rule 1: nested family rows behave the same', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    final related = const [TreeFamily(id: _related, name: 'Cousin')];
+    final extra = [
+      MemberFamily(
+        id: _related,
+        name: 'Cousin',
+        parentFamilyId: _ada,
+        createdAt: DateTime.utc(2022),
+      ),
+    ];
 
     final fromDrafts = <String>[];
     final drafts = _router(
       page: AlbumHeaderPage.drafts,
       location: '/drafts',
-      related: related,
+      extra: extra,
       onSelected: fromDrafts.add,
     );
     addTearDown(drafts.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: drafts));
     await tester.pumpAndSettle();
-    await _pick(tester, const Key('family-menu-related-$_related'));
+    await _pick(tester, const Key('family-menu-item-$_related'));
     expect(drafts.state.uri.path, '/timeline');
     expect(fromDrafts, [_related]);
 
@@ -73,13 +80,13 @@ void main() {
     final timeline = _router(
       page: AlbumHeaderPage.timeline,
       location: '/timeline',
-      related: related,
+      extra: extra,
       onSelected: fromTimeline.add,
     );
     addTearDown(timeline.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: timeline));
     await tester.pumpAndSettle();
-    await _pick(tester, const Key('family-menu-related-$_related'));
+    await _pick(tester, const Key('family-menu-item-$_related'));
     expect(timeline.state.uri.path, '/timeline');
     expect(fromTimeline, [_related]);
   });
@@ -108,7 +115,7 @@ GoRouter _router({
   required AlbumHeaderPage page,
   required String location,
   required void Function(String id) onSelected,
-  List<TreeFamily> related = const [],
+  List<MemberFamily> extra = const [],
 }) {
   Widget screen() {
     return Scaffold(
@@ -118,13 +125,13 @@ GoRouter _router({
         families: [
           MemberFamily(id: _ada, name: 'Ada', createdAt: DateTime.utc(2020)),
           MemberFamily(id: _bea, name: 'Bea', createdAt: DateTime.utc(2021)),
+          ...extra,
         ],
         currentFamilyId: _ada,
         onFamilySelected: (id) {
           onSelected(id);
           FamilySelection.remember(id);
         },
-        relatedFamilies: related,
       ),
       body: Text(location),
     );

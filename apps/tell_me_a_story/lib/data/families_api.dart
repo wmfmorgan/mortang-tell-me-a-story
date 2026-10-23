@@ -11,6 +11,8 @@ class MemberFamily {
     required this.name,
     required this.createdAt,
     this.parentFamilyId,
+    this.branchYear,
+    this.role,
   });
 
   final String id;
@@ -18,7 +20,14 @@ class MemberFamily {
   final String? parentFamilyId;
   final DateTime createdAt;
 
-  factory MemberFamily.fromJson(Map<String, dynamic> json) {
+  /// `families.branch_year`; null when the family has no attach year.
+  final int? branchYear;
+
+  /// The caller's `memberships.role` ('owner', 'co_owner', 'member');
+  /// null when the row did not come from `listMine()`.
+  final String? role;
+
+  factory MemberFamily.fromJson(Map<String, dynamic> json, {String? role}) {
     return MemberFamily(
       id: json['id'] as String,
       name: (json['name'] as String?)?.trim().isNotEmpty == true
@@ -28,6 +37,8 @@ class MemberFamily {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.utc(2020),
+      branchYear: null,
+      role: role == null ? null : null,
     );
   }
 }
