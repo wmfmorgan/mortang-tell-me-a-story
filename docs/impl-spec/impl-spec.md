@@ -7484,7 +7484,7 @@ Source: `/workspace/m82/82_amendment_2.md` (the whole approved file, sha256 `d87
 4. Gate G13: diff of `leave_story_dialog.dart` vs head 7439026 is exactly that l.124 line; test #5 contains the new asserts; `no_hardcoded_colors_test` passes unmodified; counts unchanged (537, analyze ≤ 27).
 
 ### §15 M18 E2E regression tests (#48)
-**Status:** **APPROVED for PR0 only, 2026-10-22: Bill, 12:38 PM CT, relayed verbatim by Erlich: "let's do Pr0 of M48" (#48, M18). PR1, PR2 and PR3 remain READY rev 3.1, NOT APPROVED, awaiting Bill's go; each needs its own go.** READY rev 3.1 2026-10-22. Earlier: READY rev 3 2026-10-22 (`/workspace/m48/m18_e2e_spec_rev3.md`, 855 lines, sha256 `24019c915928d67de166c76345d4fcca02314d3e336374830e25780480de3da1`, kept unchanged). READY rev 2 2026-10-21 (`/workspace/m48/m18_e2e_spec_rev2.md`, 849 lines, sha256 `300fc3d34cda3751788501a48093c2a06ab1bcc6ef419fcaa2ec414e7cdaee78`, kept unchanged; the lost 850-line close `1ac83c34…d541` is not recovered). READY rev 1 2026-10-21 (`/workspace/m48/m18_e2e_spec_rev1.md`, 327 lines, sha256 `92431381a25ddff980cb172ec74c93ab06dfc86d1131f24db4eff90450f50797`, kept unchanged). Nothing beyond PR0 is built until Bill gives that PR its go (READY → APPROVED). Sources, which win on tech (Gilfoyle):
+**Status:** **APPROVED for PR0–PR3 (#48, M18); M18 not CLOSED. PR0: Bill, 12:38 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do Pr0 of M48"; merged as #117 (`583a54d`) at 1:13 PM CT 2026-10-22. PR1: Bill, 1:13 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do PR1. 82 is closed"; merged as #118 (`c47665c`) at 3:37 PM CT 2026-10-22. PR2: Bill, 3:37 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do PR2"; merged as #119 (`d230dd1`) at 5:31 AM CT 2026-10-23 (PR2 closing record under PR2). PR3: Bill, 5:38 AM CT 2026-10-23, relayed verbatim by Erlich: "gon on PR3"; not built yet.** READY rev 3.1 2026-10-22. Earlier: READY rev 3 2026-10-22 (`/workspace/m48/m18_e2e_spec_rev3.md`, 855 lines, sha256 `24019c915928d67de166c76345d4fcca02314d3e336374830e25780480de3da1`, kept unchanged). READY rev 2 2026-10-21 (`/workspace/m48/m18_e2e_spec_rev2.md`, 849 lines, sha256 `300fc3d34cda3751788501a48093c2a06ab1bcc6ef419fcaa2ec414e7cdaee78`, kept unchanged; the lost 850-line close `1ac83c34…d541` is not recovered). READY rev 1 2026-10-21 (`/workspace/m48/m18_e2e_spec_rev1.md`, 327 lines, sha256 `92431381a25ddff980cb172ec74c93ab06dfc86d1131f24db4eff90450f50797`, kept unchanged). Each PR has its go (READY → APPROVED). Sources, which win on tech (Gilfoyle):
 - **Addendum A**, `/workspace/m48/e2e-design-lock-rev2-addendum-A.md` (501 lines, 39,902 bytes, sha256 `67c430e46ff555448af1953baa0b24a068a1bfbbd56984eb524cb20512d8708b`, verified 2026-10-21 ~6:40 PM CT). Addendum l.3: "**Status: Addendum A to rev 2, LOCKED 2026-10-21 (Gilfoyle), answers to M18 spec rev 1**". Addendum l.4: "Where the two differ, this addendum wins."
 - **Lock rev 2**, `/workspace/m48/e2e-design-lock-rev2.md` (240 lines, sha256 `bdeef481a69bf8a42edbc8348a6c3b9497547cbf5e73f7148a1733a815025806`, re-verified). Lock l.3: "**Status: rev 2, LOCKED 2026-10-20 (Gilfoyle; decisions by Bill 1:57 PM CT)**".
 - **Addendum A artifacts**, `/workspace/m48/addendum-A-artifacts/` (8 files; each is listed with lines, bytes and sha256 under "Verbatim files").
@@ -7542,6 +7542,7 @@ From issue #48 (read-only `get_issue` / `list_issue_comments`) and the locks:
 - Gilfoyle lock gate (comment 6299042898, 2:10 PM CT 2026-10-20): "Open: Bill's approval for the new Flutter SDK `integration_test` dependency (AGENTS.md rule)." Closed by the next line.
 - **Bill, 6:07 PM CT 2026-10-21, relayed verbatim by Erlich: "both"** (Bill's answer to Gilfoyle's two calls). For #48 this is the dependency approval below. Issue comment 6328567129 (6:07 PM CT 2026-10-21) records it: heading "**Gate: dependency approved (Bill, 6:07 PM CT 2026-10-21)**", quote "> both", then "Bill approved adding Flutter's `integration_test` package. Design is fully locked. Next: Big Head writes the impl spec."
 - **Bill, 12:38 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do Pr0 of M48"** (#48, M18). PR0 only; PR1–PR3 still need their own go.
+- **Bill, 5:38 AM CT 2026-10-23, relayed verbatim by Erlich: "gon on PR3"** (#48, M18; quoted exactly as written). PR3 only. PR2 is merged (#119, `d230dd1`), so PR3 may start.
 - Addendum l.5, verbatim: "Bill's decisions bind, and nothing here goes past them: (1) the 9 thin flows C1–C9; (2) local Supabase in CI only, never prod; (3) about 8–11 min of CI growth; (4) `e2e` is report-only until 10 consecutive green runs, then required; (5) the Flutter SDK `integration_test` dev dependency is approved (Bill, 2026-10-21)."
 - Lock decision record (lock l.232–240): flows "Thin C1–C9 (9 flows), broad only on an escaped regression"; target and tooling "Local Supabase in the CI job; `integration_test` + `flutter drive` web"; sign-in and data "Mailpit + Deno relay (M2 fallback for precondition users only, M3 forbidden); per-test tenants, no reset, fixtures by exception"; upkeep "U1–U5; report-only until 10 consecutive green main runs, then required"; CI growth "Accept about 8–11 min (about 11 min total wall) with the ci.md rev 6 e2e exception"; Mapbox-pinned place "Jared call, only if the spike needs it" ("open, conditional").
 
@@ -7989,6 +7990,62 @@ Addendum l.339–350, verbatim:
 #### PR2 (C2, C3, C4): `feat/m18-e2e-c2-c4`
 - C2, C3, C4 exactly as the flows table says, added to `integration_test/e2e_test.dart` with the exact test names above. Preconditions per R11 (optionally in `support/preconditions.dart`); the C3 publish place from Favorites per R6.
 - No `ci.yml` change.
+**PR2 closing record (CLOSED 2026-10-23; PR2 only, M18 stays open):**
+> 🔍 INFER: This record uses the bold "Closing record (CLOSED …)" label (M14) and the M19 "Merge" and "CI on the final head" fields, placed inside the PR2 section, because §15 has CLOSED stamps only at milestone level and no PR-level CLOSED stamp exists. The item heading is not changed (M18 is not CLOSED).
+- **Scope:** this closes PR2 (C2, C3, C4) only. **M18 is NOT CLOSED.** PR2's go: Bill, 3:37 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do PR2" (`/workspace/m48/pr2/m18_pr2_handoff_block.txt` l.3). PR3 (C5–C9, manifest) is **APPROVED**: Bill, 5:38 AM CT 2026-10-23, relayed verbatim by Erlich: "gon on PR3". PR3 is not built yet. M18 CLOSED still waits on PR3's merge and the Bill steps below (10 counted runs, `e2e` required, ci.md docs PR).
+**Merge (GitHub `merged_at`, CT):**
+- PR #119 "M18 PR2: E2E flows C2–C4 (#48)", branch `feat/m18-e2e-c2-c4`, final head `10dc46f6577e2ffcf806392b560ef4494226cca9`. Merged by wmfmorgan as `d230dd14bca9b73796d12e66979b51c7357da738` (`d230dd1`, squash) at 5:31 AM CT 2026-10-23 (`merged_at` 2026-10-23T10:31:14Z). Base `c47665c` (the #118 M18 PR1 merge).
+  - Tree identity: the 5 PR files (+542/−0) have the same git blob shas on `d230dd1` as on `10dc46f`, checked against the `c47665c`→`d230dd1` compare.
+**CI on the final head** (https://github.com/wmfmorgan/mortang-tell-me-a-story/actions/runs/39881853681, `pull_request`, `10dc46f`, attempt 1, `success`; the only run on that head; jobs `deno`, `flutter`, `pgtap`, `e2e` all `success`):
+```
+deno:    ok | 43 passed | 0 failed
+flutter: Flutter 3.47.7 • channel stable • https://github.com/flutter/flutter.git
+flutter: Formatted 127 files (0 changed) in 0.74 seconds.
+flutter: flutter analyze: 27 issues (ceiling 27, exit 0)
+flutter: 🎉 538 tests passed.
+pgtap:   All tests successful.
+pgtap:   Files=25, Tests=825,  2 wallclock secs ( 0.12 usr  0.04 sys +  0.20 cusr  0.16 csys =  0.52 CPU)
+pgtap:   Result: PASS
+e2e:     Launching integration_test/e2e_test.dart on Web Server in debug mode...
+e2e:     All tests passed.
+e2e:     GET /magic-link 200   (×4)
+```
+- `e2e` (report-only, not required) ran 3m44s, 8:04–8:07 PM CT 2026-10-22. The required contexts on `main` are still `deno`, `flutter` and `pgtap`.
+- **CI on the merge commit** (https://github.com/wmfmorgan/mortang-tell-me-a-story/actions/runs/39939690648, `push`, `d230dd1`, `success`, 5:31–5:34 AM CT 2026-10-23): jobs `deno`, `flutter`, `pgtap` and `e2e` all `success`. The job logs were not read.
+- `.github/workflows/ci.yml` is unchanged by PR2 (not among the 5 files). The `e2e` job block stays the Erratum 2 block, `/workspace/m48/erratum-2/ci-e2e-job-pr1.yml`, sha256 `533266388819dbd10ccbbe22de93753fc581b8299b597702895dc9bd36dbb327`.
+**Specs (approved, kept on the build box; not in the repo):**
+- PR2 handoff block `/workspace/m48/pr2/m18_pr2_handoff_block.txt`, sha256 `d1e1de6bac1f03c33a4db30d0009fe5ce9d6b396de540cc365270caeb36d2d9a`.
+- Amendment 1 chain (status quoted from l.3 of each file). Each rev supersedes the one before; rev6 is the build text for `10dc46f`.
+  - rev1 `/workspace/m48/pr2/m18_pr2_amendment_1_rev1.md`, sha256 `dd03d184858b6411eccaf71493db1d62eef756f6803fe8ddd3bcb750958cdfbf`. Bill verbatim via Erlich, 7:03 PM CT 2026-10-22: "Approved, launch it" (on READY `36ef271c…61b7`; Gilfoyle lane APPROVED 6:53 PM CT).
+  - rev2 `/workspace/m48/pr2/m18_pr2_amendment_1_rev2.md`, sha256 `f8d6c43d88adf2d5250b2a52aac52c119bc7ce3918916e1501efb3c62e9c4e14`. Bill verbatim via Erlich, 7:14 PM CT 2026-10-22: "Approved rev2, relaunch".
+  - rev5 `/workspace/m48/pr2/m18_pr2_amendment_1_rev5.md`, sha256 `2629a7de72ecf26decbedf1d29bacec09dbb58ef42f0868f336c2b4265449022`. Bill verbatim via Erlich, 7:38 PM CT 2026-10-22: "Approved rev5, launch" (supersedes rev4 `7d9b3eb8`; Gilfoyle 7:36 PM CT rulings on OPEN-A/B).
+  - rev6 `/workspace/m48/pr2/m18_pr2_amendment_1_rev6.md`, sha256 `26ee45685374354c463f8be78ea3b8440720567702ebec373314d28335b092b8`. Bill verbatim via Erlich, 8:01 PM CT 2026-10-22: "Approved rev6, relaunch" (folds the Gilfoyle 7:45 PM CT C4 `autosave` test-only fix).
+- Addendum A errata (Gilfoyle), in `/workspace/m48/`:
+  - Erratum 1 `e2e-design-lock-rev2-addendum-A-erratum-1.md`, sha256 `486920f7a7a0a8120423770b3a6ec297c9d921308dc913edb0e98c8860100370` (2026-10-21 7:15 PM CT).
+  - Erratum 2 `e2e-design-lock-rev2-addendum-A-erratum-2.md`, sha256 `adefd4cd88d7871958392ce2b86ba55fb38c3f949f6d4b26b3e8a739cc995344` (2026-10-22 2:20 PM CT).
+  - Erratum 3 `e2e-design-lock-rev2-addendum-A-erratum-3.md`, sha256 `b09c39a025fee3592e0ba02dc0ea7f86b96826edf6f9621e23402a364117e33a` (2026-10-22).
+  - Erratum 4 `e2e-design-lock-rev2-addendum-A-erratum-4.md`, sha256 `75507622bea4ccffe7ad2c25d2ed47c4cf18bd075649dbcd4ec6c48daf4f2de8` (2026-10-22).
+  - Erratum 5 `e2e-design-lock-rev2-addendum-A-erratum-5.md`, sha256 `62949bf31736fab14de9fdc006a10c7660073a8eed9a0b6a6483d834defebb5b` (2026-10-22 7:27 PM CT).
+**Lanes on `10dc46f`, all PASS** (relayed by Erlich 5:39 AM CT 2026-10-23): Dinesh PASS, 8:10 PM CT 2026-10-22. Trinity PASS, 8:12 PM CT 2026-10-22. Big Head PASS, 8:13 PM CT 2026-10-22 (the spec check below). Mugatu PASS, 5:15 AM CT 2026-10-23 (re-confirmed from the real PNG). Gilfoyle PASS, 5:26 AM CT 2026-10-23.
+**Spec check (Big Head) at `10dc46f` against rev6: PASS.** Report `/workspace/m48/check_119_10dc46f/report.md`, sha256 `0b961082eaed953f1af199fb681aa8ba35affdac4f5055a1c97372cdee5fb88c`.
+- N1 (info), fixed in wording here: the preconditions file is `integration_test/support/preconditions.dart`. That is what this item already says in the PR2 section, Files touched and the PR2 block. Only rev6 §7's box-file wording differed, so this file needs no edit.
+- N2 (minor), closed 5:29 AM CT 2026-10-23: the PR body G2 now names Flutter 3.47.7. The change was body-only: no commit and no new run (the last run on the branch is still 39881853681). Live-body capture: `/workspace/m48/check_119_10dc46f/body_live_0529.md`, saved 5:29:44 AM CT.
+- N3 (info, extra pump in the widget test) and N4 (info, local outputs unverifiable on GitHub) are accepted as they are.
+**Post-M18 OPENs carried (parked until Bill says go; fold into §17 at M18 CLOSED):**
+> ❓ OPEN: [Gilfoyle] (post-M18 list 6, Erratum 4) Extract a `buildApp()` composition root in `lib/main.dart`; the e2e `_mountApp` duplicates it. Parked until Bill says go.
+> ❓ OPEN: [Dinesh] (post-M18 list 12) Use a single `_step` with `Error.throwWithStackTrace` and move C1 onto it (supersedes 3 and 7; the C1 edit is allowed only post-M18). Parked until Bill says go.
+> ❓ OPEN: [Dinesh] (post-M18 list 13) Add a `_goTab(tester, tab)` helper for the tab/underline/back sequence (C4 :85-99). Parked until Bill says go.
+> ❓ OPEN: [Dinesh] (post-M18 list 14) Nits: an empty-state copy constant; `_kFixtureLatLng`; a comment that `_supabaseReady` needs asserts (debug only); comment on or drop the trailing pump in `_openCapture`. Parked until Bill says go.
+> ❓ OPEN: [Dinesh] (post-M18 list 15) `_untilDraftReady`: poll about every 1s and report the last draft seen. Parked until Bill says go.
+- The "C4 finding" is the C4 `autosave` race. It is closed by rev6 (`26ee4568`), per Erlich 2026-10-23.
+> ❓ OPEN: [Trinity] 118-08, 119-01, 119-03. Parked until Bill says go.
+> ❓ OPEN: [Dinesh, via Gilfoyle] `timeline_page_test.dart` `_FakeManage` should `extends Fake implements ManageFamiliesGateway` and override only `createRootFamily`. Parked until Bill says go.
+> ❓ OPEN: [Dinesh, via Gilfoyle] The `_publish` diagnostic loop belongs in `waits.dart` as an optional describe callback on `pumpUntilFound`. Today it matches the UI copy 'Couldn’t publish story. Try again.' literally. Parked until Bill says go.
+> ❓ OPEN: [Dinesh, via Gilfoyle] `find.text('Add person').last` at the `_addPerson` save, carried from `73dc7b8`. Parked until Bill says go.
+> ❓ OPEN: [Gilfoyle] The cause of the C3 publish stall from `1dafaa7` is still unknown; the latch diagnostic stays in. Parked until Bill says go.
+**Spec-text OPENs found at this close (line numbers at `main` `d230dd1` before this record):**
+> ❓ OPEN: [Big Head] l.7564 still says ci.md "**Rev 6 (`4c3611b3…3723`) is not on `main` yet**". Rev 6 is `a472f3f4…196b` (Erratum 1) and has landed (M17 CLOSED). 🔍 INFER: Leave it as history, because "PR0 approval and refresh" item 3 says "Code on `main` @ `9a7663d`" stays as history. Bill or Gilfoyle can overrule.
+- Unchanged and still open: OPEN 9 (Jared, conditional), §17 OPEN [Mugatu, Bill] "not available" state (fold at M18 CLOSED), and any dependency beyond `integration_test` (Bill, conditional), per l.8224.
 
 #### PR3 (C5–C9, manifest): `feat/m18-e2e-c5-c9`
 - C5–C9 exactly as the flows table says, with the exact test names above.
@@ -8156,7 +8213,7 @@ echo "check_flows: $count flows match ($manifest <-> $entry)"
 - `rg -n 'signInWithPassword|kE2E|fromEnvironment\(.E2E' apps/` → nothing.
 - `rg -n 'sleep|Future\.delayed' apps/tell_me_a_story/integration_test apps/tell_me_a_story/test_driver` → nothing (addendum A1). For `e2e/relay.ts`, list its only delay (the 250 ms Mailpit poll, 30 s deadline).
 - `rg -n 'db reset|db pull|migration' apps/tell_me_a_story/integration_test apps/tell_me_a_story/test_driver e2e` → nothing.
-- `rg -n "import .*(jsr:|npm:|https?://)" e2e` → nothing. `rg -n "^import " apps/tell_me_a_story/integration_test apps/tell_me_a_story/test_driver` → only `dart:` and the five allowed packages.
+- `rg -n "import .*(jsr:|npm:|https?://)" e2e` → nothing. `rg -n "^import " apps/tell_me_a_story/integration_test apps/tell_me_a_story/test_driver` → only `dart:` and the five allowed packages (`package:flutter_test`, `package:integration_test`, `package:http`, `package:supabase_flutter`, `package:tell_me_a_story/...`), plus `package:flutter/foundation.dart` in `integration_test/e2e_test.dart` only (Erratum 2: "the only sixth import allowed"; PR2 handoff block: "package:flutter/foundation.dart (e2e_test.dart only)", and "support/ files, including a new preconditions.dart, import only dart: and the five packages."). No other import.
 - `rg -n 'testWidgets\(|main\(' apps/tell_me_a_story/integration_test/support` → nothing.
 - The relay's log lines print only method, path without query, and status.
 - `ls package.json e2e/fixtures apps/tell_me_a_story/integration_test/quarantine` → all absent.
@@ -8236,10 +8293,10 @@ Evidence each gate needs in the PR body:
 
 #### Bill steps (not the agent's)
 - [x] Approve PR0 (READY → APPROVED for PR0): Bill, 12:38 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do Pr0 of M48".
-- [ ] Give PR1, PR2 and PR3 their go (each still READY rev 3.1; each needs its own go).
-- [ ] PR0: check the three required checks are green; merge (before or after M17b).
+- [x] Give PR1, PR2 and PR3 their go: PR1, Bill, 1:13 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do PR1. 82 is closed" (`/workspace/m48/m18_pr1_handoff_block.txt` l.2). PR2, Bill, 3:37 PM CT 2026-10-22, relayed verbatim by Erlich: "let's do PR2" (`/workspace/m48/pr2/m18_pr2_handoff_block.txt` l.3). PR3, Bill, 5:38 AM CT 2026-10-23, relayed verbatim by Erlich: "gon on PR3".
+- [x] PR0: check the three required checks are green; merge (before or after M17b): merged by wmfmorgan as #117 (`583a54d6f3a1c875d393278656d7c5eae8e6ff45`) at 1:13 PM CT 2026-10-22.
 - [x] Merge M17a, then M17b (separate items): done, §15 M17 CLOSED 2026-10-22. PR1 can't start until M17b is on `main` (it is, at `31b0640`).
-- [ ] PR1, PR2, PR3: check `CI / flutter`, `CI / deno`, `CI / pgtap` green (required) and `CI / e2e` green (report-only); merge each after the lanes pass.
+- [ ] PR1, PR2, PR3: check `CI / flutter`, `CI / deno`, `CI / pgtap` green (required) and `CI / e2e` green (report-only); merge each after the lanes pass. PR1: merged by wmfmorgan as #118 (`c47665c1d34801cb4338aad662fb5e94d0ef1480`) at 3:37 PM CT 2026-10-22. PR2: merged by wmfmorgan as #119 (`d230dd14bca9b73796d12e66979b51c7357da738`) at 5:31 AM CT 2026-10-23. PR3: not built yet.
 - [ ] If raised: answer OPEN 9 with Jared, or a dependency OPEN.
 - [ ] After PR3 merges, Gilfoyle or Trinity counts 10 runs per A4 and posts the run ids and head SHAs to you. Then add `e2e` to `main`'s required checks by hand. Required contexts become `deno`, `e2e`, `flutter`, `pgtap`.
 - [ ] When you add `e2e` to required checks, merge in the same sitting a small docs PR that updates `ci.md` l.34, l.39 and Required checks from three to four (text from Gilfoyle). M18 CLOSED waits for that PR.
