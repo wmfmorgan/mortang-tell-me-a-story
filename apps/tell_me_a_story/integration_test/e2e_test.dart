@@ -404,13 +404,43 @@ Future<void> _enterStory(
 
 Future<void> _publish(WidgetTester tester, String flow, String title) async {
   await _step(flow, 'publish', () async {
+    String captureStatus() {
+      if (find.text('Saved').evaluate().isNotEmpty) return 'Saved';
+      if (find.text('Not saved').evaluate().isNotEmpty) return 'Not saved';
+      return 'none';
+    }
+
     final publish = find.text('Publish story');
     await tester.ensureVisible(publish);
+    final statusAtTap = captureStatus();
     await tester.tap(publish);
-    await pumpUntilFound(
-      tester,
-      find.byKey(const Key('header-underline-timeline')),
-      timeout: const Duration(seconds: 45),
+    final finder = find.byKey(const Key('header-underline-timeline'));
+    const timeout = Duration(seconds: 45);
+    final deadline = DateTime.now().add(timeout);
+    var bannerSeen = false;
+    var snackbarSeen = false;
+    while (DateTime.now().isBefore(deadline)) {
+      await tester.pump(const Duration(milliseconds: 100));
+      if (find
+          .text('Finish the highlighted fields to publish.')
+          .evaluate()
+          .isNotEmpty) {
+        bannerSeen = true;
+      }
+      if (find
+          .text('Couldn’t publish story. Try again.')
+          .evaluate()
+          .isNotEmpty) {
+        snackbarSeen = true;
+      }
+      if (finder.evaluate().isNotEmpty) return;
+    }
+    final status = captureStatus();
+    throw TestFailure(
+      '$finder not found within $timeout (url: ${Uri.base})'
+      ' banner=${bannerSeen ? 'y' : 'n'}'
+      ' snackbar=${snackbarSeen ? 'y' : 'n'}'
+      ' statusAtTap=$statusAtTap status=$status',
     );
   });
   await _step(flow, 'card', () async {
