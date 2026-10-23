@@ -268,7 +268,7 @@ void main() {
         find.byKey(const Key('header-underline-timeline')),
         timeout: const Duration(seconds: 45),
       );
-      expect(find.text(family), findsWidgets);
+      await pumpUntilFound(tester, find.text(family));
       expect(find.byKey(const Key('invite-email')), findsNothing);
     });
   }, timeout: const Timeout(Duration(minutes: 6)));
@@ -451,10 +451,13 @@ Future<void> _signIn(WidgetTester tester, String flow, String email) async {
 Future<void> _startFamily(WidgetTester tester, String flow, String name) async {
   await _step(flow, 'open-menu', () async {
     await tester.tap(find.byKey(const Key('family-menu')));
-    await pumpUntilFound(tester, find.byKey(const Key('family-menu-start')));
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('family-menu-start')).hitTestable(),
+    );
   });
   await _step(flow, 'start-dialog', () async {
-    await tester.tap(find.byKey(const Key('family-menu-start')));
+    await tester.tap(find.byKey(const Key('family-menu-start')).hitTestable());
     await pumpUntilFound(tester, find.byKey(const Key('start-family-name')));
   });
   await _step(flow, 'create-family', () async {
@@ -868,8 +871,11 @@ Future<void> _signOut(WidgetTester tester) async {
     final avatar = find.byKey(const Key('header-avatar'));
     await tester.ensureVisible(avatar);
     await tester.tap(avatar);
-    await pumpUntilFound(tester, find.byKey(const Key('header-menu-logout')));
-    await tester.tap(find.byKey(const Key('header-menu-logout')));
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('header-menu-logout')).hitTestable(),
+    );
+    await tester.tap(find.byKey(const Key('header-menu-logout')).hitTestable());
     await pumpUntilFound(tester, find.byKey(const Key('magic-link-email')));
     expect(find.byKey(const Key('family-menu')), findsNothing);
     expect(_path(tester), '/');
