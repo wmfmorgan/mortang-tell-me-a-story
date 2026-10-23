@@ -642,6 +642,10 @@ class _FamilyMenu extends StatelessWidget {
     );
     if (id == null || !context.mounted) return;
     FamilySelection.remember(id);
+    if (page == AlbumHeaderPage.timeline) {
+      onSelected(id);
+      return;
+    }
     GoRouter.maybeOf(context)?.go(AppRoutes.timeline);
   }
 

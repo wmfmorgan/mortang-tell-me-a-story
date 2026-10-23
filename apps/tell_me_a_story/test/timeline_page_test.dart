@@ -13,6 +13,7 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
@@ -142,6 +143,88 @@ class _FakeFamilies extends FamiliesGateway {
 
   @override
   Future<List<StewardFamily>> listStewarded() async => const [];
+}
+
+class _FakeManage implements ManageFamiliesGateway {
+  _FakeManage(this.families);
+
+  final _FakeFamilies families;
+
+  @override
+  Future<String> createRootFamily(String name) async {
+    const id = '00000000-0000-0000-0000-00000000000b';
+    families.rows.add(
+      MemberFamily(id: id, name: name, createdAt: DateTime.utc(2022)),
+    );
+    return id;
+  }
+
+  @override
+  Future<String> createBranchFamily({
+    required String parentFamilyId,
+    required String originStoryId,
+    required String name,
+    required int branchYear,
+    required String ownerUserId,
+    List<String> personIds = const [],
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> renameFamily({required String familyId, required String name}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> addCoOwner({required String familyId, required String userId}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> removeCoOwner({
+    required String familyId,
+    required String userId,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> removeMember({
+    required String familyId,
+    required String userId,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> transferOwnership({
+    required String familyId,
+    required String newOwnerUserId,
+    required String formerOwnerBecomes,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> softDeleteFamily(String familyId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> recoverFamily(String familyId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<DateTime> resendInvite(String inviteId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> revokeInvite(String inviteId) {
+    throw UnimplementedError();
+  }
 }
 
 class _FakeLive implements TimelineLive {
@@ -743,6 +826,68 @@ void main() {
     expect(find.text('Bea'), findsWidgets);
     expect(_tooltipFor(tester, 'new'), contains('New'));
     expect(find.byKey(const Key('timeline-dot-old')), findsNothing);
+  });
+
+  testWidgets('starting a family on the timeline opens its empty timeline', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const familyBId = '00000000-0000-0000-0000-00000000000b';
+    FamilySelection.remember(_familyId);
+    final families = _FakeFamilies([
+      MemberFamily(id: _familyId, name: 'Ada', createdAt: DateTime.utc(2020)),
+    ]);
+    final stories = _FakeStoriesApi(
+      published: [_published(id: 'oldA', title: 'Old A', familyId: _familyId)],
+    );
+    final router = GoRouter(
+      initialLocation: AppRoutes.timeline,
+      routes: [
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) => TimelinePage(
+            api: _FakeInviteApi(),
+            storiesApi: stories,
+            familiesApi: families,
+            live: _FakeLive(),
+            manageApi: _FakeManage(families),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsNothing,
+    );
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+    expect(find.text('Old A'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu-start')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('start-family-name')),
+      'Family B',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('start-family-create')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('start-family-dialog')), findsNothing);
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsOneWidget,
+    );
+    expect(find.text('Old A'), findsNothing);
+    expect(FamilySelection.id, familyBId);
   });
 
   testWidgets('returning to timeline after publish reloads published list', (

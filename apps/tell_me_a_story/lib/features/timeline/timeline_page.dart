@@ -610,6 +610,7 @@ class _TimelinePageState extends State<TimelinePage> {
         canWrite: _canWrite,
         onInvite: _canWrite ? _openInvite : null,
         onStartTimeline: _canStartTimeline ? _startTimeline : null,
+        manageApi: widget.manageApi,
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
