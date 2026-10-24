@@ -11,6 +11,8 @@ class MemberFamily {
     required this.name,
     required this.createdAt,
     this.parentFamilyId,
+    this.branchYear,
+    this.role,
   });
 
   final String id;
@@ -18,7 +20,15 @@ class MemberFamily {
   final String? parentFamilyId;
   final DateTime createdAt;
 
-  factory MemberFamily.fromJson(Map<String, dynamic> json) {
+  /// `families.branch_year`; null when the family has no attach year.
+  final int? branchYear;
+
+  /// The caller's `memberships.role` ('owner', 'co_owner', 'member');
+  /// null when the row did not come from `listMine()`.
+  final String? role;
+
+  factory MemberFamily.fromJson(Map<String, dynamic> json, {String? role}) {
+    final rawYear = json['branch_year'];
     return MemberFamily(
       id: json['id'] as String,
       name: (json['name'] as String?)?.trim().isNotEmpty == true
@@ -28,6 +38,8 @@ class MemberFamily {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.utc(2020),
+      branchYear: rawYear is num ? rawYear.toInt() : null,
+      role: role,
     );
   }
 }
@@ -299,18 +311,22 @@ class FamiliesApi implements FamiliesGateway, FamilyDirectoryGateway {
     final rows = await _client
         .from('memberships')
         .select(
-          'families!inner(id, name, parent_family_id, created_at, deleted_at)',
+          'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at)',
         )
         .eq('user_id', uid)
         .isFilter('families.deleted_at', null);
     final families = <MemberFamily>[];
     for (final row in rows) {
+      final role = row['role'] as String?;
       final embedded = row['families'];
       if (embedded is Map<String, dynamic>) {
-        families.add(MemberFamily.fromJson(embedded));
+        families.add(MemberFamily.fromJson(embedded, role: role));
       } else if (embedded is Map) {
         families.add(
-          MemberFamily.fromJson(Map<String, dynamic>.from(embedded)),
+          MemberFamily.fromJson(
+            Map<String, dynamic>.from(embedded),
+            role: role,
+          ),
         );
       }
     }

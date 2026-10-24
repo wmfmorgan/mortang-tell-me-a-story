@@ -346,7 +346,9 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Start a new timeline',
+            'Add a timeline branch to ${widget.parentName}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.newsreader(
               color: albumInk,
               fontSize: 24,

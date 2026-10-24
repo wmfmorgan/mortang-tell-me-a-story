@@ -21,7 +21,7 @@ void main() {
 
   tearDown(FamilySelection.clear);
 
-  testWidgets('dropdown lists live families, a divider, Start, then Manage', (
+  testWidgets('dropdown lists live families, a divider, then Manage', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -46,17 +46,16 @@ void main() {
     final dividerY = tester
         .getTopLeft(find.byKey(const Key('family-menu-divider')))
         .dy;
-    final startY = tester.getTopLeft(find.text('Start a family')).dy;
     final manageY = tester.getTopLeft(find.text('Manage families')).dy;
     expect(adaY, lessThan(beaY));
     expect(beaY, lessThan(dividerY));
-    expect(dividerY, lessThan(startY));
-    expect(startY, lessThan(manageY));
+    expect(dividerY, lessThan(manageY));
+    expect(find.text('Start a family'), findsNothing);
     expect(find.text('Start a new timeline'), findsNothing);
     expect(find.byIcon(Icons.check), findsOneWidget);
   });
 
-  testWidgets('Start is visible for a members-only user and opens the dialog', (
+  testWidgets('Start is gone and Manage shows for a members-only user', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -70,11 +69,8 @@ void main() {
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Start a family'), findsOneWidget);
-    expect(find.text('Manage families'), findsNothing);
-    await tester.tap(find.byKey(const Key('family-menu-start')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('start-family-dialog')), findsOneWidget);
+    expect(find.text('Start a family'), findsNothing);
+    expect(find.text('Manage families'), findsOneWidget);
   });
 
   testWidgets('Manage is shown for an owner', (tester) async {
@@ -116,13 +112,13 @@ void main() {
     );
     expect(find.byKey(const Key('family-menu-manage')), findsOneWidget);
     expect(find.text('Gone Archive'), findsNothing);
-    expect(find.text('Start a family'), findsOneWidget);
+    expect(find.text('Start a family'), findsNothing);
   });
 
-  testWidgets('Manage is hidden for a members-only user', (tester) async {
+  testWidgets('Manage is shown for a members-only user', (tester) async {
     await _openMenu(tester, stewarded: const []);
-    expect(find.byKey(const Key('family-menu-manage')), findsNothing);
-    expect(find.text('Start a family'), findsOneWidget);
+    expect(find.byKey(const Key('family-menu-manage')), findsOneWidget);
+    expect(find.text('Start a family'), findsNothing);
   });
 
   testWidgets('Manage stays visible after switching to a member family', (
@@ -312,7 +308,19 @@ void main() {
       );
     await tester.pumpWidget(
       MaterialApp(
-        home: ManageFamiliesPage(directoryApi: directory, manageApi: _Manage()),
+        home: ManageFamiliesPage(
+          directoryApi: directory,
+          manageApi: _Manage(),
+          familiesApi: _Families(
+            stewarded: const [
+              StewardFamily(
+                id: 'morgan',
+                name: 'The Morgan Family',
+                role: 'owner',
+              ),
+            ],
+          ),
+        ),
       ),
     );
     await tester.pumpAndSettle();

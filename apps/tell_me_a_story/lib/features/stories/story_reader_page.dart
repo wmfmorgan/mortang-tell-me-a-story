@@ -514,7 +514,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           const PopupMenuItem<String>(
             key: Key('reader-start-timeline'),
             value: 'start-timeline',
-            child: Text('Start a new timeline from this story'),
+            child: Text('Add a timeline branch from this story'),
           ),
         for (final entry in entries)
           PopupMenuItem<String>(

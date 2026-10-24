@@ -31,8 +31,11 @@ void main() {
       routes: [
         GoRoute(
           path: AppRoutes.manageFamilies,
-          builder: (context, state) =>
-              ManageFamiliesPage(directoryApi: directory, manageApi: manage),
+          builder: (context, state) => ManageFamiliesPage(
+            directoryApi: directory,
+            manageApi: manage,
+            familiesApi: _HubFamilies(directory),
+          ),
         ),
         GoRoute(
           path: AppRoutes.manageFamily,
@@ -137,6 +140,7 @@ void main() {
           directoryApi: directory,
           manageApi: manage,
           inviteApi: _HubInvite('fam-1'),
+          familiesApi: _HubFamilies(directory),
         ),
       ),
     );
@@ -851,6 +855,30 @@ class _Manage implements ManageFamiliesGateway {
       ],
       recoverable: [],
     );
+  }
+}
+
+class _HubFamilies extends FamiliesGateway {
+  _HubFamilies(this.directory);
+
+  final _Directory directory;
+
+  @override
+  Future<List<MemberFamily>> listMine() async => const [];
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async {
+    final directory = this.directory.directory;
+    return [
+      for (final row in [...directory.active, ...directory.recoverable])
+        if (row.role == 'owner' || row.role == 'co_owner')
+          StewardFamily(
+            id: row.id,
+            name: row.name,
+            role: row.role,
+            deletedAt: row.deletedAt,
+          ),
+    ];
   }
 }
 

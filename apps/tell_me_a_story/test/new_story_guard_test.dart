@@ -146,7 +146,7 @@ void main() {
   });
 
   testWidgets(
-    'every exit prompts: Timeline, Drafts, Search, Settings, Start a family, Manage families, family switch, system back, router pop',
+    'every exit prompts: Timeline, Drafts, Search, Settings, Manage families, family switch, system back, router pop',
     (tester) async {
       await _surface(tester);
       FamilySelection.remember('keep');
@@ -176,12 +176,6 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('header-menu-settings')));
       });
-      await onePrompt(() async {
-        await tester.tap(find.byKey(const Key('family-menu')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('family-menu-start')));
-      });
-      expect(find.byKey(const Key('start-family-dialog')), findsNothing);
       await onePrompt(() async {
         await tester.tap(find.byKey(const Key('family-menu')));
         await tester.pumpAndSettle();
@@ -348,28 +342,19 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Start a family: the leave prompt comes first; Stay opens no dialog',
-    (tester) async {
-      await _surface(tester);
-      final router = await _mount(tester);
-      await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('family-menu')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('family-menu-start')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('Leave this story?'), findsOneWidget);
-      expect(find.byKey(const Key('start-family-dialog')), findsNothing);
-      await tester.tap(find.widgetWithText(TextButton, 'Stay'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.byKey(const Key('start-family-dialog')), findsNothing);
-      expect(find.text('Leave this story?'), findsNothing);
-      expect(router.state.uri.path, '/stories/new');
-    },
-  );
+  testWidgets('Start a family is not in the dropdown over a dirty story', (
+    tester,
+  ) async {
+    await _surface(tester);
+    final router = await _mount(tester);
+    await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('family-menu-start')), findsNothing);
+    expect(find.text('Leave this story?'), findsNothing);
+    expect(router.state.uri.path, '/stories/new');
+  });
 }
 
 Future<void> _surface(WidgetTester tester) async {

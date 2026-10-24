@@ -530,7 +530,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('reader-overflow')));
     await tester.pumpAndSettle();
-    expect(find.text('Start a new timeline from this story'), findsOneWidget);
+    expect(find.text('Add a timeline branch from this story'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('reader-start-timeline')));
     await tester.pumpAndSettle();
@@ -594,24 +594,23 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Start a new timeline from this story'), findsNothing);
+    expect(find.text('Add a timeline branch from this story'), findsNothing);
   });
 
-  testWidgets('the family menu row sits between Start a family and Manage', (
-    tester,
-  ) async {
+  testWidgets('the family menu branch row sits above Manage', (tester) async {
     await tester.pumpWidget(_header(onStart: () {}));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
-    final start = tester.getTopLeft(find.text('Start a family')).dy;
-    final timeline = tester.getTopLeft(find.text('Start a new timeline')).dy;
+    final timeline = tester
+        .getTopLeft(find.byKey(const Key('family-menu-start-timeline')))
+        .dy;
     final manage = tester.getTopLeft(find.text('Manage families')).dy;
-    expect(start, lessThan(timeline));
     expect(timeline, lessThan(manage));
     expect(find.text('+ Start a new timeline'), findsNothing);
     expect(find.text('Your families'), findsNothing);
-    expect(find.text('Related families'), findsOneWidget);
+    expect(find.text('Related families'), findsNothing);
+    expect(find.text('Start a family'), findsNothing);
   });
 
   testWidgets('the drafts header does not show the timeline row', (
@@ -621,8 +620,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
-    expect(find.text('Start a new timeline'), findsNothing);
-    expect(find.text('Start a family'), findsOneWidget);
+    expect(find.byKey(const Key('family-menu-start-timeline')), findsNothing);
+    expect(find.text('Start a family'), findsNothing);
   });
 
   testWidgets('a tree-read open family hides the timeline row', (tester) async {
@@ -656,9 +655,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
-    expect(find.text('Start a family'), findsOneWidget);
+    expect(find.text('Start a family'), findsNothing);
     expect(find.text('Manage families'), findsOneWidget);
-    expect(find.text('Start a new timeline'), findsNothing);
+    expect(find.byKey(const Key('family-menu-start-timeline')), findsNothing);
   });
 
   testWidgets('the picker lists published parent stories and can write one', (
@@ -1490,6 +1489,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(FamilySelection.id, _parent);
   });
+
+  testWidgets(
+    'the dialog form title reads Add a timeline branch to the parent',
+    (tester) async {
+      final origin = _story(id: 'a', title: 'First', year: 1962);
+      await _openForm(
+        tester,
+        origin: origin,
+        families: _Families(
+          mine: const [],
+          members: [_member(_me, name: 'Bill')],
+        ),
+        people: _People(const []),
+        manage: _Manage(),
+      );
+      expect(find.text('Add a timeline branch to Parent'), findsOneWidget);
+      expect(find.text('Start a new timeline'), findsNothing);
+    },
+  );
 }
 
 Widget _header({
