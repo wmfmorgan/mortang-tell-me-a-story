@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show TextField, FilledButton;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -135,7 +136,13 @@ void main() {
     await _chooseFavorite(tester, 'C3', place.label);
     await _addPerson(tester, 'C3', person);
     await _enterStory(tester, 'C3', title: title, body: body);
-    await _publish(tester, 'C3', title);
+    await _publish(
+      tester,
+      'C3',
+      title,
+      person: person,
+      placeLabel: place.label,
+    );
   }, timeout: const Timeout(Duration(minutes: 6)));
 
   testWidgets('C4 draft autosaves, resumes from drafts and publishes', (
@@ -192,7 +199,13 @@ void main() {
       await pumpUntilFound(tester, find.text(person));
       await pumpUntilFound(tester, find.text(place.label));
     });
-    await _publish(tester, 'C4', title);
+    await _publish(
+      tester,
+      'C4',
+      title,
+      person: person,
+      placeLabel: place.label,
+    );
   }, timeout: const Timeout(Duration(minutes: 6)));
 
   testWidgets('C5 reader adds a comment and a perspective', (tester) async {
@@ -529,11 +542,24 @@ Future<void> _chooseFavorite(
     await pumpUntilFound(tester, label);
     await tester.ensureVisible(label);
     await tester.tap(label);
-    final use = find.text('Use this place');
+    // Text("Use this place") is always in the modal; the FilledButton stays
+    // disabled until markUsed finishes and _pending is set. Wait for enabled.
+    final use = find.widgetWithText(FilledButton, 'Use this place');
     await pumpUntilFound(tester, use);
+    await tester.ensureVisible(use);
+    final enabledDeadline = DateTime.now().add(const Duration(seconds: 30));
+    while (DateTime.now().isBefore(enabledDeadline)) {
+      if (tester.widget<FilledButton>(use).onPressed != null) break;
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    if (tester.widget<FilledButton>(use).onPressed == null) {
+      throw TestFailure(
+        '$use stayed disabled within 0:00:30.000000 (url: ${Uri.base})',
+      );
+    }
     await tester.tap(use);
     await pumpUntilGone(tester, use);
-    expect(find.text(placeLabel), findsWidgets);
+    await pumpUntilFound(tester, find.text(placeLabel));
   });
 }
 
@@ -573,12 +599,46 @@ Future<void> _enterStory(
   });
 }
 
-Future<void> _publish(WidgetTester tester, String flow, String title) async {
+Future<void> _publish(
+  WidgetTester tester,
+  String flow,
+  String title, {
+  required String person,
+  required String placeLabel,
+}) async {
   await _step(flow, 'publish', () async {
     String captureStatus() {
       if (find.text('Saved').evaluate().isNotEmpty) return 'Saved';
       if (find.text('Not saved').evaluate().isNotEmpty) return 'Not saved';
       return 'none';
+    }
+
+    String? fieldText(Key key) {
+      final finder = find.byKey(key);
+      if (finder.evaluate().isEmpty) return null;
+      return tester.widget<TextField>(finder).controller?.text;
+    }
+
+    List<String> missingFields() {
+      final missing = <String>[];
+      final titleText = fieldText(const Key('story-title'))?.trim() ?? '';
+      if (titleText.isEmpty) missing.add('title');
+      final bodyText = fieldText(const Key('story-body'))?.trim() ?? '';
+      if (bodyText.isEmpty) missing.add('body');
+      final yearText = fieldText(const Key('story-date-year'))?.trim() ?? '';
+      if (yearText.isEmpty || int.tryParse(yearText) == null) {
+        missing.add('timeframe');
+      }
+      if (find.text(person).evaluate().isEmpty) missing.add('person');
+      if (find.text(placeLabel).evaluate().isEmpty) missing.add('place');
+      return missing;
+    }
+
+    // Pre-tap settle (15s). FORBIDDEN: wait on find.text('Saved') here.
+    final readyDeadline = DateTime.now().add(const Duration(seconds: 15));
+    while (DateTime.now().isBefore(readyDeadline)) {
+      if (missingFields().isEmpty) break;
+      await tester.pump(const Duration(milliseconds: 100));
     }
 
     final publish = find.text('Publish story');
@@ -607,11 +667,16 @@ Future<void> _publish(WidgetTester tester, String flow, String title) async {
       if (finder.evaluate().isNotEmpty) return;
     }
     final status = captureStatus();
+    final missing = missingFields();
+    final missingBit = missing.isEmpty
+        ? 'missing=none'
+        : 'missing=${missing.join(',')}';
     throw TestFailure(
       '$finder not found within $timeout (url: ${Uri.base})'
       ' banner=${bannerSeen ? 'y' : 'n'}'
       ' snackbar=${snackbarSeen ? 'y' : 'n'}'
-      ' statusAtTap=$statusAtTap status=$status',
+      ' statusAtTap=$statusAtTap status=$status'
+      ' $missingBit',
     );
   });
   await _step(flow, 'card', () async {
@@ -695,7 +760,7 @@ Future<Story> _publishAlbumStory(
   await _chooseFavorite(tester, flow, place.label);
   await _addPerson(tester, flow, person);
   await _enterStory(tester, flow, title: title, body: body);
-  await _publish(tester, flow, title);
+  await _publish(tester, flow, title, person: person, placeLabel: place.label);
   return _step(flow, 'published', () {
     return _publishedStory(familyId: place.familyId, title: title);
   });
@@ -727,6 +792,7 @@ Future<void> _addComment(
 ) async {
   await _step(flow, 'comment', () async {
     final add = find.text('+ Add comment');
+    await pumpUntilFound(tester, add);
     await tester.ensureVisible(add);
     await tester.tap(add);
     final composer = find.byKey(const Key('comment-composer'));
@@ -734,6 +800,7 @@ Future<void> _addComment(
     await tester.enterText(composer, comment);
     await tester.pump();
     final post = find.text('Post');
+    await pumpUntilFound(tester, post);
     await tester.ensureVisible(post);
     await tester.tap(post);
     await pumpUntilFound(tester, find.text(comment));
