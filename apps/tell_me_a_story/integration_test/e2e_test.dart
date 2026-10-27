@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show TextField;
+import 'package:flutter/material.dart' show TextField, FilledButton;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -542,9 +542,21 @@ Future<void> _chooseFavorite(
     await pumpUntilFound(tester, label);
     await tester.ensureVisible(label);
     await tester.tap(label);
-    final use = find.text('Use this place');
+    // Text("Use this place") is always in the modal; the FilledButton stays
+    // disabled until markUsed finishes and _pending is set. Wait for enabled.
+    final use = find.widgetWithText(FilledButton, 'Use this place');
     await pumpUntilFound(tester, use);
     await tester.ensureVisible(use);
+    final enabledDeadline = DateTime.now().add(const Duration(seconds: 30));
+    while (DateTime.now().isBefore(enabledDeadline)) {
+      if (tester.widget<FilledButton>(use).onPressed != null) break;
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    if (tester.widget<FilledButton>(use).onPressed == null) {
+      throw TestFailure(
+        '$use stayed disabled within 0:00:30.000000 (url: ${Uri.base})',
+      );
+    }
     await tester.tap(use);
     await pumpUntilGone(tester, use);
     await pumpUntilFound(tester, find.text(placeLabel));
