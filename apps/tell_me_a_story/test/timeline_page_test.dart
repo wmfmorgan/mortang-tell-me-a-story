@@ -49,6 +49,14 @@ class _FakeInviteApi implements InviteGateway {
 }
 
 class _FakeStoriesApi implements StoriesGateway {
+  @override
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  }) async => const [];
+
   _FakeStoriesApi({List<Story>? published}) : published = [...?published];
 
   final List<Story> published;

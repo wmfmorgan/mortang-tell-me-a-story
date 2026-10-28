@@ -125,6 +125,14 @@ class _StubMapboxSearch implements MapboxSearchGateway {
 
 class _StubStoriesApi implements StoriesGateway {
   @override
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  }) async => const [];
+
+  @override
   Future<Story> createDraft({
     String? id,
     required String familyId,

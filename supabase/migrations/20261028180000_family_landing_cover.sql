@@ -100,22 +100,46 @@ values (
   array['image/jpeg', 'image/png', 'image/webp']
 );
 
+create or replace function public.family_cover_family_id(object_name text)
+returns uuid
+language sql
+immutable
+strict
+set search_path = ''
+as $$
+  select case
+    when array_length(storage.foldername(object_name), 1) = 1
+     and (storage.foldername(object_name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    then (storage.foldername(object_name))[1]::uuid
+  end;
+$$;
+
+create or replace function public.family_cover_object_ok(object_name text)
+returns boolean
+language sql
+immutable
+strict
+set search_path = ''
+as $$
+  select public.family_cover_family_id(object_name) is not null
+    and lower(storage.filename(object_name)) in (
+      'cover.jpg', 'cover.jpeg', 'cover.png', 'cover.webp'
+    )
+    and lower(storage.extension(object_name)) in ('jpg', 'jpeg', 'png', 'webp');
+$$;
+
+revoke all on function public.family_cover_family_id(text) from public, anon;
+revoke all on function public.family_cover_object_ok(text) from public, anon;
+grant execute on function public.family_cover_family_id(text) to authenticated, service_role;
+grant execute on function public.family_cover_object_ok(text) to authenticated, service_role;
+
 create policy family_covers_select_member
   on storage.objects for select
   to authenticated
   using (
     bucket_id = 'family-covers'
-    and array_length(storage.foldername(name), 1) = 1
-    and lower(storage.filename(name)) in (
-      'cover.jpg', 'cover.jpeg', 'cover.png', 'cover.webp'
-    )
-    and lower(storage.extension(name)) in ('jpg', 'jpeg', 'png', 'webp')
-    and public.is_family_member(
-      case
-        when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        then (storage.foldername(name))[1]::uuid
-      end
-    )
+    and public.family_cover_object_ok(name)
+    and public.is_family_member(public.family_cover_family_id(name))
   );
 
 create policy family_covers_insert_owner
@@ -123,24 +147,10 @@ create policy family_covers_insert_owner
   to authenticated
   with check (
     bucket_id = 'family-covers'
-    and array_length(storage.foldername(name), 1) = 1
-    and lower(storage.filename(name)) in (
-      'cover.jpg', 'cover.jpeg', 'cover.png', 'cover.webp'
-    )
-    and lower(storage.extension(name)) in ('jpg', 'jpeg', 'png', 'webp')
+    and public.family_cover_object_ok(name)
     and (
-      public.is_family_owner(
-        case
-          when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          then (storage.foldername(name))[1]::uuid
-        end
-      )
-      or public.is_family_co_owner(
-        case
-          when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          then (storage.foldername(name))[1]::uuid
-        end
-      )
+      public.is_family_owner(public.family_cover_family_id(name))
+      or public.is_family_co_owner(public.family_cover_family_id(name))
     )
   );
 
@@ -149,45 +159,18 @@ create policy family_covers_update_owner
   to authenticated
   using (
     bucket_id = 'family-covers'
-    and array_length(storage.foldername(name), 1) = 1
-    and lower(storage.filename(name)) in (
-      'cover.jpg', 'cover.jpeg', 'cover.png', 'cover.webp'
-    )
+    and public.family_cover_object_ok(name)
     and (
-      public.is_family_owner(
-        case
-          when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          then (storage.foldername(name))[1]::uuid
-        end
-      )
-      or public.is_family_co_owner(
-        case
-          when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          then (storage.foldername(name))[1]::uuid
-        end
-      )
+      public.is_family_owner(public.family_cover_family_id(name))
+      or public.is_family_co_owner(public.family_cover_family_id(name))
     )
   )
   with check (
     bucket_id = 'family-covers'
-    and array_length(storage.foldername(name), 1) = 1
-    and lower(storage.filename(name)) in (
-      'cover.jpg', 'cover.jpeg', 'cover.png', 'cover.webp'
-    )
-    and lower(storage.extension(name)) in ('jpg', 'jpeg', 'png', 'webp')
+    and public.family_cover_object_ok(name)
     and (
-      public.is_family_owner(
-        case
-          when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          then (storage.foldername(name))[1]::uuid
-        end
-      )
-      or public.is_family_co_owner(
-        case
-          when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          then (storage.foldername(name))[1]::uuid
-        end
-      )
+      public.is_family_owner(public.family_cover_family_id(name))
+      or public.is_family_co_owner(public.family_cover_family_id(name))
     )
   );
 
@@ -196,23 +179,10 @@ create policy family_covers_delete_owner
   to authenticated
   using (
     bucket_id = 'family-covers'
-    and array_length(storage.foldername(name), 1) = 1
-    and lower(storage.filename(name)) in (
-      'cover.jpg', 'cover.jpeg', 'cover.png', 'cover.webp'
-    )
+    and public.family_cover_object_ok(name)
     and (
-      public.is_family_owner(
-        case
-          when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          then (storage.foldername(name))[1]::uuid
-        end
-      )
-      or public.is_family_co_owner(
-        case
-          when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          then (storage.foldername(name))[1]::uuid
-        end
-      )
+      public.is_family_owner(public.family_cover_family_id(name))
+      or public.is_family_co_owner(public.family_cover_family_id(name))
     )
   );
 

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_header.dart';
@@ -22,7 +21,7 @@ import '../invites/invite_modal.dart';
 import '../stories/story_date.dart';
 import '../stories/story_reader_page.dart';
 import 'family_role.dart';
-import 'start_timeline_dialog.dart';
+import 'start_timeline_host.dart';
 
 /// Default home for a live family. Hero, then the Latest shelf.
 class FamilyLandingPage extends StatefulWidget {
@@ -164,15 +163,11 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     return null;
   }
 
-  Future<List<Story>> _fetchLatest(String familyId) async {
+  Future<List<Story>> _fetchLatest(String familyId) {
     final load = widget.loadLatest;
     if (load != null) return load(familyId);
-    final api = widget.storiesApi;
-    if (api is StoriesApi) return api.listLatestPublished(familyId, now: _now);
-    if (api == null) {
-      return StoriesApi().listLatestPublished(familyId, now: _now);
-    }
-    return const [];
+    final api = widget.storiesApi ?? StoriesApi();
+    return api.listLatestPublished(familyId, now: _now);
   }
 
   Future<Uint8List?> _downloadCover(String? path) async {
@@ -225,47 +220,30 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     );
   }
 
-  String? _sessionUserId() {
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
-  }
-
   Future<void> _startTimeline() async {
     final family = _family;
     if (family == null || !mounted) return;
-    final userId = _sessionUserId();
+    final userId = signedInUserId();
     if (userId == null) return;
     List<Story> stories = const [];
     try {
-      final api = widget.storiesApi;
-      if (api != null) {
-        stories = await api.listPublished(family.id);
-      } else {
-        stories = await StoriesApi().listPublished(family.id);
-      }
+      final api = widget.storiesApi ?? StoriesApi();
+      stories = await api.listPublished(family.id);
     } catch (error) {
       if (!mounted) return;
       _snack(mapRpcError(error) ?? 'Try again');
       return;
     }
     if (!mounted) return;
-    final created = await showStartTimelineDialog(
+    final created = await openStartTimeline(
       context,
       parentId: family.id,
       parentName: family.name,
       stories: stories,
+      userId: userId,
       familiesApi: widget.familiesApi ?? FamiliesApi(),
       peopleApi: widget.peopleApi ?? PeopleApi(),
       manageApi: widget.manageApi ?? ManageFamiliesApi(),
-      currentUserId: userId,
-      onWriteStory: () {
-        if (!mounted) return;
-        GoRouter.of(context)
-            .go('${AppRoutes.newStory}?newTimelineFrom=${family.id}');
-      },
     );
     if (created == null || !mounted) return;
     ScaffoldMessenger.of(
@@ -292,11 +270,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     );
     if (!mounted || choice == null) return;
     try {
-      final api = widget.familiesApi;
-      if (api is! FamiliesApi) {
-        _snack('Couldn’t save the family photo. Try again.');
-        return;
-      }
+      final api = widget.familiesApi ?? FamiliesApi();
       if (choice.remove) {
         await api.clearCoverPhoto(
           familyId: family.id,

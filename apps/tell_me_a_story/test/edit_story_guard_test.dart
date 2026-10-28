@@ -263,6 +263,14 @@ Future<GoRouter> _mount(
 }
 
 class _Stories implements StoriesGateway {
+  @override
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  }) async => const [];
+
   _Stories(this.story);
 
   Story story;

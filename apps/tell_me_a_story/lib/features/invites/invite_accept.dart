@@ -17,7 +17,7 @@ Future<void> acceptInviteFromUriIfPresent({
   try {
     await inviteApi.acceptInvite(token: token);
   } catch (_) {
-    // Stay on timeline; chrome locks don't define a dedicated accept error surface in M2.
+    // No dedicated accept-error surface. Still open Family Landing.
   }
   if (!context.mounted) return;
   context.go(AppRoutes.familyLanding);

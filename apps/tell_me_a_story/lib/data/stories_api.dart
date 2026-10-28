@@ -349,6 +349,15 @@ abstract class StoriesGateway {
   Future<Story?> getPublished(String storyId);
   Future<List<Story>> listMyDrafts(String familyId);
   Future<List<Story>> listPublished(String familyId);
+
+  /// Published stories added in the past [withinDays], newest first, at most [limit].
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  });
+
   Future<void> discard(String storyId);
 
   /// One `story_people` insert. Does not replace the story's other people.
@@ -632,7 +641,7 @@ class StoriesApi implements StoriesGateway {
     return rows.map(Story.fromJson).toList();
   }
 
-  /// Published stories added in the past [withinDays], newest first, at most [limit].
+  @override
   Future<List<Story>> listLatestPublished(
     String familyId, {
     int withinDays = 7,

@@ -172,6 +172,24 @@ abstract class FamiliesGateway {
     return const [];
   }
 
+  /// Upload the hero, then store its object key. Tests that never save
+  /// inherit the unimplemented default.
+  Future<String> setCoverPhoto({
+    required String familyId,
+    required Uint8List bytes,
+    String? previousPath,
+  }) {
+    throw UnimplementedError();
+  }
+
+  /// Delete the hero object and clear `cover_photo_path`.
+  Future<void> clearCoverPhoto({
+    required String familyId,
+    required String? path,
+  }) {
+    throw UnimplementedError();
+  }
+
   /// Live members of [familyId], with accounts. The default is empty so
   /// callers that do not open the create form stay quiet.
   Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
@@ -328,6 +346,7 @@ class FamiliesApi
   }
 
   /// Upload the hero, then store its object key on the family row.
+  @override
   Future<String> setCoverPhoto({
     required String familyId,
     required Uint8List bytes,
@@ -347,6 +366,7 @@ class FamiliesApi
   }
 
   /// Delete the hero object and clear `cover_photo_path`.
+  @override
   Future<void> clearCoverPhoto({
     required String familyId,
     required String? path,

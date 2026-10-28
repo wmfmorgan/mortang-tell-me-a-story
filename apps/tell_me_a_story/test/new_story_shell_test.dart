@@ -883,6 +883,14 @@ void main() {
 }
 
 class _AutosaveStories implements StoriesGateway {
+  @override
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  }) async => const [];
+
   var duplicateOnCreate = false;
   Object? createError;
   final List<String?> createIds = [];
