@@ -145,7 +145,7 @@ class _StartFamilyDialogState extends State<_StartFamilyDialog> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            "Create a new standalone family that isn't associated to any of your existing families. You become the owner.",
+                            "Create a new standalone family that isn't associated with any of your existing families. You become the owner.",
                             style: GoogleFonts.literata(
                               color: const Color(0xFF635746),
                               fontSize: 16,
