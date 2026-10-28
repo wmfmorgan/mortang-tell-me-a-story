@@ -195,7 +195,7 @@ void main() {
     expect(find.byKey(const Key('start-family-dialog')), findsOneWidget);
     expect(
       find.text(
-        "Create a new standalone family that isn't associated to any of your existing families. You become the owner.",
+        "Create a new standalone family that isn't associated with any of your existing families. You become the owner.",
       ),
       findsOneWidget,
     );
