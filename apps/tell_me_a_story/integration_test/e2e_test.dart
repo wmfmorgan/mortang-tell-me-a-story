@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TextField, FilledButton;
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -140,6 +140,7 @@ void main() {
       tester,
       'C3',
       title,
+      body: body,
       person: person,
       placeLabel: place.label,
     );
@@ -203,6 +204,7 @@ void main() {
       tester,
       'C4',
       title,
+      body: body,
       person: person,
       placeLabel: place.label,
     );
@@ -595,21 +597,67 @@ Future<void> _enterStory(
   required String body,
 }) async {
   await _step(flow, 'title-text', () async {
-    final titleField = find.byKey(const Key('story-title'));
-    await tester.ensureVisible(titleField);
-    await tester.enterText(titleField, title);
-    await tester.pump();
-    final bodyField = find.byKey(const Key('story-body'));
-    await tester.ensureVisible(bodyField);
-    await tester.enterText(bodyField, body);
-    await tester.pump();
+    await _untilField(tester, const Key('story-title'), title);
+    await _untilField(tester, const Key('story-body'), body);
   });
+}
+
+String? _fieldText(WidgetTester tester, Key key) {
+  final finder = find.byKey(key);
+  if (finder.evaluate().isEmpty) return null;
+  return tester.widget<TextField>(finder).controller?.text;
+}
+
+bool _fieldHolds(WidgetTester tester, Key key, String value) {
+  return (_fieldText(tester, key) ?? '').trim() == value.trim();
+}
+
+/// [WidgetTester.enterText] is dropped on the multiline story body under web
+/// drive (`updateEditingValue` no-ops when the input connection is not open).
+/// Write the editing value directly so publish can see the body.
+Future<void> _putField(WidgetTester tester, Key key, String value) async {
+  final finder = find.byKey(key);
+  await tester.ensureVisible(finder);
+  final editable = tester.state<EditableTextState>(
+    find.descendant(of: finder, matching: find.byType(EditableText)),
+  );
+  editable.userUpdateTextEditingValue(
+    TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    ),
+    SelectionChangedCause.keyboard,
+  );
+  await tester.pump();
+}
+
+Future<void> _untilField(
+  WidgetTester tester,
+  Key key,
+  String value, {
+  Duration timeout = const Duration(seconds: 15),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (true) {
+    if (_fieldHolds(tester, key, value)) return;
+    await _putField(tester, key, value);
+    if (_fieldHolds(tester, key, value)) return;
+    if (!DateTime.now().isBefore(deadline)) {
+      final saw = _fieldText(tester, key);
+      throw TestFailure(
+        '$key did not keep its text within $timeout (url: ${Uri.base}) '
+        'saw=${saw == null ? 'absent' : saw.length}',
+      );
+    }
+    await tester.pump(const Duration(milliseconds: 200));
+  }
 }
 
 Future<void> _publish(
   WidgetTester tester,
   String flow,
   String title, {
+  required String body,
   required String person,
   required String placeLabel,
 }) async {
@@ -642,14 +690,46 @@ Future<void> _publish(
     }
 
     // Pre-tap settle (15s). FORBIDDEN: wait on find.text('Saved') here.
+    // Do not tap while the body is empty: publish stays on /stories/new and
+    // shows the highlighted-fields banner.
     final readyDeadline = DateTime.now().add(const Duration(seconds: 15));
     while (DateTime.now().isBefore(readyDeadline)) {
+      if (!_fieldHolds(tester, const Key('story-body'), body)) {
+        final bodyField = find.byKey(const Key('story-body'));
+        if (bodyField.evaluate().isNotEmpty) {
+          await _putField(tester, const Key('story-body'), body);
+        }
+      }
       if (missingFields().isEmpty) break;
       await tester.pump(const Duration(milliseconds: 100));
+    }
+    final missingAtTap = missingFields();
+    if (missingAtTap.isNotEmpty) {
+      throw TestFailure(
+        'refusing to publish with missing=${missingAtTap.join(',')} '
+        '(url: ${Uri.base})',
+      );
     }
 
     final publish = find.text('Publish story');
     await tester.ensureVisible(publish);
+    await tester.pump(const Duration(milliseconds: 100));
+    if (!_fieldHolds(tester, const Key('story-body'), body)) {
+      await _untilField(
+        tester,
+        const Key('story-body'),
+        body,
+        timeout: const Duration(seconds: 5),
+      );
+      await tester.ensureVisible(publish);
+    }
+    final stillMissing = missingFields();
+    if (stillMissing.isNotEmpty) {
+      throw TestFailure(
+        'refusing to publish with missing=${stillMissing.join(',')} '
+        '(url: ${Uri.base})',
+      );
+    }
     final statusAtTap = captureStatus();
     await tester.tap(publish);
     final finder = find.byKey(const Key('header-underline-timeline'));
@@ -767,7 +847,14 @@ Future<Story> _publishAlbumStory(
   await _chooseFavorite(tester, flow, place.label);
   await _addPerson(tester, flow, person);
   await _enterStory(tester, flow, title: title, body: body);
-  await _publish(tester, flow, title, person: person, placeLabel: place.label);
+  await _publish(
+    tester,
+    flow,
+    title,
+    body: body,
+    person: person,
+    placeLabel: place.label,
+  );
   return _step(flow, 'published', () {
     return _publishedStory(familyId: place.familyId, title: title);
   });
