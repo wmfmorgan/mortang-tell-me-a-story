@@ -110,7 +110,7 @@ void main() {
     });
   }, timeout: const Timeout(Duration(minutes: 4)));
 
-  testWidgets('C2 start a family lands on its empty timeline', (tester) async {
+  testWidgets('C2 start a family lands on Family Landing', (tester) async {
     final email = e2eEmail(flow: 2, n: 1);
     final name = e2eFamilyName(flow: 2, n: 1);
     await _signIn(tester, 'C2', email);
@@ -351,6 +351,7 @@ void main() {
     await _signIn(tester, 'C9', email);
     await _signOut(tester);
     for (final route in const [
+      '/family',
       '/timeline',
       '/drafts',
       '/search',
@@ -497,9 +498,10 @@ Future<void> _startFamily(WidgetTester tester, String flow, String name) async {
     await tester.tap(create);
     await pumpUntilGone(tester, find.byKey(const Key('start-family-dialog')));
     await pumpUntilFound(tester, find.text(name));
+    await pumpUntilFound(tester, find.byKey(const Key('family-landing')));
     await pumpUntilFound(
       tester,
-      find.text('No stories yet. Capture the first one for this family.'),
+      find.text('No stories added in the past 7 days.'),
     );
   });
 }

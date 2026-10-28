@@ -218,7 +218,7 @@ void main() {
   });
 
   testWidgets(
-    'Save writes with the original familyId, then lands on /timeline',
+    'Save writes with the original familyId, then lands on /family',
     (tester) async {
       await _surface(tester);
       final stories = _Stories();
@@ -235,7 +235,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(stories.createDraftCalls, 1);
       expect(stories.createdFamilyId, _ada);
-      expect(router.state.uri.path, '/timeline');
+      expect(router.state.uri.path, '/family');
       expect(FamilySelection.id, _bea);
     },
   );
@@ -389,6 +389,10 @@ Future<GoRouter> _mount(
   final router = GoRouter(
     initialLocation: pushed ? '/timeline' : '/stories/new',
     routes: [
+      GoRoute(
+        path: '/family',
+        builder: (_, _) => const Text('landing-marker'),
+      ),
       GoRoute(
         path: '/timeline',
         builder: (_, _) => const Text('timeline-marker'),

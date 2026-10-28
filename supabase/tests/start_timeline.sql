@@ -1014,8 +1014,8 @@ select ok(
 );
 select is(
   (select count(*) from pg_policies where schemaname in ('public', 'storage')),
-  47::bigint,
-  'policy count stays 47'
+  51::bigint,
+  'policy count stays 51'
 );
 
 set local role authenticated;

@@ -20,6 +20,7 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
+import 'package:tell_me_a_story/features/family/family_landing_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 class _StubInviteApi implements InviteGateway {
@@ -307,7 +308,7 @@ void main() {
     auth.dispose();
   });
 
-  testWidgets('signed-in user is redirected from magic-link to /timeline', (
+  testWidgets('signed-in user is redirected from magic-link to /family', (
     tester,
   ) async {
     final auth = AuthRefresh(initiallySignedIn: true);
@@ -321,38 +322,39 @@ void main() {
 
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
-      AppRoutes.timeline,
+      AppRoutes.familyLanding,
     );
-    expect(find.byType(TimelinePage), findsOneWidget);
+    expect(find.byType(FamilyLandingPage), findsOneWidget);
     expect(find.byType(MagicLinkPage), findsNothing);
 
     auth.dispose();
   });
 
-  testWidgets('auth refresh moves signed-out user to timeline after sign-in', (
-    tester,
-  ) async {
-    final auth = AuthRefresh(initiallySignedIn: false);
-    final router = createAppRouter(
-      authRefresh: auth,
-      inviteApi: _StubInviteApi(),
-    );
+  testWidgets(
+    'auth refresh moves signed-out user to Family Landing after sign-in',
+    (tester) async {
+      final auth = AuthRefresh(initiallySignedIn: false);
+      final router = createAppRouter(
+        authRefresh: auth,
+        inviteApi: _StubInviteApi(),
+      );
 
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
-    await tester.pumpAndSettle();
-    expect(find.byType(MagicLinkPage), findsOneWidget);
+      await tester.pumpWidget(TellMeAStoryApp(router: router));
+      await tester.pumpAndSettle();
+      expect(find.byType(MagicLinkPage), findsOneWidget);
 
-    auth.setSignedIn(true);
-    await tester.pumpAndSettle();
+      auth.setSignedIn(true);
+      await tester.pumpAndSettle();
 
-    expect(find.byType(TimelinePage), findsOneWidget);
-    expect(
-      router.routerDelegate.currentConfiguration.uri.path,
-      AppRoutes.timeline,
-    );
+      expect(find.byType(FamilyLandingPage), findsOneWidget);
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        AppRoutes.familyLanding,
+      );
 
-    auth.dispose();
-  });
+      auth.dispose();
+    },
+  );
 
   testWidgets('invite query rewrites to /invite/:token', (tester) async {
     // Signed out, so the rewritten invite page stays. A signed-in session
@@ -405,7 +407,7 @@ void main() {
     auth.dispose();
   });
 
-  testWidgets('a non-member /stories/new returns to the timeline', (
+  testWidgets('a non-member /stories/new returns to Family Landing', (
     tester,
   ) async {
     addTearDown(FamilySelection.clear);
@@ -423,12 +425,13 @@ void main() {
     await tester.pumpWidget(TellMeAStoryApp(router: router));
     await tester.pumpAndSettle();
 
+    FamilySelection.remember('other-family');
     router.go(AppRoutes.newStory);
     await tester.pumpAndSettle();
 
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
-      AppRoutes.timeline,
+      AppRoutes.familyLanding,
     );
     expect(find.byType(NewStoryPage), findsNothing);
 
@@ -480,7 +483,7 @@ void main() {
     await tester.pumpWidget(TellMeAStoryApp(router: router));
     await tester.pumpAndSettle();
 
-    expect(find.byType(TimelinePage), findsOneWidget);
+    expect(find.byType(FamilyLandingPage), findsOneWidget);
     final newStoryButton = find.widgetWithText(FilledButton, 'New story');
     expect(newStoryButton, findsOneWidget);
     // Invoke directly: AppBar action hit-tests can miss in small surfaces;
@@ -508,7 +511,7 @@ void main() {
     await tester.pumpWidget(TellMeAStoryApp(router: router));
     await tester.pumpAndSettle();
 
-    expect(find.byType(TimelinePage), findsOneWidget);
+    expect(find.byType(FamilyLandingPage), findsOneWidget);
     await tester.tap(find.text('Draft Stories'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));

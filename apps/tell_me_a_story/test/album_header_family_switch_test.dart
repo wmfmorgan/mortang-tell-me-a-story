@@ -19,7 +19,7 @@ void main() {
   tearDown(FamilySelection.clear);
 
   testWidgets(
-    'Rule 1: a different family goes to /timeline from Drafts, Settings, New, Edit and Manage; Timeline stays in place',
+    'a different family goes to /family from Drafts, Settings, New, Edit, Manage, and Timeline',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -31,6 +31,7 @@ void main() {
         (AlbumHeaderPage.manageFamilies, '/manage-families'),
         (AlbumHeaderPage.manageFamilies, '/manage-families/ada'),
         (AlbumHeaderPage.timeline, '/timeline'),
+        (AlbumHeaderPage.familyLanding, '/family'),
       ];
       for (final (page, location) in cases) {
         final selected = <String>[];
@@ -43,7 +44,7 @@ void main() {
         await tester.pumpWidget(MaterialApp.router(routerConfig: router));
         await tester.pumpAndSettle();
         await _pick(tester, const Key('family-menu-item-$_bea'));
-        expect(router.state.uri.path, '/timeline');
+        expect(router.state.uri.path, '/family');
         expect(selected, [_bea]);
         expect(FamilySelection.id, _bea);
       }
@@ -73,7 +74,7 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: drafts));
     await tester.pumpAndSettle();
     await _pick(tester, const Key('family-menu-item-$_related'));
-    expect(drafts.state.uri.path, '/timeline');
+    expect(drafts.state.uri.path, '/family');
     expect(fromDrafts, [_related]);
 
     final fromTimeline = <String>[];
@@ -87,7 +88,7 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: timeline));
     await tester.pumpAndSettle();
     await _pick(tester, const Key('family-menu-item-$_related'));
-    expect(timeline.state.uri.path, '/timeline');
+    expect(timeline.state.uri.path, '/family');
     expect(fromTimeline, [_related]);
   });
 
@@ -140,6 +141,7 @@ GoRouter _router({
   return GoRouter(
     initialLocation: location,
     routes: [
+      GoRoute(path: '/family', builder: (_, _) => screen()),
       GoRoute(path: '/timeline', builder: (_, _) => screen()),
       GoRoute(path: '/drafts', builder: (_, _) => screen()),
       GoRoute(path: '/settings', builder: (_, _) => screen()),

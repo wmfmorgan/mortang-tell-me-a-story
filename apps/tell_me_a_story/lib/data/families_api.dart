@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'family_covers.dart';
 import 'recovery_window.dart';
 
 /// A family the signed-in member can already read.
@@ -13,6 +14,7 @@ class MemberFamily {
     this.parentFamilyId,
     this.branchYear,
     this.role,
+    this.coverPhotoPath,
   });
 
   final String id;
@@ -27,6 +29,9 @@ class MemberFamily {
   /// null when the row did not come from `listMine()`.
   final String? role;
 
+  /// Object key in `family-covers`, or null when the hero is a placeholder.
+  final String? coverPhotoPath;
+
   factory MemberFamily.fromJson(Map<String, dynamic> json, {String? role}) {
     final rawYear = json['branch_year'];
     return MemberFamily(
@@ -40,6 +45,7 @@ class MemberFamily {
           : DateTime.utc(2020),
       branchYear: rawYear is num ? rawYear.toInt() : null,
       role: role,
+      coverPhotoPath: json['cover_photo_path'] as String?,
     );
   }
 }
@@ -299,11 +305,58 @@ abstract class FamilyDirectoryGateway {
   Future<FamilyDetail?> loadDetail(String familyId);
 }
 
-class FamiliesApi implements FamiliesGateway, FamilyDirectoryGateway {
+class FamiliesApi
+    implements FamiliesGateway, FamilyDirectoryGateway, FamilyCoverClient {
   FamiliesApi({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
+
+  FamilyCoversApi get _covers => FamilyCoversApi(client: _client);
+
+  @override
+  Future<Uint8List?> download(String? path) => _covers.download(path);
+
+  @override
+  Future<String> save({required String familyId, required Uint8List bytes}) {
+    return _covers.save(familyId: familyId, bytes: bytes);
+  }
+
+  @override
+  Future<void> clear({required String familyId, required String? path}) {
+    return _covers.clear(familyId: familyId, path: path);
+  }
+
+  /// Upload the hero, then store its object key on the family row.
+  Future<String> setCoverPhoto({
+    required String familyId,
+    required Uint8List bytes,
+    String? previousPath,
+  }) async {
+    final path = await save(familyId: familyId, bytes: bytes);
+    await _client
+        .from('families')
+        .update({'cover_photo_path': path})
+        .eq('id', familyId);
+    if (previousPath != null &&
+        previousPath.isNotEmpty &&
+        previousPath != path) {
+      await _client.storage.from(familyCoversBucket).remove([previousPath]);
+    }
+    return path;
+  }
+
+  /// Delete the hero object and clear `cover_photo_path`.
+  Future<void> clearCoverPhoto({
+    required String familyId,
+    required String? path,
+  }) async {
+    await clear(familyId: familyId, path: path);
+    await _client
+        .from('families')
+        .update({'cover_photo_path': null})
+        .eq('id', familyId);
+  }
 
   @override
   Future<List<MemberFamily>> listMine() async {
@@ -311,7 +364,7 @@ class FamiliesApi implements FamiliesGateway, FamilyDirectoryGateway {
     final rows = await _client
         .from('memberships')
         .select(
-          'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at)',
+          'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at, cover_photo_path)',
         )
         .eq('user_id', uid)
         .isFilter('families.deleted_at', null);

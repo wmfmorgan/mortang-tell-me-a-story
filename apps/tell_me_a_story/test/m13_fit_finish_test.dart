@@ -197,6 +197,10 @@ void main() {
               ),
             ),
             GoRoute(
+              path: AppRoutes.familyLanding,
+              builder: (context, state) => const Text('landing-home'),
+            ),
+            GoRoute(
               path: AppRoutes.timeline,
               builder: (context, state) => const Text('timeline-home'),
             ),
@@ -205,44 +209,49 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('timeline-home'), findsOneWidget);
+    expect(find.text('landing-home'), findsOneWidget);
     expect(signed.accepts, 1);
   });
 
-  testWidgets('signed-in return to an already used invite opens the timeline', (
-    tester,
-  ) async {
-    final invites = _Invites();
-    var validated = 0;
-    final router = GoRouter(
-      initialLocation: '/invite/tok',
-      routes: [
-        GoRoute(
-          path: '/invite/:token',
-          builder: (context, state) => InviteSignInPage(
-            token: 'tok',
-            previewApi: _Preview(
-              const InvitePreview(valid: false),
-              onValidate: () => validated++,
+  testWidgets(
+    'signed-in return to an already used invite opens Family Landing',
+    (tester) async {
+      final invites = _Invites();
+      var validated = 0;
+      final router = GoRouter(
+        initialLocation: '/invite/tok',
+        routes: [
+          GoRoute(
+            path: '/invite/:token',
+            builder: (context, state) => InviteSignInPage(
+              token: 'tok',
+              previewApi: _Preview(
+                const InvitePreview(valid: false),
+                onValidate: () => validated++,
+              ),
+              inviteApi: invites,
+              signedIn: () => true,
             ),
-            inviteApi: invites,
-            signedIn: () => true,
           ),
-        ),
-        GoRoute(
-          path: AppRoutes.timeline,
-          builder: (context, state) => const Text('timeline-home'),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-    await tester.pumpAndSettle();
-    expect(find.text('timeline-home'), findsOneWidget);
-    expect(find.text(inviteDeadLink), findsNothing);
-    expect(invites.accepts, 1);
-    expect(validated, 0);
-  });
+          GoRoute(
+            path: AppRoutes.familyLanding,
+            builder: (context, state) => const Text('landing-home'),
+          ),
+          GoRoute(
+            path: AppRoutes.timeline,
+            builder: (context, state) => const Text('timeline-home'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+      expect(find.text('landing-home'), findsOneWidget);
+      expect(find.text(inviteDeadLink), findsNothing);
+      expect(invites.accepts, 1);
+      expect(validated, 0);
+    },
+  );
 
   testWidgets('signed-in invite that another account used stays dead', (
     tester,

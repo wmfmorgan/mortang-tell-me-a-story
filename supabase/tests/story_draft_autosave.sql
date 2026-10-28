@@ -482,8 +482,8 @@ reset role;
 
 select is(
   (select count(*)::int from pg_policies),
-  47,
-  'policy count is 47'
+  51,
+  'policy count is 51'
 );
 
 select is(

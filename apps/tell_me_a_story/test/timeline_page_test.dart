@@ -890,6 +890,8 @@ void main() {
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
     await tester.pumpAndSettle();
+    router.go(AppRoutes.timeline);
+    await tester.pumpAndSettle();
 
     expect(
       find.text('No stories yet. Capture the first one for this family.'),
@@ -930,6 +932,8 @@ void main() {
     );
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+    router.go(AppRoutes.timeline);
     await tester.pumpAndSettle();
 
     expect(_tooltipFor(tester, story.id), contains('Jam'));

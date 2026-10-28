@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
 import '../../data/invite_api.dart';
 
-/// After session exists, accept `?invite=` token and land on `/timeline`.
+/// After session exists, accept `?invite=` token and land on Family Landing.
 Future<void> acceptInviteFromUriIfPresent({
   required BuildContext context,
   required Uri uri,
@@ -20,5 +20,5 @@ Future<void> acceptInviteFromUriIfPresent({
     // Stay on timeline; chrome locks don't define a dedicated accept error surface in M2.
   }
   if (!context.mounted) return;
-  context.go(AppRoutes.timeline);
+  context.go(AppRoutes.familyLanding);
 }
