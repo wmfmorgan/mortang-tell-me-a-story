@@ -181,7 +181,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
     final id = await showStartFamilyDialog(context, api: _manage);
     if (id == null || !mounted) return;
     FamilySelection.remember(id);
-    context.go(AppRoutes.timeline);
+    context.go(AppRoutes.familyLanding);
   }
 
   Future<void> _recover(FamilyRoster family) async {
@@ -551,7 +551,7 @@ class _MemberRow extends StatelessWidget {
       key: Key('manage-families-member-${family.id}'),
       onTap: () {
         FamilySelection.remember(family.id);
-        context.go(AppRoutes.timeline);
+        context.go(AppRoutes.familyLanding);
       },
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 56),

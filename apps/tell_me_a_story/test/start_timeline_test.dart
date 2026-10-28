@@ -221,6 +221,14 @@ class _Invite implements InviteGateway {
 }
 
 class _Stories implements StoriesGateway {
+  @override
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  }) async => const [];
+
   _Stories({List<Story>? published, this.draft}) : published = [...?published];
 
   final List<Story> published;
@@ -1646,6 +1654,14 @@ GoRouter _readerRouter({
 }
 
 class _ReaderStories implements StoriesGateway {
+  @override
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  }) async => const [];
+
   _ReaderStories(this.story, {required this.honorStatus});
 
   final Story story;

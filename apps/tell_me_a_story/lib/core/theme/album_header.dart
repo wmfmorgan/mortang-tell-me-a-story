@@ -17,7 +17,14 @@ import 'album_theme.dart';
 import 'profile_avatar.dart';
 
 /// Which signed-in screen is showing the shared bar.
-enum AlbumHeaderPage { timeline, drafts, capture, settings, manageFamilies }
+enum AlbumHeaderPage {
+  timeline,
+  drafts,
+  capture,
+  settings,
+  manageFamilies,
+  familyLanding,
+}
 
 /// Stitch screen `703158c2c064414883d9d1c1dff8902a` header only.
 class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
@@ -592,8 +599,8 @@ class _FamilyMenu extends StatelessWidget {
     final leave = await _confirmFamilySwitch(context, _nameFor(value));
     if (!leave || !context.mounted) return;
     onSelected(value);
-    if (page == AlbumHeaderPage.timeline) return;
-    GoRouter.maybeOf(context)?.go(AppRoutes.timeline);
+    if (page == AlbumHeaderPage.familyLanding) return;
+    GoRouter.maybeOf(context)?.go(AppRoutes.familyLanding);
   }
 
   List<PopupMenuEntry<String>> _menuItems() {

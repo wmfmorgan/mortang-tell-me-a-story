@@ -118,7 +118,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       _accepted = true;
       if (!mounted) return;
       FamilySelection.remember(result.familyId);
-      context.go(AppRoutes.timeline);
+      context.go(AppRoutes.familyLanding);
     } catch (_) {
       _accepting = false;
       if (!mounted) return;

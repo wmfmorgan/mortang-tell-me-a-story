@@ -338,7 +338,9 @@ void main() {
     );
   });
 
-  testWidgets('picking a family on Manage opens that timeline', (tester) async {
+  testWidgets('picking a family on Manage opens Family Landing', (
+    tester,
+  ) async {
     final router = GoRouter(
       initialLocation: AppRoutes.manageFamilies,
       routes: [
@@ -379,6 +381,11 @@ void main() {
           ),
         ),
         GoRoute(
+          path: AppRoutes.familyLanding,
+          builder: (context, state) =>
+              const Scaffold(body: Text('landing-screen')),
+        ),
+        GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) =>
               const Scaffold(body: Text('timeline-screen')),
@@ -394,7 +401,7 @@ void main() {
     await tester.tap(find.byKey(const Key('family-menu-item-bea')));
     await tester.pumpAndSettle();
 
-    expect(find.text('timeline-screen'), findsOneWidget);
+    expect(find.text('landing-screen'), findsOneWidget);
     expect(find.text('hub-screen'), findsNothing);
     expect(FamilySelection.id, 'bea');
 
@@ -405,17 +412,17 @@ void main() {
     await tester.tap(find.byKey(const Key('family-menu-item-ada')));
     await tester.pumpAndSettle();
 
-    expect(find.text('timeline-screen'), findsOneWidget);
+    expect(find.text('landing-screen'), findsOneWidget);
     expect(FamilySelection.id, 'ada');
   });
 
-  testWidgets('a live family lands on the timeline', (tester) async {
+  testWidgets('a live family lands on Family Landing', (tester) async {
     final path = await _land(
       tester,
       families: _Families(live: [_live('ada', 'Ada Archive')]),
       familyId: 'ada',
     );
-    expect(path, AppRoutes.timeline);
+    expect(path, AppRoutes.familyLanding);
   });
 
   testWidgets(

@@ -71,6 +71,14 @@ Story _draft({
 }
 
 class _FakeStoriesApi implements StoriesGateway {
+  @override
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  }) async => const [];
+
   _FakeStoriesApi({List<Story>? drafts, List<String>? callLog})
     : drafts = [...?drafts],
       callLog = callLog ?? [];

@@ -22,6 +22,7 @@ import '../../features/stories/new_story_page.dart';
 import '../navigation/unsaved_guard.dart';
 import '../../features/search/search_page.dart';
 import '../../data/manage_families_api.dart';
+import '../../features/family/family_landing_page.dart';
 import '../../features/family/manage_families_page.dart';
 import '../../features/family/manage_family_page.dart';
 import '../../features/search/search_recents.dart';
@@ -30,9 +31,10 @@ import '../../features/timeline/timeline_page.dart';
 import '../../data/search_api.dart';
 import 'auth_refresh.dart';
 
-/// Chrome-lock paths: magic-link entry (signed-out), `/timeline` (signed-in).
+/// Chrome-lock paths: magic-link entry (signed-out), `/family` (signed-in home).
 abstract final class AppRoutes {
   static const magicLink = '/';
+  static const familyLanding = '/family';
   static const timeline = '/timeline';
   static const newStory = '/stories/new';
   static const story = '/stories/:storyId';
@@ -58,20 +60,20 @@ abstract final class AppRoutes {
 
 /// Where a signed-in session opens from the magic-link route.
 ///
-/// A live family lands on the timeline. No live family, with a soft-deleted
+/// A live family lands on Family Landing. No live family, with a soft-deleted
 /// family the caller still owns or co-owns, lands on the manage hub. Neither
-/// lands on the timeline empty Start state.
+/// live family nor a failed lookup lands on the timeline empty Start state.
 Future<String> appStartPath(FamiliesGateway? families) async {
-  if (families == null) return AppRoutes.timeline;
+  if (families == null) return AppRoutes.familyLanding;
   try {
     final live = await families.listMine();
-    if (live.isNotEmpty) return AppRoutes.timeline;
+    if (live.isNotEmpty) return AppRoutes.familyLanding;
     final stewarded = await families.listStewarded();
     if (stewarded.any((family) => family.countsForManage())) {
       return AppRoutes.manageFamilies;
     }
   } catch (_) {
-    return AppRoutes.timeline;
+    return AppRoutes.familyLanding;
   }
   return AppRoutes.timeline;
 }
@@ -128,11 +130,35 @@ GoRouter createAppRouter({
           try {
             final mine = await familiesApi.listMine();
             if (!mine.any((family) => family.id == familyId)) {
+              if (mine.isNotEmpty) return AppRoutes.familyLanding;
               return AppRoutes.timeline;
             }
           } catch (_) {
-            return AppRoutes.timeline;
+            return AppRoutes.familyLanding;
           }
+        }
+      }
+      if (signedIn && loc == AppRoutes.familyLanding && familiesApi != null) {
+        try {
+          final mine = await familiesApi.listMine();
+          final selected = FamilySelection.id;
+          final selectedLive =
+              selected != null && mine.any((family) => family.id == selected);
+          if (!selectedLive) {
+            if (selected != null) {
+              final stewarded = await familiesApi.listStewarded();
+              final deleted = stewarded.any(
+                (family) => family.id == selected && family.deletedAt != null,
+              );
+              if (deleted) return AppRoutes.manageFamilies;
+            }
+            if (mine.isEmpty) {
+              final next = await appStartPath(familiesApi);
+              if (next != AppRoutes.familyLanding) return next;
+            }
+          }
+        } catch (_) {
+          return null;
         }
       }
       return null;
@@ -141,6 +167,17 @@ GoRouter createAppRouter({
       GoRoute(
         path: AppRoutes.magicLink,
         builder: (context, state) => const MagicLinkPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.familyLanding,
+        builder: (context, state) => FamilyLandingPage(
+          api: inviteApi,
+          storiesApi: storiesApi,
+          familiesApi: familiesApi,
+          photosApi: photosApi,
+          peopleApi: peopleApi,
+          manageApi: manageApi,
+        ),
       ),
       GoRoute(
         path: AppRoutes.timeline,

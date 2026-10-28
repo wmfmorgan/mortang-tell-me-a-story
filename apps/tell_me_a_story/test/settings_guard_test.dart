@@ -103,7 +103,7 @@ void main() {
     await tester.tap(find.byKey(const Key('family-menu-item-$_bea')));
     await tester.pumpAndSettle();
     expect(find.text('Leave this story?'), findsNothing);
-    expect(router.state.uri.path, AppRoutes.timeline);
+    expect(router.state.uri.path, AppRoutes.familyLanding);
   });
 }
 
@@ -137,6 +137,10 @@ Future<GoRouter> _mount(
           inviteApi: _Invite(),
           onLogout: onLogout,
         ),
+      ),
+      GoRoute(
+        path: AppRoutes.familyLanding,
+        builder: (_, _) => const Text('landing-marker'),
       ),
       GoRoute(
         path: AppRoutes.timeline,

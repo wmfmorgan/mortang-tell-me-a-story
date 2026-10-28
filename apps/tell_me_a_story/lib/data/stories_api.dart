@@ -349,6 +349,15 @@ abstract class StoriesGateway {
   Future<Story?> getPublished(String storyId);
   Future<List<Story>> listMyDrafts(String familyId);
   Future<List<Story>> listPublished(String familyId);
+
+  /// Published stories added in the past [withinDays], newest first, at most [limit].
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  });
+
   Future<void> discard(String storyId);
 
   /// One `story_people` insert. Does not replace the story's other people.
@@ -633,6 +642,36 @@ class StoriesApi implements StoriesGateway {
   }
 
   @override
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  }) async {
+    final cutoff = latestPublishedCutoff(
+      now ?? DateTime.now(),
+      withinDays: withinDays,
+    );
+    final rows = await _client
+        .from('stories')
+        .select(
+          'id, family_id, author_id, title, timeframe_start, timeframe_end, date_precision, status, published_at, photos(id, storage_path, sort_order)',
+        )
+        .eq('family_id', familyId)
+        .eq('status', 'published')
+        .gte('published_at', cutoff.toUtc().toIso8601String())
+        .order('published_at', ascending: false)
+        .order('id', ascending: false)
+        .limit(limit);
+    return latestShelf(
+      rows.map(Story.fromJson),
+      now: now ?? DateTime.now(),
+      withinDays: withinDays,
+      limit: limit,
+    );
+  }
+
+  @override
   Future<void> discard(String storyId) async {
     await _client.from('stories').delete().eq('id', storyId);
   }
@@ -667,6 +706,35 @@ String _date(DateTime value) {
 }
 
 int decadeStartYear(DateTime start) => (start.year ~/ 10) * 10;
+
+/// Start of the Latest window. A story at this instant is included.
+DateTime latestPublishedCutoff(DateTime now, {int withinDays = 7}) {
+  return now.toUtc().subtract(Duration(days: withinDays));
+}
+
+/// Published rows with `published_at` inside the window, newest first.
+List<Story> latestShelf(
+  Iterable<Story> stories, {
+  required DateTime now,
+  int withinDays = 7,
+  int limit = 3,
+}) {
+  final cutoff = latestPublishedCutoff(now, withinDays: withinDays);
+  final rows = [
+    for (final story in stories)
+      if (story.status == StoryStatus.published &&
+          story.publishedAt != null &&
+          !story.publishedAt!.toUtc().isBefore(cutoff))
+        story,
+  ];
+  rows.sort((a, b) {
+    final byTime = b.publishedAt!.compareTo(a.publishedAt!);
+    if (byTime != 0) return byTime;
+    return b.id.compareTo(a.id);
+  });
+  if (rows.length <= limit) return rows;
+  return rows.sublist(0, limit);
+}
 
 /// Oldest first: start, precision, created_at, id. Newest-first is the reverse.
 int compareStories(Story a, Story b) {

@@ -47,6 +47,11 @@ void main() {
           ),
         ),
         GoRoute(
+          path: AppRoutes.familyLanding,
+          builder: (context, state) =>
+              const Scaffold(body: Text('landing-landed')),
+        ),
+        GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) =>
               const Scaffold(body: Text('timeline-landed')),
@@ -225,8 +230,8 @@ void main() {
 
     expect(manage.createdNames, ['North Archive']);
     expect(FamilySelection.id, 'created-1');
-    expect(router.state.uri.path, AppRoutes.timeline);
-    expect(find.text('timeline-landed'), findsOneWidget);
+    expect(router.state.uri.path, AppRoutes.familyLanding);
+    expect(find.text('landing-landed'), findsOneWidget);
   });
 
   testWidgets('member hub start button shows the standalone family tooltip', (

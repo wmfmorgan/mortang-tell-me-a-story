@@ -155,6 +155,14 @@ class _FakeMapboxSearch implements MapboxSearchGateway {
 }
 
 class _FakeStoriesApi implements StoriesGateway {
+  @override
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  }) async => const [];
+
   _FakeStoriesApi({this.story, this.throwOnCreate = false});
 
   Story? story;

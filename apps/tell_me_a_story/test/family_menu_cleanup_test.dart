@@ -408,7 +408,7 @@ void main() {
     },
   );
 
-  testWidgets('picking a nested family from Drafts lands on its timeline', (
+  testWidgets('picking a nested family from Drafts lands on Family Landing', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1400, 900));
@@ -427,6 +427,10 @@ void main() {
           ),
         ),
         GoRoute(
+          path: AppRoutes.familyLanding,
+          builder: (context, state) => const Text('landing-landed'),
+        ),
+        GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) => const Text('timeline-landed'),
         ),
@@ -440,7 +444,7 @@ void main() {
     await tester.tap(find.byKey(const Key('family-menu-item-$kid')));
     await tester.pumpAndSettle();
     expect(FamilySelection.id, kid);
-    expect(router.state.uri.path, AppRoutes.timeline);
+    expect(router.state.uri.path, AppRoutes.familyLanding);
   });
 
   testWidgets(
@@ -605,7 +609,7 @@ void main() {
     },
   );
 
-  testWidgets('non-owner hub row switches family and opens the timeline', (
+  testWidgets('non-owner hub row switches family and opens Family Landing', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 1600));
@@ -631,8 +635,8 @@ void main() {
           ),
         ),
         GoRoute(
-          path: AppRoutes.timeline,
-          builder: (context, state) => const Text('timeline-landed'),
+          path: AppRoutes.familyLanding,
+          builder: (context, state) => const Text('landing-landed'),
         ),
       ],
     );
@@ -642,7 +646,7 @@ void main() {
     await tester.tap(find.byKey(const Key('manage-families-member-mem')));
     await tester.pumpAndSettle();
     expect(FamilySelection.id, 'mem');
-    expect(router.state.uri.path, AppRoutes.timeline);
+    expect(router.state.uri.path, AppRoutes.familyLanding);
   });
 
   testWidgets(
