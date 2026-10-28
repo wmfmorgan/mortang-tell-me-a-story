@@ -92,24 +92,60 @@ void main() {
     expect(fromTimeline, [_related]);
   });
 
-  testWidgets('Rule 3: the current family is a no-op', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(1400, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    FamilySelection.remember('keep');
-    final selected = <String>[];
-    final router = _router(
-      page: AlbumHeaderPage.drafts,
-      location: '/drafts',
-      onSelected: selected.add,
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-    await tester.pumpAndSettle();
-    await _pick(tester, const Key('family-menu-item-$_ada'));
-    expect(selected, isEmpty);
-    expect(router.state.uri.path, '/drafts');
-    expect(FamilySelection.id, 'keep');
-  });
+  testWidgets(
+    'Rule 9: picking the current family off Landing goes to /family',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const cases = <(AlbumHeaderPage, String)>[
+        (AlbumHeaderPage.drafts, '/drafts'),
+        (AlbumHeaderPage.settings, '/settings'),
+        (AlbumHeaderPage.capture, '/stories/new'),
+        (AlbumHeaderPage.capture, '/stories/s1/edit'),
+        (AlbumHeaderPage.manageFamilies, '/manage-families'),
+        (AlbumHeaderPage.manageFamilies, '/manage-families/ada'),
+        (AlbumHeaderPage.timeline, '/timeline'),
+      ];
+      for (final (page, location) in cases) {
+        FamilySelection.remember('keep');
+        final selected = <String>[];
+        final router = _router(
+          page: page,
+          location: location,
+          onSelected: selected.add,
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+        await tester.pumpAndSettle();
+        await _pick(tester, const Key('family-menu-item-$_ada'));
+        expect(selected, isEmpty, reason: location);
+        expect(router.state.uri.path, '/family', reason: location);
+        expect(FamilySelection.id, 'keep', reason: location);
+      }
+    },
+  );
+
+  testWidgets(
+    'Rule 9: picking the current family on Landing stays',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      FamilySelection.remember('keep');
+      final selected = <String>[];
+      final router = _router(
+        page: AlbumHeaderPage.familyLanding,
+        location: '/family',
+        onSelected: selected.add,
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+      await _pick(tester, const Key('family-menu-item-$_ada'));
+      expect(selected, isEmpty);
+      expect(router.state.uri.path, '/family');
+      expect(FamilySelection.id, 'keep');
+    },
+  );
 }
 
 GoRouter _router({
