@@ -830,7 +830,11 @@ Future<void> _addPerspective(
 
 Future<String> _linkTabInvite(WidgetTester tester, String flow) async {
   return _step(flow, 'link-tab', () async {
-    final invite = find.byKey(const Key('header-invite'));
+    final menu = find.byKey(const Key('family-menu'));
+    await tester.ensureVisible(menu);
+    await tester.tap(menu);
+    final invite = find.byKey(const Key('family-menu-invite'));
+    await pumpUntilFound(tester, invite);
     await tester.ensureVisible(invite);
     await tester.tap(invite);
     final linkTab = find.byKey(const Key('invite-tab-link'));

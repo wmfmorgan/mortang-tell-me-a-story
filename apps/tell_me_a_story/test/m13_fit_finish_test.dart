@@ -337,11 +337,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('+ New story'), findsNothing);
     expect(find.widgetWithText(FilledButton, 'New story'), findsOneWidget);
-    expect(find.text('Invite'), findsOneWidget);
-    final invite = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'Invite'),
+    expect(find.widgetWithText(TextButton, 'Invite'), findsNothing);
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    final invite = find.byKey(const Key('family-menu-invite'));
+    expect(invite, findsOneWidget);
+    expect(
+      find.descendant(
+        of: invite,
+        matching: find.byIcon(Icons.person_add_outlined),
+      ),
+      findsOneWidget,
     );
-    expect(invite.child, isA<Text>());
   });
 }
 

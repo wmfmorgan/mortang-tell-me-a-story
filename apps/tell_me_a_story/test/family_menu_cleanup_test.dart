@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,7 +21,7 @@ void main() {
 
   tearDown(FamilySelection.clear);
 
-  testWidgets('dropdown order: nested families, divider, branch row, Manage', (
+  testWidgets('dropdown order: families, divider, invite, branch, Manage', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1400, 900));
@@ -60,6 +61,9 @@ void main() {
     final dividerY = tester
         .getTopLeft(find.byKey(const Key('family-menu-divider')))
         .dy;
+    final inviteY = tester
+        .getTopLeft(find.byKey(const Key('family-menu-invite')))
+        .dy;
     final branchY = tester
         .getTopLeft(find.byKey(const Key('family-menu-start-timeline')))
         .dy;
@@ -67,11 +71,189 @@ void main() {
         .getTopLeft(find.byKey(const Key('family-menu-manage')))
         .dy;
     expect(previous, lessThan(dividerY));
-    expect(dividerY, lessThan(branchY));
+    expect(dividerY, lessThan(inviteY));
+    expect(inviteY, lessThan(branchY));
     expect(branchY, lessThan(manageY));
-    expect(find.text('Add a timeline branch to Ada'), findsOneWidget);
+    expect(find.text('Invite a family member to Ada'), findsOneWidget);
+    expect(find.text('Add a family branch to Ada'), findsOneWidget);
     expect(find.byKey(const Key('family-menu-start')), findsNothing);
     expect(find.text('Related families'), findsNothing);
+  });
+
+  testWidgets('invite row hides when canWrite is false', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          appBar: AlbumHeader(
+            page: AlbumHeaderPage.timeline,
+            familyName: 'Ada',
+            families: [
+              MemberFamily(
+                id: 'ada',
+                name: 'Ada',
+                createdAt: DateTime.utc(2020),
+              ),
+            ],
+            currentFamilyId: 'ada',
+            onFamilySelected: (_) {},
+            canWrite: false,
+            onInvite: () {},
+            onStartTimeline: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('header-invite')), findsNothing);
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('family-menu-invite')), findsNothing);
+    expect(find.byKey(const Key('family-menu-start-timeline')), findsOneWidget);
+  });
+
+  testWidgets('capture menu hides invite and still offers a branch', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          appBar: AlbumHeader(
+            page: AlbumHeaderPage.capture,
+            familyName: 'Ada',
+            families: [
+              MemberFamily(
+                id: 'ada',
+                name: 'Ada',
+                createdAt: DateTime.utc(2020),
+              ),
+            ],
+            currentFamilyId: 'ada',
+            onFamilySelected: (_) {},
+            canWrite: true,
+            onInvite: () {},
+            onStartTimeline: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Search archive...'), findsNothing);
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('family-menu-invite')), findsNothing);
+    expect(find.byKey(const Key('family-menu-start-timeline')), findsOneWidget);
+  });
+
+  testWidgets('closed family name wraps two lines and keeps the full tooltip', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(820, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const name =
+        'The extraordinarily long Morgan family archive name that wraps';
+    await tester.pumpWidget(
+      _header(
+        families: [
+          MemberFamily(id: 'ada', name: name, createdAt: DateTime.utc(2020)),
+        ],
+        currentId: 'ada',
+        familyName: name,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final label = tester.widget<Text>(find.text(name));
+    expect(label.maxLines, 2);
+    expect(label.overflow, TextOverflow.ellipsis);
+    final paragraph = tester.renderObject<RenderParagraph>(find.text(name));
+    expect(paragraph.size.height, greaterThan(28));
+    final menu = tester.widget<PopupMenuButton<String>>(
+      find.byKey(const Key('family-menu')),
+    );
+    expect(menu.tooltip, name);
+    final search = tester.getSize(find.byKey(const Key('timeline-search')));
+    expect(search.width, greaterThanOrEqualTo(40));
+    expect(search.height, greaterThanOrEqualTo(40));
+    final icon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(const Key('timeline-search')),
+        matching: find.byIcon(Icons.search),
+      ),
+    );
+    expect(icon.color, albumInk);
+  });
+
+  testWidgets('sage guide stops above the post-families divider', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _header(
+        families: [
+          MemberFamily(id: 'ada', name: 'Ada', createdAt: DateTime.utc(2020)),
+          MemberFamily(
+            id: 'amy',
+            name: 'Amy',
+            parentFamilyId: 'ada',
+            branchYear: 1950,
+            createdAt: DateTime.utc(2021),
+          ),
+        ],
+        currentId: 'ada',
+        familyName: 'Ada',
+        onStartTimeline: () {},
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    final line = find.descendant(
+      of: find.byKey(const Key('family-menu-item-amy')),
+      matching: find.byType(ColoredBox),
+    );
+    expect(line, findsOneWidget);
+    final guideBottom = tester.getRect(line).bottom;
+    final dividerTop = tester
+        .getTopLeft(find.byKey(const Key('family-menu-divider')))
+        .dy;
+    expect(guideBottom, lessThan(dividerTop));
+    final invite = find.byKey(const Key('family-menu-invite'));
+    final icon = tester.widget<Icon>(
+      find.descendant(
+        of: invite,
+        matching: find.byIcon(Icons.person_add_outlined),
+      ),
+    );
+    expect(icon.size, 19);
+    expect(icon.color, albumSage);
+  });
+
+  testWidgets('search, New story, and avatar sit 12px apart', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 240));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _header(
+        families: [
+          MemberFamily(id: 'ada', name: 'Ada', createdAt: DateTime.utc(2020)),
+        ],
+        currentId: 'ada',
+        familyName: 'Ada',
+      ),
+    );
+    await tester.pumpAndSettle();
+    final search = tester.getRect(find.byKey(const Key('timeline-search')));
+    final story = tester.getRect(
+      find.widgetWithText(FilledButton, 'New story'),
+    );
+    final avatar = tester.getRect(find.byKey(const Key('header-avatar')));
+    expect(story.left - search.right, closeTo(12, 0.1));
+    expect(avatar.left - story.right, closeTo(12, 0.1));
+    expect(search.width, greaterThanOrEqualTo(40));
+    expect(search.height, greaterThanOrEqualTo(40));
   });
 
   testWidgets('child rows indent 24px per level under their parent', (

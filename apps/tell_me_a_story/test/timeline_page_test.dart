@@ -496,7 +496,7 @@ void main() {
       find.text('No stories yet. Capture the first one for this family.'),
       findsOneWidget,
     );
-    expect(find.text('Timeline'), findsWidgets);
+    expect(find.text('Stories'), findsWidgets);
   });
 
   testWidgets('a decade uses the click pointer and arrows scroll each rail', (
@@ -607,17 +607,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Tell Me a Story'), findsOneWidget);
-    expect(find.text('Timeline'), findsWidgets);
-    expect(find.text('Drafts'), findsOneWidget);
-    expect(find.text('Invite'), findsOneWidget);
+    expect(find.text('Stories'), findsWidgets);
+    expect(find.text('Draft Stories'), findsOneWidget);
+    expect(find.byKey(const Key('header-invite')), findsNothing);
     expect(find.text('New story'), findsOneWidget);
+    expect(find.text('Search archive...'), findsNothing);
     expect(find.text('Family'), findsOneWidget);
     expect(find.byKey(const Key('timeline-search')), findsOneWidget);
     expect(find.byKey(const Key('header-avatar')), findsOneWidget);
     expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
     expect(find.text('Save draft'), findsNothing);
     expect(find.text('Publish'), findsNothing);
-    expect(find.text('Stories'), findsNothing);
+    expect(find.text('Timeline'), findsNothing);
     expect(find.text('Family Members'), findsNothing);
     expect(find.text('Places'), findsNothing);
     expect(find.text('Help'), findsNothing);
@@ -638,8 +639,8 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byKey(const Key('timeline-search')), findsOneWidget);
-    expect(find.text('Drafts'), findsOneWidget);
-    expect(find.text('Invite'), findsOneWidget);
+    expect(find.text('Draft Stories'), findsOneWidget);
+    expect(find.byKey(const Key('header-invite')), findsNothing);
     expect(find.text('New story'), findsOneWidget);
     expect(find.byKey(const Key('header-avatar')), findsOneWidget);
   });
@@ -661,7 +662,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('above 320 the search chip shrinks before the wordmark', (
+  testWidgets('above 320 the search icon stays a 40px target', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1370, 640));
@@ -690,10 +691,9 @@ void main() {
     );
     final search = tester
         .renderObject<RenderBox>(find.byKey(const Key('timeline-search')))
-        .size
-        .width;
-    expect(search, lessThan(224));
-    expect(search, greaterThan(100));
+        .size;
+    expect(search.width, 40);
+    expect(search.height, greaterThanOrEqualTo(40));
   });
 
   testWidgets('family switch reloads that family and Invite uses it', (
@@ -730,7 +730,9 @@ void main() {
     expect(live.familyId, otherId);
     expect(find.byKey(const Key('timeline-dot-s1')), findsNothing);
 
-    await tester.tap(find.byKey(const Key('header-invite')));
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu-invite')));
     await tester.pumpAndSettle();
     expect(
       tester.widget<InviteModal>(find.byType(InviteModal)).familyId,
@@ -762,7 +764,7 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Drafts'));
+    await tester.tap(find.text('Draft Stories'));
     await tester.pumpAndSettle();
     expect(find.text('drafts-screen'), findsOneWidget);
     router.pop();
@@ -959,7 +961,7 @@ void main() {
     await tester.tap(find.byKey(Key('timeline-stub-${story.id}')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
-    expect(find.byKey(const Key('header-invite')), findsOneWidget);
+    expect(find.byKey(const Key('family-menu')), findsOneWidget);
     expect(
       router.routeInformationProvider.value.uri.path,
       AppRoutes.storyPath(story.id),
@@ -1548,7 +1550,7 @@ void main() {
 
     Future<void> openAndBack() async {
       expect(find.byKey(const Key('timeline-search')), findsOneWidget);
-      expect(find.text('Search archive...'), findsOneWidget);
+      expect(find.text('Search archive...'), findsNothing);
       await tester.ensureVisible(find.byKey(const Key('timeline-search')));
       await tester.tap(find.byKey(const Key('timeline-search')));
       await tester.pumpAndSettle();
@@ -2298,11 +2300,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('header-invite')), findsNothing);
     expect(find.widgetWithText(FilledButton, 'New story'), findsNothing);
 
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('family-menu-invite')), findsNothing);
+    expect(find.byKey(const Key('family-menu-start-timeline')), findsNothing);
     expect(find.text('Related families'), findsNothing);
     expect(find.byKey(Key('family-menu-related-$bea')), findsNothing);
     expect(
