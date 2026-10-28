@@ -348,6 +348,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
                     ),
                     const SizedBox(height: 28),
                     _LatestShelf(
+                      familyName: family?.name ?? 'Family',
                       stories: _latest,
                       thumbs: _thumbs,
                       onOpen: _openStory,
@@ -449,11 +450,13 @@ class _Hero extends StatelessWidget {
 
 class _LatestShelf extends StatelessWidget {
   const _LatestShelf({
+    required this.familyName,
     required this.stories,
     required this.thumbs,
     required this.onOpen,
   });
 
+  final String familyName;
   final List<Story> stories;
   final Map<String, Uint8List> thumbs;
   final ValueChanged<Story> onOpen;
@@ -504,25 +507,60 @@ class _LatestShelf extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 16),
-        TextButton(
-          key: const Key('family-landing-view-all'),
-          onPressed: () => context.go(AppRoutes.timeline),
-          style: TextButton.styleFrom(
-            foregroundColor: albumTerracotta,
-            padding: EdgeInsets.zero,
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: Text(
-            'View all stories',
-            style: GoogleFonts.sourceSans3(
-              color: albumTerracotta,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+        _TimelineCta(familyName: familyName),
+      ],
+    );
+  }
+}
+
+/// Centered terracotta pill. Rule 7′: same treatment as New story, no plus.
+class _TimelineCta extends StatelessWidget {
+  const _TimelineCta({required this.familyName});
+
+  final String familyName;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = 'View a Timeline of Stories for $familyName';
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textMax = (constraints.maxWidth - 32).clamp(0.0, double.infinity);
+        return Align(
+          alignment: Alignment.center,
+          child: Tooltip(
+            message: label,
+            child: FilledButton(
+              key: const Key('family-landing-view-all'),
+              onPressed: () => context.go(AppRoutes.timeline),
+              style: FilledButton.styleFrom(
+                backgroundColor: albumTerracotta,
+                foregroundColor: albumParchment,
+                elevation: 1,
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: textMax),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  semanticsLabel: label,
+                  style: GoogleFonts.sourceSans3(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: albumParchment,
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

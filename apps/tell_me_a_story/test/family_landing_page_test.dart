@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/theme/album_header.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
@@ -17,7 +19,9 @@ void main() {
 
   tearDown(FamilySelection.clear);
 
-  testWidgets('empty week keeps the hero and View all stories', (tester) async {
+  testWidgets('empty week keeps the hero and the timeline pill', (
+    tester,
+  ) async {
     await _pump(tester, role: 'member', stories: const []);
 
     expect(find.byKey(const Key('family-landing')), findsOneWidget);
@@ -25,7 +29,7 @@ void main() {
     expect(find.text('Latest'), findsOneWidget);
     expect(find.text('Added in the past 7 days.'), findsOneWidget);
     expect(find.text('No stories added in the past 7 days.'), findsOneWidget);
-    expect(find.byKey(const Key('family-landing-view-all')), findsOneWidget);
+    _expectTimelinePill(tester, 'The Morgans');
     expect(find.byKey(const Key('family-landing-hero-edit')), findsNothing);
     expect(find.text('Add a family photo'), findsNothing);
     expect(find.text('Featured'), findsNothing);
@@ -44,6 +48,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('timeline-page'), findsOneWidget);
     expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
+  });
+
+  testWidgets('a long family name stays one line on the timeline pill', (
+    tester,
+  ) async {
+    const name = 'The Morgans of the Northern Shore and the South Meadow';
+    await _pump(tester, role: 'member', stories: const [], familyName: name);
+
+    _expectTimelinePill(tester, name);
+    final root = tester.renderObject(
+      find.descendant(
+        of: find.byKey(const Key('family-landing-view-all')),
+        matching: find.byType(Text),
+      ),
+    );
+    final paragraph = _paragraph(root);
+    expect(paragraph.didExceedMaxLines, isTrue);
+    final button = tester.getRect(
+      find.byKey(const Key('family-landing-view-all')),
+    );
+    expect(button.width, lessThanOrEqualTo(800));
   });
 
   testWidgets('Stories from Landing opens the timeline underlined', (
@@ -124,11 +149,56 @@ Story _story(
   );
 }
 
+RenderParagraph _paragraph(RenderObject object) {
+  if (object is RenderParagraph) return object;
+  late RenderParagraph found;
+  object.visitChildren((child) {
+    found = _paragraph(child);
+  });
+  return found;
+}
+
+void _expectTimelinePill(WidgetTester tester, String familyName) {
+  const labelPrefix = 'View a Timeline of Stories for ';
+  final label = '$labelPrefix$familyName';
+  final cta = find.byKey(const Key('family-landing-view-all'));
+  expect(cta, findsOneWidget);
+  expect(find.text('View all stories'), findsNothing);
+  expect(find.widgetWithText(TextButton, label), findsNothing);
+  final button = tester.widget<FilledButton>(cta);
+  const states = <WidgetState>{};
+  expect(button.style?.backgroundColor?.resolve(states), albumTerracotta);
+  expect(button.style?.foregroundColor?.resolve(states), albumParchment);
+  expect(button.style?.elevation?.resolve(states), 1);
+  expect(button.style?.shape?.resolve(states), isA<StadiumBorder>());
+  expect(
+    find.descendant(of: cta, matching: find.byIcon(Icons.add)),
+    findsNothing,
+  );
+  final text = tester.widget<Text>(
+    find.descendant(of: cta, matching: find.byType(Text)),
+  );
+  expect(text.data, label);
+  expect(text.maxLines, 1);
+  expect(text.overflow, TextOverflow.ellipsis);
+  expect(text.style?.fontSize, 18);
+  expect(text.style?.fontWeight, FontWeight.w600);
+  expect(
+    tester
+        .widget<Tooltip>(find.ancestor(of: cta, matching: find.byType(Tooltip)))
+        .message,
+    label,
+  );
+  final rect = tester.getRect(cta);
+  expect(rect.center.dx, closeTo(720, 1));
+}
+
 Future<void> _pump(
   WidgetTester tester, {
   required String role,
   required List<Story> stories,
   DateTime? now,
+  String familyName = 'The Morgans',
 }) async {
   await tester.binding.setSurfaceSize(const Size(1440, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -139,7 +209,7 @@ Future<void> _pump(
       GoRoute(
         path: AppRoutes.familyLanding,
         builder: (context, state) => FamilyLandingPage(
-          familiesApi: _Families(role),
+          familiesApi: _Families(role, familyName),
           loadLatest: (_) async => stories,
           now: () => now ?? DateTime.utc(2026, 10, 28),
         ),
@@ -149,11 +219,11 @@ Future<void> _pump(
         builder: (context, state) => Scaffold(
           appBar: AlbumHeader(
             page: AlbumHeaderPage.timeline,
-            familyName: 'The Morgans',
+            familyName: familyName,
             families: [
               MemberFamily(
                 id: 'fam-1',
-                name: 'The Morgans',
+                name: familyName,
                 createdAt: DateTime.utc(2020),
                 role: role,
               ),
@@ -177,16 +247,17 @@ Future<void> _pump(
 }
 
 class _Families extends FamiliesGateway {
-  _Families(this.role);
+  _Families(this.role, this.familyName);
 
   final String role;
+  final String familyName;
 
   @override
   Future<List<MemberFamily>> listMine() async {
     return [
       MemberFamily(
         id: 'fam-1',
-        name: 'The Morgans',
+        name: familyName,
         createdAt: DateTime.utc(2020),
         role: role,
       ),
