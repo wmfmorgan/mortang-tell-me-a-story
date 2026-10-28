@@ -595,10 +595,11 @@ class _FamilyMenu extends StatelessWidget {
   }
 
   Future<void> _pickFamily(BuildContext context, String value) async {
-    if (value == currentFamilyId) return;
-    final leave = await _confirmFamilySwitch(context, _nameFor(value));
-    if (!leave || !context.mounted) return;
-    onSelected(value);
+    if (value != currentFamilyId) {
+      final leave = await _confirmFamilySwitch(context, _nameFor(value));
+      if (!leave || !context.mounted) return;
+      onSelected(value);
+    }
     if (page == AlbumHeaderPage.familyLanding) return;
     GoRouter.maybeOf(context)?.go(AppRoutes.familyLanding);
   }
