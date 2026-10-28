@@ -278,10 +278,15 @@ void main() {
     await _step('C6', 'joined-timeline', () async {
       await pumpUntilFound(
         tester,
-        find.byKey(const Key('header-underline-timeline')),
+        find.byKey(const Key('family-landing')),
         timeout: const Duration(seconds: 45),
       );
       await pumpUntilFound(tester, find.text(family));
+      await tester.tap(find.byKey(const Key('timeline-nav')));
+      await pumpUntilFound(
+        tester,
+        find.byKey(const Key('header-underline-timeline')),
+      );
       expect(find.byKey(const Key('invite-email')), findsNothing);
     });
   }, timeout: const Timeout(Duration(minutes: 6)));
