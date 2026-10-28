@@ -110,191 +110,178 @@ class _StartFamilyDialogState extends State<_StartFamilyDialog> {
                     surfaceTintColor: Colors.transparent,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(40, 40, 40, 40),
-                      child: Stack(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5DED6)
+                                  .withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF6B5B55)
+                                    .withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.menu_book,
+                              size: 24,
+                              color: Color(0xFF6B5B55),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Start a family',
+                            style: GoogleFonts.newsreader(
+                              color: albumInk,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: -0.3,
+                              height: 1.25,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Create a new standalone family that isn't associated to any of your existing families. You become the owner.",
+                            style: GoogleFonts.literata(
+                              color: const Color(0xFF635746),
+                              fontSize: 16,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          Row(
                             children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF5DED6)
-                                      .withValues(alpha: 0.6),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: const Color(0xFF6B5B55)
-                                        .withValues(alpha: 0.2),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.menu_book,
-                                  size: 24,
-                                  color: Color(0xFF6B5B55),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
                               Text(
-                                'Start a family',
-                                style: GoogleFonts.newsreader(
-                                  color: albumInk,
-                                  fontSize: 30,
-                                  fontWeight: FontWeight.w400,
-                                  letterSpacing: -0.3,
-                                  height: 1.25,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Create a new root family archive. You become the owner.',
-                                style: GoogleFonts.literata(
-                                  color: const Color(0xFF635746),
-                                  fontSize: 16,
-                                  height: 1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 32),
-                              Row(
-                                children: [
-                                  Text(
-                                    'Family name',
-                                    style: GoogleFonts.sourceSans3(
-                                      color: albumInk,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    'Required',
-                                    style: GoogleFonts.sourceSans3(
-                                      color: albumInk,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                key: const Key('start-family-name'),
-                                controller: _name,
-                                autofocus: true,
-                                style: GoogleFonts.literata(
-                                  color: albumInk,
-                                  fontSize: 18,
-                                ),
-                                decoration: InputDecoration(
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                  hintText: 'e.g. The Morgan Family',
-                                  hintStyle: GoogleFonts.literata(
-                                    color: const Color(0xFFB9B0AD),
-                                    fontSize: 18,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 14,
-                                  ),
-                                  border: _border,
-                                  enabledBorder: _border,
-                                  focusedBorder: _border.copyWith(
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF6B5B55),
-                                    ),
-                                  ),
-                                ),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "You'll land on this family's empty timeline after create.",
-                                style: GoogleFonts.literata(
+                                'Family name',
+                                style: GoogleFonts.sourceSans3(
                                   color: albumInk,
                                   fontSize: 14,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              if (_error != null) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  _error!,
-                                  style: GoogleFonts.sourceSans3(
-                                    color: albumTerracotta,
-                                    fontSize: 14,
-                                  ),
+                              const Spacer(),
+                              Text(
+                                'Required',
+                                style: GoogleFonts.sourceSans3(
+                                  color: albumInk,
+                                  fontSize: 12,
                                 ),
-                              ],
-                              const SizedBox(height: 24),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  OutlinedButton(
-                                    onPressed: _busy ? null : _close,
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: albumInk,
-                                      side: const BorderSide(
-                                        color: Color(0x80B9B0AD),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 14,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      textStyle: GoogleFonts.sourceSans3(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  FilledButton(
-                                    key: const Key('start-family-create'),
-                                    onPressed: ready ? _create : null,
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: const Color(0xFF6B5B55),
-                                      foregroundColor: const Color(0xFFFFF6F3),
-                                      disabledBackgroundColor: const Color(
-                                        0xFF6B5B55,
-                                      ).withValues(alpha: 0.4),
-                                      disabledForegroundColor: const Color(
-                                        0xFFFFF6F3,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 28,
-                                        vertical: 14,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      textStyle: GoogleFonts.sourceSans3(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text('Create family'),
-                                        SizedBox(width: 8),
-                                        Icon(Icons.arrow_forward, size: 16),
-                                      ],
-                                    ),
-                                  ),
-                                ],
                               ),
                             ],
                           ),
-                          Positioned(
-                            top: -8,
-                            right: -8,
-                            child: IconButton(
-                              onPressed: _busy ? null : _close,
-                              icon: const Icon(Icons.close, size: 22),
+                          const SizedBox(height: 8),
+                          TextField(
+                            key: const Key('start-family-name'),
+                            controller: _name,
+                            autofocus: true,
+                            style: GoogleFonts.literata(
                               color: albumInk,
+                              fontSize: 18,
                             ),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: Colors.white,
+                              hintText: 'e.g. The Morgan Family',
+                              hintStyle: GoogleFonts.literata(
+                                color: const Color(0xFFB9B0AD),
+                                fontSize: 18,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              border: _border,
+                              enabledBorder: _border,
+                              focusedBorder: _border.copyWith(
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF6B5B55),
+                                ),
+                              ),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "You'll land on this family's empty timeline after create.",
+                            style: GoogleFonts.literata(
+                              color: albumInk,
+                              fontSize: 14,
+                            ),
+                          ),
+                          if (_error != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _error!,
+                              style: GoogleFonts.sourceSans3(
+                                color: albumTerracotta,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              OutlinedButton(
+                                onPressed: _busy ? null : _close,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: albumInk,
+                                  side: const BorderSide(
+                                    color: Color(0x80B9B0AD),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  textStyle: GoogleFonts.sourceSans3(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                child: const Text('Cancel'),
+                              ),
+                              const SizedBox(width: 14),
+                              FilledButton(
+                                key: const Key('start-family-create'),
+                                onPressed: ready ? _create : null,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF6B5B55),
+                                  foregroundColor: const Color(0xFFFFF6F3),
+                                  disabledBackgroundColor: const Color(
+                                    0xFF6B5B55,
+                                  ).withValues(alpha: 0.4),
+                                  disabledForegroundColor: const Color(
+                                    0xFFFFF6F3,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 28,
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  textStyle: GoogleFonts.sourceSans3(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('Create family'),
+                                    SizedBox(width: 8),
+                                    Icon(Icons.arrow_forward, size: 16),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

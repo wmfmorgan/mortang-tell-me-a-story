@@ -20,6 +20,9 @@ import 'family_tree_order.dart';
 import 'start_family_dialog.dart';
 import 'start_timeline_dialog.dart';
 
+const _startFamilyTooltip =
+    "Start a family that isn't linked to your existing ones";
+
 /// Stitch hub `622ceebb3b434b6c88143f888cca8ef9`.
 class ManageFamiliesPage extends StatefulWidget {
   const ManageFamiliesPage({
@@ -276,31 +279,34 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
                                 ),
                               ),
                               const SizedBox(width: 16),
-                              FilledButton(
-                                key: const Key('manage-families-start'),
-                                onPressed: _start,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: albumTerracotta,
-                                  foregroundColor: const Color(0xFFFFF6F3),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 12,
+                              Tooltip(
+                                message: _startFamilyTooltip,
+                                child: FilledButton(
+                                  key: const Key('manage-families-start'),
+                                  onPressed: _start,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: albumTerracotta,
+                                    foregroundColor: const Color(0xFFFFF6F3),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    textStyle: GoogleFonts.sourceSans3(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  textStyle: GoogleFonts.sourceSans3(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                child: PlusLabel(
-                                  label: 'Start a family',
-                                  onTerracotta: true,
-                                  style: GoogleFonts.sourceSans3(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: const Color(0xFFFFF6F3),
+                                  child: PlusLabel(
+                                    label: 'Start a family',
+                                    onTerracotta: true,
+                                    style: GoogleFonts.sourceSans3(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: const Color(0xFFFFF6F3),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -472,26 +478,31 @@ class _MemberHub extends StatelessWidget {
   }
 
   Widget _startButton() {
-    return FilledButton(
-      key: const Key('manage-families-start'),
-      onPressed: onStart,
-      style: FilledButton.styleFrom(
-        backgroundColor: albumTerracotta,
-        foregroundColor: const Color(0xFFFFF6F3),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: GoogleFonts.sourceSans3(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
+    return Tooltip(
+      message: _startFamilyTooltip,
+      child: FilledButton(
+        key: const Key('manage-families-start'),
+        onPressed: onStart,
+        style: FilledButton.styleFrom(
+          backgroundColor: albumTerracotta,
+          foregroundColor: const Color(0xFFFFF6F3),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: GoogleFonts.sourceSans3(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
         ),
-      ),
-      child: PlusLabel(
-        label: 'Start a family',
-        onTerracotta: true,
-        style: GoogleFonts.sourceSans3(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: const Color(0xFFFFF6F3),
+        child: PlusLabel(
+          label: 'Start a family',
+          onTerracotta: true,
+          style: GoogleFonts.sourceSans3(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFFFFF6F3),
+          ),
         ),
       ),
     );
