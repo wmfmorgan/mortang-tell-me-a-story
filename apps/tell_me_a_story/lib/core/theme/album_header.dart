@@ -596,6 +596,121 @@ class _FamilyMenu extends StatelessWidget {
     GoRouter.maybeOf(context)?.go(AppRoutes.timeline);
   }
 
+  List<PopupMenuEntry<String>> _menuItems() {
+    final rows = nestFamilies(families);
+    final lastId = rows.isEmpty ? null : rows.last.family.id;
+    final inviteLabel = 'Invite a family member to $familyName';
+    final branchLabel = 'Add a family branch to $familyName';
+    return [
+      for (final row in rows)
+        PopupMenuItem<String>(
+          key: Key('family-menu-item-${row.family.id}'),
+          value: row.family.id,
+          child: Row(
+            children: [
+              FamilyIndentGuide(
+                depth: row.depth,
+                height: 48,
+                stopShort: row.family.id == lastId,
+              ),
+              SizedBox(
+                width: 24,
+                child: row.family.id == currentFamilyId
+                    ? const Icon(Icons.check, size: 16, color: albumTerracotta)
+                    : null,
+              ),
+              FamilyMonogram(
+                key: Key('family-monogram-${row.family.id}'),
+                name: row.family.name,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  row.family.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: row.family.id == currentFamilyId
+                      ? const TextStyle(fontWeight: FontWeight.w500)
+                      : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      PopupMenuDivider(
+        key: const Key('family-menu-divider'),
+        height: 1,
+        thickness: 1,
+        color: albumSage.withValues(alpha: 0.3),
+      ),
+      if (_showInvite)
+        PopupMenuItem<String>(
+          key: const Key('family-menu-invite'),
+          value: _inviteValue,
+          child: Tooltip(
+            message: inviteLabel,
+            child: _familyActionRow(Icons.person_add_outlined, inviteLabel),
+          ),
+        ),
+      if (onStartTimeline != null)
+        PopupMenuItem<String>(
+          key: const Key('family-menu-start-timeline'),
+          value: _timelineValue,
+          child: Tooltip(
+            message: branchLabel,
+            child: _familyActionRow(Icons.account_tree_outlined, branchLabel),
+          ),
+        ),
+      PopupMenuItem<String>(
+        key: const Key('family-menu-manage'),
+        value: _manageValue,
+        child: _familyActionRow(Icons.group_outlined, 'Manage families'),
+      ),
+    ];
+  }
+
+  Future<void> _openMenu(
+    BuildContext context,
+    BoxConstraints menuConstraints,
+  ) async {
+    final box = context.findRenderObject()! as RenderBox;
+    final overlay =
+        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
+    final topLeft = box.localToGlobal(Offset.zero, ancestor: overlay);
+    final bottomRight = box.localToGlobal(
+      box.size.bottomRight(Offset.zero),
+      ancestor: overlay,
+    );
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromPoints(topLeft, bottomRight),
+        Offset.zero & overlay.size,
+      ),
+      color: albumDialogSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE6DCD1)),
+      ),
+      constraints: menuConstraints,
+      items: _menuItems(),
+    );
+    if (selected == null || !context.mounted) return;
+    if (selected == _inviteValue) {
+      onInvite?.call();
+      return;
+    }
+    if (selected == _timelineValue) {
+      onStartTimeline?.call();
+      return;
+    }
+    if (selected == _manageValue) {
+      GoRouter.of(context).go(AppRoutes.manageFamilies);
+      return;
+    }
+    unawaited(_pickFamily(context, selected));
+  }
+
   Widget _familyActionRow(IconData icon, String label) {
     return Row(
       children: [
@@ -636,122 +751,25 @@ class _FamilyMenu extends StatelessWidget {
             : double.infinity;
         return Align(
           alignment: Alignment.centerLeft,
-          child: PopupMenuButton<String>(
-            key: const Key('family-menu'),
-            tooltip: familyName,
-            padding: EdgeInsets.zero,
-            color: albumDialogSurface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: Color(0xFFE6DCD1)),
-            ),
-            constraints: menuConstraints,
-            onSelected: (value) {
-              if (value == _inviteValue) {
-                onInvite?.call();
-                return;
-              }
-              if (value == _timelineValue) {
-                onStartTimeline?.call();
-                return;
-              }
-              if (value == _manageValue) {
-                GoRouter.of(context).go(AppRoutes.manageFamilies);
-                return;
-              }
-              unawaited(_pickFamily(context, value));
-            },
-            itemBuilder: (context) {
-              final rows = nestFamilies(families);
-              final lastId = rows.isEmpty ? null : rows.last.family.id;
-              final inviteLabel = 'Invite a family member to $familyName';
-              final branchLabel = 'Add a family branch to $familyName';
-              return [
-                for (final row in rows)
-                  PopupMenuItem<String>(
-                    key: Key('family-menu-item-${row.family.id}'),
-                    value: row.family.id,
-                    child: Row(
-                      children: [
-                        FamilyIndentGuide(
-                          depth: row.depth,
-                          height: 48,
-                          stopShort: row.family.id == lastId,
-                        ),
-                        SizedBox(
-                          width: 24,
-                          child: row.family.id == currentFamilyId
-                              ? const Icon(
-                                  Icons.check,
-                                  size: 16,
-                                  color: albumTerracotta,
-                                )
-                              : null,
-                        ),
-                        FamilyMonogram(
-                          key: Key('family-monogram-${row.family.id}'),
-                          name: row.family.name,
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            row.family.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: row.family.id == currentFamilyId
-                                ? const TextStyle(fontWeight: FontWeight.w500)
-                                : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                PopupMenuDivider(
-                  key: const Key('family-menu-divider'),
-                  height: 1,
-                  thickness: 1,
-                  color: albumSage.withValues(alpha: 0.3),
-                ),
-                if (_showInvite)
-                  PopupMenuItem<String>(
-                    key: const Key('family-menu-invite'),
-                    value: _inviteValue,
-                    child: Tooltip(
-                      message: inviteLabel,
-                      child: _familyActionRow(
-                        Icons.person_add_outlined,
-                        inviteLabel,
-                      ),
-                    ),
-                  ),
-                if (onStartTimeline != null)
-                  PopupMenuItem<String>(
-                    key: const Key('family-menu-start-timeline'),
-                    value: _timelineValue,
-                    child: Tooltip(
-                      message: branchLabel,
-                      child: _familyActionRow(
-                        Icons.account_tree_outlined,
-                        branchLabel,
-                      ),
-                    ),
-                  ),
-                PopupMenuItem<String>(
-                  key: const Key('family-menu-manage'),
-                  value: _manageValue,
-                  child: _familyActionRow(
-                    Icons.group_outlined,
-                    'Manage families',
+          child: Builder(
+            builder: (buttonContext) {
+              return Tooltip(
+                message: familyName,
+                child: GestureDetector(
+                  key: const Key('family-menu'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    unawaited(_openMenu(buttonContext, menuConstraints));
+                  },
+                  child: _ClosedFamilyLabel(
+                    familyName: familyName,
+                    style: style,
+                    active: active,
+                    maxWidth: slot,
                   ),
                 ),
-              ];
+              );
             },
-            child: _ClosedFamilyLabel(
-              familyName: familyName,
-              style: style,
-              active: active,
-              maxWidth: slot,
-            ),
           ),
         );
       },
@@ -759,8 +777,8 @@ class _FamilyMenu extends StatelessWidget {
   }
 }
 
-/// Name and chevron only. The parent slot may be wider; this label stays
-/// as wide as the text so the closed control does not paint a filled bar.
+/// Name and chevron only. No Material or ink surface, so the closed
+/// control blends into the parchment header.
 class _ClosedFamilyLabel extends StatelessWidget {
   const _ClosedFamilyLabel({
     required this.familyName,

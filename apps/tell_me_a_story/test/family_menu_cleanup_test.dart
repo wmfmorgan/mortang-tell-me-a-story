@@ -171,10 +171,7 @@ void main() {
       final paragraph = tester.renderObject<RenderParagraph>(find.text(name));
       expect(paragraph.size.height, lessThan(36));
       expect(paragraph.size.width, greaterThan(180));
-      final menu = tester.widget<PopupMenuButton<String>>(
-        find.byKey(const Key('family-menu')),
-      );
-      expect(menu.tooltip, name);
+      expect(find.byTooltip(name), findsWidgets);
       final menuRect = tester.getRect(find.byKey(const Key('family-menu')));
       final navRect = tester.getRect(find.byKey(const Key('timeline-nav')));
       expect(menuRect.right, lessThanOrEqualTo(navRect.left));
@@ -210,6 +207,10 @@ void main() {
     final menu = find.byKey(const Key('family-menu'));
     expect(
       find.descendant(of: menu, matching: find.byType(Material)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: menu, matching: find.byType(InkWell)),
       findsNothing,
     );
     final fills = tester.widgetList<DecoratedBox>(
@@ -261,12 +262,7 @@ void main() {
     final menuRect = tester.getRect(find.byKey(const Key('family-menu')));
     final navRect = tester.getRect(find.byKey(const Key('timeline-nav')));
     expect(menuRect.right, lessThanOrEqualTo(navRect.left));
-    expect(
-      tester
-          .widget<PopupMenuButton<String>>(find.byKey(const Key('family-menu')))
-          .tooltip,
-      huge,
-    );
+    expect(find.byTooltip(huge), findsWidgets);
   });
 
   testWidgets('sage guide stops above the post-families divider', (
