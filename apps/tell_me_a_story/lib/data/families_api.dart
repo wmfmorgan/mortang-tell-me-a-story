@@ -76,6 +76,16 @@ class StewardFamily {
 /// Owner or co-owner of a family. Other roles are false.
 bool originSteward(String? role) => role == 'owner' || role == 'co_owner';
 
+/// Hosted preview can serve this branch before the cover migration is applied.
+bool familiesCoverColumnMissing(PostgrestException error) {
+  final message = error.message.toLowerCase();
+  if (!message.contains('cover_photo_path')) return false;
+  return error.code == '42703' ||
+      error.code == 'PGRST204' ||
+      message.contains('does not exist') ||
+      message.contains('schema cache');
+}
+
 /// One live family from `list_family_tree`.
 /// [branchYear] and [originStoryId] are whatever the server returns.
 class TreeFamily {
@@ -378,14 +388,26 @@ class FamiliesApi
         .eq('id', familyId);
   }
 
+  static const _mineSelectWithCover =
+      'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at, cover_photo_path)';
+  static const _mineSelectWithoutCover =
+      'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at)';
+
   @override
   Future<List<MemberFamily>> listMine() async {
+    try {
+      return await _listMine(_mineSelectWithCover);
+    } on PostgrestException catch (error) {
+      if (!familiesCoverColumnMissing(error)) rethrow;
+      return _listMine(_mineSelectWithoutCover);
+    }
+  }
+
+  Future<List<MemberFamily>> _listMine(String select) async {
     final uid = _client.auth.currentUser!.id;
     final rows = await _client
         .from('memberships')
-        .select(
-          'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at, cover_photo_path)',
-        )
+        .select(select)
         .eq('user_id', uid)
         .isFilter('families.deleted_at', null);
     final families = <MemberFamily>[];

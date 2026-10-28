@@ -32,6 +32,10 @@ void main() {
     expect(find.text('Oldest'), findsNothing);
     expect(find.text('Untitled'), findsNothing);
     expect(find.byKey(const Key('header-underline-timeline')), findsNothing);
+    expect(
+      tester.getRect(find.byKey(const Key('family-landing-view-all'))).bottom,
+      lessThan(900),
+    );
 
     await tester.ensureVisible(
       find.byKey(const Key('family-landing-view-all')),
@@ -126,7 +130,7 @@ Future<void> _pump(
   required List<Story> stories,
   DateTime? now,
 }) async {
-  await tester.binding.setSurfaceSize(const Size(1200, 900));
+  await tester.binding.setSurfaceSize(const Size(1440, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   FamilySelection.remember('fam-1');
   final router = GoRouter(

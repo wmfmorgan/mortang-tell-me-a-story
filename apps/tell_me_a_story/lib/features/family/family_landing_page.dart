@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/families_api.dart';
@@ -108,9 +109,10 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     }
 
     var familyId = FamilySelection.id;
-    if (familyId == null || !rows.any((family) => family.id == familyId)) {
-      familyId = rows.isEmpty ? null : rows.first.id;
-      if (familyId != null) FamilySelection.remember(familyId);
+    if (rows.isNotEmpty &&
+        (familyId == null || !rows.any((family) => family.id == familyId))) {
+      familyId = rows.first.id;
+      FamilySelection.remember(familyId);
     }
 
     List<TreeFamily> tree = const [];
@@ -334,22 +336,24 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
           ? const SizedBox.shrink()
           : SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _Hero(
-                    familyName: family?.name ?? 'Family',
-                    bytes: _coverBytes,
-                    canEdit: _canEditCover,
-                    onEdit: _editCover,
-                  ),
-                  const SizedBox(height: 28),
-                  _LatestShelf(
-                    stories: _latest,
-                    thumbs: _thumbs,
-                    onOpen: _openStory,
-                  ),
-                ],
+              child: AlbumColumn(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _Hero(
+                      familyName: family?.name ?? 'Family',
+                      bytes: _coverBytes,
+                      canEdit: _canEditCover,
+                      onEdit: _editCover,
+                    ),
+                    const SizedBox(height: 28),
+                    _LatestShelf(
+                      stories: _latest,
+                      thumbs: _thumbs,
+                      onOpen: _openStory,
+                    ),
+                  ],
+                ),
               ),
             ),
     );
@@ -390,47 +394,53 @@ class _Hero extends StatelessWidget {
     return AspectRatio(
       key: const Key('family-landing-hero'),
       aspectRatio: 16 / 9,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ColoredBox(
-              color: albumParchment,
-              child: bytes == null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        FamilyMonogram(name: familyName, size: 72),
-                        if (canEdit) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            'Add a family photo',
-                            style: GoogleFonts.sourceSans3(
-                              color: albumInk.withValues(alpha: 0.7),
-                              fontSize: 16,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: albumInk.withValues(alpha: 0.12)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(
+                color: albumParchment,
+                child: bytes == null
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FamilyMonogram(name: familyName, size: 72),
+                          if (canEdit) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              'Add a family photo',
+                              style: GoogleFonts.sourceSans3(
+                                color: albumInk.withValues(alpha: 0.7),
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
-                    )
-                  : Image.memory(bytes!, fit: BoxFit.cover),
-            ),
-            if (canEdit)
-              Positioned(
-                top: 12,
-                right: 12,
-                child: IconButton(
-                  key: const Key('family-landing-hero-edit'),
-                  onPressed: onEdit,
-                  style: IconButton.styleFrom(
-                    backgroundColor: albumDialogSurface,
-                    foregroundColor: albumInk,
-                  ),
-                  icon: const Icon(Icons.photo_camera),
-                ),
+                      )
+                    : Image.memory(bytes!, fit: BoxFit.cover),
               ),
-          ],
+              if (canEdit)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: IconButton(
+                    key: const Key('family-landing-hero-edit'),
+                    onPressed: onEdit,
+                    style: IconButton.styleFrom(
+                      backgroundColor: albumDialogSurface,
+                      foregroundColor: albumInk,
+                    ),
+                    icon: const Icon(Icons.photo_camera),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

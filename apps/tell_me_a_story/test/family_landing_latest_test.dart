@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_covers.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 
@@ -48,6 +50,33 @@ void main() {
     ], now: now);
 
     expect(rows.map((row) => row.id), ['d', 'c', 'b']);
+  });
+
+  test('a missing cover column is the only listMine retry', () {
+    expect(
+      familiesCoverColumnMissing(
+        PostgrestException(
+          message: 'column families.cover_photo_path does not exist',
+          code: '42703',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      familiesCoverColumnMissing(
+        const PostgrestException(
+          message: "Could not find the 'cover_photo_path' column of 'families' in the schema cache",
+          code: 'PGRST204',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      familiesCoverColumnMissing(
+        const PostgrestException(message: 'permission denied', code: '42501'),
+      ),
+      isFalse,
+    );
   });
 
   test('cover object path is the family id and a cover basename', () {
