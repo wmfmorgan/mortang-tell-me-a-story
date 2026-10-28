@@ -662,9 +662,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('above 320 the search icon stays a 40px target', (
-    tester,
-  ) async {
+  testWidgets('above 320 the search icon stays a 40px target', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1370, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
