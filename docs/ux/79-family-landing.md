@@ -1,10 +1,10 @@
 # #79 Family Landing Page (UX LOCKED)
 
-Status: **LOCKED** 2026-10-28 ~3:47 PM CT America/Chicago — Bill via Erlich (Lane 2 CTA polish). Rev **2.1** (amends Rev 2.0 Rule 7 + Timeline CTA copy only). Jared Decisions stamp ~3:27 PM CT: Landing CTA → **View a Timeline of Stories for {Family}**.
-sha256: `293e7553774c253ed84ccdf9a083d0613b59a41db9e11f13cfa47be88e94e639`
+Status: **LOCKED** 2026-10-28 ~6:05 PM CT America/Chicago — Bill via Erlich (Lane 2 return-to-Landing). Rev **2.2** (amends Rev 2.1: Rule 9 only — same-family menu pick → `/family` when not on Landing). No Jared stamp (nav affordance, no new product copy). No Stitch regen (chrome look unchanged).
+sha256: `821b219c567da61a8954e26b1bc23b8b8f2453422f6d7844dc4e3859f9e42d35`
 Source: PRD Family Landing (#79) APPROVED amended: https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2  
 Decisions: https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166 · Issue: https://github.com/wmfmorgan/mortang-tell-me-a-story/issues/79  
-Lane: **2** (UX match only — skip SAD / Spec / Trinity). Does **not** reopen hero, Latest shelf, Featured/Oldest, or #130 header chrome.
+Lane: **2** (UX match only — skip SAD / Spec / Trinity). Does **not** reopen hero, Latest shelf, Featured/Oldest, #130 chrome *look*, wordmark, or Home icon/label.
 
 Tokens (album_theme): parchment `#FBF7F2`, terracotta `#8B5E4B`, sage `#7A8B74`, ink `#2C2416`, albumDialogSurface `#FFF8F6`. Fonts: Newsreader (headings/wordmark), Source Sans 3 (UI). Material icons only.
 
@@ -35,8 +35,9 @@ Route: Family Landing is the default after open/switch. Header Stories → exist
 
 ## Layout rules (LOCKED)
 
-### Rule 1 — Shared header (#130 chrome unchanged)
-Same closed header as #130 rev 1.3: wordmark · family switcher · **Stories** · **Draft Stories** · search icon · New story · avatar. Invite stays in the family menu. On Landing, **Stories is not underlined** (timeline is elsewhere) — still stands from prior UI Q1. Written #130 rules win over mock quirks.
+### Rule 1 — Shared header (#130 chrome look unchanged)
+Same closed header as #130 rev 1.3: wordmark · family switcher · **Stories** · **Draft Stories** · search icon · New story · avatar. Invite stays in the family menu. On Landing, **Stories is not underlined** (timeline is elsewhere) — still stands from prior UI Q1. Written #130 rules win over mock quirks. **Wordmark stays brand only** (not a home link). Return to Landing = Rule 9 (same-family menu pick), not a new Home control.
+
 
 ### Rule 2 — Hero family photo (16:9)
 Full-bleed-within-content (max width of page column, **16:9**, rounded 12px, parchment behind). Photo set → dedicated family photo. Unset → placeholder: soft parchment panel + family monogram (M10: first letter, skip “The”) + quiet ink caption. Owner/co-owner: **Add a family photo**; members: monogram only, no CTA.
@@ -83,6 +84,20 @@ Route/behavior unchanged: tap → existing timeline (`AppRoutes.timeline`). Head
 ### Rule 8 — Family photo flow
 Owner/co-owner file pick → preview → Save / Cancel. Replace overwrites. Remove photo returns to placeholder (owner/co-owner only).
 
+### Rule 9 — Return to Landing (Lane 2 — Bill GO ~6:05 PM CT)
+
+**Gap closed:** from timeline / drafts / search / etc., members had no same-family path back to Family Landing (re-picking the current family was a no-op).
+
+**Behavior (chrome look unchanged):**
+1. User opens the family switcher menu from the closed family name control (same as today).
+2. If they choose the **already-current** live family **and** the current page is **not** Family Landing → navigate to `/family` (`AppRoutes.familyLanding`).
+3. If they are **already** on Family Landing and choose the current family → stay (no-op / refresh only if host already reloads).
+4. Choosing a **different** live family → Landing (unchanged from M22).
+5. Soft-deleted steward / manage-hub redirects unchanged.
+
+**Out of scope for this polish:** wordmark → home; Home icon; “Home” label in header or family dropdown; splitting name vs chevron hit targets; new product copy.
+
+
 ## Copy (locked)
 
 | Spot | Copy |
@@ -104,13 +119,14 @@ Supersedes Rev 2.0 **View all stories** for this control only.
 5. **Card density** (~10:58 AM CT): Thumb + title + year.
 6. **Timeline nav (Q6 ~11:26 AM CT):** Header Stories primary + Landing timeline CTA; cards open the story.
 7. **CTA polish (Lane 2 ~3:27–3:32 PM CT):** Jared-stamped copy; centered; New-story-matching terracotta stadium pill; larger type (18/w600).
+8. **Return to Landing (Lane 2 ~6:05 PM CT):** same-family menu pick when not on Landing → `/family`. No wordmark/Home icon/dropdown Home. No Jared stamp. No Stitch regen.
 
 No open UI questions.
 
 ## Stitch screens
 
 Project: `12192342757314667328`  
-Written rules win over mock quirks. Use `?node-id=` deep links. Rev 2.0 keepers are **obsolete for the CTA** — build from Rev 2.1 keepers below.
+Written rules win over mock quirks. Use `?node-id=` deep links. Rev 2.0 keepers are **obsolete for the CTA** — build from Rev 2.1 keepers below. **Rev 2.2:** no Stitch regen — header chrome *look* unchanged; Rule 9 is behavior only.
 
 | Id | Description | Screen id | Link |
 |----|-------------|-----------|------|
@@ -120,4 +136,4 @@ Written rules win over mock quirks. Use `?node-id=` deep links. Rev 2.0 keepers 
 
 ## Hand-off
 
-**LOCKED** Rev 2.1 — Stitch A/B/C filled 2026-10-28 ~3:47 PM CT. Erlich opens docs PR for `docs/ux/79-family-landing.md`. Lane 2 → coding (skip SAD / Spec / Trinity). Erlich routes coding.
+**LOCKED** Rev 2.2 — return-to-Landing Rule 9. No new Stitch (Rev 2.1 A/B/C keepers still valid for Landing look). Erlich opens docs amend for `docs/ux/79-family-landing.md`. Lane 2 → coding (skip SAD / Spec / Trinity). Impl hint: AlbumHeader `_pickFamily` — when `value == currentFamilyId` and `page != familyLanding`, `go(AppRoutes.familyLanding)` instead of early return.
