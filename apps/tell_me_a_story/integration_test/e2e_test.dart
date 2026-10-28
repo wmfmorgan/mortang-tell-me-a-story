@@ -110,7 +110,7 @@ void main() {
     });
   }, timeout: const Timeout(Duration(minutes: 4)));
 
-  testWidgets('C2 start a family lands on Family Landing', (tester) async {
+  testWidgets('C2 start a family lands on family landing', (tester) async {
     final email = e2eEmail(flow: 2, n: 1);
     final name = e2eFamilyName(flow: 2, n: 1);
     await _signIn(tester, 'C2', email);

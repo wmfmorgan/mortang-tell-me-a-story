@@ -5,7 +5,7 @@ Lock: `docs/design-doc/e2e.md` (U1) and `docs/design-doc/e2e-addendum-a.md`. `e2
 | Flow | Test name | Spec source | Owning paths |
 |---|---|---|---|
 | C1 | `C1 magic-link sign-in lands on timeline` | §8 sign-in; M1; M8; `m08-profile.md`; §14 Automated #4 | `features/auth/`, `features/settings/`, `core/supabase/`, `core/router/`, `data/profile_session.dart` |
-| C2 | `C2 start a family lands on Family Landing` | US-1; M10; M22; `79-family-landing.md` | `features/family/`, `data/families_api.dart` |
+| C2 | `C2 start a family lands on family landing` | US-1; M10; M22; `79-family-landing.md` | `features/family/`, `data/families_api.dart` |
 | C3 | `C3 capture and publish shows the card on the timeline` | US-3/3a/10; M3; M4; M14.1; publish lock; §14 Manual #1 | `features/stories/`, `features/people/`, `features/places/`, `features/timeline/`, `data/stories_api.dart`, `data/places_api.dart` |
 | C4 | `C4 draft autosaves, resumes from drafts and publishes` | US-11; M14.4; `m14.4-drafts.md` | `features/drafts/`, `features/stories/`, `data/stories_api.dart` |
 | C5 | `C5 reader adds a comment and a perspective` | US-6/6a; M5; M9; `m09-avatar-reader.md` | `features/stories/`, `features/comments/`, `features/perspectives/`, `data/comments_api.dart`, `data/perspectives_api.dart` |

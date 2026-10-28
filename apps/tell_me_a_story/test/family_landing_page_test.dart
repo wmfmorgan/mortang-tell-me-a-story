@@ -33,7 +33,9 @@ void main() {
     expect(find.text('Untitled'), findsNothing);
     expect(find.byKey(const Key('header-underline-timeline')), findsNothing);
 
-    await tester.ensureVisible(find.byKey(const Key('family-landing-view-all')));
+    await tester.ensureVisible(
+      find.byKey(const Key('family-landing-view-all')),
+    );
     await tester.tap(find.byKey(const Key('family-landing-view-all')));
     await tester.pumpAndSettle();
     expect(find.text('timeline-page'), findsOneWidget);
@@ -90,7 +92,9 @@ void main() {
     expect(find.text('Untitled'), findsNothing);
     expect(find.text('No stories added in the past 7 days.'), findsNothing);
 
-    await tester.ensureVisible(find.byKey(const Key('family-landing-card-newer')));
+    await tester.ensureVisible(
+      find.byKey(const Key('family-landing-card-newer')),
+    );
     await tester.tap(find.byKey(const Key('family-landing-card-newer')));
     await tester.pumpAndSettle();
     expect(find.text('reader-newer'), findsOneWidget);

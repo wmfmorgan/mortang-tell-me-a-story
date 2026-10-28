@@ -217,28 +217,27 @@ void main() {
     expect(stories.updateDraftCalls, 0);
   });
 
-  testWidgets(
-    'Save writes with the original familyId, then lands on /family',
-    (tester) async {
-      await _surface(tester);
-      final stories = _Stories();
-      final router = await _mount(tester, stories: stories);
-      await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('family-menu')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('family-menu-item-$_bea')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.textContaining('switching to Bea'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-      await tester.pumpAndSettle();
-      expect(stories.createDraftCalls, 1);
-      expect(stories.createdFamilyId, _ada);
-      expect(router.state.uri.path, '/family');
-      expect(FamilySelection.id, _bea);
-    },
-  );
+  testWidgets('Save writes with the original familyId, then lands on /family', (
+    tester,
+  ) async {
+    await _surface(tester);
+    final stories = _Stories();
+    final router = await _mount(tester, stories: stories);
+    await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu-item-$_bea')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('switching to Bea'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(stories.createDraftCalls, 1);
+    expect(stories.createdFamilyId, _ada);
+    expect(router.state.uri.path, '/family');
+    expect(FamilySelection.id, _bea);
+  });
 
   testWidgets('Save failure stays and shows Couldn’t save draft. Try again.', (
     tester,
@@ -389,10 +388,7 @@ Future<GoRouter> _mount(
   final router = GoRouter(
     initialLocation: pushed ? '/timeline' : '/stories/new',
     routes: [
-      GoRoute(
-        path: '/family',
-        builder: (_, _) => const Text('landing-marker'),
-      ),
+      GoRoute(path: '/family', builder: (_, _) => const Text('landing-marker')),
       GoRoute(
         path: '/timeline',
         builder: (_, _) => const Text('timeline-marker'),
