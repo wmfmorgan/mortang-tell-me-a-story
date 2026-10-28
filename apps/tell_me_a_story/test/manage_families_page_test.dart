@@ -177,14 +177,37 @@ void main() {
   ) async {
     await show(tester);
 
+    final startTooltip = find.byTooltip(
+      "Start a family that isn't linked to your existing ones",
+    );
+    expect(startTooltip, findsOneWidget);
+    expect(
+      find.descendant(
+        of: startTooltip,
+        matching: find.byKey(const Key('manage-families-start')),
+      ),
+      findsOneWidget,
+    );
+
     await tester.tap(find.byKey(const Key('manage-families-start')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('start-family-dialog')), findsOneWidget);
     expect(
-      find.text('Create a new root family archive. You become the owner.'),
+      find.text(
+        "Create a new standalone family that isn't associated with any of your existing families. You become the owner.",
+      ),
       findsOneWidget,
     );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('start-family-dialog')),
+        matching: find.byIcon(Icons.close),
+      ),
+      findsNothing,
+    );
+    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Create family'), findsOneWidget);
     expect(
       tester
           .widget<FilledButton>(find.byKey(const Key('start-family-create')))
@@ -204,6 +227,41 @@ void main() {
     expect(FamilySelection.id, 'created-1');
     expect(router.state.uri.path, AppRoutes.timeline);
     expect(find.text('timeline-landed'), findsOneWidget);
+  });
+
+  testWidgets('member hub start button shows the standalone family tooltip', (
+    tester,
+  ) async {
+    directory.directory = const FamilyDirectory(
+      active: [
+        FamilyRoster(
+          id: 'fam-1',
+          name: 'North Archive',
+          role: 'member',
+          memberCount: 3,
+          publishedCount: 2,
+        ),
+      ],
+      recoverable: [],
+    );
+
+    await show(tester);
+
+    expect(
+      find.byKey(const Key('manage-families-member-fam-1')),
+      findsOneWidget,
+    );
+    final startTooltip = find.byTooltip(
+      "Start a family that isn't linked to your existing ones",
+    );
+    expect(startTooltip, findsOneWidget);
+    expect(
+      find.descendant(
+        of: startTooltip,
+        matching: find.byKey(const Key('manage-families-start')),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('owner sees make member and remove on co-owner rows', (
