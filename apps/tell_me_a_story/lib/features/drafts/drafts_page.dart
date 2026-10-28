@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
@@ -10,7 +11,9 @@ import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
 import '../../data/photos_api.dart';
+import '../../data/manage_families_api.dart';
 import '../../data/stories_api.dart';
+import '../family/start_timeline_dialog.dart';
 import '../invites/invite_modal.dart';
 import '../stories/story_date.dart';
 
@@ -57,6 +60,7 @@ class _DraftsPageState extends State<DraftsPage> {
   var _filter = _DraftsFilter.all;
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
+  Set<String> _memberIds = const {};
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
@@ -108,10 +112,12 @@ class _DraftsPageState extends State<DraftsPage> {
   Future<void> _loadFamilies() async {
     List<MemberFamily> rows = const [];
     List<StewardFamily> stewarded = const [];
+    var memberIds = <String>{};
     try {
       if (widget.familiesApi != null) {
         rows = await widget.familiesApi!.listMine();
         stewarded = await widget.familiesApi!.listStewarded();
+        memberIds = rows.map((row) => row.id).toSet();
       } else if (widget.inviteApi != null || widget.storiesApi != null) {
         final id = _familyId;
         if (id != null) {
@@ -123,10 +129,12 @@ class _DraftsPageState extends State<DraftsPage> {
         final live = FamiliesApi();
         rows = await live.listMine();
         stewarded = await live.listStewarded();
+        memberIds = rows.map((row) => row.id).toSet();
       }
     } catch (_) {
       rows = const [];
       stewarded = const [];
+      memberIds = {};
     }
     if (!mounted) return;
     if (rows.isEmpty && _familyId != null) {
@@ -141,7 +149,53 @@ class _DraftsPageState extends State<DraftsPage> {
     setState(() {
       _families = rows;
       _stewarded = stewarded;
+      _memberIds = memberIds;
     });
+  }
+
+  bool get _currentFamilyIsMember {
+    final id = _familyId;
+    return id != null && _memberIds.contains(id);
+  }
+
+  String? _sessionUserId() {
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _startTimeline() async {
+    final id = _familyId;
+    if (id == null || !_memberIds.contains(id) || !mounted) return;
+    final userId = _sessionUserId();
+    if (userId == null) return;
+    final published = await _stories.listPublished(id);
+    if (!mounted) return;
+    final created = await showStartTimelineDialog(
+      context,
+      parentId: id,
+      parentName: _familyName,
+      stories: [
+        for (final story in published)
+          if (story.status == StoryStatus.published) story,
+      ],
+      familiesApi: widget.familiesApi ?? FamiliesApi(),
+      peopleApi: widget.peopleApi ?? PeopleApi(),
+      manageApi: ManageFamiliesApi(),
+      currentUserId: userId,
+      onWriteStory: () {
+        if (!mounted) return;
+        GoRouter.of(context).go('${AppRoutes.newStory}?newTimelineFrom=$id');
+      },
+    );
+    if (created == null || !mounted) return;
+    await _reload();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${created.name} timeline created')));
   }
 
   Future<void> _selectFamily(String id) async {
@@ -218,7 +272,9 @@ class _DraftsPageState extends State<DraftsPage> {
         currentFamilyId: _familyId,
         onFamilySelected: _selectFamily,
         stewarded: _stewarded,
-        onInvite: _openInvite,
+        canWrite: _currentFamilyIsMember,
+        onInvite: _currentFamilyIsMember ? _openInvite : null,
+        onStartTimeline: _currentFamilyIsMember ? _startTimeline : null,
       ),
       body: SafeArea(
         child: AlbumColumn(
