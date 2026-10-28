@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
@@ -12,10 +13,12 @@ import '../../data/invite_api.dart';
 import '../../data/manage_families_api.dart';
 import '../../data/people_api.dart';
 import '../../data/recovery_window.dart';
+import '../../data/stories_api.dart';
 import '../invites/invite_modal.dart';
 import 'family_role.dart';
 import 'family_tree_order.dart';
 import 'start_family_dialog.dart';
+import 'start_timeline_dialog.dart';
 
 /// Stitch hub `622ceebb3b434b6c88143f888cca8ef9`.
 class ManageFamiliesPage extends StatefulWidget {
@@ -116,6 +119,51 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
         family,
   ];
 
+  bool get _currentFamilyIsMember {
+    final id = _sessionFamilyId;
+    return id != null && _families.any((family) => family.id == id);
+  }
+
+  String? _sessionUserId() {
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _startTimeline() async {
+    final id = _sessionFamilyId;
+    if (id == null || !_currentFamilyIsMember || !mounted) return;
+    final userId = _sessionUserId();
+    if (userId == null) return;
+    final published = await StoriesApi().listPublished(id);
+    if (!mounted) return;
+    final created = await showStartTimelineDialog(
+      context,
+      parentId: id,
+      parentName: _sessionName,
+      stories: [
+        for (final story in published)
+          if (story.status == StoryStatus.published) story,
+      ],
+      familiesApi: widget.familiesApi ?? FamiliesApi(),
+      peopleApi: widget.peopleApi ?? PeopleApi(),
+      manageApi: _manage,
+      currentUserId: userId,
+      onWriteStory: () {
+        if (!mounted) return;
+        GoRouter.of(context).go('${AppRoutes.newStory}?newTimelineFrom=$id');
+      },
+    );
+    if (created == null || !mounted) return;
+    await _load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${created.name} timeline created')));
+  }
+
   String get _sessionName {
     for (final family in _families) {
       if (family.id == _sessionFamilyId) return family.name;
@@ -182,7 +230,9 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
         },
         stewarded: _stewarded,
         manageApi: widget.manageApi,
-        onInvite: _invite,
+        canWrite: _currentFamilyIsMember,
+        onInvite: _currentFamilyIsMember ? _invite : null,
+        onStartTimeline: _currentFamilyIsMember ? _startTimeline : null,
         onLogout: widget.onLogout,
       ),
       body: _loading

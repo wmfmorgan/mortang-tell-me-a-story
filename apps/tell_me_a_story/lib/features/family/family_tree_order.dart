@@ -91,14 +91,20 @@ class FamilyIndentGuide extends StatelessWidget {
     super.key,
     required this.depth,
     required this.height,
+    this.stopShort = false,
   });
 
   final int depth;
   final double height;
 
+  /// End the sage line above the bottom of this slot so it does not run
+  /// into the post-families divider.
+  final bool stopShort;
+
   @override
   Widget build(BuildContext context) {
     if (depth <= 0) return const SizedBox.shrink();
+    final lineHeight = stopShort && height > 12 ? height - 12 : height;
     return SizedBox(
       width: 24.0 * depth,
       height: height,
@@ -108,10 +114,11 @@ class FamilyIndentGuide extends StatelessWidget {
             SizedBox(
               width: 24,
               height: height,
-              child: Center(
+              child: Align(
+                alignment: Alignment.topCenter,
                 child: SizedBox(
                   width: 1,
-                  height: height,
+                  height: lineHeight,
                   child: const ColoredBox(color: albumSage),
                 ),
               ),

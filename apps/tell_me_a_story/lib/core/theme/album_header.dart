@@ -59,7 +59,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   final String capturePrimaryLabel;
   final Future<void> Function()? onLogout;
 
-  /// Timeline page only. Null hides the timeline branch row.
+  /// Null hides the branch row. Hosts set this only when the current
+  /// family is in the caller's membership list.
   final VoidCallback? onStartTimeline;
 
   static const height = 72.0;
@@ -185,6 +186,9 @@ class _HeaderBar extends StatelessWidget {
   final VoidCallback onNewStory;
   final _HeaderMetrics metrics;
 
+  /// Even gap between search, New story, and the avatar (UX Q5).
+  static const _clusterGap = 12.0;
+
   Widget _captureActions() {
     final actions = Row(
       mainAxisSize: MainAxisSize.min,
@@ -270,6 +274,8 @@ class _HeaderBar extends StatelessWidget {
               families: families,
               currentFamilyId: currentFamilyId,
               onSelected: onFamilySelected,
+              canWrite: canWrite,
+              onInvite: onInvite,
               onStartTimeline: onStartTimeline,
               active: page == AlbumHeaderPage.manageFamilies,
             ),
@@ -277,7 +283,7 @@ class _HeaderBar extends StatelessWidget {
           SizedBox(width: metrics.gaps[2]),
           _NavItem(
             key: const Key('timeline-nav'),
-            label: 'Timeline',
+            label: 'Stories',
             active: page == AlbumHeaderPage.timeline,
             underlineKey: const Key('header-underline-timeline'),
             onTap: onTimeline,
@@ -285,54 +291,46 @@ class _HeaderBar extends StatelessWidget {
           SizedBox(width: metrics.gaps[3]),
           _NavItem(
             key: const Key('drafts-nav'),
-            label: 'Drafts',
+            label: 'Draft Stories',
             active: page == AlbumHeaderPage.drafts,
             underlineKey: const Key('header-underline-drafts'),
             onTap: onDrafts,
           ),
           SizedBox(width: metrics.gaps[4]),
-          SizedBox(width: metrics.search, child: const _SearchChip()),
-          if (!metrics.loose && page != AlbumHeaderPage.capture) const Spacer(),
-          if (page == AlbumHeaderPage.capture)
-            _captureActions()
-          else if (canWrite) ...[
-            TextButton(
-              key: const Key('header-invite'),
-              onPressed: onInvite,
-              style: TextButton.styleFrom(
-                foregroundColor: albumInk.withValues(alpha: 0.8),
-                textStyle: GoogleFonts.sourceSans3(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
+          if (page == AlbumHeaderPage.capture) ...[
+            const SizedBox(width: 40, height: 40, child: _SearchButton()),
+            _captureActions(),
+            const SizedBox(width: 12),
+          ] else ...[
+            if (!metrics.loose) const Spacer(),
+            const _SearchButton(),
+            const SizedBox(width: _clusterGap),
+            if (canWrite) ...[
+              FilledButton(
+                onPressed: () => onNewStory(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: albumTerracotta,
+                  foregroundColor: albumParchment,
+                  elevation: 1,
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                ),
+                child: PlusLabel(
+                  label: 'New story',
+                  onTerracotta: true,
+                  style: GoogleFonts.sourceSans3(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: albumParchment,
+                  ),
                 ),
               ),
-              child: const Text('Invite'),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: () => onNewStory(),
-              style: FilledButton.styleFrom(
-                backgroundColor: albumTerracotta,
-                foregroundColor: albumParchment,
-                elevation: 1,
-                shape: const StadiumBorder(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-              ),
-              child: PlusLabel(
-                label: 'New story',
-                onTerracotta: true,
-                style: GoogleFonts.sourceSans3(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: albumParchment,
-                ),
-              ),
-            ),
+              const SizedBox(width: _clusterGap),
+            ],
           ],
-          const SizedBox(width: 12),
           _HeaderAvatar(page: page, onLogout: onLogout),
         ],
       ),
@@ -362,8 +360,7 @@ class _HeaderMetrics {
   final bool loose;
   final String? captureStatus;
 
-  static const _searchMax = 224.0;
-  static const _searchMin = 54.0;
+  static const _searchHit = 40.0;
   static const _familyChrome = 47.5;
   static const _familyMin = 46.0;
   static const _padMax = 32.0;
@@ -378,15 +375,15 @@ class _HeaderMetrics {
       pad: _padMax,
       word: _textWidth('Tell Me a Story', _wordStyle),
       family: _textWidth(familyName, _familyStyle) + _familyChrome,
-      search: _searchMax,
+      search: page == AlbumHeaderPage.capture ? _searchHit : 0,
       gaps: const [16, 12, 20, 18, 16],
       loose: true,
       captureStatus: captureStatus,
     );
   }
 
-  /// Fits [viewport] by shrinking the search chip, then ellipsizing the
-  /// wordmark, then the family name, then padding and gaps.
+  /// Fits [viewport] by ellipsizing the wordmark, then the family name,
+  /// then padding and gaps. The search control stays a 40px hit target.
   _HeaderMetrics fit(double viewport) {
     var pad = this.pad;
     var word = this.word;
@@ -406,15 +403,6 @@ class _HeaderMetrics {
         gaps.fold(0, (a, b) => a + b);
 
     var overflow = used() - viewport;
-    if (overflow > 0) {
-      final cut = overflow < search - _searchMin
-          ? overflow
-          : search - _searchMin;
-      if (cut > 0) {
-        search -= cut;
-        overflow -= cut;
-      }
-    }
     if (overflow > 0) {
       final cut = overflow < word ? overflow : word;
       word -= cut;
@@ -455,13 +443,12 @@ class _HeaderMetrics {
   double _rigidWidth() {
     // Hairline plus both nav labels and the action buttons. Those stay put
     // while the chip, wordmark, and family name absorb a narrow window.
-    final timeline = _textWidth('Timeline', _navStyle) + 4;
-    final drafts = _textWidth('Drafts', _navStyle) + 4;
+    final timeline = _textWidth('Stories', _navStyle) + 4;
+    final drafts = _textWidth('Draft Stories', _navStyle) + 4;
     return 1 + timeline + drafts + _actionsWidth();
   }
 
   double _actionsWidth() {
-    const between = 8.0;
     if (page == AlbumHeaderPage.capture) {
       // Keep this in sync with the capture buttons in [_HeaderBar].
       final status = captureStatus;
@@ -489,12 +476,8 @@ class _HeaderMetrics {
           40 +
           _avatarSlot;
     }
-    return _textWidth(
-          'Invite',
-          GoogleFonts.sourceSans3(fontSize: 15, fontWeight: FontWeight.w500),
-        ) +
-        24 +
-        between +
+    return _searchHit +
+        _HeaderBar._clusterGap +
         _textWidth(
           'New story',
           GoogleFonts.sourceSans3(fontSize: 14, fontWeight: FontWeight.w500),
@@ -576,10 +559,13 @@ class _FamilyMenu extends StatelessWidget {
     required this.families,
     required this.currentFamilyId,
     required this.onSelected,
+    required this.canWrite,
+    required this.onInvite,
     required this.onStartTimeline,
     required this.active,
   });
 
+  static const _inviteValue = 'invite';
   static const _timelineValue = 'start-timeline';
   static const _manageValue = 'manage-families';
 
@@ -588,8 +574,12 @@ class _FamilyMenu extends StatelessWidget {
   final List<MemberFamily> families;
   final String? currentFamilyId;
   final ValueChanged<String> onSelected;
+  final bool canWrite;
+  final VoidCallback? onInvite;
   final VoidCallback? onStartTimeline;
   final bool active;
+
+  bool get _showInvite => page != AlbumHeaderPage.capture && canWrite;
 
   String? _nameFor(String id) {
     for (final family in families) {
@@ -636,11 +626,6 @@ class _FamilyMenu extends StatelessWidget {
       fontSize: 18,
       fontWeight: FontWeight.w500,
     );
-    final painter = TextPainter(
-      text: TextSpan(text: familyName, style: style),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout();
     final width = MediaQuery.sizeOf(context).width;
     final menuConstraints = width < 640
         ? BoxConstraints.tightFor(width: width - 32)
@@ -656,6 +641,10 @@ class _FamilyMenu extends StatelessWidget {
       ),
       constraints: menuConstraints,
       onSelected: (value) {
+        if (value == _inviteValue) {
+          onInvite?.call();
+          return;
+        }
         if (value == _timelineValue) {
           onStartTimeline?.call();
           return;
@@ -668,7 +657,9 @@ class _FamilyMenu extends StatelessWidget {
       },
       itemBuilder: (context) {
         final rows = nestFamilies(families);
-        final branchLabel = 'Add a timeline branch to $familyName';
+        final lastId = rows.isEmpty ? null : rows.last.family.id;
+        final inviteLabel = 'Invite a family member to $familyName';
+        final branchLabel = 'Add a family branch to $familyName';
         return [
           for (final row in rows)
             PopupMenuItem<String>(
@@ -676,7 +667,11 @@ class _FamilyMenu extends StatelessWidget {
               value: row.family.id,
               child: Row(
                 children: [
-                  FamilyIndentGuide(depth: row.depth, height: 48),
+                  FamilyIndentGuide(
+                    depth: row.depth,
+                    height: 48,
+                    stopShort: row.family.id == lastId,
+                  ),
                   SizedBox(
                     width: 24,
                     child: row.family.id == currentFamilyId
@@ -711,6 +706,15 @@ class _FamilyMenu extends StatelessWidget {
             thickness: 1,
             color: albumSage.withValues(alpha: 0.3),
           ),
+          if (_showInvite)
+            PopupMenuItem<String>(
+              key: const Key('family-menu-invite'),
+              value: _inviteValue,
+              child: Tooltip(
+                message: inviteLabel,
+                child: _familyActionRow(Icons.person_add_outlined, inviteLabel),
+              ),
+            ),
           if (onStartTimeline != null)
             PopupMenuItem<String>(
               key: const Key('family-menu-start-timeline'),
@@ -732,39 +736,55 @@ class _FamilyMenu extends StatelessWidget {
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final textMax = constraints.maxWidth - 22;
+            final painter = TextPainter(
+              text: TextSpan(text: familyName, style: style),
+              textDirection: TextDirection.ltr,
+              maxLines: 2,
+              ellipsis: '…',
+            )..layout(maxWidth: textMax > 0 ? textMax : 0);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Flexible(
-                  child: Text(
-                    familyName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: style,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Flexible(
+                      child: Semantics(
+                        label: familyName,
+                        excludeSemantics: true,
+                        child: Text(
+                          familyName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: style,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.expand_more,
+                      size: 18,
+                      color: albumInk.withValues(alpha: 0.7),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  key: active ? const Key('header-underline-family') : null,
+                  width: painter.width,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: active ? albumInk : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.expand_more,
-                  size: 18,
-                  color: albumInk.withValues(alpha: 0.7),
-                ),
               ],
-            ),
-            const SizedBox(height: 6),
-            Container(
-              key: active ? const Key('header-underline-family') : null,
-              width: painter.width,
-              height: 2,
-              decoration: BoxDecoration(
-                color: active ? albumInk : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -823,47 +843,24 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _SearchChip extends StatelessWidget {
-  const _SearchChip();
+class _SearchButton extends StatelessWidget {
+  const _SearchButton();
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: albumInk.withValues(alpha: 0.04),
-      shape: StadiumBorder(
-        side: BorderSide(color: albumInk.withValues(alpha: 0.10)),
-      ),
-      child: InkWell(
-        key: const Key('timeline-search'),
-        customBorder: const StadiumBorder(),
-        onTap: () {
-          unawaited(_openSearch(context));
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Row(
-            children: [
-              Icon(
-                Icons.search,
-                size: 18,
-                color: albumInk.withValues(alpha: 0.5),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Search archive...',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.sourceSans3(
-                    color: albumInk.withValues(alpha: 0.5),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+    return IconButton(
+      key: const Key('timeline-search'),
+      onPressed: () {
+        unawaited(_openSearch(context));
+      },
+      icon: const Icon(Icons.search, color: albumInk, size: 22),
+      color: albumInk,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+      style: IconButton.styleFrom(
+        foregroundColor: albumInk,
+        fixedSize: const Size(40, 40),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );
   }
