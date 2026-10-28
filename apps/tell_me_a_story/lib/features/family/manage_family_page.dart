@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/navigation/unsaved_guard.dart';
 import '../../core/router/app_router.dart';
@@ -13,10 +14,12 @@ import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/manage_families_api.dart';
 import '../../data/people_api.dart';
+import '../../data/stories_api.dart';
 import '../invites/invite_modal.dart';
 import 'add_co_owner_dialog.dart';
 import 'delete_family_dialog.dart';
 import 'family_blur_dialog.dart';
+import 'start_timeline_dialog.dart';
 import 'family_role.dart';
 import 'transfer_ownership_dialog.dart';
 
@@ -149,6 +152,57 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
       if (!mounted) return;
       setState(() => _loading = false);
     }
+  }
+
+  bool get _currentFamilyIsMember {
+    final id = _sessionFamilyId;
+    if (id == null) return false;
+    for (final family in _families) {
+      if (family.id == id) return true;
+    }
+    return false;
+  }
+
+  String? _sessionUserId() {
+    final injected = widget.currentUserId;
+    if (injected != null) return injected;
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _startTimeline() async {
+    final id = _sessionFamilyId;
+    if (id == null || !_currentFamilyIsMember || !mounted) return;
+    final userId = _sessionUserId();
+    if (userId == null) return;
+    final published = await StoriesApi().listPublished(id);
+    if (!mounted) return;
+    final created = await showStartTimelineDialog(
+      context,
+      parentId: id,
+      parentName: _sessionName,
+      stories: [
+        for (final story in published)
+          if (story.status == StoryStatus.published) story,
+      ],
+      familiesApi: widget.familiesApi ?? FamiliesApi(),
+      peopleApi: widget.peopleApi ?? PeopleApi(),
+      manageApi: _manage,
+      currentUserId: userId,
+      onWriteStory: () {
+        if (!mounted) return;
+        GoRouter.of(context).go('${AppRoutes.newStory}?newTimelineFrom=$id');
+      },
+    );
+    if (created == null || !mounted) return;
+    await _load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${created.name} timeline created')));
   }
 
   String get _sessionName {
@@ -388,7 +442,9 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
           },
           stewarded: _stewarded,
           manageApi: widget.manageApi,
-          onInvite: _inviteSession,
+          canWrite: _currentFamilyIsMember,
+          onInvite: _currentFamilyIsMember ? _inviteSession : null,
+          onStartTimeline: _currentFamilyIsMember ? _startTimeline : null,
           onLogout: widget.onLogout,
         ),
         body: _loading

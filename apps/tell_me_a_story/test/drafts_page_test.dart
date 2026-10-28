@@ -509,21 +509,23 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Timeline'), findsOneWidget);
-    expect(find.text('Drafts'), findsOneWidget);
+    expect(find.text('Stories'), findsOneWidget);
+    expect(find.text('Draft Stories'), findsOneWidget);
     expect(find.byKey(const Key('header-underline-drafts')), findsOneWidget);
     expect(find.byKey(const Key('timeline-search')), findsOneWidget);
-    expect(find.text('Invite'), findsOneWidget);
+    expect(find.byKey(const Key('header-invite')), findsNothing);
     expect(find.text('New story'), findsOneWidget);
-    expect(stories.familyLoads, [_familyId]);
-
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('family-menu-invite')), findsOneWidget);
+    expect(find.byKey(const Key('family-menu-start-timeline')), findsOneWidget);
+    expect(stories.familyLoads, [_familyId]);
+
     await tester.tap(find.text('Bea').last);
     await tester.pumpAndSettle();
 
     expect(stories.familyLoads.last, otherId);
-    expect(find.text('Drafts'), findsOneWidget);
+    expect(find.text('Draft Stories'), findsOneWidget);
   });
 
   testWidgets('a null date renders as No date yet and sorts last', (

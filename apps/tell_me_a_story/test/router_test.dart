@@ -509,7 +509,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TimelinePage), findsOneWidget);
-    await tester.tap(find.text('Drafts'));
+    await tester.tap(find.text('Draft Stories'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -537,7 +537,7 @@ void main() {
       AppRoutes.drafts,
     );
     expect(find.byType(DraftsPage), findsOneWidget);
-    expect(find.text('Drafts'), findsWidgets);
+    expect(find.text('Draft Stories'), findsWidgets);
 
     auth.dispose();
   });

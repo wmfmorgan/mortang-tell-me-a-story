@@ -89,9 +89,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Invite'), findsOneWidget);
     expect(find.text('New story'), findsOneWidget);
-    expect(find.text('Timeline'), findsWidgets);
+    expect(find.text('Stories'), findsWidgets);
+    expect(find.byKey(const Key('header-invite')), findsNothing);
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('family-menu-invite')), findsOneWidget);
     expect(find.text('Save draft'), findsNothing);
     expect(find.text('Publish'), findsNothing);
   });

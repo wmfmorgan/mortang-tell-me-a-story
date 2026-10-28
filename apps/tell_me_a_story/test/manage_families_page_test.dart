@@ -147,7 +147,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('North Archive'), findsWidgets);
-    await tester.tap(find.byKey(const Key('header-invite')));
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu-invite')));
     await tester.pumpAndSettle();
 
     expect(find.byType(InviteModal), findsOneWidget);
@@ -864,7 +866,18 @@ class _HubFamilies extends FamiliesGateway {
   final _Directory directory;
 
   @override
-  Future<List<MemberFamily>> listMine() async => const [];
+  Future<List<MemberFamily>> listMine() async {
+    final directory = this.directory.directory;
+    return [
+      for (final row in [...directory.active, ...directory.recoverable])
+        MemberFamily(
+          id: row.id,
+          name: row.name,
+          role: row.role,
+          createdAt: DateTime.utc(2020),
+        ),
+    ];
+  }
 
   @override
   Future<List<StewardFamily>> listStewarded() async {
