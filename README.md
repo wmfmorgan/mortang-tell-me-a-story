@@ -76,6 +76,8 @@ flutter run -d web-server --web-hostname=127.0.0.1 --web-port=3000 \
   --dart-define=MAPBOX_ACCESS_TOKEN=<public-token>
 ```
 
+From the repo root, `make help` lists the local commands. `make run` serves this web-server smoke on port 3000. `MAPBOX_ACCESS_TOKEN=... make run` passes the optional Mapbox token.
+
 Local demo `ANON_KEY` above is the standard Supabase local key from `supabase status` (safe for local only). If your ports differ, use your `API_URL` / `ANON_KEY` from status.
 
 `INVITE_APP_ORIGIN` defaults to `http://127.0.0.1:3000`. Invite links are `{INVITE_APP_ORIGIN}/timeline?invite=<token>`. Later MS: change only this define/env to the shareable host — do not invent a second invite system.
