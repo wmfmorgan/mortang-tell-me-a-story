@@ -266,9 +266,8 @@ class _HeaderBar extends StatelessWidget {
             color: albumInk.withValues(alpha: 0.15),
           ),
           SizedBox(width: metrics.gaps[1]),
-          SizedBox(
-            width: metrics.family,
-            child: _FamilyMenu(
+          _familySlot(
+            _FamilyMenu(
               page: page,
               familyName: familyName,
               families: families,
@@ -302,7 +301,6 @@ class _HeaderBar extends StatelessWidget {
             _captureActions(),
             const SizedBox(width: 12),
           ] else ...[
-            if (!metrics.loose) const Spacer(),
             const _SearchButton(),
             const SizedBox(width: _clusterGap),
             if (canWrite) ...[
@@ -335,6 +333,15 @@ class _HeaderBar extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Loose bars keep a text-sized slot so [FittedBox] can scale them.
+  /// Fitted bars give the name the leftover width left of the right cluster.
+  Widget _familySlot(Widget menu) {
+    if (metrics.loose) {
+      return SizedBox(width: metrics.family, child: menu);
+    }
+    return Flexible(child: menu);
   }
 }
 
@@ -382,12 +389,12 @@ class _HeaderMetrics {
     );
   }
 
-  /// Fits [viewport] by ellipsizing the wordmark, then the family name,
-  /// then padding and gaps. The search control stays a 40px hit target.
+  /// Fits [viewport] by shrinking the wordmark, then padding and gaps.
+  /// The family name is a flex child: it takes the leftover left of the
+  /// right cluster and ellipsizes on one line. The search hit target stays.
   _HeaderMetrics fit(double viewport) {
     var pad = this.pad;
     var word = this.word;
-    var family = this.family;
     var search = this.search;
     var gaps = [...this.gaps];
     // Button chrome is a pixel or two wider than the text-plus-padding
@@ -397,7 +404,7 @@ class _HeaderMetrics {
     double used() =>
         pad * 2 +
         word +
-        family +
+        _familyMin +
         search +
         rigid +
         gaps.fold(0, (a, b) => a + b);
@@ -407,14 +414,6 @@ class _HeaderMetrics {
       final cut = overflow < word ? overflow : word;
       word -= cut;
       overflow -= cut;
-    }
-    if (overflow > 0) {
-      final room = family - _familyMin;
-      final cut = overflow < room ? overflow : room;
-      if (cut > 0) {
-        family -= cut;
-        overflow -= cut;
-      }
     }
     if (overflow > 0 && pad > 0) {
       final cut = overflow / 2 < pad ? overflow / 2 : pad;
@@ -432,7 +431,7 @@ class _HeaderMetrics {
       page: page,
       pad: pad,
       word: word,
-      family: family,
+      family: _familyMin,
       search: search,
       gaps: gaps,
       loose: false,
@@ -734,57 +733,59 @@ class _FamilyMenu extends StatelessWidget {
           ),
         ];
       },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final textMax = constraints.maxWidth - 22;
-            final painter = TextPainter(
-              text: TextSpan(text: familyName, style: style),
-              textDirection: TextDirection.ltr,
-              maxLines: 2,
-              ellipsis: '…',
-            )..layout(maxWidth: textMax > 0 ? textMax : 0);
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Flexible(
-                      child: Semantics(
-                        label: familyName,
-                        excludeSemantics: true,
-                        child: Text(
-                          familyName,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: style,
+      child: SizedBox(
+        width: double.infinity,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final textMax = constraints.maxWidth - 22;
+              final painter = TextPainter(
+                text: TextSpan(text: familyName, style: style),
+                textDirection: TextDirection.ltr,
+                maxLines: 1,
+                ellipsis: '…',
+              )..layout(maxWidth: textMax > 0 ? textMax : 0);
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Semantics(
+                          label: familyName,
+                          excludeSemantics: true,
+                          child: Text(
+                            familyName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: style,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.expand_more,
-                      size: 18,
-                      color: albumInk.withValues(alpha: 0.7),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  key: active ? const Key('header-underline-family') : null,
-                  width: painter.width,
-                  height: 2,
-                  decoration: BoxDecoration(
-                    color: active ? albumInk : Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.expand_more,
+                        size: 18,
+                        color: albumInk.withValues(alpha: 0.7),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            );
-          },
+                  const SizedBox(height: 6),
+                  Container(
+                    key: active ? const Key('header-underline-family') : null,
+                    width: painter.width,
+                    height: 2,
+                    decoration: BoxDecoration(
+                      color: active ? albumInk : Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

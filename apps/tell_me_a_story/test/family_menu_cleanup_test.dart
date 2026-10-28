@@ -148,43 +148,49 @@ void main() {
     expect(find.byKey(const Key('family-menu-start-timeline')), findsOneWidget);
   });
 
-  testWidgets('closed family name wraps two lines and keeps the full tooltip', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(820, 800));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    const name =
-        'The extraordinarily long Morgan family archive name that wraps';
-    await tester.pumpWidget(
-      _header(
-        families: [
-          MemberFamily(id: 'ada', name: name, createdAt: DateTime.utc(2020)),
-        ],
-        currentId: 'ada',
-        familyName: name,
-      ),
-    );
-    await tester.pumpAndSettle();
-    final label = tester.widget<Text>(find.text(name));
-    expect(label.maxLines, 2);
-    expect(label.overflow, TextOverflow.ellipsis);
-    final paragraph = tester.renderObject<RenderParagraph>(find.text(name));
-    expect(paragraph.size.height, greaterThan(28));
-    final menu = tester.widget<PopupMenuButton<String>>(
-      find.byKey(const Key('family-menu')),
-    );
-    expect(menu.tooltip, name);
-    final search = tester.getSize(find.byKey(const Key('timeline-search')));
-    expect(search.width, greaterThanOrEqualTo(40));
-    expect(search.height, greaterThanOrEqualTo(40));
-    final icon = tester.widget<Icon>(
-      find.descendant(
-        of: find.byKey(const Key('timeline-search')),
-        matching: find.byIcon(Icons.search),
-      ),
-    );
-    expect(icon.color, albumInk);
-  });
+  testWidgets(
+    'closed family name stays one line and uses the room before the nav',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const name =
+          'The extraordinarily long Morgan family archive name that wraps';
+      await tester.pumpWidget(
+        _header(
+          families: [
+            MemberFamily(id: 'ada', name: name, createdAt: DateTime.utc(2020)),
+          ],
+          currentId: 'ada',
+          familyName: name,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final label = tester.widget<Text>(find.text(name));
+      expect(label.maxLines, 1);
+      expect(label.overflow, TextOverflow.ellipsis);
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(name));
+      expect(paragraph.size.height, lessThan(36));
+      expect(paragraph.size.width, greaterThan(180));
+      final menu = tester.widget<PopupMenuButton<String>>(
+        find.byKey(const Key('family-menu')),
+      );
+      expect(menu.tooltip, name);
+      final menuRect = tester.getRect(find.byKey(const Key('family-menu')));
+      final navRect = tester.getRect(find.byKey(const Key('timeline-nav')));
+      expect(navRect.left - menuRect.right, lessThan(40));
+      expect(menuRect.width, greaterThan(240));
+      final search = tester.getSize(find.byKey(const Key('timeline-search')));
+      expect(search.width, greaterThanOrEqualTo(40));
+      expect(search.height, greaterThanOrEqualTo(40));
+      final icon = tester.widget<Icon>(
+        find.descendant(
+          of: find.byKey(const Key('timeline-search')),
+          matching: find.byIcon(Icons.search),
+        ),
+      );
+      expect(icon.color, albumInk);
+    },
+  );
 
   testWidgets('sage guide stops above the post-families divider', (
     tester,
