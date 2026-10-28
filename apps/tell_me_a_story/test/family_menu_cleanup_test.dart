@@ -177,8 +177,8 @@ void main() {
       expect(menu.tooltip, name);
       final menuRect = tester.getRect(find.byKey(const Key('family-menu')));
       final navRect = tester.getRect(find.byKey(const Key('timeline-nav')));
-      expect(navRect.left - menuRect.right, lessThan(40));
-      expect(menuRect.width, greaterThan(240));
+      expect(menuRect.right, lessThanOrEqualTo(navRect.left));
+      expect(menuRect.width, greaterThan(180));
       final search = tester.getSize(find.byKey(const Key('timeline-search')));
       expect(search.width, greaterThanOrEqualTo(40));
       expect(search.height, greaterThanOrEqualTo(40));
@@ -191,6 +191,83 @@ void main() {
       expect(icon.color, albumInk);
     },
   );
+
+  testWidgets('closed family control has no filled bar at rest', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 240));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _header(
+        families: [
+          MemberFamily(id: 'ada', name: 'Ada', createdAt: DateTime.utc(2020)),
+        ],
+        currentId: 'ada',
+        familyName: 'Ada',
+      ),
+    );
+    await tester.pumpAndSettle();
+    final menu = find.byKey(const Key('family-menu'));
+    expect(
+      find.descendant(of: menu, matching: find.byType(Material)),
+      findsNothing,
+    );
+    final fills = tester.widgetList<DecoratedBox>(
+      find.descendant(of: menu, matching: find.byType(DecoratedBox)),
+    );
+    for (final box in fills) {
+      final decoration = box.decoration;
+      if (decoration is BoxDecoration && decoration.color != null) {
+        expect(decoration.color!.a, 0);
+      }
+    }
+    expect(
+      find.descendant(of: menu, matching: find.byType(ColoredBox)),
+      findsNothing,
+    );
+    final menuRect = tester.getRect(menu);
+    final navRect = tester.getRect(find.byKey(const Key('timeline-nav')));
+    expect(navRect.left - menuRect.right, greaterThan(80));
+    final label = tester.widget<Text>(find.text('Ada'));
+    expect(label.maxLines, 1);
+    expect(label.overflow, TextOverflow.ellipsis);
+  });
+
+  testWidgets('a name longer than the slot ellipsizes on one line', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 240));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const name =
+        'The extraordinarily long Morgan family archive name that wraps ';
+    final huge = name * 8;
+    await tester.pumpWidget(
+      _header(
+        families: [
+          MemberFamily(id: 'ada', name: huge, createdAt: DateTime.utc(2020)),
+        ],
+        currentId: 'ada',
+        familyName: huge,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final label = tester.widget<Text>(find.text(huge));
+    expect(label.maxLines, 1);
+    expect(label.overflow, TextOverflow.ellipsis);
+    final paragraph = tester.renderObject<RenderParagraph>(find.text(huge));
+    expect(paragraph.size.height, lessThan(36));
+    expect(paragraph.size.width, greaterThan(180));
+    expect(paragraph.didExceedMaxLines, isTrue);
+    final menuRect = tester.getRect(find.byKey(const Key('family-menu')));
+    final navRect = tester.getRect(find.byKey(const Key('timeline-nav')));
+    expect(menuRect.right, lessThanOrEqualTo(navRect.left));
+    expect(
+      tester
+          .widget<PopupMenuButton<String>>(find.byKey(const Key('family-menu')))
+          .tooltip,
+      huge,
+    );
+  });
 
   testWidgets('sage guide stops above the post-families divider', (
     tester,

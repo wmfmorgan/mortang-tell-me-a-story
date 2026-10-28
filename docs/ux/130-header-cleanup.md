@@ -1,8 +1,8 @@
-# #130 Cleanup the Header (UX rev 1.1, LOCKED)
+# #130 Cleanup the Header (UX rev 1.2, LOCKED)
 
-Status: LOCKED 2026-10-27 7:58 PM CT by Bill via Erlich (UI Qs 1–5 + screens A/B). **Amended 2026-10-27 ~9:00 PM CT** — Bill visual correction via Erlich: closed family name is **single-line** with **more room before ellipsis** (supersedes Q1 wrap). Written rules win over mock quirks.
+Status: LOCKED 2026-10-27 7:58 PM CT by Bill via Erlich (UI Qs 1–5 + screens A/B). **Amended 2026-10-27 ~9:00 PM CT** — Bill visual correction via Erlich: closed family name is **single-line** with **more room before ellipsis** (supersedes Q1 wrap). **Amended 2026-10-28 ~5:33 AM CT** — Bill smoke via Erlich: closed family control must have **no grey/filled bar** (transparent; name + chevron only); Rule 4 flex/ellipsis/tooltip stay. Written rules win over mock quirks.
 Source: PRD "Cleanup the Header (#130)", APPROVED by Bill 2026-10-27 7:45 PM CT (via Erlich): https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2 . Decisions entry 2026-10-27 #130: https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166 . Issue: https://github.com/wmfmorgan/mortang-tell-me-a-story/issues/130
-Amends: R2 Timeline header; #121 family-menu UX (`docs/ux/121-family-menu.md`) labels and dropdown order; **rev 1.1** Q1/Rule 4 (single-line family name + more flex before ellipsis). #82 switch rules, invite flow, search screen, wordmark, profile menu, and reader header are unchanged.
+Amends: R2 Timeline header; #121 family-menu UX (`docs/ux/121-family-menu.md`) labels and dropdown order; **rev 1.1** Q1/Rule 4 (single-line family name + more flex before ellipsis); **rev 1.2** closed control transparent (no grey bar). #82 switch rules, invite flow, search screen, wordmark, profile menu, and reader header are unchanged.
 UI only. No membership, invite-rule, or search-filter change.
 
 ## What changes today
@@ -10,7 +10,7 @@ UI only. No membership, invite-rule, or search-filter change.
 |---|---|
 | Header right: search pill + Invite + New story + avatar | Invite leaves the header. Right: magnifying-glass icon only, then New story, then avatar |
 | Nav labels "Timeline" / "Drafts" | "Stories" / "Draft Stories" (routes/behavior unchanged) |
-| Closed family switcher truncates long names | Closed switcher: **single line**; grows to take remaining room left of the right cluster; ellipsis only when that space runs out; full name in tooltip/semantics |
+| Closed family switcher truncates long names | Closed switcher: **single line**; grows to take remaining room left of the right cluster; ellipsis only when that space runs out; full name in tooltip/semantics; **no grey/filled bar** behind the name (transparent) |
 | Dropdown: nested families → divider → "Add a timeline branch to {Family}" → Manage families | Nested families → divider → **"Invite a family member to {family}"** → **"Add a family branch to {Family}"** (when shown) → Manage families |
 | Branch labels use "timeline branch" | Menu/dialog: "Add a family branch to {Family}"; reader: "Add a family branch from this story" |
 | Manage Families dropdown missing add-branch | Same dropdown everywhere the menu appears, including Manage Families (include add-branch when it applies) |
@@ -32,12 +32,15 @@ UI only. No membership, invite-rule, or search-filter change.
 - Shared-header nav: **"Draft Stories"** (was "Drafts"). Sibling of Stories.
 - Routes and behavior unchanged.
 
-## Rule 4: Closed family control — single line, more room before ellipsis
+## Rule 4: Closed family control — single line, more room before ellipsis, no fill
 - The closed header family switcher (name + `expand_more`) stays on **one line**. **No wrap.**
 - The control **grows** to take the remaining horizontal room left of the right cluster (search / New story / avatar). Do not reserve a tight fixed max that truncates early while free space still sits elsewhere in the header.
 - Ellipsis at the **end** only when that remaining room is exhausted. Full name always in tooltip/semantics.
-- Check / monogram / open-menu behavior unchanged.
+- **No filled background on the closed control.** No light grey (or any tinted) rectangular bar, chip, or surface that stretches into the leftover header room. Closed state is **transparent** over parchment — only the name text and `expand_more` chevron show. Flex still applies to layout width for the text; it must not paint a wide filled hit-surface.
+- Hover / pressed / focus may use the same light treatment as other header text controls (Stories / Draft Stories), not a persistent filled bar at rest.
+- Check / monogram / open-menu behavior unchanged. Open menu surface stays `albumDialogSurface` (unchanged).
 - **Rev 1.1 (Bill ~9:00 PM CT via Erlich):** supersedes the prior “wrap to 2 lines max” Q1 lock.
+- **Rev 1.2 (Bill smoke 2026-10-28 ~5:33 AM CT via Erlich):** kill the grey bar behind the closed family name; transparent/no fill. Keep Rule 4 single-line flex + ellipsis + tooltip/semantics.
 
 ## Rule 5: Search is icon-only
 - Replace the "Search archive…" / search input pill on the shared header with a **magnifying glass only** (`Icons.search`).
@@ -67,6 +70,7 @@ UI only. No membership, invite-rule, or search-filter change.
 Tokens from `album_theme.dart` only: `albumParchment` #FBF7F2, `albumTerracotta` #8B5E4B, `albumSage` #7A8B74, `albumInk` #2C2416, `albumDialogSurface` #FFF8F6. No new colors, fonts, or icons; Material icons only.
 - Menu surface, radius, border, row heights, check column, monograms, indent, sort: unchanged from #121 Visual spec.
 - Header height 72px, parchment, thin ink 15% bottom border: unchanged.
+- Closed family switcher at rest: **transparent** (no grey bar / chip fill). Name + chevron only. **Rev 1.2.**
 - Right cluster after #130: search icon → New story (terracotta) → avatar. No Invite button. **Even gaps** between the three controls (re-spaced after Invite removal — not the old leftover gaps).
 - Nav cluster: Stories | Draft Stories (Source Sans 3). Active = ink underline on the current route.
 
@@ -76,17 +80,17 @@ Tokens from `album_theme.dart` only: `albumParchment` #FBF7F2, `albumTerracotta`
 | A | Header CLOSED — Stories/Draft Stories, full family name, search icon only, no Invite | 9b967a2b9b6c4f2f8fcc9f894b9c4a1b | https://stitch.withgoogle.com/projects/12192342757314667328?node-id=9b967a2b9b6c4f2f8fcc9f894b9c4a1b | shots/A_header-closed-wide.png |
 | B | Header dropdown OPEN — Invite above Add a family branch; sage guide stops at divider | dec2feb150c64a44b348e3c7abeaa9a5 | https://stitch.withgoogle.com/projects/12192342757314667328?node-id=dec2feb150c64a44b348e3c7abeaa9a5 | shots/B_header-dropdown-wide.png |
 
-Screens A/B **LOCKED** with UI Qs 1–5 (Q5 = re-space even gaps). Mock spacing that still looks like old leftover gaps loses to the written even-gap rule. **Rev 1.1:** if Screen A shows a wrapped family name, that mock loses to Rule 4 (single line + more room before ellipsis). No new Stitch required for this amend.
+Screens A/B **LOCKED** with UI Qs 1–5 (Q5 = re-space even gaps). Mock spacing that still looks like old leftover gaps loses to the written even-gap rule. **Rev 1.1:** if Screen A shows a wrapped family name, that mock loses to Rule 4 (single line + more room before ellipsis). **Rev 1.2:** if Screen A shows a filled/grey family chip or wide grey bar, that mock loses to Rule 4 (transparent closed control). No new Stitch required for this amend.
 
 Phone, dialog title wrap, and reader menu item are written-rule only (same lean cut as #121).
 
 Mock quirks (written rules win):
 - A: decorative hero ("FAMILY ARCHIVE & CHRONICLE", decade scroller chrome, footer quote) is Stitch filler — not product. Header chrome is the SoT.
-- A: family chip may render as a pill; keep today's switcher chrome. **Rev 1.1:** single-line name with flex before ellipsis — not wrap.
+- A: family chip may render as a pill; keep today's switcher chrome. **Rev 1.1:** single-line name with flex before ellipsis — not wrap. **Rev 1.2:** no grey/filled bar at rest — transparent.
 - B: timeline cards behind the menu are placeholder. Sage guide must stop above the divider even if a mock draws it longer.
 
 ## Locked UI questions (all five — Bill via Erlich 2026-10-27)
-1. Extremely long family name on a phone-width closed switcher: grow until wrap, or always single-line ellipsis after a max width? **Originally LOCKED 2026-10-27 7:54 PM CT (wrap 2 lines)**. **AMENDED & RE-LOCKED 2026-10-27 ~9:00 PM CT (Bill via Erlich, UX amend): single line (no wrap); more room / flex before ellipsis; full name in tooltip/semantics.**
+1. Extremely long family name on a phone-width closed switcher: grow until wrap, or always single-line ellipsis after a max width? **Originally LOCKED 2026-10-27 7:54 PM CT (wrap 2 lines)**. **AMENDED & RE-LOCKED 2026-10-27 ~9:00 PM CT (Bill via Erlich, UX amend): single line (no wrap); more room / flex before ellipsis; full name in tooltip/semantics.** **AMENDED & RE-LOCKED 2026-10-28 ~5:33 AM CT (Bill smoke via Erlich): closed control transparent — no grey/filled bar; keep single-line flex + ellipsis + tooltip/semantics.**
 2. Invite row when the user cannot invite (if that state exists today): hide or disable? **LOCKED 2026-10-27 7:55 PM CT (Bill via Erlich, verbatim: "#130 UI Q2: option 1 — Hide the row")**: Hide the row — same as today’s Invite control visibility.
 3. Does "Add a family branch…" on Manage Families use the Manage page's current family (header switcher) as {Family}? **LOCKED 2026-10-27 7:56 PM CT (Bill via Erlich, verbatim: "#130 UI Q3: option 1 — The current family from the shared header switcher (same as on Stories)")**: Yes — current family from the shared header, same as Stories.
 4. Search icon color at rest: ink or sage? **LOCKED 2026-10-27 7:57 PM CT (Bill via Erlich, verbatim: "#130 UI Q4: option 1 — Ink (#2C2416) — matches other header chrome; sage stays for dropdown action icons")**: Ink (#2C2416) — matches other header chrome; sage stays for dropdown action icons.
@@ -99,3 +103,4 @@ New invite rules, search filters, wordmark/profile, reader header chrome, member
 - UX locked 2026-10-27 7:58 PM CT. Erlich opens `docs/ux/130-header-cleanup.md` PR (Mugatu cannot push).
 - Bill go 2026-10-27 ~7:58 PM CT (via Erlich): Gilfoyle gated to start SAD on this locked UX.
 - **Rev 1.1 amend locked 2026-10-27 ~9:00 PM CT (Bill via Erlich):** Rule 4 / Q1 → single-line family name + more room before ellipsis. Erlich: docs amend on `docs/ux/130-header-cleanup.md` (Mugatu cannot push). Coding + Spec-match may proceed against this amend; format-only CI fix on #139 is untouched.
+- **Rev 1.2 amend locked 2026-10-28 ~5:33 AM CT (Bill smoke via Erlich):** Rule 4 → closed family control transparent (no grey bar). Keep single-line flex + ellipsis + tooltip/semantics. Erlich: docs amend on `docs/ux/130-header-cleanup.md` (Mugatu cannot push). Merge #139 held until coding lands this on the PR; Spec/Arch/CQ recheck after push.

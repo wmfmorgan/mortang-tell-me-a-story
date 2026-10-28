@@ -629,164 +629,203 @@ class _FamilyMenu extends StatelessWidget {
     final menuConstraints = width < 640
         ? BoxConstraints.tightFor(width: width - 32)
         : const BoxConstraints(maxWidth: 320);
-    return PopupMenuButton<String>(
-      key: const Key('family-menu'),
-      tooltip: familyName,
-      padding: EdgeInsets.zero,
-      color: albumDialogSurface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE6DCD1)),
-      ),
-      constraints: menuConstraints,
-      onSelected: (value) {
-        if (value == _inviteValue) {
-          onInvite?.call();
-          return;
-        }
-        if (value == _timelineValue) {
-          onStartTimeline?.call();
-          return;
-        }
-        if (value == _manageValue) {
-          GoRouter.of(context).go(AppRoutes.manageFamilies);
-          return;
-        }
-        unawaited(_pickFamily(context, value));
-      },
-      itemBuilder: (context) {
-        final rows = nestFamilies(families);
-        final lastId = rows.isEmpty ? null : rows.last.family.id;
-        final inviteLabel = 'Invite a family member to $familyName';
-        final branchLabel = 'Add a family branch to $familyName';
-        return [
-          for (final row in rows)
-            PopupMenuItem<String>(
-              key: Key('family-menu-item-${row.family.id}'),
-              value: row.family.id,
-              child: Row(
-                children: [
-                  FamilyIndentGuide(
-                    depth: row.depth,
-                    height: 48,
-                    stopShort: row.family.id == lastId,
-                  ),
-                  SizedBox(
-                    width: 24,
-                    child: row.family.id == currentFamilyId
-                        ? const Icon(
-                            Icons.check,
-                            size: 16,
-                            color: albumTerracotta,
-                          )
-                        : null,
-                  ),
-                  FamilyMonogram(
-                    key: Key('family-monogram-${row.family.id}'),
-                    name: row.family.name,
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      row.family.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: row.family.id == currentFamilyId
-                          ? const TextStyle(fontWeight: FontWeight.w500)
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final slot = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : double.infinity;
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: PopupMenuButton<String>(
+            key: const Key('family-menu'),
+            tooltip: familyName,
+            padding: EdgeInsets.zero,
+            color: albumDialogSurface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFFE6DCD1)),
             ),
-          PopupMenuDivider(
-            key: const Key('family-menu-divider'),
-            height: 1,
-            thickness: 1,
-            color: albumSage.withValues(alpha: 0.3),
-          ),
-          if (_showInvite)
-            PopupMenuItem<String>(
-              key: const Key('family-menu-invite'),
-              value: _inviteValue,
-              child: Tooltip(
-                message: inviteLabel,
-                child: _familyActionRow(Icons.person_add_outlined, inviteLabel),
-              ),
-            ),
-          if (onStartTimeline != null)
-            PopupMenuItem<String>(
-              key: const Key('family-menu-start-timeline'),
-              value: _timelineValue,
-              child: Tooltip(
-                message: branchLabel,
-                child: _familyActionRow(
-                  Icons.account_tree_outlined,
-                  branchLabel,
-                ),
-              ),
-            ),
-          PopupMenuItem<String>(
-            key: const Key('family-menu-manage'),
-            value: _manageValue,
-            child: _familyActionRow(Icons.group_outlined, 'Manage families'),
-          ),
-        ];
-      },
-      child: SizedBox(
-        width: double.infinity,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final textMax = constraints.maxWidth - 22;
-              final painter = TextPainter(
-                text: TextSpan(text: familyName, style: style),
-                textDirection: TextDirection.ltr,
-                maxLines: 1,
-                ellipsis: '…',
-              )..layout(maxWidth: textMax > 0 ? textMax : 0);
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Semantics(
-                          label: familyName,
-                          excludeSemantics: true,
+            constraints: menuConstraints,
+            onSelected: (value) {
+              if (value == _inviteValue) {
+                onInvite?.call();
+                return;
+              }
+              if (value == _timelineValue) {
+                onStartTimeline?.call();
+                return;
+              }
+              if (value == _manageValue) {
+                GoRouter.of(context).go(AppRoutes.manageFamilies);
+                return;
+              }
+              unawaited(_pickFamily(context, value));
+            },
+            itemBuilder: (context) {
+              final rows = nestFamilies(families);
+              final lastId = rows.isEmpty ? null : rows.last.family.id;
+              final inviteLabel = 'Invite a family member to $familyName';
+              final branchLabel = 'Add a family branch to $familyName';
+              return [
+                for (final row in rows)
+                  PopupMenuItem<String>(
+                    key: Key('family-menu-item-${row.family.id}'),
+                    value: row.family.id,
+                    child: Row(
+                      children: [
+                        FamilyIndentGuide(
+                          depth: row.depth,
+                          height: 48,
+                          stopShort: row.family.id == lastId,
+                        ),
+                        SizedBox(
+                          width: 24,
+                          child: row.family.id == currentFamilyId
+                              ? const Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: albumTerracotta,
+                                )
+                              : null,
+                        ),
+                        FamilyMonogram(
+                          key: Key('family-monogram-${row.family.id}'),
+                          name: row.family.name,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
                           child: Text(
-                            familyName,
+                            row.family.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: style,
+                            style: row.family.id == currentFamilyId
+                                ? const TextStyle(fontWeight: FontWeight.w500)
+                                : null,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.expand_more,
-                        size: 18,
-                        color: albumInk.withValues(alpha: 0.7),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    key: active ? const Key('header-underline-family') : null,
-                    width: painter.width,
-                    height: 2,
-                    decoration: BoxDecoration(
-                      color: active ? albumInk : Colors.transparent,
-                      borderRadius: BorderRadius.circular(999),
+                      ],
                     ),
                   ),
-                ],
-              );
+                PopupMenuDivider(
+                  key: const Key('family-menu-divider'),
+                  height: 1,
+                  thickness: 1,
+                  color: albumSage.withValues(alpha: 0.3),
+                ),
+                if (_showInvite)
+                  PopupMenuItem<String>(
+                    key: const Key('family-menu-invite'),
+                    value: _inviteValue,
+                    child: Tooltip(
+                      message: inviteLabel,
+                      child: _familyActionRow(
+                        Icons.person_add_outlined,
+                        inviteLabel,
+                      ),
+                    ),
+                  ),
+                if (onStartTimeline != null)
+                  PopupMenuItem<String>(
+                    key: const Key('family-menu-start-timeline'),
+                    value: _timelineValue,
+                    child: Tooltip(
+                      message: branchLabel,
+                      child: _familyActionRow(
+                        Icons.account_tree_outlined,
+                        branchLabel,
+                      ),
+                    ),
+                  ),
+                PopupMenuItem<String>(
+                  key: const Key('family-menu-manage'),
+                  value: _manageValue,
+                  child: _familyActionRow(
+                    Icons.group_outlined,
+                    'Manage families',
+                  ),
+                ),
+              ];
             },
+            child: _ClosedFamilyLabel(
+              familyName: familyName,
+              style: style,
+              active: active,
+              maxWidth: slot,
+            ),
           ),
-        ),
+        );
+      },
+    );
+  }
+}
+
+/// Name and chevron only. The parent slot may be wider; this label stays
+/// as wide as the text so the closed control does not paint a filled bar.
+class _ClosedFamilyLabel extends StatelessWidget {
+  const _ClosedFamilyLabel({
+    required this.familyName,
+    required this.style,
+    required this.active,
+    required this.maxWidth,
+  });
+
+  final String familyName;
+  final TextStyle style;
+  final bool active;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    const chrome = 46.0;
+    final textMax = maxWidth.isFinite ? maxWidth - chrome : double.infinity;
+    final cap = textMax > 0 ? textMax : 0.0;
+    final painter = TextPainter(
+      text: TextSpan(text: familyName, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: cap);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: cap),
+                child: Semantics(
+                  label: familyName,
+                  excludeSemantics: true,
+                  child: Text(
+                    familyName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: style,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.expand_more,
+                size: 18,
+                color: albumInk.withValues(alpha: 0.7),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            key: active ? const Key('header-underline-family') : null,
+            width: painter.width,
+            height: 2,
+            decoration: BoxDecoration(
+              color: active ? albumInk : Colors.transparent,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ],
       ),
     );
   }
