@@ -22,6 +22,23 @@ import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 const _familyId = '00000000-0000-0000-0000-000000000001';
 const _storyId = 's1';
 
+Uint8List _pngOf(int width, int height) {
+  final bytes = Uint8List.fromList(const [
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+    0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, //
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, //
+  ]);
+  bytes[16] = (width >> 24) & 0xff;
+  bytes[17] = (width >> 16) & 0xff;
+  bytes[18] = (width >> 8) & 0xff;
+  bytes[19] = width & 0xff;
+  bytes[20] = (height >> 24) & 0xff;
+  bytes[21] = (height >> 16) & 0xff;
+  bytes[22] = (height >> 8) & 0xff;
+  bytes[23] = height & 0xff;
+  return bytes;
+}
+
 const _ada = Person(
   id: 'p1',
   familyId: _familyId,
@@ -287,7 +304,10 @@ class _FakePhotosApi implements PhotosGateway {
     List<Photo>? seed,
     this.failUpload = false,
     this.failDecode = false,
+    this.bytes = const [],
   }) : rows = [...?seed];
+
+  final List<int> bytes;
 
   final List<Photo> rows;
   var failUpload = false;
@@ -345,7 +365,8 @@ class _FakePhotosApi implements PhotosGateway {
   }) async {}
 
   @override
-  Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
+  Future<Uint8List> downloadBytes(String storagePath) async =>
+      Uint8List.fromList(bytes);
 }
 
 class _FakeCommentsApi implements CommentsGateway {
@@ -597,6 +618,10 @@ void main() {
     expect(find.text('Bob'), findsNothing);
     expect(find.text('Central Park'), findsOneWidget);
     expect(find.byKey(const Key('story-hero-ph1')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('story-hero-ph1'))).aspectRatio,
+      closeTo(16 / 9, 0.02),
+    );
     expect(find.byKey(const Key('stub-map')), findsNothing);
     expect(find.byType(PhotoStrip), findsOneWidget);
     expect(find.text('Add photo'), findsNWidgets(2));
@@ -610,6 +635,72 @@ void main() {
     expect(find.text('I remember the pie.'), findsOneWidget);
     expect(find.text('Aunt Clara'), findsOneWidget);
     expect(find.text('Not found'), findsNothing);
+  });
+
+  testWidgets('hero keeps a portrait whole inside a 3:4 frame', (tester) async {
+    final portrait = _pngOf(30, 40);
+    final wide = _pngOf(32, 18);
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        photos: _FakePhotosApi(
+          bytes: portrait,
+          seed: const [
+            Photo(
+              id: 'ph1',
+              storyId: _storyId,
+              familyId: _familyId,
+              uploaderId: 'u1',
+              storagePath: 'f/s/ph1.jpg',
+              sortOrder: 0,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final portraitSize = tester.getSize(
+      find.byKey(const Key('story-hero-ph1')),
+    );
+    expect(portraitSize.aspectRatio, closeTo(3 / 4, 0.05));
+    expect(
+      tester
+          .widget<Image>(
+            find.descendant(
+              of: find.byKey(const Key('story-hero-ph1')),
+              matching: find.byType(Image),
+            ),
+          )
+          .fit,
+      BoxFit.contain,
+    );
+
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        photos: _FakePhotosApi(
+          bytes: wide,
+          seed: const [
+            Photo(
+              id: 'ph1',
+              storyId: _storyId,
+              familyId: _familyId,
+              uploaderId: 'u1',
+              storagePath: 'f/s/ph1.jpg',
+              sortOrder: 0,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      tester.getSize(find.byKey(const Key('story-hero-ph1'))).aspectRatio,
+      closeTo(16 / 9, 0.05),
+    );
   });
 
   testWidgets('+ Add comment reveals the composer', (tester) async {

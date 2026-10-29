@@ -25,6 +25,7 @@ import '../people/person_profile_dialog.dart';
 import '../family/family_blur_dialog.dart';
 import '../family/start_timeline_dialog.dart';
 import '../perspectives/add_perspective_page.dart';
+import 'photo_frame.dart';
 import 'photo_strip.dart';
 import 'reader_meta.dart';
 import 'story_date.dart';
@@ -1102,15 +1103,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     final first = sorted.first;
     final bytes = _previews[first.id];
     final hasImage = bytes != null && bytes.isNotEmpty;
-    return AspectRatio(
+    return FramedPhoto(
       key: Key('story-hero-${first.id}'),
-      aspectRatio: 16 / 9,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: hasImage
-            ? Image.memory(bytes, fit: BoxFit.cover)
-            : const ColoredBox(color: albumParchment),
-      ),
+      bytes: hasImage ? bytes : null,
     );
   }
 

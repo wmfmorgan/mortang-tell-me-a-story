@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,10 +19,28 @@ import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
+import 'package:tell_me_a_story/features/stories/photo_frame.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
+
+Uint8List _pngOf(int width, int height) {
+  final bytes = Uint8List.fromList(const [
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+    0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, //
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, //
+  ]);
+  bytes[16] = (width >> 24) & 0xff;
+  bytes[17] = (width >> 16) & 0xff;
+  bytes[18] = (width >> 8) & 0xff;
+  bytes[19] = width & 0xff;
+  bytes[20] = (height >> 24) & 0xff;
+  bytes[21] = (height >> 16) & 0xff;
+  bytes[22] = (height >> 8) & 0xff;
+  bytes[23] = height & 0xff;
+  return bytes;
+}
 
 class _FakeInviteApi implements InviteGateway {
   @override
@@ -339,6 +358,10 @@ Widget _timeline({
 }
 
 class _FakePhotos implements PhotosGateway {
+  _FakePhotos({Uint8List? bytes}) : bytes = bytes ?? _png;
+
+  final Uint8List bytes;
+
   static final _png = Uint8List.fromList(const [
     0x89,
     0x50,
@@ -419,7 +442,7 @@ class _FakePhotos implements PhotosGateway {
   Future<void> deletePhoto(Photo photo) async {}
 
   @override
-  Future<Uint8List> downloadBytes(String storagePath) async => _png;
+  Future<Uint8List> downloadBytes(String storagePath) async => bytes;
 
   @override
   Future<List<Photo>> listPhotos(String storyId) async => const [];
@@ -1781,11 +1804,72 @@ void main() {
     );
     expect(find.text('4 photos · 1 note'), findsOneWidget);
     expect(
+      tester
+          .widget<Image>(
+            find.descendant(
+              of: find.byKey(const Key('timeline-card-lawn')),
+              matching: find.byType(Image),
+            ),
+          )
+          .fit,
+      BoxFit.contain,
+    );
+    expect(
       find.descendant(
         of: find.byKey(const Key('timeline-card-plain')),
         matching: find.byType(Image),
       ),
       findsNothing,
+    );
+  });
+
+  testWidgets('a focused portrait photo uses a tall well instead of a slit', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final portrait = _pngOf(30, 45);
+    await tester.pumpWidget(
+      _timeline(
+        photos: _FakePhotos(bytes: portrait),
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'lawn',
+              title: 'Lawn',
+              photoCount: 1,
+              photoPaths: const ['families/portrait.jpg'],
+              createdAt: DateTime(2026, 2, 1),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await _openFullCards(tester, 'lawn');
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final well = tester.getSize(
+      find.byKey(const Key('timeline-card-photos-families/portrait.jpg')),
+    );
+    expect(
+      well.height,
+      cardPhotoHeight(width: well.width, imageAspect: 30 / 45, focused: true),
+    );
+    expect(well.height, greaterThan(192));
+    expect(
+      tester
+          .widget<Image>(
+            find.descendant(
+              of: find.byKey(
+                const Key('timeline-card-photos-families/portrait.jpg'),
+              ),
+              matching: find.byType(Image),
+            ),
+          )
+          .fit,
+      BoxFit.contain,
     );
   });
 

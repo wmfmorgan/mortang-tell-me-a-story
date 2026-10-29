@@ -22,6 +22,7 @@ import '../family/start_timeline_dialog.dart';
 import '../people/person_profile_dialog.dart';
 import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
+import '../stories/photo_frame.dart';
 import '../stories/story_date.dart';
 import '../stories/story_reader_page.dart';
 import 'timeline_zoom.dart';
@@ -3204,11 +3205,7 @@ class _FullCard extends StatelessWidget {
                   ),
                 ),
                 if (paths.isNotEmpty && photos != null)
-                  _CardPhotos(
-                    paths: paths,
-                    photos: photos!,
-                    height: focused ? 192 : 112,
-                  ),
+                  _CardPhotos(paths: paths, photos: photos!, focused: focused),
                 if (focused) ...[
                   const SizedBox(height: 12),
                   DecoratedBox(
@@ -3315,12 +3312,12 @@ class _CardPhotos extends StatefulWidget {
   const _CardPhotos({
     required this.paths,
     required this.photos,
-    required this.height,
+    required this.focused,
   });
 
   final List<String> paths;
   final PhotosGateway photos;
-  final double height;
+  final bool focused;
 
   @override
   State<_CardPhotos> createState() => _CardPhotosState();
@@ -3328,6 +3325,7 @@ class _CardPhotos extends StatefulWidget {
 
 class _CardPhotosState extends State<_CardPhotos> {
   final Map<String, Uint8List> _bytes = {};
+  final Map<String, double> _aspect = {};
 
   @override
   void initState() {
@@ -3340,7 +3338,10 @@ class _CardPhotosState extends State<_CardPhotos> {
       try {
         final bytes = await widget.photos.downloadBytes(path);
         if (!mounted) return;
-        setState(() => _bytes[path] = bytes);
+        setState(() {
+          _bytes[path] = bytes;
+          _aspect[path] = encodedPhotoAspect(bytes) ?? (16 / 9);
+        });
       } catch (_) {
         // A photo that cannot be read stays out of the well.
       }
@@ -3354,27 +3355,50 @@ class _CardPhotosState extends State<_CardPhotos> {
         if (_bytes[path] != null) path,
     ];
     if (ready.isEmpty) return const SizedBox.shrink();
+    final shared = ready.length > 1;
     return Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: Row(
-        children: [
-          for (var i = 0; i < ready.length; i++)
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(left: i == 0 ? 0 : 12),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.memory(
-                    _bytes[ready[i]]!,
-                    height: widget.height,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final gaps = 12.0 * (ready.length - 1);
+          final cellWidth = ready.length == 1
+              ? constraints.maxWidth
+              : (constraints.maxWidth - gaps) / ready.length;
+          final height = shared
+              ? cardPhotoRowHeight(focused: widget.focused)
+              : cardPhotoHeight(
+                  width: cellWidth,
+                  imageAspect: _aspect[ready.first] ?? (16 / 9),
+                  focused: widget.focused,
+                );
+          return SizedBox(
+            key: Key('timeline-card-photos-${ready.first}'),
+            height: height,
+            child: Row(
+              children: [
+                for (var i = 0; i < ready.length; i++)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: i == 0 ? 0 : 12),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: ColoredBox(
+                          color: albumParchment,
+                          child: Image.memory(
+                            _bytes[ready[i]]!,
+                            height: height,
+                            width: double.infinity,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
+              ],
             ),
-        ],
+          );
+        },
       ),
     );
   }
