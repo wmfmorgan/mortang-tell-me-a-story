@@ -437,7 +437,7 @@ class _FakePhotos implements PhotosGateway {
 
 Future<void> _openFullCards(WidgetTester tester, String storyId) async {
   expect(storyId, isNotEmpty);
-  await tester.tap(find.byKey(const Key('timeline-year-chip')));
+  await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('timeline-zoom-full')));
   await tester.pumpAndSettle();
@@ -492,7 +492,22 @@ Rect _ringRect(WidgetTester tester, String familyId) {
   return tester.getRect(ring);
 }
 
+void _expectZoom(WidgetTester tester, String key) {
+  final button = tester.widget<TextButton>(find.byKey(Key(key)));
+  expect(
+    button.style?.foregroundColor?.resolve(const <WidgetState>{}),
+    albumParchment,
+  );
+}
+
 void main() {
+  test('far footer names the family', () {
+    expect(
+      farFooter(familyName: 'Test Family'),
+      'Test Family - Stories preserved across the decades.',
+    );
+  });
+
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
@@ -538,33 +553,33 @@ void main() {
     );
     expect(decade.cursor, SystemMouseCursors.click);
 
-    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
-    expect(find.text('1950 · IN FOCUS'), findsOneWidget);
+    expect(find.text('1950 · IN FOCUS'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
-    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
 
     await tester.tap(find.byKey(const Key('timeline-decade-1980')));
     await tester.pumpAndSettle();
-    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
-    expect(find.text('1954 · IN FOCUS'), findsOneWidget);
+    expect(find.text('1954 · IN FOCUS'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
-    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
 
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
-    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
-    expect(find.text('2024 · IN FOCUS'), findsOneWidget);
+    expect(find.text('2024 · IN FOCUS'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
-    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
   });
 
   testWidgets('published story preview appears after listPublished', (
@@ -875,7 +890,7 @@ void main() {
       );
       await tester.tap(find.byKey(const Key('timeline-zoom-full')));
       await tester.pumpAndSettle();
-      expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+      _expectZoom(tester, 'timeline-zoom-full');
       expect(find.text('Old A'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('family-menu')));
@@ -946,12 +961,12 @@ void main() {
 
     expect(_tooltipFor(tester, story.id), contains('Jam'));
 
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
-    expect(find.text('Continuous Family Dial'), findsOneWidget);
-    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
-    expect(find.text('Mid'), findsOneWidget);
-    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
+    expect(find.text('Years'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-mid');
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
       AppRoutes.timeline,
@@ -959,7 +974,7 @@ void main() {
 
     await tester.tap(find.byKey(Key('timeline-mid-node-${story.id}')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-full');
     expect(find.byKey(const Key('story-reader-modal')), findsNothing);
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
@@ -978,7 +993,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('story-reader-close')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-mid');
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
       AppRoutes.timeline,
@@ -986,7 +1001,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-full');
     expect(find.text('Jam'), findsOneWidget);
     expect(find.text('Currently Focused'), findsNothing);
     expect(find.text('Family Archive · Near Zoom View'), findsNothing);
@@ -997,13 +1012,13 @@ void main() {
     expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
     await tester.tap(find.byKey(const Key('story-reader-close')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-full');
 
     await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-decade-node-1980')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-mid');
     expect(find.byKey(const Key('story-reader-modal')), findsNothing);
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
@@ -1017,7 +1032,7 @@ void main() {
     expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
     await tester.tap(find.byKey(const Key('story-reader-close')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-macro');
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
       AppRoutes.timeline,
@@ -1037,41 +1052,41 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-full');
 
     await tester.tap(find.byKey(const Key('timeline-card-s1')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-full');
 
     await tester.tap(find.byKey(const Key('timeline-empty')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-mid');
 
     await tester.tap(find.byKey(const Key('timeline-stub-s1')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-mid');
 
     await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-mid');
 
     await tester.tap(find.byKey(const Key('timeline-empty')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-macro');
 
     await tester.tap(find.byKey(const Key('timeline-empty')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-macro');
 
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-mid');
 
     await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-decade-1980')));
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-mid');
   });
 
   testWidgets('Fit returns to the constellation from mid', (tester) async {
@@ -1081,23 +1096,23 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
-    expect(find.text('Continuous Family Dial'), findsOneWidget);
-    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
     expect(find.text('Mid-1980s'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('timeline-fit')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
     await tester.pumpAndSettle();
-    expect(find.text('Continuous Family Dial'), findsOneWidget);
-    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
     expect(find.text('CONTINUOUS FAMILY DIAL'), findsNothing);
     expect(find.text('1980s · IN FOCUS'), findsNothing);
-    expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
-    expect(find.text('Fit all'), findsWidgets);
+    _expectZoom(tester, 'timeline-zoom-macro');
+    expect(find.text('Fit all'), findsNothing);
   });
 
-  testWidgets('the zoom pill slides from Macro to Mid to Full Cards', (
+  testWidgets('the zoom pill slides from Decades to Years to Days', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
@@ -1181,8 +1196,8 @@ void main() {
     await tester.tap(find.byKey(const Key('timeline-decade-1980')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Continuous Family Dial'), findsOneWidget);
-    expect(find.text('1980 · IN FOCUS'), findsOneWidget);
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
     expect(find.text('DIAL CENTER'), findsNothing);
     expect(find.text('Mid-1980s to Mid-1990s Era'), findsNothing);
 
@@ -1389,7 +1404,7 @@ void main() {
     final rowMid = row.localToGlobal(row.size.center(Offset.zero)).dy;
     final viewMid = view.localToGlobal(view.size.center(Offset.zero)).dy;
     expect((rowMid - viewMid).abs(), lessThan(1.5));
-    expect(find.text('1954 · IN FOCUS'), findsOneWidget);
+    expect(find.text('1954 · IN FOCUS'), findsNothing);
 
     final earlyTop = tester.getTopLeft(early).dy;
     final lateTop = tester
@@ -1410,7 +1425,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('title2'), findsOneWidget);
@@ -1515,7 +1530,7 @@ void main() {
     expect(find.text('MARTINEZ BRANCH'), findsOneWidget);
     expect(find.text('← Martinez union joined archive'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     expect(find.text('Martinez Branch'), findsOneWidget);
     expect(find.text('← Martinez union joined archive'), findsOneWidget);
@@ -1570,7 +1585,7 @@ void main() {
     }
 
     await openAndBack();
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     await openAndBack();
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
@@ -1802,10 +1817,10 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(320, 640));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
-    expect(find.text('Macro'), findsOneWidget);
-    expect(find.text('Mid'), findsOneWidget);
-    expect(find.text('Full Cards'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-full');
+    expect(find.text('Decades'), findsOneWidget);
+    expect(find.text('Years'), findsOneWidget);
+    expect(find.text('Days'), findsOneWidget);
     expect(find.byKey(const Key('timeline-zoom-in')), findsNothing);
     expect(find.byKey(const Key('timeline-fit')), findsNothing);
     expect(find.textContaining('union joined archive'), findsNothing);
@@ -1823,8 +1838,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
     await tester.pumpAndSettle();
-    expect(find.text('Continuous Family Dial'), findsOneWidget);
-    expect(find.textContaining('Far (Decade dots)'), findsOneWidget);
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    _expectZoom(tester, 'timeline-zoom-macro');
     expect(find.text('CONTINUOUS FAMILY DIAL'), findsNothing);
     expect(find.text('MARTINEZ BRANCH'), findsOneWidget);
   });
@@ -1840,12 +1855,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
 
     _pinch(tester, 1.1);
     await tester.pumpAndSettle();
-    expect(find.text('Zoom Level: 100% (Full Cards)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-full');
 
     final card = find.byKey(const Key('timeline-card-s1'));
     final scrollable = find
@@ -1858,8 +1873,8 @@ void main() {
 
     _pinch(tester, 0.9);
     await tester.pumpAndSettle();
-    expect(find.text('Continuous Family Dial'), findsOneWidget);
-    expect(find.text('Zoom Level: 100% (Full Cards)'), findsNothing);
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    _expectZoom(tester, 'timeline-zoom-mid');
   });
 
   test('other-family and draft events do not refresh the rail', () {
@@ -1944,10 +1959,10 @@ void main() {
     await tester.tapAt(const Offset(8, 8));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     expect(_branchMarks(), findsNothing);
-    expect(find.text('Zoom Level: 45% (Stubs & Eras)'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-mid');
 
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
@@ -1984,7 +1999,7 @@ void main() {
     expect(find.textContaining('Bea ·'), findsNothing);
     expect(find.byKey(Key('timeline-dot-$bea')), findsNothing);
 
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     expect(find.byKey(Key('timeline-branch-mark-$bea')), findsOneWidget);
     expect(find.byKey(Key('timeline-dot-$bea')), findsNothing);
@@ -2040,7 +2055,7 @@ void main() {
       expect(find.text('Bea · 1972'), findsOneWidget);
       expect(find.text('1970s'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('timeline-year-chip')));
+      await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
       await tester.pumpAndSettle();
       final dial = find.ancestor(
         of: find.byKey(const Key('timeline-mid-node-mid')),
@@ -2097,7 +2112,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     expect(
       (_ringRect(tester, bea).center.dx -
@@ -2164,7 +2179,7 @@ void main() {
       lessThan(tester.getRect(decadeRow).top),
     );
 
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     expect(
       _ringRect(tester, bea).bottom,
@@ -2227,7 +2242,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
@@ -2610,7 +2625,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('timeline-year-chip')));
+      await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('timeline-zoom-full')));
       await tester.pumpAndSettle();
@@ -2667,7 +2682,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
@@ -2743,7 +2758,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
@@ -2801,7 +2816,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-year-chip')));
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
@@ -2862,7 +2877,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('timeline-year-chip')));
+      await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('timeline-zoom-full')));
       await tester.pumpAndSettle();
@@ -2935,7 +2950,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('timeline-year-chip')));
+      await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('timeline-zoom-full')));
       await tester.pumpAndSettle();

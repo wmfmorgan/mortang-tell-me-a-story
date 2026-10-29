@@ -71,7 +71,7 @@ String countWord(int count, String singular, String plural) {
 }
 
 String farFooter({required String familyName}) =>
-    '$familyName Archive · heirloom stories preserved across the decades';
+    '$familyName - Stories preserved across the decades.';
 
 /// Every published story, newest year first. Mid scrolls this whole list.
 List<Story> dialStories(Iterable<Story> stories) {
@@ -126,8 +126,6 @@ double dialOpacity({required double distance, required double halfExtent}) {
   final t = (distance / halfExtent).clamp(0.0, 1.0);
   return (1 - (t * 0.9)).clamp(0.10, 1.0);
 }
-
-String dialFocusLabel(int year) => '$year · IN FOCUS';
 
 TimelineZoom zoomIn(TimelineZoom zoom) {
   return switch (zoom) {

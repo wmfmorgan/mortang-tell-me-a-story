@@ -659,24 +659,6 @@ class _TimelinePageState extends State<TimelinePage> {
                       ),
                   ],
                 ),
-                if (showRail && _zoom != TimelineZoom.near)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: _zoom == TimelineZoom.far ? 48 : 16,
-                    child: Align(
-                      alignment: Alignment.bottomRight,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _ZoomCluster(
-                          zoom: _zoom,
-                          onIn: _zoomIn,
-                          onOut: _zoomOut,
-                          onFit: _fitAll,
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           );
@@ -764,71 +746,6 @@ class _TimelinePageState extends State<TimelinePage> {
         onMid: () => setState(() => _zoom = TimelineZoom.mid),
       ),
     };
-  }
-}
-
-class _ZoomCluster extends StatelessWidget {
-  const _ZoomCluster({
-    required this.zoom,
-    required this.onIn,
-    required this.onOut,
-    required this.onFit,
-  });
-
-  final TimelineZoom zoom;
-  final VoidCallback onIn;
-  final VoidCallback onOut;
-  final VoidCallback onFit;
-
-  @override
-  Widget build(BuildContext context) {
-    final hint = switch (zoom) {
-      TimelineZoom.far => 'Pinch · tap decade dot to zoom in · − to pull back',
-      TimelineZoom.mid => 'Pinch · tap stub to zoom in · − to pull back',
-      TimelineZoom.near => 'Pinch · tap decade dot to zoom in · − to pull back',
-    };
-    const fitLabel = 'Fit all';
-    final controls = Material(
-      color: albumParchment,
-      elevation: zoom == TimelineZoom.mid ? 6 : 2,
-      borderRadius: BorderRadius.circular(zoom == TimelineZoom.mid ? 12 : 24),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              key: const Key('timeline-zoom-out'),
-              tooltip: 'Zoom out',
-              onPressed: onOut,
-              icon: const Icon(Icons.remove),
-            ),
-            IconButton(
-              key: const Key('timeline-zoom-in'),
-              tooltip: 'Zoom in',
-              onPressed: onIn,
-              icon: const Icon(Icons.add),
-            ),
-            if (zoom != TimelineZoom.near)
-              Container(
-                width: 1,
-                height: 24,
-                color: albumInk.withValues(alpha: 0.15),
-              ),
-            TextButton(
-              key: const Key('timeline-fit'),
-              onPressed: onFit,
-              child: const Text(fitLabel),
-            ),
-          ],
-        ),
-      ),
-    );
-    final hintText = Text(hint, style: Theme.of(context).textTheme.labelMedium);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [controls, const SizedBox(height: 8), hintText],
-    );
   }
 }
 
@@ -1186,11 +1103,6 @@ class _FarRailState extends State<_FarRail> {
   @override
   Widget build(BuildContext context) {
     final joinYear = _joinYear();
-    final year =
-        _centerYear ??
-        (widget.bands.isEmpty
-            ? 0
-            : widget.bands[widget.bands.length ~/ 2].startYear);
     return _ArrowKeys(
       onStep: _step,
       child: Column(
@@ -1199,10 +1111,7 @@ class _FarRailState extends State<_FarRail> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
             child: _DialSubheader(
-              year: year,
-              zoomLabel: 'Zoom Level: Far (Decade dots)',
               selected: TimelineZoom.far,
-              onYear: () => widget.onYear(year),
               onMacro: () {},
               onMid: widget.onMid,
               onFullCards: widget.onFullCards,
@@ -1748,15 +1657,6 @@ class _MidRailState extends State<_MidRail> {
     }
   }
 
-  int _focusYear() {
-    final id = _centerId ?? widget.focusedId;
-    for (final story in widget.stories) {
-      if (story.id == id) return story.publishedStart.year;
-    }
-    if (widget.stories.isEmpty) return 0;
-    return widget.stories.first.publishedStart.year;
-  }
-
   @override
   Widget build(BuildContext context) {
     final joinAt = widget.child == null
@@ -1770,8 +1670,6 @@ class _MidRailState extends State<_MidRail> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
             child: _DialSubheader(
-              year: _focusYear(),
-              zoomLabel: 'Zoom Level: 45% (Stubs & Eras)',
               selected: TimelineZoom.mid,
               onMacro: widget.onMacro,
               onMid: () {},
@@ -1904,7 +1802,7 @@ class _DialFade extends StatelessWidget {
   }
 }
 
-/// Terracotta segment that slides between Macro, Mid, and Full Cards.
+/// Terracotta segment that slides between Decades, Years, and Days.
 ///
 /// Each zoom replaces the rail, so the last selection is remembered here
 /// and the new switch slides from that segment.
@@ -2019,19 +1917,19 @@ class _ZoomSwitchState extends State<_ZoomSwitch>
     final choices = [
       (
         key: 'timeline-zoom-macro',
-        label: 'Macro',
+        label: 'Decades',
         zoom: TimelineZoom.far,
         onPressed: widget.onMacro,
       ),
       (
         key: 'timeline-zoom-mid',
-        label: 'Mid',
+        label: 'Years',
         zoom: TimelineZoom.mid,
         onPressed: widget.onMid,
       ),
       (
         key: 'timeline-zoom-full',
-        label: 'Full Cards',
+        label: 'Days',
         zoom: TimelineZoom.near,
         onPressed: widget.onFullCards,
       ),
@@ -2102,138 +2000,46 @@ class _ZoomSwitchState extends State<_ZoomSwitch>
 
 class _DialSubheader extends StatelessWidget {
   const _DialSubheader({
-    required this.year,
-    required this.zoomLabel,
     required this.selected,
     required this.onMacro,
     required this.onMid,
     required this.onFullCards,
-    this.onYear,
   });
 
-  final int year;
-  final String zoomLabel;
   final TimelineZoom selected;
   final VoidCallback onMacro;
   final VoidCallback onMid;
   final VoidCallback onFullCards;
-  final VoidCallback? onYear;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: albumInk.withValues(alpha: 0.12)),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          runSpacing: 12,
-          spacing: 16,
-          children: [
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              children: [
-                const Icon(
-                  Icons.auto_stories,
-                  size: 16,
-                  color: albumTerracotta,
-                ),
-                Text(
-                  'Continuous Family Dial',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: albumTerracotta,
-                    letterSpacing: 1.1,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  '·',
-                  style: Theme.of(context).textTheme.labelMedium
-                      ?.copyWith(color: albumInk.withValues(alpha: 0.35)),
-                ),
-                _yearChip(context),
-              ],
-            ),
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: albumTerracotta.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    zoomLabel,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: albumTerracotta,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: _ZoomSwitch(
-                    selected: selected,
-                    onMacro: onMacro,
-                    onMid: onMid,
-                    onFullCards: onFullCards,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _yearChip(BuildContext context) {
-    final chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: albumInk.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: albumInk.withValues(alpha: 0.12)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        runSpacing: 12,
+        spacing: 16,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: albumTerracotta,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            dialFocusLabel(year),
-            style: Theme.of(context).textTheme.labelSmall
-                ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.6),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: _ZoomSwitch(
+                  selected: selected,
+                  onMacro: onMacro,
+                  onMid: onMid,
+                  onFullCards: onFullCards,
+                ),
+              ),
+            ],
           ),
         ],
       ),
-    );
-    final tap = onYear;
-    if (tap == null) return chip;
-    return GestureDetector(
-      key: const Key('timeline-year-chip'),
-      onTap: tap,
-      child: chip,
     );
   }
 }
@@ -2744,15 +2550,6 @@ class _FullCardRailState extends State<_FullCardRail> {
     }
   }
 
-  int _focusYear() {
-    final id = _centerId ?? widget.focusedId;
-    for (final story in widget.stories) {
-      if (story.id == id) return story.publishedStart.year;
-    }
-    if (widget.stories.isEmpty) return 0;
-    return widget.stories.first.publishedStart.year;
-  }
-
   @override
   Widget build(BuildContext context) {
     return _ArrowKeys(
@@ -2763,8 +2560,6 @@ class _FullCardRailState extends State<_FullCardRail> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
             child: _DialSubheader(
-              year: _focusYear(),
-              zoomLabel: 'Zoom Level: 100% (Full Cards)',
               selected: TimelineZoom.near,
               onMacro: widget.onMacro,
               onMid: widget.onMid,
