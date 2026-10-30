@@ -15,6 +15,7 @@ import 'package:tell_me_a_story/data/perspectives_api.dart'
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
@@ -299,6 +300,24 @@ class _FakePicker {
   }
 }
 
+class _StoryReload implements TimelineLive {
+  void Function()? onStory;
+
+  @override
+  void watch({required String familyId, required void Function() onChange}) {}
+
+  @override
+  void watchStory({
+    required String storyId,
+    required void Function() onChange,
+  }) {
+    onStory = onChange;
+  }
+
+  @override
+  void dispose() {}
+}
+
 class _FakePhotosApi implements PhotosGateway {
   _FakePhotosApi({
     List<Photo>? seed,
@@ -496,7 +515,7 @@ Widget _readerApp({
   Future<Uint8List?> Function()? pickImageBytes,
   String storyId = _storyId,
   String? currentUserId,
-  ReaderPresentation presentation = ReaderPresentation.page,
+  TimelineLive? live,
 }) {
   final perspectivesApi = perspectives ?? _FakePerspectivesApi();
   final router = GoRouter(
@@ -531,7 +550,7 @@ Widget _readerApp({
           familiesApi: families,
           pickImageBytes: pickImageBytes,
           currentUserId: currentUserId,
-          presentation: presentation,
+          live: live,
         ),
       ),
     ],
@@ -762,6 +781,43 @@ void main() {
     expect(find.byKey(const Key('story-hero-ph3')), findsOneWidget);
   });
 
+  testWidgets('a photo reload opens the carousel on the hero', (tester) async {
+    Photo photo(String id, int sortOrder) {
+      return Photo(
+        id: id,
+        storyId: _storyId,
+        familyId: _familyId,
+        uploaderId: 'u1',
+        storagePath: 'f/s/$id.jpg',
+        sortOrder: sortOrder,
+      );
+    }
+
+    final photos = _FakePhotosApi(seed: [photo('ph1', 0), photo('ph2', 1)]);
+    final live = _StoryReload();
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        photos: photos,
+        live: live,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-hero-ph1')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('story-hero-next')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-hero-ph2')), findsOneWidget);
+
+    photos.rows
+      ..clear()
+      ..addAll([photo('ph2', 0), photo('ph1', 1)]);
+    live.onStory?.call();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-hero-ph2')), findsOneWidget);
+    expect(find.byKey(const Key('story-hero-ph1')), findsNothing);
+  });
+
   testWidgets('+ Add comment reveals the composer', (tester) async {
     await tester.pumpWidget(
       _readerApp(stories: _FakeStoriesApi(story: _published())),
@@ -955,7 +1011,6 @@ void main() {
       MaterialPageRoute<void>(
         builder: (context) => StoryReaderPage(
           storyId: _storyId,
-          presentation: ReaderPresentation.modal,
           storiesApi: _FakeStoriesApi(story: _published(title: 'Jam')),
           peopleApi: _FakePeopleApi(),
           placesApi: _FakePlacesApi(),

@@ -73,15 +73,17 @@ String storyPhotoStoragePath({
   return '$familyId/$storyId/$photoId.$e';
 }
 
+/// Lowest [Photo.sortOrder] first, then id.
+int comparePhotoOrder(Photo a, Photo b) {
+  final order = a.sortOrder.compareTo(b.sortOrder);
+  if (order != 0) return order;
+  return a.id.compareTo(b.id);
+}
+
 /// Puts [heroId] first and keeps the other photos in their previous order.
 /// Sort orders are rewritten to 0..n-1.
 List<Photo> photosWithHeroFirst(List<Photo> photos, String heroId) {
-  final sorted = [...photos]
-    ..sort((a, b) {
-      final order = a.sortOrder.compareTo(b.sortOrder);
-      if (order != 0) return order;
-      return a.id.compareTo(b.id);
-    });
+  final sorted = [...photos]..sort(comparePhotoOrder);
   final index = sorted.indexWhere((photo) => photo.id == heroId);
   if (index > 0) {
     final chosen = sorted.removeAt(index);

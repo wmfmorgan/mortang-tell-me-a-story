@@ -376,6 +376,7 @@ class _Photos implements PhotosGateway {
     required String photoId,
   }) async {}
 
+  @override
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,
@@ -1175,7 +1176,6 @@ void main() {
               ]),
               storiesApi: stories,
               photosApi: _Photos(),
-              familiesApi: families,
               hasMapboxToken: false,
               draftId: state.uri.queryParameters['draft'],
             ),
@@ -1247,15 +1247,6 @@ void main() {
               placesApi: _Places(const []),
               storiesApi: stories,
               photosApi: _Photos(),
-              familiesApi: _Families(
-                mine: [
-                  MemberFamily(
-                    id: _parent,
-                    name: 'Parent',
-                    createdAt: DateTime.utc(1970),
-                  ),
-                ],
-              ),
               hasMapboxToken: false,
               draftId: state.uri.queryParameters['draft'],
             ),
@@ -1353,7 +1344,6 @@ void main() {
             ]),
             storiesApi: stories,
             photosApi: _Photos(),
-            familiesApi: families,
             hasMapboxToken: false,
             draftId: state.uri.queryParameters['draft'],
           ),

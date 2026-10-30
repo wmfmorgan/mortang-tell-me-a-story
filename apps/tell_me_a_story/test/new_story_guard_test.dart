@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/navigation/unsaved_guard.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
@@ -16,7 +15,6 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 const _ada = 'ada';
-const _bea = 'bea';
 
 const _person = Person(id: 'p1', familyId: _ada, name: 'Ada', createdBy: 'u1');
 
@@ -145,35 +143,34 @@ void main() {
     expect(router.state.uri.path, '/timeline');
   });
 
-  testWidgets(
-    'close, system back, and router pop prompt before leaving',
-    (tester) async {
-      await _surface(tester);
-      FamilySelection.remember('keep');
-      final router = await _mount(tester, pushed: true);
-      await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
+  testWidgets('close, system back, and router pop prompt before leaving', (
+    tester,
+  ) async {
+    await _surface(tester);
+    FamilySelection.remember('keep');
+    final router = await _mount(tester, pushed: true);
+    await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
+    await tester.pump();
+
+    Future<void> onePrompt(Future<void> Function() exit) async {
+      await exit();
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Leave this story?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Stay'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Leave this story?'), findsNothing);
+      expect(router.state.uri.path, '/stories/new');
+    }
 
-      Future<void> onePrompt(Future<void> Function() exit) async {
-        await exit();
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(find.text('Leave this story?'), findsOneWidget);
-        await tester.tap(find.widgetWithText(TextButton, 'Stay'));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(find.text('Leave this story?'), findsNothing);
-        expect(router.state.uri.path, '/stories/new');
-      }
-
-      await onePrompt(
-        () => tester.tap(find.byKey(const Key('story-capture-close'))),
-      );
-      expect(FamilySelection.id, 'keep');
-      await onePrompt(() => tester.binding.handlePopRoute());
-      await onePrompt(() async => router.pop());
-    },
-  );
+    await onePrompt(
+      () => tester.tap(find.byKey(const Key('story-capture-close'))),
+    );
+    expect(FamilySelection.id, 'keep');
+    await onePrompt(() => tester.binding.handlePopRoute());
+    await onePrompt(() async => router.pop());
+  });
 
   testWidgets('Discard writes nothing after dispose', (tester) async {
     await _surface(tester);
@@ -194,14 +191,21 @@ void main() {
     expect(stories.updateDraftCalls, 0);
   });
 
-  testWidgets('capture modal has no family switcher', (tester) async {
+  testWidgets('Save writes with the original familyId', (tester) async {
     await _surface(tester);
-    final router = await _mount(tester);
+    final stories = _Stories();
+    final router = await _mount(tester, stories: stories);
     await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
     await tester.pump();
-    expect(find.byKey(const Key('family-menu')), findsNothing);
-    expect(find.byKey(const Key('header-avatar')), findsNothing);
-    expect(router.state.uri.path, '/stories/new');
+    await tester.tap(find.byKey(const Key('story-capture-close')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Leave this story?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(stories.createDraftCalls, 1);
+    expect(stories.createdFamilyId, _ada);
+    expect(router.state.uri.path, '/timeline');
   });
 
   testWidgets('Save failure stays and shows Couldn’t save draft. Try again.', (
@@ -343,7 +347,6 @@ Future<GoRouter> _mount(
     mapboxSearch: _Mapbox(),
     storiesApi: stories ?? _Stories(),
     photosApi: _Photos(),
-    familiesApi: _Families(),
     hasMapboxToken: true,
     mapBuilder: ({double? lat, double? lng}) => const SizedBox.shrink(),
     pickImageBytes: () async => null,
@@ -644,6 +647,7 @@ class _Photos implements PhotosGateway {
     required String photoId,
   }) async {}
 
+  @override
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,
@@ -651,19 +655,6 @@ class _Photos implements PhotosGateway {
 
   @override
   Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
-}
-
-class _Families extends FamiliesGateway {
-  @override
-  Future<List<MemberFamily>> listMine() async => [
-    MemberFamily(id: _ada, name: 'Ada', createdAt: DateTime.utc(2020)),
-    MemberFamily(id: _bea, name: 'Bea', createdAt: DateTime.utc(2021)),
-  ];
-
-  @override
-  Future<List<StewardFamily>> listStewarded() async => const [
-    StewardFamily(id: _ada, name: 'Ada', role: 'owner'),
-  ];
 }
 
 class _Invite implements InviteGateway {

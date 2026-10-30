@@ -45,10 +45,8 @@ Future<StartTimelineResult?> openStartTimeline(
     allowChange: allowChange,
     onWriteStory: () {
       if (!context.mounted) return;
-      GoRouter.of(context).push(
-        '${AppRoutes.newStory}?newTimelineFrom=$parentId',
-        extra: storyModalExtra,
-      );
+      GoRouter.of(context)
+          .push('${AppRoutes.newStory}?newTimelineFrom=$parentId');
     },
   );
 }

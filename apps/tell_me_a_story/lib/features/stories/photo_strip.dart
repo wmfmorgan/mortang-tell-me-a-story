@@ -70,6 +70,7 @@ class PhotoStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final heroId = _heroPhotoId(photos);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -87,7 +88,11 @@ class PhotoStrip extends StatelessWidget {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: _tiles(tileWidth ?? tileSize, tileHeight ?? tileSize),
+                children: _tiles(
+                  tileWidth ?? tileSize,
+                  tileHeight ?? tileSize,
+                  heroId,
+                ),
               ),
             ),
           )
@@ -102,7 +107,7 @@ class PhotoStrip extends StatelessWidget {
               return Wrap(
                 spacing: gap,
                 runSpacing: gap,
-                children: _tiles(width, height, padRight: false),
+                children: _tiles(width, height, heroId, padRight: false),
               );
             },
           ),
@@ -110,7 +115,12 @@ class PhotoStrip extends StatelessWidget {
     );
   }
 
-  List<Widget> _tiles(double width, double height, {bool padRight = true}) {
+  List<Widget> _tiles(
+    double width,
+    double height,
+    String? heroId, {
+    bool padRight = true,
+  }) {
     return [
       for (final photo in photos)
         _Thumb(
@@ -118,7 +128,7 @@ class PhotoStrip extends StatelessWidget {
           preview: previews[photo.id],
           onRemove: onRemove,
           showRemove: canRemove?.call(photo) ?? true,
-          isHero: photo.id == _heroPhotoId(photos),
+          isHero: photo.id == heroId,
           onToggleHero: onToggleHero,
           width: width,
           height: height,
@@ -231,12 +241,7 @@ class _AddTile extends StatelessWidget {
 
 String? _heroPhotoId(List<Photo> photos) {
   if (photos.isEmpty) return null;
-  final sorted = [...photos]
-    ..sort((a, b) {
-      final order = a.sortOrder.compareTo(b.sortOrder);
-      if (order != 0) return order;
-      return a.id.compareTo(b.id);
-    });
+  final sorted = [...photos]..sort(comparePhotoOrder);
   return sorted.first.id;
 }
 

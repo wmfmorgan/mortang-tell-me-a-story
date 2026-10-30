@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/navigation/unsaved_guard.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
@@ -221,7 +220,6 @@ Future<GoRouter> _mount(
     mapboxSearch: _Mapbox(),
     storiesApi: api,
     photosApi: _Photos(),
-    familiesApi: _Families(),
     hasMapboxToken: true,
     mapBuilder: ({double? lat, double? lng}) => const SizedBox.shrink(),
     pickImageBytes: () async => null,
@@ -450,6 +448,7 @@ class _Photos implements PhotosGateway {
     required String photoId,
   }) async {}
 
+  @override
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,
@@ -457,16 +456,6 @@ class _Photos implements PhotosGateway {
 
   @override
   Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
-}
-
-class _Families extends FamiliesGateway {
-  @override
-  Future<List<MemberFamily>> listMine() async => [
-    MemberFamily(id: _ada, name: 'Ada', createdAt: DateTime.utc(2020)),
-  ];
-
-  @override
-  Future<List<StewardFamily>> listStewarded() async => const [];
 }
 
 class _Invite implements InviteGateway {

@@ -187,10 +187,7 @@ class _DraftsPageState extends State<DraftsPage> {
       currentUserId: userId,
       onWriteStory: () {
         if (!mounted) return;
-        GoRouter.of(context).push(
-          '${AppRoutes.newStory}?newTimelineFrom=$id',
-          extra: storyModalExtra,
-        );
+        GoRouter.of(context).push('${AppRoutes.newStory}?newTimelineFrom=$id');
       },
     );
     if (created == null || !mounted) return;
@@ -243,10 +240,7 @@ class _DraftsPageState extends State<DraftsPage> {
   }
 
   void _continueWriting(Story story) {
-    context.push(
-      '${AppRoutes.newStory}?draft=${story.id}',
-      extra: storyModalExtra,
-    );
+    context.push('${AppRoutes.newStory}?draft=${story.id}');
   }
 
   Future<void> _discard(Story story) async {

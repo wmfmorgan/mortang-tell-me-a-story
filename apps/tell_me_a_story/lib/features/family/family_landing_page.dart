@@ -361,10 +361,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
 
   Future<void> _openStory(Story story) async {
     if (GoRouter.maybeOf(context) == null) return;
-    await context.push(
-      AppRoutes.storyPath(story.id),
-      extra: storyModalExtra,
-    );
+    await context.push(AppRoutes.storyPath(story.id));
   }
 }
 

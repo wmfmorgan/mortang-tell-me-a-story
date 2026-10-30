@@ -445,6 +445,7 @@ class _FakePhotosApi implements PhotosGateway {
     }
   }
 
+  @override
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,
@@ -1065,9 +1066,8 @@ void main() {
     await tester.tap(find.byKey(const Key('photo-hero-ph2')));
     await tester.pumpAndSettle();
 
-    expect(photos.heroPhotoId, 'ph1');
-    expect(iconFor('ph1').icon, Icons.star);
-    expect(iconFor('ph2').icon, Icons.star_border);
+    expect(photos.heroPhotoId, 'ph2');
+    expect(iconFor('ph2').icon, Icons.star);
   });
 
   testWidgets('hides add tile at 20 photos', (tester) async {

@@ -199,10 +199,7 @@ class _TimelinePageState extends State<TimelinePage> {
       allowChange: allowChange,
       onWriteStory: () {
         GoRouter.of(context)
-            .push(
-              '${AppRoutes.newStory}?newTimelineFrom=${parent.id}',
-              extra: storyModalExtra,
-            );
+            .push('${AppRoutes.newStory}?newTimelineFrom=${parent.id}');
       },
     );
     if (created == null || !mounted) return;
@@ -513,10 +510,7 @@ class _TimelinePageState extends State<TimelinePage> {
 
   Future<void> _openStory(Story story) async {
     if (GoRouter.maybeOf(context) == null) return;
-    await context.push(
-      AppRoutes.storyPath(story.id),
-      extra: storyModalExtra,
-    );
+    await context.push(AppRoutes.storyPath(story.id));
     if (!mounted) return;
     await _loadFamilies();
     await _loadPublished();

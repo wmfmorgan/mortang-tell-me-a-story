@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -13,7 +12,6 @@ import '../../core/navigation/unsaved_guard.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
-import '../../data/families_api.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
@@ -48,8 +46,6 @@ class NewStoryPage extends StatefulWidget {
     this.mapBuilder,
     this.draftId,
     this.editStoryId,
-    this.familiesApi,
-    this.onLogout,
   });
 
   final InviteGateway? inviteApi;
@@ -73,9 +69,6 @@ class NewStoryPage extends StatefulWidget {
 
   /// Published or draft edit at `/stories/:storyId/edit`.
   final String? editStoryId;
-
-  final FamiliesGateway? familiesApi;
-  final Future<void> Function()? onLogout;
 
   @override
   State<NewStoryPage> createState() => _NewStoryPageState();
@@ -302,9 +295,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
       final id = await _invite.currentFamilyId();
       if (!mounted) return;
       setState(() => _familyId = id);
-      // Family switch and logout stay on the page behind this modal.
-      widget.familiesApi;
-      widget.onLogout;
       final editId = widget.editStoryId;
       final draftId = widget.draftId;
       if (editId != null) {
@@ -634,29 +624,20 @@ class _NewStoryPageState extends State<NewStoryPage> {
   Future<void> _onToggleHero(Photo photo) async {
     final storyId = _storyId;
     if (_busy || storyId == null || _storyPhotos.isEmpty) return;
-    final sorted = [..._storyPhotos]
-      ..sort((a, b) {
-        final order = a.sortOrder.compareTo(b.sortOrder);
-        if (order != 0) return order;
-        return a.id.compareTo(b.id);
-      });
+    final sorted = [..._storyPhotos]..sort(comparePhotoOrder);
     final hero = sorted.first;
-    final nextId = photo.id == hero.id ? _storyPhotos.first.id : photo.id;
-    if (nextId == hero.id) return;
+    // The filled star is already the hero. Tapping it does not reorder.
+    if (photo.id == hero.id) return;
     final current = [..._storyPhotos];
     setState(() => _busy = true);
     try {
-      await _photos.setHeroPhoto(storyId: storyId, photoId: nextId);
+      await _photos.setHeroPhoto(storyId: storyId, photoId: photo.id);
       if (!mounted) return;
-      final updated = photosWithHeroFirst(current, nextId);
-      final byId = {for (final row in updated) row.id: row};
+      final updated = photosWithHeroFirst(current, photo.id);
       setState(() {
         _storyPhotos
           ..clear()
-          ..addAll([
-            for (final row in current)
-              if (byId[row.id] != null) byId[row.id]!,
-          ]);
+          ..addAll(updated);
       });
     } catch (_) {
       if (!mounted) return;
@@ -847,7 +828,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       return;
     }
     if (id != null && id.isNotEmpty) {
-      router.pushReplacement(AppRoutes.storyPath(id), extra: storyModalExtra);
+      router.pushReplacement(AppRoutes.storyPath(id));
     }
   }
 
@@ -903,10 +884,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         if (from != null && from.isNotEmpty) {
           context.go('${AppRoutes.timeline}?newTimelineOrigin=${story.id}');
         } else {
-          context.pushReplacement(
-            AppRoutes.storyPath(story.id),
-            extra: storyModalExtra,
-          );
+          context.pushReplacement(AppRoutes.storyPath(story.id));
         }
       }
     } catch (_) {
@@ -934,27 +912,48 @@ class _NewStoryPageState extends State<NewStoryPage> {
               if (didPop) return;
               unawaited(_confirmBlockedPop());
             },
-            child: _CaptureModal(
-              editing: _editing,
-              status: _editing ? null : _autosaveLabel,
-              secondaryLabel: _editing ? null : 'Save draft',
-              primaryLabel: _editing ? 'Save changes' : 'Publish story',
-              onSecondary: _editing || !_actionsEnabled || !_canSaveDraft
-                  ? null
-                  : _onSaveDraft,
-              onPrimary: !_actionsEnabled
-                  ? null
-                  : (_editing
-                        ? (_canSaveChanges ? _onSaveChanges : null)
-                        : _onPublish),
-              onClose: () {
-                final router = GoRouter.maybeOf(context);
-                if (router != null && router.canPop()) {
-                  router.pop();
-                  return;
-                }
-                if (router != null) router.go(AppRoutes.timeline);
-              },
+            child: AlbumModalFrame(
+              frameKey: const Key('story-capture-modal'),
+              label: _editing ? 'EDIT' : 'STORY',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!_editing && _autosaveLabel != null) ...[
+                    Text(
+                      _autosaveLabel!,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: albumInk.withValues(alpha: 0.55),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  if (!_editing)
+                    TextButton(
+                      onPressed: !_actionsEnabled || !_canSaveDraft
+                          ? null
+                          : _onSaveDraft,
+                      child: const Text('Save draft'),
+                    ),
+                  FilledButton(
+                    onPressed: !_actionsEnabled
+                        ? null
+                        : (_editing
+                              ? (_canSaveChanges ? _onSaveChanges : null)
+                              : _onPublish),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: albumTerracotta,
+                      foregroundColor: albumParchment,
+                    ),
+                    child: Text(_editing ? 'Save changes' : 'Publish story'),
+                  ),
+                  IconButton(
+                    key: const Key('story-capture-close'),
+                    onPressed: () => popOrGoTimeline(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
               child: SafeArea(
                 child: AlbumColumn(
                   maxWidth: 720,
@@ -1468,140 +1467,5 @@ class _FormSnapshot {
     final live = people.map((person) => person.id).toSet();
     final saved = this.people.map((person) => person.id).toSet();
     return live.length == saved.length && live.containsAll(saved);
-  }
-}
-
-class _CaptureModal extends StatelessWidget {
-  const _CaptureModal({
-    required this.editing,
-    required this.secondaryLabel,
-    required this.primaryLabel,
-    required this.onSecondary,
-    required this.onPrimary,
-    required this.onClose,
-    required this.child,
-    this.status,
-  });
-
-  final bool editing;
-  final String? status;
-  final String? secondaryLabel;
-  final String primaryLabel;
-  final VoidCallback? onSecondary;
-  final VoidCallback? onPrimary;
-  final VoidCallback onClose;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height;
-    final theme = Theme.of(context);
-    return Material(
-      type: MaterialType.transparency,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: const ColoredBox(color: Color(0x661C140C)),
-            ),
-          ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: 1040,
-                  maxHeight: height - 48,
-                ),
-                child: Material(
-                  key: const Key('story-capture-modal'),
-                  color: albumParchment,
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: Color(0xFFE6DCD1)),
-                  ),
-                  child: Scaffold(
-                    backgroundColor: albumParchment,
-                    body: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.auto_stories_outlined,
-                                color: albumTerracotta,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                editing ? 'EDIT' : 'STORY',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: albumSage,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.4,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (status != null) ...[
-                                          Text(
-                                            status!,
-                                            style: theme.textTheme.labelMedium
-                                                ?.copyWith(
-                                                  color: albumInk.withValues(
-                                                    alpha: 0.55,
-                                                  ),
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                        ],
-                                        if (secondaryLabel != null)
-                                          TextButton(
-                                            onPressed: onSecondary,
-                                            child: Text(secondaryLabel!),
-                                          ),
-                                        FilledButton(
-                                          onPressed: onPrimary,
-                                          style: FilledButton.styleFrom(
-                                            backgroundColor: albumTerracotta,
-                                            foregroundColor: albumParchment,
-                                          ),
-                                          child: Text(primaryLabel),
-                                        ),
-                                        IconButton(
-                                          key: const Key('story-capture-close'),
-                                          onPressed: onClose,
-                                          icon: const Icon(Icons.close),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(child: child),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

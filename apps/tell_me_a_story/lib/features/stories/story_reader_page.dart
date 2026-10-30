@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -29,8 +28,6 @@ import 'photo_frame.dart';
 import 'photo_strip.dart';
 import 'reader_meta.dart';
 import 'story_date.dart';
-
-enum ReaderPresentation { page, modal }
 
 /// Large reader headline. Only a saved title is used.
 String readerHeadline({String? title}) {
@@ -119,7 +116,6 @@ class StoryReaderPage extends StatefulWidget {
     this.pickImageBytes,
     this.currentUserId,
     this.live,
-    this.presentation = ReaderPresentation.page,
   });
 
   final String storyId;
@@ -141,8 +137,6 @@ class StoryReaderPage extends StatefulWidget {
 
   /// Family-scoped story feed. Tests omit this. Production subscribes.
   final TimelineLive? live;
-
-  final ReaderPresentation presentation;
 
   @override
   State<StoryReaderPage> createState() => _StoryReaderPageState();
@@ -279,10 +273,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   Future<void> _openEdit() async {
     final id = _story?.id;
     if (id == null || GoRouter.maybeOf(context) == null) return;
-    final saved = await context.push<bool>(
-      AppRoutes.storyEditPath(id),
-      extra: storyModalExtra,
-    );
+    final saved = await context.push<bool>(AppRoutes.storyEditPath(id));
     if (!mounted || saved != true) return;
     await _load();
   }
@@ -433,6 +424,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _peopleOnStory = people;
         _place = place;
         _photos = photos;
+        _heroIndex = 0;
         _previews = previews;
         _comments = comments;
         _perspectives = perspectives;
@@ -798,80 +790,17 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   @override
   Widget build(BuildContext context) {
-    assert(
-      widget.presentation == ReaderPresentation.modal ||
-          widget.presentation == ReaderPresentation.page,
-    );
-    final height = MediaQuery.sizeOf(context).height;
     // A route pushed on top (edit) paints the same scrim. Leave this one out
     // so the blur does not stack.
     final covered = ModalRoute.of(context)?.isCurrent == false;
-    return Material(
-      type: MaterialType.transparency,
-      child: Stack(
+    return AlbumModalFrame(
+      frameKey: const Key('story-reader-modal'),
+      markKey: const Key('story-reader-mark'),
+      label: 'STORY',
+      showScrim: !covered,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (!covered)
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                child: const ColoredBox(color: Color(0x661C140C)),
-              ),
-            ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: 1040,
-                  maxHeight: height - 48,
-                ),
-                child: Material(
-                  key: const Key('story-reader-modal'),
-                  color: albumParchment,
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: Color(0xFFE6DCD1)),
-                  ),
-                  child: Scaffold(
-                    backgroundColor: albumParchment,
-                    body: Column(
-                      children: [
-                        _modalBar(context),
-                        Expanded(child: _body(context)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _modalBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.auto_stories_outlined,
-            key: Key('story-reader-mark'),
-            color: albumTerracotta,
-            size: 18,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'STORY',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: albumSage,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.4,
-            ),
-          ),
-          const Spacer(),
           if (_canEditStory)
             OutlinedButton.icon(
               key: const Key('story-edit'),
@@ -882,22 +811,12 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           _overflow(),
           IconButton(
             key: const Key('story-reader-close'),
-            onPressed: () {
-              final router = GoRouter.maybeOf(context);
-              if (router != null) {
-                if (router.canPop()) {
-                  router.pop();
-                } else {
-                  router.go(AppRoutes.timeline);
-                }
-                return;
-              }
-              Navigator.of(context).pop();
-            },
+            onPressed: () => popOrGoTimeline(context),
             icon: const Icon(Icons.close),
           ),
         ],
       ),
+      child: _body(context),
     );
   }
 
@@ -936,8 +855,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (headlineText.isNotEmpty)
-              Text(headlineText, style: headline),
+            if (headlineText.isNotEmpty) Text(headlineText, style: headline),
             const SizedBox(height: 8),
             _metaLine(story),
             const SizedBox(height: 16),
@@ -1136,13 +1054,10 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     );
   }
 
+  static const _heroSwipeVelocity = 200.0;
+
   List<Photo> _sortedPhotos() {
-    final sorted = [..._photos]
-      ..sort((a, b) {
-        final order = a.sortOrder.compareTo(b.sortOrder);
-        if (order != 0) return order;
-        return a.id.compareTo(b.id);
-      });
+    final sorted = [..._photos]..sort(comparePhotoOrder);
     return sorted;
   }
 
@@ -1170,8 +1085,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       key: const Key('story-hero-carousel'),
       onHorizontalDragEnd: (details) {
         final velocity = details.primaryVelocity ?? 0;
-        if (velocity <= -200) _stepHero(1, sorted.length);
-        if (velocity >= 200) _stepHero(-1, sorted.length);
+        if (velocity <= -_heroSwipeVelocity) _stepHero(1, sorted.length);
+        if (velocity >= _heroSwipeVelocity) _stepHero(-1, sorted.length);
       },
       child: Stack(
         children: [
@@ -1230,9 +1145,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     return DecoratedBox(
       key: key,
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F1EB),
+        color: albumPillFill,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE7DECE)),
+        border: Border.all(color: albumPillBorder),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(8, 4, 10, 4),

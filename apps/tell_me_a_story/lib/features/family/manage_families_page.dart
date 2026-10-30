@@ -156,10 +156,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
       currentUserId: userId,
       onWriteStory: () {
         if (!mounted) return;
-        GoRouter.of(context).push(
-          '${AppRoutes.newStory}?newTimelineFrom=$id',
-          extra: storyModalExtra,
-        );
+        GoRouter.of(context).push('${AppRoutes.newStory}?newTimelineFrom=$id');
       },
     );
     if (created == null || !mounted) return;
