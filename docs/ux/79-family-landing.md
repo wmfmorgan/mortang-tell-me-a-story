@@ -10,16 +10,16 @@ Tokens (album_theme): parchment `#FBF7F2`, terracotta `#8B5E4B`, sage `#7A8B74`,
 
 ## Primary user / JTBD
 
-A family member opening their family — land on a family “face” (hero photo + recent stories) before the chronological Stories timeline, with a clear prominent path into the timeline via header **Stories** and Landing timeline CTA.
+A family member opening their family — land on a family “face” (hero photo + recent stories) before the chronological Stories timeline, with a clear path into All Stories via header **Stories** and the Landing CTA.
 
 ## Pack locks (product — amended — do not invent)
 
-1. Opening a family → **Family Landing**. Header **Stories** → timeline. Landing links there.
+1. Opening a family → **Family Landing**. Header **Stories** → All Stories (#80). Landing CTA → All Stories.
 2. Owner + co-owners customize = **hero image only** (same admin who as other family admin).
 3. Dedicated family/hero photo upload by owner/co-owners; placeholder until set.
 4. **One shelf only:** latest **3** stories **added in the past 7 days**. No Featured. No Oldest. No curated picks. No Choose featured modal.
-5. Header **Stories** stays primary; Landing has clear timeline CTA; story cards open the story.
-6. **CTA copy (Jared stamp ~3:27 PM CT):** `View a Timeline of Stories for {Family}` (`{Family}` = current header family display name).
+5. Header **Stories** stays primary; Landing CTA goes to All Stories (#80); story cards open the story.
+6. Landing CTA: View all stories for {Family} (PRD #80 Q3b, 2026-10-30 5:19 PM CT).
 
 Out of scope: public family pages; timeline redesign; Manage Families hub; Featured/Oldest/shelf builder; owner-curated story picks; SAD/Spec/Trinity for this polish.
 
@@ -52,14 +52,14 @@ No Featured. No Oldest. No drag-reorder. Fewer than 3 matching → show what exi
 Horizontal row of up to 3 cards. Each: cover thumb (first story photo or parchment blank) · saved title (2-line max, then ellipsis; no invented “Untitled”) · recorded-event year/precision line. **Tap → story reader**. Empty slot: do not render a ghost card.
 
 ### Rule 5 — Empty week
-Shelf empty copy: **No stories added in the past 7 days.** Landing still shows (hero/placeholder). Timeline CTA (Rule 7′) remains visible so members can reach the full timeline.
+Shelf empty copy: **No stories added in the past 7 days.** Landing still shows (hero/placeholder). Timeline CTA (Rule 7′) remains visible so members can reach All Stories.
 
 ### Rule 6 — Owner/co-owner chrome (hero only)
 - Photo: always-visible overlay edit affordance (Material `photo_camera` or `edit`) top-right of hero → upload/replace/remove.
 - **No** Featured Edit. **No** Choose featured stories control or modal.
 - Members never see camera/edit on the hero.
 
-### Rule 7′ — Path to timeline (CTA polish — Lane 2)
+### Rule 7′ — Path to All Stories
 
 Replace the terracotta text link with a **centered** terracotta stadium **FilledButton** under the Latest shelf (same vertical slot; empty-week still shows it).
 
@@ -79,7 +79,7 @@ Replace the terracotta text link with a **centered** terracotta stadium **Filled
 
 **Alignment:** horizontally centered in the content column.
 
-Route/behavior unchanged: tap → existing timeline (`AppRoutes.timeline`). Header **Stories** still primary nav; cards still open the story reader. Key stays `family-landing-view-all`.
+Route: tap → All Stories (#80). Look unchanged.
 
 ### Rule 8 — Family photo flow
 Owner/co-owner file pick → preview → Save / Cancel. Replace overwrites. Remove photo returns to placeholder (owner/co-owner only).
@@ -106,18 +106,18 @@ Owner/co-owner file pick → preview → Save / Cancel. Replace overwrites. Remo
 | Shelf subcopy | Added in the past 7 days. |
 | Empty week | No stories added in the past 7 days. |
 | Photo placeholder (owner) | Add a family photo |
-| Timeline CTA | View a Timeline of Stories for {Family} *(Jared Decisions ~3:27 PM CT)* |
+| Landing CTA | View all stories for {Family} (PRD #80 Q3b, 2026-10-30 5:19 PM CT). |
 
 Supersedes Rev 2.0 **View all stories** for this control only.
 
 ## Locked UI decisions
 
-1. **Header active on Landing** (~10:51 AM CT): Stories un-underlined on Landing; underlined on timeline.
+1. **Header active on Landing** (~10:51 AM CT): Stories un-underlined on Landing; underlined on All Stories and on the timeline (#80).
 2. **Hero aspect** (~10:53 AM CT): **16:9** wide banner.
 3. **Shelves (amended ~11:24 AM CT / Q3b):** Latest 3 in past 7 days only — **no** Featured, **no** Oldest.
 4. **Owner customize (amended ~11:24 AM CT):** Hero image only.
 5. **Card density** (~10:58 AM CT): Thumb + title + year.
-6. **Timeline nav (Q6 ~11:26 AM CT):** Header Stories primary + Landing timeline CTA; cards open the story.
+6. **Timeline nav (Q6 ~11:26 AM CT):** Header Stories + Landing CTA → All Stories; timelines open from All Stories (#80 Q3).
 7. **CTA polish (Lane 2 ~3:27–3:32 PM CT):** Jared-stamped copy; centered; New-story-matching terracotta stadium pill; larger type (18/w600).
 8. **Return to Landing (Lane 2 ~6:05 PM CT):** same-family menu pick when not on Landing → `/family`. No wordmark/Home icon/dropdown Home. No Jared stamp. No Stitch regen.
 

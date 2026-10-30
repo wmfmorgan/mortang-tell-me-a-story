@@ -147,7 +147,7 @@ Bill locked this. R2 is the header only. It is not a new screen, and it does not
 One shared bar on the timeline, drafts, and new story:
 - Wordmark. It is the name, not a link.
 - Family menu. It sets the family for the whole session, so New story and Invite follow it. A menu that only changes the timeline page fails.
-- Timeline. It returns to the timeline for the current family.
+- Stories (was Timeline, #130). Opens All Stories for the current family (#80); the timeline opens from there.
 - Drafts, immediately after Timeline. Same ink text. It opens drafts for the current family, and it stays on the bar when you are already in Drafts.
 - Search chip, the one that already opens `/search`
 Invite and New story sit on the right. Invite is ink text. New story is the only filled terracotta button. On the New story page those two come off, and Save draft and Publish stay instead. The reader keeps its back control. Search keeps its own bar, because the field is the page.
