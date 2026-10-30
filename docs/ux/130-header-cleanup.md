@@ -28,7 +28,7 @@ UI only. No membership, invite-rule, or search-filter change.
 - Visibility, flow, fields, buttons, and other dialog copy stay as #121 / M11b. Snack / "Create timeline" button stay as #121 Open Q8 default (unchanged).
 
 ## Rule 3: Nav labels
-- Shared-header nav: **"Stories"** (was "Timeline"). Active underline on the Stories route as today.
+- Shared-header nav: **"Stories"** (was "Timeline"). Active underline on the Stories route as today. Target: All Stories (#80), was the timeline.
 - Shared-header nav: **"Draft Stories"** (was "Drafts"). Sibling of Stories.
 - Routes and behavior unchanged.
 
