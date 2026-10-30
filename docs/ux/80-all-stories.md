@@ -1,6 +1,6 @@
 # #80 All Stories view + Stories nav rework (UX LOCKED)
 
-Status: **LOCKED** rev **1.0**, Bill 2026-10-30 6:10 PM CT America/Chicago ("Lock #80 UI as drafted, page opens grouped by Date"), Mugatu. Rev 1.0 locks rev 0.2 as drafted and confirms Default grouping = Date. Copy strings still need Jared's stamp (does not reopen UI). Rev 0.2 was ~6:05 PM CT; rev 0.1 ~5:45 PM CT. Written rules win over mock quirks.
+Status: **LOCKED** rev **1.1** (2026-10-30 ~6:18 PM CT: open Qs closed, see Change log); rev 1.0 Bill 2026-10-30 6:10 PM CT America/Chicago ("Lock #80 UI as drafted, page opens grouped by Date"), Mugatu. Rev 1.0 locks rev 0.2 as drafted and confirms Default grouping = Date. Copy stamped by Bill 6:16 PM CT (Decisions "### #80 copy stamps"). Rev 0.2 was ~6:05 PM CT; rev 0.1 ~5:45 PM CT. Written rules win over mock quirks.
 Source: PRD "#80 All Stories view + Stories nav rework", APPROVED by Bill 2026-10-30 5:28 PM CT, rev 1: https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2
 Decisions: 2026-10-30 entry, Issue #80 (Q1–Q6 locked): https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166 · Issue: https://github.com/wmfmorgan/mortang-tell-me-a-story/issues/80
 Delta baseline (main @ `7432ff4`): `docs/ux/79-family-landing.md` Rev 2.2, `docs/ux/130-header-cleanup.md` rev 1.3, `docs/ux/uxd-handoff.md` (DESIGN.md, R2, R3, M9, M12, M11a, #153 amend).
@@ -158,9 +158,11 @@ Route: new All Stories route for the current header family (route name is Gilfoy
 6. **Child family's All Stories** includes its `Origin · from {Parent}` story with its Origin mark (Rule 6b).
 
 ## Open UI questions
-1. **Jared copy stamps needed:** page title `All Stories`; `Group by` + `Date` / `Member` / `Place`; search placeholder `Search titles, story text, and people`; toggle label `Started a timeline`; status lines (`{n} of {total} stories match "{query}"`, `{n} of {total} stories started a timeline`, combined form); `No one tagged`; `No place yet`; `No stories yet.`; load error + Retry; reuse of `View a Timeline of Stories for {Family}` on All Stories.
-2. **Bill lock** of this doc (rev 0.2 is still DRAFT), including confirming the draft default grouping = Date (Rule 4).
-3. Non-UI dependencies for Gilfoyle (not blocking UX): stories carry a usable place (PRD Assumption 1) and enough date precision for decades (Assumption 2); how "started a timeline" is read for a story (PRD Assumption 3).
+None open. Closed rev 1.1:
+1. ~~Jared copy stamps~~ — CLOSED: Bill stamped all #80 copy 2026-10-30 6:16 PM CT (Decisions "### #80 copy stamps", https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166). C4 load error = `Couldn't load stories.` + `Retry`; C5 reuses `View a Timeline of Stories for {Family}` on All Stories. Decisions is the copy source of truth.
+2. ~~Bill lock~~ — CLOSED: Bill locked this doc 2026-10-30 6:10 PM CT, default grouping = Date (Rule 4).
+
+Non-UI dependencies for Gilfoyle (not blocking UX): stories carry a usable place (PRD Assumption 1) and enough date precision for decades (Assumption 2); how "started a timeline" is read for a story (PRD Assumption 3).
 
 ## Stitch screens
 
@@ -186,4 +188,6 @@ Mock quirks (written rules win):
 
 ## Hand-off
 
-DRAFT rev 0.2. UI Qs 1–6 answered by Bill (6:01 PM CT). Needs Jared copy stamps (Open Q1) and Bill's lock. Then Erlich applies the patch list and opens the docs PR (Mugatu cannot push); Gilfoyle confirms place data (PRD Assumption 1) and date precision (Assumption 2) for grouping.
+LOCKED rev 1.1. UI locked by Bill 2026-10-30 6:10 PM CT; copy stamped by Bill 6:16 PM CT (Decisions "### #80 copy stamps"). Erlich applies the patch list in docs PR #155 (Mugatu cannot push); Gilfoyle confirms place data (PRD Assumption 1), date precision (Assumption 2) and how "started a timeline" is read (Assumption 3).
+
+Change log: rev 1.1 (2026-10-30 ~6:18 PM CT) — closed Open UI Qs 1–2 (copy stamped 6:16 PM CT; lock 6:10 PM CT) and updated Hand-off to LOCKED; no rule, screen or copy text changed.
