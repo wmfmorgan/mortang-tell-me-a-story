@@ -1181,6 +1181,11 @@ void main() {
             ),
           ),
           GoRoute(
+            path: '/stories/:storyId',
+            builder: (_, state) =>
+                Text('reader-${state.pathParameters['storyId']}'),
+          ),
+          GoRoute(
             path: AppRoutes.timeline,
             builder: (context, state) => TimelinePage(
               api: _Invite(_parent),
@@ -1222,7 +1227,7 @@ void main() {
       expect(find.byKey(const Key('start-timeline-change')), findsNothing);
       expect(
         router.routerDelegate.currentConfiguration.uri.path,
-        AppRoutes.timeline,
+        AppRoutes.storyPath('draft-1'),
       );
     },
   );
