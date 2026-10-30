@@ -176,7 +176,7 @@ Bill picked this screen. It does not reopen M6, M7, M8, R2, or R3.
 Build from [Story Reader Modal — Tell Me a Story](https://stitch.withgoogle.com/projects/12192342757314667328?node-id=221229a5b4844e7a9b3a2d1b3ef034e5) (`221229a5b4844e7a9b3a2d1b3ef034e5`). The earlier candidate `e3692b8710ea4fe395d9e03ebdf1a934` and the full-page reader `3ca683beb0144a658fd5074b665fe6af` are not M9.
 **Reader as a modal.** Tapping a story on the timeline opens the reader as a large parchment sheet centered over the timeline. The timeline and the R2 header stay visible behind it, dimmed and blurred. The sheet scrolls inside itself. The top bar of the sheet holds the “Family Keepsake” label on the left and a round X close on the right. There is no back link. Closing returns to the same timeline position and zoom. The existing reader route stays as the deep-link target.
 **Meta line.** One line under the title: “Recorded event: \{event date\} · Documented \{month year\} by \{author\} \{avatar\} · \{n\} min read”. The avatar is a small circle after the author’s name. It shows the author’s photo, or their initials when there is none (M8 circle rule). Under the M9 rule, everyone in the family sees the author’s photo. There is no separate “Written by” line.
-**Below the meta line.** Chips for people, then the place and the decade. Then the story’s first photo as a wide hero, with no caption (photos have no caption column; captions are OPEN with Jared). “Documented \{month year\}” reads from the story’s published date. Then the body with a drop cap. Comments and Perspectives stay as they are.
+**Below the meta line.** Chips for people, then the place and the decade. Then the story’s hero photo (first by sort order; see #153 amend) as the hero, with no caption (photos have no caption column; captions are OPEN with Jared). The hero keeps the photo’s own shape, clamped 3:4 to 16:9, shown whole on parchment (amended 2026-10-29, #151). “Documented \{month year\}” reads from the story’s published date. Then the body with a drop cap. Comments and Perspectives stay as they are.
 **Macro year / decade tap.** Tapping a year chip or a decade label on Macro opens Mid (`0cd5bfaa63c64008b81a836c48e8abd3`) centered on that year, with the chip reading “\{year\} · IN FOCUS”. No new screen.
 ### M9 amendment — Macro tap + invite restyle (Bill 2026-10-06)
 Bill re-locked these on [PR #22](https://github.com/wmfmorgan/mortang-tell-me-a-story/pull/22) head `00c18dc`. They override the earlier “Macro dot opens the reader” note from Jared’s M9 product pass.
@@ -600,8 +600,8 @@ Items 4 and 5 are behavior only. No new screen.
 8. **M13 item 8 (Edit a story).** A published story can be edited.
 	- Who can edit: the story’s author and the owners and co-owners of the timeline the story belongs to. Owners and co-owners of a parent or child timeline in the same tree cannot edit it.
 	- Entry: an outlined “Edit” button at the top right of the story content in the reader, shown only to people who can edit. The reader header is otherwise unchanged.
-	- Edit covers title, text, date, people, and pictures, using the same form as New story (including the three-box date picker), prefilled. Title “Edit story”. Header actions: “Cancel” and “Save changes” (terracotta) instead of Save draft / Publish.
-	- Cancel returns to the reader with no changes. Save changes saves and returns to the reader.
+	- Edit covers title, text, date, people, and pictures, using the same form as New story (including the three-box date picker), prefilled. Title “Edit story”. Header actions: “Save changes” (terracotta) and a close X instead of Save draft / Publish. No Cancel (superseded by #153 amend, 2026-10-30).
+	- The X returns to the reader. With unsaved edits it first asks save, discard, or stay (“Leave this story?”). Save changes saves and returns to the reader.
 	- Comments and perspectives stay editable only by their own authors.
 **Clarifications (decided 2026-10-11).** How dates are stored, sorted, or turned into a decade is Gilfoyle’s; these say what people see.
 - **Clarification 2 (old decade-only stories).** Old decade-only stories show the decade, e.g. “1980s”, in the reader. The date picker opens empty, and an edit needs at least a Year to save.
@@ -790,3 +790,18 @@ Locked by Bill in the Mortang room ("build 14.3"). Source: PRD M14.3 items 1–8
 ### Open
 - "Family owners" label is my default; Bill may rename it.
 - Undo: for a person already marked passed away, the same Family owners slot shows "Unmark passed away" instead, with a confirm dialog in the same layout (title, Cancel, Unmark passed away). No new screen. LOCKED by Bill 2026-10-16 ("Yes, add an Unmark action").
+
+## #153 amend — story modals, reader top bar, hero picker and carousel, story pills (UX locked 2026-10-30)
+
+Bill, verbatim via Erlich, 10:17 AM CT 2026-10-30: “lock as built for mugatu”. Locks PR #153 @ `dac8bf3` as built. Written rules here supersede M9 and the Edit rules above where they differ. No Stitch regen; the build is the reference. Copy is not locked here; it stays with Jared (Decisions stamp).
+
+1. **Story modals everywhere.** The reader, New story, and Edit always open as the see-through modal: parchment sheet, the page behind dimmed and blurred (M10 standard). That includes a direct URL. In-app navigation pushes the modal so the page stays underneath. Opening Edit from the reader does not stack a second blur.
+2. **Publish opens the reader.** Publish replaces the capture modal with the reader modal for that story. Saving an edit returns to the reader.
+3. **Reader top bar.** Left: story mark icon and the label. Right: Edit (outlined, only for people who can edit), the ellipsis menu, and close X. Edit no longer sits beside the title. Close goes back one step, or to the timeline when there is nothing behind.
+4. **Edit has no Cancel.** Header: Save changes (terracotta) and the close X. **Guard (Jared’s locked rule):** with unsaved edits, the X, back, and any other exit ask save, discard, or stay (“Leave this story?”) before leaving.
+5. **Hero picker.** On the Edit photo strip each thumb shows a star at top left on a parchment circle: filled terracotta star on the hero, outline ink star on the others. Tapping a star makes that photo the hero by moving it to first. With no choice made, the first photo is the hero.
+6. **Hero carousel.** In the reader, a story with two or more photos shows prev and next chevrons on parchment circles at the hero’s left and right edges, and a horizontal swipe steps too. It wraps around. One photo shows no chevrons. Framing stays as in the #151 amend (own shape, 3:4 to 16:9, whole on parchment).
+7. **Origin and branch pills.** In the reader chip row, before people and place: an “Origin” pill (sage icon and text) when the story is an origin, then one pill per family: the story’s own family first, then each branch started from it, A–Z. Pills are filled `#F6F1EB` with a `#E7DECE` border, 20px radius, small tree icon. These are reader pills and do not change the Mid dial’s hollow-ring branch pills.
+
+> ❓ OPEN (Mugatu / Bill): a cold deep link to a story, New story, or Edit has nothing under the see-through modal, so it blurs an empty screen. As built; Bill may choose to load the timeline underneath in a follow-up.
+
