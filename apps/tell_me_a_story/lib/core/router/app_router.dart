@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,7 +31,138 @@ import '../../features/search/search_recents.dart';
 import '../../features/stories/story_reader_page.dart';
 import '../../features/timeline/timeline_page.dart';
 import '../../data/search_api.dart';
+import '../theme/album_theme.dart';
 import 'auth_refresh.dart';
+
+/// Pops the current route, or opens the timeline when this page is the root.
+void popOrGoTimeline(BuildContext context) {
+  final router = GoRouter.maybeOf(context);
+  if (router != null) {
+    if (router.canPop()) {
+      router.pop();
+    } else {
+      router.go(AppRoutes.timeline);
+    }
+    return;
+  }
+  Navigator.of(context).pop();
+}
+
+/// Card, scrim, and icon label shared by the reader and the capture form.
+class AlbumModalFrame extends StatelessWidget {
+  const AlbumModalFrame({
+    super.key,
+    required this.frameKey,
+    required this.label,
+    required this.trailing,
+    required this.child,
+    this.markKey,
+    this.showScrim = true,
+  });
+
+  final Key frameKey;
+  final Key? markKey;
+  final String label;
+  final Widget trailing;
+  final Widget child;
+  final bool showScrim;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MediaQuery.sizeOf(context).height;
+    final theme = Theme.of(context);
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          if (showScrim)
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: const ColoredBox(color: albumModalScrim),
+              ),
+            ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 1040,
+                  maxHeight: height - 48,
+                ),
+                child: Material(
+                  key: frameKey,
+                  color: albumParchment,
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: albumModalBorder),
+                  ),
+                  child: Scaffold(
+                    backgroundColor: albumParchment,
+                    body: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.auto_stories_outlined,
+                                key: markKey,
+                                color: albumTerracotta,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                label,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: albumSage,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.4,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: trailing,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(child: child),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Transparent route used for the story reader and the capture form.
+CustomTransitionPage<void> albumModalPage({
+  required LocalKey pageKey,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: pageKey,
+    opaque: false,
+    barrierDismissible: false,
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: Duration.zero,
+    transitionsBuilder: (context, animation, secondary, child) => child,
+    child: child,
+  );
+}
 
 /// Chrome-lock paths: magic-link entry (signed-out), `/family` (signed-in home).
 abstract final class AppRoutes {
@@ -191,18 +324,19 @@ GoRouter createAppRouter({
       GoRoute(
         path: AppRoutes.newStory,
         onExit: storyOnExit,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final draft = state.uri.queryParameters['draft'];
-          return NewStoryPage(
-            inviteApi: inviteApi,
-            peopleApi: peopleApi,
-            placesApi: placesApi,
-            mapboxSearch: mapboxSearch,
-            storiesApi: storiesApi,
-            photosApi: photosApi,
-            familiesApi: familiesApi,
-            draftId: (draft != null && draft.isNotEmpty) ? draft : null,
-            onLogout: onLogout,
+          return albumModalPage(
+            pageKey: state.pageKey,
+            child: NewStoryPage(
+              inviteApi: inviteApi,
+              peopleApi: peopleApi,
+              placesApi: placesApi,
+              mapboxSearch: mapboxSearch,
+              storiesApi: storiesApi,
+              photosApi: photosApi,
+              draftId: (draft != null && draft.isNotEmpty) ? draft : null,
+            ),
           );
         },
       ),
@@ -218,16 +352,17 @@ GoRouter createAppRouter({
       GoRoute(
         path: AppRoutes.storyEdit,
         onExit: storyOnExit,
-        builder: (context, state) => NewStoryPage(
-          inviteApi: inviteApi,
-          peopleApi: peopleApi,
-          placesApi: placesApi,
-          mapboxSearch: mapboxSearch,
-          storiesApi: storiesApi,
-          photosApi: photosApi,
-          familiesApi: familiesApi,
-          editStoryId: state.pathParameters['storyId'],
-          onLogout: onLogout,
+        pageBuilder: (context, state) => albumModalPage(
+          pageKey: state.pageKey,
+          child: NewStoryPage(
+            inviteApi: inviteApi,
+            peopleApi: peopleApi,
+            placesApi: placesApi,
+            mapboxSearch: mapboxSearch,
+            storiesApi: storiesApi,
+            photosApi: photosApi,
+            editStoryId: state.pathParameters['storyId'],
+          ),
         ),
       ),
       GoRoute(
@@ -245,32 +380,19 @@ GoRouter createAppRouter({
       GoRoute(
         path: AppRoutes.story,
         pageBuilder: (context, state) {
-          final modal = state.extra == ReaderPresentation.modal;
-          final page = StoryReaderPage(
-            storyId: state.pathParameters['storyId']!,
-            storiesApi: storiesApi,
-            peopleApi: peopleApi,
-            placesApi: placesApi,
-            photosApi: photosApi,
-            commentsApi: commentsApi,
-            perspectivesApi: perspectivesApi,
-            profileApi: profileApi,
-            familiesApi: familiesApi,
-            presentation: modal
-                ? ReaderPresentation.modal
-                : ReaderPresentation.page,
-          );
-          if (!modal) {
-            return MaterialPage<void>(key: state.pageKey, child: page);
-          }
-          return CustomTransitionPage<void>(
-            key: state.pageKey,
-            opaque: false,
-            barrierDismissible: false,
-            transitionDuration: Duration.zero,
-            reverseTransitionDuration: Duration.zero,
-            transitionsBuilder: (context, animation, secondary, child) => child,
-            child: page,
+          return albumModalPage(
+            pageKey: state.pageKey,
+            child: StoryReaderPage(
+              storyId: state.pathParameters['storyId']!,
+              storiesApi: storiesApi,
+              peopleApi: peopleApi,
+              placesApi: placesApi,
+              photosApi: photosApi,
+              commentsApi: commentsApi,
+              perspectivesApi: perspectivesApi,
+              profileApi: profileApi,
+              familiesApi: familiesApi,
+            ),
           );
         },
       ),

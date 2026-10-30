@@ -18,6 +18,28 @@ void main() {
     );
   });
 
+  test('photosWithHeroFirst moves the chosen photo to sort order 0', () {
+    Photo photo(String id, int sortOrder) {
+      return Photo(
+        id: id,
+        storyId: 's',
+        familyId: 'f',
+        uploaderId: 'u',
+        storagePath: 'f/s/$id.jpg',
+        sortOrder: sortOrder,
+      );
+    }
+
+    final ordered = photosWithHeroFirst([
+      photo('b', 0),
+      photo('c', 2),
+      photo('a', 1),
+    ], 'a');
+
+    expect(ordered.map((photo) => photo.id).toList(), ['a', 'b', 'c']);
+    expect(ordered.map((photo) => photo.sortOrder).toList(), [0, 1, 2]);
+  });
+
   test('storyPhotoStoragePath rejects gif', () {
     expect(
       () => storyPhotoStoragePath(

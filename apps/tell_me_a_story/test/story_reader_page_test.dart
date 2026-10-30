@@ -15,6 +15,7 @@ import 'package:tell_me_a_story/data/perspectives_api.dart'
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
@@ -299,11 +300,28 @@ class _FakePicker {
   }
 }
 
+class _StoryReload implements TimelineLive {
+  void Function()? onStory;
+
+  @override
+  void watch({required String familyId, required void Function() onChange}) {}
+
+  @override
+  void watchStory({
+    required String storyId,
+    required void Function() onChange,
+  }) {
+    onStory = onChange;
+  }
+
+  @override
+  void dispose() {}
+}
+
 class _FakePhotosApi implements PhotosGateway {
   _FakePhotosApi({
     List<Photo>? seed,
     this.failUpload = false,
-    this.failDecode = false,
     this.bytes = const [],
   }) : rows = [...?seed];
 
@@ -358,6 +376,20 @@ class _FakePhotosApi implements PhotosGateway {
     rows.removeWhere((p) => p.id == photo.id);
   }
 
+  String? heroPhotoId;
+
+  @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) async {
+    heroPhotoId = photoId;
+    final next = photosWithHeroFirst(rows, photoId);
+    rows
+      ..clear()
+      ..addAll(next);
+  }
+
   @override
   Future<void> deleteAllForStory({
     required String familyId,
@@ -374,15 +406,13 @@ class _FakeCommentsApi implements CommentsGateway {
     List<Comment>? seed,
     this.throwOnList = false,
     this.throwOnCreate = false,
-    this.throwOnDelete = false,
-    this.authorId = 'u1',
   }) : rows = [...?seed];
 
   final List<Comment> rows;
   final bool throwOnList;
   final bool throwOnCreate;
-  final bool throwOnDelete;
-  final String authorId;
+  final bool throwOnDelete = false;
+  final String authorId = 'u1';
   var createCalls = 0;
   var deleteCalls = 0;
   var _seq = 0;
@@ -429,11 +459,10 @@ class _FakeCommentsApi implements CommentsGateway {
 }
 
 class _FakePerspectivesApi implements PerspectivesGateway {
-  _FakePerspectivesApi({List<Perspective>? seed, this.throwOnCreate = false})
-    : rows = [...?seed];
+  _FakePerspectivesApi({List<Perspective>? seed}) : rows = [...?seed];
 
   final List<Perspective> rows;
-  final bool throwOnCreate;
+  final bool throwOnCreate = false;
   var listCalls = 0;
   var createCalls = 0;
   var _seq = 0;
@@ -486,7 +515,7 @@ Widget _readerApp({
   Future<Uint8List?> Function()? pickImageBytes,
   String storyId = _storyId,
   String? currentUserId,
-  ReaderPresentation presentation = ReaderPresentation.page,
+  TimelineLive? live,
 }) {
   final perspectivesApi = perspectives ?? _FakePerspectivesApi();
   final router = GoRouter(
@@ -521,7 +550,7 @@ Widget _readerApp({
           familiesApi: families,
           pickImageBytes: pickImageBytes,
           currentUserId: currentUserId,
-          presentation: presentation,
+          live: live,
         ),
       ),
     ],
@@ -602,8 +631,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('story-reader')), findsOneWidget);
-    expect(find.widgetWithText(TextButton, 'Timeline'), findsOneWidget);
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
+    expect(find.text('STORY'), findsOneWidget);
     expect(find.text('Untitled'), findsNothing);
     expect(
       find.textContaining('Recorded event: January 1, 1980'),
@@ -618,6 +647,7 @@ void main() {
     expect(find.text('Bob'), findsNothing);
     expect(find.text('Central Park'), findsOneWidget);
     expect(find.byKey(const Key('story-hero-ph1')), findsOneWidget);
+    expect(find.byKey(const Key('story-hero-next')), findsNothing);
     expect(
       tester.getSize(find.byKey(const Key('story-hero-ph1'))).aspectRatio,
       closeTo(16 / 9, 0.02),
@@ -703,6 +733,91 @@ void main() {
     );
   });
 
+  testWidgets('hero carousel flips through every attached photo', (
+    tester,
+  ) async {
+    Photo photo(String id, int sortOrder) {
+      return Photo(
+        id: id,
+        storyId: _storyId,
+        familyId: _familyId,
+        uploaderId: 'u1',
+        storagePath: 'f/s/$id.jpg',
+        sortOrder: sortOrder,
+      );
+    }
+
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        photos: _FakePhotosApi(
+          seed: [photo('ph2', 1), photo('ph1', 0), photo('ph3', 2)],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('story-hero-ph1')), findsOneWidget);
+    expect(find.byKey(const Key('story-hero-ph2')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('story-hero-next')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-hero-ph2')), findsOneWidget);
+
+    await tester.fling(
+      find.byKey(const Key('story-hero-ph2')),
+      const Offset(-400, 0),
+      1000,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-hero-ph3')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('story-hero-next')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-hero-ph1')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('story-hero-prev')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-hero-ph3')), findsOneWidget);
+  });
+
+  testWidgets('a photo reload opens the carousel on the hero', (tester) async {
+    Photo photo(String id, int sortOrder) {
+      return Photo(
+        id: id,
+        storyId: _storyId,
+        familyId: _familyId,
+        uploaderId: 'u1',
+        storagePath: 'f/s/$id.jpg',
+        sortOrder: sortOrder,
+      );
+    }
+
+    final photos = _FakePhotosApi(seed: [photo('ph1', 0), photo('ph2', 1)]);
+    final live = _StoryReload();
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        photos: photos,
+        live: live,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-hero-ph1')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('story-hero-next')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-hero-ph2')), findsOneWidget);
+
+    photos.rows
+      ..clear()
+      ..addAll([photo('ph2', 0), photo('ph1', 1)]);
+    live.onStory?.call();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-hero-ph2')), findsOneWidget);
+    expect(find.byKey(const Key('story-hero-ph1')), findsNothing);
+  });
+
   testWidgets('+ Add comment reveals the composer', (tester) async {
     await tester.pumpWidget(
       _readerApp(stories: _FakeStoriesApi(story: _published())),
@@ -716,7 +831,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('comment-composer')), findsOneWidget);
-    expect(find.text('Share a short memory or note...'), findsOneWidget);
+    expect(find.text('Share a short memory or note...'), findsNothing);
     expect(find.widgetWithText(FilledButton, 'Post'), findsOneWidget);
   });
 
@@ -733,7 +848,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('story-reader')), findsOneWidget);
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
     expect(find.text('Not found'), findsOneWidget);
     expect(find.text('DRAFT_SECRET_BODY'), findsNothing);
     expect(find.textContaining('DRAFT_SECRET_BODY'), findsNothing);
@@ -842,7 +957,7 @@ void main() {
     );
     expect(find.textContaining('Picnic at the lake'), findsOneWidget);
     expect(find.textContaining('We brought pie.'), findsOneWidget);
-    expect(find.text('Timeline'), findsOneWidget);
+    expect(find.text('STORY'), findsOneWidget);
   });
 
   testWidgets('empty body headline is Untitled', (tester) async {
@@ -896,7 +1011,6 @@ void main() {
       MaterialPageRoute<void>(
         builder: (context) => StoryReaderPage(
           storyId: _storyId,
-          presentation: ReaderPresentation.modal,
           storiesApi: _FakeStoriesApi(story: _published(title: 'Jam')),
           peopleApi: _FakePeopleApi(),
           placesApi: _FakePlacesApi(),
@@ -908,7 +1022,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Family Keepsake'), findsOneWidget);
+    expect(find.text('Family Keepsake'), findsNothing);
+    expect(find.byKey(const Key('story-reader-mark')), findsOneWidget);
+    expect(find.text('STORY'), findsOneWidget);
+    expect(
+      tester.widget<Icon>(find.byKey(const Key('story-reader-mark'))).icon,
+      Icons.auto_stories_outlined,
+    );
     expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
     expect(find.byKey(const Key('story-reader-close')), findsOneWidget);
     expect(find.byKey(const Key('story-reader')), findsNothing);
@@ -958,7 +1078,7 @@ void main() {
     expect(find.text('Comments'), findsOneWidget);
   });
 
-  testWidgets('Timeline back goes to /timeline', (tester) async {
+  testWidgets('close from a root reader goes to /timeline', (tester) async {
     await tester.pumpWidget(
       _readerApp(stories: _FakeStoriesApi(story: _published())),
     );
@@ -966,11 +1086,11 @@ void main() {
 
     expect(find.byKey(const Key('family-menu')), findsNothing);
     expect(find.byKey(const Key('header-avatar')), findsNothing);
-    await tester.tap(find.widgetWithText(TextButton, 'Timeline'));
+    await tester.tap(find.byKey(const Key('story-reader-close')));
     await tester.pumpAndSettle();
 
     expect(find.text('timeline-dest'), findsOneWidget);
-    expect(find.byKey(const Key('story-reader')), findsNothing);
+    expect(find.byKey(const Key('story-reader-modal')), findsNothing);
     expect(find.byKey(const Key('family-menu')), findsNothing);
   });
 
@@ -1018,7 +1138,7 @@ void main() {
 
     expect(perspectives.createCalls, 1);
     expect(find.byKey(const Key('add-perspective')), findsNothing);
-    expect(find.byKey(const Key('story-reader')), findsOneWidget);
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
     expect(find.text('From the porch it looked different.'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
     expect(perspectives.listCalls, greaterThanOrEqualTo(2));
@@ -2008,6 +2128,98 @@ void main() {
       stewarded: const [StewardFamily(id: child, name: 'Ada', role: 'owner')],
     );
     expect(find.byKey(const Key('story-edit')), findsNothing);
+  });
+
+  testWidgets('origin story shows Origin then each branch before people', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(
+          story: _published(title: 'Matt is born', personIds: const ['p1']),
+        ),
+        people: _WholeTreePeople(seed: const [_ada]),
+        families: _OriginFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'The WFM Morgans',
+              createdAt: DateTime.utc(1990),
+            ),
+          ],
+          tree: [
+            TreeFamily(id: _familyId, name: 'The WFM Morgans'),
+            TreeFamily(
+              id: 'child-west',
+              name: 'West',
+              parentFamilyId: _familyId,
+              originStoryId: _storyId,
+            ),
+            TreeFamily(
+              id: 'child-east',
+              name: 'East',
+              parentFamilyId: _familyId,
+              originStoryId: _storyId,
+            ),
+            TreeFamily(
+              id: 'other',
+              name: 'Unrelated',
+              parentFamilyId: _familyId,
+              originStoryId: 'some-other-story',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('story-origin-pill')), findsOneWidget);
+    expect(find.text('Origin'), findsOneWidget);
+    expect(find.text('The WFM Morgans'), findsOneWidget);
+    expect(find.text('East'), findsOneWidget);
+    expect(find.text('West'), findsOneWidget);
+    expect(find.text('Unrelated'), findsNothing);
+
+    final origin = tester.getTopLeft(find.text('Origin'));
+    final home = tester.getTopLeft(find.text('The WFM Morgans'));
+    final east = tester.getTopLeft(find.text('East'));
+    final member = tester.getTopLeft(find.text('Ada'));
+    expect(origin.dx, lessThan(home.dx));
+    expect(home.dx, lessThan(east.dx));
+    expect(east.dx, lessThan(member.dx));
+  });
+
+  testWidgets('a story that starts no branch has no Origin pill', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published(title: 'Later')),
+        families: _OriginFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'The WFM Morgans',
+              createdAt: DateTime.utc(1990),
+            ),
+          ],
+          tree: [
+            TreeFamily(id: _familyId, name: 'The WFM Morgans'),
+            TreeFamily(
+              id: 'child-west',
+              name: 'West',
+              parentFamilyId: _familyId,
+              originStoryId: 'other-story',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('story-origin-pill')), findsNothing);
+    expect(find.text('The WFM Morgans'), findsOneWidget);
+    expect(find.text('West'), findsNothing);
   });
 
   testWidgets('a member reader shows story people from the whole tree', (

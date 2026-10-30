@@ -11,18 +11,13 @@ import '../../core/config/env.dart';
 import '../../core/navigation/unsaved_guard.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
-import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
-import '../../data/families_api.dart';
-import '../../data/manage_families_api.dart';
-import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/stories_api.dart';
-import '../family/start_timeline_dialog.dart';
 import '../people/add_person_modal.dart';
 import '../people/person_profile_dialog.dart';
 import '../places/place_map.dart';
@@ -51,8 +46,6 @@ class NewStoryPage extends StatefulWidget {
     this.mapBuilder,
     this.draftId,
     this.editStoryId,
-    this.familiesApi,
-    this.onLogout,
   });
 
   final InviteGateway? inviteApi;
@@ -77,9 +70,6 @@ class NewStoryPage extends StatefulWidget {
   /// Published or draft edit at `/stories/:storyId/edit`.
   final String? editStoryId;
 
-  final FamiliesGateway? familiesApi;
-  final Future<void> Function()? onLogout;
-
   @override
   State<NewStoryPage> createState() => _NewStoryPageState();
 }
@@ -97,9 +87,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
   final _year = TextEditingController();
 
   String? _familyId;
-  List<MemberFamily> _families = const [];
-  List<StewardFamily> _stewarded = const [];
-  Set<String> _memberIds = const {};
   String? _storyId;
   Timer? _autosaveTimer;
   var _autosaveInserted = false;
@@ -308,7 +295,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
       final id = await _invite.currentFamilyId();
       if (!mounted) return;
       setState(() => _familyId = id);
-      await _loadFamilies();
       final editId = widget.editStoryId;
       final draftId = widget.draftId;
       if (editId != null) {
@@ -635,6 +621,32 @@ class _NewStoryPageState extends State<NewStoryPage> {
     }
   }
 
+  Future<void> _onToggleHero(Photo photo) async {
+    final storyId = _storyId;
+    if (_busy || storyId == null || _storyPhotos.isEmpty) return;
+    final sorted = [..._storyPhotos]..sort(comparePhotoOrder);
+    final hero = sorted.first;
+    // The filled star is already the hero. Tapping it does not reorder.
+    if (photo.id == hero.id) return;
+    final current = [..._storyPhotos];
+    setState(() => _busy = true);
+    try {
+      await _photos.setHeroPhoto(storyId: storyId, photoId: photo.id);
+      if (!mounted) return;
+      final updated = photosWithHeroFirst(current, photo.id);
+      setState(() {
+        _storyPhotos
+          ..clear()
+          ..addAll(updated);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _photoError = true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _onRemovePhoto(Photo photo) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -816,13 +828,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
       return;
     }
     if (id != null && id.isNotEmpty) {
-      router.go(AppRoutes.storyPath(id));
+      router.pushReplacement(AppRoutes.storyPath(id));
     }
-  }
-
-  void _onCancel() {
-    if (!_actionsEnabled) return;
-    _returnToReader(false);
   }
 
   Future<bool> _saveChangesCore() async {
@@ -877,7 +884,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         if (from != null && from.isNotEmpty) {
           context.go('${AppRoutes.timeline}?newTimelineOrigin=${story.id}');
         } else {
-          context.go(AppRoutes.timeline);
+          context.pushReplacement(AppRoutes.storyPath(story.id));
         }
       }
     } catch (_) {
@@ -888,97 +895,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  Future<void> _loadFamilies() async {
-    List<MemberFamily> rows = const [];
-    List<StewardFamily> stewarded = const [];
-    var memberIds = <String>{};
-    try {
-      if (widget.familiesApi != null) {
-        rows = await widget.familiesApi!.listMine();
-        stewarded = await widget.familiesApi!.listStewarded();
-        memberIds = rows.map((row) => row.id).toSet();
-      } else if (widget.inviteApi != null || widget.storiesApi != null) {
-        final id = _familyId;
-        if (id != null) {
-          rows = [
-            MemberFamily(id: id, name: 'Family', createdAt: DateTime.utc(2020)),
-          ];
-        }
-      } else {
-        final live = FamiliesApi();
-        rows = await live.listMine();
-        stewarded = await live.listStewarded();
-        memberIds = rows.map((row) => row.id).toSet();
-      }
-    } catch (_) {
-      rows = const [];
-      stewarded = const [];
-      memberIds = {};
-    }
-    if (!mounted) return;
-    setState(() {
-      _families = rows;
-      _stewarded = stewarded;
-      _memberIds = memberIds;
-    });
-  }
-
-  bool get _currentFamilyIsMember {
-    final id = _familyId;
-    return id != null && _memberIds.contains(id);
-  }
-
-  String? _sessionUserId() {
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _startTimeline() async {
-    final id = _familyId;
-    if (id == null || !_memberIds.contains(id) || !mounted) return;
-    final userId = _sessionUserId();
-    if (userId == null) return;
-    final published = await _stories.listPublished(id);
-    if (!mounted) return;
-    final created = await showStartTimelineDialog(
-      context,
-      parentId: id,
-      parentName: _familyName,
-      stories: [
-        for (final story in published)
-          if (story.status == StoryStatus.published) story,
-      ],
-      familiesApi: widget.familiesApi ?? FamiliesApi(),
-      peopleApi: _people,
-      manageApi: ManageFamiliesApi(),
-      currentUserId: userId,
-      onWriteStory: () {
-        if (!mounted) return;
-        GoRouter.of(context).go('${AppRoutes.newStory}?newTimelineFrom=$id');
-      },
-    );
-    if (created == null || !mounted) return;
-    await _loadFamilies();
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${created.name} timeline created')));
-  }
-
-  void _selectFamily(String id) {
-    FamilySelection.remember(id);
-  }
-
-  String get _familyName {
-    for (final family in _families) {
-      if (family.id == _familyId) return family.name;
-    }
-    return 'Family';
   }
 
   @override
@@ -996,33 +912,49 @@ class _NewStoryPageState extends State<NewStoryPage> {
               if (didPop) return;
               unawaited(_confirmBlockedPop());
             },
-            child: Scaffold(
-              appBar: AlbumHeader(
-                page: AlbumHeaderPage.capture,
-                familyName: _familyName,
-                families: _families,
-                currentFamilyId: _familyId,
-                onFamilySelected: _selectFamily,
-                onLogout: widget.onLogout,
-                stewarded: _stewarded,
-                onStartTimeline: _currentFamilyIsMember ? _startTimeline : null,
-                onSaveDraft: !_actionsEnabled
-                    ? null
-                    : (_editing
-                          ? _onCancel
-                          : (_canSaveDraft ? _onSaveDraft : null)),
-                onPublish: !_actionsEnabled
-                    ? null
-                    : (_editing
-                          ? (_canSaveChanges ? _onSaveChanges : null)
-                          : _onPublish),
-                captureStatus: _editing ? null : _autosaveLabel,
-                captureSecondaryLabel: _editing ? 'Cancel' : 'Save draft',
-                capturePrimaryLabel: _editing
-                    ? 'Save changes'
-                    : 'Publish story',
+            child: AlbumModalFrame(
+              frameKey: const Key('story-capture-modal'),
+              label: _editing ? 'EDIT' : 'STORY',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!_editing && _autosaveLabel != null) ...[
+                    Text(
+                      _autosaveLabel!,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: albumInk.withValues(alpha: 0.55),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  if (!_editing)
+                    TextButton(
+                      onPressed: !_actionsEnabled || !_canSaveDraft
+                          ? null
+                          : _onSaveDraft,
+                      child: const Text('Save draft'),
+                    ),
+                  FilledButton(
+                    onPressed: !_actionsEnabled
+                        ? null
+                        : (_editing
+                              ? (_canSaveChanges ? _onSaveChanges : null)
+                              : _onPublish),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: albumTerracotta,
+                      foregroundColor: albumParchment,
+                    ),
+                    child: Text(_editing ? 'Save changes' : 'Publish story'),
+                  ),
+                  IconButton(
+                    key: const Key('story-capture-close'),
+                    onPressed: () => popOrGoTimeline(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
               ),
-              body: SafeArea(
+              child: SafeArea(
                 child: AlbumColumn(
                   maxWidth: 720,
                   child: SingleChildScrollView(
@@ -1267,6 +1199,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
                   previews: _photoPreviews,
                   onAdd: _onAddPhoto,
                   onRemove: _onRemovePhoto,
+                  onToggleHero: _onToggleHero,
                   onRetry: _onRetryPhoto,
                   uploadFailed: _photoError,
                   canAdd: _storyPhotos.length < maxPhotosPerStory,

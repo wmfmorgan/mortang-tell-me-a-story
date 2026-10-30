@@ -281,6 +281,13 @@ class _FakePhotosApi implements PhotosGateway {
   Future<void> deletePhoto(Photo photo) async {}
 
   @override
+  @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) async {}
+
+  @override
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,

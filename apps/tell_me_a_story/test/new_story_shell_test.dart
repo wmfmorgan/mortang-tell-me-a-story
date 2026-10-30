@@ -240,7 +240,8 @@ void main() {
     await tester.pumpWidget(_shell());
     await tester.pumpAndSettle();
 
-    expect(find.text('Tell Me a Story'), findsOneWidget);
+    expect(find.text('STORY'), findsOneWidget);
+    expect(find.byKey(const Key('story-capture-modal')), findsOneWidget);
     expect(find.text('New story'), findsNothing);
     expect(find.text('Invite'), findsNothing);
     expect(find.text('Add person'), findsOneWidget);

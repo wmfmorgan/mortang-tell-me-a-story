@@ -46,7 +46,7 @@ Future<StartTimelineResult?> openStartTimeline(
     onWriteStory: () {
       if (!context.mounted) return;
       GoRouter.of(context)
-          .go('${AppRoutes.newStory}?newTimelineFrom=$parentId');
+          .push('${AppRoutes.newStory}?newTimelineFrom=$parentId');
     },
   );
 }

@@ -127,15 +127,17 @@ void main() {
     await _pumpOverlay(tester, api: _FakePerspectivesApi());
 
     expect(find.byKey(const Key('add-perspective')), findsOneWidget);
-    expect(find.text('FAMILY PERSPECTIVE'), findsOneWidget);
+    expect(find.text('PERSPECTIVE'), findsOneWidget);
+    expect(find.text('FAMILY PERSPECTIVE'), findsNothing);
     expect(find.text('Add your perspective'), findsOneWidget);
     expect(
       find.text(
-        'Tell this story in your own words — a full telling, not a quick reaction.',
+        'Provide your perspective of this story, or add some missing pieces',
       ),
       findsOneWidget,
     );
-    expect(find.text('Your story'), findsOneWidget);
+    expect(find.text('Your story'), findsNothing);
+    expect(find.text(' *'), findsNothing);
     expect(find.text('0 words'), findsOneWidget);
     expect(
       find.text('What do you remember? Who was there, what was said…'),

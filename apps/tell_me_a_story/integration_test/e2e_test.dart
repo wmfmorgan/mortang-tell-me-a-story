@@ -175,12 +175,33 @@ void main() {
       expect(find.text('Not saved'), findsNothing);
     });
     await _step('C4', 'leave', () async {
-      await tester.tap(find.byKey(const Key('timeline-nav')));
+      final close = find.byKey(const Key('story-capture-close'));
+      await tester.ensureVisible(close);
+      await tester.tap(close);
+      final leave = find.text('Leave this story?');
+      final capture = find.byKey(const Key('story-capture-modal'));
+      final promptDeadline = DateTime.now().add(const Duration(seconds: 5));
+      while (DateTime.now().isBefore(promptDeadline)) {
+        await tester.pump(const Duration(milliseconds: 100));
+        if (leave.evaluate().isNotEmpty) {
+          // Save keeps the autosaved draft. Discard would drop it.
+          await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+          break;
+        }
+        if (capture.evaluate().isEmpty) break;
+      }
       await pumpUntilGone(tester, find.byKey(const Key('story-title')));
-      await pumpUntilFound(
-        tester,
-        find.text('No stories yet. Capture the first one for this family.'),
+      final empty = find.text(
+        'No stories yet. Capture the first one for this family.',
       );
+      // New story is pushed over family landing, so the X returns there.
+      // The empty-timeline copy lives on the timeline.
+      if (empty.evaluate().isEmpty) {
+        final nav = find.byKey(const Key('timeline-nav'));
+        await tester.ensureVisible(nav);
+        await tester.tap(nav);
+      }
+      await pumpUntilFound(tester, empty);
       expect(find.text(title), findsNothing);
     });
     await _step('C4', 'drafts', () async {
@@ -732,7 +753,7 @@ Future<void> _publish(
     }
     final statusAtTap = captureStatus();
     await tester.tap(publish);
-    final finder = find.byKey(const Key('header-underline-timeline'));
+    final reader = find.byKey(const Key('story-reader-modal'));
     const timeout = Duration(seconds: 45);
     final deadline = DateTime.now().add(timeout);
     var bannerSeen = false;
@@ -751,20 +772,36 @@ Future<void> _publish(
           .isNotEmpty) {
         snackbarSeen = true;
       }
-      if (finder.evaluate().isNotEmpty) return;
+      if (reader.evaluate().isNotEmpty) break;
     }
-    final status = captureStatus();
-    final missing = missingFields();
-    final missingBit = missing.isEmpty
-        ? 'missing=none'
-        : 'missing=${missing.join(',')}';
-    throw TestFailure(
-      '$finder not found within $timeout (url: ${Uri.base})'
-      ' banner=${bannerSeen ? 'y' : 'n'}'
-      ' snackbar=${snackbarSeen ? 'y' : 'n'}'
-      ' statusAtTap=$statusAtTap status=$status'
-      ' $missingBit',
-    );
+    if (reader.evaluate().isEmpty) {
+      final status = captureStatus();
+      final missing = missingFields();
+      final missingBit = missing.isEmpty
+          ? 'missing=none'
+          : 'missing=${missing.join(',')}';
+      throw TestFailure(
+        '$reader not found within $timeout (url: ${Uri.base})'
+        ' banner=${bannerSeen ? 'y' : 'n'}'
+        ' snackbar=${snackbarSeen ? 'y' : 'n'}'
+        ' statusAtTap=$statusAtTap status=$status'
+        ' $missingBit',
+      );
+    }
+    final close = find.byKey(const Key('story-reader-close'));
+    await tester.ensureVisible(close);
+    await tester.tap(close);
+    await pumpUntilGone(tester, reader);
+    final finder = find.byKey(const Key('header-underline-timeline'));
+    // Publish replaces the capture route, which was pushed over family
+    // landing. Closing the reader returns there; the timeline header is
+    // one nav away.
+    if (finder.evaluate().isEmpty) {
+      final nav = find.byKey(const Key('timeline-nav'));
+      await tester.ensureVisible(nav);
+      await tester.tap(nav);
+    }
+    await pumpUntilFound(tester, finder);
   });
   await _step(flow, 'card', () async {
     final full = find.byKey(const Key('timeline-zoom-full'));
@@ -1020,7 +1057,7 @@ Future<void> _untilOtherFamilySeesNoStory(
   await pumpUntilFound(
     tester,
     find.descendant(
-      of: find.byKey(const Key('story-reader')),
+      of: find.byKey(const Key('story-reader-modal')),
       matching: find.text('Not found'),
     ),
   );

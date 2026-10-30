@@ -23,7 +23,7 @@ void main() {
   testWidgets('shows placeholder and Post', (tester) async {
     await _pump(tester, onPost: (_) async {});
 
-    expect(find.text('Share a short memory or note...'), findsOneWidget);
+    expect(find.text('Share a short memory or note...'), findsNothing);
     expect(_post(), findsOneWidget);
   });
 

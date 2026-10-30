@@ -73,6 +73,37 @@ String storyPhotoStoragePath({
   return '$familyId/$storyId/$photoId.$e';
 }
 
+/// Lowest [Photo.sortOrder] first, then id.
+int comparePhotoOrder(Photo a, Photo b) {
+  final order = a.sortOrder.compareTo(b.sortOrder);
+  if (order != 0) return order;
+  return a.id.compareTo(b.id);
+}
+
+/// Puts [heroId] first and keeps the other photos in their previous order.
+/// Sort orders are rewritten to 0..n-1.
+List<Photo> photosWithHeroFirst(List<Photo> photos, String heroId) {
+  final sorted = [...photos]..sort(comparePhotoOrder);
+  final index = sorted.indexWhere((photo) => photo.id == heroId);
+  if (index > 0) {
+    final chosen = sorted.removeAt(index);
+    sorted.insert(0, chosen);
+  }
+  return [
+    for (var i = 0; i < sorted.length; i++)
+      sorted[i].sortOrder == i
+          ? sorted[i]
+          : Photo(
+              id: sorted[i].id,
+              storyId: sorted[i].storyId,
+              familyId: sorted[i].familyId,
+              uploaderId: sorted[i].uploaderId,
+              storagePath: sorted[i].storagePath,
+              sortOrder: i,
+            ),
+  ];
+}
+
 void ensurePhotoCap(int currentCount) {
   if (currentCount >= maxPhotosPerStory) {
     throw StateError('PHOTO_CAP');
@@ -110,6 +141,11 @@ abstract class PhotosGateway {
     required int sortOrder,
   });
   Future<void> deletePhoto(Photo photo);
+
+  /// Makes [photoId] the first photo for [storyId]. Reader hero and story
+  /// cards use that first photo.
+  Future<void> setHeroPhoto({required String storyId, required String photoId});
+
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,
@@ -199,6 +235,26 @@ class PhotosApi implements PhotosGateway {
     } catch (e) {
       await _remove([path]);
       rethrow;
+    }
+  }
+
+  @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) async {
+    final current = await listPhotos(storyId);
+    final previousById = {
+      for (final photo in current) photo.id: photo.sortOrder,
+    };
+    final ordered = photosWithHeroFirst(current, photoId);
+    for (final photo in ordered) {
+      if (previousById[photo.id] == photo.sortOrder) continue;
+      await _client
+          .from('photos')
+          .update({'sort_order': photo.sortOrder})
+          .eq('id', photo.id)
+          .eq('story_id', storyId);
     }
   }
 

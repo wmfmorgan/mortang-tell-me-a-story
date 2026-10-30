@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/core/navigation/unsaved_guard.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
@@ -27,51 +27,19 @@ void main() {
   testWidgets('Save runs before onLogout', (tester) async {
     await _surface(tester);
     final order = <String>[];
-    final stories = _Stories(order);
-    await _mount(
-      tester,
-      stories: stories,
-      onLogout: () async {
-        order.add('onLogout');
-      },
-    );
+    final router = await _mount(tester, stories: _Stories(order));
     await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
     await tester.pump();
-    await tester.tap(find.byKey(const Key('header-avatar')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('header-menu-logout')));
+    await tester.tap(find.byKey(const Key('story-capture-close')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Leave this story?'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
-    expect(order, ['createDraft', 'onLogout']);
+    expect(order, ['createDraft']);
     expect(find.text('Leave this story?'), findsNothing);
-  });
-
-  testWidgets('Stay never signs out', (tester) async {
-    await _surface(tester);
-    final order = <String>[];
-    await _mount(
-      tester,
-      stories: _Stories(order),
-      onLogout: () async {
-        order.add('onLogout');
-      },
-    );
-    await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('header-avatar')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('header-menu-logout')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Leave this story?'), findsOneWidget);
-    await tester.tap(find.widgetWithText(TextButton, 'Stay'));
-    await tester.pumpAndSettle();
-    expect(order, isEmpty);
-    expect(find.text('Leave this story?'), findsNothing);
-    expect(find.byKey(const Key('story-date-year')), findsOneWidget);
+    expect(router.state.uri.path, '/timeline');
+    expect(find.byKey(const Key('header-menu-logout')), findsNothing);
   });
 }
 
@@ -82,10 +50,9 @@ Future<void> _surface(WidgetTester tester) async {
 
 GoRouter? _router;
 
-Future<void> _mount(
+Future<GoRouter> _mount(
   WidgetTester tester, {
   required _Stories stories,
-  required Future<void> Function() onLogout,
 }) async {
   final previous = _router;
   _router = null;
@@ -94,7 +61,12 @@ Future<void> _mount(
     initialLocation: '/stories/new',
     routes: [
       GoRoute(
+        path: '/timeline',
+        builder: (_, _) => const Text('timeline-marker'),
+      ),
+      GoRoute(
         path: '/stories/new',
+        onExit: (context, state) => UnsavedGuards.onExit(context, state),
         builder: (_, _) => NewStoryPage(
           inviteApi: _Invite(),
           peopleApi: _People(),
@@ -102,11 +74,9 @@ Future<void> _mount(
           mapboxSearch: _Mapbox(),
           storiesApi: stories,
           photosApi: _Photos(),
-          familiesApi: _Families(),
           hasMapboxToken: false,
           mapBuilder: ({double? lat, double? lng}) => const SizedBox.shrink(),
           pickImageBytes: () async => null,
-          onLogout: onLogout,
         ),
       ),
     ],
@@ -120,6 +90,7 @@ Future<void> _mount(
   });
   await tester.pumpWidget(MaterialApp.router(routerConfig: router));
   await tester.pumpAndSettle();
+  return router;
 }
 
 class _Stories implements StoriesGateway {
@@ -306,6 +277,12 @@ class _Photos implements PhotosGateway {
   Future<void> deletePhoto(Photo photo) async {}
 
   @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) async {}
+
+  @override
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,
@@ -313,19 +290,6 @@ class _Photos implements PhotosGateway {
 
   @override
   Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
-}
-
-class _Families extends FamiliesGateway {
-  @override
-  Future<List<MemberFamily>> listMine() async => [
-    MemberFamily(id: _ada, name: 'Ada', createdAt: DateTime.utc(2020)),
-    MemberFamily(id: 'bea', name: 'Bea', createdAt: DateTime.utc(2021)),
-  ];
-
-  @override
-  Future<List<StewardFamily>> listStewarded() async => const [
-    StewardFamily(id: _ada, name: 'Ada', role: 'owner'),
-  ];
 }
 
 class _Invite implements InviteGateway {

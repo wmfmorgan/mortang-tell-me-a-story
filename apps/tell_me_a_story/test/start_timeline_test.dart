@@ -370,6 +370,13 @@ class _Photos implements PhotosGateway {
   Future<void> deletePhoto(Photo photo) async {}
 
   @override
+  @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) async {}
+
+  @override
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,
@@ -1169,10 +1176,14 @@ void main() {
               ]),
               storiesApi: stories,
               photosApi: _Photos(),
-              familiesApi: families,
               hasMapboxToken: false,
               draftId: state.uri.queryParameters['draft'],
             ),
+          ),
+          GoRoute(
+            path: '/stories/:storyId',
+            builder: (_, state) =>
+                Text('reader-${state.pathParameters['storyId']}'),
           ),
           GoRoute(
             path: AppRoutes.timeline,
@@ -1216,7 +1227,7 @@ void main() {
       expect(find.byKey(const Key('start-timeline-change')), findsNothing);
       expect(
         router.routerDelegate.currentConfiguration.uri.path,
-        AppRoutes.timeline,
+        AppRoutes.storyPath('draft-1'),
       );
     },
   );
@@ -1236,15 +1247,6 @@ void main() {
               placesApi: _Places(const []),
               storiesApi: stories,
               photosApi: _Photos(),
-              familiesApi: _Families(
-                mine: [
-                  MemberFamily(
-                    id: _parent,
-                    name: 'Parent',
-                    createdAt: DateTime.utc(1970),
-                  ),
-                ],
-              ),
               hasMapboxToken: false,
               draftId: state.uri.queryParameters['draft'],
             ),
@@ -1342,7 +1344,6 @@ void main() {
             ]),
             storiesApi: stories,
             photosApi: _Photos(),
-            familiesApi: families,
             hasMapboxToken: false,
             draftId: state.uri.queryParameters['draft'],
           ),
