@@ -569,7 +569,10 @@ class _SearchPageState extends State<SearchPage> {
                   photos: _photos,
                   people: _peopleApi,
                   onOpen: () =>
-                      context.push(AppRoutes.storyPath(record.story.id)),
+                      context.push(
+                        AppRoutes.storyPath(record.story.id),
+                        extra: storyModalExtra,
+                      ),
                 ),
               ),
           ],

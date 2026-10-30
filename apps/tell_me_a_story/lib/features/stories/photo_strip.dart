@@ -30,6 +30,7 @@ class PhotoStrip extends StatelessWidget {
     this.columns,
     this.addEnabled = true,
     this.canRemove,
+    this.onToggleHero,
   });
 
   final List<Photo> photos;
@@ -62,6 +63,10 @@ class PhotoStrip extends StatelessWidget {
 
   /// When null, every thumb shows Remove. When set, only a true result does.
   final bool Function(Photo)? canRemove;
+
+  /// When set, each thumb shows a hero icon. The first photo by sort order
+  /// is the hero until another is chosen.
+  final ValueChanged<Photo>? onToggleHero;
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +118,8 @@ class PhotoStrip extends StatelessWidget {
           preview: previews[photo.id],
           onRemove: onRemove,
           showRemove: canRemove?.call(photo) ?? true,
+          isHero: photo.id == _heroPhotoId(photos),
+          onToggleHero: onToggleHero,
           width: width,
           height: height,
           padRight: padRight,
@@ -222,13 +229,26 @@ class _AddTile extends StatelessWidget {
   }
 }
 
+String? _heroPhotoId(List<Photo> photos) {
+  if (photos.isEmpty) return null;
+  final sorted = [...photos]
+    ..sort((a, b) {
+      final order = a.sortOrder.compareTo(b.sortOrder);
+      if (order != 0) return order;
+      return a.id.compareTo(b.id);
+    });
+  return sorted.first.id;
+}
+
 class _Thumb extends StatelessWidget {
   const _Thumb({
     required this.photo,
     required this.onRemove,
     required this.showRemove,
+    required this.isHero,
     required this.width,
     required this.height,
+    this.onToggleHero,
     this.preview,
     this.padRight = true,
   });
@@ -237,6 +257,8 @@ class _Thumb extends StatelessWidget {
   final Uint8List? preview;
   final ValueChanged<Photo> onRemove;
   final bool showRemove;
+  final bool isHero;
+  final ValueChanged<Photo>? onToggleHero;
   final double width;
   final double height;
   final bool padRight;
@@ -280,6 +302,26 @@ class _Thumb extends StatelessWidget {
                 ),
               ),
             ),
+            if (onToggleHero != null)
+              Positioned(
+                top: 4,
+                left: 4,
+                child: IconButton(
+                  key: Key('photo-hero-${photo.id}'),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  iconSize: 18,
+                  style: IconButton.styleFrom(
+                    backgroundColor: albumParchment.withValues(alpha: 0.92),
+                    foregroundColor: isHero ? albumTerracotta : albumInk,
+                  ),
+                  onPressed: () => onToggleHero!(photo),
+                  icon: Icon(isHero ? Icons.star : Icons.star_border),
+                ),
+              ),
             if (showRemove)
               Positioned(
                 top: 4,

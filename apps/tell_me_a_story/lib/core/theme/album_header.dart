@@ -148,7 +148,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   }
 
   void _openNewStory(BuildContext context) {
-    GoRouter.of(context).push(AppRoutes.newStory);
+    GoRouter.of(context).push(AppRoutes.newStory, extra: storyModalExtra);
   }
 }
 

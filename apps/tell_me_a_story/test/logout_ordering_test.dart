@@ -24,32 +24,7 @@ void main() {
 
   tearDown(FamilySelection.clear);
 
-  testWidgets('Save runs before onLogout', (tester) async {
-    await _surface(tester);
-    final order = <String>[];
-    final stories = _Stories(order);
-    await _mount(
-      tester,
-      stories: stories,
-      onLogout: () async {
-        order.add('onLogout');
-      },
-    );
-    await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('header-avatar')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('header-menu-logout')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Leave this story?'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-    await tester.pumpAndSettle();
-    expect(order, ['createDraft', 'onLogout']);
-    expect(find.text('Leave this story?'), findsNothing);
-  });
-
-  testWidgets('Stay never signs out', (tester) async {
+  testWidgets('capture modal has no logout control', (tester) async {
     await _surface(tester);
     final order = <String>[];
     await _mount(
@@ -61,16 +36,9 @@ void main() {
     );
     await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
     await tester.pump();
-    await tester.tap(find.byKey(const Key('header-avatar')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('header-menu-logout')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Leave this story?'), findsOneWidget);
-    await tester.tap(find.widgetWithText(TextButton, 'Stay'));
-    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('header-avatar')), findsNothing);
+    expect(find.byKey(const Key('header-menu-logout')), findsNothing);
     expect(order, isEmpty);
-    expect(find.text('Leave this story?'), findsNothing);
     expect(find.byKey(const Key('story-date-year')), findsOneWidget);
   });
 }
@@ -306,6 +274,12 @@ class _Photos implements PhotosGateway {
   Future<void> deletePhoto(Photo photo) async {}
 
   @override
+  @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) async {}
+
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,

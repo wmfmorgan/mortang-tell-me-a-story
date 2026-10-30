@@ -20,7 +20,6 @@ import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 import '../invites/invite_modal.dart';
 import '../stories/story_date.dart';
-import '../stories/story_reader_page.dart';
 import 'family_role.dart';
 import 'start_timeline_host.dart';
 
@@ -364,7 +363,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     if (GoRouter.maybeOf(context) == null) return;
     await context.push(
       AppRoutes.storyPath(story.id),
-      extra: ReaderPresentation.modal,
+      extra: storyModalExtra,
     );
   }
 }

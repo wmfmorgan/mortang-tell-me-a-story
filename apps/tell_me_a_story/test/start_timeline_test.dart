@@ -370,6 +370,12 @@ class _Photos implements PhotosGateway {
   Future<void> deletePhoto(Photo photo) async {}
 
   @override
+  @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) async {}
+
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,

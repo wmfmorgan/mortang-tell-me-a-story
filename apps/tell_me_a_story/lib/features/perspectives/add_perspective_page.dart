@@ -238,7 +238,7 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'FAMILY PERSPECTIVE',
+                          'PERSPECTIVE',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: albumSage,
                             fontWeight: FontWeight.w700,
@@ -258,7 +258,7 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Tell this story in your own words — a full telling, not a quick reaction.',
+                      'Provide your perspective of this story, or add some missing pieces',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: const Color(0xFF6B5E55),
                       ),
@@ -339,19 +339,6 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
           const SizedBox(height: 20),
           Row(
             children: [
-              Text(
-                'Your story',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                ' *',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: albumTerracotta,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
               const Spacer(),
               Text(
                 wordLabel,

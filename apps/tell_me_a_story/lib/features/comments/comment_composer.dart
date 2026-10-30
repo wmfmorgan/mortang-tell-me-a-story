@@ -71,7 +71,6 @@ class _CommentComposerState extends State<CommentComposer> {
                 maxLines: 4,
                 textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
-                  hintText: 'Share a short memory or note...',
                   filled: true,
                   fillColor: Colors.white,
                   isDense: true,

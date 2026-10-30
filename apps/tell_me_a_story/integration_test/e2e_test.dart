@@ -1020,7 +1020,7 @@ Future<void> _untilOtherFamilySeesNoStory(
   await pumpUntilFound(
     tester,
     find.descendant(
-      of: find.byKey(const Key('story-reader')),
+      of: find.byKey(const Key('story-reader-modal')),
       matching: find.text('Not found'),
     ),
   );

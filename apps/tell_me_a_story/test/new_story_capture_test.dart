@@ -19,9 +19,7 @@ import 'package:tell_me_a_story/features/stories/timeframe_chips.dart';
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
 class _FakeInviteApi implements InviteGateway {
-  _FakeInviteApi({this.familyId = _familyId});
-
-  final String? familyId;
+  final String? familyId = _familyId;
 
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
@@ -428,7 +426,25 @@ class _FakePhotosApi implements PhotosGateway {
     rows.removeWhere((p) => p.id == photo.id);
   }
 
+  String? heroPhotoId;
+
   @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) async {
+    heroPhotoId = photoId;
+    final next = photosWithHeroFirst(
+      rows.where((row) => row.storyId == storyId).toList(),
+      photoId,
+    );
+    final byId = {for (final row in next) row.id: row};
+    for (var i = 0; i < rows.length; i++) {
+      final updated = byId[rows[i].id];
+      if (updated != null) rows[i] = updated;
+    }
+  }
+
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,
@@ -598,9 +614,11 @@ void main() {
   testWidgets('shows Save draft and Publish', (tester) async {
     await tester.pumpWidget(_captureShell());
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-capture-modal')), findsOneWidget);
+    expect(find.text('STORY'), findsOneWidget);
     expect(find.text('Save draft'), findsOneWidget);
     expect(find.text('Publish story'), findsOneWidget);
-    expect(find.byKey(const Key('header-avatar')), findsOneWidget);
+    expect(find.byKey(const Key('story-capture-close')), findsOneWidget);
     expect(find.text('Capture fields arrive in M4.'), findsNothing);
   });
 
@@ -1009,6 +1027,49 @@ void main() {
     expect(find.byKey(const Key('photo-thumb')), findsNothing);
   });
 
+  testWidgets('hero star defaults to the first photo and can move', (
+    tester,
+  ) async {
+    final photos = _FakePhotosApi();
+    await tester.pumpWidget(
+      _captureShell(photos: photos, picker: _FakePicker().call),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('story-date-year')), '1980');
+    await tester.pumpAndSettle();
+    await _tapAddPhoto(tester);
+    await tester.pumpAndSettle();
+    await _tapAddPhoto(tester);
+    await tester.pumpAndSettle();
+
+    Icon iconFor(String id) {
+      return tester.widget<Icon>(
+        find.descendant(
+          of: find.byKey(Key('photo-hero-$id')),
+          matching: find.byType(Icon),
+        ),
+      );
+    }
+
+    expect(iconFor('ph1').icon, Icons.star);
+    expect(iconFor('ph2').icon, Icons.star_border);
+
+    await tester.ensureVisible(find.byKey(const Key('photo-hero-ph2')));
+    await tester.tap(find.byKey(const Key('photo-hero-ph2')));
+    await tester.pumpAndSettle();
+
+    expect(photos.heroPhotoId, 'ph2');
+    expect(iconFor('ph2').icon, Icons.star);
+    expect(iconFor('ph1').icon, Icons.star_border);
+
+    await tester.tap(find.byKey(const Key('photo-hero-ph2')));
+    await tester.pumpAndSettle();
+
+    expect(photos.heroPhotoId, 'ph1');
+    expect(iconFor('ph1').icon, Icons.star);
+    expect(iconFor('ph2').icon, Icons.star_border);
+  });
+
   testWidgets('hides add tile at 20 photos', (tester) async {
     final photos = List<Photo>.generate(
       maxPhotosPerStory,
@@ -1153,6 +1214,10 @@ void main() {
           ),
         ),
         GoRoute(
+          path: '/timeline',
+          builder: (_, _) => const Text('timeline-marker'),
+        ),
+        GoRoute(
           path: '/stories/:storyId',
           builder: (context, state) =>
               Text('reader-${state.pathParameters['storyId']}'),
@@ -1162,8 +1227,10 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-capture-modal')), findsOneWidget);
+    expect(find.text('EDIT'), findsOneWidget);
     expect(find.text('Edit story'), findsOneWidget);
-    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Cancel'), findsNothing);
     expect(find.text('Save changes'), findsOneWidget);
     expect(find.text('Save draft'), findsNothing);
     expect(find.text('Publish story'), findsNothing);
@@ -1182,10 +1249,10 @@ void main() {
 
     router.go('/stories/s1/edit');
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.tap(find.byKey(const Key('story-capture-close')));
     await tester.pumpAndSettle();
     expect(stories.updateDraftCalls, 1);
-    expect(find.text('reader-s1'), findsOneWidget);
+    expect(find.text('timeline-marker'), findsOneWidget);
   });
 
   testWidgets('published decade edit can save without replacing the date', (

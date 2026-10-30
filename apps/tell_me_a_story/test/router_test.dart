@@ -223,6 +223,12 @@ class _StubPhotosApi implements PhotosGateway {
   Future<void> deletePhoto(Photo photo) async {}
 
   @override
+  @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) async {}
+
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,
@@ -408,7 +414,8 @@ void main() {
       AppRoutes.newStory,
     );
     expect(find.byType(NewStoryPage), findsOneWidget);
-    expect(find.text('Tell Me a Story'), findsOneWidget);
+    expect(find.byKey(const Key('story-capture-modal')), findsOneWidget);
+    expect(find.text('STORY'), findsOneWidget);
     expect(find.text('Publish story'), findsOneWidget);
     expect(find.text('New story'), findsNothing);
 
@@ -654,7 +661,7 @@ void main() {
       router.routerDelegate.currentConfiguration.uri.path,
       AppRoutes.storyPath(storyId),
     );
-    expect(find.byKey(const Key('story-reader')), findsOneWidget);
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
     expect(find.byType(NewStoryPage), findsNothing);
 
     auth.dispose();

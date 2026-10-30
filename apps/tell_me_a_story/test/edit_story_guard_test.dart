@@ -44,7 +44,7 @@ void main() {
       await _mount(tester, story: story ?? _dated());
       await change();
       await tester.pump();
-      await tester.tap(find.byKey(const Key('timeline-nav')));
+      await tester.tap(find.byKey(const Key('story-capture-close')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Leave this story?'), findsOneWidget);
@@ -85,13 +85,13 @@ void main() {
     }, story: _dated(placeId: null));
   });
 
-  testWidgets('Cancel and back prompt', (tester) async {
+  testWidgets('close and back prompt', (tester) async {
     await _surface(tester);
     final router = await _mount(tester, story: _dated(), pushed: true);
     await tester.enterText(find.byKey(const Key('story-title')), 'Renamed');
     await tester.pump();
 
-    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.tap(find.byKey(const Key('story-capture-close')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Leave this story?'), findsOneWidget);
@@ -136,7 +136,7 @@ void main() {
     final router = await _mount(tester, stories: stories);
     await tester.enterText(find.byKey(const Key('story-title')), 'Renamed');
     await tester.pump();
-    await tester.tap(find.byKey(const Key('timeline-nav')));
+    await tester.tap(find.byKey(const Key('story-capture-close')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Leave this story?'), findsOneWidget);
@@ -165,7 +165,7 @@ void main() {
       final router = await _mount(tester, stories: stories);
       await tester.enterText(find.byKey(const Key('story-title')), 'Renamed');
       await tester.pump();
-      await tester.tap(find.byKey(const Key('timeline-nav')));
+      await tester.tap(find.byKey(const Key('story-capture-close')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Leave this story?'), findsOneWidget);
@@ -444,6 +444,12 @@ class _Photos implements PhotosGateway {
   Future<void> deletePhoto(Photo photo) async {}
 
   @override
+  @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) async {}
+
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,

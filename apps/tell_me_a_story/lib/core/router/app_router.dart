@@ -31,6 +31,26 @@ import '../../features/timeline/timeline_page.dart';
 import '../../data/search_api.dart';
 import 'auth_refresh.dart';
 
+/// Passed as route `extra` so every reader and capture navigation asks for
+/// the modal. The routes also open as modals when this is missing.
+const storyModalExtra = ReaderPresentation.modal;
+
+/// Transparent route used for the story reader and the capture form.
+CustomTransitionPage<void> albumModalPage({
+  required LocalKey pageKey,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: pageKey,
+    opaque: false,
+    barrierDismissible: false,
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: Duration.zero,
+    transitionsBuilder: (context, animation, secondary, child) => child,
+    child: child,
+  );
+}
+
 /// Chrome-lock paths: magic-link entry (signed-out), `/family` (signed-in home).
 abstract final class AppRoutes {
   static const magicLink = '/';
@@ -191,18 +211,21 @@ GoRouter createAppRouter({
       GoRoute(
         path: AppRoutes.newStory,
         onExit: storyOnExit,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final draft = state.uri.queryParameters['draft'];
-          return NewStoryPage(
-            inviteApi: inviteApi,
-            peopleApi: peopleApi,
-            placesApi: placesApi,
-            mapboxSearch: mapboxSearch,
-            storiesApi: storiesApi,
-            photosApi: photosApi,
-            familiesApi: familiesApi,
-            draftId: (draft != null && draft.isNotEmpty) ? draft : null,
-            onLogout: onLogout,
+          return albumModalPage(
+            pageKey: state.pageKey,
+            child: NewStoryPage(
+              inviteApi: inviteApi,
+              peopleApi: peopleApi,
+              placesApi: placesApi,
+              mapboxSearch: mapboxSearch,
+              storiesApi: storiesApi,
+              photosApi: photosApi,
+              familiesApi: familiesApi,
+              draftId: (draft != null && draft.isNotEmpty) ? draft : null,
+              onLogout: onLogout,
+            ),
           );
         },
       ),
@@ -218,16 +241,19 @@ GoRouter createAppRouter({
       GoRoute(
         path: AppRoutes.storyEdit,
         onExit: storyOnExit,
-        builder: (context, state) => NewStoryPage(
-          inviteApi: inviteApi,
-          peopleApi: peopleApi,
-          placesApi: placesApi,
-          mapboxSearch: mapboxSearch,
-          storiesApi: storiesApi,
-          photosApi: photosApi,
-          familiesApi: familiesApi,
-          editStoryId: state.pathParameters['storyId'],
-          onLogout: onLogout,
+        pageBuilder: (context, state) => albumModalPage(
+          pageKey: state.pageKey,
+          child: NewStoryPage(
+            inviteApi: inviteApi,
+            peopleApi: peopleApi,
+            placesApi: placesApi,
+            mapboxSearch: mapboxSearch,
+            storiesApi: storiesApi,
+            photosApi: photosApi,
+            familiesApi: familiesApi,
+            editStoryId: state.pathParameters['storyId'],
+            onLogout: onLogout,
+          ),
         ),
       ),
       GoRoute(
@@ -245,32 +271,20 @@ GoRouter createAppRouter({
       GoRoute(
         path: AppRoutes.story,
         pageBuilder: (context, state) {
-          final modal = state.extra == ReaderPresentation.modal;
-          final page = StoryReaderPage(
-            storyId: state.pathParameters['storyId']!,
-            storiesApi: storiesApi,
-            peopleApi: peopleApi,
-            placesApi: placesApi,
-            photosApi: photosApi,
-            commentsApi: commentsApi,
-            perspectivesApi: perspectivesApi,
-            profileApi: profileApi,
-            familiesApi: familiesApi,
-            presentation: modal
-                ? ReaderPresentation.modal
-                : ReaderPresentation.page,
-          );
-          if (!modal) {
-            return MaterialPage<void>(key: state.pageKey, child: page);
-          }
-          return CustomTransitionPage<void>(
-            key: state.pageKey,
-            opaque: false,
-            barrierDismissible: false,
-            transitionDuration: Duration.zero,
-            reverseTransitionDuration: Duration.zero,
-            transitionsBuilder: (context, animation, secondary, child) => child,
-            child: page,
+          return albumModalPage(
+            pageKey: state.pageKey,
+            child: StoryReaderPage(
+              storyId: state.pathParameters['storyId']!,
+              storiesApi: storiesApi,
+              peopleApi: peopleApi,
+              placesApi: placesApi,
+              photosApi: photosApi,
+              commentsApi: commentsApi,
+              perspectivesApi: perspectivesApi,
+              profileApi: profileApi,
+              familiesApi: familiesApi,
+              presentation: ReaderPresentation.modal,
+            ),
           );
         },
       ),

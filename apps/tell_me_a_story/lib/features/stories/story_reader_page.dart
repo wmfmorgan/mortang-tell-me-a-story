@@ -174,6 +174,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   var _busy = false;
   var _confirming = false;
   var _photoError = false;
+  var _heroIndex = 0;
   var _composingComment = false;
   var _canWrite = false;
   var _memberOfStoryFamily = false;
@@ -278,7 +279,10 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   Future<void> _openEdit() async {
     final id = _story?.id;
     if (id == null || GoRouter.maybeOf(context) == null) return;
-    final saved = await context.push<bool>(AppRoutes.storyEditPath(id));
+    final saved = await context.push<bool>(
+      AppRoutes.storyEditPath(id),
+      extra: storyModalExtra,
+    );
     if (!mounted || saved != true) return;
     await _load();
   }
@@ -794,35 +798,44 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.presentation == ReaderPresentation.modal) {
-      final height = MediaQuery.sizeOf(context).height;
-      return Material(
-        type: MaterialType.transparency,
-        child: Stack(
-          children: [
+    assert(
+      widget.presentation == ReaderPresentation.modal ||
+          widget.presentation == ReaderPresentation.page,
+    );
+    final height = MediaQuery.sizeOf(context).height;
+    // A route pushed on top (edit) paints the same scrim. Leave this one out
+    // so the blur does not stack.
+    final covered = ModalRoute.of(context)?.isCurrent == false;
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          if (!covered)
             Positioned.fill(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                 child: const ColoredBox(color: Color(0x661C140C)),
               ),
             ),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: 1040,
-                    maxHeight: height - 48,
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 1040,
+                  maxHeight: height - 48,
+                ),
+                child: Material(
+                  key: const Key('story-reader-modal'),
+                  color: albumParchment,
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: Color(0xFFE6DCD1)),
                   ),
-                  child: Material(
-                    key: const Key('story-reader-modal'),
-                    color: albumParchment,
-                    clipBehavior: Clip.antiAlias,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: const BorderSide(color: Color(0xFFE6DCD1)),
-                    ),
-                    child: Column(
+                  child: Scaffold(
+                    backgroundColor: albumParchment,
+                    body: Column(
                       children: [
                         _modalBar(context),
                         Expanded(child: _body(context)),
@@ -832,21 +845,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                 ),
               ),
             ),
-          ],
-        ),
-      );
-    }
-    return Scaffold(
-      key: const Key('story-reader'),
-      appBar: AlbumTopBar(
-        leading: TextButton.icon(
-          onPressed: () => context.go(AppRoutes.timeline),
-          icon: const Icon(Icons.arrow_back, size: 18),
-          label: const Text('Timeline'),
-        ),
-        actions: [_overflow()],
+          ),
+        ],
       ),
-      body: SafeArea(child: AlbumColumn(maxWidth: 1080, child: _body(context))),
     );
   }
 
@@ -855,20 +856,44 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
       child: Row(
         children: [
+          const Icon(
+            Icons.auto_stories_outlined,
+            key: Key('story-reader-mark'),
+            color: albumTerracotta,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
           Text(
-            'Family Keepsake',
+            'STORY',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: albumTerracotta,
-              fontSize: 12,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.w600,
+              color: albumSage,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
             ),
           ),
           const Spacer(),
+          if (_canEditStory)
+            OutlinedButton.icon(
+              key: const Key('story-edit'),
+              onPressed: _busy ? null : _openEdit,
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Edit'),
+            ),
           _overflow(),
           IconButton(
             key: const Key('story-reader-close'),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              final router = GoRouter.maybeOf(context);
+              if (router != null) {
+                if (router.canPop()) {
+                  router.pop();
+                } else {
+                  router.go(AppRoutes.timeline);
+                }
+                return;
+              }
+              Navigator.of(context).pop();
+            },
             icon: const Icon(Icons.close),
           ),
         ],
@@ -911,23 +936,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: headlineText.isEmpty
-                      ? const SizedBox.shrink()
-                      : Text(headlineText, style: headline),
-                ),
-                if (_canEditStory)
-                  OutlinedButton.icon(
-                    key: const Key('story-edit'),
-                    onPressed: _busy ? null : _openEdit,
-                    icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: const Text('Edit'),
-                  ),
-              ],
-            ),
+            if (headlineText.isNotEmpty)
+              Text(headlineText, style: headline),
             const SizedBox(height: 8),
             _metaLine(story),
             const SizedBox(height: 16),
@@ -949,8 +959,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             _sectionHeader(
               icon: Icons.photo_library_outlined,
               iconColor: albumTerracotta,
-              title: 'Keepsake Photos & Artifacts',
-              subtitle: _photoCountLine(_photos.length),
+              title: 'Keepsake Photos',
               trailing: _canWrite
                   ? TextButton(
                       onPressed: canAddPhoto ? _onAddPhoto : null,
@@ -988,7 +997,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
               icon: Icons.diversity_3_outlined,
               iconColor: albumSage,
               title: 'Perspectives',
-              subtitle: 'Full alternate tellings contributed by family members',
+              subtitle:
+                  'Contribute an alternate or additional telling of this story',
               trailing: _canWrite
                   ? FilledButton.icon(
                       onPressed: _openPerspective,
@@ -1077,35 +1087,168 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     );
   }
 
+  bool _storyIsOrigin(Story story) {
+    return _tree.any((row) => row.originStoryId == story.id);
+  }
+
+  /// The story's own family, then each branch that starts at this story.
+  List<TreeFamily> _branchesFor(Story story) {
+    final rows = [
+      for (final row in _tree)
+        if (row.id == story.familyId || row.originStoryId == story.id) row,
+    ];
+    rows.sort((a, b) {
+      if (a.id == story.familyId) return -1;
+      if (b.id == story.familyId) return 1;
+      final name = a.name.compareTo(b.name);
+      if (name != 0) return name;
+      return a.id.compareTo(b.id);
+    });
+    return rows;
+  }
+
   Widget _chipRow(Story story, Place? place) {
     final placeText = place == null
         ? null
         : placeChipText(label: place.label, address: place.address);
+    final branches = _branchesFor(story);
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        if (_storyIsOrigin(story))
+          _labelPill(
+            'Origin',
+            key: const Key('story-origin-pill'),
+            icon: Icons.account_tree_outlined,
+            color: albumSage,
+          ),
+        for (final branch in branches)
+          _labelPill(
+            branch.name,
+            key: Key('story-branch-${branch.id}'),
+            icon: Icons.account_tree_outlined,
+          ),
         for (final person in _peopleOnStory) _personChip(person),
         if (placeText != null) _timeframePill(placeText),
       ],
     );
   }
 
-  Widget? _heroPhoto() {
-    if (_photos.isEmpty) return null;
+  List<Photo> _sortedPhotos() {
     final sorted = [..._photos]
       ..sort((a, b) {
         final order = a.sortOrder.compareTo(b.sortOrder);
         if (order != 0) return order;
         return a.id.compareTo(b.id);
       });
-    final first = sorted.first;
-    final bytes = _previews[first.id];
+    return sorted;
+  }
+
+  void _stepHero(int delta, int count) {
+    if (count < 2) return;
+    setState(() {
+      _heroIndex = (_heroIndex + delta) % count;
+      if (_heroIndex < 0) _heroIndex += count;
+    });
+  }
+
+  Widget? _heroPhoto() {
+    final sorted = _sortedPhotos();
+    if (sorted.isEmpty) return null;
+    final index = _heroIndex.clamp(0, sorted.length - 1);
+    final photo = sorted[index];
+    final bytes = _previews[photo.id];
     final hasImage = bytes != null && bytes.isNotEmpty;
-    return FramedPhoto(
-      key: Key('story-hero-${first.id}'),
+    final frame = FramedPhoto(
+      key: Key('story-hero-${photo.id}'),
       bytes: hasImage ? bytes : null,
+    );
+    if (sorted.length < 2) return frame;
+    return GestureDetector(
+      key: const Key('story-hero-carousel'),
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity <= -200) _stepHero(1, sorted.length);
+        if (velocity >= 200) _stepHero(-1, sorted.length);
+      },
+      child: Stack(
+        children: [
+          frame,
+          Positioned(
+            left: 8,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _heroStepButton(
+                key: const Key('story-hero-prev'),
+                icon: Icons.chevron_left,
+                onPressed: () => _stepHero(-1, sorted.length),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 8,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _heroStepButton(
+                key: const Key('story-hero-next'),
+                icon: Icons.chevron_right,
+                onPressed: () => _stepHero(1, sorted.length),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroStepButton({
+    required Key key,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Material(
+      color: albumParchment,
+      shape: const CircleBorder(),
+      child: IconButton(
+        key: key,
+        onPressed: onPressed,
+        icon: Icon(icon, color: albumInk),
+      ),
+    );
+  }
+
+  Widget _labelPill(
+    String label, {
+    required Key key,
+    required IconData icon,
+    Color color = albumInk,
+  }) {
+    return DecoratedBox(
+      key: key,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F1EB),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE7DECE)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 4, 10, 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(fontWeight: FontWeight.w600, color: color),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1354,11 +1497,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       ),
     );
   }
-}
-
-String _photoCountLine(int count) {
-  final noun = count == 1 ? 'family item' : 'family items';
-  return '$count $noun attached to this memory';
 }
 
 String _initials(String name) {

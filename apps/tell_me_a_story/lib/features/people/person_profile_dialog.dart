@@ -432,7 +432,10 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
         onTap: () {
           final router = GoRouter.maybeOf(context);
           Navigator.of(context).pop();
-          router?.push(AppRoutes.storyPath(story.id));
+          router?.push(
+            AppRoutes.storyPath(story.id),
+            extra: storyModalExtra,
+          );
         },
         child: Container(
           padding: const EdgeInsets.all(12),

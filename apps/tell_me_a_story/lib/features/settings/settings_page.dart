@@ -225,7 +225,10 @@ class _SettingsPageState extends State<SettingsPage> {
       currentUserId: userId,
       onWriteStory: () {
         if (!mounted) return;
-        GoRouter.of(context).go('${AppRoutes.newStory}?newTimelineFrom=$id');
+        GoRouter.of(context).push(
+          '${AppRoutes.newStory}?newTimelineFrom=$id',
+          extra: storyModalExtra,
+        );
       },
     );
     if (created == null || !mounted) return;

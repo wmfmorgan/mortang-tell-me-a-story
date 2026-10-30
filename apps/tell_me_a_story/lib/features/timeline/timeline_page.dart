@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -24,7 +23,6 @@ import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
 import '../stories/photo_frame.dart';
 import '../stories/story_date.dart';
-import '../stories/story_reader_page.dart';
 import 'timeline_zoom.dart';
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
@@ -201,7 +199,10 @@ class _TimelinePageState extends State<TimelinePage> {
       allowChange: allowChange,
       onWriteStory: () {
         GoRouter.of(context)
-            .go('${AppRoutes.newStory}?newTimelineFrom=${parent.id}');
+            .push(
+              '${AppRoutes.newStory}?newTimelineFrom=${parent.id}',
+              extra: storyModalExtra,
+            );
       },
     );
     if (created == null || !mounted) return;
@@ -514,7 +515,7 @@ class _TimelinePageState extends State<TimelinePage> {
     if (GoRouter.maybeOf(context) == null) return;
     await context.push(
       AppRoutes.storyPath(story.id),
-      extra: ReaderPresentation.modal,
+      extra: storyModalExtra,
     );
     if (!mounted) return;
     await _loadFamilies();
