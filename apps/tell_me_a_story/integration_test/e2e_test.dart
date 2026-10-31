@@ -191,11 +191,8 @@ void main() {
         if (capture.evaluate().isEmpty) break;
       }
       await pumpUntilGone(tester, find.byKey(const Key('story-title')));
-      final empty = find.text(
-        'No stories yet. Capture the first one for this family.',
-      );
-      // New story is pushed over family landing, so the X returns there.
-      // The empty-timeline copy lives on the timeline.
+      final empty = find.text('No stories yet.');
+      // Closing capture returns to family landing. Stories opens All Stories.
       if (empty.evaluate().isEmpty) {
         final nav = find.byKey(const Key('timeline-nav'));
         await tester.ensureVisible(nav);
@@ -794,14 +791,21 @@ Future<void> _publish(
     await pumpUntilGone(tester, reader);
     final finder = find.byKey(const Key('header-underline-timeline'));
     // Publish replaces the capture route, which was pushed over family
-    // landing. Closing the reader returns there; the timeline header is
-    // one nav away.
+    // landing. Stories opens All Stories; the timeline button opens the
+    // timeline.
     if (finder.evaluate().isEmpty) {
       final nav = find.byKey(const Key('timeline-nav'));
       await tester.ensureVisible(nav);
       await tester.tap(nav);
     }
     await pumpUntilFound(tester, finder);
+    final full = find.byKey(const Key('timeline-zoom-full'));
+    if (full.evaluate().isEmpty) {
+      final openTimeline = find.byKey(const Key('all-stories-timeline'));
+      await pumpUntilFound(tester, openTimeline);
+      await tester.ensureVisible(openTimeline);
+      await tester.tap(openTimeline);
+    }
   });
   await _step(flow, 'card', () async {
     final full = find.byKey(const Key('timeline-zoom-full'));

@@ -690,6 +690,8 @@ class _GroupSection extends StatelessWidget {
                 Flexible(
                   child: Text(
                     group.heading,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.newsreader(
                       color: headingColor,
                       fontSize: 28,

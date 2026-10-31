@@ -11,10 +11,12 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/theme/album_header.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/all_stories/all_stories_card.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_logic.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_page.dart';
 
@@ -334,7 +336,74 @@ void main() {
       find.byKey(const Key('all-stories-branch-spawn-north')),
     );
     expect(east.dx, lessThan(north.dx));
+
+    const address =
+        '100 Very Long Archive Lane That Must Stay On One Heading Line';
+    final lane = _router(
+      stories: _Stories(
+        published: [
+          Story(
+            id: 'lane',
+            familyId: _family,
+            authorId: 'author',
+            title: 'Lane',
+            status: StoryStatus.published,
+            timeframeStart: DateTime(2018, 6, 1),
+            datePrecision: StoryDatePrecision.day,
+            placeId: 'lane',
+            placeAddress: address,
+          ),
+        ],
+        includeOrigin: false,
+      ),
+      families: _Families(),
+    );
+    addTearDown(lane.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: lane));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('all-stories-group-place')));
+    await tester.pumpAndSettle();
+    final heading = tester.widget<Text>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            widget.data == address &&
+            widget.style?.fontSize == 28,
+      ),
+    );
+    expect(heading.maxLines, 1);
+    expect(heading.overflow, TextOverflow.ellipsis);
   });
+
+  testWidgets(
+    'a matching card fades its border over 240ms and skips the fade under reduced motion',
+    (tester) async {
+      await _pumpReady(tester);
+      await tester.enterText(
+        find.byKey(const Key('all-stories-search')),
+        'sarah',
+      );
+      await tester.pump();
+      expect(_cardBorder(tester, 'spawn').width, 1);
+      await tester.pump(allStoriesSearchDebounce);
+      expect(_cardBorder(tester, 'spawn').width, lessThan(1.5));
+      await tester.pump(allStoriesMotion);
+      final matched = _cardBorder(tester, 'spawn');
+      expect(matched.width, 2);
+      expect(matched.color, albumTerracotta);
+
+      await _pumpReady(tester, disableAnimations: true);
+      await tester.enterText(
+        find.byKey(const Key('all-stories-search')),
+        'sarah',
+      );
+      await tester.pump(allStoriesSearchDebounce);
+      await tester.pump();
+      final instant = _cardBorder(tester, 'spawn');
+      expect(instant.width, 2);
+      expect(instant.color, albumTerracotta);
+    },
+  );
 
   testWidgets('W-15 the reader returns to the same scroll and filters', (
     tester,
@@ -514,13 +583,46 @@ VoidCallback _trackSemantics(WidgetTester tester) {
   return close;
 }
 
-Future<GoRouter> _pumpReady(WidgetTester tester) async {
+Future<GoRouter> _pumpReady(
+  WidgetTester tester, {
+  bool disableAnimations = false,
+}) async {
   await _size(tester, const Size(1440, 900));
   final router = _router(stories: _Stories(), families: _Families());
   addTearDown(router.dispose);
-  await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+  await tester.pumpWidget(
+    MaterialApp.router(
+      routerConfig: router,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(disableAnimations: disableAnimations),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    ),
+  );
   await tester.pumpAndSettle();
   return router;
+}
+
+BorderSide _cardBorder(WidgetTester tester, String id) {
+  final material = tester.widget<Material>(
+    find.descendant(
+      of: find.byKey(Key('all-stories-card-$id')),
+      matching: find.byWidgetPredicate((widget) {
+        if (widget is! Material) return false;
+        final shape = widget.shape;
+        return shape is RoundedRectangleBorder &&
+            shape.borderRadius == BorderRadius.circular(albumCardRadius);
+      }),
+    ),
+  );
+  final shape = material.shape;
+  if (shape is! RoundedRectangleBorder) {
+    throw StateError('card $id has no rounded border');
+  }
+  return shape.side;
 }
 
 Future<void> _size(WidgetTester tester, Size size) async {

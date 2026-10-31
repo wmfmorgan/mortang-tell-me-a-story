@@ -53,29 +53,31 @@ class AllStoriesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final motion = allStoriesMotionOf(context);
+    final highlighted = undimmed && filterActive;
     return TweenAnimationBuilder<double>(
       tween: Tween(end: undimmed ? 0 : 1),
       duration: motion,
       builder: (context, dim, _) {
-        final textColor =
-            Color.lerp(albumInk, allStoriesDimInk(), dim) ?? albumInk;
-        final accent =
-            Color.lerp(albumSage, allStoriesDimInk(), dim) ?? albumSage;
-        final borderColor =
-            Color.lerp(
-              filterActive ? albumTerracotta : albumPillBorder,
-              albumPillBorder,
-              dim,
-            ) ??
-            albumPillBorder;
-        final fromWidth = filterActive ? 2.0 : 1.0;
-        final borderWidth = fromWidth + (1 - fromWidth) * dim;
-        return _frame(
-          dim: dim,
-          textColor: textColor,
-          accent: accent,
-          borderColor: borderColor,
-          borderWidth: borderWidth,
+        return TweenAnimationBuilder<double>(
+          tween: Tween(end: highlighted ? 1 : 0),
+          duration: motion,
+          builder: (context, highlight, _) {
+            final textColor =
+                Color.lerp(albumInk, allStoriesDimInk(), dim) ?? albumInk;
+            final accent =
+                Color.lerp(albumSage, allStoriesDimInk(), dim) ?? albumSage;
+            final borderColor =
+                Color.lerp(albumPillBorder, albumTerracotta, highlight) ??
+                albumPillBorder;
+            final borderWidth = 1 + highlight;
+            return _frame(
+              dim: dim,
+              textColor: textColor,
+              accent: accent,
+              borderColor: borderColor,
+              borderWidth: borderWidth,
+            );
+          },
         );
       },
     );
