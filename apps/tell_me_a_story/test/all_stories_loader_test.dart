@@ -39,7 +39,7 @@ void main() {
   test('L-03 listPublished throws', () async {
     final stories = _Stories(publishedError: StateError('a1'));
     final families = _Families([_tree('F', name: 'Morgans')]);
-    expect(
+    await expectLater(
       () => AllStoriesLoader(stories: stories, families: families).load('F'),
       throwsStateError,
     );
@@ -48,7 +48,7 @@ void main() {
   test('L-04 listFamilyTree throws', () async {
     final stories = _Stories(published: [_story('own')]);
     final families = _Families([], error: StateError('a2'));
-    expect(
+    await expectLater(
       () => AllStoriesLoader(stories: stories, families: families).load('F'),
       throwsStateError,
     );
@@ -69,7 +69,7 @@ void main() {
         published: [_story('own')],
         originError: StateError('a3'),
       );
-      expect(
+      await expectLater(
         () => AllStoriesLoader(stories: broken, families: families).load('F'),
         throwsStateError,
       );

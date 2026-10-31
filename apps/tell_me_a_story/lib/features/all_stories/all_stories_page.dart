@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -66,6 +67,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
   var _canWrite = false;
   var _scrolledUnder = false;
   var _loadGeneration = 0;
+  var _pinExtent = 88.0;
 
   @override
   void initState() {
@@ -152,21 +154,18 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     }
   }
 
-  Future<Map<String, Uint8List>> _loadThumbs(List<Story> stories) async {
+  Future<Map<String, Uint8List>> _loadThumbs(List<Story> stories) {
     final photos = widget.photosApi;
-    final out = <String, Uint8List>{};
-    for (final story in stories) {
-      if (story.photoPaths.isEmpty) continue;
-      try {
-        final bytes = photos == null
-            ? await PhotosApi().downloadBytes(story.photoPaths.first)
-            : await photos.downloadBytes(story.photoPaths.first);
-        if (bytes.isNotEmpty) out[story.id] = bytes;
-      } catch (_) {
-        // A missing thumb stays a parchment blank.
-      }
+    if (photos != null) return downloadFirstThumbs(stories, photos);
+    if (!stories.any((story) => story.photoPaths.isNotEmpty)) {
+      return Future.value(const {});
     }
-    return out;
+    return downloadFirstThumbs(stories, PhotosApi());
+  }
+
+  void _reportPinHeight(double height) {
+    if (!mounted || (height - _pinExtent).abs() < 0.5) return;
+    setState(() => _pinExtent = height);
   }
 
   void _setView(AllStoriesViewState next) {
@@ -205,20 +204,21 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
   }
 
   void _openBranch(TreeFamily branch) {
-    // M12 switches family inside private timeline state. From this route the
-    // same outcome is the remembered family plus the timeline route.
     FamilySelection.remember(branch.id);
+    context.go(AppRoutes.timeline);
+  }
+
+  void _openFamilyTimeline() {
+    FamilySelection.remember(widget.familyId);
     context.go(AppRoutes.timeline);
   }
 
   String _familyName() {
     final data = _data;
     if (data == null) return 'Family';
-    for (final row in data.tree) {
-      if (row.id == widget.familyId && row.name.trim().isNotEmpty) {
-        return row.name;
-      }
-    }
+    final row = treeFamilyById(data.tree, widget.familyId);
+    final name = row?.name.trim();
+    if (name != null && name.isNotEmpty) return name;
     return 'Family';
   }
 
@@ -226,7 +226,23 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
   Widget build(BuildContext context) {
     final name = _familyName();
     final empty = _phase == _Phase.ready && (_data?.stories.isEmpty ?? true);
-    final reduced = MediaQuery.disableAnimationsOf(context);
+    final locked = empty || _phase == _Phase.error;
+    final data = _data;
+    final marks = data == null
+        ? const <String, SpawnMark>{}
+        : spawnMarks(
+            familyId: widget.familyId,
+            tree: data.tree,
+            stories: data.stories,
+          );
+    final undimmed = {
+      for (final story in data?.stories ?? const <Story>[])
+        story.id: isUndimmed(
+          story,
+          _view,
+          marks[story.id] ?? const SpawnMark(),
+        ),
+    };
     return Scaffold(
       key: const Key('all-stories-page'),
       backgroundColor: albumParchment,
@@ -259,12 +275,18 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _PinDelegate(
-                      height: _pinHeight(width),
+                      height: _pinExtent,
                       showBorder: _scrolledUnder,
-                      child: _controls(empty: empty, reduced: reduced),
+                      onHeight: _reportPinHeight,
+                      child: _controls(locked: locked, marks: marks),
                     ),
                   ),
-                  ..._body(empty: empty, viewport: constraints.maxWidth),
+                  ..._body(
+                    empty: empty,
+                    viewport: constraints.maxWidth,
+                    marks: marks,
+                    undimmed: undimmed,
+                  ),
                 ],
               ),
             ),
@@ -297,27 +319,31 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
           ),
           const SizedBox(width: 16),
           Flexible(
-            child: OutlinedButton(
-              key: const Key('all-stories-timeline'),
-              onPressed: () => context.go(AppRoutes.timeline),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: albumTerracotta,
-                backgroundColor: albumParchment,
-                side: const BorderSide(color: albumTerracotta),
-                shape: const StadiumBorder(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
+            child: AllStoriesFocusTarget(
+              radius: 999,
+              childBuilder: (node) => OutlinedButton(
+                key: const Key('all-stories-timeline'),
+                focusNode: node,
+                onPressed: _openFamilyTimeline,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: albumTerracotta,
+                  backgroundColor: albumParchment,
+                  side: const BorderSide(color: albumTerracotta),
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                 ),
-              ),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.sourceSans3(
-                  color: albumTerracotta,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.sourceSans3(
+                    color: albumTerracotta,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -327,15 +353,11 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     );
   }
 
-  double _pinHeight(double width) {
-    final stacked = width < 760;
-    final status = _view.query.trim().isNotEmpty || _view.startedTimelineOnly;
-    if (stacked) return status ? 400 : 320;
-    return status ? 120 : 88;
-  }
-
-  Widget _controls({required bool empty, required bool reduced}) {
-    final line = _phase == _Phase.ready ? _status() : null;
+  Widget _controls({
+    required bool locked,
+    required Map<String, SpawnMark> marks,
+  }) {
+    final line = _phase == _Phase.ready ? _status(marks) : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
@@ -343,17 +365,21 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              final search = _searchField(empty);
+              final search = _searchField(locked);
               final tail = Wrap(
                 spacing: 12,
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  _spawnToggle(empty: empty, reduced: reduced),
-                  _groupSwitch(empty: empty, reduced: reduced),
+                  _spawnToggle(locked: locked),
+                  _GroupBySwitch(
+                    selected: _view.groupBy,
+                    enabled: !locked,
+                    onChanged: _setGroup,
+                  ),
                 ],
               );
-              if (constraints.maxWidth < 760) {
+              if (constraints.maxWidth < _stackedControlsWidth) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [search, const SizedBox(height: 8), tail],
@@ -384,13 +410,16 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     );
   }
 
-  Widget _searchField(bool empty) {
+  Widget _searchField(bool locked) {
+    final quiet = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: albumInk.withValues(alpha: 0.15)),
+    );
     return TextField(
       key: const Key('all-stories-search'),
       controller: _search,
-      enabled: !empty,
-      onChanged: empty ? null : _onQueryChanged,
-      onSubmitted: (_) {},
+      enabled: !locked,
+      onChanged: locked ? null : _onQueryChanged,
       style: GoogleFonts.sourceSans3(color: albumInk, fontSize: 16),
       decoration: InputDecoration(
         hintText: 'Search titles, story text, and people',
@@ -399,7 +428,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
             ? null
             : IconButton(
                 key: const Key('all-stories-search-clear'),
-                onPressed: empty ? null : _clearQuery,
+                onPressed: locked ? null : _clearQuery,
                 icon: const Icon(Icons.close, color: albumInk),
                 constraints: const BoxConstraints.tightFor(
                   width: 44,
@@ -408,14 +437,8 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
               ),
         filled: true,
         fillColor: albumParchment,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: albumInk.withValues(alpha: 0.15)),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: albumInk.withValues(alpha: 0.15)),
-        ),
+        enabledBorder: quiet,
+        disabledBorder: quiet,
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: albumTerracotta, width: 2),
@@ -424,47 +447,56 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     );
   }
 
-  Widget _spawnToggle({required bool empty, required bool reduced}) {
+  Widget _spawnToggle({required bool locked}) {
     final on = _view.startedTimelineOnly;
-    final labelColor = on ? albumParchment : albumInk;
+    final labelColor = locked
+        ? albumInk.withValues(alpha: 0.38)
+        : on
+        ? albumParchment
+        : albumInk;
     return Semantics(
       key: const Key('all-stories-toggle'),
       button: true,
+      enabled: !locked,
       toggled: on,
       label: 'Started a timeline',
-      onTap: empty ? null : _toggleSpawn,
-      child: ExcludeSemantics(
-        child: Material(
-          color: on ? albumTerracotta : albumParchment,
-          shape: StadiumBorder(
-            side: BorderSide(
-              color: on ? albumTerracotta : albumInk.withValues(alpha: 0.15),
+      onTap: locked ? null : _toggleSpawn,
+      child: AllStoriesFocusTarget(
+        radius: 999,
+        childBuilder: (node) => ExcludeSemantics(
+          child: Material(
+            color: on ? albumTerracotta : albumParchment,
+            shape: StadiumBorder(
+              side: BorderSide(
+                color: on ? albumTerracotta : albumInk.withValues(alpha: 0.15),
+              ),
             ),
-          ),
-          child: InkWell(
-            onTap: empty ? null : _toggleSpawn,
-            customBorder: const StadiumBorder(),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (on)
-                      Icon(Icons.check, size: 16, color: labelColor)
-                    else
-                      _MiniRing(color: albumSage),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Started a timeline',
-                      style: GoogleFonts.sourceSans3(
-                        color: labelColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+            child: InkWell(
+              focusNode: node,
+              onTap: locked ? null : _toggleSpawn,
+              customBorder: const StadiumBorder(),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (on)
+                        Icon(Icons.check, size: 16, color: labelColor)
+                      else
+                        const AllStoriesDashedRing(size: 14, color: albumSage),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Started a timeline',
+                        style: GoogleFonts.sourceSans3(
+                          color: labelColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -474,86 +506,9 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     );
   }
 
-  Widget _groupSwitch({required bool empty, required bool reduced}) {
-    const labels = {
-      AllStoriesGroupBy.date: 'Date',
-      AllStoriesGroupBy.member: 'Member',
-      AllStoriesGroupBy.place: 'Place',
-    };
-    return Semantics(
-      label: 'Group by',
-      explicitChildNodes: true,
-      container: true,
-      child: Wrap(
-        spacing: 4,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Text(
-            'Group by',
-            style: GoogleFonts.sourceSans3(color: albumInk, fontSize: 14),
-          ),
-          for (final mode in AllStoriesGroupBy.values)
-            Semantics(
-              key: Key('all-stories-group-${mode.name}'),
-              button: true,
-              inMutuallyExclusiveGroup: true,
-              selected: _view.groupBy == mode,
-              label: labels[mode],
-              onTap: empty ? null : () => _setGroup(mode),
-              child: ExcludeSemantics(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: Material(
-                    color: _view.groupBy == mode
-                        ? albumTerracotta
-                        : albumPillFill,
-                    borderRadius: BorderRadius.circular(999),
-                    child: InkWell(
-                      onTap: empty ? null : () => _setGroup(mode),
-                      borderRadius: BorderRadius.circular(999),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          minWidth: 44,
-                          minHeight: 44,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Center(
-                            child: AnimatedDefaultTextStyle(
-                              duration: reduced
-                                  ? Duration.zero
-                                  : const Duration(milliseconds: 240),
-                              style: GoogleFonts.sourceSans3(
-                                color: _view.groupBy == mode
-                                    ? albumParchment
-                                    : albumInk,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              child: Text(labels[mode]!),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  String? _status() {
+  String? _status(Map<String, SpawnMark> marks) {
     final data = _data;
     if (data == null) return null;
-    final marks = spawnMarks(
-      familyId: widget.familyId,
-      tree: data.tree,
-      stories: data.stories,
-    );
     final total = data.stories.length;
     var n = 0;
     for (final story in data.stories) {
@@ -568,7 +523,12 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     );
   }
 
-  List<Widget> _body({required bool empty, required double viewport}) {
+  List<Widget> _body({
+    required bool empty,
+    required double viewport,
+    required Map<String, SpawnMark> marks,
+    required Map<String, bool> undimmed,
+  }) {
     if (_phase == _Phase.loading) {
       return [SliverToBoxAdapter(child: _skeleton())];
     }
@@ -581,7 +541,8 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
               children: [
                 Text(
                   "Couldn't load stories.",
-                  style: GoogleFonts.sourceSans3(color: albumInk, fontSize: 16),
+                  style: Theme.of(context).textTheme.bodyLarge
+                      ?.copyWith(color: Theme.of(context).colorScheme.error),
                 ),
                 const SizedBox(width: 12),
                 TextButton(
@@ -605,24 +566,21 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     }
     if (empty) {
       return [
-        const SliverFillRemaining(
+        SliverFillRemaining(
           hasScrollBody: false,
           child: Center(
-            child: Text('No stories yet.', style: TextStyle(fontSize: 16)),
+            child: Text(
+              'No stories yet.',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
           ),
         ),
       ];
     }
     final data = _data!;
-    final marks = spawnMarks(
-      familyId: widget.familyId,
-      tree: data.tree,
-      stories: data.stories,
-    );
     final groups = groupStories(data.stories, _view.groupBy);
     final columns = allStoriesColumns(viewport);
-    final filterActive =
-        _view.query.trim().isNotEmpty || _view.startedTimelineOnly;
+    final filterActive = _view.filterActive;
     final name = _familyName();
     return [
       SliverToBoxAdapter(
@@ -637,6 +595,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                 familyName: name,
                 query: _view.query,
                 filterActive: filterActive,
+                undimmed: undimmed,
                 view: _view,
                 thumbs: _thumbs,
                 onOpen: _openStory,
@@ -675,6 +634,7 @@ class _GroupSection extends StatelessWidget {
     required this.familyName,
     required this.query,
     required this.filterActive,
+    required this.undimmed,
     required this.view,
     required this.thumbs,
     required this.onOpen,
@@ -687,6 +647,7 @@ class _GroupSection extends StatelessWidget {
   final String familyName;
   final String query;
   final bool filterActive;
+  final Map<String, bool> undimmed;
   final AllStoriesViewState view;
   final Map<String, Uint8List> thumbs;
   final ValueChanged<Story> onOpen;
@@ -694,13 +655,14 @@ class _GroupSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final undimmedFlags = [
-      for (final story in group.stories)
-        isUndimmed(story, view, marks[story.id] ?? const SpawnMark()),
-    ];
-    final headingDimmed = filterActive && undimmedFlags.every((flag) => !flag);
+    final headingDimmed =
+        filterActive &&
+        group.stories.every((story) => undimmed[story.id] != true);
     final headingColor = headingDimmed ? allStoriesDimInk() : albumInk;
     final count = groupCountLabel(group.stories.length);
+    final address = group.address?.trim();
+    final showAddress =
+        address != null && address.isNotEmpty && address != group.heading;
     return Padding(
       padding: const EdgeInsets.only(top: 24),
       child: Column(
@@ -711,13 +673,12 @@ class _GroupSection extends StatelessWidget {
             headingLevel: 2,
             child: Row(
               children: [
-                if (view.groupBy == AllStoriesGroupBy.member)
+                if (view.groupBy == AllStoriesGroupBy.member && !group.isNone)
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ProfileAvatar(size: 32, displayName: group.heading),
                   ),
-                if (view.groupBy == AllStoriesGroupBy.place &&
-                    group.key != '__none__')
+                if (view.groupBy == AllStoriesGroupBy.place && !group.isNone)
                   Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: Icon(
@@ -736,11 +697,11 @@ class _GroupSection extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (group.address != null && group.address!.isNotEmpty) ...[
+                if (showAddress) ...[
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      group.address!,
+                      address,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.sourceSans3(
@@ -791,7 +752,7 @@ class _GroupSection extends StatelessWidget {
       familyName: familyName,
       query: query,
       filterActive: filterActive,
-      undimmed: isUndimmed(story, view, mark),
+      undimmed: undimmed[story.id] ?? true,
       thumb: thumbs[story.id],
       onOpen: () => onOpen(story),
       onOpenBranch: onOpenBranch,
@@ -819,34 +780,18 @@ class _Bar extends StatelessWidget {
   }
 }
 
-class _MiniRing extends StatelessWidget {
-  const _MiniRing({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 14,
-      height: 14,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 1.5),
-      ),
-    );
-  }
-}
-
 class _PinDelegate extends SliverPersistentHeaderDelegate {
   _PinDelegate({
     required this.child,
     required this.height,
     required this.showBorder,
+    required this.onHeight,
   });
 
   final Widget child;
   final double height;
   final bool showBorder;
+  final ValueChanged<double> onHeight;
 
   @override
   double get minExtent => height;
@@ -867,7 +812,12 @@ class _PinDelegate extends SliverPersistentHeaderDelegate {
             ? Border(bottom: BorderSide(color: albumInk.withValues(alpha: 0.1)))
             : null,
       ),
-      child: child,
+      child: OverflowBox(
+        alignment: Alignment.topCenter,
+        minHeight: 0,
+        maxHeight: double.infinity,
+        child: _PinMeasure(onHeight: onHeight, child: child),
+      ),
     );
   }
 
@@ -875,6 +825,165 @@ class _PinDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _PinDelegate oldDelegate) {
     return oldDelegate.height != height ||
         oldDelegate.showBorder != showBorder ||
+        oldDelegate.onHeight != onHeight ||
         oldDelegate.child != child;
+  }
+}
+
+class _PinMeasure extends SingleChildRenderObjectWidget {
+  const _PinMeasure({required this.onHeight, required super.child});
+
+  final ValueChanged<double> onHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderPinMeasure(onHeight);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderPinMeasure renderObject,
+  ) {
+    renderObject.onHeight = onHeight;
+  }
+}
+
+class _RenderPinMeasure extends RenderProxyBox {
+  _RenderPinMeasure(this.onHeight);
+
+  ValueChanged<double> onHeight;
+  double? _reported;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final next = size.height;
+    if (_reported == next) return;
+    _reported = next;
+    WidgetsBinding.instance.addPostFrameCallback((_) => onHeight(next));
+  }
+}
+
+const _stackedControlsWidth = 760.0;
+
+class _GroupBySwitch extends StatelessWidget {
+  const _GroupBySwitch({
+    required this.selected,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final AllStoriesGroupBy selected;
+  final bool enabled;
+  final ValueChanged<AllStoriesGroupBy> onChanged;
+
+  static const _labels = {
+    AllStoriesGroupBy.date: 'Date',
+    AllStoriesGroupBy.member: 'Member',
+    AllStoriesGroupBy.place: 'Place',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = allStoriesMotionOf(context);
+    final index = AllStoriesGroupBy.values.indexOf(selected);
+    final labelColor = enabled ? albumInk : albumInk.withValues(alpha: 0.38);
+    return Semantics(
+      label: 'Group by',
+      explicitChildNodes: true,
+      container: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Group by',
+            style: GoogleFonts.sourceSans3(color: labelColor, fontSize: 14),
+          ),
+          const SizedBox(width: 8),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: albumPillFill,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final count = AllStoriesGroupBy.values.length;
+                      final width = constraints.maxWidth / count;
+                      return Stack(
+                        children: [
+                          AnimatedPositioned(
+                            duration: motion,
+                            curve: Curves.easeOutCubic,
+                            left: width * index,
+                            width: width,
+                            top: 0,
+                            bottom: 0,
+                            child: const DecoratedBox(
+                              decoration: ShapeDecoration(
+                                color: albumTerracotta,
+                                shape: StadiumBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final mode in AllStoriesGroupBy.values)
+                      Semantics(
+                        key: Key('all-stories-group-${mode.name}'),
+                        button: true,
+                        enabled: enabled,
+                        inMutuallyExclusiveGroup: true,
+                        selected: selected == mode,
+                        label: _labels[mode],
+                        child: AllStoriesFocusTarget(
+                          radius: 999,
+                          childBuilder: (node) => InkWell(
+                            focusNode: node,
+                            onTap: enabled ? () => onChanged(mode) : null,
+                            customBorder: const StadiumBorder(),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                minWidth: 44,
+                                minHeight: 44,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _labels[mode]!,
+                                    style: GoogleFonts.sourceSans3(
+                                      color: selected == mode
+                                          ? albumParchment
+                                          : labelColor,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

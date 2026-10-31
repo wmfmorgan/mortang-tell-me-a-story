@@ -161,6 +161,22 @@ class _FakeStoriesApi implements StoriesGateway {
   }) async {}
 }
 
+class _ReadableTree extends FamiliesGateway {
+  _ReadableTree({required this.mine, required this.tree});
+
+  final List<MemberFamily> mine;
+  final List<TreeFamily> tree;
+
+  @override
+  Future<List<MemberFamily>> listMine() async => mine;
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => const [];
+
+  @override
+  Future<List<TreeFamily>> listFamilyTree(String familyId) async => tree;
+}
+
 class _FakeFamilies extends FamiliesGateway {
   _FakeFamilies(this.rows);
 
@@ -542,6 +558,64 @@ void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
+  testWidgets(
+    'W-21 a non-member opens a branch they can read through the tree',
+    (tester) async {
+      addTearDown(FamilySelection.clear);
+      const branchId = '00000000-0000-0000-0000-0000000000aa';
+      FamilySelection.remember(branchId);
+      await tester.pumpWidget(
+        _timeline(
+          stories: _FakeStoriesApi(published: const []),
+          families: _ReadableTree(
+            mine: [
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(2020),
+              ),
+            ],
+            tree: const [
+              TreeFamily(id: _familyId, name: 'Ada'),
+              TreeFamily(
+                id: branchId,
+                name: 'East Branch',
+                parentFamilyId: _familyId,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('East Branch'), findsWidgets);
+      expect(find.text('Ada'), findsNothing);
+    },
+  );
+
+  testWidgets('a saved family outside the tree falls back to the membership', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    FamilySelection.remember('00000000-0000-0000-0000-0000000000bb');
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: const []),
+        families: _ReadableTree(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Ada',
+              createdAt: DateTime.utc(2020),
+            ),
+          ],
+          tree: const [TreeFamily(id: _familyId, name: 'Ada')],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Ada'), findsWidgets);
+  });
+
   testWidgets('empty published list shows locked empty copy', (tester) async {
     await tester.pumpWidget(_timeline(stories: _FakeStoriesApi(published: [])));
     await tester.pumpAndSettle();

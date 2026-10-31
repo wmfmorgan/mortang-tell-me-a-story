@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../data/families_api.dart';
 import '../../data/stories_api.dart';
 
@@ -46,6 +48,10 @@ class StoryGroup {
   final String? address;
   final String? personUserId;
   final List<Story> stories;
+
+  static const noneKey = '__none__';
+
+  bool get isNone => key == noneKey;
 }
 
 /// Session-only view state (UX Rule 4; SAD §1).
@@ -59,6 +65,8 @@ class AllStoriesViewState {
   final AllStoriesGroupBy groupBy;
   final String query;
   final bool startedTimelineOnly;
+
+  bool get filterActive => query.trim().isNotEmpty || startedTimelineOnly;
 
   AllStoriesViewState copyWith({
     AllStoriesGroupBy? groupBy,
@@ -83,6 +91,7 @@ abstract final class AllStoriesSession {
   static void save(String familyId, AllStoriesViewState state) =>
       _byFamily[familyId] = state;
 
+  @visibleForTesting
   static void resetForTest() => _byFamily.clear();
 }
 
@@ -110,24 +119,10 @@ Map<String, SpawnMark> spawnMarks({
   required List<TreeFamily> tree,
   required List<Story> stories,
 }) {
-  TreeFamily? self;
-  for (final row in tree) {
-    if (row.id == familyId) {
-      self = row;
-      break;
-    }
-  }
+  final self = treeFamilyById(tree, familyId);
   final origin = self?.originStoryId;
-  TreeFamily? parent;
   final parentId = self?.parentFamilyId;
-  if (parentId != null) {
-    for (final row in tree) {
-      if (row.id == parentId) {
-        parent = row;
-        break;
-      }
-    }
-  }
+  final parent = parentId == null ? null : treeFamilyById(tree, parentId);
   final marks = <String, SpawnMark>{};
   for (final story in stories) {
     final isOrigin = origin != null && story.id == origin;
@@ -188,7 +183,11 @@ List<StoryGroup> _groupByDate(List<Story> stories) {
   if (undated.isNotEmpty) {
     undated.sort(compareAllStories);
     groups.add(
-      StoryGroup(key: '__none__', heading: 'No date yet', stories: undated),
+      StoryGroup(
+        key: StoryGroup.noneKey,
+        heading: 'No date yet',
+        stories: undated,
+      ),
     );
   }
   return groups;
@@ -231,7 +230,11 @@ List<StoryGroup> _groupByMember(List<Story> stories) {
   if (untagged.isNotEmpty) {
     untagged.sort(compareAllStories);
     groups.add(
-      StoryGroup(key: '__none__', heading: 'No one tagged', stories: untagged),
+      StoryGroup(
+        key: StoryGroup.noneKey,
+        heading: 'No one tagged',
+        stories: untagged,
+      ),
     );
   }
   return groups;
@@ -277,7 +280,11 @@ List<StoryGroup> _groupByPlace(List<Story> stories) {
   if (unplaced.isNotEmpty) {
     unplaced.sort(compareAllStories);
     groups.add(
-      StoryGroup(key: '__none__', heading: 'No place yet', stories: unplaced),
+      StoryGroup(
+        key: StoryGroup.noneKey,
+        heading: 'No place yet',
+        stories: unplaced,
+      ),
     );
   }
   return groups;
@@ -316,9 +323,22 @@ bool matchesSearch(Story story, String query) {
     return true;
   }
   for (final name in story.personNames) {
-    if (_contains(name, needle)) return true;
+    if (nameMatches(name, query)) return true;
   }
   return false;
+}
+
+bool nameMatches(String name, String query) {
+  final needle = query.trim().toLowerCase();
+  if (needle.isEmpty) return false;
+  return name.toLowerCase().contains(needle);
+}
+
+TreeFamily? treeFamilyById(List<TreeFamily> tree, String id) {
+  for (final row in tree) {
+    if (row.id == id) return row;
+  }
+  return null;
 }
 
 bool _contains(String? value, String needle) {

@@ -29,7 +29,7 @@ void main() {
     expect(find.text('Latest'), findsOneWidget);
     expect(find.text('Added in the past 7 days.'), findsOneWidget);
     expect(find.text('No stories added in the past 7 days.'), findsOneWidget);
-    _expectTimelinePill(tester, 'The Morgans');
+    _expectAllStoriesPill(tester, 'The Morgans');
     expect(find.byKey(const Key('family-landing-hero-edit')), findsNothing);
     expect(find.text('Add a family photo'), findsNothing);
     expect(find.text('Featured'), findsNothing);
@@ -56,7 +56,7 @@ void main() {
     const name = 'The Morgans of the Northern Shore and the South Meadow';
     await _pump(tester, role: 'member', stories: const [], familyName: name);
 
-    _expectTimelinePill(tester, name);
+    _expectAllStoriesPill(tester, name);
     final root = tester.renderObject(
       find.descendant(
         of: find.byKey(const Key('family-landing-view-all')),
@@ -158,7 +158,7 @@ RenderParagraph _paragraph(RenderObject object) {
   return found;
 }
 
-void _expectTimelinePill(WidgetTester tester, String familyName) {
+void _expectAllStoriesPill(WidgetTester tester, String familyName) {
   const labelPrefix = 'View all stories for ';
   final label = '$labelPrefix$familyName';
   final cta = find.byKey(const Key('family-landing-view-all'));

@@ -162,17 +162,23 @@ void main() {
           .enabled,
       isFalse,
     );
+    await tester.tap(find.byKey(const Key('all-stories-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('started a timeline'), findsNothing);
+    final handle = tester.ensureSemantics();
     expect(
       tester
-          .widget<InkWell>(
-            find.descendant(
-              of: find.byKey(const Key('all-stories-toggle')),
-              matching: find.byType(InkWell),
-            ),
-          )
-          .onTap,
-      isNull,
+          .getSemantics(find.byKey(const Key('all-stories-toggle')))
+          .hasFlag(SemanticsFlag.isEnabled),
+      isFalse,
     );
+    expect(
+      tester
+          .getSemantics(find.byKey(const Key('all-stories-group-date')))
+          .hasFlag(SemanticsFlag.isEnabled),
+      isFalse,
+    );
+    handle.dispose();
     expect(
       tester
           .widget<OutlinedButton>(find.byKey(const Key('all-stories-timeline')))
@@ -193,6 +199,40 @@ void main() {
     expect(find.text("Couldn't load stories."), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
     expect(find.text('No stories yet.'), findsNothing);
+    expect(find.text('All Stories'), findsOneWidget);
+    final errorText = tester.widget<Text>(find.text("Couldn't load stories."));
+    expect(
+      errorText.style?.color,
+      Theme.of(tester.element(find.text("Couldn't load stories.")))
+          .colorScheme
+          .error,
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('all-stories-search')))
+          .enabled,
+      isFalse,
+    );
+    final handle = tester.ensureSemantics();
+    expect(
+      tester
+          .getSemantics(find.byKey(const Key('all-stories-toggle')))
+          .hasFlag(SemanticsFlag.isEnabled),
+      isFalse,
+    );
+    expect(
+      tester
+          .getSemantics(find.byKey(const Key('all-stories-group-date')))
+          .hasFlag(SemanticsFlag.isEnabled),
+      isFalse,
+    );
+    handle.dispose();
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('all-stories-timeline')))
+          .onPressed,
+      isNotNull,
+    );
   });
 
   testWidgets('W-09 Retry loads the groups', (tester) async {
@@ -224,6 +264,14 @@ void main() {
     expect(find.byKey(const Key('all-stories-card-origin')), findsOneWidget);
     expect(find.text('2 of 4 stories match "sarah"'), findsOneWidget);
     expect(router.state.uri.path, '/family/$_family/stories');
+    final handle = tester.ensureSemantics();
+    expect(
+      tester
+          .getSemantics(find.byKey(const Key('all-stories-card-plain')))
+          .label,
+      contains('not a match'),
+    );
+    handle.dispose();
   });
 
   testWidgets('W-11 a place name alone does not match', (tester) async {
@@ -336,19 +384,22 @@ void main() {
     );
   });
 
-  testWidgets('W-16 a branch pill opens that timeline', (tester) async {
-    await _pumpReady(tester);
-    FamilySelection.remember(_family);
-    await tester.ensureVisible(
-      find.byKey(const Key('all-stories-branch-spawn-east')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('all-stories-branch-spawn-east')));
-    await tester.pumpAndSettle();
-    expect(find.text('reader-spawn'), findsNothing);
-    expect(find.text('timeline-page'), findsOneWidget);
-    expect(FamilySelection.id, 'east');
-  });
+  testWidgets(
+    'W-16 a branch pill remembers that family and opens the timeline',
+    (tester) async {
+      await _pumpReady(tester);
+      FamilySelection.remember(_family);
+      await tester.ensureVisible(
+        find.byKey(const Key('all-stories-branch-spawn-east')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('all-stories-branch-spawn-east')));
+      await tester.pumpAndSettle();
+      expect(find.text('reader-spawn'), findsNothing);
+      expect(find.text('timeline-page'), findsOneWidget);
+      expect(FamilySelection.id, 'east');
+    },
+  );
 
   testWidgets('W-17 disposing during load does not throw', (tester) async {
     await _size(tester, const Size(1440, 900));
@@ -374,6 +425,7 @@ void main() {
     );
     await tester.tap(button);
     await tester.pumpAndSettle();
+    expect(FamilySelection.id, _family);
     expect(router.state.uri.path, AppRoutes.timeline);
   });
 

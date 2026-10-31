@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'photos_api.dart';
@@ -384,7 +386,7 @@ abstract class StoriesGateway {
   Future<List<Story>> listMyDrafts(String familyId);
   Future<List<Story>> listPublished(String familyId);
 
-  /// Published story by id with the A1 (_publishedSelect) shape. Null when not found or not readable.
+  /// Published story by id using the published-list select. Null when not found or not readable.
   Future<Story?> getPublishedOrigin(String storyId);
 
   /// Published stories added in the past [withinDays], newest first, at most [limit].
@@ -592,15 +594,8 @@ class StoriesApi implements StoriesGateway {
   }
 
   @override
-  Future<Story?> getPublished(String storyId) async {
-    final row = await _client
-        .from('stories')
-        .select(_storySelect)
-        .eq('id', storyId)
-        .eq('status', 'published')
-        .maybeSingle();
-    if (row == null) return null;
-    return Story.fromJson(row);
+  Future<Story?> getPublished(String storyId) {
+    return _getPublishedWith(storyId, _storySelect);
   }
 
   /// Published stories tagged with [personId], oldest first.
@@ -679,10 +674,14 @@ class StoriesApi implements StoriesGateway {
   }
 
   @override
-  Future<Story?> getPublishedOrigin(String storyId) async {
+  Future<Story?> getPublishedOrigin(String storyId) {
+    return _getPublishedWith(storyId, _publishedSelect);
+  }
+
+  Future<Story?> _getPublishedWith(String storyId, String select) async {
     final row = await _client
         .from('stories')
-        .select(_publishedSelect)
+        .select(select)
         .eq('id', storyId)
         .eq('status', 'published')
         .maybeSingle();
@@ -824,4 +823,22 @@ StoryStatus _storyStatusFrom(String raw) {
     'draft' => StoryStatus.draft,
     _ => throw ArgumentError.value(raw, 'status'),
   };
+}
+
+/// First photo of each story. A missing or empty file is omitted.
+Future<Map<String, Uint8List>> downloadFirstThumbs(
+  List<Story> stories,
+  PhotosGateway photos,
+) async {
+  final out = <String, Uint8List>{};
+  for (final story in stories) {
+    if (story.photoPaths.isEmpty) continue;
+    try {
+      final bytes = await photos.downloadBytes(story.photoPaths.first);
+      if (bytes.isNotEmpty) out[story.id] = bytes;
+    } catch (_) {
+      // A missing thumb stays a parchment blank.
+    }
+  }
+  return out;
 }

@@ -15,6 +15,14 @@ Color allStoriesDimInk() {
   return Color.alphaBlend(albumInk.withValues(alpha: 0.7), albumParchment);
 }
 
+const allStoriesMotion = Duration(milliseconds: 240);
+
+Duration allStoriesMotionOf(BuildContext context) {
+  return MediaQuery.disableAnimationsOf(context)
+      ? Duration.zero
+      : allStoriesMotion;
+}
+
 /// Spec-allowed fill. Soft parchment veil over a dimmed cover.
 const allStoriesVeilOpacity = 0.45;
 
@@ -44,10 +52,12 @@ class AllStoriesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final motion = allStoriesMotionOf(context);
     final textColor = undimmed ? albumInk : allStoriesDimInk();
-    final border = undimmed && filterActive
-        ? Border.all(color: albumTerracotta, width: 2)
-        : Border.all(color: albumPillBorder);
+    final borderColor = undimmed && filterActive
+        ? albumTerracotta
+        : albumPillBorder;
+    final borderWidth = undimmed && filterActive ? 2.0 : 1.0;
     return Semantics(
       key: Key('all-stories-card-${story.id}'),
       container: true,
@@ -55,72 +65,76 @@ class AllStoriesCard extends StatelessWidget {
       button: true,
       label: _label(),
       onTap: onOpen,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
+      child: AllStoriesFocusTarget(
+        radius: albumCardRadius,
+        childBuilder: (node) => Material(
           color: albumParchment,
-          borderRadius: BorderRadius.circular(albumCardRadius),
-          border: border,
-        ),
-        child: InkWell(
-          onTap: onOpen,
-          borderRadius: BorderRadius.circular(albumCardRadius),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _cover(),
-                if (_dateLine() case final date?) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    date,
-                    style: GoogleFonts.sourceSans3(
-                      color: textColor,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-                if (_title() case final title?) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.newsreader(
-                      color: textColor,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                _pills(textColor),
-                if (story.placeLabel != null &&
-                    story.placeLabel!.trim().isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.location_on,
-                        size: 16,
-                        color: undimmed ? albumSage : allStoriesDimInk(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(albumCardRadius),
+            side: BorderSide(color: borderColor, width: borderWidth),
+          ),
+          child: InkWell(
+            focusNode: node,
+            onTap: onOpen,
+            borderRadius: BorderRadius.circular(albumCardRadius),
+            child: AnimatedContainer(
+              duration: motion,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _cover(motion),
+                  if (_dateLine() case final date?) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      date,
+                      style: GoogleFonts.sourceSans3(
+                        color: textColor,
+                        fontSize: 14,
                       ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          story.placeLabel!.trim(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.sourceSans3(
-                            color: textColor,
-                            fontSize: 14,
+                    ),
+                  ],
+                  if (_title() case final title?) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.newsreader(
+                        color: textColor,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  _pills(textColor),
+                  if (_placeLine() case final place?) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          size: 16,
+                          color: undimmed ? albumSage : allStoriesDimInk(),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            place,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.sourceSans3(
+                              color: textColor,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -128,7 +142,15 @@ class AllStoriesCard extends StatelessWidget {
     );
   }
 
-  Widget _cover() {
+  String? _placeLine() {
+    final label = story.placeLabel?.trim();
+    if (label != null && label.isNotEmpty) return label;
+    final address = story.placeAddress?.trim();
+    if (address != null && address.isNotEmpty) return address;
+    return null;
+  }
+
+  Widget _cover(Duration motion) {
     Widget photo = thumb == null || thumb!.isEmpty
         ? const ColoredBox(color: albumParchment)
         : Image.memory(
@@ -148,10 +170,13 @@ class AllStoriesCard extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           photo,
-          if (!undimmed)
-            ColoredBox(
+          AnimatedOpacity(
+            opacity: undimmed ? 0 : 1,
+            duration: motion,
+            child: ColoredBox(
               color: albumParchment.withValues(alpha: allStoriesVeilOpacity),
             ),
+          ),
           if (mark.startedTimeline)
             Positioned(
               top: 8,
@@ -167,14 +192,13 @@ class AllStoriesCard extends StatelessWidget {
   }
 
   Widget _pills(Color textColor) {
-    final needle = query.trim().toLowerCase();
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (mark.isOrigin)
-          _OriginLabel(
+        if (mark.startedTimeline)
+          _OriginPill(
             text: mark.inheritedFromName == null
                 ? 'Origin'
                 : 'Origin · from ${mark.inheritedFromName}',
@@ -185,9 +209,11 @@ class AllStoriesCard extends StatelessWidget {
             button: true,
             label: 'Open the ${branch.name} timeline',
             onTap: () => onOpenBranch(branch),
-            child: ExcludeSemantics(
-              child: TextButton(
+            child: AllStoriesFocusTarget(
+              radius: 20,
+              childBuilder: (node) => TextButton(
                 key: Key('all-stories-branch-${story.id}-${branch.id}'),
+                focusNode: node,
                 onPressed: () => onOpenBranch(branch),
                 style: TextButton.styleFrom(
                   minimumSize: const Size(44, 44),
@@ -209,7 +235,10 @@ class AllStoriesCard extends StatelessWidget {
                       color: textColor,
                     ),
                     const SizedBox(width: 4),
-                    Text(branch.name),
+                    Text(
+                      branch.name,
+                      style: GoogleFonts.sourceSans3(color: textColor),
+                    ),
                   ],
                 ),
               ),
@@ -219,8 +248,7 @@ class AllStoriesCard extends StatelessWidget {
           _PersonPill(
             name: person.name,
             color: textColor,
-            matched:
-                needle.isNotEmpty && person.name.toLowerCase().contains(needle),
+            matched: nameMatches(person.name, query),
           ),
       ],
     );
@@ -271,31 +299,143 @@ class AllStoriesCard extends StatelessWidget {
   }
 }
 
-class _OriginLabel extends StatelessWidget {
-  const _OriginLabel({required this.text, required this.color});
+class _OriginPill extends StatelessWidget {
+  const _OriginPill({required this.text, required this.color});
 
   final String text;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final style = GoogleFonts.sourceSans3(
+      color: color,
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final max = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : double.infinity;
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          maxLines: 1,
+          textDirection: Directionality.of(context),
+        )..layout(maxWidth: max);
+        final chrome = 16.0 + 4 + 24;
+        final tooWide = painter.width + chrome > max;
+        final label = Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        );
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: albumPillFill,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: albumPillBorder),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              mainAxisSize: tooWide ? MainAxisSize.max : MainAxisSize.min,
+              children: [
+                Icon(Icons.account_tree_outlined, size: 16, color: color),
+                const SizedBox(width: 4),
+                if (tooWide) Flexible(child: label) else label,
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class AllStoriesFocusTarget extends StatefulWidget {
+  const AllStoriesFocusTarget({
+    super.key,
+    required this.childBuilder,
+    this.radius = 12,
+  });
+
+  final Widget Function(FocusNode node) childBuilder;
+  final double radius;
+
+  @override
+  State<AllStoriesFocusTarget> createState() => _AllStoriesFocusTargetState();
+}
+
+class _AllStoriesFocusTargetState extends State<AllStoriesFocusTarget> {
+  final _node = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _node.addListener(_onFocus);
+  }
+
+  @override
+  void dispose() {
+    _node.removeListener(_onFocus);
+    _node.dispose();
+    super.dispose();
+  }
+
+  void _onFocus() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // The ring sits 2px outside the child so a parchment offset plus a
+    // 2px outline does not widen pills in the wrap.
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        Icon(Icons.account_tree_outlined, size: 16, color: color),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.sourceSans3(
-              color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+        widget.childBuilder(_node),
+        Positioned(
+          left: -4,
+          top: -4,
+          right: -4,
+          bottom: -4,
+          child: IgnorePointer(
+            child: AnimatedContainer(
+              duration: allStoriesMotionOf(context),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(widget.radius + 4),
+                border: Border.all(
+                  color: _node.hasFocus ? albumTerracotta : albumParchment,
+                  width: 2,
+                ),
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class AllStoriesDashedRing extends StatelessWidget {
+  const AllStoriesDashedRing({super.key, this.size = 16, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: albumParchment,
+          shape: BoxShape.circle,
+        ),
+        child: CustomPaint(painter: _DashedRingPainter(color)),
+      ),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../data/families_api.dart';
 import '../../data/stories_api.dart';
 import 'all_stories_logic.dart';
@@ -10,30 +12,31 @@ class AllStoriesLoader {
 
   /// Runs A1 + A2 in parallel, then A3 if needed (§7.4). Throws whatever a gateway throws.
   Future<AllStoriesData> load(String familyId) async {
-    final results = await Future.wait<Object>([
-      stories.listPublished(familyId),
-      families.listFamilyTree(familyId),
-    ]);
-    final published = results[0] as List<Story>;
-    final tree = results[1] as List<TreeFamily>;
-    TreeFamily? self;
-    for (final row in tree) {
-      if (row.id == familyId) {
-        self = row;
-        break;
-      }
+    final List<Story> published;
+    final List<TreeFamily> tree;
+    try {
+      (published, tree) = await (
+        stories.listPublished(familyId),
+        families.listFamilyTree(familyId),
+      ).wait;
+    } on ParallelWaitError<
+      (List<Story>?, List<TreeFamily>?),
+      (Object?, Object?)
+    > catch (error, stack) {
+      // .wait stores AsyncError, not the gateway error (§7.4 / L-03).
+      final raw = error.errors.$1 ?? error.errors.$2;
+      final cause = raw is AsyncError ? raw.error : raw;
+      final trace = raw is AsyncError ? raw.stackTrace : stack;
+      if (cause != null) Error.throwWithStackTrace(cause, trace);
+      rethrow;
     }
-    final merged = [...published];
+    final self = treeFamilyById(tree, familyId);
+    final storiesOut = [...published];
     final originId = self?.originStoryId;
-    if (originId != null && !merged.any((story) => story.id == originId)) {
+    if (originId != null && !storiesOut.any((story) => story.id == originId)) {
       final origin = await stories.getPublishedOrigin(originId);
-      if (origin != null) merged.add(origin);
+      if (origin != null) storiesOut.add(origin);
     }
-    final seen = <String>{};
-    final unique = <Story>[];
-    for (final story in merged) {
-      if (seen.add(story.id)) unique.add(story);
-    }
-    return AllStoriesData(familyId: familyId, stories: unique, tree: tree);
+    return AllStoriesData(familyId: familyId, stories: storiesOut, tree: tree);
   }
 }

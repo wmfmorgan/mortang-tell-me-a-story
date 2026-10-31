@@ -184,21 +184,13 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     return null;
   }
 
-  Future<Map<String, Uint8List>> _downloadThumbs(List<Story> stories) async {
+  Future<Map<String, Uint8List>> _downloadThumbs(List<Story> stories) {
     final photos = widget.photosApi;
-    final out = <String, Uint8List>{};
-    for (final story in stories) {
-      if (story.photoPaths.isEmpty) continue;
-      try {
-        final bytes = photos == null
-            ? await PhotosApi().downloadBytes(story.photoPaths.first)
-            : await photos.downloadBytes(story.photoPaths.first);
-        out[story.id] = bytes;
-      } catch (_) {
-        // A missing thumb stays a parchment blank.
-      }
+    if (photos != null) return downloadFirstThumbs(stories, photos);
+    if (!stories.any((story) => story.photoPaths.isNotEmpty)) {
+      return Future.value(const {});
     }
-    return out;
+    return downloadFirstThumbs(stories, PhotosApi());
   }
 
   Future<void> _selectFamily(String id) async {
@@ -506,15 +498,15 @@ class _LatestShelf extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 16),
-        _TimelineCta(familyName: familyName, familyId: familyId),
+        _AllStoriesCta(familyName: familyName, familyId: familyId),
       ],
     );
   }
 }
 
-/// Centered terracotta pill. Rule 7′: same treatment as New story, no plus.
-class _TimelineCta extends StatelessWidget {
-  const _TimelineCta({required this.familyName, required this.familyId});
+/// Centered terracotta pill. Same treatment as New story, no plus.
+class _AllStoriesCta extends StatelessWidget {
+  const _AllStoriesCta({required this.familyName, required this.familyId});
 
   final String familyName;
   final String? familyId;
@@ -531,10 +523,9 @@ class _TimelineCta extends StatelessWidget {
             message: label,
             child: FilledButton(
               key: const Key('family-landing-view-all'),
-              onPressed: () {
-                final id = familyId;
-                if (id == null) return;
-                context.go(AppRoutes.allStoriesPath(id));
+              onPressed: switch (familyId) {
+                final id? => () => context.go(AppRoutes.allStoriesPath(id)),
+                null => null,
               },
               style: FilledButton.styleFrom(
                 backgroundColor: albumTerracotta,
