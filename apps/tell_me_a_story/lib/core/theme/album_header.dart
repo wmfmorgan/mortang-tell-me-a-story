@@ -24,6 +24,7 @@ enum AlbumHeaderPage {
   settings,
   manageFamilies,
   familyLanding,
+  allStories,
 }
 
 /// Stitch screen `703158c2c064414883d9d1c1dff8902a` header only.
@@ -137,8 +138,13 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   }
 
   void _openTimeline(BuildContext context) {
-    if (page == AlbumHeaderPage.timeline) return;
-    GoRouter.of(context).go(AppRoutes.timeline);
+    if (page == AlbumHeaderPage.allStories) return;
+    final familyId = currentFamilyId;
+    if (familyId == null) {
+      GoRouter.of(context).go(AppRoutes.timeline);
+      return;
+    }
+    GoRouter.of(context).go(AppRoutes.allStoriesPath(familyId));
   }
 
   Future<void> _openDrafts(BuildContext context) async {
@@ -290,7 +296,9 @@ class _HeaderBar extends StatelessWidget {
           _NavItem(
             key: const Key('timeline-nav'),
             label: 'Stories',
-            active: page == AlbumHeaderPage.timeline,
+            active:
+                page == AlbumHeaderPage.timeline ||
+                page == AlbumHeaderPage.allStories,
             underlineKey: const Key('header-underline-timeline'),
             onTap: onTimeline,
           ),

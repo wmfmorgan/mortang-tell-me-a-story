@@ -348,6 +348,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
                     const SizedBox(height: 28),
                     _LatestShelf(
                       familyName: family?.name ?? 'Family',
+                      familyId: _familyId,
                       stories: _latest,
                       thumbs: _thumbs,
                       onOpen: _openStory,
@@ -447,12 +448,14 @@ class _Hero extends StatelessWidget {
 class _LatestShelf extends StatelessWidget {
   const _LatestShelf({
     required this.familyName,
+    required this.familyId,
     required this.stories,
     required this.thumbs,
     required this.onOpen,
   });
 
   final String familyName;
+  final String? familyId;
   final List<Story> stories;
   final Map<String, Uint8List> thumbs;
   final ValueChanged<Story> onOpen;
@@ -503,7 +506,7 @@ class _LatestShelf extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 16),
-        _TimelineCta(familyName: familyName),
+        _TimelineCta(familyName: familyName, familyId: familyId),
       ],
     );
   }
@@ -511,13 +514,14 @@ class _LatestShelf extends StatelessWidget {
 
 /// Centered terracotta pill. Rule 7′: same treatment as New story, no plus.
 class _TimelineCta extends StatelessWidget {
-  const _TimelineCta({required this.familyName});
+  const _TimelineCta({required this.familyName, required this.familyId});
 
   final String familyName;
+  final String? familyId;
 
   @override
   Widget build(BuildContext context) {
-    final label = 'View a Timeline of Stories for $familyName';
+    final label = 'View all stories for $familyName';
     return LayoutBuilder(
       builder: (context, constraints) {
         final textMax = (constraints.maxWidth - 32).clamp(0.0, double.infinity);
@@ -527,7 +531,11 @@ class _TimelineCta extends StatelessWidget {
             message: label,
             child: FilledButton(
               key: const Key('family-landing-view-all'),
-              onPressed: () => context.go(AppRoutes.timeline),
+              onPressed: () {
+                final id = familyId;
+                if (id == null) return;
+                context.go(AppRoutes.allStoriesPath(id));
+              },
               style: FilledButton.styleFrom(
                 backgroundColor: albumTerracotta,
                 foregroundColor: albumParchment,
