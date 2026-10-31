@@ -133,9 +133,30 @@ class _TimelinePageState extends State<TimelinePage> {
     await _loadFamilies();
   }
 
+  /// Membership id from [InviteGateway.currentFamilyId], unless the saved
+  /// family is tree-readable (`list_family_tree` filters with
+  /// `is_family_tree_readable`).
+  Future<String?> _readableSavedFamily() async {
+    final fallback = await _api.currentFamilyId();
+    final remembered = FamilySelection.id;
+    if (remembered == null || remembered == fallback) return fallback;
+    final gateway = widget.familiesApi;
+    if (gateway == null) return fallback;
+    try {
+      final tree = await gateway.listFamilyTree(remembered);
+      for (final row in tree) {
+        if (row.id == remembered) return remembered;
+      }
+    } catch (_) {
+      // A tree read that throws cannot confirm the saved family. D9 falls back.
+      return fallback;
+    }
+    return fallback;
+  }
+
   Future<void> _bootstrap() async {
     try {
-      final id = await _api.currentFamilyId();
+      final id = await _readableSavedFamily();
       if (!mounted) return;
       setState(() {
         _familyId = id;

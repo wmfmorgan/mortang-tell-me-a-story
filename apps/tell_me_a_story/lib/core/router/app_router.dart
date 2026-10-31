@@ -24,6 +24,7 @@ import '../../features/stories/new_story_page.dart';
 import '../navigation/unsaved_guard.dart';
 import '../../features/search/search_page.dart';
 import '../../data/manage_families_api.dart';
+import '../../features/all_stories/all_stories_page.dart';
 import '../../features/family/family_landing_page.dart';
 import '../../features/family/manage_families_page.dart';
 import '../../features/family/manage_family_page.dart';
@@ -169,6 +170,9 @@ abstract final class AppRoutes {
   static const magicLink = '/';
   static const familyLanding = '/family';
   static const timeline = '/timeline';
+  static const allStories = '/family/:id/stories';
+
+  static String allStoriesPath(String familyId) => '/family/$familyId/stories';
   static const newStory = '/stories/new';
   static const story = '/stories/:storyId';
   static const storyEdit = '/stories/:storyId/edit';
@@ -319,6 +323,15 @@ GoRouter createAppRouter({
           storiesApi: storiesApi,
           familiesApi: familiesApi,
           peopleApi: peopleApi,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.allStories,
+        builder: (context, state) => AllStoriesPage(
+          familyId: state.pathParameters['id']!,
+          storiesApi: storiesApi,
+          familiesApi: familiesApi,
+          photosApi: photosApi,
         ),
       ),
       GoRoute(

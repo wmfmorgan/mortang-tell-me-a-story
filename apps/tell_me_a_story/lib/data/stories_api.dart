@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'photos_api.dart';
@@ -38,6 +40,8 @@ class Story {
     this.commentCount = 0,
     this.perspectiveCount = 0,
     this.photoPaths = const [],
+    this.placeAddress,
+    this.personUserIds = const {},
   });
   final String id;
   final String familyId;
@@ -73,6 +77,12 @@ class Story {
   final int commentCount;
   final int perspectiveCount;
   final List<String> photoPaths;
+
+  /// `places.address`, trimmed. Null when the embed is missing or blank.
+  final String? placeAddress;
+
+  /// `story_people.person_id` to `people.user_id`, only when both are non-empty.
+  final Map<String, String> personUserIds;
 
   factory Story.fromJson(Map<String, dynamic> json) {
     final people = json['story_people'];
@@ -110,6 +120,8 @@ class Story {
       commentCount: _rowCount(json['comments']),
       perspectiveCount: _rowCount(json['perspectives']),
       photoPaths: _photoPaths(photos),
+      placeAddress: _embedAddress(json['places']),
+      personUserIds: _personUserIds(json['story_people']),
     );
   }
 }
@@ -120,6 +132,30 @@ String? _embedLabel(Object? places) {
     if (label is String && label.trim().isNotEmpty) return label.trim();
   }
   return null;
+}
+
+String? _embedAddress(Object? places) {
+  if (places is Map) {
+    final address = places['address'];
+    if (address is String && address.trim().isNotEmpty) return address.trim();
+  }
+  return null;
+}
+
+Map<String, String> _personUserIds(Object? people) {
+  if (people is! List) return const {};
+  final out = <String, String>{};
+  for (final row in people) {
+    if (row is! Map) continue;
+    final personId = row['person_id'];
+    final nested = row['people'];
+    if (nested is! Map) continue;
+    final userId = nested['user_id'];
+    if (personId is! String || personId.isEmpty) continue;
+    if (userId is! String || userId.trim().isEmpty) continue;
+    out[personId] = userId.trim();
+  }
+  return out;
 }
 
 List<({String id, String name})> _storyPeople(Object? people) {
@@ -350,6 +386,9 @@ abstract class StoriesGateway {
   Future<List<Story>> listMyDrafts(String familyId);
   Future<List<Story>> listPublished(String familyId);
 
+  /// Published story by id using the published-list select. Null when not found or not readable.
+  Future<Story?> getPublishedOrigin(String storyId);
+
   /// Published stories added in the past [withinDays], newest first, at most [limit].
   Future<List<Story>> listLatestPublished(
     String familyId, {
@@ -375,7 +414,7 @@ class StoriesApi implements StoriesGateway {
       'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, story_people(person_id), photos(id), profiles!author_id(display_name, avatar_path)';
 
   static const _publishedSelect =
-      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, places(label), story_people(person_id, people(name)), profiles!author_id(display_name, avatar_path), photos(id, storage_path, sort_order), comments(id), perspectives(id)';
+      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, places(label, address), story_people(person_id, people(name, user_id)), profiles!author_id(display_name, avatar_path), photos(id, storage_path, sort_order), comments(id), perspectives(id)';
 
   @override
   Future<Story> createDraft({
@@ -555,15 +594,8 @@ class StoriesApi implements StoriesGateway {
   }
 
   @override
-  Future<Story?> getPublished(String storyId) async {
-    final row = await _client
-        .from('stories')
-        .select(_storySelect)
-        .eq('id', storyId)
-        .eq('status', 'published')
-        .maybeSingle();
-    if (row == null) return null;
-    return Story.fromJson(row);
+  Future<Story?> getPublished(String storyId) {
+    return _getPublishedWith(storyId, _storySelect);
   }
 
   /// Published stories tagged with [personId], oldest first.
@@ -639,6 +671,22 @@ class StoriesApi implements StoriesGateway {
         .order('created_at')
         .order('id');
     return rows.map(Story.fromJson).toList();
+  }
+
+  @override
+  Future<Story?> getPublishedOrigin(String storyId) {
+    return _getPublishedWith(storyId, _publishedSelect);
+  }
+
+  Future<Story?> _getPublishedWith(String storyId, String select) async {
+    final row = await _client
+        .from('stories')
+        .select(select)
+        .eq('id', storyId)
+        .eq('status', 'published')
+        .maybeSingle();
+    if (row == null) return null;
+    return Story.fromJson(row);
   }
 
   @override
@@ -775,4 +823,31 @@ StoryStatus _storyStatusFrom(String raw) {
     'draft' => StoryStatus.draft,
     _ => throw ArgumentError.value(raw, 'status'),
   };
+}
+
+/// First photo of each story. A missing or empty file is omitted.
+/// A null gateway downloads nothing unless a story has a photo path, in
+/// which case it uses [PhotosApi].
+Future<Map<String, Uint8List>> downloadFirstThumbs(
+  List<Story> stories,
+  PhotosGateway? photos,
+) async {
+  final gateway = switch (photos) {
+    final given? => given,
+    null when stories.any((story) => story.photoPaths.isNotEmpty) =>
+      PhotosApi(),
+    null => null,
+  };
+  if (gateway == null) return const {};
+  final out = <String, Uint8List>{};
+  for (final story in stories) {
+    if (story.photoPaths.isEmpty) continue;
+    try {
+      final bytes = await gateway.downloadBytes(story.photoPaths.first);
+      if (bytes.isNotEmpty) out[story.id] = bytes;
+    } catch (_) {
+      // A missing thumb stays a parchment blank.
+    }
+  }
+  return out;
 }

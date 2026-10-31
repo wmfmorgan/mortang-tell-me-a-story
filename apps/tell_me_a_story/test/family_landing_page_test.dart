@@ -29,7 +29,7 @@ void main() {
     expect(find.text('Latest'), findsOneWidget);
     expect(find.text('Added in the past 7 days.'), findsOneWidget);
     expect(find.text('No stories added in the past 7 days.'), findsOneWidget);
-    _expectTimelinePill(tester, 'The Morgans');
+    _expectAllStoriesPill(tester, 'The Morgans');
     expect(find.byKey(const Key('family-landing-hero-edit')), findsNothing);
     expect(find.text('Add a family photo'), findsNothing);
     expect(find.text('Featured'), findsNothing);
@@ -46,7 +46,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('family-landing-view-all')));
     await tester.pumpAndSettle();
-    expect(find.text('timeline-page'), findsOneWidget);
+    expect(find.text('all-stories-page'), findsOneWidget);
     expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
   });
 
@@ -56,7 +56,7 @@ void main() {
     const name = 'The Morgans of the Northern Shore and the South Meadow';
     await _pump(tester, role: 'member', stories: const [], familyName: name);
 
-    _expectTimelinePill(tester, name);
+    _expectAllStoriesPill(tester, name);
     final root = tester.renderObject(
       find.descendant(
         of: find.byKey(const Key('family-landing-view-all')),
@@ -77,7 +77,7 @@ void main() {
     await _pump(tester, role: 'member', stories: const []);
     await tester.tap(find.byKey(const Key('timeline-nav')));
     await tester.pumpAndSettle();
-    expect(find.text('timeline-page'), findsOneWidget);
+    expect(find.text('all-stories-page'), findsOneWidget);
     expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
   });
 
@@ -158,8 +158,8 @@ RenderParagraph _paragraph(RenderObject object) {
   return found;
 }
 
-void _expectTimelinePill(WidgetTester tester, String familyName) {
-  const labelPrefix = 'View a Timeline of Stories for ';
+void _expectAllStoriesPill(WidgetTester tester, String familyName) {
+  const labelPrefix = 'View all stories for ';
   final label = '$labelPrefix$familyName';
   final cta = find.byKey(const Key('family-landing-view-all'));
   expect(cta, findsOneWidget);
@@ -212,6 +212,26 @@ Future<void> _pump(
           familiesApi: _Families(role, familyName),
           loadLatest: (_) async => stories,
           now: () => now ?? DateTime.utc(2026, 10, 28),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.allStories,
+        builder: (context, state) => Scaffold(
+          appBar: AlbumHeader(
+            page: AlbumHeaderPage.allStories,
+            familyName: familyName,
+            families: [
+              MemberFamily(
+                id: 'fam-1',
+                name: familyName,
+                createdAt: DateTime.utc(2020),
+                role: role,
+              ),
+            ],
+            currentFamilyId: state.pathParameters['id'],
+            onFamilySelected: (_) {},
+          ),
+          body: const Text('all-stories-page'),
         ),
       ),
       GoRoute(

@@ -138,10 +138,10 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
 
     final family = _familyFrom(rows, familyId);
     Uint8List? cover;
-    if (family?.coverPhotoPath != null) {
-      cover = await _downloadCover(family!.coverPhotoPath);
+    if (family?.coverPhotoPath case final path?) {
+      cover = await _downloadCover(path);
     }
-    final thumbs = await _downloadThumbs(latest);
+    final thumbs = await downloadFirstThumbs(latest, widget.photosApi);
 
     if (!mounted) return;
     setState(() {
@@ -182,23 +182,6 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
       return null;
     }
     return null;
-  }
-
-  Future<Map<String, Uint8List>> _downloadThumbs(List<Story> stories) async {
-    final photos = widget.photosApi;
-    final out = <String, Uint8List>{};
-    for (final story in stories) {
-      if (story.photoPaths.isEmpty) continue;
-      try {
-        final bytes = photos == null
-            ? await PhotosApi().downloadBytes(story.photoPaths.first)
-            : await photos.downloadBytes(story.photoPaths.first);
-        out[story.id] = bytes;
-      } catch (_) {
-        // A missing thumb stays a parchment blank.
-      }
-    }
-    return out;
   }
 
   Future<void> _selectFamily(String id) async {
@@ -348,6 +331,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
                     const SizedBox(height: 28),
                     _LatestShelf(
                       familyName: family?.name ?? 'Family',
+                      familyId: _familyId,
                       stories: _latest,
                       thumbs: _thumbs,
                       onOpen: _openStory,
@@ -447,12 +431,14 @@ class _Hero extends StatelessWidget {
 class _LatestShelf extends StatelessWidget {
   const _LatestShelf({
     required this.familyName,
+    required this.familyId,
     required this.stories,
     required this.thumbs,
     required this.onOpen,
   });
 
   final String familyName;
+  final String? familyId;
   final List<Story> stories;
   final Map<String, Uint8List> thumbs;
   final ValueChanged<Story> onOpen;
@@ -503,21 +489,22 @@ class _LatestShelf extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 16),
-        _TimelineCta(familyName: familyName),
+        _AllStoriesCta(familyName: familyName, familyId: familyId),
       ],
     );
   }
 }
 
-/// Centered terracotta pill. Rule 7′: same treatment as New story, no plus.
-class _TimelineCta extends StatelessWidget {
-  const _TimelineCta({required this.familyName});
+/// Centered terracotta pill. Same treatment as New story, no plus.
+class _AllStoriesCta extends StatelessWidget {
+  const _AllStoriesCta({required this.familyName, required this.familyId});
 
   final String familyName;
+  final String? familyId;
 
   @override
   Widget build(BuildContext context) {
-    final label = 'View a Timeline of Stories for $familyName';
+    final label = 'View all stories for $familyName';
     return LayoutBuilder(
       builder: (context, constraints) {
         final textMax = (constraints.maxWidth - 32).clamp(0.0, double.infinity);
@@ -527,7 +514,10 @@ class _TimelineCta extends StatelessWidget {
             message: label,
             child: FilledButton(
               key: const Key('family-landing-view-all'),
-              onPressed: () => context.go(AppRoutes.timeline),
+              onPressed: switch (familyId) {
+                final id? => () => context.go(AppRoutes.allStoriesPath(id)),
+                null => null,
+              },
               style: FilledButton.styleFrom(
                 backgroundColor: albumTerracotta,
                 foregroundColor: albumParchment,

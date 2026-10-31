@@ -222,6 +222,8 @@ class _Invite implements InviteGateway {
 
 class _Stories implements StoriesGateway {
   @override
+  Future<Story?> getPublishedOrigin(String storyId) async => null;
+  @override
   Future<List<Story>> listLatestPublished(
     String familyId, {
     int withinDays = 7,
@@ -1655,6 +1657,8 @@ GoRouter _readerRouter({
 }
 
 class _ReaderStories implements StoriesGateway {
+  @override
+  Future<Story?> getPublishedOrigin(String storyId) async => null;
   @override
   Future<List<Story>> listLatestPublished(
     String familyId, {
