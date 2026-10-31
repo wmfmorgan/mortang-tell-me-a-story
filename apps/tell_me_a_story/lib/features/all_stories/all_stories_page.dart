@@ -111,7 +111,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
       final chromeFuture = _loadChrome();
       final data = await dataFuture;
       final chrome = await chromeFuture;
-      final thumbs = await _loadThumbs(data.stories);
+      final thumbs = await downloadFirstThumbs(data.stories, widget.photosApi);
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _data = data;
@@ -152,15 +152,6 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         canWrite: false,
       );
     }
-  }
-
-  Future<Map<String, Uint8List>> _loadThumbs(List<Story> stories) {
-    final photos = widget.photosApi;
-    if (photos != null) return downloadFirstThumbs(stories, photos);
-    if (!stories.any((story) => story.photoPaths.isNotEmpty)) {
-      return Future.value(const {});
-    }
-    return downloadFirstThumbs(stories, PhotosApi());
   }
 
   void _reportPinHeight(double height) {
@@ -209,8 +200,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
   }
 
   void _openFamilyTimeline() {
-    FamilySelection.remember(widget.familyId);
-    context.go(AppRoutes.timeline);
+    _openBranch(TreeFamily(id: widget.familyId, name: _familyName()));
   }
 
   String _familyName() {
@@ -278,7 +268,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                       height: _pinExtent,
                       showBorder: _scrolledUnder,
                       onHeight: _reportPinHeight,
-                      child: _controls(locked: locked, marks: marks),
+                      child: _controls(locked: locked, undimmed: undimmed),
                     ),
                   ),
                   ..._body(
@@ -355,9 +345,9 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
 
   Widget _controls({
     required bool locked,
-    required Map<String, SpawnMark> marks,
+    required Map<String, bool> undimmed,
   }) {
-    final line = _phase == _Phase.ready ? _status(marks) : null;
+    final line = _phase == _Phase.ready ? _status(undimmed) : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
@@ -426,13 +416,17 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         prefixIcon: const Icon(Icons.search, color: albumInk),
         suffixIcon: _search.text.isEmpty
             ? null
-            : IconButton(
-                key: const Key('all-stories-search-clear'),
-                onPressed: locked ? null : _clearQuery,
-                icon: const Icon(Icons.close, color: albumInk),
-                constraints: const BoxConstraints.tightFor(
-                  width: 44,
-                  height: 44,
+            : AllStoriesFocusTarget(
+                radius: 22,
+                childBuilder: (node) => IconButton(
+                  key: const Key('all-stories-search-clear'),
+                  focusNode: node,
+                  onPressed: locked ? null : _clearQuery,
+                  icon: const Icon(Icons.close, color: albumInk),
+                  constraints: const BoxConstraints.tightFor(
+                    width: 44,
+                    height: 44,
+                  ),
                 ),
               ),
         filled: true,
@@ -506,18 +500,16 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     );
   }
 
-  String? _status(Map<String, SpawnMark> marks) {
+  String? _status(Map<String, bool> undimmed) {
     final data = _data;
     if (data == null) return null;
-    final total = data.stories.length;
     var n = 0;
-    for (final story in data.stories) {
-      final mark = marks[story.id] ?? const SpawnMark();
-      if (isUndimmed(story, _view, mark)) n++;
+    for (final shown in undimmed.values) {
+      if (shown) n++;
     }
     return statusLine(
       n: n,
-      total: total,
+      total: data.stories.length,
       query: _view.query,
       startedTimelineOnly: _view.startedTimelineOnly,
     );
@@ -545,16 +537,22 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                       ?.copyWith(color: Theme.of(context).colorScheme.error),
                 ),
                 const SizedBox(width: 12),
-                TextButton(
-                  key: const Key('all-stories-retry'),
-                  onPressed: () => _load(showLoading: true),
-                  style: TextButton.styleFrom(foregroundColor: albumTerracotta),
-                  child: Text(
-                    'Retry',
-                    style: GoogleFonts.sourceSans3(
-                      color: albumTerracotta,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                AllStoriesFocusTarget(
+                  radius: 20,
+                  childBuilder: (node) => TextButton(
+                    key: const Key('all-stories-retry'),
+                    focusNode: node,
+                    onPressed: () => _load(showLoading: true),
+                    style: TextButton.styleFrom(
+                      foregroundColor: albumTerracotta,
+                    ),
+                    child: Text(
+                      'Retry',
+                      style: GoogleFonts.sourceSans3(
+                        color: albumTerracotta,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -577,35 +575,37 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         ),
       ];
     }
-    final data = _data!;
-    final groups = groupStories(data.stories, _view.groupBy);
-    final columns = allStoriesColumns(viewport);
-    final filterActive = _view.filterActive;
-    final name = _familyName();
-    return [
-      SliverToBoxAdapter(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final group in groups)
-              _GroupSection(
-                group: group,
-                columns: columns,
-                marks: marks,
-                familyName: name,
-                query: _view.query,
-                filterActive: filterActive,
-                undimmed: undimmed,
-                view: _view,
-                thumbs: _thumbs,
-                onOpen: _openStory,
-                onOpenBranch: _openBranch,
-              ),
-            const SizedBox(height: 48),
-          ],
+    if (_data case final data?) {
+      final groups = groupStories(data.stories, _view.groupBy);
+      final columns = allStoriesColumns(viewport);
+      final filterActive = _view.filterActive;
+      final name = _familyName();
+      return [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final group in groups)
+                _GroupSection(
+                  group: group,
+                  columns: columns,
+                  marks: marks,
+                  familyName: name,
+                  query: _view.query,
+                  filterActive: filterActive,
+                  undimmed: undimmed,
+                  view: _view,
+                  thumbs: _thumbs,
+                  onOpen: _openStory,
+                  onOpenBranch: _openBranch,
+                ),
+              const SizedBox(height: 48),
+            ],
+          ),
         ),
-      ),
-    ];
+      ];
+    }
+    return const <Widget>[];
   }
 
   Widget _skeleton() {
@@ -825,7 +825,6 @@ class _PinDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _PinDelegate oldDelegate) {
     return oldDelegate.height != height ||
         oldDelegate.showBorder != showBorder ||
-        oldDelegate.onHeight != onHeight ||
         oldDelegate.child != child;
   }
 }
@@ -867,7 +866,7 @@ class _RenderPinMeasure extends RenderProxyBox {
 
 const _stackedControlsWidth = 760.0;
 
-class _GroupBySwitch extends StatelessWidget {
+class _GroupBySwitch extends StatefulWidget {
   const _GroupBySwitch({
     required this.selected,
     required this.enabled,
@@ -878,17 +877,64 @@ class _GroupBySwitch extends StatelessWidget {
   final bool enabled;
   final ValueChanged<AllStoriesGroupBy> onChanged;
 
-  static const _labels = {
-    AllStoriesGroupBy.date: 'Date',
-    AllStoriesGroupBy.member: 'Member',
-    AllStoriesGroupBy.place: 'Place',
-  };
+  @override
+  State<_GroupBySwitch> createState() => _GroupBySwitchState();
+}
+
+class _GroupBySwitchState extends State<_GroupBySwitch> {
+  final _keys = [for (final _ in AllStoriesGroupBy.values) GlobalKey()];
+  var _left = 0.0;
+  var _width = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _readWidths());
+  }
+
+  @override
+  void didUpdateWidget(covariant _GroupBySwitch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _readWidths());
+  }
+
+  void _readWidths() {
+    if (!mounted) return;
+    final index = AllStoriesGroupBy.values.indexOf(widget.selected);
+    var cursor = 0.0;
+    var left = 0.0;
+    var width = 0.0;
+    for (var i = 0; i < _keys.length; i++) {
+      final size = _keys[i].currentContext?.size;
+      if (size == null) return;
+      if (i == index) {
+        left = cursor;
+        width = size.width;
+      }
+      cursor += size.width;
+    }
+    if ((left - _left).abs() < 0.5 && (width - _width).abs() < 0.5) return;
+    setState(() {
+      _left = left;
+      _width = width;
+    });
+  }
+
+  String _label(AllStoriesGroupBy mode) {
+    return switch (mode) {
+      AllStoriesGroupBy.date => 'Date',
+      AllStoriesGroupBy.member => 'Member',
+      AllStoriesGroupBy.place => 'Place',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     final motion = allStoriesMotionOf(context);
-    final index = AllStoriesGroupBy.values.indexOf(selected);
-    final labelColor = enabled ? albumInk : albumInk.withValues(alpha: 0.38);
+    final labelColor = widget.enabled
+        ? albumInk
+        : albumInk.withValues(alpha: 0.38);
+    final modes = AllStoriesGroupBy.values;
     return Semantics(
       label: 'Group by',
       explicitChildNodes: true,
@@ -908,67 +954,61 @@ class _GroupBySwitch extends StatelessWidget {
             ),
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final count = AllStoriesGroupBy.values.length;
-                      final width = constraints.maxWidth / count;
-                      return Stack(
-                        children: [
-                          AnimatedPositioned(
-                            duration: motion,
-                            curve: Curves.easeOutCubic,
-                            left: width * index,
-                            width: width,
-                            top: 0,
-                            bottom: 0,
-                            child: const DecoratedBox(
-                              decoration: ShapeDecoration(
-                                color: albumTerracotta,
-                                shape: StadiumBorder(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                if (_width > 0)
+                  AnimatedPositioned(
+                    duration: motion,
+                    curve: Curves.easeOutCubic,
+                    left: _left,
+                    width: _width,
+                    top: 0,
+                    bottom: 0,
+                    child: const DecoratedBox(
+                      decoration: ShapeDecoration(
+                        color: albumTerracotta,
+                        shape: StadiumBorder(),
+                      ),
+                    ),
                   ),
-                ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    for (final mode in AllStoriesGroupBy.values)
-                      Semantics(
-                        key: Key('all-stories-group-${mode.name}'),
-                        button: true,
-                        enabled: enabled,
-                        inMutuallyExclusiveGroup: true,
-                        selected: selected == mode,
-                        label: _labels[mode],
-                        child: AllStoriesFocusTarget(
-                          radius: 999,
-                          childBuilder: (node) => InkWell(
-                            focusNode: node,
-                            onTap: enabled ? () => onChanged(mode) : null,
-                            customBorder: const StadiumBorder(),
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                minWidth: 44,
-                                minHeight: 44,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
+                    for (var i = 0; i < modes.length; i++)
+                      KeyedSubtree(
+                        key: _keys[i],
+                        child: Semantics(
+                          key: Key('all-stories-group-${modes[i].name}'),
+                          button: true,
+                          enabled: widget.enabled,
+                          inMutuallyExclusiveGroup: true,
+                          checked: widget.selected == modes[i],
+                          label: _label(modes[i]),
+                          child: AllStoriesFocusTarget(
+                            radius: 999,
+                            childBuilder: (node) => InkWell(
+                              focusNode: node,
+                              onTap: widget.enabled
+                                  ? () => widget.onChanged(modes[i])
+                                  : null,
+                              customBorder: const StadiumBorder(),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minWidth: 44,
+                                  minHeight: 44,
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    _labels[mode]!,
-                                    style: GoogleFonts.sourceSans3(
-                                      color: selected == mode
-                                          ? albumParchment
-                                          : labelColor,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      _label(modes[i]),
+                                      style: GoogleFonts.sourceSans3(
+                                        color: widget.selected == modes[i]
+                                            ? albumParchment
+                                            : labelColor,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ),

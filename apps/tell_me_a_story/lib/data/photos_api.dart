@@ -4,6 +4,8 @@ import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import 'stories_api.dart';
+
 const maxPhotosPerStory = 20;
 const storyPhotosBucket = 'story-photos';
 
@@ -328,4 +330,31 @@ class PhotosApi implements PhotosGateway {
     }
     await _client.storage.from(storyPhotosBucket).remove(paths);
   }
+}
+
+/// First photo of each story. A missing or empty file is omitted.
+/// A null gateway downloads nothing unless a story has a photo path, in
+/// which case it uses [PhotosApi].
+Future<Map<String, Uint8List>> downloadFirstThumbs(
+  List<Story> stories,
+  PhotosGateway? photos,
+) async {
+  final gateway = switch (photos) {
+    final given? => given,
+    null when stories.any((story) => story.photoPaths.isNotEmpty) =>
+      PhotosApi(),
+    null => null,
+  };
+  if (gateway == null) return const {};
+  final out = <String, Uint8List>{};
+  for (final story in stories) {
+    if (story.photoPaths.isEmpty) continue;
+    try {
+      final bytes = await gateway.downloadBytes(story.photoPaths.first);
+      if (bytes.isNotEmpty) out[story.id] = bytes;
+    } catch (_) {
+      // A missing thumb stays a parchment blank.
+    }
+  }
+  return out;
 }

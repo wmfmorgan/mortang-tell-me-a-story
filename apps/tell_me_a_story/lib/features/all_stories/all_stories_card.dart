@@ -53,11 +53,41 @@ class AllStoriesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final motion = allStoriesMotionOf(context);
-    final textColor = undimmed ? albumInk : allStoriesDimInk();
-    final borderColor = undimmed && filterActive
-        ? albumTerracotta
-        : albumPillBorder;
-    final borderWidth = undimmed && filterActive ? 2.0 : 1.0;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: undimmed ? 0 : 1),
+      duration: motion,
+      builder: (context, dim, _) {
+        final textColor =
+            Color.lerp(albumInk, allStoriesDimInk(), dim) ?? albumInk;
+        final accent =
+            Color.lerp(albumSage, allStoriesDimInk(), dim) ?? albumSage;
+        final borderColor =
+            Color.lerp(
+              filterActive ? albumTerracotta : albumPillBorder,
+              albumPillBorder,
+              dim,
+            ) ??
+            albumPillBorder;
+        final fromWidth = filterActive ? 2.0 : 1.0;
+        final borderWidth = fromWidth + (1 - fromWidth) * dim;
+        return _frame(
+          dim: dim,
+          textColor: textColor,
+          accent: accent,
+          borderColor: borderColor,
+          borderWidth: borderWidth,
+        );
+      },
+    );
+  }
+
+  Widget _frame({
+    required double dim,
+    required Color textColor,
+    required Color accent,
+    required Color borderColor,
+    required double borderWidth,
+  }) {
     return Semantics(
       key: Key('all-stories-card-${story.id}'),
       container: true,
@@ -77,13 +107,12 @@ class AllStoriesCard extends StatelessWidget {
             focusNode: node,
             onTap: onOpen,
             borderRadius: BorderRadius.circular(albumCardRadius),
-            child: AnimatedContainer(
-              duration: motion,
+            child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _cover(motion),
+                  _cover(dim, accent),
                   if (_dateLine() case final date?) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -108,16 +137,12 @@ class AllStoriesCard extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 8),
-                  _pills(textColor),
-                  if (_placeLine() case final place?) ...[
+                  _pills(textColor, accent),
+                  if (placeHeading(story) case final place?) ...[
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(
-                          Icons.location_on,
-                          size: 16,
-                          color: undimmed ? albumSage : allStoriesDimInk(),
-                        ),
+                        Icon(Icons.location_on, size: 16, color: accent),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -142,26 +167,23 @@ class AllStoriesCard extends StatelessWidget {
     );
   }
 
-  String? _placeLine() {
-    final label = story.placeLabel?.trim();
-    if (label != null && label.isNotEmpty) return label;
-    final address = story.placeAddress?.trim();
-    if (address != null && address.isNotEmpty) return address;
-    return null;
-  }
-
-  Widget _cover(Duration motion) {
-    Widget photo = thumb == null || thumb!.isEmpty
-        ? const ColoredBox(color: albumParchment)
-        : Image.memory(
-            thumb!,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            width: double.infinity,
-            height: 140,
-          );
-    if (!undimmed && thumb != null && thumb!.isNotEmpty) {
-      photo = ColorFiltered(colorFilter: _grayscale, child: photo);
+  Widget _cover(double dim, Color accent) {
+    final bytes = thumb;
+    Widget photo = switch (bytes) {
+      final image? when image.isNotEmpty => Image.memory(
+        image,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        width: double.infinity,
+        height: 140,
+      ),
+      _ => const ColoredBox(color: albumParchment),
+    };
+    if (bytes != null && bytes.isNotEmpty && dim > 0) {
+      photo = ColorFiltered(
+        colorFilter: ColorFilter.matrix(_grayAt(dim)),
+        child: photo,
+      );
     }
     return SizedBox(
       height: 140,
@@ -170,11 +192,9 @@ class AllStoriesCard extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           photo,
-          AnimatedOpacity(
-            opacity: undimmed ? 0 : 1,
-            duration: motion,
-            child: ColoredBox(
-              color: albumParchment.withValues(alpha: allStoriesVeilOpacity),
+          ColoredBox(
+            color: albumParchment.withValues(
+              alpha: allStoriesVeilOpacity * dim,
             ),
           ),
           if (mark.startedTimeline)
@@ -183,7 +203,7 @@ class AllStoriesCard extends StatelessWidget {
               right: 8,
               child: _Ring(
                 key: Key('all-stories-ring-${story.id}'),
-                color: undimmed ? albumSage : allStoriesDimInk(),
+                color: accent,
               ),
             ),
         ],
@@ -191,7 +211,7 @@ class AllStoriesCard extends StatelessWidget {
     );
   }
 
-  Widget _pills(Color textColor) {
+  Widget _pills(Color textColor, Color accent) {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -202,7 +222,7 @@ class AllStoriesCard extends StatelessWidget {
             text: mark.inheritedFromName == null
                 ? 'Origin'
                 : 'Origin · from ${mark.inheritedFromName}',
-            color: undimmed ? albumSage : allStoriesDimInk(),
+            color: accent,
           ),
         for (final branch in mark.branches)
           Semantics(
@@ -307,48 +327,34 @@ class _OriginPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = GoogleFonts.sourceSans3(
-      color: color,
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final max = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : double.infinity;
-        final painter = TextPainter(
-          text: TextSpan(text: text, style: style),
-          maxLines: 1,
-          textDirection: Directionality.of(context),
-        )..layout(maxWidth: max);
-        final chrome = 16.0 + 4 + 24;
-        final tooWide = painter.width + chrome > max;
-        final label = Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: style,
-        );
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            color: albumPillFill,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: albumPillBorder),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              mainAxisSize: tooWide ? MainAxisSize.max : MainAxisSize.min,
-              children: [
-                Icon(Icons.account_tree_outlined, size: 16, color: color),
-                const SizedBox(width: 4),
-                if (tooWide) Flexible(child: label) else label,
-              ],
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: albumPillFill,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: albumPillBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.account_tree_outlined, size: 16, color: color),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.sourceSans3(
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
@@ -406,7 +412,9 @@ class _AllStoriesFocusTargetState extends State<AllStoriesFocusTarget> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(widget.radius + 4),
                 border: Border.all(
-                  color: _node.hasFocus ? albumTerracotta : albumParchment,
+                  color: _node.hasFocus
+                      ? albumTerracotta
+                      : albumTerracotta.withValues(alpha: 0),
                   width: 2,
                 ),
               ),
@@ -525,25 +533,23 @@ class _DashedRingPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-const _grayscale = ColorFilter.matrix(<double>[
-  0.2126,
-  0.7152,
-  0.0722,
-  0,
-  0,
-  0.2126,
-  0.7152,
-  0.0722,
-  0,
-  0,
-  0.2126,
-  0.7152,
-  0.0722,
-  0,
-  0,
-  0,
-  0,
-  0,
-  1,
-  0,
-]);
+const _identity = <double>[
+  1, 0, 0, 0, 0, //
+  0, 1, 0, 0, 0, //
+  0, 0, 1, 0, 0, //
+  0, 0, 0, 1, 0,
+];
+
+const _grayscale = <double>[
+  0.2126, 0.7152, 0.0722, 0, 0, //
+  0.2126, 0.7152, 0.0722, 0, 0, //
+  0.2126, 0.7152, 0.0722, 0, 0, //
+  0, 0, 0, 1, 0,
+];
+
+List<double> _grayAt(double t) {
+  return [
+    for (var i = 0; i < _grayscale.length; i++)
+      _identity[i] + (_grayscale[i] - _identity[i]) * t,
+  ];
+}

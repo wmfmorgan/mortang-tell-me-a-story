@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'photos_api.dart';
@@ -823,22 +821,4 @@ StoryStatus _storyStatusFrom(String raw) {
     'draft' => StoryStatus.draft,
     _ => throw ArgumentError.value(raw, 'status'),
   };
-}
-
-/// First photo of each story. A missing or empty file is omitted.
-Future<Map<String, Uint8List>> downloadFirstThumbs(
-  List<Story> stories,
-  PhotosGateway photos,
-) async {
-  final out = <String, Uint8List>{};
-  for (final story in stories) {
-    if (story.photoPaths.isEmpty) continue;
-    try {
-      final bytes = await photos.downloadBytes(story.photoPaths.first);
-      if (bytes.isNotEmpty) out[story.id] = bytes;
-    } catch (_) {
-      // A missing thumb stays a parchment blank.
-    }
-  }
-  return out;
 }

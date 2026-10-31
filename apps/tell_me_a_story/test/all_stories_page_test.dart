@@ -165,7 +165,7 @@ void main() {
     await tester.tap(find.byKey(const Key('all-stories-toggle')));
     await tester.pumpAndSettle();
     expect(find.textContaining('started a timeline'), findsNothing);
-    final handle = tester.ensureSemantics();
+    final closeSemantics = _trackSemantics(tester);
     expect(
       tester
           .getSemantics(find.byKey(const Key('all-stories-toggle')))
@@ -178,13 +178,13 @@ void main() {
           .hasFlag(SemanticsFlag.isEnabled),
       isFalse,
     );
-    handle.dispose();
     expect(
       tester
           .widget<OutlinedButton>(find.byKey(const Key('all-stories-timeline')))
           .onPressed,
       isNotNull,
     );
+    closeSemantics();
   });
 
   testWidgets('W-08 a load error offers Retry and not the empty line', (
@@ -213,7 +213,7 @@ void main() {
           .enabled,
       isFalse,
     );
-    final handle = tester.ensureSemantics();
+    final closeSemantics = _trackSemantics(tester);
     expect(
       tester
           .getSemantics(find.byKey(const Key('all-stories-toggle')))
@@ -226,13 +226,13 @@ void main() {
           .hasFlag(SemanticsFlag.isEnabled),
       isFalse,
     );
-    handle.dispose();
     expect(
       tester
           .widget<OutlinedButton>(find.byKey(const Key('all-stories-timeline')))
           .onPressed,
       isNotNull,
     );
+    closeSemantics();
   });
 
   testWidgets('W-09 Retry loads the groups', (tester) async {
@@ -264,34 +264,34 @@ void main() {
     expect(find.byKey(const Key('all-stories-card-origin')), findsOneWidget);
     expect(find.text('2 of 4 stories match "sarah"'), findsOneWidget);
     expect(router.state.uri.path, '/family/$_family/stories');
-    final handle = tester.ensureSemantics();
+    final closeSemantics = _trackSemantics(tester);
     expect(
       tester
           .getSemantics(find.byKey(const Key('all-stories-card-plain')))
           .label,
       contains('not a match'),
     );
-    handle.dispose();
+    closeSemantics();
   });
 
   testWidgets('W-11 a place name alone does not match', (tester) async {
     await _pumpReady(tester);
     await tester.enterText(find.byKey(const Key('all-stories-search')), 'pier');
     await tester.pumpAndSettle();
-    final handle = tester.ensureSemantics();
+    final closeSemantics = _trackSemantics(tester);
     final label = tester.getSemantics(
       find.byKey(const Key('all-stories-card-plain')),
     );
     expect(label.label, contains('not a match'));
     expect(find.text('0 of 4 stories match "pier"'), findsOneWidget);
-    handle.dispose();
+    closeSemantics();
   });
 
   testWidgets('W-12 the toggle dims stories that did not start a timeline', (
     tester,
   ) async {
     await _pumpReady(tester);
-    final handle = tester.ensureSemantics();
+    final closeSemantics = _trackSemantics(tester);
     await tester.tap(find.byKey(const Key('all-stories-toggle')));
     await tester.pumpAndSettle();
     expect(find.text('2 of 4 stories started a timeline'), findsOneWidget);
@@ -303,7 +303,7 @@ void main() {
       find.byKey(const Key('all-stories-card-plain')),
     );
     expect(plain.label, contains('not a match'));
-    handle.dispose();
+    closeSemantics();
   });
 
   testWidgets('W-13 search and the toggle combine', (tester) async {
@@ -363,14 +363,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(stories.publishedCalls, greaterThan(before));
     expect(_controller(tester).offset, offset);
-    final handle = tester.ensureSemantics();
+    final closeSemantics = _trackSemantics(tester);
     expect(
       tester
           .getSemantics(find.byKey(const Key('all-stories-group-place')))
-          .hasFlag(SemanticsFlag.isSelected),
+          .hasFlag(SemanticsFlag.isChecked),
       isTrue,
     );
-    handle.dispose();
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('all-stories-search')))
@@ -382,6 +381,7 @@ void main() {
       find.text('1 of 4 stories match "sarah" and started a timeline'),
       findsOneWidget,
     );
+    closeSemantics();
   });
 
   testWidgets(
@@ -456,21 +456,21 @@ void main() {
       find.text('1 of 4 stories match "sarah" and started a timeline'),
       findsOneWidget,
     );
-    final handle = tester.ensureSemantics();
+    final closeSemantics = _trackSemantics(tester);
     expect(
       tester
           .getSemantics(find.byKey(const Key('all-stories-group-member')))
-          .hasFlag(SemanticsFlag.isSelected),
+          .hasFlag(SemanticsFlag.isChecked),
       isTrue,
     );
-    handle.dispose();
+    closeSemantics();
   });
 
   testWidgets('W-20 group, status, and cards expose the locked semantics', (
     tester,
   ) async {
     await _pumpReady(tester);
-    final handle = tester.ensureSemantics();
+    final closeSemantics = _trackSemantics(tester);
     await tester.enterText(
       find.byKey(const Key('all-stories-search')),
       'sarah',
@@ -480,7 +480,7 @@ void main() {
       find.byKey(const Key('all-stories-group-date')),
     );
     expect(date.hasFlag(SemanticsFlag.isInMutuallyExclusiveGroup), isTrue);
-    expect(date.hasFlag(SemanticsFlag.isSelected), isTrue);
+    expect(date.hasFlag(SemanticsFlag.isChecked), isTrue);
     final status = tester.getSemantics(
       find.byKey(const Key('all-stories-status')),
     );
@@ -494,8 +494,24 @@ void main() {
       find.byKey(const Key('all-stories-card-plain')),
     );
     expect(plain.label, contains(', not a match'));
-    handle.dispose();
+    closeSemantics();
   });
+}
+
+/// Keeps a semantics handle for this test. [addTearDown] covers a failure
+/// that skips the explicit close. The close still runs in the test body,
+/// because Flutter checks for an open handle before tearDowns.
+VoidCallback _trackSemantics(WidgetTester tester) {
+  final handle = tester.ensureSemantics();
+  var open = true;
+  void close() {
+    if (!open) return;
+    open = false;
+    handle.dispose();
+  }
+
+  addTearDown(close);
+  return close;
 }
 
 Future<GoRouter> _pumpReady(WidgetTester tester) async {

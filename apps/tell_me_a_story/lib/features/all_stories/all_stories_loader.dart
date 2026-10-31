@@ -22,13 +22,16 @@ class AllStoriesLoader {
     } on ParallelWaitError<
       (List<Story>?, List<TreeFamily>?),
       (Object?, Object?)
-    > catch (error, stack) {
+    > catch (error) {
       // .wait stores AsyncError, not the gateway error (§7.4 / L-03).
-      final raw = error.errors.$1 ?? error.errors.$2;
-      final cause = raw is AsyncError ? raw.error : raw;
-      final trace = raw is AsyncError ? raw.stackTrace : stack;
-      if (cause != null) Error.throwWithStackTrace(cause, trace);
-      rethrow;
+      switch (error.errors.$1 ?? error.errors.$2) {
+        case AsyncError(:final error, :final stackTrace):
+          Error.throwWithStackTrace(error, stackTrace);
+        case final Object cause:
+          throw cause;
+        case null:
+          rethrow;
+      }
     }
     final self = treeFamilyById(tree, familyId);
     final storiesOut = [...published];

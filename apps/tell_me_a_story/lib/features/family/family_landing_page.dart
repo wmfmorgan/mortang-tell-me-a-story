@@ -138,10 +138,10 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
 
     final family = _familyFrom(rows, familyId);
     Uint8List? cover;
-    if (family?.coverPhotoPath != null) {
-      cover = await _downloadCover(family!.coverPhotoPath);
+    if (family?.coverPhotoPath case final path?) {
+      cover = await _downloadCover(path);
     }
-    final thumbs = await _downloadThumbs(latest);
+    final thumbs = await downloadFirstThumbs(latest, widget.photosApi);
 
     if (!mounted) return;
     setState(() {
@@ -182,15 +182,6 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
       return null;
     }
     return null;
-  }
-
-  Future<Map<String, Uint8List>> _downloadThumbs(List<Story> stories) {
-    final photos = widget.photosApi;
-    if (photos != null) return downloadFirstThumbs(stories, photos);
-    if (!stories.any((story) => story.photoPaths.isNotEmpty)) {
-      return Future.value(const {});
-    }
-    return downloadFirstThumbs(stories, PhotosApi());
   }
 
   Future<void> _selectFamily(String id) async {

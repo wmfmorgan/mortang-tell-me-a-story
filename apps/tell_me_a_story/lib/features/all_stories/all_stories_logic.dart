@@ -249,7 +249,7 @@ List<StoryGroup> _groupByPlace(List<Story> stories) {
       unplaced.add(story);
       continue;
     }
-    final heading = _placeHeading(story);
+    final heading = placeHeading(story) ?? '';
     final bucket = buckets.putIfAbsent(
       placeId,
       () => _PlaceBucket(heading, story.placeAddress),
@@ -290,12 +290,13 @@ List<StoryGroup> _groupByPlace(List<Story> stories) {
   return groups;
 }
 
-String _placeHeading(Story story) {
+/// Place line and place-group heading. The label, else the address.
+String? placeHeading(Story story) {
   final label = story.placeLabel?.trim();
   if (label != null && label.isNotEmpty) return label;
   final address = story.placeAddress?.trim();
   if (address != null && address.isNotEmpty) return address;
-  return '';
+  return null;
 }
 
 class _MemberBucket {
