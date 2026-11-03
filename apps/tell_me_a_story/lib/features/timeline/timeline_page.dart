@@ -1392,7 +1392,7 @@ class _FarDecadeRow extends StatelessWidget {
     );
     return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [placed.dot, placed.lane],
     );
   }
@@ -2238,24 +2238,38 @@ class _DialRow extends StatelessWidget {
                   ),
                 ),
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: frame.branchesStory
+                      ? CrossAxisAlignment.start
+                      : CrossAxisAlignment.center,
                   children: [
                     Expanded(
                       child: Align(
-                        alignment: Alignment.centerRight,
+                        alignment: frame.branchesStory
+                            ? Alignment.topRight
+                            : Alignment.centerRight,
                         child: sideCard(cardOnLeft),
                       ),
                     ),
                     const SizedBox(width: 56),
                     Expanded(
                       child: Align(
-                        alignment: Alignment.centerLeft,
+                        alignment: frame.branchesStory
+                            ? Alignment.topLeft
+                            : Alignment.centerLeft,
                         child: sideCard(!cardOnLeft),
                       ),
                     ),
                   ],
                 ),
-                placed?.dot ?? node,
+                if (placed != null)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Center(child: placed.dot),
+                  )
+                else
+                  node,
               ],
             ),
           ],
@@ -2873,7 +2887,9 @@ class _FullCardRow extends StatelessWidget {
       return Padding(
         padding: EdgeInsets.only(bottom: gap),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: placed == null
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
           children: [
             SizedBox(
               width: slotWidth,
@@ -2913,11 +2929,13 @@ class _FullCardRow extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(bottom: gap),
       child: Stack(
-        alignment: Alignment.center,
+        alignment: placed == null ? Alignment.center : Alignment.topCenter,
         clipBehavior: Clip.none,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: placed == null
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Align(

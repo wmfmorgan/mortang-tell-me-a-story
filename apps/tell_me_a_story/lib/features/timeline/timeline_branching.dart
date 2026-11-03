@@ -459,24 +459,32 @@ class _CalloutLane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: side == CalloutSide.right
-          ? CrossAxisAlignment.start
-          : CrossAxisAlignment.end,
-      children: [
-        for (var i = 0; i < frame.callouts.length; i++) ...[
-          if (i > 0) const SizedBox(height: calloutStackGap),
-          _CalloutLabel(
-            callout: frame.callouts[i],
-            size: sizes[i],
-            style: style,
-            side: side,
-            onOpen: onOpen,
-          ),
+    final stack = math.max(
+      geometry.ringDiameter,
+      frame.callouts.length == 1 ? calloutHit : 0,
+    );
+    final drop = math.max(0.0, stack / 2 + geometry.labelRects.first.top);
+    return Padding(
+      padding: EdgeInsets.only(top: drop),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: side == CalloutSide.right
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < frame.callouts.length; i++) ...[
+            if (i > 0) const SizedBox(height: calloutStackGap),
+            _CalloutLabel(
+              callout: frame.callouts[i],
+              size: sizes[i],
+              style: style,
+              side: side,
+              onOpen: onOpen,
+            ),
+          ],
+          ?card,
         ],
-        ?card,
-      ],
+      ),
     );
   }
 }
