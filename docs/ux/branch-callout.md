@@ -1,10 +1,10 @@
 # Branch callout: Decades, Years and Days timeline views (UX LOCKED)
 
-Status: **LOCKED** rev **1.0**. Locked 2026-11-03 by Bill in his 1:1 with Mugatu (approach ok'd on Decades; Decades v3, Years v1 and Days v1 screens locked ~2:42 PM CT America/Chicago). Written rules win over mock quirks.
+Status: **LOCKED** rev **1.1**. Locked 2026-11-03 by Bill in his 1:1 with Mugatu (approach ok'd on Decades; Decades v3, Years v1 and Days v1 screens locked ~2:42 PM CT America/Chicago). Written rules win over mock quirks.
 Delta baseline (main @ `016e3a1`): `docs/ux/uxd-handoff.md` (M12, M12 Related families menu, M11a), `docs/ux/80-all-stories.md` rev 1.2.
-Lane: 3. UX delta only. Covers how a branch (a story that started another family's timeline) is marked on the timeline. Does **not** reopen zoom behavior (R3/M12/M13), the reader (M9/#153), the #130 header, All Stories (#80), or M11b creation.
+Lane: 2 (UI change). UX delta only. Covers how a branch (a story that started another family's timeline) is marked on the timeline. Does **not** reopen zoom behavior (R3/M12/M13), the reader (M9/#153), the #130 header, All Stories (#80), or M11b creation.
 
-Tokens: parchment `#FBF7F2`, ink `#2C2416`, terracotta `#8B5E4B`, sage `#7A8B74`, albumDialogSurface `#FFF8F6`. **New:** branch green `#5B7F3A`, one token, name pending (Open UI question 2). Fonts: Newsreader (headings), Source Sans 3 (UI). Material icons only.
+Tokens: parchment `#FBF7F2`, ink `#2C2416`, terracotta `#8B5E4B`, sage `#7A8B74`, albumDialogSurface `#FFF8F6`. **New:** `branchMoss` `#5B7F3A`, one token (named by Bill's call, rev 1.1). Fonts: Newsreader (headings), Source Sans 3 (UI). Material icons only.
 
 ## Purpose
 
@@ -13,7 +13,7 @@ Replace the floating sage caption and the dashed hollow ring (M12/M11a) with a *
 ## Rules
 
 ### Rule 1: Ring
-- A hollow ring in branch green `#5B7F3A`, ~2px stroke, around the **branching story's own rail dot**. The dot keeps its normal terracotta look inside the ring, with a small parchment gap between them.
+- A hollow ring in `branchMoss` (`#5B7F3A`), ~2px stroke, around the **branching story's own rail dot**. The dot keeps its normal terracotta look inside the ring, with a small parchment gap between them.
 - The grey rail continues behind the ring and dot without a break.
 - There is no separate mark on the rail for the branch: no dashed circle, no parchment disc, no second dot.
 
@@ -70,10 +70,12 @@ Not superseded, flagged for consistency (Bill or Mugatu to decide; out of this l
 
 Zoom behavior and view switching; the header; reader; All Stories; creating a branch (M11b); data for branch year.
 
-## Open UI questions (not locked)
+## Open UI questions
 
-1. **Two branching stories in the same decade or year.** Their callouts can collide. Proposed: stagger the second callout lower, or stack the labels. Not yet locked.
-2. **Branch green `#5B7F3A` is a new color.** It needs a theme token name (Gilfoyle/Big Head to name). UX requires **one** token used by ring, line, label and card border.
+None. Resolved in rev 1.1 (Bill, 2026-11-03 ~2:45 PM CT):
+
+1. **Callout collision: closed, no special rule.** Stories alternate sides of the rail, so callouts rarely collide. Each callout follows its story's side.
+2. **Token name: `branchMoss` = `#5B7F3A`.** One token, used by the ring, line, label and card border.
 
 ## Stitch screens
 
@@ -92,6 +94,7 @@ Mock quirks (written rules win):
 
 ## Hand-off
 
-LOCKED rev 1.0. Erlich applies the supersede notes to the listed docs (Mugatu does not edit them). Gilfoyle/Big Head name the branch-green token (Open Q2). Open Q1 stays open.
+LOCKED rev 1.0. Erlich applies the supersede notes to the listed docs (Mugatu does not edit them). No open UI questions.
 
 Change log: rev 1.0 (2026-11-03, ~2:42 PM CT): first locked rev, by Bill in his 1:1 with Mugatu. Branch callout replaces the M12/M11a dashed sage ring and floating caption across Decades/Years/Days. Screens: Decades v3, Years v1, Days v1.
+rev 1.1 (2026-11-03, ~2:45 PM CT): Bill closed both open questions. Collision needs no special rule because stories alternate sides, and the token is `branchMoss` `#5B7F3A`. Lane corrected to 2.
