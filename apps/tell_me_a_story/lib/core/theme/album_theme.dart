@@ -9,6 +9,7 @@ const albumPillFill = Color(0xFFF6F1EB);
 const albumPillBorder = Color(0xFFE7DECE);
 const albumTerracotta = Color(0xFF8B5E4B);
 const albumSage = Color(0xFF7A8B74);
+const branchMoss = Color(0xFF5B7F3A);
 const albumInk = Color(0xFF2C2416);
 const albumDialogSurface = Color(0xFFFFF8F6);
 const albumBackdropClear = Colors.transparent;
