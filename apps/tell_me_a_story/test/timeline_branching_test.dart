@@ -145,7 +145,7 @@ void main() {
     expect(branching.parentRingOn(branching.frameFor(_story('s1'))), isNull);
   });
 
-  test('a second insert of the same family id throws', () {
+  test('a parent who also names this family stays the beside ring', () {
     const open = TreeFamily(
       id: 'open',
       name: 'Open',
@@ -159,14 +159,14 @@ void main() {
       originStoryId: 's1',
       branchYear: 1972,
     );
-    expect(
-      () => railBranching(
-        open: open,
-        tree: const [parent, open],
-        stories: [_story('s1')],
-      ),
-      throwsStateError,
+    final branching = railBranching(
+      open: open,
+      tree: const [parent, open],
+      stories: [_story('s1')],
     );
+    expect(branching.parentRingOn(branching.frameFor(_story('s1')))?.id, 'p');
+    expect(branching.frameFor(_story('s1')).callouts, isEmpty);
+    expect(branching.yearMarks, isEmpty);
   });
 
   test('the leader starts outside the ring and the left side mirrors', () {

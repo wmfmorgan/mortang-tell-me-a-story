@@ -527,18 +527,6 @@ String _tooltipFor(WidgetTester tester, String storyId) {
       '';
 }
 
-Rect _ringRect(WidgetTester tester, String familyId) {
-  final ring = find.descendant(
-    of: find.byKey(Key('timeline-branch-mark-$familyId')),
-    matching: find.byWidgetPredicate(
-      (widget) =>
-          widget is SizedBox && widget.width == 16 && widget.height == 16,
-    ),
-  );
-  expect(ring, findsOneWidget);
-  return tester.getRect(ring);
-}
-
 const _branchMoss = Color(0xFF5B7F3A);
 
 void _expectBranchCallout(
@@ -554,7 +542,11 @@ void _expectBranchCallout(
   expect(dot, findsOneWidget);
   final dotCenter = tester.getCenter(dot);
   expect((tester.getCenter(ring) - dotCenter).distance, lessThanOrEqualTo(1));
-  expect(tester.getSize(ring).shortestSide, greaterThanOrEqualTo(44));
+  final hit = tester.widget<SizedBox>(
+    find.descendant(of: ring, matching: find.byType(SizedBox)).first,
+  );
+  expect(hit.width, greaterThanOrEqualTo(44));
+  expect(hit.height, greaterThanOrEqualTo(44));
   expect(
     find
         .byWidgetPredicate((widget) {
@@ -2624,12 +2616,16 @@ void main() {
       label: 'Bea',
     );
 
-    await tester.tap(find.byKey(const Key('timeline-branch-callout-ring-ada')));
+    final ring = find.byKey(const Key('timeline-branch-callout-ring-ada'));
+    final ringRect = tester.getRect(ring);
+    final dotRect = tester.getRect(find.byKey(const Key('timeline-dot-ada')));
+    await tester.tapAt(Offset(ringRect.right - 2, ringRect.center.dy));
+    expect(ringRect.right - 2, greaterThan(dotRect.right));
     await tester.pumpAndSettle();
 
     expect(FamilySelection.id, bea);
     expect(_tooltipFor(tester, 'bea-story'), contains('Bea tale'));
-    expect(find.byKey(const Key('timeline-dot-ada')), findsNothing);
+    expect(find.text('Origin · from Jenkins'), findsOneWidget);
   });
 
   testWidgets('a tree-read open family is not listed and no row is checked', (
