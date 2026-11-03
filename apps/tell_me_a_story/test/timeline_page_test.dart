@@ -539,6 +539,108 @@ Rect _ringRect(WidgetTester tester, String familyId) {
   return tester.getRect(ring);
 }
 
+const _branchMoss = Color(0xFF5B7F3A);
+
+void _expectBranchCallout(
+  WidgetTester tester, {
+  required String storyId,
+  required String dotKey,
+  required String familyId,
+  required String label,
+}) {
+  final ring = find.byKey(Key('timeline-branch-callout-ring-$storyId'));
+  final dot = find.byKey(Key(dotKey));
+  expect(ring, findsOneWidget);
+  expect(dot, findsOneWidget);
+  final dotCenter = tester.getCenter(dot);
+  expect((tester.getCenter(ring) - dotCenter).distance, lessThanOrEqualTo(1));
+  expect(tester.getSize(ring).shortestSide, greaterThanOrEqualTo(44));
+  expect(
+    find
+        .byWidgetPredicate((widget) {
+          if (widget is! DecoratedBox) return false;
+          final decoration = widget.decoration;
+          if (decoration is! BoxDecoration) return false;
+          final side = decoration.border?.top;
+          return decoration.shape == BoxShape.circle &&
+              side?.color == _branchMoss &&
+              side?.width == 2;
+        })
+        .evaluate()
+        .any((element) {
+          final box = element.renderObject! as RenderBox;
+          final center = box.localToGlobal(box.size.center(Offset.zero));
+          return (center - dotCenter).distance <= 1;
+        }),
+    isTrue,
+  );
+
+  final name = find.byKey(Key('timeline-branch-callout-$familyId'));
+  expect(name, findsOneWidget);
+  final text = tester.widget<Text>(
+    find.descendant(of: name, matching: find.byType(Text)),
+  );
+  expect(text.data, label);
+  expect(text.maxLines, 1);
+  expect(text.overflow, TextOverflow.ellipsis);
+  expect(text.style?.color, _branchMoss);
+  expect(text.style?.fontWeight, FontWeight.w500);
+  expect(
+    find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint &&
+          (widget.painter?.runtimeType.toString().contains('CalloutLeader') ??
+              false),
+    ),
+    findsWidgets,
+  );
+  expect(find.byKey(Key('timeline-branch-mark-$familyId')), findsNothing);
+}
+
+void _expectMossCard(
+  WidgetTester tester,
+  String storyId, {
+  required bool days,
+}) {
+  if (days) {
+    final material = tester.widget<Material>(
+      find
+          .ancestor(
+            of: find.byKey(Key('timeline-card-$storyId')),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    final side = (material.shape! as RoundedRectangleBorder).side;
+    expect(side.color, _branchMoss);
+    expect(side.width, 1);
+    expect(material.color, albumParchment);
+    final radius = (material.shape! as RoundedRectangleBorder).borderRadius;
+    expect(radius, BorderRadius.circular(albumCardRadius));
+    return;
+  }
+  final stub = find.byKey(Key('timeline-stub-$storyId'));
+  expect(
+    find
+        .descendant(
+          of: stub,
+          matching: find.byWidgetPredicate((widget) {
+            if (widget is! DecoratedBox) return false;
+            final decoration = widget.decoration;
+            if (decoration is! BoxDecoration) return false;
+            return decoration.color == albumParchment &&
+                decoration.border?.top.color == _branchMoss &&
+                decoration.border?.top.width == 1 &&
+                decoration.borderRadius ==
+                    BorderRadius.circular(albumCardRadius);
+          }),
+        )
+        .evaluate()
+        .isNotEmpty,
+    isTrue,
+  );
+}
+
 void _expectZoom(WidgetTester tester, String key) {
   final button = tester.widget<TextButton>(find.byKey(Key(key)));
   expect(
@@ -2135,11 +2237,12 @@ void main() {
     expect(_branchMarks(), findsNothing);
   });
 
-  testWidgets('a null-year family paints one hollow mark on each zoom', (
+  testWidgets('a null-year family callout sits on its story at each zoom', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
     const bea = '00000000-0000-0000-0000-0000000000be';
     await tester.pumpWidget(
       _timeline(
@@ -2154,97 +2257,155 @@ void main() {
           ],
           tree: const [
             TreeFamily(id: _familyId, name: 'Jenkins'),
-            TreeFamily(id: bea, name: 'Bea'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
           ],
         ),
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(Key('timeline-branch-mark-$bea')), findsOneWidget);
-    expect(find.text('Bea'), findsWidgets);
+    _expectBranchCallout(
+      tester,
+      storyId: 's1',
+      dotKey: 'timeline-dot-s1',
+      familyId: bea,
+      label: 'Bea',
+    );
     expect(find.textContaining('Bea ·'), findsNothing);
     expect(find.byKey(Key('timeline-dot-$bea')), findsNothing);
 
     await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
-    expect(find.byKey(Key('timeline-branch-mark-$bea')), findsOneWidget);
-    expect(find.byKey(Key('timeline-dot-$bea')), findsNothing);
+    _expectBranchCallout(
+      tester,
+      storyId: 's1',
+      dotKey: 'timeline-mid-node-s1',
+      familyId: bea,
+      label: 'Bea',
+    );
+    _expectMossCard(tester, 's1', days: false);
 
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
-    expect(find.byKey(Key('timeline-branch-mark-$bea')), findsOneWidget);
+    _expectBranchCallout(
+      tester,
+      storyId: 's1',
+      dotKey: 'timeline-full-dot-s1',
+      familyId: bea,
+      label: 'Bea',
+    );
+    _expectMossCard(tester, 's1', days: true);
+
+    await tester.tap(find.byKey(Key('timeline-branch-callout-$bea')));
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, bea);
   });
 
-  testWidgets(
-    'a 1972 mark sits on that decade, the closest stub, and between cards',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1200, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      const bea = '00000000-0000-0000-0000-0000000000be';
-      await tester.pumpWidget(
-        _timeline(
-          stories: _FakeStoriesApi(
-            published: [
-              _published(
-                id: 'new',
-                title: 'Newer',
-                timeframeStart: DateTime(1984),
-              ),
-              _published(
-                id: 'mid',
-                title: 'Close',
-                timeframeStart: DateTime(1975),
-              ),
-              _published(
-                id: 'old',
-                title: 'Older',
-                timeframeStart: DateTime(1960),
-              ),
-            ],
-          ),
-          families: _TreeFamilies(
-            mine: [
-              MemberFamily(
-                id: _familyId,
-                name: 'Jenkins',
-                createdAt: DateTime.utc(1970),
-              ),
-            ],
-            tree: const [
-              TreeFamily(id: _familyId, name: 'Jenkins'),
-              TreeFamily(id: bea, name: 'Bea', branchYear: 1972),
-            ],
-          ),
+  testWidgets('a 1972 callout sits on the story that started the branch', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'new',
+              title: 'Newer',
+              timeframeStart: DateTime(1984),
+            ),
+            _published(
+              id: 'mid',
+              title: 'Close',
+              timeframeStart: DateTime(1975),
+            ),
+            _published(
+              id: 'old',
+              title: 'Older',
+              timeframeStart: DateTime(1960),
+            ),
+          ],
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Bea · 1972'), findsOneWidget);
-      expect(find.text('1970s'), findsOneWidget);
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'mid',
+              branchYear: 1972,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      _containsFinder(
+        tester,
+        find.byKey(const Key('timeline-decade-row-1970')),
+        find.byKey(const Key('timeline-branch-callout-ring-mid')),
+      ),
+      isTrue,
+    );
+    _expectBranchCallout(
+      tester,
+      storyId: 'mid',
+      dotKey: 'timeline-dot-mid',
+      familyId: bea,
+      label: 'Bea · 1972',
+    );
+    expect(
+      _containsFinder(
+        tester,
+        find.byKey(const Key('timeline-decade-row-1980')),
+        find.byKey(const Key('timeline-branch-callout-$bea')),
+      ),
+      isFalse,
+    );
 
-      await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
-      await tester.pumpAndSettle();
-      final dial = find.ancestor(
-        of: find.byKey(const Key('timeline-mid-node-mid')),
-        matching: find.byType(Column),
-      );
-      expect(
-        find.descendant(of: dial.first, matching: find.text('Bea · 1972')),
-        findsOneWidget,
-      );
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 'mid',
+      dotKey: 'timeline-mid-node-mid',
+      familyId: bea,
+      label: 'Bea · 1972',
+    );
+    _expectMossCard(tester, 'mid', days: false);
+    expect(
+      find.byKey(const Key('timeline-branch-callout-ring-new')),
+      findsNothing,
+    );
 
-      await tester.tap(find.byKey(const Key('timeline-zoom-full')));
-      await tester.pumpAndSettle();
-      final texts = tester
-          .widgetList<Text>(find.byType(Text))
-          .map((text) => text.data)
-          .whereType<String>()
-          .toList();
-      expect(texts.indexOf('Close'), lessThan(texts.indexOf('Bea · 1972')));
-      expect(texts.indexOf('Bea · 1972'), lessThan(texts.indexOf('Older')));
-    },
-  );
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 'mid',
+      dotKey: 'timeline-full-dot-mid',
+      familyId: bea,
+      label: 'Bea · 1972',
+    );
+    _expectMossCard(tester, 'mid', days: true);
+  });
 
-  testWidgets('mid and full-card marks center the ring on a story dot', (
+  testWidgets('years and days rings sit on the branching story dot', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
@@ -2271,7 +2432,13 @@ void main() {
           ],
           tree: const [
             TreeFamily(id: _familyId, name: 'Jenkins'),
-            TreeFamily(id: bea, name: 'Bea', branchYear: 1972),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'mid',
+              branchYear: 1972,
+            ),
           ],
         ),
       ),
@@ -2280,30 +2447,28 @@ void main() {
 
     await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
-    expect(
-      (_ringRect(tester, bea).center.dx -
-              tester
-                  .getRect(find.byKey(const Key('timeline-mid-node-mid')))
-                  .center
-                  .dx)
-          .abs(),
-      lessThanOrEqualTo(1),
+    _expectBranchCallout(
+      tester,
+      storyId: 'mid',
+      dotKey: 'timeline-mid-node-mid',
+      familyId: bea,
+      label: 'Bea · 1972',
     );
+    _expectMossCard(tester, 'mid', days: false);
 
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
-    expect(
-      (_ringRect(tester, bea).center.dx -
-              tester
-                  .getRect(find.byKey(const Key('timeline-full-dot-mid')))
-                  .center
-                  .dx)
-          .abs(),
-      lessThanOrEqualTo(1),
+    _expectBranchCallout(
+      tester,
+      storyId: 'mid',
+      dotKey: 'timeline-full-dot-mid',
+      familyId: bea,
+      label: 'Bea · 1972',
     );
+    _expectMossCard(tester, 'mid', days: true);
   });
 
-  testWidgets('a no-year mark sits above the first mid and full card', (
+  testWidgets('a no-year callout names the family and rings its story', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
@@ -2324,63 +2489,51 @@ void main() {
           ],
           tree: const [
             TreeFamily(id: _familyId, name: 'Jenkins'),
-            TreeFamily(id: bea, name: 'Bea'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'first',
+            ),
           ],
         ),
       ),
     );
     await tester.pumpAndSettle();
-
-    final decadeNode = find.byKey(const Key('timeline-decade-node-1980'));
-    final decadeRow = find
-        .ancestor(of: decadeNode, matching: find.byType(Opacity))
-        .first;
-    expect(
-      (_ringRect(tester, bea).center.dx - tester.getRect(decadeNode).center.dx)
-          .abs(),
-      lessThanOrEqualTo(1),
+    _expectBranchCallout(
+      tester,
+      storyId: 'first',
+      dotKey: 'timeline-dot-first',
+      familyId: bea,
+      label: 'Bea',
     );
-    expect(
-      _ringRect(tester, bea).bottom,
-      lessThan(tester.getRect(decadeRow).top),
-    );
+    expect(find.textContaining('Bea ·'), findsNothing);
 
     await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
-    expect(
-      _ringRect(tester, bea).bottom,
-      lessThan(
-        tester.getRect(find.byKey(const Key('timeline-mid-node-first'))).top,
-      ),
+    _expectBranchCallout(
+      tester,
+      storyId: 'first',
+      dotKey: 'timeline-mid-node-first',
+      familyId: bea,
+      label: 'Bea',
     );
-    expect(
-      (_ringRect(tester, bea).center.dx -
-              tester
-                  .getRect(find.byKey(const Key('timeline-mid-node-first')))
-                  .center
-                  .dx)
-          .abs(),
-      lessThanOrEqualTo(1),
-    );
+    _expectMossCard(tester, 'first', days: false);
 
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
-    expect(
-      _ringRect(tester, bea).bottom,
-      lessThan(tester.getTopLeft(find.text('First tale')).dy),
+    _expectBranchCallout(
+      tester,
+      storyId: 'first',
+      dotKey: 'timeline-full-dot-first',
+      familyId: bea,
+      label: 'Bea',
     );
-    expect(
-      (_ringRect(tester, bea).center.dx -
-              tester
-                  .getRect(find.byKey(const Key('timeline-full-dot-first')))
-                  .center
-                  .dx)
-          .abs(),
-      lessThanOrEqualTo(1),
-    );
+    _expectMossCard(tester, 'first', days: true);
+    expect(find.text('First tale'), findsOneWidget);
   });
 
-  testWidgets('a no-year mark centers on the narrow full-card dot', (
+  testWidgets('a no-year callout rings the narrow full-card dot', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(700, 900));
@@ -2401,7 +2554,12 @@ void main() {
           ],
           tree: const [
             TreeFamily(id: _familyId, name: 'Jenkins'),
-            TreeFamily(id: bea, name: 'Bea'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'first',
+            ),
           ],
         ),
       ),
@@ -2412,15 +2570,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
-    expect(
-      (_ringRect(tester, bea).center.dx -
-              tester
-                  .getRect(find.byKey(const Key('timeline-full-dot-first')))
-                  .center
-                  .dx)
-          .abs(),
-      lessThanOrEqualTo(1),
+    _expectBranchCallout(
+      tester,
+      storyId: 'first',
+      dotKey: 'timeline-full-dot-first',
+      familyId: bea,
+      label: 'Bea',
     );
+    _expectMossCard(tester, 'first', days: true);
   });
 
   testWidgets('tapping a mark opens that family timeline', (tester) async {
@@ -2446,7 +2603,12 @@ void main() {
           ],
           tree: const [
             TreeFamily(id: _familyId, name: 'Jenkins'),
-            TreeFamily(id: bea, name: 'Bea'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'ada',
+            ),
           ],
         ),
       ),
@@ -2454,8 +2616,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(_tooltipFor(tester, 'ada'), contains('Ada tale'));
     expect(find.byKey(const Key('timeline-dot-bea-story')), findsNothing);
+    _expectBranchCallout(
+      tester,
+      storyId: 'ada',
+      dotKey: 'timeline-dot-ada',
+      familyId: bea,
+      label: 'Bea',
+    );
 
-    await tester.tap(find.byKey(Key('timeline-branch-mark-$bea')));
+    await tester.tap(find.byKey(const Key('timeline-branch-callout-ring-ada')));
     await tester.pumpAndSettle();
 
     expect(FamilySelection.id, bea);
