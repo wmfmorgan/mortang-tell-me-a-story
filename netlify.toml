@@ -12,3 +12,10 @@ git diff --quiet "$CACHED_COMMIT_REF" "$COMMIT_REF" -- \
   apps/tell_me_a_story/ \
   netlify.toml
 """
+
+# Path URLs (no hash) need a rewrite so a refresh of /timeline or
+# /invite/:token serves the Flutter app. Existing files still win.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
