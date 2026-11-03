@@ -239,7 +239,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Who can see it'), findsOneWidget);
+    expect(find.text('Who can see it'), findsNothing);
     expect(find.text('Hidden'), findsOneWidget);
     expect(find.text('Year only'), findsOneWidget);
     expect(find.text('Year and month'), findsOneWidget);

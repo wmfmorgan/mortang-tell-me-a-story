@@ -669,7 +669,7 @@ void main() {
         find.text(
           'Switch between your active family archives or create a new shared space.',
         ),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.text('Your families'), findsNothing);
       expect(find.byKey(const Key('manage-families-start')), findsOneWidget);

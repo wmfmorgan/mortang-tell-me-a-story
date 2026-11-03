@@ -267,14 +267,6 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
                                         height: 1.1,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Switch between your active family archives or create a new shared space.',
-                                      style: GoogleFonts.literata(
-                                        color: _hubVariant,
-                                        fontSize: 14,
-                                      ),
-                                    ),
                                   ],
                                 ),
                               ),
@@ -402,8 +394,6 @@ class _MemberHub extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const _HubTitle(),
-              const SizedBox(height: 4),
-              const _HubSubtitle(),
               const SizedBox(height: 16),
               SizedBox(width: double.infinity, child: _startButton()),
             ],
@@ -415,7 +405,7 @@ class _MemberHub extends StatelessWidget {
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [_HubTitle(), SizedBox(height: 4), _HubSubtitle()],
+                  children: [_HubTitle()],
                 ),
               ),
               const SizedBox(width: 16),
@@ -523,18 +513,6 @@ class _HubTitle extends StatelessWidget {
         letterSpacing: -0.6,
         height: 1.1,
       ),
-    );
-  }
-}
-
-class _HubSubtitle extends StatelessWidget {
-  const _HubSubtitle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      'Switch between your active family archives or create a new shared space.',
-      style: GoogleFonts.literata(color: _hubVariant, fontSize: 14),
     );
   }
 }

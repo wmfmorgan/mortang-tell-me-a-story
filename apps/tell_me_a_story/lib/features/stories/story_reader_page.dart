@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -805,9 +806,19 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             OutlinedButton.icon(
               key: const Key('story-edit'),
               onPressed: _busy ? null : _openEdit,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+              ),
               icon: const Icon(Icons.edit_outlined, size: 16),
               label: const Text('Edit'),
             ),
+          if (_canEditStory) const SizedBox(width: 12),
           _overflow(),
           IconButton(
             key: const Key('story-reader-close'),
@@ -878,12 +889,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
               icon: Icons.photo_library_outlined,
               iconColor: albumTerracotta,
               title: 'Keepsake Photos',
-              trailing: _canWrite
-                  ? TextButton(
-                      onPressed: canAddPhoto ? _onAddPhoto : null,
-                      child: const PlusLabel(label: 'Add photo'),
-                    )
-                  : null,
             ),
             const SizedBox(height: 12),
             LayoutBuilder(
@@ -918,15 +923,27 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
               subtitle:
                   'Contribute an alternate or additional telling of this story',
               trailing: _canWrite
-                  ? FilledButton.icon(
+                  ? FilledButton(
                       onPressed: _openPerspective,
                       style: FilledButton.styleFrom(
                         backgroundColor: albumTerracotta,
-                        foregroundColor: Colors.white,
-                        visualDensity: VisualDensity.compact,
+                        foregroundColor: albumParchment,
+                        elevation: 1,
+                        shape: const StadiumBorder(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                       ),
-                      icon: const Icon(Icons.add_comment_outlined, size: 18),
-                      label: const Text('+ Add your perspective'),
+                      child: PlusLabel(
+                        label: 'Add perspective',
+                        onTerracotta: true,
+                        style: GoogleFonts.sourceSans3(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: albumParchment,
+                        ),
+                      ),
                     )
                   : null,
             ),
@@ -948,10 +965,31 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                   ? '1 note'
                   : '${_comments.length} notes',
               trailing: _canWrite
-                  ? TextButton.icon(
+                  ? FilledButton(
                       onPressed: _openComposer,
-                      icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: const Text('+ Add comment'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: albumTerracotta,
+                        foregroundColor: albumParchment,
+                        elevation: 1,
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        shape: const StadiumBorder(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                      ),
+                      child: PlusLabel(
+                        label: 'Add comment',
+                        onTerracotta: true,
+                        size: 16,
+                        style: GoogleFonts.sourceSans3(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: albumParchment,
+                        ),
+                      ),
                     )
                   : null,
             ),

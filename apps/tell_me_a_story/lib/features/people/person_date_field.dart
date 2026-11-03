@@ -71,6 +71,7 @@ class _PersonDateFieldState extends State<PersonDateField> {
       month: _month,
       day: _day,
       enabled: widget.enabled,
+      showHelper: false,
       onMonth: (month) {
         setState(() => _month = month);
         _emit();

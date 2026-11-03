@@ -37,6 +37,12 @@ void main() {
 
     expect(find.text('NAME'), findsOneWidget);
     expect(find.text('DATE OF BIRTH'), findsOneWidget);
+    expect(
+      find.text(
+        'Year is required. Add the month or day only if you remember. Day unlocks after Month.',
+      ),
+      findsNothing,
+    );
     expect(find.text('PROFILE PHOTO'), findsOneWidget);
     expect(find.text('ABOUT'), findsOneWidget);
     expect(find.text('ACCOUNT EMAIL'), findsOneWidget);

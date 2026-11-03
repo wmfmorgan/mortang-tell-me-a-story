@@ -699,7 +699,6 @@ class _TimelinePageState extends State<TimelinePage> {
         ),
       );
     }
-    final child = _familyId == null ? null : childFamily(_families, _familyId!);
     final open = _openTree;
     final originId = open?.originStoryId;
     final originLabel = open == null || originId == null
@@ -709,7 +708,6 @@ class _TimelinePageState extends State<TimelinePage> {
       TimelineZoom.far => _FarRail(
         bands: bands,
         focusedId: _focusedStoryId,
-        child: child,
         marks: _marks,
         originStoryId: originId,
         originTag: originLabel,
@@ -725,7 +723,6 @@ class _TimelinePageState extends State<TimelinePage> {
       TimelineZoom.mid => _MidRail(
         stories: dialStories(_published),
         focusedId: _focusedStoryId,
-        child: child,
         marks: _marks,
         originStoryId: originId,
         originTag: originLabel,
@@ -846,7 +843,6 @@ class _FarRail extends StatefulWidget {
   const _FarRail({
     required this.bands,
     required this.focusedId,
-    required this.child,
     required this.marks,
     this.originStoryId,
     this.originTag,
@@ -862,7 +858,6 @@ class _FarRail extends StatefulWidget {
 
   final List<DecadeBand> bands;
   final String? focusedId;
-  final MemberFamily? child;
   final List<TreeFamily> marks;
   final String? originStoryId;
   final String? originTag;
@@ -1023,7 +1018,7 @@ class _FarRailState extends State<_FarRail> {
     return true;
   }
 
-  List<Widget> _farChildren(int? joinYear) {
+  List<Widget> _farChildren() {
     final rows = <Widget>[
       for (final mark in widget.marks)
         if (mark.branchYear == null)
@@ -1071,19 +1066,6 @@ class _FarRailState extends State<_FarRail> {
           focused: band.startYear == _centerYear,
           opacity: _opacities[band.startYear] ?? 1,
           highlight: _highlight(band),
-          showBranch: joinYear != null && band.startYear == joinYear,
-          continueRail: joinYear != null && band.startYear >= joinYear,
-          railAbove:
-              joinYear != null &&
-              widget.bands.any((other) => other.startYear > band.startYear),
-          railBelow:
-              joinYear != null &&
-              widget.bands.any(
-                (other) =>
-                    other.startYear >= joinYear &&
-                    other.startYear < band.startYear,
-              ),
-          branchName: widget.child?.name,
           onDot: widget.onDot,
           onYear: widget.onYear,
         ),
@@ -1102,24 +1084,8 @@ class _FarRailState extends State<_FarRail> {
     return rows;
   }
 
-  int? _joinYear() {
-    final child = widget.child;
-    if (child == null || widget.bands.isEmpty) return null;
-    var best = widget.bands.first.startYear;
-    var bestDelta = 1 << 30;
-    for (final band in widget.bands) {
-      final delta = (band.startYear - child.createdAt.year).abs();
-      if (delta < bestDelta) {
-        bestDelta = delta;
-        best = band.startYear;
-      }
-    }
-    return best;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final joinYear = _joinYear();
     return _ArrowKeys(
       onStep: _step,
       child: Column(
@@ -1166,7 +1132,7 @@ class _FarRailState extends State<_FarRail> {
                         return ListView(
                           controller: _scroll,
                           padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                          children: _farChildren(joinYear),
+                          children: _farChildren(),
                         );
                       },
                     ),
@@ -1215,11 +1181,6 @@ class _FarDecadeRow extends StatelessWidget {
     required this.focused,
     required this.opacity,
     required this.highlight,
-    required this.showBranch,
-    required this.continueRail,
-    required this.railAbove,
-    required this.railBelow,
-    required this.branchName,
     required this.marks,
     this.originStoryId,
     this.originTag,
@@ -1233,11 +1194,6 @@ class _FarDecadeRow extends StatelessWidget {
   final bool focused;
   final double opacity;
   final Story? highlight;
-  final bool showBranch;
-  final bool continueRail;
-  final bool railAbove;
-  final bool railBelow;
-  final String? branchName;
   final List<TreeFamily> marks;
   final String? originStoryId;
   final String? originTag;
@@ -1391,85 +1347,9 @@ class _FarDecadeRow extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final railLeft = (constraints.maxWidth - 8).clamp(
-                    72.0,
-                    200.0,
-                  );
-                  final reserve = continueRail
-                      ? (constraints.maxWidth - railLeft + 12).clamp(
-                          0.0,
-                          constraints.maxWidth,
-                        )
-                      : 0.0;
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.only(left: 16, right: reserve),
-                        child: dots,
-                      ),
-                      if (continueRail)
-                        Positioned(
-                          left: railLeft,
-                          top: railAbove ? -22 : 0,
-                          bottom: railBelow ? -22 : 0,
-                          width: 2,
-                          child: IgnorePointer(
-                            child: CustomPaint(
-                              painter: _DashPainter(
-                                color: albumSage.withValues(alpha: 0.85),
-                              ),
-                              child: const SizedBox.expand(),
-                            ),
-                          ),
-                        ),
-                      if (showBranch && branchName != null)
-                        Positioned(
-                          left: railLeft + 12,
-                          top: -4,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: albumParchment,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                    color: albumSage.withValues(alpha: 0.5),
-                                  ),
-                                ),
-                                child: Text(
-                                  '${branchName!.toUpperCase()} BRANCH',
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: albumSage,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.6,
-                                      ),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '← $branchName union joined archive',
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(
-                                      color: albumSage,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  );
-                },
+              child: Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: dots,
               ),
             ),
           ],
@@ -1527,7 +1407,6 @@ class _MidRail extends StatefulWidget {
   const _MidRail({
     required this.stories,
     required this.focusedId,
-    required this.child,
     required this.marks,
     this.originStoryId,
     this.originTag,
@@ -1544,7 +1423,6 @@ class _MidRail extends StatefulWidget {
 
   final List<Story> stories;
   final String? focusedId;
-  final MemberFamily? child;
   final List<TreeFamily> marks;
   final String? originStoryId;
   final String? originTag;
@@ -1676,9 +1554,6 @@ class _MidRailState extends State<_MidRail> {
 
   @override
   Widget build(BuildContext context) {
-    final joinAt = widget.child == null
-        ? -1
-        : closestStoryIndex(widget.stories, widget.child!.createdAt);
     return _ArrowKeys(
       onStep: _step,
       child: Column(
@@ -1756,16 +1631,6 @@ class _MidRailState extends State<_MidRail> {
                                     (widget.stories[i].id == _centerId
                                         ? 1
                                         : 0.35),
-                                showBranchRail:
-                                    widget.child != null && i <= joinAt,
-                                railEndsAtJoin:
-                                    widget.child != null && i == joinAt,
-                                joinNote: widget.child != null && i == joinAt
-                                    ? '← ${widget.child!.name} union joined archive'
-                                    : null,
-                                branchLabel: widget.child != null && i == joinAt
-                                    ? '${widget.child!.name} Branch'
-                                    : null,
                                 onTap: () => widget.onStub(widget.stories[i]),
                                 onNode: () => widget.onNode(widget.stories[i]),
                               ),
@@ -2068,15 +1933,11 @@ class _DialRow extends StatelessWidget {
     required this.cardOnLeft,
     required this.focused,
     required this.opacity,
-    required this.showBranchRail,
-    required this.railEndsAtJoin,
     required this.onTap,
     required this.onNode,
     this.marks = const [],
     this.originTag,
     this.onMark,
-    this.joinNote,
-    this.branchLabel,
   });
 
   final Story story;
@@ -2086,10 +1947,6 @@ class _DialRow extends StatelessWidget {
   final ValueChanged<TreeFamily>? onMark;
   final bool focused;
   final double opacity;
-  final bool showBranchRail;
-  final bool railEndsAtJoin;
-  final String? joinNote;
-  final String? branchLabel;
   final VoidCallback onTap;
   final VoidCallback onNode;
 
@@ -2207,36 +2064,6 @@ class _DialRow extends StatelessWidget {
         ),
       ),
     );
-    final note = joinNote == null
-        ? const SizedBox.shrink()
-        : Padding(
-            padding: const EdgeInsets.only(top: 20, left: 16, right: 16),
-            child: Text(
-              joinNote!,
-              style: Theme.of(context).textTheme.labelMedium
-                  ?.copyWith(fontStyle: FontStyle.italic, color: albumSage),
-            ),
-          );
-    final label = branchLabel == null
-        ? const SizedBox.shrink()
-        : Padding(
-            padding: const EdgeInsets.only(bottom: 8, left: 20),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: albumSage.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  branchLabel!,
-                  style: Theme.of(context).textTheme.labelSmall
-                      ?.copyWith(color: albumSage, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          );
     final node = GestureDetector(
       key: Key('timeline-mid-node-${story.id}'),
       behavior: HitTestBehavior.opaque,
@@ -2310,26 +2137,6 @@ class _DialRow extends StatelessWidget {
                                 color: albumInk.withValues(alpha: 0.16),
                               ),
                             ),
-                            if (showBranchRail)
-                              Positioned(
-                                key: Key('timeline-branch-${story.id}'),
-                                top: 0,
-                                bottom: 0,
-                                right: 0,
-                                width: 2,
-                                child: Align(
-                                  alignment: Alignment.topCenter,
-                                  child: FractionallySizedBox(
-                                    heightFactor: railEndsAtJoin ? 0.5 : 1,
-                                    child: CustomPaint(
-                                      painter: _DashPainter(
-                                        color: albumSage.withValues(alpha: 0.7),
-                                      ),
-                                      child: const SizedBox.expand(),
-                                    ),
-                                  ),
-                                ),
-                              ),
                           ],
                         ),
                       ),
@@ -2343,7 +2150,7 @@ class _DialRow extends StatelessWidget {
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerRight,
-                        child: cardOnLeft ? card : note,
+                        child: cardOnLeft ? card : const SizedBox.shrink(),
                       ),
                     ),
                     const SizedBox(width: 56),
@@ -2353,7 +2160,9 @@ class _DialRow extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [label, cardOnLeft ? note : card],
+                          children: [
+                            cardOnLeft ? const SizedBox.shrink() : card,
+                          ],
                         ),
                       ),
                     ),
@@ -2369,29 +2178,7 @@ class _DialRow extends StatelessWidget {
   }
 }
 
-class _DashPainter extends CustomPainter {
-  const _DashPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2;
-    var y = 0.0;
-    while (y < size.height) {
-      canvas.drawLine(Offset(1, y), Offset(1, y + 4), paint);
-      y += 8;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
-/// Circular _DashPainter: 2px sage stroke, 4px dash, 4px gap, transparent fill.
+/// Circular dash: 2px sage stroke, 4px dash, 4px gap, transparent fill.
 class _RingDashPainter extends CustomPainter {
   const _RingDashPainter({required this.color});
 
