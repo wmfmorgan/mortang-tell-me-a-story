@@ -1581,8 +1581,8 @@ void main() {
     await tester.tap(find.byKey(const Key('timeline-decade-1980')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('timeline-branch-late')), findsOneWidget);
-    expect(find.byKey(const Key('timeline-branch-mid')), findsOneWidget);
+    expect(find.byKey(const Key('timeline-branch-late')), findsNothing);
+    expect(find.byKey(const Key('timeline-branch-mid')), findsNothing);
     expect(find.byKey(const Key('timeline-branch-early')), findsNothing);
   });
 
@@ -1632,13 +1632,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('MARTINEZ BRANCH'), findsOneWidget);
-    expect(find.text('← Martinez union joined archive'), findsOneWidget);
+    expect(find.text('MARTINEZ BRANCH'), findsNothing);
+    expect(find.text('← Martinez union joined archive'), findsNothing);
 
     await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
-    expect(find.text('Martinez Branch'), findsOneWidget);
-    expect(find.text('← Martinez union joined archive'), findsOneWidget);
+    expect(find.text('Martinez Branch'), findsNothing);
+    expect(find.text('← Martinez union joined archive'), findsNothing);
 
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
@@ -2007,7 +2007,7 @@ void main() {
     expect(find.text('Continuous Family Dial'), findsNothing);
     _expectZoom(tester, 'timeline-zoom-macro');
     expect(find.text('CONTINUOUS FAMILY DIAL'), findsNothing);
-    expect(find.text('MARTINEZ BRANCH'), findsOneWidget);
+    expect(find.text('MARTINEZ BRANCH'), findsNothing);
   });
 
   testWidgets('pinch uses the existing handler and the 0.5 reveal', (

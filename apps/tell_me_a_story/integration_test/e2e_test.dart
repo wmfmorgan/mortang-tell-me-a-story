@@ -926,7 +926,7 @@ Future<void> _addComment(
   String comment,
 ) async {
   await _step(flow, 'comment', () async {
-    final add = find.text('+ Add comment');
+    final add = find.text('Add comment');
     await pumpUntilFound(tester, add);
     await tester.ensureVisible(add);
     await tester.tap(add);
@@ -948,7 +948,7 @@ Future<void> _addPerspective(
   String perspective,
 ) async {
   await _step(flow, 'perspective', () async {
-    final add = find.text('+ Add your perspective');
+    final add = find.text('Add perspective');
     await tester.ensureVisible(add);
     await tester.tap(add);
     final body = find.byKey(const Key('perspective-body'));

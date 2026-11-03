@@ -770,8 +770,6 @@ class _SettingsPageState extends State<SettingsPage> {
           onChanged: (date) => _birth = date,
         ),
         const SizedBox(height: 12),
-        Text('Who can see it', style: _kicker),
-        const SizedBox(height: 6),
         Wrap(
           key: const Key('settings-birth-visibility'),
           spacing: 8,
@@ -808,24 +806,12 @@ class _SettingsPageState extends State<SettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8,
-          runSpacing: 2,
+        Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('ABOUT', style: _kicker),
-                const SizedBox(width: 6),
-                Text('(optional)', style: _hint),
-              ],
-            ),
-            Text(
-              'Short memory or role in the family',
-              style: _hint.copyWith(fontStyle: FontStyle.italic),
-            ),
+            Text('ABOUT', style: _kicker),
+            const SizedBox(width: 6),
+            Text('(optional)', style: _hint),
           ],
         ),
         const SizedBox(height: 6),
@@ -838,19 +824,12 @@ class _SettingsPageState extends State<SettingsPage> {
           decoration: _decoration,
         ),
         const SizedBox(height: 6),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Helps grandchildren and future generations know your voice.',
-                style: _hint,
-              ),
-            ),
-            Text(
-              '$count / 500',
-              style: _hint.copyWith(color: over ? albumTerracotta : null),
-            ),
-          ],
+        Align(
+          alignment: Alignment.centerRight,
+          child: Text(
+            '$count / 500',
+            style: _hint.copyWith(color: over ? albumTerracotta : null),
+          ),
         ),
       ],
     );
@@ -874,11 +853,6 @@ class _SettingsPageState extends State<SettingsPage> {
             fillColor: const Color(0xFFF0EAE2),
             suffixIcon: const Icon(Icons.lock_outline, size: 18),
           ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Used for family invitations and memory updates.',
-          style: _hint.copyWith(fontStyle: FontStyle.italic),
         ),
       ],
     );

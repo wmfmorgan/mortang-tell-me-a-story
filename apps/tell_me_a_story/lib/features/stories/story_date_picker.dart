@@ -20,12 +20,14 @@ class StoryDatePicker extends StatelessWidget {
     required this.onDay,
     required this.onYearChanged,
     this.enabled = true,
+    this.showHelper = true,
   });
 
   final TextEditingController year;
   final int? month;
   final int? day;
   final bool enabled;
+  final bool showHelper;
   final ValueChanged<int?> onMonth;
   final ValueChanged<int?> onDay;
   final VoidCallback onYearChanged;
@@ -177,17 +179,19 @@ class StoryDatePicker extends StatelessWidget {
                 ?.copyWith(color: albumTerracotta),
           ),
         ],
-        const SizedBox(height: 12),
-        Text(
-          'Year is required. Add the month or day only if you remember. Day unlocks after Month.',
-          key: const Key('story-date-helper'),
-          style: GoogleFonts.literata(
-            fontSize: 12,
-            fontStyle: FontStyle.italic,
-            color: _dateMuted.withValues(alpha: 0.8),
-            height: 1.4,
+        if (showHelper) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Year is required. Add the month or day only if you remember. Day unlocks after Month.',
+            key: const Key('story-date-helper'),
+            style: GoogleFonts.literata(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+              color: _dateMuted.withValues(alpha: 0.8),
+              height: 1.4,
+            ),
           ),
-        ),
+        ],
         if (date != null) ...[
           const SizedBox(height: 16),
           Container(

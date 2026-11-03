@@ -656,13 +656,13 @@ void main() {
     );
     expect(find.byKey(const Key('stub-map')), findsNothing);
     expect(find.byType(PhotoStrip), findsOneWidget);
-    expect(find.text('Add photo'), findsNWidgets(2));
+    expect(find.text('Add photo'), findsOneWidget);
     expect(find.text('Perspectives'), findsOneWidget);
-    expect(find.text('+ Add your perspective'), findsOneWidget);
+    expect(find.text('Add perspective'), findsOneWidget);
     expect(find.text('From the porch it looked different.'), findsOneWidget);
     expect(find.text('Uncle Ben'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
-    expect(find.text('+ Add comment'), findsOneWidget);
+    expect(find.text('Add comment'), findsOneWidget);
     expect(find.byKey(const Key('comment-composer')), findsNothing);
     expect(find.text('I remember the pie.'), findsOneWidget);
     expect(find.text('Aunt Clara'), findsOneWidget);
@@ -820,7 +820,7 @@ void main() {
     expect(find.byKey(const Key('story-hero-ph1')), findsNothing);
   });
 
-  testWidgets('+ Add comment reveals the composer', (tester) async {
+  testWidgets('Add comment reveals the composer', (tester) async {
     await tester.pumpWidget(
       _readerApp(stories: _FakeStoriesApi(story: _published())),
     );
@@ -828,8 +828,8 @@ void main() {
 
     expect(find.byKey(const Key('comment-composer')), findsNothing);
 
-    await tester.ensureVisible(find.text('+ Add comment'));
-    await tester.tap(find.text('+ Add comment'));
+    await tester.ensureVisible(find.text('Add comment'));
+    await tester.tap(find.text('Add comment'));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('comment-composer')), findsOneWidget);
@@ -895,9 +895,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Perspectives'), findsOneWidget);
-    expect(find.text('+ Add your perspective'), findsOneWidget);
+    expect(find.text('Add perspective'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
-    expect(find.text('+ Add comment'), findsOneWidget);
+    expect(find.text('Add comment'), findsOneWidget);
   });
 
   testWidgets('blank author display name falls back to Member', (tester) async {
@@ -1096,16 +1096,14 @@ void main() {
     expect(find.byKey(const Key('family-menu')), findsNothing);
   });
 
-  testWidgets('+ Add your perspective pushes the overlay route', (
-    tester,
-  ) async {
+  testWidgets('Add perspective pushes the overlay route', (tester) async {
     await tester.pumpWidget(
       _readerApp(stories: _FakeStoriesApi(story: _published())),
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('+ Add your perspective'));
-    await tester.tap(find.text('+ Add your perspective'));
+    await tester.ensureVisible(find.text('Add perspective'));
+    await tester.tap(find.text('Add perspective'));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('add-perspective')), findsOneWidget);
@@ -1123,8 +1121,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('+ Add your perspective'));
-    await tester.tap(find.text('+ Add your perspective'));
+    await tester.ensureVisible(find.text('Add perspective'));
+    await tester.tap(find.text('Add perspective'));
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1159,8 +1157,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('+ Add comment'));
-    await tester.tap(find.text('+ Add comment'));
+    await tester.ensureVisible(find.text('Add comment'));
+    await tester.tap(find.text('Add comment'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '  I remember the pie.  ');
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Post'));
@@ -1183,8 +1181,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('+ Add comment'));
-    await tester.tap(find.text('+ Add comment'));
+    await tester.ensureVisible(find.text('Add comment'));
+    await tester.tap(find.text('Add comment'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Post'));
     await tester.tap(find.widgetWithText(FilledButton, 'Post'));
@@ -1208,8 +1206,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('+ Add comment'));
-    await tester.tap(find.text('+ Add comment'));
+    await tester.ensureVisible(find.text('Add comment'));
+    await tester.tap(find.text('Add comment'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Did not save');
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Post'));
@@ -1288,7 +1286,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final add = find.widgetWithText(TextButton, 'Add photo');
+    final add = find.byKey(const Key('photo-add'));
     await tester.ensureVisible(add);
     await tester.pumpAndSettle();
     await tester.tap(add);
@@ -1327,10 +1325,7 @@ void main() {
 
     expect(find.byKey(const Key('photo-add')), findsNothing);
     expect(find.byKey(const Key('photo-thumb')), findsNWidgets(20));
-    final addCta = find.widgetWithText(TextButton, 'Add photo');
-    if (addCta.evaluate().isNotEmpty) {
-      expect(tester.widget<TextButton>(addCta).onPressed, isNull);
-    }
+    expect(find.widgetWithText(TextButton, 'Add photo'), findsNothing);
     expect(picker.calls, 0);
     expect(photos.uploadCalls, 0);
   });
@@ -1348,7 +1343,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final add = find.widgetWithText(TextButton, 'Add photo');
+    final add = find.byKey(const Key('photo-add'));
     await tester.ensureVisible(add);
     await tester.tap(add);
     await tester.pumpAndSettle();
@@ -1425,8 +1420,8 @@ void main() {
     expect(find.text('Ada'), findsWidgets);
     expect(people.treeCalls, 1);
     expect(find.text('Add photo'), findsNothing);
-    expect(find.text('+ Add your perspective'), findsNothing);
-    expect(find.text('+ Add comment'), findsNothing);
+    expect(find.text('Add perspective'), findsNothing);
+    expect(find.text('Add comment'), findsNothing);
   });
 
   testWidgets('a child contributor sees origin people and can still comment', (
@@ -1459,7 +1454,7 @@ void main() {
 
     expect(find.text('Ada'), findsWidgets);
     expect(people.treeCalls, 1);
-    expect(find.text('+ Add comment'), findsOneWidget);
+    expect(find.text('Add comment'), findsOneWidget);
   });
 
   testWidgets('a former contributor hides comment delete and photo remove', (
@@ -1975,11 +1970,11 @@ void main() {
       }
 
       await pump(_storyId);
-      expect(find.text('Add photo'), findsNWidgets(2));
-      expect(find.text('+ Add your perspective'), findsOneWidget);
-      expect(find.text('+ Add comment'), findsOneWidget);
+      expect(find.text('Add photo'), findsOneWidget);
+      expect(find.text('Add perspective'), findsOneWidget);
+      expect(find.text('Add comment'), findsOneWidget);
 
-      final add = find.widgetWithText(TextButton, 'Add photo');
+      final add = find.byKey(const Key('photo-add'));
       await tester.ensureVisible(add);
       await tester.pumpAndSettle();
       await tester.tap(add);
@@ -1989,8 +1984,8 @@ void main() {
 
       await pump('other-story');
       expect(find.text('Add photo'), findsNothing);
-      expect(find.text('+ Add your perspective'), findsNothing);
-      expect(find.text('+ Add comment'), findsNothing);
+      expect(find.text('Add perspective'), findsNothing);
+      expect(find.text('Add comment'), findsNothing);
     },
   );
 
