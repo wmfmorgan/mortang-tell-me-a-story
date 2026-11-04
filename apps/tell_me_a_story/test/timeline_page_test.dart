@@ -2629,6 +2629,93 @@ void main() {
     expect(FamilySelection.id, bea);
   });
 
+  testWidgets('tapping the years ring on a diagonal opens the branch', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final ring = find.byKey(const Key('timeline-branch-callout-ring-s1'));
+    expect(tester.getSize(ring).shortestSide, greaterThanOrEqualTo(44));
+    const ringTap = Offset(10, 10);
+    await tester.tapAt(tester.getCenter(ring) + ringTap);
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, bea);
+    _expectZoom(tester, 'timeline-zoom-mid');
+    expect(find.byKey(const Key('story-reader-modal')), findsNothing);
+  });
+
+  testWidgets('a drag along the years ring does not open the branch', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final center = tester.getCenter(
+      find.byKey(const Key('timeline-branch-callout-ring-s1')),
+    );
+    final gesture = await tester.startGesture(center + const Offset(16, 0));
+    await gesture.moveTo(center + const Offset(0, 16));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, isNull);
+    _expectZoom(tester, 'timeline-zoom-mid');
+  });
+
   testWidgets('tapping the years node opens the story', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -2858,6 +2945,61 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(FamilySelection.id, bea);
+  });
+
+  testWidgets('enter on a focused branch card opens the story', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    final story = _published(title: 'Jam');
+    final auth = AuthRefresh(initiallySignedIn: true);
+    addTearDown(auth.dispose);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: _FakeInviteApi(),
+      storiesApi: _FakeStoriesApi(published: [story]),
+      familiesApi: _TreeFamilies(
+        mine: [
+          MemberFamily(
+            id: _familyId,
+            name: 'Jenkins',
+            createdAt: DateTime.utc(1970),
+          ),
+        ],
+        tree: [
+          const TreeFamily(id: _familyId, name: 'Jenkins'),
+          TreeFamily(
+            id: bea,
+            name: 'Bea',
+            parentFamilyId: _familyId,
+            originStoryId: story.id,
+          ),
+        ],
+      ),
+    );
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+    router.go(AppRoutes.timeline);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final card = find.byKey(Key('timeline-stub-${story.id}'));
+    expect(find.byKey(Key('timeline-branch-callout-$bea')), findsOneWidget);
+    final scope = find
+        .descendant(of: card, matching: find.byType(MouseRegion))
+        .first;
+    final node = Focus.of(tester.element(scope));
+    node.requestFocus();
+    await tester.pump();
+    await tester.pump();
+    expect(
+      node.hasPrimaryFocus,
+      isTrue,
+      reason: 'branch card did not take focus',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
   });
 
   testWidgets('tapping a mark opens that family timeline', (tester) async {
@@ -3224,6 +3366,52 @@ void main() {
       );
     },
   );
+
+  testWidgets('a focused wide branch card stays put', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const Key('timeline-card-s1'));
+    expect(_cardScale(tester, card), 1);
+    final transform = tester.widget<Transform>(
+      find.ancestor(of: card, matching: find.byType(Transform)).first,
+    );
+    final moved = transform.transform.getTranslation();
+    expect(moved.x, 0);
+    expect(moved.y, 0);
+    final laidOut = tester.getTopLeft(card);
+    await tester.pump();
+    expect(tester.getTopLeft(card), laidOut);
+  });
 }
 
 Offset _leaderEnd(WidgetTester tester) {

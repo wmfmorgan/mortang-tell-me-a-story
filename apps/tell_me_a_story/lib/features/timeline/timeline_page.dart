@@ -2105,7 +2105,7 @@ class _DialRow extends StatelessWidget {
     // The branch ring sits just outside the dot. Extra slop belongs only on
     // a plain node, where it cannot cover that stroke.
     Widget nodeHit({required bool slop}) {
-      return GestureDetector(
+      final hit = GestureDetector(
         key: Key('timeline-mid-node-${story.id}'),
         behavior: HitTestBehavior.opaque,
         onTap: onNode,
@@ -2116,6 +2116,9 @@ class _DialRow extends StatelessWidget {
               : mark,
         ),
       );
+      // The square bounds cover the ring on the diagonals. Only the disk
+      // should open the story.
+      return slop ? hit : ClipOval(child: hit);
     }
 
     final placed = frame.branchesStory
@@ -2575,8 +2578,8 @@ class _FullCardRow extends StatelessWidget {
       child: Transform.scale(
         // Narrow rows skip the scale. A 1.05 card overflows the right edge,
         // and focus there is the 20px dot plus the focused card chrome.
-        alignment: Alignment.center,
-        scale: wide && focused ? 1.05 : 1,
+        // A branch card keeps scale 1 so focus does not shift it.
+        scale: wide && focused && !frame.branchesStory ? 1.05 : 1,
         child: _FullCard(
           story: story,
           focused: focused,

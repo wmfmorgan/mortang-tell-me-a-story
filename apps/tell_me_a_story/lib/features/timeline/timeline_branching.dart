@@ -297,8 +297,11 @@ PlacedBranch placeBranchCallout({
             child: _AnnulusTap(
               key: Key('timeline-branch-callout-ring-${frame.story.id}'),
               innerRadius: dotDiameter / 2,
-              onTap: () => onOpen(single.familyId),
-              child: const SizedBox(width: calloutHit, height: calloutHit),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onOpen(single.familyId),
+                child: const SizedBox(width: calloutHit, height: calloutHit),
+              ),
             ),
           )
         : const SizedBox.shrink(),
@@ -382,19 +385,13 @@ class _CalloutVisuals extends StatelessWidget {
 }
 
 class _AnnulusTap extends SingleChildRenderObjectWidget {
-  const _AnnulusTap({
-    super.key,
-    required this.innerRadius,
-    required this.onTap,
-    super.child,
-  });
+  const _AnnulusTap({super.key, required this.innerRadius, super.child});
 
   final double innerRadius;
-  final VoidCallback onTap;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return _RenderAnnulusTap(innerRadius: innerRadius, onTap: onTap);
+    return _RenderAnnulusTap(innerRadius: innerRadius);
   }
 
   @override
@@ -402,24 +399,19 @@ class _AnnulusTap extends SingleChildRenderObjectWidget {
     BuildContext context,
     _RenderAnnulusTap renderObject,
   ) {
-    renderObject
-      ..innerRadius = innerRadius
-      ..onTap = onTap;
+    renderObject.innerRadius = innerRadius;
   }
 }
 
 class _RenderAnnulusTap extends RenderProxyBox {
-  _RenderAnnulusTap({required this._innerRadius, required this._onTap});
+  _RenderAnnulusTap({required this._innerRadius});
 
   double _innerRadius;
-  VoidCallback _onTap;
 
   set innerRadius(double value) {
     if (_innerRadius == value) return;
     _innerRadius = value;
   }
-
-  set onTap(VoidCallback value) => _onTap = value;
 
   @override
   bool hitTest(BoxHitTestResult result, {required Offset position}) {
@@ -428,37 +420,8 @@ class _RenderAnnulusTap extends RenderProxyBox {
     if (distance < _innerRadius || distance > size.shortestSide / 2) {
       return false;
     }
-    result.add(BoxHitTestEntry(this, position));
+    hitTestChildren(result, position: position);
     return true;
-  }
-
-  int? _pointer;
-
-  bool _containsLocal(Offset position) {
-    if (!size.contains(position)) return false;
-    final distance = (position - size.center(Offset.zero)).distance;
-    return distance >= _innerRadius && distance <= size.shortestSide / 2;
-  }
-
-  @override
-  void handleEvent(PointerEvent event, BoxHitTestEntry entry) {
-    if (event is PointerDownEvent) {
-      _pointer = _containsLocal(event.localPosition) ? event.pointer : null;
-      return;
-    }
-    if (_pointer != event.pointer) return;
-    if (event is PointerMoveEvent) {
-      if (!_containsLocal(event.localPosition)) _pointer = null;
-      return;
-    }
-    if (event is PointerCancelEvent) {
-      _pointer = null;
-      return;
-    }
-    if (event is PointerUpEvent) {
-      if (_containsLocal(event.localPosition)) _onTap();
-      _pointer = null;
-    }
   }
 }
 
