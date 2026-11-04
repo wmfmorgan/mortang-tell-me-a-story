@@ -432,9 +432,33 @@ class _RenderAnnulusTap extends RenderProxyBox {
     return true;
   }
 
+  int? _pointer;
+
+  bool _containsLocal(Offset position) {
+    if (!size.contains(position)) return false;
+    final distance = (position - size.center(Offset.zero)).distance;
+    return distance >= _innerRadius && distance <= size.shortestSide / 2;
+  }
+
   @override
   void handleEvent(PointerEvent event, BoxHitTestEntry entry) {
-    if (event is PointerUpEvent) _onTap();
+    if (event is PointerDownEvent) {
+      _pointer = _containsLocal(event.localPosition) ? event.pointer : null;
+      return;
+    }
+    if (_pointer != event.pointer) return;
+    if (event is PointerMoveEvent) {
+      if (!_containsLocal(event.localPosition)) _pointer = null;
+      return;
+    }
+    if (event is PointerCancelEvent) {
+      _pointer = null;
+      return;
+    }
+    if (event is PointerUpEvent) {
+      if (_containsLocal(event.localPosition)) _onTap();
+      _pointer = null;
+    }
   }
 }
 
@@ -594,7 +618,13 @@ class BranchCalloutTarget extends StatefulWidget {
 }
 
 class _BranchCalloutTargetState extends State<BranchCalloutTarget> {
-  var _focused = false;
+  final _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -614,12 +644,17 @@ class _BranchCalloutTargetState extends State<BranchCalloutTarget> {
           ),
         },
         child: Focus(
+          focusNode: _focus,
           key: Key('timeline-branch-callout-focus-${widget.frame.story.id}'),
-          onFocusChange: (focused) {
-            if (_focused == focused) return;
-            setState(() => _focused = focused);
-          },
-          child: _CalloutFocus(focused: _focused, child: widget.child),
+          child: ListenableBuilder(
+            listenable: _focus,
+            builder: (context, _) {
+              return _CalloutFocus(
+                focused: _focus.hasPrimaryFocus,
+                child: widget.child,
+              );
+            },
+          ),
         ),
       ),
     );

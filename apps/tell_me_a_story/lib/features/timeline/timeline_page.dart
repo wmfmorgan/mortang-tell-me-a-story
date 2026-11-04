@@ -2081,47 +2081,49 @@ class _DialRow extends StatelessWidget {
         ),
       ),
     );
-    final node = GestureDetector(
-      key: Key('timeline-mid-node-${story.id}'),
-      behavior: HitTestBehavior.opaque,
-      onTap: onNode,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Container(
-            width: focused ? midDotFocusedDiameter : midDotDiameter,
-            height: focused ? midDotFocusedDiameter : midDotDiameter,
-            decoration: BoxDecoration(
-              color: focused
-                  ? albumTerracotta.withValues(alpha: 0.22)
-                  : const Color(0xFFFFF8F6),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: albumTerracotta,
-                width: focused ? 2 : 1.5,
-              ),
-            ),
-            child: Center(
-              child: Container(
-                width: focused ? 8 : 6,
-                height: focused ? 8 : 6,
-                decoration: const BoxDecoration(
-                  color: albumTerracotta,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
+    final mark = Container(
+      width: focused ? midDotFocusedDiameter : midDotDiameter,
+      height: focused ? midDotFocusedDiameter : midDotDiameter,
+      decoration: BoxDecoration(
+        color: focused
+            ? albumTerracotta.withValues(alpha: 0.22)
+            : const Color(0xFFFFF8F6),
+        shape: BoxShape.circle,
+        border: Border.all(color: albumTerracotta, width: focused ? 2 : 1.5),
+      ),
+      child: Center(
+        child: Container(
+          width: focused ? 8 : 6,
+          height: focused ? 8 : 6,
+          decoration: const BoxDecoration(
+            color: albumTerracotta,
+            shape: BoxShape.circle,
           ),
         ),
       ),
     );
+    // The branch ring sits just outside the dot. Extra slop belongs only on
+    // a plain node, where it cannot cover that stroke.
+    Widget nodeHit({required bool slop}) {
+      return GestureDetector(
+        key: Key('timeline-mid-node-${story.id}'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onNode,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: slop
+              ? Padding(padding: const EdgeInsets.all(8), child: mark)
+              : mark,
+        ),
+      );
+    }
+
     final placed = frame.branchesStory
         ? placeBranchCallout(
             context: context,
             frame: frame,
             side: cardOnLeft ? CalloutSide.left : CalloutSide.right,
-            dot: node,
+            dot: nodeHit(slop: false),
             dotDiameter: focused ? midDotFocusedDiameter : midDotDiameter,
             centerToLane: calloutLaneOffset,
             minCardFromRail: calloutFromRail,
@@ -2232,7 +2234,7 @@ class _DialRow extends StatelessWidget {
                 child: Center(child: placed.dot),
               )
             else
-              node,
+              nodeHit(slop: true),
           ],
         ),
       ),
@@ -2268,7 +2270,6 @@ class _RailGutter extends StatelessWidget {
   }
 }
 
-/// Circular dash: 2px sage stroke, 4px dash, 4px gap, transparent fill.
 class _FullCardRail extends StatefulWidget {
   const _FullCardRail({
     required this.stories,
@@ -2574,6 +2575,7 @@ class _FullCardRow extends StatelessWidget {
       child: Transform.scale(
         // Narrow rows skip the scale. A 1.05 card overflows the right edge,
         // and focus there is the 20px dot plus the focused card chrome.
+        alignment: Alignment.center,
         scale: wide && focused ? 1.05 : 1,
         child: _FullCard(
           story: story,
@@ -2683,7 +2685,7 @@ class _FullCardRow extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(left: calloutHit),
+                  padding: EdgeInsets.only(left: calloutHit + placed.push),
                   child: card,
                 ),
               ],

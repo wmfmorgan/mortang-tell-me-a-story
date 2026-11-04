@@ -2176,14 +2176,6 @@ void main() {
     expect(marks.map((row) => row.id).toList(), ['a', 'c', 'b']);
     expect(branchMarkLabel(bea), 'Bea');
     expect(branchMarkLabel(ada), 'Ada · 1972');
-    expect(
-      fullCardMarkIndex([
-        _published(id: 'new', timeframeStart: DateTime(1984)),
-        _published(id: 'mid', timeframeStart: DateTime(1975)),
-        _published(id: 'old', timeframeStart: DateTime(1960)),
-      ], 1972),
-      2,
-    );
   });
 
   testWidgets('one family paints no branch mark and no related block', (
@@ -2586,6 +2578,12 @@ void main() {
       label: 'Bea',
     );
     _expectMossCard(tester, 'first', days: true);
+    final card = find.byKey(const Key('timeline-card-first'));
+    final label = find.byKey(Key('timeline-branch-callout-$bea'));
+    expect(
+      (tester.getRect(card).left - tester.getRect(label).left).abs(),
+      lessThanOrEqualTo(1),
+    );
   });
 
   testWidgets('tapping the years ring opens the branch family', (tester) async {
@@ -2621,7 +2619,7 @@ void main() {
     await tester.pumpAndSettle();
     final ring = find.byKey(const Key('timeline-branch-callout-ring-s1'));
     final node = find.byKey(const Key('timeline-mid-node-s1'));
-    const ringTap = Offset(20, 0);
+    const ringTap = Offset(14, 0);
     expect(
       (tester.getCenter(ring) + ringTap - tester.getCenter(node)).distance,
       greaterThan(tester.getSize(node).shortestSide / 2),
@@ -2851,9 +2849,12 @@ void main() {
     await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     final focus = find.byKey(const Key('timeline-branch-callout-focus-s1'));
+    expect(_mossFocusOutline(), findsNothing);
     final scope = find.descendant(of: focus, matching: find.byType(Row)).first;
     Focus.of(tester.element(scope)).requestFocus();
     await tester.pump();
+    await tester.pump();
+    expect(_mossFocusOutline(), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(FamilySelection.id, bea);
@@ -3235,6 +3236,19 @@ Offset _leaderEnd(WidgetTester tester) {
   return box.localToGlobal(
     box.size.center(Offset.zero) + painter.leaders.single.end,
   );
+}
+
+Finder _mossFocusOutline() {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! DecoratedBox) return false;
+    final decoration = widget.decoration;
+    if (decoration is! BoxDecoration) return false;
+    final side = decoration.border?.top;
+    return decoration.shape != BoxShape.circle &&
+        decoration.borderRadius == BorderRadius.circular(4) &&
+        side?.color == branchMoss &&
+        side?.width == calloutStroke;
+  });
 }
 
 double _cardScale(WidgetTester tester, Finder card) {

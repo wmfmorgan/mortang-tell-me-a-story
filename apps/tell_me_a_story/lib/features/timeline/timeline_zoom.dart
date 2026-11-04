@@ -203,45 +203,6 @@ String branchMarkLabel(TreeFamily family) {
   return '${family.name} · $year';
 }
 
-/// Decade start for a branch year. Null years are not placed on a decade.
-int? branchDecadeStart(int? branchYear) {
-  if (branchYear == null) return null;
-  return branchYear - (branchYear % 10);
-}
-
-List<TreeFamily> marksOnDecade(List<TreeFamily> marks, int startYear) {
-  return [
-    for (final mark in marks)
-      if (branchDecadeStart(mark.branchYear) == startYear) mark,
-  ];
-}
-
-/// Index of the newest-first story closest to [year]. An equal distance
-/// keeps the newer story, which is the earlier row in [newestFirst].
-int closestNewerStoryIndex(List<Story> newestFirst, int year) {
-  if (newestFirst.isEmpty) return 0;
-  var best = 0;
-  var bestDelta = (newestFirst.first.publishedStart.year - year).abs();
-  for (var i = 1; i < newestFirst.length; i++) {
-    final delta = (newestFirst[i].publishedStart.year - year).abs();
-    if (delta < bestDelta) {
-      bestDelta = delta;
-      best = i;
-    }
-  }
-  return best;
-}
-
-/// Where a dated mark sits in a newest-first card list. The mark is after
-/// every card newer than [branchYear] and before the first card at or before
-/// that year. A year past both ends sits at that end.
-int fullCardMarkIndex(List<Story> newestFirst, int branchYear) {
-  for (var i = 0; i < newestFirst.length; i++) {
-    if (newestFirst[i].publishedStart.year <= branchYear) return i;
-  }
-  return newestFirst.length;
-}
-
 MemberFamily? childFamily(List<MemberFamily> families, String currentId) {
   for (final family in families) {
     if (family.parentFamilyId == currentId) return family;
