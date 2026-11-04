@@ -1,6 +1,6 @@
 # Branch callout: Decades, Years and Days timeline views (UX LOCKED)
 
-Status: **LOCKED** rev **1.2** (2026-11-03, ~6:10 PM CT). Rev 1.2 scope calls locked by Bill, relayed verbatim by Erlich ("i dont want the dashes or glow"; "the branch dot should end up being the last dot"). Rev 1.0/1.1 locked 2026-11-03 by Bill in his 1:1 with Mugatu (approach ok'd on Decades; Decades v3, Years v1 and Days v1 screens locked ~2:42 PM CT America/Chicago). Written rules win over mock quirks.
+Status: **LOCKED** rev **1.3** (2026-11-03, ~6:31 PM CT). Rev 1.3 locked by Bill, relayed verbatim by Erlich ("Drop the parent ring too, no dashes anywhere"; "Park the two-callout case for now"). Rev 1.2 scope calls locked by Bill via Erlich ~6:10 PM CT ("i dont want the dashes or glow"; "the branch dot should end up being the last dot"). Rev 1.0/1.1 locked 2026-11-03 by Bill in his 1:1 with Mugatu (approach ok'd on Decades; Decades v3, Years v1 and Days v1 screens locked ~2:42 PM CT America/Chicago). Written rules win over mock quirks.
 Delta baseline (main @ `016e3a1`): `docs/ux/uxd-handoff.md` (M12, M12 Related families menu, M11a), `docs/ux/80-all-stories.md` rev 1.2.
 Lane: 2 (UI change). UX delta only. Covers how a branch (a story that started another family's timeline) is marked on the timeline. Does **not** reopen zoom behavior (R3/M12/M13), the reader (M9/#153), the #130 header, All Stories (#80), or M11b creation.
 
@@ -15,7 +15,8 @@ Replace the floating sage caption and the dashed hollow ring (M12/M11a) with a *
 ### Who gets a callout
 - Only a **direct child family whose origin story is on this rail** gets the branch callout, on that origin story.
 - Every other related family (no origin story, an unpublished origin story, siblings, grandchildren, others) gets **no mark on the rail**: no dashed ring, no callout. They stay reachable from the M12 Related families menu.
-- The **parent ring** (M11a, the parent family's mark in a child timeline) stays as built today. It is not part of this doc.
+- The **parent family** also gets **no rail mark** in a child family's timeline: the M11a parent ring is removed. The parent is reachable from the M12 Related families menu.
+- So the only branch mark on any timeline rail is the branch callout. There are **no dashed rings** on Decades, Years or Days.
 
 ### Rule 1: Ring
 - A hollow ring in `branchMoss` (`#5B7F3A`), ~2px stroke, around the **branching story's own rail dot**. The dot keeps its normal terracotta look inside the ring, with a small parchment gap between them.
@@ -70,10 +71,10 @@ Replace the floating sage caption and the dashed hollow ring (M12/M11a) with a *
 |------|---------|--------------------|
 | `docs/ux/uxd-handoff.md` | `## M12 — timeline branch marks (UX locked 2026-10-06)` | "Dashed sage hollow rings are marks (not stories)", plus the Macro/Mid/Full Cards branch-mark screens (`a6259996…`, `5a0fa594…`, `974665eb…`): forks, hollow-ring pills, and ring markers *between* cards. The branch is now a callout on the story's own dot. The mark-opens-related-timeline behavior is kept only through the callout (Rule 6). Related families without a callout get no rail mark (see Who gets a callout). |
 | `docs/ux/uxd-handoff.md` | `## M12 Related families menu (LOCKED Bill 2026-10-10)`, the "Timeline marks (…)" paragraph | "hollow sage ring with the family name as its label". The `Name · year` copy and no-year handling are kept. Color and shape are replaced. |
+| `docs/ux/uxd-handoff.md` | M11a build rules, the "**M11a narrow Full Cards**" bullet | The *parent* ring in a child family's timeline is removed (rev 1.3). The parent gets no rail mark and is reachable from the Related families menu. |
 | `docs/ux/uxd-handoff.md` | `## M11a — origin stories (LOCKED Bill 2026-10-11)` → `### Build rules (these override the mocks)` | "origin story keeps its own dot … with the ring beside it" (the ring now goes around the dot), "Ring labels go on the empty side of the rail", "On Full Cards the ring label sits on the side … away from the origin card", and "Ring tokens are unchanged from M12: 16px dashed sage hollow ring …". |
 
 Not superseded, flagged for consistency (Bill or Mugatu to decide; out of this lock):
-- `docs/ux/uxd-handoff.md` M11a build rules, the "**M11a narrow Full Cards**" bullet: the *parent* ring shown in a child family's timeline. These screens don't cover that case.
 - `docs/ux/80-all-stories.md` header Tokens line ("Branch ring (M12/M11a): 16px dashed sage hollow ring …"), `### Rule 6` 6a (dashed ring on the cover photo) and 6c (dashed-ring glyph on the toggle). All Stories is a different surface, and those still use the M12 ring.
 
 ## Out of scope
@@ -82,7 +83,9 @@ Zoom behavior and view switching; the header; reader; All Stories; creating a br
 
 ## Open UI questions
 
-1. **Two callouts on one story: ring target + label stacking (proposed: stack labels, ring opens most recent).** Proposed: stack the labels vertically, each with its own leader line, and the ring opens the first label, the most recent branch. Not decided by Bill.
+None.
+
+Parked (Bill, 2026-11-03 ~6:31 PM CT, "Park the two-callout case for now"): **two callouts on one story** is not designed. Builds do not need to design for it. Whatever the current code does in that case is acceptable for now, and it is not a UX-match finding.
 
 Resolved in rev 1.1 (Bill, 2026-11-03 ~2:45 PM CT):
 
@@ -106,8 +109,10 @@ Mock quirks (written rules win):
 
 ## Hand-off
 
-LOCKED rev 1.2. Erlich applies the supersede notes to the listed docs (Mugatu does not edit them). One open UI question (two callouts on one story).
+LOCKED rev 1.3. Erlich applies the supersede notes to the listed docs (Mugatu does not edit them). No open UI questions; two callouts on one story is parked.
 
 Change log: rev 1.0 (2026-11-03, ~2:42 PM CT): first locked rev, by Bill in his 1:1 with Mugatu. Branch callout replaces the M12/M11a dashed sage ring and floating caption across Decades/Years/Days. Screens: Decades v3, Years v1, Days v1.
 rev 1.1 (2026-11-03, ~2:45 PM CT): Bill closed both open questions. Collision needs no special rule because stories alternate sides, and the token is `branchMoss` `#5B7F3A`. Lane corrected to 2.
 rev 1.2 (2026-11-03, ~6:10 PM CT, Bill via Erlich): who gets a callout (direct child with its origin story on this rail); every other related family gets no rail mark (no dashes); the parent ring stays as built. No glow or halo on branch dots or cards in any view, green border only. Decades: the branching dot and label always come last in the row. Left-side callouts mirror. Rule 2 now states a 45° diagonal, a horizontal run of at least 24px, and a ring tap target above the dot's. Two callouts on one story added as an open question. Hand-off line corrected from rev 1.0.
+
+rev 1.3 (2026-11-03, ~6:31 PM CT, Bill via Erlich): parent ring removed, so the parent family gets no rail mark in a child timeline (reachable from the Related families menu) and there are no dashed rings on any timeline rail. The M11a narrow Full Cards parent-ring bullet moves from flagged to superseded. Two callouts on one story is parked, not designed, and no longer an open question.
