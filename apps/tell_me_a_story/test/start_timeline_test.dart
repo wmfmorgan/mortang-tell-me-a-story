@@ -22,6 +22,7 @@ import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 const _parent = '00000000-0000-0000-0000-0000000000aa';
@@ -1464,6 +1465,14 @@ void main() {
       lessThanOrEqualTo(1),
     );
     expect(find.byKey(const Key('timeline-branch-mark-$side')), findsNothing);
+    expect(find.byKey(const Key('timeline-decade-row-1950')), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('timeline-decade-row-1980')),
+        matching: ring,
+      ),
+      findsOneWidget,
+    );
     final text = tester.widget<Text>(
       find.descendant(
         of: label,
@@ -1476,9 +1485,7 @@ void main() {
     expect(
       find.byWidgetPredicate(
         (widget) =>
-            widget is CustomPaint &&
-            (widget.painter?.runtimeType.toString().contains('CalloutLeader') ??
-                false),
+            widget is CustomPaint && widget.painter is CalloutLeaderPainter,
       ),
       findsWidgets,
     );
@@ -1535,9 +1542,7 @@ void main() {
     expect(
       find.byWidgetPredicate(
         (widget) =>
-            widget is CustomPaint &&
-            (widget.painter?.runtimeType.toString().contains('CalloutLeader') ??
-                false),
+            widget is CustomPaint && widget.painter is CalloutLeaderPainter,
       ),
       findsWidgets,
     );
@@ -1601,9 +1606,7 @@ void main() {
     expect(
       find.byWidgetPredicate(
         (widget) =>
-            widget is CustomPaint &&
-            (widget.painter?.runtimeType.toString().contains('CalloutLeader') ??
-                false),
+            widget is CustomPaint && widget.painter is CalloutLeaderPainter,
       ),
       findsWidgets,
     );

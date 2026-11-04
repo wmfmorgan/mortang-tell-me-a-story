@@ -19,6 +19,7 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/stories/photo_frame.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
@@ -527,8 +528,6 @@ String _tooltipFor(WidgetTester tester, String storyId) {
       '';
 }
 
-const _branchMoss = Color(0xFF5B7F3A);
-
 void _expectBranchCallout(
   WidgetTester tester, {
   required String storyId,
@@ -542,11 +541,7 @@ void _expectBranchCallout(
   expect(dot, findsOneWidget);
   final dotCenter = tester.getCenter(dot);
   expect((tester.getCenter(ring) - dotCenter).distance, lessThanOrEqualTo(1));
-  final hit = tester.widget<SizedBox>(
-    find.descendant(of: ring, matching: find.byType(SizedBox)).first,
-  );
-  expect(hit.width, greaterThanOrEqualTo(44));
-  expect(hit.height, greaterThanOrEqualTo(44));
+  expect(tester.getSize(ring), const Size(calloutHit, calloutHit));
   expect(
     find
         .byWidgetPredicate((widget) {
@@ -555,7 +550,7 @@ void _expectBranchCallout(
           if (decoration is! BoxDecoration) return false;
           final side = decoration.border?.top;
           return decoration.shape == BoxShape.circle &&
-              side?.color == _branchMoss &&
+              side?.color == branchMoss &&
               side?.width == 2;
         })
         .evaluate()
@@ -575,14 +570,12 @@ void _expectBranchCallout(
   expect(text.data, label);
   expect(text.maxLines, 1);
   expect(text.overflow, TextOverflow.ellipsis);
-  expect(text.style?.color, _branchMoss);
+  expect(text.style?.color, branchMoss);
   expect(text.style?.fontWeight, FontWeight.w500);
   expect(
     find.byWidgetPredicate(
       (widget) =>
-          widget is CustomPaint &&
-          (widget.painter?.runtimeType.toString().contains('CalloutLeader') ??
-              false),
+          widget is CustomPaint && widget.painter is CalloutLeaderPainter,
     ),
     findsWidgets,
   );
@@ -604,7 +597,7 @@ void _expectMossCard(
           .first,
     );
     final side = (material.shape! as RoundedRectangleBorder).side;
-    expect(side.color, _branchMoss);
+    expect(side.color, branchMoss);
     expect(side.width, 1);
     expect(material.color, albumParchment);
     final radius = (material.shape! as RoundedRectangleBorder).borderRadius;
@@ -621,7 +614,7 @@ void _expectMossCard(
             final decoration = widget.decoration;
             if (decoration is! BoxDecoration) return false;
             return decoration.color == albumParchment &&
-                decoration.border?.top.color == _branchMoss &&
+                decoration.border?.top.color == branchMoss &&
                 decoration.border?.top.width == 1 &&
                 decoration.borderRadius ==
                     BorderRadius.circular(albumCardRadius);
@@ -2280,6 +2273,26 @@ void main() {
       label: 'Bea',
     );
     _expectMossCard(tester, 's1', days: false);
+    expect(
+      tester.getBottomLeft(find.byKey(Key('timeline-branch-callout-$bea'))).dy,
+      lessThanOrEqualTo(
+        tester.getTopLeft(find.byKey(const Key('timeline-stub-s1'))).dy,
+      ),
+    );
+    final semanticsHandle = tester.ensureSemantics();
+    expect(find.bySemanticsLabel('Open Bea timeline'), findsOneWidget);
+    final node = tester.getSemantics(
+      find.bySemanticsLabel('Open Bea timeline'),
+    );
+    expect(node.flagsCollection.isButton, isTrue);
+    expect(
+      find.descendant(
+        of: find.byType(BranchCalloutTarget),
+        matching: find.byType(Focus),
+      ),
+      findsWidgets,
+    );
+    semanticsHandle.dispose();
 
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
@@ -2570,6 +2583,42 @@ void main() {
       label: 'Bea',
     );
     _expectMossCard(tester, 'first', days: true);
+  });
+
+  testWidgets('tapping the years ring opens the branch family', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-branch-callout-ring-s1')));
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, bea);
   });
 
   testWidgets('tapping a mark opens that family timeline', (tester) async {

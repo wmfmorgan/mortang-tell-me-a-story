@@ -14,6 +14,20 @@ const calloutLabelGap = 6.0;
 const calloutDiagonal = 16.0;
 const calloutStackGap = 4.0;
 const calloutHit = 44.0;
+const calloutMinRun = 24.0;
+
+/// Years and wide Days keep the card about this far from the rail center.
+const calloutFromRail = 75.0;
+
+const farDotDiameter = 12.0;
+const farDotHighlightedDiameter = 14.0;
+const midDotDiameter = 16.0;
+const midDotFocusedDiameter = 22.0;
+const fullDotDiameter = 14.0;
+const fullDotFocusedDiameter = 20.0;
+
+/// Padding inside a Years branch card so the chip and title clear the border.
+const calloutCardPadding = 16.0;
 
 sealed class _RailFate {
   const _RailFate();
@@ -72,6 +86,14 @@ final class RailBranching {
     return StoryFrame._(story: story, callouts: _byStory[story.id] ?? const []);
   }
 
+  /// The parent ring beside the open family's origin, when that origin is published.
+  TreeFamily? get parentRing {
+    for (final fate in _fates.values) {
+      if (fate is _ParentBesideOrigin) return fate.family;
+    }
+    return null;
+  }
+
   TreeFamily? parentRingOn(StoryFrame frame) {
     for (final fate in _fates.values) {
       if (fate is _ParentBesideOrigin && fate.storyId == frame.story.id) {
@@ -116,9 +138,7 @@ RailBranching railBranching({
 }) {
   final fates = <String, _RailFate>{};
   void put(String id, _RailFate fate) {
-    if (fates.containsKey(id)) {
-      throw StateError('family $id already has a rail fate');
-    }
+    assert(!fates.containsKey(id), 'family $id already has a rail fate');
     fates[id] = fate;
   }
 
@@ -206,31 +226,20 @@ CalloutGeometry layoutCallouts({
   final startRadius = outerRadius + calloutLeaderGap;
   final ray = startRadius / math.sqrt(2);
   final start = Offset(toward * ray, ray);
-  if (start.distance + 1e-6 < startRadius) {
-    throw StateError('leader start enters the ring');
-  }
-
-  final railX = toward * centerToLane;
   final leaders = <CalloutLeader>[];
   final rects = <Rect>[];
   var centerY = start.dy + calloutDiagonal;
   for (final size in labelSizes) {
+    final elbowX = start.dx + toward * calloutDiagonal;
+    final minRail = elbowX.abs() + calloutMinRun + calloutLabelGap;
+    final rail = math.max(centerToLane, minRail);
     final top = centerY - size.height / 2;
     final rect = side == CalloutSide.right
-        ? Rect.fromLTWH(railX, top, size.width, size.height)
-        : Rect.fromLTWH(railX - size.width, top, size.width, size.height);
-    final labelRail = side == CalloutSide.right ? rect.left : rect.right;
-    var endX = labelRail - toward * calloutLabelGap;
-    if (toward > 0 && endX < start.dx) {
-      final minGapEnd = labelRail - 2;
-      endX = start.dx <= minGapEnd ? start.dx : minGapEnd;
-    } else if (toward < 0 && endX > start.dx) {
-      final minGapEnd = labelRail + 2;
-      endX = start.dx >= minGapEnd ? start.dx : minGapEnd;
-    }
-    var elbowX = start.dx + toward * calloutDiagonal;
-    if (toward > 0 && elbowX > endX) elbowX = endX;
-    if (toward < 0 && elbowX < endX) elbowX = endX;
+        ? Rect.fromLTWH(rail, top, size.width, size.height)
+        : Rect.fromLTWH(-rail - size.width, top, size.width, size.height);
+    final endX = side == CalloutSide.right
+        ? rect.left - calloutLabelGap
+        : rect.right + calloutLabelGap;
     leaders.add(
       CalloutLeader(
         start: start,
@@ -253,20 +262,17 @@ CalloutGeometry layoutCallouts({
     ),
     ringOpensFamily: rects.length == 1,
     cardTop: rects.isEmpty ? 0 : rects.last.bottom,
-    cardRailEdge: railX,
+    cardRailEdge: rects.isEmpty
+        ? toward * centerToLane
+        : (side == CalloutSide.right ? rects.first.left : rects.first.right),
   );
 }
 
 class CalloutLeaderPainter extends CustomPainter {
-  const CalloutLeaderPainter({
-    required this.leaders,
-    required this.color,
-    this.origin = Offset.zero,
-  });
+  const CalloutLeaderPainter({required this.leaders, required this.color});
 
   final List<CalloutLeader> leaders;
   final Color color;
-  final Offset origin;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -288,9 +294,7 @@ class CalloutLeaderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CalloutLeaderPainter oldDelegate) {
-    if (oldDelegate.color != color || oldDelegate.origin != origin) {
-      return true;
-    }
+    if (oldDelegate.color != color) return true;
     if (oldDelegate.leaders.length != leaders.length) return true;
     for (var i = 0; i < leaders.length; i++) {
       final previous = oldDelegate.leaders[i];
@@ -351,6 +355,7 @@ PlacedBranch placeBranchCallout({
       style: style,
       side: side,
       card: card,
+      centerToLane: centerToLane,
       onOpen: onOpen,
     ),
   );
@@ -376,7 +381,9 @@ Size _labelSize(
     textDirection: Directionality.of(context),
     textScaler: MediaQuery.textScalerOf(context),
   )..layout(maxWidth: maxWidth);
-  return Size(painter.width, math.max(painter.height, calloutHit));
+  final size = Size(painter.width, math.max(painter.height, calloutHit));
+  painter.dispose();
+  return size;
 }
 
 class _CalloutDot extends StatelessWidget {
@@ -421,18 +428,19 @@ class _CalloutDot extends StatelessWidget {
             ),
           ),
         ),
-        if (single != null)
-          Semantics(
-            button: true,
-            label: single.semanticsLabel,
+        dot,
+        if (geometry.ringOpensFamily && single != null)
+          ExcludeSemantics(
             child: GestureDetector(
               key: Key('timeline-branch-callout-ring-${frame.story.id}'),
               behavior: HitTestBehavior.translucent,
               onTap: () => onOpen(single.familyId),
-              child: const SizedBox(width: calloutHit, height: calloutHit),
+              child: SizedBox(
+                width: geometry.ringHit.width,
+                height: geometry.ringHit.height,
+              ),
             ),
           ),
-        dot,
       ],
     );
   }
@@ -446,6 +454,7 @@ class _CalloutLane extends StatelessWidget {
     required this.style,
     required this.side,
     required this.card,
+    required this.centerToLane,
     required this.onOpen,
   });
 
@@ -455,17 +464,27 @@ class _CalloutLane extends StatelessWidget {
   final TextStyle style;
   final CalloutSide side;
   final Widget? card;
+  final double centerToLane;
   final void Function(String familyId) onOpen;
 
   @override
   Widget build(BuildContext context) {
     final stack = math.max(
       geometry.ringDiameter,
-      frame.callouts.length == 1 ? calloutHit : 0,
+      geometry.ringOpensFamily ? geometry.ringHit.height : 0,
     );
     final drop = math.max(0.0, stack / 2 + geometry.labelRects.first.top);
+    final push = math.max(0.0, geometry.cardRailEdge.abs() - centerToLane);
+    final cardGap = math.max(
+      0.0,
+      geometry.cardTop - geometry.labelRects.last.bottom,
+    );
     return Padding(
-      padding: EdgeInsets.only(top: drop),
+      padding: EdgeInsets.only(
+        top: drop,
+        left: side == CalloutSide.right ? push : 0,
+        right: side == CalloutSide.left ? push : 0,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: side == CalloutSide.right
@@ -480,8 +499,10 @@ class _CalloutLane extends StatelessWidget {
               style: style,
               side: side,
               onOpen: onOpen,
+              announce: !geometry.ringOpensFamily,
             ),
           ],
+          if (cardGap > 0) SizedBox(height: cardGap),
           ?card,
         ],
       ),
@@ -496,6 +517,7 @@ class _CalloutLabel extends StatelessWidget {
     required this.style,
     required this.side,
     required this.onOpen,
+    required this.announce,
   });
 
   final BranchCallout callout;
@@ -503,34 +525,69 @@ class _CalloutLabel extends StatelessWidget {
   final TextStyle style;
   final CalloutSide side;
   final void Function(String familyId) onOpen;
+  final bool announce;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: callout.semanticsLabel,
-      child: GestureDetector(
-        key: Key('timeline-branch-callout-${callout.familyId}'),
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onOpen(callout.familyId),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: SizedBox(
-            width: size.width,
-            height: size.height,
-            child: Align(
-              alignment: side == CalloutSide.right
-                  ? Alignment.centerLeft
-                  : Alignment.centerRight,
-              child: Text(
-                callout.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: style,
-              ),
+    final hit = GestureDetector(
+      key: Key('timeline-branch-callout-${callout.familyId}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onOpen(callout.familyId),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: SizedBox(
+          width: size.width,
+          height: size.height,
+          child: Align(
+            alignment: side == CalloutSide.right
+                ? Alignment.centerLeft
+                : Alignment.centerRight,
+            child: Text(
+              callout.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style,
             ),
           ),
         ),
+      ),
+    );
+    if (!announce) return ExcludeSemantics(child: hit);
+    return Semantics(button: true, label: callout.semanticsLabel, child: hit);
+  }
+}
+
+/// One keyboard-focusable control for a single branch callout.
+class BranchCalloutTarget extends StatelessWidget {
+  const BranchCalloutTarget({
+    super.key,
+    required this.frame,
+    required this.onOpen,
+    required this.child,
+  });
+
+  final StoryFrame frame;
+  final ValueChanged<String> onOpen;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (frame.callouts.length != 1) return child;
+    final callout = frame.callouts.single;
+    return Semantics(
+      button: true,
+      label: callout.semanticsLabel,
+      onTap: () => onOpen(callout.familyId),
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              onOpen(callout.familyId);
+              return null;
+            },
+          ),
+        },
+        child: Focus(child: child),
       ),
     );
   }

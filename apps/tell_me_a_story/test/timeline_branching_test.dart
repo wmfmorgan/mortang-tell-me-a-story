@@ -220,6 +220,29 @@ void main() {
     expect(left.cardRailEdge, closeTo(-lane, 0.01));
   });
 
+  test('a short lane still keeps a 24px horizontal run', () {
+    for (final lane in [22.0, calloutFromRail]) {
+      for (final side in CalloutSide.values) {
+        final geometry = layoutCallouts(
+          side: side,
+          dotDiameter: midDotDiameter,
+          centerToLane: lane,
+          labelSizes: const [Size(80, 20)],
+        );
+        final leader = geometry.leaders.single;
+        final run = (leader.end.dx - leader.elbow.dx).abs();
+        final drop = (leader.elbow.dy - leader.start.dy).abs();
+        final diagonal = (leader.elbow.dx - leader.start.dx).abs();
+        expect(run, greaterThanOrEqualTo(calloutMinRun - 0.01));
+        expect(diagonal, closeTo(drop, 0.01));
+        expect(geometry.cardRailEdge.abs(), greaterThanOrEqualTo(lane - 0.01));
+        if (lane == calloutFromRail) {
+          expect(geometry.cardRailEdge.abs(), closeTo(calloutFromRail, 0.01));
+        }
+      }
+    }
+  });
+
   test('two labels stack downward from one leader start', () {
     final geometry = layoutCallouts(
       side: CalloutSide.right,
