@@ -13,6 +13,7 @@ void main() {
     expect(albumParchment, const Color(0xFFFBF7F2));
     expect(albumTerracotta, const Color(0xFF8B5E4B));
     expect(albumSage, const Color(0xFF7A8B74));
+    expect(branchMoss, const Color(0xFF5B7F3A));
     expect(albumInk, const Color(0xFF2C2416));
     expect(albumSage, isNot(const Color(0xFF665D5A)));
   });

@@ -22,6 +22,7 @@ import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 const _parent = '00000000-0000-0000-0000-0000000000aa';
@@ -1415,7 +1416,7 @@ void main() {
     },
   );
 
-  testWidgets('a dated mark in an empty decade still shows on the far rail', (
+  testWidgets('a dated branch callout ellipsizes on the origin story', (
     tester,
   ) async {
     const side = '00000000-0000-0000-0000-0000000000dd';
@@ -1442,6 +1443,7 @@ void main() {
                 id: side,
                 name: 'A very long family name that should ellipsize inside the dial slot',
                 parentFamilyId: _parent,
+                originStoryId: 'origin',
                 branchYear: 1955,
               ),
             ],
@@ -1451,18 +1453,47 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final mark = find.byKey(const Key('timeline-branch-mark-$side'));
-    await tester.ensureVisible(mark);
+    final ring = find.byKey(const Key('timeline-branch-callout-ring-origin'));
+    final label = find.byKey(const Key('timeline-branch-callout-$side'));
+    await tester.ensureVisible(label);
     await tester.pumpAndSettle();
-    expect(mark, findsOneWidget);
-    final label = tester.widget<Text>(
-      find.textContaining('A very long family name'),
+    expect(ring, findsOneWidget);
+    expect(
+      (tester.getCenter(ring) -
+              tester.getCenter(find.byKey(const Key('timeline-dot-origin'))))
+          .distance,
+      lessThanOrEqualTo(1),
     );
-    expect(label.maxLines, 1);
-    expect(label.overflow, TextOverflow.ellipsis);
+    expect(find.byKey(const Key('timeline-branch-mark-$side')), findsNothing);
+    expect(find.byKey(const Key('timeline-decade-row-1950')), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('timeline-decade-row-1980')),
+        matching: ring,
+      ),
+      findsOneWidget,
+    );
+    final text = tester.widget<Text>(
+      find.descendant(
+        of: label,
+        matching: find.textContaining('A very long family name'),
+      ),
+    );
+    expect(text.maxLines, 1);
+    expect(text.overflow, TextOverflow.ellipsis);
+    expect(text.data, contains('· 1955'));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint && widget.painter is CalloutLeaderPainter,
+      ),
+      findsWidgets,
+    );
   });
 
-  testWidgets('a 1990 branch sits below the 1950s band', (tester) async {
+  testWidgets('a 1990 branch callout sits on the 1950s origin story', (
+    tester,
+  ) async {
     const later = '00000000-0000-0000-0000-0000000000ee';
     await tester.binding.setSurfaceSize(const Size(900, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1487,6 +1518,7 @@ void main() {
                 id: later,
                 name: 'Later line',
                 parentFamilyId: _parent,
+                originStoryId: 'origin',
                 branchYear: 1990,
               ),
             ],
@@ -1497,11 +1529,23 @@ void main() {
     );
     await tester.pumpAndSettle();
     final band = find.byKey(const Key('timeline-decade-row-1950'));
-    final mark = find.byKey(const Key('timeline-branch-mark-$later'));
+    final ring = find.byKey(const Key('timeline-branch-callout-ring-origin'));
+    final label = find.byKey(const Key('timeline-branch-callout-$later'));
     await tester.ensureVisible(band);
-    await tester.ensureVisible(mark);
+    await tester.ensureVisible(ring);
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(mark).dy, greaterThan(tester.getTopLeft(band).dy));
+    expect(ring, findsOneWidget);
+    expect(find.text('Later line · 1990'), findsOneWidget);
+    expect(tester.getRect(band).contains(tester.getCenter(ring)), isTrue);
+    expect(tester.getRect(band).contains(tester.getCenter(label)), isTrue);
+    expect(find.byKey(const Key('timeline-branch-mark-$later')), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint && widget.painter is CalloutLeaderPainter,
+      ),
+      findsWidgets,
+    );
   });
 
   testWidgets('tapping the far end of a rail slot does nothing', (
@@ -1510,6 +1554,7 @@ void main() {
     const side = '00000000-0000-0000-0000-0000000000ff';
     await tester.binding.setSurfaceSize(const Size(900, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
     FamilySelection.remember(_parent);
     await tester.pumpWidget(
       MaterialApp(
@@ -1537,6 +1582,7 @@ void main() {
                 id: side,
                 name: 'Side',
                 parentFamilyId: _parent,
+                originStoryId: 'origin',
                 branchYear: 1955,
               ),
             ],
@@ -1546,19 +1592,35 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final mark = find.byKey(const Key('timeline-branch-mark-$side'));
-    await tester.ensureVisible(mark);
+    final ring = find.byKey(const Key('timeline-branch-callout-ring-origin'));
+    final label = find.byKey(const Key('timeline-branch-callout-$side'));
+    await tester.ensureVisible(ring);
     await tester.pumpAndSettle();
-    final markRect = tester.getRect(mark);
-    final label = tester.getRect(find.text('Side · 1955'));
-    expect(label.left, greaterThan(markRect.left));
-    expect(label.left, lessThan(markRect.left + 40));
-    final slot = find.ancestor(of: mark, matching: find.byType(Row)).last;
-    final slotRect = tester.getRect(slot);
-    expect(label.right, lessThan(slotRect.right - 40));
-    await tester.tapAt(Offset(slotRect.right - 4, markRect.center.dy));
+    final dot = find.byKey(const Key('timeline-dot-origin'));
+    expect(
+      (tester.getCenter(ring) - tester.getCenter(dot)).distance,
+      lessThanOrEqualTo(1),
+    );
+    expect(find.text('Side · 1955'), findsOneWidget);
+    expect(tester.getCenter(label).dx, greaterThan(tester.getCenter(dot).dx));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint && widget.painter is CalloutLeaderPainter,
+      ),
+      findsWidgets,
+    );
+    final row = find.byKey(const Key('timeline-decade-row-1980'));
+    final rowRect = tester.getRect(row);
+    final labelRect = tester.getRect(label);
+    expect(labelRect.right, lessThan(rowRect.right - 8));
+    await tester.tapAt(Offset(rowRect.right - 4, labelRect.center.dy));
     await tester.pumpAndSettle();
     expect(FamilySelection.id, _parent);
+
+    await tester.tap(label);
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, side);
   });
 
   testWidgets('the dialog form title reads Add a family branch to the parent', (
