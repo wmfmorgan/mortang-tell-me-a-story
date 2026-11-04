@@ -2285,12 +2285,15 @@ void main() {
       find.bySemanticsLabel('Open Bea timeline'),
     );
     expect(node.flagsCollection.isButton, isTrue);
+    final focus = find.byKey(const Key('timeline-branch-callout-focus-s1'));
+    expect(focus, findsOneWidget);
     expect(
-      find.descendant(
-        of: find.byType(BranchCalloutTarget),
-        matching: find.byType(Focus),
-      ),
-      findsWidgets,
+      find.ancestor(of: focus, matching: find.byType(InkWell)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: focus, matching: find.byType(InkWell)),
+      findsNothing,
     );
     semanticsHandle.dispose();
 
@@ -2616,7 +2619,242 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-branch-callout-ring-s1')));
+    final ring = find.byKey(const Key('timeline-branch-callout-ring-s1'));
+    final node = find.byKey(const Key('timeline-mid-node-s1'));
+    const ringTap = Offset(20, 0);
+    expect(
+      (tester.getCenter(ring) + ringTap - tester.getCenter(node)).distance,
+      greaterThan(tester.getSize(node).shortestSide / 2),
+    );
+    await tester.tapAt(tester.getCenter(ring) + ringTap);
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, bea);
+  });
+
+  testWidgets('tapping the years node opens the story', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-mid-node-s1')));
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, isNull);
+    _expectZoom(tester, 'timeline-zoom-full');
+    expect(find.byKey(const Key('timeline-card-s1')), findsOneWidget);
+  });
+
+  testWidgets('the years leader ends at the label', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'new',
+              title: 'Newer',
+              timeframeStart: DateTime(1990),
+            ),
+            _published(
+              id: 'old',
+              title: 'Older',
+              timeframeStart: DateTime(1970),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'old',
+              branchYear: 1972,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final label = find.byKey(Key('timeline-branch-callout-$bea'));
+    final labelRect = tester.getRect(label);
+    final end = _leaderEnd(tester);
+    expect(
+      labelRect.center.dx,
+      greaterThan(
+        tester.getCenter(find.byKey(const Key('timeline-mid-node-old'))).dx,
+      ),
+    );
+    expect(labelRect.left, closeTo(end.dx + calloutLabelGap, 2));
+    expect(
+      tester.getRect(find.byKey(const Key('timeline-stub-old'))).left,
+      closeTo(labelRect.left, 2),
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    final daysLabel = tester.getRect(
+      find.byKey(Key('timeline-branch-callout-$bea')),
+    );
+    final daysEnd = _leaderEnd(tester);
+    expect(daysLabel.left, closeTo(daysEnd.dx + calloutLabelGap, 2));
+    expect(
+      tester.getRect(find.byKey(const Key('timeline-card-old'))).left,
+      closeTo(daysLabel.left, 2),
+    );
+  });
+
+  testWidgets('a decade branch dot stays on the line and comes last', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'plain',
+              title: 'Plain',
+              timeframeStart: DateTime(1972),
+            ),
+            _published(
+              id: 'branch',
+              title: 'Branch',
+              timeframeStart: DateTime(1974),
+            ),
+            _published(
+              id: 'later',
+              title: 'Later',
+              timeframeStart: DateTime(1976),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'branch',
+              branchYear: 1974,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final plain = tester.getCenter(find.byKey(const Key('timeline-dot-plain')));
+    final later = tester.getCenter(find.byKey(const Key('timeline-dot-later')));
+    final branch = tester.getCenter(
+      find.byKey(const Key('timeline-dot-branch')),
+    );
+    expect(branch.dx, greaterThan(plain.dx));
+    expect(branch.dx, greaterThan(later.dx));
+    expect((branch.dy - plain.dy).abs(), lessThanOrEqualTo(1));
+    expect((branch.dy - later.dy).abs(), lessThanOrEqualTo(1));
+    final label = tester.getRect(
+      find.byKey(Key('timeline-branch-callout-$bea')),
+    );
+    expect(
+      (label.center.dy - _leaderEnd(tester).dy).abs(),
+      lessThanOrEqualTo(2),
+    );
+    final decoration =
+        tester
+                .widget<Container>(
+                  find.descendant(
+                    of: find.byKey(const Key('timeline-dot-branch')),
+                    matching: find.byType(Container),
+                  ),
+                )
+                .decoration!
+            as BoxDecoration;
+    expect(decoration.boxShadow, isNull);
+  });
+
+  testWidgets('enter on the callout opens the branch', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final focus = find.byKey(const Key('timeline-branch-callout-focus-s1'));
+    final scope = find.descendant(of: focus, matching: find.byType(Row)).first;
+    Focus.of(tester.element(scope)).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(FamilySelection.id, bea);
   });
@@ -2823,108 +3061,6 @@ void main() {
     },
   );
 
-  testWidgets('origin dot keeps its mark and the parent ring sits beside it', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1200, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    const parent = '00000000-0000-0000-0000-0000000000aa';
-    const origin = 'origin-story';
-    await tester.pumpWidget(
-      _timeline(
-        stories: _FakeStoriesApi(
-          published: [
-            _published(
-              id: origin,
-              familyId: parent,
-              title: 'The beginning',
-              timeframeStart: DateTime(1974),
-            ),
-          ],
-        ),
-        families: _TreeFamilies(
-          mine: [
-            MemberFamily(
-              id: _familyId,
-              name: 'Ada',
-              createdAt: DateTime.utc(1970),
-              parentFamilyId: parent,
-            ),
-          ],
-          tree: const [
-            TreeFamily(id: parent, name: 'Parent', branchYear: 1990),
-            TreeFamily(
-              id: _familyId,
-              name: 'Ada',
-              parentFamilyId: parent,
-              originStoryId: origin,
-            ),
-          ],
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('The beginning'), findsOneWidget);
-    expect(find.text('Origin · from Parent'), findsOneWidget);
-    expect(
-      _containsFinder(
-        tester,
-        find.byKey(const Key('timeline-decade-row-1970')),
-        find.byKey(const Key('timeline-branch-mark-$parent')),
-      ),
-      isTrue,
-    );
-    expect(
-      _containsFinder(
-        tester,
-        find.byKey(const Key('timeline-decade-row-1990')),
-        find.byKey(const Key('timeline-branch-mark-$parent')),
-      ),
-      isFalse,
-    );
-  });
-
-  testWidgets('a null origin leaves the parent ring on the M12 year', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1200, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    const parent = '00000000-0000-0000-0000-0000000000aa';
-    await tester.pumpWidget(
-      _timeline(
-        stories: _FakeStoriesApi(
-          published: [
-            _published(title: 'Child tale', timeframeStart: DateTime(1992)),
-          ],
-        ),
-        families: _TreeFamilies(
-          mine: [
-            MemberFamily(
-              id: _familyId,
-              name: 'Ada',
-              createdAt: DateTime.utc(1970),
-              parentFamilyId: parent,
-            ),
-          ],
-          tree: const [
-            TreeFamily(id: parent, name: 'Parent', branchYear: 1990),
-            TreeFamily(id: _familyId, name: 'Ada', parentFamilyId: parent),
-          ],
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Origin · from'), findsNothing);
-    expect(
-      _containsFinder(
-        tester,
-        find.byKey(const Key('timeline-decade-row-1990')),
-        find.byKey(const Key('timeline-branch-mark-$parent')),
-      ),
-      isTrue,
-    );
-  });
-
   testWidgets('a root origin uses a plain Origin tag', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -2957,202 +3093,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Origin'), findsOneWidget);
     expect(find.textContaining('Origin · from'), findsNothing);
-  });
-
-  testWidgets(
-    'a wide full card on the right puts the origin label left of the ring',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1200, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      const parent = '00000000-0000-0000-0000-0000000000aa';
-      const origin = 'origin-story';
-      await tester.pumpWidget(
-        _timeline(
-          stories: _FakeStoriesApi(
-            published: [
-              _published(
-                id: 'child-story',
-                title: 'Later tale',
-                timeframeStart: DateTime(1992),
-              ),
-              _published(
-                id: origin,
-                familyId: parent,
-                title: 'The beginning',
-                timeframeStart: DateTime(1974),
-              ),
-            ],
-          ),
-          families: _TreeFamilies(
-            mine: [
-              MemberFamily(
-                id: _familyId,
-                name: 'Ada',
-                createdAt: DateTime.utc(1970),
-                parentFamilyId: parent,
-              ),
-            ],
-            tree: const [
-              TreeFamily(id: parent, name: 'Parent'),
-              TreeFamily(
-                id: _familyId,
-                name: 'Ada',
-                parentFamilyId: parent,
-                originStoryId: origin,
-              ),
-            ],
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('timeline-zoom-full')));
-      await tester.pumpAndSettle();
-
-      final ring = find.descendant(
-        of: find.byKey(const Key('timeline-branch-mark-$parent')),
-        matching: find.byType(CustomPaint),
-      );
-      expect(
-        tester.getCenter(find.text('Parent')).dx,
-        lessThan(tester.getCenter(ring).dx),
-      );
-    },
-  );
-
-  testWidgets('a narrow full card centers the origin ring under the dot', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(700, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    const parent = '00000000-0000-0000-0000-0000000000aa';
-    const origin = 'origin-story';
-    await tester.pumpWidget(
-      _timeline(
-        stories: _FakeStoriesApi(
-          published: [
-            _published(
-              id: origin,
-              familyId: parent,
-              title: 'The beginning',
-              timeframeStart: DateTime(1974),
-            ),
-          ],
-        ),
-        families: _TreeFamilies(
-          mine: [
-            MemberFamily(
-              id: _familyId,
-              name: 'Ada',
-              createdAt: DateTime.utc(1970),
-              parentFamilyId: parent,
-            ),
-          ],
-          tree: const [
-            TreeFamily(id: parent, name: 'Parent'),
-            TreeFamily(
-              id: _familyId,
-              name: 'Ada',
-              parentFamilyId: parent,
-              originStoryId: origin,
-            ),
-          ],
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
-    await tester.pumpAndSettle();
-
-    final ring = find.descendant(
-      of: find.byKey(const Key('timeline-branch-mark-$parent')),
-      matching: find.byType(CustomPaint),
-    );
-    final dot = find.byKey(const Key('timeline-full-dot-$origin'));
-    final card = find.byKey(const Key('timeline-card-$origin'));
-    expect(
-      (tester.getCenter(ring).dx - tester.getCenter(dot).dx).abs(),
-      lessThanOrEqualTo(1),
-    );
-    expect(
-      (tester.getRect(ring).top - tester.getRect(dot).bottom - 8).abs(),
-      lessThanOrEqualTo(1),
-    );
-    expect(
-      (tester.getCenter(dot).dy - tester.getCenter(card).dy).abs(),
-      lessThanOrEqualTo(1),
-    );
-    expect(find.text('Parent'), findsNothing);
-    expect(tester.getRect(ring).overlaps(tester.getRect(card)), isFalse);
-    expect(
-      find.byKey(const Key('timeline-branch-mark-$parent')).hitTestable(),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('a narrow origin ring opens the parent timeline', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(700, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    addTearDown(FamilySelection.clear);
-    const parent = '00000000-0000-0000-0000-0000000000aa';
-    const origin = 'origin-story';
-    await tester.pumpWidget(
-      _timeline(
-        stories: _FakeStoriesApi(
-          published: [
-            _published(
-              id: 'child-story',
-              title: 'Child tale',
-              timeframeStart: DateTime(1992),
-            ),
-            _published(
-              id: origin,
-              familyId: parent,
-              title: 'The beginning',
-              timeframeStart: DateTime(1974),
-            ),
-          ],
-        ),
-        families: _TreeFamilies(
-          mine: [
-            MemberFamily(
-              id: _familyId,
-              name: 'Ada',
-              createdAt: DateTime.utc(1970),
-              parentFamilyId: parent,
-            ),
-          ],
-          tree: const [
-            TreeFamily(id: parent, name: 'Parent'),
-            TreeFamily(
-              id: _familyId,
-              name: 'Ada',
-              parentFamilyId: parent,
-              originStoryId: origin,
-            ),
-          ],
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
-    await tester.pumpAndSettle();
-
-    final mark = find.byKey(const Key('timeline-branch-mark-$parent'));
-    await tester.ensureVisible(mark);
-    await tester.pumpAndSettle();
-    await tester.tap(mark);
-    await tester.pumpAndSettle();
-
-    expect(FamilySelection.id, parent);
-    expect(find.text('Child tale'), findsNothing);
-    expect(find.byKey(const Key('timeline-dot-child-story')), findsNothing);
-    expect(find.text('The beginning'), findsOneWidget);
   });
 
   testWidgets('a narrow origin card stays inside the right edge', (
@@ -3283,67 +3223,17 @@ void main() {
       );
     },
   );
+}
 
-  testWidgets(
-    'a wide full card on the left puts the origin label right of the ring',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1200, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      const parent = '00000000-0000-0000-0000-0000000000aa';
-      const origin = 'origin-story';
-      await tester.pumpWidget(
-        _timeline(
-          stories: _FakeStoriesApi(
-            published: [
-              _published(
-                id: origin,
-                familyId: parent,
-                title: 'The beginning',
-                timeframeStart: DateTime(1992),
-              ),
-              _published(
-                id: 'child-story',
-                title: 'Earlier tale',
-                timeframeStart: DateTime(1974),
-              ),
-            ],
-          ),
-          families: _TreeFamilies(
-            mine: [
-              MemberFamily(
-                id: _familyId,
-                name: 'Ada',
-                createdAt: DateTime.utc(1970),
-                parentFamilyId: parent,
-              ),
-            ],
-            tree: const [
-              TreeFamily(id: parent, name: 'Parent'),
-              TreeFamily(
-                id: _familyId,
-                name: 'Ada',
-                parentFamilyId: parent,
-                originStoryId: origin,
-              ),
-            ],
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('timeline-zoom-full')));
-      await tester.pumpAndSettle();
-
-      final ring = find.descendant(
-        of: find.byKey(const Key('timeline-branch-mark-$parent')),
-        matching: find.byType(CustomPaint),
-      );
-      expect(
-        tester.getCenter(find.text('Parent')).dx,
-        greaterThan(tester.getCenter(ring).dx),
-      );
-    },
+Offset _leaderEnd(WidgetTester tester) {
+  final finder = find.byWidgetPredicate(
+    (widget) => widget is CustomPaint && widget.painter is CalloutLeaderPainter,
+  );
+  final paint = tester.widget<CustomPaint>(finder.first);
+  final painter = paint.painter! as CalloutLeaderPainter;
+  final box = tester.renderObject<RenderBox>(finder.first);
+  return box.localToGlobal(
+    box.size.center(Offset.zero) + painter.leaders.single.end,
   );
 }
 

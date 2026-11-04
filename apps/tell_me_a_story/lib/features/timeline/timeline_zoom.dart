@@ -197,18 +197,6 @@ String? originTag({
   return 'Origin';
 }
 
-/// Parent mark to draw beside the origin story. Null when the open family
-/// has no effective origin. Other marks stay on the M12 year rules.
-TreeFamily? originParentMark(TreeFamily? open, List<TreeFamily> marks) {
-  final parentId = open?.parentFamilyId;
-  final originId = open?.originStoryId;
-  if (parentId == null || originId == null) return null;
-  for (final mark in marks) {
-    if (mark.id == parentId) return mark;
-  }
-  return null;
-}
-
 String branchMarkLabel(TreeFamily family) {
   final year = family.branchYear;
   if (year == null) return family.name;

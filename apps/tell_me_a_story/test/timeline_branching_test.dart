@@ -55,8 +55,6 @@ void main() {
     expect(frame.callouts[1].semanticsLabel, 'Open Bea timeline');
     expect(branching.frameFor(_story('s2')).callouts, isEmpty);
     expect(branching.frameFor(_story('s2')).branchesStory, isFalse);
-    expect(branching.yearMarks, isEmpty);
-    expect(branching.parentRingOn(frame), isNull);
     expect(branchMarkLabel(bea), 'Bea');
     expect(branchMarkLabel(ada), 'Ada · 1972');
   });
@@ -91,7 +89,7 @@ void main() {
     );
   });
 
-  test('the parent with a published origin is the beside ring only', () {
+  test('a parent family is not a callout', () {
     const parent = TreeFamily(id: 'parent', name: 'Parent', branchYear: 1990);
     const open = TreeFamily(
       id: 'open',
@@ -99,53 +97,41 @@ void main() {
       parentFamilyId: 'parent',
       originStoryId: 's1',
     );
-    final origin = _story('s1');
-    final other = _story('other');
-    final branching = railBranching(
+    final onRail = railBranching(
       open: open,
       tree: const [parent, open],
-      stories: [origin, other],
+      stories: [_story('s1'), _story('other')],
     );
+    expect(onRail.frameFor(_story('s1')).callouts, isEmpty);
+    expect(onRail.frameFor(_story('other')).callouts, isEmpty);
 
-    expect(branching.parentRingOn(branching.frameFor(origin))?.id, 'parent');
-    expect(branching.parentRingOn(branching.frameFor(other)), isNull);
-    expect(branching.yearMarks, isEmpty);
-    expect(branching.frameFor(origin).callouts, isEmpty);
-  });
-
-  test('the parent with no origin is the only year mark', () {
-    const parent = TreeFamily(id: 'parent', name: 'Parent', branchYear: 1990);
-    const open = TreeFamily(id: 'open', name: 'Open', parentFamilyId: 'parent');
-    final branching = railBranching(
-      open: open,
-      tree: const [parent, open],
+    const noOrigin = TreeFamily(
+      id: 'open',
+      name: 'Open',
+      parentFamilyId: 'parent',
+    );
+    final unmarked = railBranching(
+      open: noOrigin,
+      tree: const [parent, noOrigin],
       stories: [_story('s1')],
     );
+    expect(unmarked.frameFor(_story('s1')).callouts, isEmpty);
 
-    expect(branching.yearMarks.map((row) => row.id), ['parent']);
-    expect(branching.parentRingOn(branching.frameFor(_story('s1'))), isNull);
-    expect(branching.frameFor(_story('s1')).callouts, isEmpty);
-  });
-
-  test('a parent whose origin is not on this rail is the year mark', () {
-    const parent = TreeFamily(id: 'parent', name: 'Parent', branchYear: 1990);
-    const open = TreeFamily(
+    const missingOrigin = TreeFamily(
       id: 'open',
       name: 'Open',
       parentFamilyId: 'parent',
       originStoryId: 'missing',
     );
-    final branching = railBranching(
-      open: open,
-      tree: const [parent, open],
+    final missing = railBranching(
+      open: missingOrigin,
+      tree: const [parent, missingOrigin],
       stories: [_story('s1')],
     );
-
-    expect(branching.yearMarks.map((row) => row.id), ['parent']);
-    expect(branching.parentRingOn(branching.frameFor(_story('s1'))), isNull);
+    expect(missing.frameFor(_story('s1')).callouts, isEmpty);
   });
 
-  test('a parent who also names this family stays the beside ring', () {
+  test('a parent that also branches from this family is a callout', () {
     const open = TreeFamily(
       id: 'open',
       name: 'Open',
@@ -164,9 +150,9 @@ void main() {
       tree: const [parent, open],
       stories: [_story('s1')],
     );
-    expect(branching.parentRingOn(branching.frameFor(_story('s1')))?.id, 'p');
-    expect(branching.frameFor(_story('s1')).callouts, isEmpty);
-    expect(branching.yearMarks, isEmpty);
+    final frame = branching.frameFor(_story('s1'));
+    expect(frame.callouts.map((callout) => callout.familyId), ['p']);
+    expect(frame.callouts.single.label, 'P · 1972');
   });
 
   test('the leader starts outside the ring and the left side mirrors', () {
@@ -241,6 +227,18 @@ void main() {
         }
       }
     }
+    final seated = layoutCallouts(
+      side: CalloutSide.right,
+      dotDiameter: midDotDiameter,
+      centerToLane: calloutLaneOffset,
+      minCardFromRail: calloutFromRail,
+      labelSizes: const [Size(80, 20)],
+    );
+    expect(seated.cardRailEdge, closeTo(calloutFromRail, 0.01));
+    expect(
+      (seated.leaders.single.end.dx - seated.leaders.single.elbow.dx).abs(),
+      greaterThanOrEqualTo(calloutMinRun - 0.01),
+    );
   });
 
   test('two labels stack downward from one leader start', () {

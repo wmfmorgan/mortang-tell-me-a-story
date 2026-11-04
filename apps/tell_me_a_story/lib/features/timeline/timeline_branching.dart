@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../data/families_api.dart';
@@ -16,8 +17,17 @@ const calloutStackGap = 4.0;
 const calloutHit = 44.0;
 const calloutMinRun = 24.0;
 
-/// Years and wide Days keep the card about this far from the rail center.
+/// Years and wide Days keep the card at least this far from the rail center.
 const calloutFromRail = 75.0;
+
+/// The side column starts this far from the rail center (half of [calloutGutter]).
+const calloutLaneOffset = 28.0;
+
+/// Gutter that holds the rail on Years and wide Days.
+const calloutGutter = 56.0;
+
+const calloutLabelWidthFar = 220.0;
+const calloutLabelWidthDial = 460.0;
 
 const farDotDiameter = 12.0;
 const farDotHighlightedDiameter = 14.0;
@@ -28,30 +38,6 @@ const fullDotFocusedDiameter = 20.0;
 
 /// Padding inside a Years branch card so the chip and title clear the border.
 const calloutCardPadding = 16.0;
-
-sealed class _RailFate {
-  const _RailFate();
-}
-
-final class _ChildCallout extends _RailFate {
-  const _ChildCallout({required this.storyId, required this.callout});
-
-  final String storyId;
-  final BranchCallout callout;
-}
-
-final class _ParentBesideOrigin extends _RailFate {
-  const _ParentBesideOrigin({required this.storyId, required this.family});
-
-  final String storyId;
-  final TreeFamily family;
-}
-
-final class _YearMark extends _RailFate {
-  const _YearMark(this.family);
-
-  final TreeFamily family;
-}
 
 final class BranchCallout {
   const BranchCallout._({
@@ -77,57 +63,12 @@ final class StoryFrame {
 }
 
 final class RailBranching {
-  RailBranching._(this._fates) : _byStory = _group(_fates);
+  RailBranching._(this._byStory);
 
-  final Map<String, _RailFate> _fates;
   final Map<String, List<BranchCallout>> _byStory;
 
   StoryFrame frameFor(Story story) {
     return StoryFrame._(story: story, callouts: _byStory[story.id] ?? const []);
-  }
-
-  /// The parent ring beside the open family's origin, when that origin is published.
-  TreeFamily? get parentRing {
-    for (final fate in _fates.values) {
-      if (fate is _ParentBesideOrigin) return fate.family;
-    }
-    return null;
-  }
-
-  TreeFamily? parentRingOn(StoryFrame frame) {
-    for (final fate in _fates.values) {
-      if (fate is _ParentBesideOrigin && fate.storyId == frame.story.id) {
-        return fate.family;
-      }
-    }
-    return null;
-  }
-
-  List<TreeFamily> get yearMarks {
-    return [
-      for (final fate in _fates.values)
-        if (fate is _YearMark) fate.family,
-    ];
-  }
-
-  static Map<String, List<BranchCallout>> _group(Map<String, _RailFate> fates) {
-    final byStory = <String, List<BranchCallout>>{};
-    for (final fate in fates.values) {
-      if (fate is! _ChildCallout) continue;
-      (byStory[fate.storyId] ??= []).add(fate.callout);
-    }
-    for (final entry in byStory.entries) {
-      final calls = [...entry.value]
-        ..sort((a, b) {
-          final name = a.familyName.toLowerCase().compareTo(
-            b.familyName.toLowerCase(),
-          );
-          if (name != 0) return name;
-          return a.familyId.compareTo(b.familyId);
-        });
-      byStory[entry.key] = List.unmodifiable(calls);
-    }
-    return byStory;
   }
 }
 
@@ -136,48 +77,38 @@ RailBranching railBranching({
   required List<TreeFamily> tree,
   required List<Story> stories,
 }) {
-  final fates = <String, _RailFate>{};
-  void put(String id, _RailFate fate) {
-    assert(!fates.containsKey(id), 'family $id already has a rail fate');
-    fates[id] = fate;
-  }
-
+  final byStory = <String, List<BranchCallout>>{};
   final family = open;
   if (family != null) {
     final published = <String>{for (final story in stories) story.id};
-    final related = relatedMarks(tree, family.id);
-    final originId = family.originStoryId;
-    final originOnRail = originId != null && published.contains(originId);
-    final beside = originOnRail ? originParentMark(family, related) : null;
-    for (final row in related) {
-      if (beside != null && row.id == beside.id) {
-        put(row.id, _ParentBesideOrigin(storyId: originId!, family: row));
-        continue;
-      }
+    for (final row in relatedMarks(tree, family.id)) {
       final childOrigin = row.originStoryId;
-      if (row.parentFamilyId == family.id &&
-          childOrigin != null &&
-          published.contains(childOrigin)) {
-        put(
-          row.id,
-          _ChildCallout(
-            storyId: childOrigin,
-            callout: BranchCallout._(
-              familyId: row.id,
-              familyName: row.name,
-              label: branchMarkLabel(row),
-              semanticsLabel: 'Open ${row.name} timeline',
-            ),
-          ),
-        );
+      if (row.parentFamilyId != family.id ||
+          childOrigin == null ||
+          !published.contains(childOrigin)) {
         continue;
       }
-      if (row.id == family.parentFamilyId) {
-        put(row.id, _YearMark(row));
-      }
+      final callout = BranchCallout._(
+        familyId: row.id,
+        familyName: row.name,
+        label: branchMarkLabel(row),
+        semanticsLabel: 'Open ${row.name} timeline',
+      );
+      (byStory[childOrigin] ??= []).add(callout);
     }
   }
-  return RailBranching._(fates);
+  for (final entry in byStory.entries) {
+    final calls = [...entry.value]
+      ..sort((a, b) {
+        final name = a.familyName.toLowerCase().compareTo(
+          b.familyName.toLowerCase(),
+        );
+        if (name != 0) return name;
+        return a.familyId.compareTo(b.familyId);
+      });
+    byStory[entry.key] = List.unmodifiable(calls);
+  }
+  return RailBranching._(byStory);
 }
 
 enum CalloutSide { right, left }
@@ -218,21 +149,23 @@ CalloutGeometry layoutCallouts({
   required CalloutSide side,
   required double dotDiameter,
   required double centerToLane,
+  double? minCardFromRail,
   required List<Size> labelSizes,
 }) {
+  assert(labelSizes.isNotEmpty);
   final toward = side == CalloutSide.right ? 1.0 : -1.0;
   final ringDiameter = dotDiameter + 2 * calloutDotGap + 2 * calloutStroke;
   final outerRadius = ringDiameter / 2;
   final startRadius = outerRadius + calloutLeaderGap;
   final ray = startRadius / math.sqrt(2);
   final start = Offset(toward * ray, ray);
+  final elbowX = start.dx + toward * calloutDiagonal;
+  final minRail = elbowX.abs() + calloutMinRun + calloutLabelGap;
+  final rail = math.max(minCardFromRail ?? centerToLane, minRail);
   final leaders = <CalloutLeader>[];
   final rects = <Rect>[];
   var centerY = start.dy + calloutDiagonal;
   for (final size in labelSizes) {
-    final elbowX = start.dx + toward * calloutDiagonal;
-    final minRail = elbowX.abs() + calloutMinRun + calloutLabelGap;
-    final rail = math.max(centerToLane, minRail);
     final top = centerY - size.height / 2;
     final rect = side == CalloutSide.right
         ? Rect.fromLTWH(rail, top, size.width, size.height)
@@ -261,10 +194,10 @@ CalloutGeometry layoutCallouts({
       height: calloutHit,
     ),
     ringOpensFamily: rects.length == 1,
-    cardTop: rects.isEmpty ? 0 : rects.last.bottom,
-    cardRailEdge: rects.isEmpty
-        ? toward * centerToLane
-        : (side == CalloutSide.right ? rects.first.left : rects.first.right),
+    cardTop: rects.last.bottom,
+    cardRailEdge: side == CalloutSide.right
+        ? rects.first.left
+        : rects.first.right,
   );
 }
 
@@ -310,10 +243,24 @@ class CalloutLeaderPainter extends CustomPainter {
 }
 
 class PlacedBranch {
-  const PlacedBranch({required this.dot, required this.lane});
+  const PlacedBranch({
+    required this.dot,
+    required this.ringHit,
+    required this.lane,
+    required this.push,
+  });
 
+  /// Ring, leader, and the story's own dot. Center taps stay on the dot.
   final Widget dot;
+
+  /// Annulus over the ring. Empty when several families share the dot.
+  final Widget ringHit;
+
+  /// Labels, already pushed out to the leader. The card stays outside this.
   final Widget lane;
+
+  /// How far the lane content sits past the column that starts at [centerToLane].
+  final double push;
 }
 
 PlacedBranch placeBranchCallout({
@@ -322,14 +269,12 @@ PlacedBranch placeBranchCallout({
   required CalloutSide side,
   required Widget dot,
   required double dotDiameter,
-  required Widget? card,
   required double centerToLane,
+  double? minCardFromRail,
   required double maxLabelWidth,
   required void Function(String familyId) onOpen,
 }) {
-  if (!frame.branchesStory) {
-    return PlacedBranch(dot: dot, lane: card ?? const SizedBox.shrink());
-  }
+  assert(frame.branchesStory);
   final style = _calloutStyle(context);
   final sizes = [
     for (final callout in frame.callouts)
@@ -339,25 +284,34 @@ PlacedBranch placeBranchCallout({
     side: side,
     dotDiameter: dotDiameter,
     centerToLane: centerToLane,
+    minCardFromRail: minCardFromRail,
     labelSizes: sizes,
   );
+  final single = frame.callouts.length == 1 ? frame.callouts.single : null;
+  final push = geometry.cardRailEdge.abs() - centerToLane;
   return PlacedBranch(
-    dot: _CalloutDot(
-      frame: frame,
-      dot: dot,
-      geometry: geometry,
-      onOpen: onOpen,
-    ),
+    dot: _CalloutVisuals(dot: dot, geometry: geometry),
+    ringHit: geometry.ringOpensFamily && single != null
+        ? _FocusOutline(
+            circle: true,
+            child: _AnnulusTap(
+              key: Key('timeline-branch-callout-ring-${frame.story.id}'),
+              innerRadius: dotDiameter / 2,
+              onTap: () => onOpen(single.familyId),
+              child: const SizedBox(width: calloutHit, height: calloutHit),
+            ),
+          )
+        : const SizedBox.shrink(),
     lane: _CalloutLane(
       frame: frame,
       geometry: geometry,
       sizes: sizes,
       style: style,
       side: side,
-      card: card,
-      centerToLane: centerToLane,
+      push: push,
       onOpen: onOpen,
     ),
+    push: push,
   );
 }
 
@@ -386,26 +340,19 @@ Size _labelSize(
   return size;
 }
 
-class _CalloutDot extends StatelessWidget {
-  const _CalloutDot({
-    required this.frame,
-    required this.dot,
-    required this.geometry,
-    required this.onOpen,
-  });
+class _CalloutVisuals extends StatelessWidget {
+  const _CalloutVisuals({required this.dot, required this.geometry});
 
-  final StoryFrame frame;
   final Widget dot;
   final CalloutGeometry geometry;
-  final void Function(String familyId) onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final single = frame.callouts.length == 1 ? frame.callouts.single : null;
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.center,
       children: [
+        const SizedBox(width: calloutHit, height: calloutHit),
         IgnorePointer(
           child: SizedBox(
             width: geometry.ringDiameter,
@@ -429,20 +376,65 @@ class _CalloutDot extends StatelessWidget {
           ),
         ),
         dot,
-        if (geometry.ringOpensFamily && single != null)
-          ExcludeSemantics(
-            child: GestureDetector(
-              key: Key('timeline-branch-callout-ring-${frame.story.id}'),
-              behavior: HitTestBehavior.translucent,
-              onTap: () => onOpen(single.familyId),
-              child: SizedBox(
-                width: geometry.ringHit.width,
-                height: geometry.ringHit.height,
-              ),
-            ),
-          ),
       ],
     );
+  }
+}
+
+class _AnnulusTap extends SingleChildRenderObjectWidget {
+  const _AnnulusTap({
+    super.key,
+    required this.innerRadius,
+    required this.onTap,
+    super.child,
+  });
+
+  final double innerRadius;
+  final VoidCallback onTap;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderAnnulusTap(innerRadius: innerRadius, onTap: onTap);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderAnnulusTap renderObject,
+  ) {
+    renderObject
+      ..innerRadius = innerRadius
+      ..onTap = onTap;
+  }
+}
+
+class _RenderAnnulusTap extends RenderProxyBox {
+  _RenderAnnulusTap({required this._innerRadius, required this._onTap});
+
+  double _innerRadius;
+  VoidCallback _onTap;
+
+  set innerRadius(double value) {
+    if (_innerRadius == value) return;
+    _innerRadius = value;
+  }
+
+  set onTap(VoidCallback value) => _onTap = value;
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (!size.contains(position)) return false;
+    final distance = (position - size.center(Offset.zero)).distance;
+    if (distance < _innerRadius || distance > size.shortestSide / 2) {
+      return false;
+    }
+    result.add(BoxHitTestEntry(this, position));
+    return true;
+  }
+
+  @override
+  void handleEvent(PointerEvent event, BoxHitTestEntry entry) {
+    if (event is PointerUpEvent) _onTap();
   }
 }
 
@@ -453,8 +445,7 @@ class _CalloutLane extends StatelessWidget {
     required this.sizes,
     required this.style,
     required this.side,
-    required this.card,
-    required this.centerToLane,
+    required this.push,
     required this.onOpen,
   });
 
@@ -463,22 +454,13 @@ class _CalloutLane extends StatelessWidget {
   final List<Size> sizes;
   final TextStyle style;
   final CalloutSide side;
-  final Widget? card;
-  final double centerToLane;
+  final double push;
   final void Function(String familyId) onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final stack = math.max(
-      geometry.ringDiameter,
-      geometry.ringOpensFamily ? geometry.ringHit.height : 0,
-    );
+    final stack = math.max(geometry.ringDiameter, calloutHit);
     final drop = math.max(0.0, stack / 2 + geometry.labelRects.first.top);
-    final push = math.max(0.0, geometry.cardRailEdge.abs() - centerToLane);
-    final cardGap = math.max(
-      0.0,
-      geometry.cardTop - geometry.labelRects.last.bottom,
-    );
     return Padding(
       padding: EdgeInsets.only(
         top: drop,
@@ -502,8 +484,6 @@ class _CalloutLane extends StatelessWidget {
               announce: !geometry.ringOpensFamily,
             ),
           ],
-          if (cardGap > 0) SizedBox(height: cardGap),
-          ?card,
         ],
       ),
     );
@@ -529,24 +509,26 @@ class _CalloutLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hit = GestureDetector(
-      key: Key('timeline-branch-callout-${callout.familyId}'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () => onOpen(callout.familyId),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: SizedBox(
-          width: size.width,
-          height: size.height,
-          child: Align(
-            alignment: side == CalloutSide.right
-                ? Alignment.centerLeft
-                : Alignment.centerRight,
-            child: Text(
-              callout.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: style,
+    final hit = _FocusOutline(
+      child: GestureDetector(
+        key: Key('timeline-branch-callout-${callout.familyId}'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => onOpen(callout.familyId),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: SizedBox(
+            width: size.width,
+            height: size.height,
+            child: Align(
+              alignment: side == CalloutSide.right
+                  ? Alignment.centerLeft
+                  : Alignment.centerRight,
+              child: Text(
+                callout.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: style,
+              ),
             ),
           ),
         ),
@@ -557,8 +539,45 @@ class _CalloutLabel extends StatelessWidget {
   }
 }
 
-/// One keyboard-focusable control for a single branch callout.
-class BranchCalloutTarget extends StatelessWidget {
+class _CalloutFocus extends InheritedWidget {
+  const _CalloutFocus({required this.focused, required super.child});
+
+  final bool focused;
+
+  static bool of(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<_CalloutFocus>()
+            ?.focused ??
+        false;
+  }
+
+  @override
+  bool updateShouldNotify(_CalloutFocus oldWidget) =>
+      focused != oldWidget.focused;
+}
+
+class _FocusOutline extends StatelessWidget {
+  const _FocusOutline({required this.child, this.circle = false});
+
+  final Widget child;
+  final bool circle;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_CalloutFocus.of(context)) return child;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        shape: circle ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: circle ? null : BorderRadius.circular(4),
+        border: Border.all(color: branchMoss, width: calloutStroke),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Keyboard focus for one branch callout. Wrap the ring and the label only.
+class BranchCalloutTarget extends StatefulWidget {
   const BranchCalloutTarget({
     super.key,
     required this.frame,
@@ -571,23 +590,37 @@ class BranchCalloutTarget extends StatelessWidget {
   final Widget child;
 
   @override
+  State<BranchCalloutTarget> createState() => _BranchCalloutTargetState();
+}
+
+class _BranchCalloutTargetState extends State<BranchCalloutTarget> {
+  var _focused = false;
+
+  @override
   Widget build(BuildContext context) {
-    if (frame.callouts.length != 1) return child;
-    final callout = frame.callouts.single;
+    if (widget.frame.callouts.length != 1) return widget.child;
+    final callout = widget.frame.callouts.single;
     return Semantics(
       button: true,
       label: callout.semanticsLabel,
-      onTap: () => onOpen(callout.familyId),
+      onTap: () => widget.onOpen(callout.familyId),
       child: Actions(
         actions: <Type, Action<Intent>>{
           ActivateIntent: CallbackAction<ActivateIntent>(
             onInvoke: (_) {
-              onOpen(callout.familyId);
+              widget.onOpen(callout.familyId);
               return null;
             },
           ),
         },
-        child: Focus(child: child),
+        child: Focus(
+          key: Key('timeline-branch-callout-focus-${widget.frame.story.id}'),
+          onFocusChange: (focused) {
+            if (_focused == focused) return;
+            setState(() => _focused = focused);
+          },
+          child: _CalloutFocus(focused: _focused, child: widget.child),
+        ),
       ),
     );
   }

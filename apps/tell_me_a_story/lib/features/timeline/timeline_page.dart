@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -689,21 +687,17 @@ class _TimelinePageState extends State<TimelinePage> {
       tree: _tree,
       stories: _published,
     );
-    final beside = branching.parentRing;
     return switch (_zoom) {
       TimelineZoom.far => _FarRail(
         bands: bands,
         focusedId: _focusedStoryId,
-        marks: branching.yearMarks,
         branching: branching,
         originStoryId: originId,
         originTag: originLabel,
-        originMark: beside,
         onDot: _openStory,
         onEmpty: _zoomOut,
         onYear: _openMidOnYear,
         onFocus: _onDialFocus,
-        onMark: (family) => _selectFamily(family.id),
         onOpenBranch: _selectFamily,
         onMid: _zoomIn,
         onFullCards: _openFullCards,
@@ -711,17 +705,14 @@ class _TimelinePageState extends State<TimelinePage> {
       TimelineZoom.mid => _MidRail(
         stories: dialStories(_published),
         focusedId: _focusedStoryId,
-        marks: branching.yearMarks,
         branching: branching,
         originStoryId: originId,
         originTag: originLabel,
-        originMark: beside,
         anchorFor: _anchor,
         onStub: _openStory,
         onNode: _openNear,
         onEmpty: _zoomOut,
         onFocus: _onDialFocus,
-        onMark: (family) => _selectFamily(family.id),
         onOpenBranch: _selectFamily,
         onMacro: _fitAll,
         onFullCards: _zoomIn,
@@ -737,16 +728,13 @@ class _TimelinePageState extends State<TimelinePage> {
           people: widget.peopleApi,
           signedInUserId: _sessionUserId(),
         ),
-        marks: branching.yearMarks,
         branching: branching,
         originStoryId: originId,
         originTag: originLabel,
-        originMark: beside,
         anchorFor: _anchor,
         onOpen: _openStory,
         onEmpty: _zoomOut,
         onFocus: _onDialFocus,
-        onMark: (family) => _selectFamily(family.id),
         onOpenBranch: _selectFamily,
         onMacro: _fitAll,
         onMid: () => setState(() => _zoom = TimelineZoom.mid),
@@ -835,16 +823,13 @@ class _FarRail extends StatefulWidget {
   const _FarRail({
     required this.bands,
     required this.focusedId,
-    required this.marks,
     required this.branching,
     this.originStoryId,
     this.originTag,
-    this.originMark,
     required this.onDot,
     required this.onEmpty,
     required this.onYear,
     required this.onFocus,
-    required this.onMark,
     required this.onOpenBranch,
     required this.onMid,
     required this.onFullCards,
@@ -852,16 +837,13 @@ class _FarRail extends StatefulWidget {
 
   final List<DecadeBand> bands;
   final String? focusedId;
-  final List<TreeFamily> marks;
   final RailBranching branching;
   final String? originStoryId;
   final String? originTag;
-  final TreeFamily? originMark;
   final ValueChanged<Story> onDot;
   final VoidCallback onEmpty;
   final ValueChanged<int> onYear;
   final ValueChanged<String> onFocus;
-  final ValueChanged<TreeFamily> onMark;
   final ValueChanged<String> onOpenBranch;
   final VoidCallback onMid;
   final VoidCallback onFullCards;
@@ -1015,51 +997,14 @@ class _FarRailState extends State<_FarRail> {
   }
 
   List<Widget> _farChildren() {
-    final rows = <Widget>[
-      for (final mark in widget.marks)
-        if (mark.branchYear == null)
-          _BranchMark(
-            family: mark,
-            onTap: () => widget.onMark(mark),
-            onRail: true,
-          ),
-    ];
-    final orphans =
-        [
-          for (final mark in widget.marks)
-            if (branchDecadeStart(mark.branchYear) case final start?
-                when !widget.bands.any((band) => band.startYear == start))
-              mark,
-        ]..sort(
-          (a, b) =>
-              branchDecadeStart(a.branchYear)!
-                  .compareTo(branchDecadeStart(b.branchYear)!),
-        );
-    var orphanIndex = 0;
-    for (var i = 0; i < widget.bands.length; i++) {
-      final band = widget.bands[i];
-      while (orphanIndex < orphans.length &&
-          branchDecadeStart(orphans[orphanIndex].branchYear)! <
-              band.startYear) {
-        final mark = orphans[orphanIndex++];
-        rows.add(
-          _BranchMark(
-            family: mark,
-            onTap: () => widget.onMark(mark),
-            onRail: true,
-          ),
-        );
-      }
-      rows.add(
+    return [
+      for (final band in widget.bands)
         _FarDecadeRow(
           key: _rowKey(band.startYear),
           band: band,
-          marks: marksOnDecade(widget.marks, band.startYear),
           branching: widget.branching,
           originStoryId: widget.originStoryId,
           originTag: widget.originTag,
-          originMark: widget.originMark,
-          onMark: widget.onMark,
           onOpenBranch: widget.onOpenBranch,
           focused: band.startYear == _centerYear,
           opacity: _opacities[band.startYear] ?? 1,
@@ -1067,19 +1012,7 @@ class _FarRailState extends State<_FarRail> {
           onDot: widget.onDot,
           onYear: widget.onYear,
         ),
-      );
-    }
-    while (orphanIndex < orphans.length) {
-      final mark = orphans[orphanIndex++];
-      rows.add(
-        _BranchMark(
-          family: mark,
-          onTap: () => widget.onMark(mark),
-          onRail: true,
-        ),
-      );
-    }
-    return rows;
+    ];
   }
 
   @override
@@ -1179,14 +1112,11 @@ class _FarDecadeRow extends StatelessWidget {
     required this.focused,
     required this.opacity,
     required this.highlight,
-    required this.marks,
     required this.branching,
     this.originStoryId,
     this.originTag,
-    this.originMark,
     required this.onDot,
     required this.onYear,
-    required this.onMark,
     required this.onOpenBranch,
   });
 
@@ -1194,14 +1124,11 @@ class _FarDecadeRow extends StatelessWidget {
   final bool focused;
   final double opacity;
   final Story? highlight;
-  final List<TreeFamily> marks;
   final RailBranching branching;
   final String? originStoryId;
   final String? originTag;
-  final TreeFamily? originMark;
   final ValueChanged<Story> onDot;
   final ValueChanged<int> onYear;
-  final ValueChanged<TreeFamily> onMark;
   final ValueChanged<String> onOpenBranch;
 
   @override
@@ -1254,6 +1181,25 @@ class _FarDecadeRow extends StatelessWidget {
         ),
       ],
     );
+    final plain = <Widget>[];
+    final branched = <Widget>[];
+    for (final story in stories) {
+      final frame = branching.frameFor(story);
+      final highlighted = focused && story.id == highlight?.id;
+      if (frame.branchesStory) {
+        branched.add(_farBranch(context, frame, highlighted: highlighted));
+        branched.addAll(_farOriginChrome(context, story));
+      } else {
+        plain.add(
+          _FarDot(
+            story: story,
+            highlighted: highlighted,
+            onTap: () => onDot(story),
+          ),
+        );
+        plain.addAll(_farOriginChrome(context, story));
+      }
+    }
     final dots = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1262,32 +1208,8 @@ class _FarDecadeRow extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            for (final story in stories)
-              if (!branching.frameFor(story).branchesStory) ...[
-                _FarDot(
-                  story: story,
-                  highlighted: focused && story.id == highlight?.id,
-                  onTap: () => onDot(story),
-                ),
-                ..._farOriginChrome(context, story),
-              ],
-            for (final story in stories)
-              if (branching.frameFor(story).branchesStory) ...[
-                _farBranch(
-                  context,
-                  story,
-                  highlighted: focused && story.id == highlight?.id,
-                ),
-                ..._farOriginChrome(context, story),
-              ],
-          ],
+          children: [...plain, ...branched],
         ),
-        for (final mark in marks)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: _BranchMark(family: mark, onTap: () => onMark(mark)),
-          ),
       ],
     );
     return Opacity(
@@ -1365,17 +1287,15 @@ class _FarDecadeRow extends StatelessWidget {
               ?.copyWith(color: albumSage, fontWeight: FontWeight.w600),
         ),
       Text(storyTitle(story)),
-      if (originMark != null)
-        _BranchMark(family: originMark!, onTap: () => onMark(originMark!)),
     ];
   }
 
   Widget _farBranch(
     BuildContext context,
-    Story story, {
+    StoryFrame frame, {
     required bool highlighted,
   }) {
-    final frame = branching.frameFor(story);
+    final story = frame.story;
     final placed = placeBranchCallout(
       context: context,
       frame: frame,
@@ -1383,23 +1303,83 @@ class _FarDecadeRow extends StatelessWidget {
       dot: _FarDot(
         story: story,
         highlighted: highlighted,
+        branched: true,
         onTap: () => onDot(story),
       ),
       dotDiameter: highlighted ? farDotHighlightedDiameter : farDotDiameter,
-      card: null,
       centerToLane: calloutHit / 2,
-      maxLabelWidth: 220,
+      maxLabelWidth: calloutLabelWidthFar,
       onOpen: onOpenBranch,
     );
-    return BranchCalloutTarget(
-      frame: frame,
-      onOpen: onOpenBranch,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [placed.dot, placed.lane],
+    return _CenterOnDot(
+      dotExtent: calloutHit,
+      child: Stack(
+        alignment: Alignment.topLeft,
+        clipBehavior: Clip.none,
+        children: [
+          BranchCalloutTarget(
+            frame: frame,
+            onOpen: onOpenBranch,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: calloutHit,
+                  height: calloutHit,
+                  child: placed.ringHit,
+                ),
+                placed.lane,
+              ],
+            ),
+          ),
+          placed.dot,
+        ],
       ),
     );
+  }
+}
+
+class _CenterOnDot extends SingleChildRenderObjectWidget {
+  const _CenterOnDot({required this.dotExtent, required super.child});
+
+  final double dotExtent;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderCenterOnDot(dotExtent);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderCenterOnDot renderObject,
+  ) {
+    renderObject.dotExtent = dotExtent;
+  }
+}
+
+class _RenderCenterOnDot extends RenderShiftedBox {
+  _RenderCenterOnDot(this._dotExtent) : super(null);
+
+  double _dotExtent;
+
+  set dotExtent(double value) {
+    if (_dotExtent == value) return;
+    _dotExtent = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    final child = this.child!;
+    child.layout(constraints.loosen(), parentUsesSize: true);
+    final childSize = child.size;
+    final pad = childSize.height > _dotExtent
+        ? childSize.height - _dotExtent
+        : 0.0;
+    size = constraints.constrain(Size(childSize.width, pad + childSize.height));
+    (child.parentData! as BoxParentData).offset = Offset(0, pad);
   }
 }
 
@@ -1408,11 +1388,13 @@ class _FarDot extends StatelessWidget {
     required this.story,
     required this.highlighted,
     required this.onTap,
+    this.branched = false,
   });
 
   final Story story;
   final bool highlighted;
   final VoidCallback onTap;
+  final bool branched;
 
   @override
   Widget build(BuildContext context) {
@@ -1422,15 +1404,15 @@ class _FarDot extends StatelessWidget {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Container(
-          width: highlighted ? 14 : 12,
-          height: highlighted ? 14 : 12,
+          width: highlighted ? farDotHighlightedDiameter : farDotDiameter,
+          height: highlighted ? farDotHighlightedDiameter : farDotDiameter,
           decoration: BoxDecoration(
             color: albumTerracotta,
             shape: BoxShape.circle,
             border: highlighted
                 ? Border.all(color: albumTerracotta, width: 2)
                 : null,
-            boxShadow: highlighted
+            boxShadow: highlighted && !branched
                 ? [
                     BoxShadow(
                       color: albumTerracotta.withValues(alpha: 0.35),
@@ -1451,17 +1433,14 @@ class _MidRail extends StatefulWidget {
   const _MidRail({
     required this.stories,
     required this.focusedId,
-    required this.marks,
     required this.branching,
     this.originStoryId,
     this.originTag,
-    this.originMark,
     required this.anchorFor,
     required this.onStub,
     required this.onNode,
     required this.onEmpty,
     required this.onFocus,
-    required this.onMark,
     required this.onOpenBranch,
     required this.onMacro,
     required this.onFullCards,
@@ -1469,17 +1448,14 @@ class _MidRail extends StatefulWidget {
 
   final List<Story> stories;
   final String? focusedId;
-  final List<TreeFamily> marks;
   final RailBranching branching;
   final String? originStoryId;
   final String? originTag;
-  final TreeFamily? originMark;
   final GlobalKey Function(String id) anchorFor;
   final ValueChanged<Story> onStub;
   final ValueChanged<Story> onNode;
   final VoidCallback onEmpty;
   final ValueChanged<String> onFocus;
-  final ValueChanged<TreeFamily> onMark;
   final ValueChanged<String> onOpenBranch;
   final VoidCallback onMacro;
   final VoidCallback onFullCards;
@@ -1635,33 +1611,10 @@ class _MidRailState extends State<_MidRail> {
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final pad = constraints.maxHeight / 2;
-                        final beside = <String, List<TreeFamily>>{};
-                        for (final mark in widget.marks) {
-                          final year = mark.branchYear;
-                          if (year == null || widget.stories.isEmpty) continue;
-                          final index = closestNewerStoryIndex(
-                            widget.stories,
-                            year,
-                          );
-                          final id = widget.stories[index].id;
-                          (beside[id] ??= []).add(mark);
-                        }
-                        final origin = widget.originMark;
-                        final originId = widget.originStoryId;
-                        if (origin != null && originId != null) {
-                          (beside[originId] ??= []).add(origin);
-                        }
                         return ListView(
                           controller: _scroll,
                           padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
                           children: [
-                            for (final mark in widget.marks)
-                              if (mark.branchYear == null)
-                                _BranchMark(
-                                  family: mark,
-                                  onTap: () => widget.onMark(mark),
-                                  onRail: true,
-                                ),
                             for (var i = 0; i < widget.stories.length; i++)
                               _DialRow(
                                 key: widget.anchorFor(widget.stories[i].id),
@@ -1669,12 +1622,10 @@ class _MidRailState extends State<_MidRail> {
                                 frame: widget.branching.frameFor(
                                   widget.stories[i],
                                 ),
-                                marks: beside[widget.stories[i].id] ?? const [],
                                 originTag:
                                     widget.stories[i].id == widget.originStoryId
                                     ? widget.originTag
                                     : null,
-                                onMark: widget.onMark,
                                 onOpenBranch: widget.onOpenBranch,
                                 cardOnLeft: i.isEven,
                                 focused: widget.stories[i].id == _centerId,
@@ -1988,18 +1939,14 @@ class _DialRow extends StatelessWidget {
     required this.opacity,
     required this.onTap,
     required this.onNode,
-    this.marks = const [],
     this.originTag,
-    this.onMark,
     required this.onOpenBranch,
   });
 
   final Story story;
   final StoryFrame frame;
   final bool cardOnLeft;
-  final List<TreeFamily> marks;
   final String? originTag;
-  final ValueChanged<TreeFamily>? onMark;
   final ValueChanged<String> onOpenBranch;
   final bool focused;
   final double opacity;
@@ -2176,153 +2123,164 @@ class _DialRow extends StatelessWidget {
             side: cardOnLeft ? CalloutSide.left : CalloutSide.right,
             dot: node,
             dotDiameter: focused ? midDotFocusedDiameter : midDotDiameter,
-            card: card,
-            centerToLane: calloutFromRail,
-            maxLabelWidth: 460,
+            centerToLane: calloutLaneOffset,
+            minCardFromRail: calloutFromRail,
+            maxLabelWidth: calloutLabelWidthDial,
             onOpen: onOpenBranch,
           )
         : null;
-    Widget sidePiece(bool show) {
+    final pushPad = placed == null
+        ? EdgeInsets.zero
+        : EdgeInsets.only(
+            left: cardOnLeft ? 0 : placed.push,
+            right: cardOnLeft ? placed.push : 0,
+          );
+    Widget sideCard(bool show) {
       if (!show) return const SizedBox.shrink();
-      return placed?.lane ?? card;
+      if (placed == null) return card;
+      return Padding(padding: pushPad, child: card);
     }
 
-    final row = Opacity(
+    Widget sideLabel(bool show) {
+      if (!show || placed == null) return const SizedBox.shrink();
+      return placed.lane;
+    }
+
+    return Opacity(
       opacity: opacity,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
+          alignment: placed == null ? Alignment.center : Alignment.topCenter,
+          clipBehavior: Clip.none,
           children: [
-            for (final mark in marks)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _BranchMark(
-                  family: mark,
-                  onTap: () => onMark?.call(mark),
-                  onRail: true,
-                  labelOnRight: cardOnLeft,
-                ),
-              ),
-            Stack(
-              alignment: Alignment.center,
-              clipBehavior: Clip.none,
-              children: [
-                Positioned.fill(
-                  child: Row(
+            const Positioned.fill(child: _RailGutter()),
+            if (placed == null)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: sideCard(cardOnLeft),
+                    ),
+                  ),
+                  const SizedBox(width: calloutGutter),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: sideCard(!cardOnLeft),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  BranchCalloutTarget(
+                    frame: frame,
+                    onOpen: onOpenBranch,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.topRight,
+                            child: sideLabel(cardOnLeft),
+                          ),
+                        ),
+                        SizedBox(
+                          width: calloutGutter,
+                          height: calloutHit,
+                          child: Center(child: placed.ringHit),
+                        ),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: sideLabel(!cardOnLeft),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Expanded(child: SizedBox.shrink()),
-                      SizedBox(
-                        width: 56,
-                        child: Stack(
-                          children: [
-                            Positioned(
-                              top: 0,
-                              bottom: 0,
-                              left: 27,
-                              width: 2,
-                              child: ColoredBox(
-                                color: albumInk.withValues(alpha: 0.16),
-                              ),
-                            ),
-                          ],
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.topRight,
+                          child: sideCard(cardOnLeft),
                         ),
                       ),
-                      const Expanded(child: SizedBox.shrink()),
+                      const SizedBox(width: calloutGutter),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: sideCard(!cardOnLeft),
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                Row(
-                  crossAxisAlignment: frame.branchesStory
-                      ? CrossAxisAlignment.start
-                      : CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Align(
-                        alignment: frame.branchesStory
-                            ? Alignment.topRight
-                            : Alignment.centerRight,
-                        child: sidePiece(cardOnLeft),
-                      ),
-                    ),
-                    const SizedBox(width: 56),
-                    Expanded(
-                      child: Align(
-                        alignment: frame.branchesStory
-                            ? Alignment.topLeft
-                            : Alignment.centerLeft,
-                        child: sidePiece(!cardOnLeft),
-                      ),
-                    ),
-                  ],
-                ),
-                if (placed != null)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: Center(child: placed.dot),
-                  )
-                else
-                  node,
-              ],
-            ),
+                ],
+              ),
+            if (placed != null)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Center(child: placed.dot),
+              )
+            else
+              node,
           ],
         ),
       ),
     );
-    if (placed == null) return row;
-    return BranchCalloutTarget(frame: frame, onOpen: onOpenBranch, child: row);
+  }
+}
+
+class _RailGutter extends StatelessWidget {
+  const _RailGutter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: SizedBox.shrink()),
+        SizedBox(
+          width: calloutGutter,
+          child: Stack(
+            children: [
+              Positioned(
+                top: 0,
+                bottom: 0,
+                left: 27,
+                width: 2,
+                child: ColoredBox(color: albumInk.withValues(alpha: 0.16)),
+              ),
+            ],
+          ),
+        ),
+        const Expanded(child: SizedBox.shrink()),
+      ],
+    );
   }
 }
 
 /// Circular dash: 2px sage stroke, 4px dash, 4px gap, transparent fill.
-class _RingDashPainter extends CustomPainter {
-  const _RingDashPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final radius = (size.shortestSide - paint.strokeWidth) / 2;
-    final center = Offset(size.width / 2, size.height / 2);
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    const dash = 4.0;
-    const gap = 4.0;
-    final circumference = 2 * math.pi * radius;
-    var traveled = 0.0;
-    while (traveled < circumference) {
-      final length = math.min(dash, circumference - traveled);
-      canvas.drawArc(rect, traveled / radius, length / radius, false, paint);
-      traveled += dash + gap;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _RingDashPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
 class _FullCardRail extends StatefulWidget {
   const _FullCardRail({
     required this.stories,
     required this.focusedId,
     required this.photos,
-    required this.marks,
     required this.branching,
     this.originStoryId,
     this.originTag,
-    this.originMark,
     required this.anchorFor,
     required this.onOpen,
     required this.onEmpty,
     required this.onFocus,
-    required this.onMark,
     required this.onOpenBranch,
     required this.onMacro,
     required this.onMid,
@@ -2332,16 +2290,13 @@ class _FullCardRail extends StatefulWidget {
   final List<Story> stories;
   final String? focusedId;
   final PhotosGateway? photos;
-  final List<TreeFamily> marks;
   final RailBranching branching;
   final String? originStoryId;
   final String? originTag;
-  final TreeFamily? originMark;
   final GlobalKey Function(String id) anchorFor;
   final ValueChanged<Story> onOpen;
   final VoidCallback onEmpty;
   final ValueChanged<String> onFocus;
-  final ValueChanged<TreeFamily> onMark;
   final ValueChanged<String> onOpenBranch;
   final VoidCallback onMacro;
   final VoidCallback onMid;
@@ -2523,12 +2478,8 @@ class _FullCardRailState extends State<_FullCardRail> {
                             pad,
                           ),
                           children: [
-                            ..._fullCardChildren(
-                              stories: widget.stories,
-                              marks: widget.marks,
-                              onMark: widget.onMark,
-                              wide: wide,
-                              cardAt: (i) => _FullCardRow(
+                            for (var i = 0; i < widget.stories.length; i++)
+                              _FullCardRow(
                                 key: widget.anchorFor(widget.stories[i].id),
                                 story: widget.stories[i],
                                 frame: widget.branching.frameFor(
@@ -2536,15 +2487,10 @@ class _FullCardRailState extends State<_FullCardRail> {
                                 ),
                                 cardOnLeft: i.isEven,
                                 wide: wide,
-                                originMark:
-                                    widget.stories[i].id == widget.originStoryId
-                                    ? widget.originMark
-                                    : null,
                                 originTag:
                                     widget.stories[i].id == widget.originStoryId
                                     ? widget.originTag
                                     : null,
-                                onMark: widget.onMark,
                                 onOpenBranch: widget.onOpenBranch,
                                 onPerson: widget.onPerson,
                                 focused: widget.stories[i].id == _centerId,
@@ -2557,7 +2503,6 @@ class _FullCardRailState extends State<_FullCardRail> {
                                 photos: widget.photos,
                                 onOpen: () => widget.onOpen(widget.stories[i]),
                               ),
-                            ),
                           ],
                         ),
                         const Positioned.fill(
@@ -2592,199 +2537,6 @@ class _FullCardRailState extends State<_FullCardRail> {
   }
 }
 
-List<Widget> _fullCardChildren({
-  required List<Story> stories,
-  required List<TreeFamily> marks,
-  required ValueChanged<TreeFamily> onMark,
-  required bool wide,
-  required Widget Function(int index) cardAt,
-}) {
-  final dated = <int, List<TreeFamily>>{};
-  final children = <Widget>[
-    for (final mark in marks)
-      if (mark.branchYear == null)
-        _BranchMark(
-          family: mark,
-          onTap: () => onMark(mark),
-          onRail: true,
-          wide: wide,
-        ),
-  ];
-  for (final mark in marks) {
-    final year = mark.branchYear;
-    if (year == null) continue;
-    final index = fullCardMarkIndex(stories, year);
-    (dated[index] ??= []).add(mark);
-  }
-  for (var i = 0; i < stories.length; i++) {
-    for (final mark in dated[i] ?? const <TreeFamily>[]) {
-      children.add(
-        _BranchMark(
-          family: mark,
-          onTap: () => onMark(mark),
-          onRail: true,
-          wide: wide,
-          labelOnRight: i.isEven,
-        ),
-      );
-    }
-    children.add(cardAt(i));
-  }
-  for (final mark in dated[stories.length] ?? const <TreeFamily>[]) {
-    children.add(
-      _BranchMark(
-        family: mark,
-        onTap: () => onMark(mark),
-        onRail: true,
-        wide: wide,
-      ),
-    );
-  }
-  return children;
-}
-
-class _BranchMark extends StatelessWidget {
-  const _BranchMark({
-    required this.family,
-    required this.onTap,
-    this.onRail = false,
-    this.wide = true,
-    this.labelOnRight = true,
-    this.inline = false,
-    this.showLabel = true,
-  });
-
-  final TreeFamily family;
-  final VoidCallback onTap;
-
-  final bool onRail;
-  final bool wide;
-
-  /// Compact ring plus label, used beside an origin dot. Skips the rail offset.
-  final bool inline;
-
-  /// Narrow full cards draw the ring alone, centered under the dot.
-  final bool showLabel;
-
-  /// Wide rail: the label sits on the side with no card. Right when that side is unknown.
-  final bool labelOnRight;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = branchMarkLabel(family);
-    final ring = const SizedBox(
-      width: 16,
-      height: 16,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: albumParchment,
-            ),
-            child: SizedBox.expand(),
-          ),
-          CustomPaint(
-            painter: _RingDashPainter(color: albumSage),
-            child: SizedBox.expand(),
-          ),
-        ],
-      ),
-    );
-    final name = Text(
-      label,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: Theme.of(context).textTheme.labelLarge
-          ?.copyWith(color: albumSage, fontWeight: FontWeight.w600),
-    );
-    final labelBeforeRing = inline
-        ? !labelOnRight
-        : onRail && wide && !labelOnRight;
-    final cluster = MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        key: Key('timeline-branch-mark-${family.id}'),
-        onTap: onTap,
-        child: Tooltip(
-          message: label,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (showLabel && labelBeforeRing) ...[
-                name,
-                const SizedBox(width: 8),
-              ],
-              ring,
-              if (showLabel && !labelBeforeRing) ...[
-                const SizedBox(width: 8),
-                name,
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-    if (inline) return cluster;
-    if (!onRail) {
-      return Align(alignment: Alignment.centerLeft, child: cluster);
-    }
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final ringCenter = wide ? constraints.maxWidth / 2 : 14.0;
-        final labelOnLeft = wide && !labelOnRight;
-        // Ring and label only. Spacers stay outside the tap target.
-        final cluster = MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            key: Key('timeline-branch-mark-${family.id}'),
-            onTap: onTap,
-            child: Tooltip(
-              message: label,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (showLabel && labelOnLeft) ...[
-                    Flexible(fit: FlexFit.loose, child: name),
-                    const SizedBox(width: 8),
-                  ],
-                  ring,
-                  if (showLabel && !labelOnLeft) ...[
-                    const SizedBox(width: 8),
-                    Flexible(fit: FlexFit.loose, child: name),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        );
-        if (labelOnLeft) {
-          final tail = math.max(0.0, constraints.maxWidth - (ringCenter + 8));
-          return Row(
-            children: [
-              Expanded(
-                child: Align(alignment: Alignment.centerRight, child: cluster),
-              ),
-              SizedBox(width: tail),
-            ],
-          );
-        }
-        final lead = math.max(0.0, ringCenter - 8);
-        return Row(
-          children: [
-            SizedBox(width: lead),
-            Expanded(
-              child: Align(alignment: Alignment.centerLeft, child: cluster),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
 class _FullCardRow extends StatelessWidget {
   const _FullCardRow({
     super.key,
@@ -2797,9 +2549,7 @@ class _FullCardRow extends StatelessWidget {
     required this.gap,
     required this.photos,
     required this.onOpen,
-    this.originMark,
     this.originTag,
-    this.onMark,
     required this.onOpenBranch,
     this.onPerson,
   });
@@ -2808,9 +2558,7 @@ class _FullCardRow extends StatelessWidget {
   final StoryFrame frame;
   final bool cardOnLeft;
   final bool wide;
-  final TreeFamily? originMark;
   final String? originTag;
-  final ValueChanged<TreeFamily>? onMark;
   final ValueChanged<String> onOpenBranch;
   final void Function(({String id, String name}) person)? onPerson;
   final bool focused;
@@ -2848,151 +2596,184 @@ class _FullCardRow extends StatelessWidget {
             context: context,
             frame: frame,
             side: !wide || !cardOnLeft ? CalloutSide.right : CalloutSide.left,
-            dot: dot,
+            dot: GestureDetector(onTap: onOpen, child: dot),
             dotDiameter: focused ? fullDotFocusedDiameter : fullDotDiameter,
-            card: card,
-            centerToLane: wide ? calloutFromRail : calloutHit / 2,
-            maxLabelWidth: 460,
+            centerToLane: wide ? calloutLaneOffset : calloutHit / 2,
+            minCardFromRail: wide ? calloutFromRail : null,
+            maxLabelWidth: calloutLabelWidthDial,
             onOpen: onOpenBranch,
           )
         : null;
-    final shownDot = placed?.dot ?? dot;
-    final shownCard = placed?.lane ?? card;
-    final moved = originMark;
-    final originRing = moved == null
-        ? null
-        : _BranchMark(
-            family: moved,
-            onTap: () => onMark?.call(moved),
-            inline: true,
-            labelOnRight: cardOnLeft,
-          );
-    if (!wide) {
-      // The slot includes the ring so it hit-tests. The dot stays at the
-      // slot centre, which the row lines up with the card.
-      const slotPad = 8.0;
-      const ringSize = 16.0;
-      final dotSize = focused ? fullDotFocusedDiameter : fullDotDiameter;
-      final slotHeight = dotSize + 2 * (slotPad + ringSize);
-      final slotWidth = placed != null ? calloutHit : 28.0;
-      return _branchTarget(
-        Padding(
+    if (placed == null) {
+      if (!wide) {
+        return Padding(
           padding: EdgeInsets.only(bottom: gap),
           child: Row(
-            crossAxisAlignment: placed == null
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(
-                width: slotWidth,
-                height: moved == null ? null : slotHeight,
-                child: moved == null
-                    ? Align(
-                        alignment: placed == null
-                            ? Alignment.center
-                            : Alignment.topCenter,
-                        child: shownDot,
-                      )
-                    : Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Align(
-                            alignment: placed == null
-                                ? Alignment.center
-                                : Alignment.topCenter,
-                            child: shownDot,
-                          ),
-                          Positioned(
-                            top: slotHeight / 2 + dotSize / 2 + slotPad,
-                            left: 0,
-                            width: 28,
-                            height: ringSize,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: _BranchMark(
-                                family: moved,
-                                onTap: () => onMark?.call(moved),
-                                inline: true,
-                                showLabel: false,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                width: 28,
+                child: Align(alignment: Alignment.center, child: dot),
               ),
-              Expanded(child: shownCard),
+              Expanded(child: card),
             ],
           ),
-        ),
-      );
-    }
-    return _branchTarget(
-      Padding(
+        );
+      }
+      return Padding(
         padding: EdgeInsets.only(bottom: gap),
         child: Stack(
-          alignment: placed == null ? Alignment.center : Alignment.topCenter,
+          alignment: Alignment.center,
           clipBehavior: Clip.none,
           children: [
-            Row(
-              crossAxisAlignment: placed == null
-                  ? CrossAxisAlignment.center
-                  : CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: FractionallySizedBox(
-                      widthFactor: 0.92,
-                      child: cardOnLeft ? shownCard : const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 56),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: 0.92,
-                      child: cardOnLeft ? const SizedBox.shrink() : shownCard,
-                    ),
-                  ),
-                ),
-              ],
-            ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Align(
                     alignment: Alignment.centerRight,
-                    child: !cardOnLeft && originRing != null
-                        ? originRing
-                        : const SizedBox.shrink(),
+                    child: FractionallySizedBox(
+                      widthFactor: 0.92,
+                      child: cardOnLeft ? card : const SizedBox.shrink(),
+                    ),
                   ),
                 ),
-                shownDot,
+                const SizedBox(width: calloutGutter),
                 Expanded(
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: cardOnLeft && originRing != null
-                        ? originRing
-                        : const SizedBox.shrink(),
+                    child: FractionallySizedBox(
+                      widthFactor: 0.92,
+                      child: cardOnLeft ? const SizedBox.shrink() : card,
+                    ),
                   ),
                 ),
               ],
             ),
+            dot,
           ],
         ),
-      ),
+      );
+    }
+    final pushPad = EdgeInsets.only(
+      left: cardOnLeft ? 0 : placed.push,
+      right: cardOnLeft ? placed.push : 0,
     );
-  }
+    if (!wide) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: gap),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Column(
+              children: [
+                BranchCalloutTarget(
+                  frame: frame,
+                  onOpen: onOpenBranch,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: calloutHit,
+                        height: calloutHit,
+                        child: placed.ringHit,
+                      ),
+                      Expanded(child: placed.lane),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: calloutHit),
+                  child: card,
+                ),
+              ],
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              width: calloutHit,
+              height: calloutHit,
+              child: Center(child: placed.dot),
+            ),
+          ],
+        ),
+      );
+    }
+    Widget fraction(Widget child) {
+      return FractionallySizedBox(widthFactor: 0.92, child: child);
+    }
 
-  Widget _branchTarget(Widget child) {
-    if (!frame.branchesStory) return child;
-    return BranchCalloutTarget(
-      frame: frame,
-      onOpen: onOpenBranch,
-      child: child,
+    return Padding(
+      padding: EdgeInsets.only(bottom: gap),
+      child: Stack(
+        alignment: Alignment.topCenter,
+        clipBehavior: Clip.none,
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BranchCalloutTarget(
+                frame: frame,
+                onOpen: onOpenBranch,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: cardOnLeft
+                            ? fraction(placed.lane)
+                            : const SizedBox.shrink(),
+                      ),
+                    ),
+                    SizedBox(
+                      width: calloutGutter,
+                      height: calloutHit,
+                      child: Center(child: placed.ringHit),
+                    ),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: cardOnLeft
+                            ? const SizedBox.shrink()
+                            : fraction(placed.lane),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: cardOnLeft
+                          ? fraction(Padding(padding: pushPad, child: card))
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                  const SizedBox(width: calloutGutter),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: cardOnLeft
+                          ? const SizedBox.shrink()
+                          : fraction(Padding(padding: pushPad, child: card)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Center(child: placed.dot),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -3009,7 +2790,7 @@ class _FullCardDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = focused ? 20.0 : 14.0;
+    final size = focused ? fullDotFocusedDiameter : fullDotDiameter;
     return Container(
       width: size,
       height: size,
