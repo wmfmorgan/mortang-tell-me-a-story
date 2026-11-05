@@ -1,12 +1,13 @@
 # #80 All Stories view + Stories nav rework (UX LOCKED)
 
-Status: **LOCKED** rev **1.2** (2026-10-30 ~8:05 PM CT: error-line color, Origin pill and card place line clarified, see Change log); rev 1.1 2026-10-30 ~6:18 PM CT (open Qs closed); rev 1.0 Bill 2026-10-30 6:10 PM CT America/Chicago ("Lock #80 UI as drafted, page opens grouped by Date"), Mugatu. Rev 1.0 locks rev 0.2 as drafted and confirms Default grouping = Date. Copy stamped by Bill 6:16 PM CT (Decisions "### #80 copy stamps"). Rev 0.2 was ~6:05 PM CT; rev 0.1 ~5:45 PM CT. Written rules win over mock quirks.
+Status: **LOCKED** rev **1.4**, 2026-11-05 ~11:19 AM CT (open questions closed ~11:49 AM CT), per Bill via Erlich. Matches PR #164 @ `17f7345` as built, except where noted. Rev 1.4 covers the header nav, the removed timeline button and Landing CTA, reader edit/delete (Rule 11), the page title `Stories`, and the Members toggle (pills behind toggle; cover dashed ring gone).
+Prior status: **LOCKED** rev **1.2** (2026-10-30 ~8:05 PM CT: error-line color, Origin pill and card place line clarified, see Change log); rev 1.1 2026-10-30 ~6:18 PM CT (open Qs closed); rev 1.0 Bill 2026-10-30 6:10 PM CT America/Chicago ("Lock #80 UI as drafted, page opens grouped by Date"), Mugatu. Rev 1.0 locks rev 0.2 as drafted and confirms Default grouping = Date. Copy stamped by Bill 6:16 PM CT (Decisions "### #80 copy stamps"). Rev 0.2 was ~6:05 PM CT; rev 0.1 ~5:45 PM CT. Written rules win over mock quirks.
 Source: PRD "#80 All Stories view + Stories nav rework", APPROVED by Bill 2026-10-30 5:28 PM CT, rev 1: https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2
 Decisions: 2026-10-30 entry, Issue #80 (Q1–Q6 locked): https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166 · Issue: https://github.com/wmfmorgan/mortang-tell-me-a-story/issues/80
 Delta baseline (main @ `7432ff4`): `docs/ux/79-family-landing.md` Rev 2.2, `docs/ux/130-header-cleanup.md` rev 1.3, `docs/ux/uxd-handoff.md` (DESIGN.md, R2, R3, M9, M12, M11a, #153 amend).
 Lane: 3. UX delta only. Does **not** reopen the #130 chrome look, the timeline (R3/M12/M13 zoom levels), the reader (M9/#153), the Search screen (M7), the Landing hero or Latest shelf, or #79 Rule 9 (return to Landing).
 
-Tokens (album_theme only, no new colors, fonts or icons): parchment `#FBF7F2`, ink `#2C2416`, terracotta `#8B5E4B`, sage `#7A8B74`, albumDialogSurface `#FFF8F6`. Story pills (#153): fill `#F6F1EB`, border `#E7DECE`, 20px radius. Branch ring (M12/M11a): 16px dashed sage hollow ring on a parchment disc. Fonts: Newsreader (headings), Source Sans 3 (UI). Material icons only.
+Tokens (album_theme only, no new colors, fonts or icons): parchment `#FBF7F2`, ink `#2C2416`, terracotta `#8B5E4B`, sage `#7A8B74`, albumDialogSurface `#FFF8F6`. Story pills (#153): fill `#F6F1EB`, border `#E7DECE`, 20px radius. Branch ring (M12/M11a): ~~16px dashed sage hollow ring on a parchment disc~~ — **removed rev 1.4** (Rule 6a). Fonts: Newsreader (headings), Source Sans 3 (UI). Material icons only.
 
 ## Primary user / JTBD (PRD Q1)
 
@@ -15,8 +16,8 @@ Any family member browsing and rediscovering the family's stories: one place to 
 ## Product locks this doc builds on (do not invent)
 
 1. **Q2:** All Stories is its own page (not an expanded Landing). The Landing button goes there.
-2. **Q3:** Header **Stories** and the Landing CTA both go to All Stories. Timelines open from All Stories. Supersedes the #79 Q1/Q6 header-Stories-to-timeline locks.
-3. **Q3b:** Landing CTA copy is `View all stories for {Family}`. Pill styling stays Mugatu's.
+2. **Q3:** Header **Stories** and the Landing CTA both go to All Stories. Timelines open from All Stories. Supersedes the #79 Q1/Q6 header-Stories-to-timeline locks. (**Rev 1.4:** the Landing CTA is removed and the current family's timeline opens from header **Timeline**. See Rules 2, 3 and 9.)
+3. **Q3b:** Landing CTA copy is `View all stories for {Family}`. Pill styling stays Mugatu's. (**Rev 1.4:** CTA removed, Rule 3.)
 4. **Q4 (all must-have):** group/sort by date, by member, by place; search that **dims** non-matches; highlight stories that spawn a timeline.
 5. **Q5 (out):** saved filters/searches; editing/curating from All Stories; cross-family search.
 6. **Q6:** search matches title, story text, and people on the story. Place is **not** a search field.
@@ -38,21 +39,22 @@ Route: new All Stories route for the current header family (route name is Gilfoy
 
 ### Rule 1: Page layout
 - Shared #130 header on top (Rule 2). Below it, one centered content column on parchment, same max width as Landing.
-- **Heading row:** Newsreader page title `All Stories` (copy needs Jared stamp) on the left; the timeline button (Rule 9) on the right.
-- **Control row** (one quiet row, same spirit as the R3 zoom row): in-page search field on the left (Rule 5), then the `Started a timeline` toggle (Rule 6), then the `Group by` segmented switch on the right (Rule 4). The status line (Rule 5/6) sits directly under it.
+- **Heading row:** Newsreader page title **`Stories`** (locked Bill ~11:49 AM CT as built in #164; was `All Stories`) on the left. **Rev 1.4:** no timeline button (Rule 9).
+- **Control row** (one quiet row, same spirit as the R3 zoom row): in-page search field on the left (Rule 5), then the `Members` toggle (Rule 6a), then the `Started a timeline` toggle (Rule 6), then the `Group by` segmented switch on the right (Rule 4). The status line (Rule 5/6) sits directly under it.
 - **Groups:** a section heading per group, then that group's story cards in a grid: 3 columns at desktop / iPad landscape, 2 at iPad portrait, 1 on phone. 24px gaps.
 - **Story card** extends #79 Rule 4: cover thumb (first story photo by sort order per #153, or parchment blank) · recorded-event line exactly as entered (M13: `1987` / `March 1987` / `March 4, 1987`) · saved title (Newsreader, 2 lines then ellipsis, no invented "Untitled") · people pills (#153 pill style) · place line (sage `location_on` + place label, falling back to the short address when the place has no label). No body text, no counts, no author line, no edit/delete/select controls (Q5).
 - The page shows the current family's published stories only. Drafts stay in Draft Stories.
-- **Pinned controls (UI decision 5):** the header stays, and the control row plus its status line pin directly under it while the groups scroll. Pinned row: parchment fill, thin ink 10% bottom border once content scrolls under it. The heading row (title + timeline button) scrolls away. Focus moving to a card scrolls it clear of the pinned row.
+- **Pinned controls (UI decision 5):** the header stays, and the control row plus its status line pin directly under it while the groups scroll. Pinned row: parchment fill, thin ink 10% bottom border once content scrolls under it. The heading row (title only, rev 1.4) scrolls away. Focus moving to a card scrolls it clear of the pinned row.
 
 ### Rule 2: Header Stories entry
 - Header nav label stays **Stories** (#130 Rule 3); its **target** changes from the timeline to **All Stories** (PRD Q3).
-- Active underline: **underlined on All Stories** and still underlined on the timeline (timeline is reached through Stories). Still **not** underlined on Landing (#79 locked UI decision 1 stands for Landing).
-- Draft Stories, search icon, New story, avatar, family switcher: unchanged (#130).
+- **Rev 1.4 (as built in #164):** Stories is underlined **only on All Stories**. The new header **Timeline** item is underlined on the timeline, and nothing is underlined on Landing (#130 rev 1.4 Rule 3).
+- **Rev 1.4:** the header also has a **Home** icon (→ Family Landing) and a **Timeline** item (→ the current family's timeline at Decades), per #130 rev 1.4 Rule 3. Draft Stories, search icon, New story, avatar and family switcher are otherwise unchanged (#130).
 - Family switch while on All Stories follows #82/M22: a different family → that family's Landing. Same-family pick → Landing (#79 Rule 9, unchanged).
 - The header search icon keeps opening the existing Search screen (#130 Rule 5 unchanged; UI decision 4). It does not open All Stories, and All Stories' in-page search does not replace it.
 
 ### Rule 3: Landing CTA change (supersedes #79 Rule 7′ copy + target)
+- **Rev 1.4 (Bill, locked as built in #164):** the Landing CTA is **removed** (#79 Rev 2.3 Rule 7′). All Stories opens from header **Stories**. The bullets below are history only.
 - Copy: `View all stories for {Family}` (PRD Q3b; `{Family}` = header family display name).
 - Target: **All Stories** (PRD Q2/Q3), not the timeline.
 - Look **unchanged** from #79 Rule 7′: centered terracotta stadium FilledButton, parchment label, Source Sans 3 18/w600, no icon, ~16×10 padding, soft elevation 1; single line with end ellipsis and full string in tooltip/semantics; still shown on the empty week. Key may stay `family-landing-view-all`.
@@ -81,11 +83,11 @@ Route: new All Stories route for the current header family (route name is Gilfoy
 
 ### Rule 6: Timeline-spawn highlight (UI decision 1: BOTH marks and toggle)
 - A story **spawns a timeline** when at least one other family's timeline was started from it (it is that family's origin story, M11a/M11b).
-- **6a. Always-on marks**, in every grouping and every state: the card's pill row starts with the #153 **Origin** pill (sage icon and text), then one family pill per branch started from it (tree icon, A–Z), then people pills. Plus the M12 **16px dashed sage hollow ring** on a parchment disc at the top-right corner of the cover photo. Not color alone: ring plus worded pills. Under any dimming, a dimmed spawn story keeps its ring and pills in the dimmed style. The Origin pill shows on **every** story that started a timeline (the family's own origin story and any story that started a branch) and always comes first in the pill row.
-- **6b. Child family's origin story (UI decision 6):** a child family's All Stories includes its origin story from the parent, with the #153/M11a `Origin · from {Parent}` tag as its Origin mark (plus the ring). It groups, searches, and counts like any other story in that family. It counts as a spawn story for the toggle (it started this timeline).
+- **6a. Always-on marks**, in every grouping and every state: the card's pill row starts with the #153 **Origin** pill (sage icon and text), then one family pill per branch started from it (tree icon, A–Z). **Rev 1.4 (Bill ~11:49 AM CT, locked as built in #164):** people pills are **not** always on; they show only when the `Members` toggle in the control row is on (stadium chip, ≥ 44px tall, between search and `Started a timeline`). The M12 **16px dashed sage hollow ring** on the cover photo is **removed**, and the dashed-ring glyph on the `Started a timeline` toggle (6c off) is gone with it. Not color alone: Origin/branch pills still carry the word. Under any dimming, a dimmed spawn story keeps its Origin/branch pills (and people pills when Members is on) in the dimmed style. The Origin pill shows on **every** story that started a timeline (the family's own origin story and any story that started a branch) and always comes first in the pill row.
+- **6b. Child family's origin story (UI decision 6):** a child family's All Stories includes its origin story from the parent, with the #153/M11a `Origin · from {Parent}` tag as its Origin mark. **Rev 1.4:** no cover ring (6a). It groups, searches, and counts like any other story in that family. It counts as a spawn story for the toggle (it started this timeline).
 - **6c. `Started a timeline` toggle** (copy needs Jared stamp) in the pinned control row, between search and `Group by`. Stadium chip, ≥ 44px tall.
-  - **Off (default):** outlined chip, ink 15% border, ink label, leading sage dashed-ring glyph (same mark as 6a, drawn small). Nothing dims because of it.
-  - **On:** filled terracotta, parchment label, leading `check` icon replaces the ring glyph. Every story that does not spawn a timeline dims with **exactly the Rule 5 dim treatment** (grayscale photo + parchment veil, text no lighter than #6A6358, still tappable). Spawn stories stay full color with the 2px terracotta border. Sections with no spawn story dim their heading. Nothing is hidden or reordered.
+  - **Off (default):** outlined chip, ink 15% border, ink label. **Rev 1.4:** no leading dashed-ring glyph (cover ring removed with 6a). Nothing dims because of it.
+  - **On:** filled terracotta, parchment label, leading `check` icon. Every story that does not spawn a timeline dims with **exactly the Rule 5 dim treatment** (grayscale photo + parchment veil, text no lighter than #6A6358, still tappable). Spawn stories stay full color with the 2px terracotta border. Sections with no spawn story dim their heading. Nothing is hidden or reordered.
   - Tap or Space/Enter flips it. It lasts for the session like Rule 4; it is not saved (Q5).
   - **Accessible name/state:** a toggle button named `Started a timeline`, exposing pressed = false/true (`aria-pressed` / Flutter `toggled`). On change the status line announces (polite live region).
 - **6d. Toggle + search combine with AND:** a story is undimmed only if it matches **every active filter**: the search query (when text is entered) **and** spawn status (when the toggle is on). Otherwise it dims. Either alone behaves as its own rule.
@@ -94,7 +96,7 @@ Route: new All Stories route for the current header family (route name is Gilfoy
 
 ### Rule 7: Empty, no-results and loading states
 - **Loading:** heading row and control row render at once; the grid shows parchment card skeletons (thumb block + two text bars) under one skeleton section heading. No spinner text. Search and the switch are usable as soon as data lands.
-- **Empty family** (no published stories): no groups; one quiet centered line `No stories yet.` (copy needs Jared stamp). Search, the toggle and the switch are disabled. The timeline button still shows. New story stays in the header as the path to create (no extra create button; curation is out, Q5).
+- **Empty family** (no published stories): no groups; one quiet centered line `No stories yet.` (copy needs Jared stamp). Search, the toggle and the switch are disabled. (Rev 1.4: there is no timeline button; header Timeline still opens the timeline.) New story stays in the header as the path to create (no extra create button; curation is out, Q5).
 - **No results:** every card dims (Rules 5–6); the status line reads the matching zero form (Rule 6e). Nothing is hidden.
 - **Load error:** quiet inline line with a Retry text button in terracotta (the line uses the theme's error role, `Theme.of(context).colorScheme.error`, currently albumTerracotta `#8B5E4B`; no new hex. Locked by Bill 2026-10-30 (via Erlich) for PR #156). Copy needs Jared stamp.
 
@@ -104,12 +106,17 @@ Route: new All Stories route for the current header family (route name is Gilfoy
 - Reader behavior, pills and menus are unchanged. Dimmed cards open the same way.
 
 ### Rule 9: Reaching a timeline from All Stories (PRD Q3)
-- **Current family's timeline:** outlined terracotta stadium pill on the right of the heading row (terracotta 1px border, terracotta label, parchment fill, no icon), label = the Jared-stamped string `View a Timeline of Stories for {Family}` moved here from Landing (Jared to confirm reuse). Opens the existing timeline (`AppRoutes.timeline`) at its default zoom. Outlined, not filled, so New story stays the only filled terracotta control in the header area.
+- **Rev 1.4 (Bill, locked as built in #164):** the heading-row timeline button is **removed**. Timelines are reached from:
+  - header **Timeline** for the current family, which opens Decades (#130 rev 1.4 Rule 3);
+  - the branch family pills on spawn cards (below, unchanged);
+  - the timeline's own branch and parent callouts (`branch-callout.md` rev 1.5).
+  The next bullet is history only.
+- ~~**Current family's timeline:**~~ (removed rev 1.4) outlined terracotta stadium pill on the right of the heading row (terracotta 1px border, terracotta label, parchment fill, no icon), label = the Jared-stamped string `View a Timeline of Stories for {Family}` moved here from Landing (Jared to confirm reuse). Opens the existing timeline (`AppRoutes.timeline`) at its default zoom. Outlined, not filled, so New story stays the only filled terracotta control in the header area.
 - **A branch family's timeline (UI decision 2):** on a spawn story card, tapping a branch family pill opens that branch's timeline (read), same as M12 marks. The card body (anywhere outside a branch pill) still opens the reader. On a child family's origin card, the `Origin · from {Parent}` tag is a label, not a link (unchanged from M11a; the parent timeline opens from the family menu / M12 ring).
-- From the timeline, header Stories returns to All Stories.
+- From the timeline, header Stories returns to All Stories (rev 1.4: header Home returns to Family Landing).
 
 ### Rule 10: Accessibility
-- **Focus order:** header → timeline button → search field → `Started a timeline` toggle → Group by switch → each section heading → its cards in reading order (row by row), with branch pills as their own stops after the card.
+- **Focus order:** header → search field (rev 1.4: no timeline button) → `Started a timeline` toggle → Group by switch → each section heading → its cards in reading order (row by row), with branch pills as their own stops after the card.
 - **Focus ring:** 2px terracotta outline with 2px parchment offset on cards, pills, switch segments and buttons; never removed. A focused dimmed card shows the same ring.
 - **Contrast:** normal text ≥ 4.5:1 everywhere, dimmed cards included (#6A6358 on parchment = 5.56:1). Terracotta on parchment = 5.18:1. Sage text (#7A8B74, 3.41:1) is the existing Origin pill token; it is only used with an icon and the word "Origin", never as the only signal.
 - **Semantics:** page title is heading level 1; each group heading is level 2 with its count. The switch is a radio group named "Group by". The status line is a polite live region. Each card is one button named "{title}, {date}, {people}"; adds ", matches" or ", not a match" while search and/or the toggle is active (Rule 6d); spawn stories add "Started the {Family} timeline". Branch pills are separate buttons named "Open the {Family} timeline".
@@ -117,6 +124,20 @@ Route: new All Stories route for the current header family (route name is Gilfoy
 - **Toggle:** toggle button named `Started a timeline`, pressed false/true (Rule 6c); state also shown by fill + check icon, not color alone.
 - **Pinned row:** stays in the tab order where it sits; content scrolled under it never hides the focused card (Rule 1).
 - **Motion:** the 240ms slide and dim transitions drop to instant under reduced motion.
+
+### Rule 11: Edit and delete your own comments and perspectives (reader, rev 1.4, locked as built in #164)
+Placed here because `docs/ux` has no story-reader doc (the reader lives in `uxd-handoff.md` M9/#153, which this lock does not edit). This is reader behavior only. All Stories still has no edit or delete controls on cards (Q5).
+- **Who:** only the author of a comment or perspective, and only when they can write in the story's family. Other people's comments and perspectives show no menu.
+- **Comment:** an overflow menu (`Comment actions`) on your own comment offers **Edit** and **Delete**.
+  - Edit swaps the comment text, in place, for the comment field without its card chrome. The field is prefilled and focused, with **Cancel** (text button) and **Save** (terracotta filled button, 44px tall).
+  - Blank text does not save. Cancel restores the old text.
+  - A failed save shows a `Try again` snackbar and keeps the edited text in the field.
+  - The menu is hidden while that comment is being edited. Starting a new comment closes any open edit.
+  - **Delete** removes the comment right away, with **no confirm dialog**. A failure shows `Try again` and keeps the comment.
+- **Perspective:** an overflow menu (`Perspective actions`) on your own perspective card offers **Edit** and **Delete**.
+  - Edit opens the existing perspective dialog prefilled, titled `Edit your perspective`, with its primary button reading **Save** instead of `Publish perspective`.
+  - **Delete** asks first, in a blurred family dialog titled `Delete this perspective?`, with Cancel and a terracotta `Delete perspective` button.
+  - A failed delete shows `Try again` and keeps the card.
 
 ## Supersedes
 
@@ -150,7 +171,7 @@ Route: new All Stories route for the current header family (route name is Gilfoy
 10. `uxd-handoff.md` R2 "Timeline" bullet → `Stories (was Timeline, #130). Opens All Stories for the current family (#80); the timeline opens from there.`
 
 ## Locked UI decisions (Bill 2026-10-30 6:01 PM CT, via Erlich; doc still DRAFT pending lock)
-1. **Spawn highlight = both:** always-on Origin/branch pills + dashed sage ring, **and** a `Started a timeline` toggle in the pinned row that dims all other stories with the search dim treatment (Rule 6).
+1. **Spawn highlight = both:** always-on Origin/branch pills (**rev 1.4:** cover dashed sage ring removed; people pills behind Members), **and** a `Started a timeline` toggle in the pinned row that dims all other stories with the search dim treatment (Rule 6).
 2. **Branch pill** on a card opens that branch's timeline; the card body still opens the reader (Rule 9).
 3. **Group by Member:** a story repeats under each person tagged; `No one tagged` group for none (Rule 4).
 4. **Header search icon** keeps opening the existing Search screen; #130 Rule 5 unchanged (Rule 2).
@@ -158,7 +179,10 @@ Route: new All Stories route for the current header family (route name is Gilfoy
 6. **Child family's All Stories** includes its `Origin · from {Parent}` story with its Origin mark (Rule 6b).
 
 ## Open UI questions
-None open. Closed rev 1.1:
+
+None.
+
+Closed rev 1.1:
 1. ~~Jared copy stamps~~ — CLOSED: Bill stamped all #80 copy 2026-10-30 6:16 PM CT (Decisions "### #80 copy stamps", https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166). C4 load error = `Couldn't load stories.` + `Retry`; C5 reuses `View a Timeline of Stories for {Family}` on All Stories. Decisions is the copy source of truth.
 2. ~~Bill lock~~ — CLOSED: Bill locked this doc 2026-10-30 6:10 PM CT, default grouping = Date (Rule 4).
 
@@ -184,11 +208,21 @@ Mock quirks (written rules win):
 - C: the "Unassigned location" subtext under `No place yet` is filler; drop it.
 - D: the timeline button picked up a leading chart icon; Rule 9 says no icon. Dimmed text may render lighter than #6A6358; Rule 5 floor wins. The 1970s heading should dim (Rule 5) even if the mock barely shows it.
 - B/C: dimming and status line are D/E-only; A–C show no search or toggle state.
-- E (PNG `/workspace/m80/E_all-stories-started-timeline.png`): toggle ON chip keeps the ring glyph and puts the check **trailing**; Rule 6c wins (check leading, replaces ring). Dimmed text renders lighter than the #6A6358 floor; Rule 5/6c wins. Spawn-card ring reads small/faint; Rule 6a wins (16px dashed sage). Wedding cover is drawn as an inset photo-in-frame; ordinary cover crop applies.
+- E (PNG `/workspace/m80/E_all-stories-started-timeline.png`): toggle ON chip keeps the ring glyph and puts the check **trailing**; Rule 6c wins (check leading; **rev 1.4:** no ring glyph). Dimmed text renders lighter than the #6A6358 floor; Rule 5/6c wins. Spawn-card ring in the mock is obsolete; **rev 1.4 Rule 6a** removes the cover ring. Wedding cover is drawn as an inset photo-in-frame; ordinary cover crop applies.
 
 ## Hand-off
 
-LOCKED rev 1.2. UI locked by Bill 2026-10-30 6:10 PM CT; copy stamped by Bill 6:16 PM CT (Decisions "### #80 copy stamps"). Erlich applies the patch list in docs PR #155 (Mugatu cannot push); Gilfoyle confirms place data (PRD Assumption 1), date precision (Assumption 2) and how "started a timeline" is read (Assumption 3).
+LOCKED rev 1.4 (2026-11-05 ~11:19 AM CT, Bill via Erlich; open questions closed ~11:49 AM CT; matches #164 as built). Rev 1.2: UI locked by Bill 2026-10-30 6:10 PM CT; copy stamped by Bill 6:16 PM CT (Decisions "### #80 copy stamps"). Erlich applies the patch list in docs PR #155 (Mugatu cannot push); Gilfoyle confirms place data (PRD Assumption 1), date precision (Assumption 2) and how "started a timeline" is read (Assumption 3).
 
-Change log: rev 1.2 (2026-10-30 ~8:05 PM CT) — (1) Rule 7 load error: replaced "existing error token `#9F403D`" with the theme's error role `Theme.of(context).colorScheme.error` (currently albumTerracotta `#8B5E4B`), no new hex; locked by Bill 2026-10-30 (via Erlich) for PR #156. `#9F403D` was named nowhere else. (2) Rule 6a: clarified the Origin pill shows on every story that started a timeline (own origin story and any story that started a branch) and comes first in the pill row. (3) Rule 1 story card: clarified the place line shows the place label, falling back to the short address when no label exists. (4) Status line and Hand-off updated to LOCKED rev 1.2. No other rule, screen or copy changed.
+Change log: rev 1.4 (2026-11-05 ~11:19 AM CT, Bill via Erlich; open Qs closed ~11:49 AM CT): locked as built in PR #164 @ `17f7345`.
+- Header Stories is underlined only on All Stories. Home and Timeline are added (Rule 2).
+- The Landing CTA is removed (Rule 3).
+- The heading-row timeline button is removed, and timelines are reached from header Timeline, branch pills and timeline callouts (Rules 1, 7, 9, 10).
+- New Rule 11 covers reader edit and delete for your own comments and perspectives.
+- Page title locked as `Stories` (Rule 1). Members toggle locked: people pills behind the toggle; cover dashed ring and toggle ring glyph removed (Rule 6a / 6c).
+- Rev 1.3 is skipped: that number belongs to a parked, unlocked draft.
+
+Source: `apps/tell_me_a_story/lib/core/theme/album_header.dart:147-172`, `:333-358` and `:920-936`; `apps/tell_me_a_story/lib/features/all_stories/all_stories_page.dart:292-306` (heading, timeline button deleted) and `:410-462` (Members toggle); `all_stories_card.dart:142-145` and `:210-269` (pills, cover ring deleted); `family_landing_page.dart` (`_AllStoriesCta` deleted); `comments/comment_composer.dart:57-71`, `:99-124` and `:221-262`; `perspectives/add_perspective_page.dart:274-281` and `:463`; `stories/story_reader_page.dart:318-374`, `:858-911`, `:1118-1131` and `:1431-1456`. All at `17f7345`.
+
+rev 1.2 (2026-10-30 ~8:05 PM CT) — (1) Rule 7 load error: replaced "existing error token `#9F403D`" with the theme's error role `Theme.of(context).colorScheme.error` (currently albumTerracotta `#8B5E4B`), no new hex; locked by Bill 2026-10-30 (via Erlich) for PR #156. `#9F403D` was named nowhere else. (2) Rule 6a: clarified the Origin pill shows on every story that started a timeline (own origin story and any story that started a branch) and comes first in the pill row. (3) Rule 1 story card: clarified the place line shows the place label, falling back to the short address when no label exists. (4) Status line and Hand-off updated to LOCKED rev 1.2. No other rule, screen or copy changed.
 rev 1.1 (2026-10-30 ~6:18 PM CT) — closed Open UI Qs 1–2 (copy stamped 6:16 PM CT; lock 6:10 PM CT) and updated Hand-off to LOCKED; no rule, screen or copy text changed.

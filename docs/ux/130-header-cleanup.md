@@ -1,6 +1,7 @@
-# #130 Cleanup the Header (UX rev 1.3, LOCKED)
+# #130 Cleanup the Header (UX rev 1.4, LOCKED)
 
-Status: LOCKED 2026-10-27 7:58 PM CT by Bill via Erlich (UI Qs 1–5 + screens A/B). **Amended 2026-10-27 ~9:00 PM CT** — Bill visual correction via Erlich: closed family name is **single-line** with **more room before ellipsis** (supersedes Q1 wrap). **Amended 2026-10-28 ~5:33 AM CT** — Bill smoke via Erlich: closed family control must have **no grey/filled bar** (transparent; name + chevron only); Rule 4 flex/ellipsis/tooltip stay. Written rules win over mock quirks. **Amended 2026-10-28 ~5:48 AM CT** — Bill smoke FAIL via Erlich @ `bb08e71`: grey bar still visible (smaller). Closed family at rest must **blend into parchment** — transparent **or** exact `albumParchment` (#FBF7F2); **FORBIDDEN** any filled grey / Material / InkWell surface / chip at rest (including default `PopupMenuButton` chrome).
+Status (rev 1.4): **LOCKED**, 2026-11-05 ~11:19 AM CT (open questions closed ~11:49 AM CT), per Bill via Erlich. Matches PR #164 @ `17f7345` as built, except where noted. Rule 3 and the nav cluster line are amended (Home icon, Timeline item, Stories active state). Home icon hit target and name locked ~11:49 AM CT.
+Prior status: LOCKED 2026-10-27 7:58 PM CT by Bill via Erlich (UI Qs 1–5 + screens A/B). **Amended 2026-10-27 ~9:00 PM CT** — Bill visual correction via Erlich: closed family name is **single-line** with **more room before ellipsis** (supersedes Q1 wrap). **Amended 2026-10-28 ~5:33 AM CT** — Bill smoke via Erlich: closed family control must have **no grey/filled bar** (transparent; name + chevron only); Rule 4 flex/ellipsis/tooltip stay. Written rules win over mock quirks. **Amended 2026-10-28 ~5:48 AM CT** — Bill smoke FAIL via Erlich @ `bb08e71`: grey bar still visible (smaller). Closed family at rest must **blend into parchment** — transparent **or** exact `albumParchment` (#FBF7F2); **FORBIDDEN** any filled grey / Material / InkWell surface / chip at rest (including default `PopupMenuButton` chrome).
 Source: PRD "Cleanup the Header (#130)", APPROVED by Bill 2026-10-27 7:45 PM CT (via Erlich): https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2 . Decisions entry 2026-10-27 #130: https://app.notion.com/p/3e0c4bcef238818d8f00c50e88a46166 . Issue: https://github.com/wmfmorgan/mortang-tell-me-a-story/issues/130
 Amends: R2 Timeline header; #121 family-menu UX (`docs/ux/121-family-menu.md`) labels and dropdown order; **rev 1.1** Q1/Rule 4 (single-line family name + more flex before ellipsis); **rev 1.2** closed control transparent (no grey bar); **rev 1.3** closed control must match parchment — forbid any Material/grey fill at rest. #82 switch rules, invite flow, search screen, wordmark, profile menu, and reader header are unchanged.
 UI only. No membership, invite-rule, or search-filter change.
@@ -27,10 +28,14 @@ UI only. No membership, invite-rule, or search-filter change.
 - Story reader menu item: **"Add a family branch from this story"** (replaces "Add a timeline branch from this story").
 - Visibility, flow, fields, buttons, and other dialog copy stay as #121 / M11b. Snack / "Create timeline" button stay as #121 Open Q8 default (unchanged).
 
-## Rule 3: Nav labels
-- Shared-header nav: **"Stories"** (was "Timeline"). Active underline on the Stories route as today. Target: All Stories (#80), was the timeline.
-- Shared-header nav: **"Draft Stories"** (was "Drafts"). Sibling of Stories.
-- Routes and behavior unchanged.
+## Rule 3: Nav labels (amended rev 1.4, locked as built in #164)
+- Nav order after the family switcher: **Home icon** · **Stories** · **Timeline** · **Draft Stories**, then the search icon.
+- **Home:** Material `Icons.home`, 26px, terracotta, with no text label. Tap → Family Landing (`AppRoutes.familyLanding`) for the current family. On Landing it does nothing. It has no active underline. (This is the only new icon in the header. It is a Material icon, as the Visual spec requires.)
+- **Home hit target and name (Bill ~11:49 AM CT):** the Home control's tap area is **≥ 44×44px**. Accessible name and tooltip: **`Home`**. (As built in #164 the padded icon is about 30×34px with no tooltip or semantics; the PR must enlarge the hit target and add the name.)
+- **Stories:** label unchanged. Tap → All Stories for the current header family (#80). With no current family it opens the timeline route. On All Stories it does nothing. **Active underline only on All Stories**, not on the timeline any more.
+- **Timeline** (new text item, same style as Stories): tap → the timeline for the current family at **Decades** (`?view=decades`). On the timeline it switches the view back to Decades. **Active underline on the timeline**, at any zoom.
+- **Draft Stories** (was "Drafts"): unchanged, a sibling of Stories.
+- Nothing is underlined on Family Landing.
 
 ## Rule 4: Closed family control — single line, more room before ellipsis, parchment blend (no grey)
 - The closed header family switcher (name + `expand_more`) stays on **one line**. **No wrap.**
@@ -75,7 +80,7 @@ Tokens from `album_theme.dart` only: `albumParchment` #FBF7F2, `albumTerracotta`
 - Header height 72px, parchment, thin ink 15% bottom border: unchanged.
 - Closed family switcher at rest: **blends into parchment** — transparent or exact `albumParchment` `#FBF7F2`. Name + chevron only. **FORBIDDEN** any grey/Material chip or filled surface (even label-sized). **Rev 1.3.**
 - Right cluster after #130: search icon → New story (terracotta) → avatar. No Invite button. **Even gaps** between the three controls (re-spaced after Invite removal — not the old leftover gaps).
-- Nav cluster: Stories | Draft Stories (Source Sans 3). Active = ink underline on the current route.
+- Nav cluster (rev 1.4): Home icon | Stories | Timeline | Draft Stories (Source Sans 3 for the text items). Active = ink underline on the current route (Rule 3).
 
 ## Screens (Stitch project 12192342757314667328)
 | # | Screen | Stitch id | URL | PNG |
@@ -99,6 +104,10 @@ Mock quirks (written rules win):
 4. Search icon color at rest: ink or sage? **LOCKED 2026-10-27 7:57 PM CT (Bill via Erlich, verbatim: "#130 UI Q4: option 1 — Ink (#2C2416) — matches other header chrome; sage stays for dropdown action icons")**: Ink (#2C2416) — matches other header chrome; sage stays for dropdown action icons.
 5. After Invite moves into the menu, does the header right cluster keep the same gaps as today minus the Invite control? **LOCKED 2026-10-27 7:58 PM CT (Bill via Erlich, verbatim: "#130 UI Q5: option 2 — Re-space the cluster (new even gaps between search / New story / avatar)")**: Re-space — new even gaps between search / New story / avatar.
 
+## Open UI questions
+
+None.
+
 ## Out of scope
 New invite rules, search filters, wordmark/profile, reader header chrome, membership/#82.
 
@@ -108,3 +117,7 @@ New invite rules, search filters, wordmark/profile, reader header chrome, member
 - **Rev 1.1 amend locked 2026-10-27 ~9:00 PM CT (Bill via Erlich):** Rule 4 / Q1 → single-line family name + more room before ellipsis. Erlich: docs amend on `docs/ux/130-header-cleanup.md` (Mugatu cannot push). Coding + Spec-match may proceed against this amend; format-only CI fix on #139 is untouched.
 - **Rev 1.2 amend locked 2026-10-28 ~5:33 AM CT (Bill smoke via Erlich):** Rule 4 → closed family control transparent (no grey bar). Keep single-line flex + ellipsis + tooltip/semantics. Erlich: docs amend on `docs/ux/130-header-cleanup.md` (Mugatu cannot push). Merge #139 held until coding lands this on the PR; Spec/Arch/CQ recheck after push.
 - **Rev 1.3 amend locked 2026-10-28 ~5:48 AM CT (Bill smoke FAIL via Erlich):** Rule 4 → closed family blends into parchment (transparent or exact `albumParchment` `#FBF7F2`); FORBIDDEN any grey/Material filled surface at rest (Bill still saw a smaller grey chip @ `bb08e71`). Keep single-line flex + ellipsis + tooltip/semantics. Erlich: docs amend on `docs/ux/130-header-cleanup.md` (Mugatu cannot push). Coding held until this lock; Spec/Arch/CQ/visual recheck after push.
+- **Rev 1.4 amend locked 2026-11-05 ~11:19 AM CT (Bill via Erlich); Home hit/name locked ~11:49 AM CT:** header nav locked as built in PR #164 @ `17f7345`: Home icon, a new Timeline item (opens Decades), and Stories underlined only on All Stories (Rule 3, Visual spec nav cluster). Home tap area ≥ 44×44 with tooltip/semantics `Home`. No open UI questions.
+
+## Change log
+rev 1.4 (2026-11-05 ~11:19 AM CT, Bill via Erlich; Home hit/name locked ~11:49 AM CT): Rule 3 and the Visual spec nav-cluster line now match #164 as built. Home tap area ≥ 44×44 with tooltip/semantics `Home` (PR must enlarge from ~30×34 and add the name). No open UI questions. Source: `apps/tell_me_a_story/lib/core/theme/album_header.dart:147-172` (`_openHome`, `_openDecades`, `_openTimeline`), `:333-358` (nav row and active states), `:920-936` (`_HomeNav`), at `17f7345`.
