@@ -2085,13 +2085,15 @@ class _DialRow extends StatelessWidget {
                     color: frame.parent != null ? branchMoss : albumTerracotta,
                     width: 2,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: albumInk.withValues(alpha: 0.08),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  boxShadow: frame.parent != null
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: albumInk.withValues(alpha: 0.08),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                 )
               : const BoxDecoration(),
           child: Padding(
@@ -3406,7 +3408,7 @@ class _FullCard extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(albumCardRadius),
-            boxShadow: branched
+            boxShadow: branched || (focused && parentOrigin)
                 ? null
                 : [
                     BoxShadow(

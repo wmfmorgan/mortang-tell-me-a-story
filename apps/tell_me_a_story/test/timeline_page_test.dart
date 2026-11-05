@@ -3866,9 +3866,11 @@ void main() {
             )
             .first,
       );
-      final yearsBorder = (yearsBox.decoration as BoxDecoration).border?.top;
+      final yearsDecoration = yearsBox.decoration as BoxDecoration;
+      final yearsBorder = yearsDecoration.border?.top;
       expect(yearsBorder?.color, branchMoss);
       expect(yearsBorder?.width, 2);
+      expect(yearsDecoration.boxShadow, isNull);
       expect(_ancestorScale(tester, stub), 1);
 
       await tester.tap(find.byKey(const Key('timeline-zoom-full')));
@@ -3880,6 +3882,10 @@ void main() {
       final side = (material.shape! as RoundedRectangleBorder).side;
       expect(side.color, branchMoss);
       expect(side.width, 2);
+      final daysBox = tester.widget<DecoratedBox>(
+        find.descendant(of: card, matching: find.byType(DecoratedBox)).first,
+      );
+      expect((daysBox.decoration as BoxDecoration).boxShadow, isNull);
       expect(_cardScale(tester, card), 1);
     },
   );
