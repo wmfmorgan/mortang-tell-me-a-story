@@ -3498,40 +3498,17 @@ void main() {
 
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
-    final daysDot = tester.getCenter(
-      find.byKey(const Key('timeline-full-dot-$origin')),
-    );
-    final daysParent = tester.getCenter(
-      find.byKey(const Key('timeline-branch-callout-$parent')),
-    );
-    final daysChild = tester.getCenter(
-      find.byKey(const Key('timeline-branch-callout-$bea')),
-    );
-    expect(daysParent.dy, lessThan(daysDot.dy));
-    expect(daysParent.dx, greaterThan(daysDot.dx));
-    expect(daysChild.dy, greaterThan(daysDot.dy));
-    expect(daysChild.dx, greaterThan(daysDot.dx));
-    final daysCard = tester.getTopLeft(
+    expect(find.text('The WFM Morgans Branch'), findsOneWidget);
+    expect(find.text('Bea Branch'), findsOneWidget);
+    final daysCard = tester.getRect(
       find.byKey(const Key('timeline-card-$origin')),
     );
-    expect(daysParent.dy, lessThan(daysCard.dy));
-    expect(daysChild.dy, lessThan(daysCard.dy));
-    final daysLeaders = _calloutLeaders(tester);
-    expect(daysLeaders, hasLength(2));
-    final daysParentLeader = daysLeaders.firstWhere(
-      (leader) => leader.start.dy < 0,
-    );
-    expect(
-      (daysParentLeader.elbow.dx - daysParentLeader.start.dx).abs(),
-      closeTo(calloutDiagonal, 0.01),
-    );
-    expect(
-      (daysParentLeader.elbow.dy - daysParentLeader.start.dy).abs(),
-      closeTo(calloutDiagonal, 0.01),
-    );
+    final daysStart = _leaderStart(tester);
+    expect(daysStart.dx, closeTo(daysCard.center.dx, 3));
+    expect(daysStart.dy, closeTo(daysCard.top - calloutLeaderGap, 3));
   });
 
-  testWidgets('a days parent callout matches the decade parent', (
+  testWidgets('a days parent callout follows the card at the decade angle', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
@@ -3584,27 +3561,28 @@ void main() {
     expect(parentText.data, 'The WFM Morgans Branch');
     expect(parentText.style?.color, branchMoss);
     expect(parentText.style?.fontWeight, FontWeight.w500);
-    expect(
-      parentText.style?.fontSize,
-      Theme.of(tester.element(parentName)).textTheme.labelLarge?.fontSize,
-    );
-    expect(parentText.style?.fontSize, isNot(calloutParentFontSize));
+    expect(parentText.style?.fontSize, calloutDaysParentFontSize);
+    expect(parentText.style?.fontSize, greaterThan(calloutParentFontSize));
     expect(find.text('Origin · from The WFM Morgans'), findsOneWidget);
     final dotFinder = find.byKey(const Key('timeline-full-dot-$origin'));
-    expect(_mossRingOn(tester, dotFinder), isTrue);
-    final dot = tester.getCenter(dotFinder);
-    final label = tester.getCenter(parentName);
-    final cardTop = tester.getTopLeft(
+    expect(_mossRingOn(tester, dotFinder), isFalse);
+    final cardRect = tester.getRect(
       find.byKey(const Key('timeline-card-$origin')),
     );
-    expect(label.dy, lessThan(dot.dy));
-    expect(label.dx, greaterThan(dot.dx));
-    expect(label.dy, lessThan(cardTop.dy));
-    expect(tester.getBottomLeft(dotFinder).dy, lessThanOrEqualTo(cardTop.dy));
+    expect(
+      (tester.getCenter(dotFinder).dy - cardRect.center.dy).abs(),
+      lessThanOrEqualTo(1),
+    );
+    final label = tester.getCenter(parentName);
+    expect(label.dx, greaterThanOrEqualTo(0));
+    expect(label.dy, lessThan(cardRect.top));
+    final start = _leaderStart(tester);
+    expect(label.dx, lessThan(start.dx));
+    expect(start.dx, closeTo(cardRect.center.dx, 3));
+    expect(start.dy, closeTo(cardRect.top - calloutLeaderGap, 3));
     final leader = _calloutLeaders(tester).single;
-    expect(leader.start.dx, greaterThan(0));
-    expect(leader.start.dy, lessThan(0));
-    expect(leader.start.dx.abs(), closeTo(leader.start.dy.abs(), 0.01));
+    expect(leader.start.dx, closeTo(0, 0.01));
+    expect(leader.start.dy, closeTo(-calloutLeaderGap, 0.01));
     expect(
       (leader.elbow.dx - leader.start.dx).abs(),
       closeTo(calloutDiagonal, 0.01),
@@ -3613,10 +3591,10 @@ void main() {
       (leader.elbow.dy - leader.start.dy).abs(),
       closeTo(calloutDiagonal, 0.01),
     );
-    expect(leader.elbow.dx, greaterThan(leader.start.dx));
+    expect(leader.elbow.dx, lessThan(leader.start.dx));
     expect(leader.elbow.dy, lessThan(leader.start.dy));
     expect(leader.end.dy, closeTo(leader.elbow.dy, 0.01));
-    expect(leader.end.dx, greaterThan(leader.elbow.dx));
+    expect(leader.end.dx, lessThan(leader.elbow.dx));
 
     await tester.tap(parentName);
     await tester.pumpAndSettle();
@@ -3787,8 +3765,9 @@ void main() {
       final originDot = find.byKey(const Key('timeline-full-dot-$origin'));
       expect(find.text('Parent Branch'), findsOneWidget);
       expect(
-        tester.getBottomLeft(originDot).dy,
-        lessThanOrEqualTo(tester.getTopLeft(originCard).dy),
+        (tester.getCenter(originDot).dy - tester.getCenter(originCard).dy)
+            .abs(),
+        lessThanOrEqualTo(1),
       );
       expect(
         (tester
@@ -3848,6 +3827,25 @@ void main() {
     await tester.pump();
     expect(tester.getTopLeft(card), laidOut);
   });
+}
+
+Offset _leaderStart(WidgetTester tester) {
+  final elements = find
+      .byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint && widget.painter is CalloutLeaderPainter,
+      )
+      .evaluate()
+      .toList();
+  for (final element in elements) {
+    final painter =
+        (element.widget as CustomPaint).painter! as CalloutLeaderPainter;
+    final leader = painter.leaders.single;
+    if (elements.length > 1 && leader.start.dy >= 0) continue;
+    final box = element.renderObject! as RenderBox;
+    return box.localToGlobal(box.size.center(Offset.zero) + leader.start);
+  }
+  fail('no parent leader');
 }
 
 Offset _leaderEnd(WidgetTester tester) {

@@ -2781,121 +2781,260 @@ class _FullCardRailState extends State<_FullCardRail> {
   }
 }
 
-/// Days parent callout. The mark is the decade parent: moss ring, theme
-/// label, and a 45° leader off the upper-right of the ring. The story dot
-/// stays on the rail and the card sits below the mark, so the label is clear
-/// of the card.
-Widget _daysParentRow({
-  required double gap,
-  required bool wide,
-  required bool cardOnLeft,
-  required Widget card,
-  required DecadeParentMark mark,
-}) {
-  Widget wideCard(bool show) {
-    if (!show) return const SizedBox.shrink();
-    return FractionallySizedBox(widthFactor: 0.92, child: card);
-  }
+const _narrowFullDotColumn = 28.0;
 
-  return Padding(
-    padding: EdgeInsets.only(bottom: gap),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _PinDotOnRail(
-          dotCenterX: mark.dotCenterX,
-          railX: wide ? null : _narrowFullDotCenter,
-          child: mark.child,
-        ),
-        if (wide)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: wideCard(cardOnLeft),
-                ),
-              ),
-              const SizedBox(width: calloutGutter),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: wideCard(!cardOnLeft),
-                ),
-              ),
-            ],
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(left: _narrowFullDotColumn),
-            child: card,
-          ),
-      ],
-    ),
-  );
+/// Layout facts for the story card, written by [_DaysCardProbe] during its
+/// own layout. The row reads these fields instead of a descendant's size.
+class _DaysCardSlot {
+  Size layoutSize = Size.zero;
+  double scale = 1;
+  RenderBox? box;
 }
 
-const _narrowFullDotColumn = 28.0;
-const _narrowFullDotCenter = _narrowFullDotColumn / 2;
-
-/// Puts [child]'s story-dot center on the rail. [railX] is that x in this
-/// widget. A null [railX] uses the horizontal center, which is the wide spine.
-class _PinDotOnRail extends SingleChildRenderObjectWidget {
-  const _PinDotOnRail({
-    required this.dotCenterX,
-    required this.railX,
+/// Wraps the focused card so the parent callout can find its corner without
+/// reading a descendant's [RenderBox.size] during layout.
+class _DaysCardProbe extends SingleChildRenderObjectWidget {
+  const _DaysCardProbe({
+    required this.slot,
+    required this.scale,
     required super.child,
   });
 
-  final double dotCenterX;
-  final double? railX;
+  final _DaysCardSlot slot;
+  final double scale;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return _RenderPinDotOnRail(dotCenterX, railX);
+    return _RenderDaysCardProbe(slot, scale);
   }
 
   @override
   void updateRenderObject(
     BuildContext context,
-    _RenderPinDotOnRail renderObject,
+    _RenderDaysCardProbe renderObject,
   ) {
     renderObject
-      ..dotCenterX = dotCenterX
-      ..railX = railX;
+      ..slot = slot
+      ..scale = scale;
   }
 }
 
-class _RenderPinDotOnRail extends RenderShiftedBox {
-  _RenderPinDotOnRail(this._dotCenterX, this._railX) : super(null);
+class _RenderDaysCardProbe extends RenderProxyBox {
+  _RenderDaysCardProbe(this._slot, this._scale);
 
-  double _dotCenterX;
-  double? _railX;
+  _DaysCardSlot _slot;
+  double _scale;
 
-  set dotCenterX(double value) {
-    if (_dotCenterX == value) return;
-    _dotCenterX = value;
+  set slot(_DaysCardSlot value) {
+    if (_slot == value) return;
+    if (_slot.box == this) _slot.box = null;
+    _slot = value;
     markNeedsLayout();
   }
 
-  set railX(double? value) {
-    if (_railX == value) return;
-    _railX = value;
+  set scale(double value) {
+    if (_scale == value) return;
+    _scale = value;
     markNeedsLayout();
   }
 
   @override
   void performLayout() {
-    final child = this.child!;
-    child.layout(constraints.loosen(), parentUsesSize: true);
-    final width = constraints.hasBoundedWidth
-        ? constraints.maxWidth
-        : child.size.width;
-    size = constraints.constrain(Size(width, child.size.height));
-    final rail = _railX ?? size.width / 2;
-    (child.parentData! as BoxParentData).offset = Offset(rail - _dotCenterX, 0);
+    super.performLayout();
+    _slot
+      ..layoutSize = size
+      ..scale = _scale
+      ..box = this;
+  }
+
+  @override
+  void detach() {
+    if (_slot.box == this) _slot.box = null;
+    super.detach();
+  }
+}
+
+/// Days parent callout. The leader matches the decade parent: 45°, then
+/// horizontal. It meets the top center of the story card and runs to the
+/// card's own side. A left card runs left. A right card runs right. Narrow
+/// cards sit to the right of the spine, so the label runs right. The label is
+/// larger than the years parent.
+///
+/// The label is a sibling of the row so the space above the card stays inside
+/// the hit region. The row is not shifted in x, so the spine dot stays put.
+class _DaysAttachedCallout extends StatefulWidget {
+  const _DaysAttachedCallout({
+    required this.anchor,
+    required this.callout,
+    required this.body,
+  });
+
+  /// Point in [callout] that sits on the top center of the card.
+  final Offset anchor;
+  final Widget callout;
+  final Widget Function(_DaysCardSlot slot) body;
+
+  @override
+  State<_DaysAttachedCallout> createState() => _DaysAttachedCalloutState();
+}
+
+class _DaysAttachedCalloutState extends State<_DaysAttachedCallout> {
+  final _slot = _DaysCardSlot();
+
+  @override
+  Widget build(BuildContext context) {
+    return _DaysAttachedCalloutBox(
+      slot: _slot,
+      anchor: widget.anchor,
+      callout: widget.callout,
+      body: widget.body(_slot),
+    );
+  }
+}
+
+class _DaysAttachedCalloutBox extends MultiChildRenderObjectWidget {
+  _DaysAttachedCalloutBox({
+    required this.slot,
+    required this.anchor,
+    required Widget body,
+    required Widget callout,
+  }) : super(children: [body, callout]);
+
+  final _DaysCardSlot slot;
+  final Offset anchor;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderDaysAttachedCallout(slot: slot, anchor: anchor);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderDaysAttachedCallout renderObject,
+  ) {
+    renderObject
+      ..slot = slot
+      ..anchor = anchor;
+  }
+}
+
+class _RenderDaysAttachedCallout extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _HangParentParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _HangParentParentData> {
+  _RenderDaysAttachedCallout({
+    required _DaysCardSlot slot,
+    required Offset anchor,
+  }) : _slot = slot,
+       _anchor = anchor;
+
+  _DaysCardSlot _slot;
+  Offset _anchor;
+
+  set slot(_DaysCardSlot value) {
+    if (_slot == value) return;
+    _slot = value;
+    markNeedsLayout();
+  }
+
+  set anchor(Offset value) {
+    if (_anchor == value) return;
+    _anchor = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _HangParentParentData) {
+      child.parentData = _HangParentParentData();
+    }
+  }
+
+  /// [target]'s top-left in [ancestor]'s coordinates. Sums parent offsets, so
+  /// it does not read a descendant's size. Proxy boxes keep the base
+  /// [ParentData] and paint the child at their own origin, which adds nothing.
+  Offset? _offsetWithin(RenderBox target, RenderBox ancestor) {
+    var offset = Offset.zero;
+    RenderObject? node = target;
+    while (node != null && node != ancestor) {
+      final data = node.parentData;
+      if (data is BoxParentData) offset += data.offset;
+      node = node.parent;
+    }
+    if (node != ancestor) return null;
+    return offset;
+  }
+
+  /// Painted top center of the card in [body]'s coordinates. Focus scale grows
+  /// the card from its center, so the top edge sits above the layout box.
+  Offset? _cardTop(RenderBox body) {
+    final box = _slot.box;
+    if (box == null || !box.attached) return null;
+    final origin = _offsetWithin(box, body);
+    if (origin == null) return null;
+    final size = _slot.layoutSize;
+    final scale = _slot.scale;
+    final center = origin + Offset(size.width / 2, size.height / 2);
+    final layoutTop = origin + Offset(size.width / 2, 0);
+    return center + (layoutTop - center) * scale;
+  }
+
+  @override
+  void performLayout() {
+    final body = firstChild;
+    final callout = body == null ? null : childAfter(body);
+    if (body == null || callout == null) {
+      size = constraints.smallest;
+      return;
+    }
+    body.layout(constraints, parentUsesSize: true);
+    callout.layout(const BoxConstraints(), parentUsesSize: true);
+
+    final top = _cardTop(body);
+    var bodyOffset = Offset.zero;
+    var calloutOffset = Offset.zero;
+    if (top != null) {
+      calloutOffset = top - _anchor;
+      // The focus scale and the leader both reach above the card. Drop the
+      // row so that reach stays inside this box. Shift the row in y only:
+      // an x shift would pull the spine dot off center.
+      if (calloutOffset.dy < 0) {
+        final dy = -calloutOffset.dy;
+        calloutOffset = Offset(calloutOffset.dx, 0);
+        bodyOffset = Offset(0, dy);
+      }
+    }
+    final width = math.max(
+      body.size.width,
+      math.max(0.0, calloutOffset.dx) + callout.size.width,
+    );
+    final height = math.max(
+      bodyOffset.dy + body.size.height,
+      calloutOffset.dy + callout.size.height,
+    );
+    size = constraints.constrain(Size(width, height));
+    (body.parentData! as _HangParentParentData).offset = bodyOffset;
+    (callout.parentData! as _HangParentParentData).offset = calloutOffset;
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    return defaultHitTestChildren(result, position: position);
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (hitTestChildren(result, position: position)) {
+      result.add(BoxHitTestEntry(this, position));
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    defaultPaint(context, offset);
   }
 }
 
@@ -2931,46 +3070,52 @@ class _FullCardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (frame.parent == null) return _row(context, null);
+    // Same side as the card, matching the days child callout. The 45° run
+    // leaves the top center toward that side.
+    final side = !wide || !cardOnLeft ? CalloutSide.right : CalloutSide.left;
+    final overlay = parentCalloutOverlay(
+      context: context,
+      frame: frame,
+      side: side,
+      maxLabelWidth: calloutLabelWidthDial,
+      onOpen: onOpenBranch,
+      fontSize: calloutDaysParentFontSize,
+      extraRun: 0,
+    );
+    return _DaysAttachedCallout(
+      anchor: overlay.anchor,
+      callout: Opacity(opacity: opacity.clamp(0, 1), child: overlay.child),
+      body: (slot) => _row(context, slot),
+    );
+  }
+
+  Widget _row(BuildContext context, _DaysCardSlot? slot) {
+    final storyCard = _FullCard(
+      story: story,
+      focused: focused,
+      branched: frame.branchesStory,
+      photos: photos,
+      originTag: originTag,
+      onOpen: onOpen,
+      onPerson: onPerson,
+    );
+    // Narrow rows skip the scale. A 1.05 card overflows the right edge,
+    // and focus there is the 20px dot plus the focused card chrome.
+    // A branch card keeps scale 1 so focus does not shift it.
+    final scale = wide && focused && !frame.branchesStory ? 1.05 : 1.0;
+    final scaled = Transform.scale(scale: scale, child: storyCard);
     final card = Opacity(
       opacity: opacity.clamp(0, 1),
-      child: Transform.scale(
-        // Narrow rows skip the scale. A 1.05 card overflows the right edge,
-        // and focus there is the 20px dot plus the focused card chrome.
-        // A branch card keeps scale 1 so focus does not shift it.
-        scale: wide && focused && !frame.branchesStory ? 1.05 : 1,
-        child: _FullCard(
-          story: story,
-          focused: focused,
-          branched: frame.branchesStory,
-          photos: photos,
-          originTag: originTag,
-          onOpen: onOpen,
-          onPerson: onPerson,
-        ),
-      ),
+      child: slot == null
+          ? scaled
+          : _DaysCardProbe(slot: slot, scale: scale, child: scaled),
     );
     final dot = _FullCardDot(
       key: Key('timeline-full-dot-${story.id}'),
       focused: focused,
       branched: frame.branchesStory,
     );
-    if (frame.parent != null) {
-      return _daysParentRow(
-        gap: gap,
-        wide: wide,
-        cardOnLeft: cardOnLeft,
-        card: card,
-        mark: decadeParentMark(
-          context: context,
-          frame: frame,
-          dot: GestureDetector(onTap: onOpen, child: dot),
-          dotDiameter: focused ? fullDotFocusedDiameter : fullDotDiameter,
-          centerToLane: calloutHit / 2,
-          maxLabelWidth: calloutLabelWidthFar,
-          onOpen: onOpenBranch,
-        ),
-      );
-    }
     final placed = frame.branchesStory
         ? placeBranchCallout(
             context: context,

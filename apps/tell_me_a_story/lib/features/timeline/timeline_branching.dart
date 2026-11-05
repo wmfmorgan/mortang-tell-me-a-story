@@ -19,6 +19,9 @@ const calloutParentLift = 8.0;
 
 /// Years parent label. Decade callouts stay on the theme's label size.
 const calloutParentFontSize = 16.0;
+
+/// Days parent label. Larger than the years parent, under the story title.
+const calloutDaysParentFontSize = 20.0;
 const calloutStackGap = 4.0;
 const calloutHit = 44.0;
 const calloutMinRun = 24.0;
@@ -398,23 +401,14 @@ PlacedBranch placeBranchCallout({
 }
 
 class DecadeParentMark {
-  const DecadeParentMark({
-    required this.child,
-    required this.dotTop,
-    required this.dotCenterX,
-  });
+  const DecadeParentMark({required this.child, required this.dotTop});
 
   /// Ring, leaders, dot, and labels. The dot box starts at [dotTop].
   final Widget child;
-
-  /// Y of the dot box in [child].
   final double dotTop;
-
-  /// X of the story-dot center in [child].
-  final double dotCenterX;
 }
 
-/// Parent mark for an origin story. Decades and Days both use it. The parent
+/// Decade mark for an origin story that has a parent timeline. The parent
 /// label sits above and to the right. A moss ring circles the dot, and the
 /// leader is the child callout mirrored onto the upper 45° point.
 /// Child callouts, when the same story also started a branch, stay below it.
@@ -536,7 +530,6 @@ DecadeParentMark decadeParentMark({
   );
   return DecadeParentMark(
     dotTop: above,
-    dotCenterX: dotCenterX,
     child: single == null
         ? mark
         : BranchCalloutTarget(
@@ -550,27 +543,37 @@ DecadeParentMark decadeParentMark({
 class ParentCalloutOverlay {
   const ParentCalloutOverlay({required this.child, required this.anchor});
 
-  /// Leader and label. [anchor] is the point in [child] that sits on the
-  /// card's top center.
+  /// Leader and label. [anchor] is the point in [child] that meets the card.
   final Widget child;
   final Offset anchor;
 }
 
 /// Years parent link. The leader meets the top center of the card and the
 /// label sits on [side], the side the card occupies, lifted clear of the
-/// card at the decade parent size. No ring.
+/// card. No ring.
+///
+/// Days passes a larger [fontSize] and [extraRun] 0, then pins [anchor] to
+/// the top center of the story card. The leader is the decade shape: 45°,
+/// then horizontal, running out along [side].
 ParentCalloutOverlay parentCalloutOverlay({
   required BuildContext context,
   required StoryFrame frame,
   required CalloutSide side,
   required double maxLabelWidth,
   required void Function(String familyId) onOpen,
+  bool themeLabel = false,
+  double? fontSize,
+  double extraRun = calloutParentLift,
 }) {
   final parent = frame.parent;
   assert(parent != null);
   final link = parent!;
-  final parentStyle = _calloutStyle(context)
-      .copyWith(fontSize: calloutParentFontSize);
+  final base = _calloutStyle(context);
+  final parentStyle = fontSize != null
+      ? base.copyWith(fontSize: fontSize)
+      : themeLabel
+      ? base
+      : base.copyWith(fontSize: calloutParentFontSize);
   final parentSize = _labelSize(
     context,
     link.label,
@@ -584,7 +587,7 @@ ParentCalloutOverlay parentCalloutOverlay({
     labelSizes: [parentSize],
     rise: CalloutRise.up,
     aroundRing: false,
-    extraRun: calloutParentLift,
+    extraRun: extraRun,
   );
   final rect = geometry.labelRects.single;
   final leader = geometry.leaders.single;
@@ -676,16 +679,25 @@ Size _labelSize(
   TextStyle style,
   double maxWidth,
 ) {
-  final painter = TextPainter(
+  final painter = _labelPainter(context, text, style, maxWidth);
+  final size = Size(painter.width, math.max(painter.height, calloutHit));
+  painter.dispose();
+  return size;
+}
+
+TextPainter _labelPainter(
+  BuildContext context,
+  String text,
+  TextStyle style,
+  double maxWidth,
+) {
+  return TextPainter(
     text: TextSpan(text: text, style: style),
     maxLines: 1,
     ellipsis: '…',
     textDirection: Directionality.of(context),
     textScaler: MediaQuery.textScalerOf(context),
   )..layout(maxWidth: maxWidth);
-  final size = Size(painter.width, math.max(painter.height, calloutHit));
-  painter.dispose();
-  return size;
 }
 
 class _CalloutVisuals extends StatelessWidget {
