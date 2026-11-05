@@ -304,6 +304,45 @@ void main() {
     expect(geometry.cardRailEdge, geometry.labelRects.first.left);
   });
 
+  test('an upward ring leader mirrors the child joint onto the top', () {
+    const dot = 12.0;
+    final down = layoutCallouts(
+      side: CalloutSide.right,
+      dotDiameter: dot,
+      centerToLane: calloutHit / 2,
+      labelSizes: const [Size(120, 44)],
+    );
+    final up = layoutCallouts(
+      side: CalloutSide.right,
+      dotDiameter: dot,
+      centerToLane: calloutHit / 2,
+      labelSizes: const [Size(120, 44)],
+      rise: CalloutRise.up,
+    );
+    final child = down.leaders.single;
+    final parent = up.leaders.single;
+    expect(parent.start.dx, closeTo(child.start.dx, 0.01));
+    expect(parent.start.dy, closeTo(-child.start.dy, 0.01));
+    expect(parent.start.dx, greaterThan(0));
+    expect(parent.start.dy, lessThan(0));
+    expect(
+      (parent.elbow.dx - parent.start.dx).abs(),
+      closeTo((parent.elbow.dy - parent.start.dy).abs(), 0.01),
+    );
+    expect(parent.elbow.dx, greaterThan(parent.start.dx));
+    expect(parent.elbow.dy, lessThan(parent.start.dy));
+    expect(
+      (parent.elbow.dy - parent.start.dy).abs(),
+      closeTo(calloutDiagonal + calloutParentLift, 0.01),
+    );
+    expect(
+      (child.elbow.dy - child.start.dy).abs(),
+      closeTo(calloutDiagonal, 0.01),
+    );
+    expect(parent.end.dy, closeTo(parent.elbow.dy, 0.01));
+    expect(parent.end.dx, greaterThan(parent.elbow.dx));
+  });
+
   test('an upward leader leaves the top and runs to the left', () {
     const dot = 12.0;
     const label = Size(120, 44);

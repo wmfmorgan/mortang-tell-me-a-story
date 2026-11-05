@@ -3328,6 +3328,7 @@ void main() {
     expect(parentText.data, 'The WFM Morgans · 1995');
     expect(parentText.style?.color, branchMoss);
     expect(parentText.style?.fontWeight, FontWeight.w500);
+    expect(parentText.style?.fontSize, calloutParentFontSize);
     expect(
       find.byKey(const Key('timeline-branch-callout-ring-$origin')),
       findsNothing,
@@ -3361,8 +3362,9 @@ void main() {
       ),
     );
     final leader = _calloutLeaders(tester).single;
-    expect(leader.start.dx, closeTo(0, 0.01));
+    expect(leader.start.dx, greaterThan(0));
     expect(leader.start.dy, lessThan(0));
+    expect(leader.start.dx.abs(), closeTo(leader.start.dy.abs(), 0.01));
     expect(leader.elbow.dx, greaterThan(leader.start.dx));
     expect(leader.elbow.dy, lessThan(leader.start.dy));
     expect(
@@ -3468,7 +3470,10 @@ void main() {
     expect(leaders, hasLength(2));
     expect(
       leaders.any(
-        (leader) => leader.start.dy < 0 && leader.start.dx.abs() < 0.01,
+        (leader) =>
+            leader.start.dy < 0 &&
+            leader.start.dx > 0 &&
+            (leader.start.dx - leader.start.dy.abs()).abs() < 0.01,
       ),
       isTrue,
     );

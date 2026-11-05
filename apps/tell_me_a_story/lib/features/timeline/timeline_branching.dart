@@ -13,6 +13,12 @@ const calloutDotGap = 2.0;
 const calloutLeaderGap = 2.0;
 const calloutLabelGap = 6.0;
 const calloutDiagonal = 16.0;
+
+/// Extra 45° run that lifts a decade parent callout off the story dot.
+const calloutParentLift = 8.0;
+
+/// Decade parent label. Child callouts stay on the theme's label size.
+const calloutParentFontSize = 16.0;
 const calloutStackGap = 4.0;
 const calloutHit = 44.0;
 const calloutMinRun = 24.0;
@@ -234,16 +240,20 @@ CalloutGeometry layoutCallouts({
   final attach =
       (aroundRing ? outerRadius : dotDiameter / 2) + calloutLeaderGap;
   final ray = attach / math.sqrt(2);
-  // Child links leave the lower-right. A parent link leaves the top.
-  final start = rise == CalloutRise.down
-      ? Offset(toward * ray, ray)
-      : Offset(0, -attach);
-  final elbowX = start.dx + toward * calloutDiagonal;
+  // A ring link leaves on the 45° point: lower-right for a child, the
+  // matching upper point for a parent. A card link leaves the top center.
+  final start = rise == CalloutRise.up && !aroundRing
+      ? Offset(0, -attach)
+      : Offset(toward * ray, vertical * ray);
+  final run =
+      calloutDiagonal +
+      (rise == CalloutRise.up && aroundRing ? calloutParentLift : 0);
+  final elbowX = start.dx + toward * run;
   final minRail = elbowX.abs() + calloutMinRun + calloutLabelGap;
   final rail = math.max(minCardFromRail ?? centerToLane, minRail);
   final leaders = <CalloutLeader>[];
   final rects = <Rect>[];
-  var centerY = start.dy + vertical * calloutDiagonal;
+  var centerY = start.dy + vertical * run;
   for (final size in labelSizes) {
     final top = centerY - size.height / 2;
     final rect = side == CalloutSide.right
@@ -400,8 +410,8 @@ class DecadeParentMark {
 
 /// Decade mark for an origin story that has a parent timeline. The parent
 /// label sits above and to the right. A moss ring circles the dot, and the
-/// leader meets the top of that ring. Child callouts, when the same story
-/// also started a branch, stay below it.
+/// leader leaves the upper 45° point, the mirror of a child callout.
+/// Child callouts, when the same story also started a branch, stay below it.
 DecadeParentMark decadeParentMark({
   required BuildContext context,
   required StoryFrame frame,
@@ -415,7 +425,13 @@ DecadeParentMark decadeParentMark({
   assert(parent != null);
   final link = parent!;
   final style = _calloutStyle(context);
-  final parentSize = _labelSize(context, link.label, style, maxLabelWidth);
+  final parentStyle = style.copyWith(fontSize: calloutParentFontSize);
+  final parentSize = _labelSize(
+    context,
+    link.label,
+    parentStyle,
+    maxLabelWidth,
+  );
   final up = layoutCallouts(
     side: CalloutSide.right,
     dotDiameter: dotDiameter,
@@ -502,7 +518,7 @@ DecadeParentMark decadeParentMark({
           child: _CalloutLabel(
             callout: link,
             size: parentSize,
-            style: style,
+            style: parentStyle,
             side: CalloutSide.right,
             onOpen: onOpen,
             announce: single == null,
