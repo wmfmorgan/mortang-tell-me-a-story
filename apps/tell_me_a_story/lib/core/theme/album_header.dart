@@ -615,12 +615,14 @@ double _textWidth(String text, TextStyle style) {
 /// Horizontal padding on Home and each nav label. Shared with [_rigidWidth].
 const _navPadH = 2.0;
 
-/// [_HomeNav] icon. Shared with [_homeWidth].
+/// [_HomeNav] icon. The tap target is [_homeHit], not this size.
 const _homeIconSize = 26.0;
 
-/// Home is an icon, so it has no [TextPainter]. Its width is the icon plus
-/// the same horizontal padding the nav labels add on top of [_textWidth].
-double _homeWidth() => _homeIconSize + _navPadH * 2;
+/// Home tap target. Shared with [_homeWidth].
+const _homeHit = 44.0;
+
+/// Home is an icon button. Its width is the 44px target, not the glyph.
+double _homeWidth() => _homeHit;
 
 class _Wordmark extends StatelessWidget {
   const _Wordmark();
@@ -953,12 +955,25 @@ class _HomeNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return IconButton(
       key: const Key('header-nav-home'),
-      onTap: onTap,
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: _navPadH, vertical: 4),
-        child: Icon(Icons.home, color: albumTerracotta, size: _homeIconSize),
+      tooltip: 'Home',
+      onPressed: onTap,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(
+        width: _homeHit,
+        height: _homeHit,
+      ),
+      style: IconButton.styleFrom(
+        foregroundColor: albumTerracotta,
+        fixedSize: const Size(_homeHit, _homeHit),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      icon: const Icon(
+        Icons.home,
+        color: albumTerracotta,
+        size: _homeIconSize,
+        semanticLabel: 'Home',
       ),
     );
   }

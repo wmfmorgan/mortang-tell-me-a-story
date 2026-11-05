@@ -153,6 +153,14 @@ void main() {
     expect(icon.color, albumTerracotta);
     expect(icon.size, 26);
     expect(
+      tester.getSize(find.byKey(const Key('header-nav-home'))),
+      const Size(44, 44),
+    );
+    expect(find.byTooltip('Home'), findsOneWidget);
+    final semantics = tester.ensureSemantics();
+    expect(find.bySemanticsLabel('Home'), findsOneWidget);
+    semantics.dispose();
+    expect(
       tester.getRect(find.byIcon(Icons.home)).center.dy,
       closeTo(tester.getRect(find.text('Stories')).center.dy, 1),
     );

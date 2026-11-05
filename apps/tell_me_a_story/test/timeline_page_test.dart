@@ -3808,6 +3808,82 @@ void main() {
     },
   );
 
+  testWidgets(
+    'a focused parent origin card has a moss border and does not scale',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const parent = '00000000-0000-0000-0000-0000000000aa';
+      const origin = 'origin-story';
+      await tester.pumpWidget(
+        _timeline(
+          stories: _FakeStoriesApi(
+            published: [
+              _published(
+                id: origin,
+                familyId: parent,
+                title: 'The beginning',
+                timeframeStart: DateTime(1974),
+              ),
+            ],
+          ),
+          families: _TreeFamilies(
+            mine: [
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(1970),
+                parentFamilyId: parent,
+              ),
+            ],
+            tree: const [
+              TreeFamily(id: parent, name: 'Parent'),
+              TreeFamily(
+                id: _familyId,
+                name: 'Ada',
+                parentFamilyId: parent,
+                originStoryId: origin,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+      await tester.pumpAndSettle();
+
+      final stub = find.byKey(const Key('timeline-stub-$origin'));
+      final yearsBox = tester.widget<DecoratedBox>(
+        find
+            .descendant(
+              of: stub,
+              matching: find.byWidgetPredicate((widget) {
+                if (widget is! DecoratedBox) return false;
+                final decoration = widget.decoration;
+                return decoration is BoxDecoration &&
+                    decoration.borderRadius == BorderRadius.circular(12);
+              }),
+            )
+            .first,
+      );
+      final yearsBorder = (yearsBox.decoration as BoxDecoration).border?.top;
+      expect(yearsBorder?.color, branchMoss);
+      expect(yearsBorder?.width, 2);
+      expect(_ancestorScale(tester, stub), 1);
+
+      await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+      await tester.pumpAndSettle();
+      final card = find.byKey(const Key('timeline-card-$origin'));
+      final material = tester.widget<Material>(
+        find.ancestor(of: card, matching: find.byType(Material)).first,
+      );
+      final side = (material.shape! as RoundedRectangleBorder).side;
+      expect(side.color, branchMoss);
+      expect(side.width, 2);
+      expect(_cardScale(tester, card), 1);
+    },
+  );
+
   testWidgets('a focused wide branch card stays put', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -3918,6 +3994,16 @@ double _cardScale(WidgetTester tester, Finder card) {
     return true;
   });
   return transform!.transform.storage[0];
+}
+
+double _ancestorScale(WidgetTester tester, Finder card) {
+  var scale = 1.0;
+  tester.element(card).visitAncestorElements((ancestor) {
+    final widget = ancestor.widget;
+    if (widget is Transform) scale *= widget.transform.storage[0];
+    return true;
+  });
+  return scale;
 }
 
 bool _containsFinder(WidgetTester tester, Finder ancestor, Finder descendant) {

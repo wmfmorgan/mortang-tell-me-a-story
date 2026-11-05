@@ -2081,7 +2081,10 @@ class _DialRow extends StatelessWidget {
               ? BoxDecoration(
                   color: const Color(0xFFFFF8F6),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: albumTerracotta, width: 2),
+                  border: Border.all(
+                    color: frame.parent != null ? branchMoss : albumTerracotta,
+                    width: 2,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: albumInk.withValues(alpha: 0.08),
@@ -3101,6 +3104,7 @@ class _FullCardRow extends StatelessWidget {
       story: story,
       focused: focused,
       branched: frame.branchesStory,
+      parentOrigin: frame.parent != null,
       photos: photos,
       originTag: originTag,
       onOpen: onOpen,
@@ -3108,8 +3112,12 @@ class _FullCardRow extends StatelessWidget {
     );
     // Narrow rows skip the scale. A 1.05 card overflows the right edge,
     // and focus there is the 20px dot plus the focused card chrome.
-    // A branch card keeps scale 1 so focus does not shift it.
-    final scale = wide && focused && !frame.branchesStory ? 1.05 : 1.0;
+    // A branch card and a parent-origin card stay at 1 so focus does not
+    // shift them.
+    final scale =
+        wide && focused && !frame.branchesStory && frame.parent == null
+        ? 1.05
+        : 1.0;
     final scaled = Transform.scale(scale: scale, child: storyCard);
     final card = Opacity(
       opacity: opacity.clamp(0, 1),
@@ -3350,6 +3358,7 @@ class _FullCard extends StatelessWidget {
     required this.story,
     required this.focused,
     required this.branched,
+    required this.parentOrigin,
     required this.photos,
     required this.onOpen,
     this.originTag,
@@ -3359,6 +3368,7 @@ class _FullCard extends StatelessWidget {
   final Story story;
   final bool focused;
   final bool branched;
+  final bool parentOrigin;
   final PhotosGateway? photos;
   final VoidCallback onOpen;
   final String? originTag;
@@ -3381,7 +3391,7 @@ class _FullCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(albumCardRadius),
         side: BorderSide(
-          color: branched
+          color: branched || (focused && parentOrigin)
               ? branchMoss
               : focused
               ? albumTerracotta
@@ -3404,7 +3414,7 @@ class _FullCard extends StatelessWidget {
                       blurRadius: focused ? 24 : 8,
                       offset: Offset(0, focused ? 8 : 2),
                     ),
-                    if (focused)
+                    if (focused && !parentOrigin)
                       BoxShadow(
                         color: const Color(0xFFF5DED6).withValues(alpha: 0.3),
                         spreadRadius: 4,
