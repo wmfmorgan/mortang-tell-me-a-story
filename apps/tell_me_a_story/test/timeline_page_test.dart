@@ -2223,8 +2223,8 @@ void main() {
       const TreeFamily(id: 'open', name: 'Open'),
     ], 'open');
     expect(marks.map((row) => row.id).toList(), ['a', 'c', 'b']);
-    expect(branchMarkLabel(bea), 'Bea');
-    expect(branchMarkLabel(ada), 'Ada · 1972');
+    expect(branchMarkLabel(bea), 'Bea Branch');
+    expect(branchMarkLabel(ada), 'Ada Branch');
   });
 
   testWidgets('one family paints no branch mark and no related block', (
@@ -2299,7 +2299,7 @@ void main() {
       storyId: 's1',
       dotKey: 'timeline-dot-s1',
       familyId: bea,
-      label: 'Bea',
+      label: 'Bea Branch',
     );
     expect(find.textContaining('Bea ·'), findsNothing);
     expect(find.byKey(Key('timeline-dot-$bea')), findsNothing);
@@ -2311,7 +2311,7 @@ void main() {
       storyId: 's1',
       dotKey: 'timeline-mid-node-s1',
       familyId: bea,
-      label: 'Bea',
+      label: 'Bea Branch',
     );
     _expectMossCard(tester, 's1', days: false);
     expect(
@@ -2345,7 +2345,7 @@ void main() {
       storyId: 's1',
       dotKey: 'timeline-full-dot-s1',
       familyId: bea,
-      label: 'Bea',
+      label: 'Bea Branch',
     );
     _expectMossCard(tester, 's1', days: true);
 
@@ -2416,7 +2416,7 @@ void main() {
       storyId: 'mid',
       dotKey: 'timeline-dot-mid',
       familyId: bea,
-      label: 'Bea · 1972',
+      label: 'Bea Branch',
     );
     expect(
       _containsFinder(
@@ -2434,7 +2434,7 @@ void main() {
       storyId: 'mid',
       dotKey: 'timeline-mid-node-mid',
       familyId: bea,
-      label: 'Bea · 1972',
+      label: 'Bea Branch',
     );
     _expectMossCard(tester, 'mid', days: false);
     expect(
@@ -2449,7 +2449,7 @@ void main() {
       storyId: 'mid',
       dotKey: 'timeline-full-dot-mid',
       familyId: bea,
-      label: 'Bea · 1972',
+      label: 'Bea Branch',
     );
     _expectMossCard(tester, 'mid', days: true);
   });
@@ -2501,7 +2501,7 @@ void main() {
       storyId: 'mid',
       dotKey: 'timeline-mid-node-mid',
       familyId: bea,
-      label: 'Bea · 1972',
+      label: 'Bea Branch',
     );
     _expectMossCard(tester, 'mid', days: false);
 
@@ -2512,7 +2512,7 @@ void main() {
       storyId: 'mid',
       dotKey: 'timeline-full-dot-mid',
       familyId: bea,
-      label: 'Bea · 1972',
+      label: 'Bea Branch',
     );
     _expectMossCard(tester, 'mid', days: true);
   });
@@ -2554,7 +2554,7 @@ void main() {
       storyId: 'first',
       dotKey: 'timeline-dot-first',
       familyId: bea,
-      label: 'Bea',
+      label: 'Bea Branch',
     );
     expect(find.textContaining('Bea ·'), findsNothing);
 
@@ -2565,7 +2565,7 @@ void main() {
       storyId: 'first',
       dotKey: 'timeline-mid-node-first',
       familyId: bea,
-      label: 'Bea',
+      label: 'Bea Branch',
     );
     _expectMossCard(tester, 'first', days: false);
 
@@ -2576,7 +2576,7 @@ void main() {
       storyId: 'first',
       dotKey: 'timeline-full-dot-first',
       familyId: bea,
-      label: 'Bea',
+      label: 'Bea Branch',
     );
     _expectMossCard(tester, 'first', days: true);
     expect(find.text('First tale'), findsOneWidget);
@@ -2624,7 +2624,7 @@ void main() {
       storyId: 'first',
       dotKey: 'timeline-full-dot-first',
       familyId: bea,
-      label: 'Bea',
+      label: 'Bea Branch',
     );
     _expectMossCard(tester, 'first', days: true);
     final card = find.byKey(const Key('timeline-card-first'));
@@ -3101,7 +3101,7 @@ void main() {
       storyId: 'ada',
       dotKey: 'timeline-dot-ada',
       familyId: bea,
-      label: 'Bea',
+      label: 'Bea Branch',
     );
 
     final ring = find.byKey(const Key('timeline-branch-callout-ring-ada'));
@@ -3325,10 +3325,13 @@ void main() {
     final parentText = tester.widget<Text>(
       find.descendant(of: parentName, matching: find.byType(Text)),
     );
-    expect(parentText.data, 'The WFM Morgans · 1995');
+    expect(parentText.data, 'The WFM Morgans Branch');
     expect(parentText.style?.color, branchMoss);
     expect(parentText.style?.fontWeight, FontWeight.w500);
-    expect(parentText.style?.fontSize, calloutParentFontSize);
+    expect(
+      parentText.style?.fontSize,
+      Theme.of(tester.element(parentName)).textTheme.labelLarge?.fontSize,
+    );
     expect(
       find.byKey(const Key('timeline-branch-callout-ring-$origin')),
       findsNothing,
@@ -3379,11 +3382,20 @@ void main() {
     expect(find.text('Origin · from The WFM Morgans'), findsOneWidget);
     final yearsLabel = find.byKey(const Key('timeline-branch-callout-$parent'));
     expect(yearsLabel, findsOneWidget);
+    final yearsText = tester.widget<Text>(
+      find.descendant(of: yearsLabel, matching: find.byType(Text)),
+    );
+    expect(yearsText.data, 'The WFM Morgans Branch');
+    expect(yearsText.style?.fontSize, calloutParentFontSize);
     final card = tester.getRect(find.byKey(const Key('timeline-stub-$origin')));
-    final yearsCenter = tester.getCenter(yearsLabel);
-    expect(yearsCenter.dy, lessThan(card.top));
-    expect(yearsCenter.dx, lessThan(card.center.dx));
+    final yearsRect = tester.getRect(yearsLabel);
+    expect(yearsRect.bottom, lessThan(card.top));
+    expect(yearsRect.center.dx, lessThan(card.center.dx));
     final yearsLeader = _calloutLeaders(tester).single;
+    expect(
+      (yearsLeader.elbow.dy - yearsLeader.start.dy).abs(),
+      closeTo(calloutDiagonal + calloutParentLift, 0.5),
+    );
     final yearsPaint = tester.renderObject<RenderBox>(
       find.byWidgetPredicate(
         (widget) =>
@@ -3464,6 +3476,8 @@ void main() {
     );
     expect(parentLabel.dy, lessThan(dot.dy));
     expect(parentLabel.dx, greaterThan(dot.dx));
+    expect(find.text('The WFM Morgans Branch'), findsOneWidget);
+    expect(find.text('Bea Branch'), findsOneWidget);
     expect(childLabel.dy, greaterThan(dot.dy));
     expect(childLabel.dx, greaterThan(dot.dx));
     final leaders = _calloutLeaders(tester);

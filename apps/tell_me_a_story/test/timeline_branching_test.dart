@@ -51,13 +51,23 @@ void main() {
     expect(frame.story.id, 's1');
     expect(frame.branchesStory, isTrue);
     expect(frame.callouts.map((callout) => callout.familyId), ['ada', 'bea']);
-    expect(frame.callouts[0].label, 'Ada · 1972');
-    expect(frame.callouts[1].label, 'Bea');
+    expect(frame.callouts[0].label, 'Ada Branch');
+    expect(frame.callouts[1].label, 'Bea Branch');
     expect(frame.callouts[1].semanticsLabel, 'Open Bea timeline');
     expect(branching.frameFor(_story('s2')).callouts, isEmpty);
     expect(branching.frameFor(_story('s2')).branchesStory, isFalse);
-    expect(branchMarkLabel(bea), 'Bea');
-    expect(branchMarkLabel(ada), 'Ada · 1972');
+    expect(branchMarkLabel(bea), 'Bea Branch');
+    expect(branchMarkLabel(ada), 'Ada Branch');
+    expect(
+      branchMarkLabel(
+        const TreeFamily(id: 'test', name: 'Test Family', branchYear: 1995),
+      ),
+      'Test Family Branch',
+    );
+    expect(
+      branchMarkLabel(const TreeFamily(id: 'other', name: 'another branch')),
+      'another branch Branch',
+    );
   });
 
   test('same names sort by id', () {
@@ -106,7 +116,7 @@ void main() {
     final origin = onRail.frameFor(_story('s1'));
     expect(origin.callouts, isEmpty);
     expect(origin.parent?.familyId, 'parent');
-    expect(origin.parent?.label, 'Parent');
+    expect(origin.parent?.label, 'Parent Branch');
     expect(origin.parent?.semanticsLabel, 'Open Parent timeline');
     expect(onRail.frameFor(_story('other')).callouts, isEmpty);
     expect(onRail.frameFor(_story('other')).parent, isNull);
@@ -139,7 +149,7 @@ void main() {
     expect(missing.frameFor(_story('s1')).parent, isNull);
   });
 
-  test('a parent callout uses the open family branch year', () {
+  test('a parent callout names the other family as a branch', () {
     const parent = TreeFamily(
       id: 'parent',
       name: 'The WFM Morgans',
@@ -158,7 +168,7 @@ void main() {
       stories: [_story('s1')],
     );
     final link = branching.frameFor(_story('s1')).parent;
-    expect(link?.label, 'The WFM Morgans · 1995');
+    expect(link?.label, 'The WFM Morgans Branch');
     expect(link?.familyId, 'parent');
     expect(branching.frameFor(_story('s1')).callouts, isEmpty);
 
@@ -191,7 +201,7 @@ void main() {
     );
     final frame = branching.frameFor(_story('s1'));
     expect(frame.callouts.map((callout) => callout.familyId), ['p']);
-    expect(frame.callouts.single.label, 'P · 1972');
+    expect(frame.callouts.single.label, 'P Branch');
     expect(frame.parent, isNull);
   });
 
@@ -333,7 +343,7 @@ void main() {
     expect(parent.elbow.dy, lessThan(parent.start.dy));
     expect(
       (parent.elbow.dy - parent.start.dy).abs(),
-      closeTo(calloutDiagonal + calloutParentLift, 0.01),
+      closeTo((child.elbow.dy - child.start.dy).abs(), 0.01),
     );
     expect(
       (child.elbow.dy - child.start.dy).abs(),

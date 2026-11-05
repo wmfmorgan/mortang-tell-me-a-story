@@ -14,10 +14,10 @@ const calloutLeaderGap = 2.0;
 const calloutLabelGap = 6.0;
 const calloutDiagonal = 16.0;
 
-/// Extra 45° run that lifts a decade parent callout off the story dot.
+/// Extra 45° run that lifts a years parent callout off the card.
 const calloutParentLift = 8.0;
 
-/// Decade parent label. Child callouts stay on the theme's label size.
+/// Years parent label. Decade callouts stay on the theme's label size.
 const calloutParentFontSize = 16.0;
 const calloutStackGap = 4.0;
 const calloutHit = 44.0;
@@ -142,9 +142,8 @@ RailBranching railBranching({
   );
 }
 
-/// The open family's parent, on its origin story. The year is the open
-/// family's branch year. A parent that is already a child callout on that
-/// story is skipped so the two marks do not share a key.
+/// The open family's parent, on its origin story. A parent that is already a
+/// child callout on that story is skipped so the two marks do not share a key.
 _ParentLink? _parentLink(
   TreeFamily? family,
   List<TreeFamily> tree,
@@ -172,14 +171,13 @@ _ParentLink? _parentLink(
       byStory[originId]?.any((callout) => callout.familyId == parent.id) ??
       false;
   if (taken) return null;
-  final year = family.branchYear;
   final name = parent.name;
   return _ParentLink(
     originId,
     BranchCallout._(
       familyId: parent.id,
       familyName: name,
-      label: year == null ? name : '$name · $year',
+      label: branchMarkLabel(parent),
       semanticsLabel: 'Open $name timeline',
     ),
   );
@@ -231,6 +229,7 @@ CalloutGeometry layoutCallouts({
   CalloutRise rise = CalloutRise.down,
   bool aroundRing = true,
   bool? openRing,
+  double extraRun = 0,
 }) {
   assert(labelSizes.isNotEmpty);
   final toward = side == CalloutSide.right ? 1.0 : -1.0;
@@ -245,9 +244,7 @@ CalloutGeometry layoutCallouts({
   final start = rise == CalloutRise.up && !aroundRing
       ? Offset(0, -attach)
       : Offset(toward * ray, vertical * ray);
-  final run =
-      calloutDiagonal +
-      (rise == CalloutRise.up && aroundRing ? calloutParentLift : 0);
+  final run = calloutDiagonal + extraRun;
   final elbowX = start.dx + toward * run;
   final minRail = elbowX.abs() + calloutMinRun + calloutLabelGap;
   final rail = math.max(minCardFromRail ?? centerToLane, minRail);
@@ -410,7 +407,7 @@ class DecadeParentMark {
 
 /// Decade mark for an origin story that has a parent timeline. The parent
 /// label sits above and to the right. A moss ring circles the dot, and the
-/// leader leaves the upper 45° point, the mirror of a child callout.
+/// leader is the child callout mirrored onto the upper 45° point.
 /// Child callouts, when the same story also started a branch, stay below it.
 DecadeParentMark decadeParentMark({
   required BuildContext context,
@@ -425,13 +422,7 @@ DecadeParentMark decadeParentMark({
   assert(parent != null);
   final link = parent!;
   final style = _calloutStyle(context);
-  final parentStyle = style.copyWith(fontSize: calloutParentFontSize);
-  final parentSize = _labelSize(
-    context,
-    link.label,
-    parentStyle,
-    maxLabelWidth,
-  );
+  final parentSize = _labelSize(context, link.label, style, maxLabelWidth);
   final up = layoutCallouts(
     side: CalloutSide.right,
     dotDiameter: dotDiameter,
@@ -518,7 +509,7 @@ DecadeParentMark decadeParentMark({
           child: _CalloutLabel(
             callout: link,
             size: parentSize,
-            style: parentStyle,
+            style: style,
             side: CalloutSide.right,
             onOpen: onOpen,
             announce: single == null,
@@ -556,7 +547,8 @@ class ParentCalloutOverlay {
 }
 
 /// Years parent link. The leader meets the top center of the card and the
-/// label sits on [side], the side the card occupies. No ring.
+/// label sits on [side], the side the card occupies, lifted clear of the
+/// card at the decade parent size. No ring.
 ParentCalloutOverlay parentCalloutOverlay({
   required BuildContext context,
   required StoryFrame frame,
@@ -567,8 +559,14 @@ ParentCalloutOverlay parentCalloutOverlay({
   final parent = frame.parent;
   assert(parent != null);
   final link = parent!;
-  final style = _calloutStyle(context);
-  final parentSize = _labelSize(context, link.label, style, maxLabelWidth);
+  final parentStyle = _calloutStyle(context)
+      .copyWith(fontSize: calloutParentFontSize);
+  final parentSize = _labelSize(
+    context,
+    link.label,
+    parentStyle,
+    maxLabelWidth,
+  );
   final geometry = layoutCallouts(
     side: side,
     dotDiameter: 0,
@@ -576,6 +574,7 @@ ParentCalloutOverlay parentCalloutOverlay({
     labelSizes: [parentSize],
     rise: CalloutRise.up,
     aroundRing: false,
+    extraRun: calloutParentLift,
   );
   final rect = geometry.labelRects.single;
   final leader = geometry.leaders.single;
@@ -588,7 +587,7 @@ ParentCalloutOverlay parentCalloutOverlay({
   final label = _CalloutLabel(
     callout: link,
     size: parentSize,
-    style: style,
+    style: parentStyle,
     side: side,
     onOpen: onOpen,
     announce: !alone,

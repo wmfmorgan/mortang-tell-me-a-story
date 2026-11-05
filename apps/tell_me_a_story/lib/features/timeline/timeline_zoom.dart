@@ -201,11 +201,8 @@ String? originTag({
   return 'Origin';
 }
 
-String branchMarkLabel(TreeFamily family) {
-  final year = family.branchYear;
-  if (year == null) return family.name;
-  return '${family.name} · $year';
-}
+/// Visible callout on every zoom. Names the other family as a branch.
+String branchMarkLabel(TreeFamily family) => '${family.name} Branch';
 
 MemberFamily? childFamily(List<MemberFamily> families, String currentId) {
   for (final family in families) {
