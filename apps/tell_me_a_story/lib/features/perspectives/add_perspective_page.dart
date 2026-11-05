@@ -51,6 +51,7 @@ class AddPerspectivePage extends StatefulWidget {
     this.postingAs,
     this.storyAuthorId,
     this.currentUserId,
+    this.existing,
   });
 
   final String storyId;
@@ -70,6 +71,9 @@ class AddPerspectivePage extends StatefulWidget {
   final String? storyAuthorId;
   final String? currentUserId;
 
+  /// When set, the dialog edits this row instead of creating one.
+  final Perspective? existing;
+
   static Future<Perspective?> show(
     BuildContext context, {
     required String storyId,
@@ -79,6 +83,7 @@ class AddPerspectivePage extends StatefulWidget {
     String? postingAs,
     String? storyAuthorId,
     String? currentUserId,
+    Perspective? existing,
   }) {
     return showAlbumDialog<Perspective>(
       context: context,
@@ -92,6 +97,7 @@ class AddPerspectivePage extends StatefulWidget {
         postingAs: postingAs,
         storyAuthorId: storyAuthorId,
         currentUserId: currentUserId,
+        existing: existing,
       ),
     );
   }
@@ -113,6 +119,8 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
 
+  bool get _editing => widget.existing != null;
+
   bool get _canPublish => !_busy && _body.text.trim().isNotEmpty;
 
   bool get _showAuthorChip {
@@ -127,6 +135,8 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
   @override
   void initState() {
     super.initState();
+    final existing = widget.existing;
+    if (existing != null) _body.text = existing.body;
     _postingAs = widget.postingAs?.trim();
     if (_postingAs == null || _postingAs!.isEmpty) {
       _postingAs = null;
@@ -163,18 +173,34 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
     final body = _body.text.trim();
     setState(() => _busy = true);
     try {
-      final familyId =
-          widget.familyId ?? (await _stories.getStory(widget.storyId)).familyId;
-      final created = await _perspectives.create(
-        storyId: widget.storyId,
-        familyId: familyId,
-        body: body,
-      );
+      final existing = widget.existing;
+      final Perspective saved;
+      if (existing != null) {
+        await _perspectives.update(id: existing.id, body: body);
+        saved = Perspective(
+          id: existing.id,
+          storyId: existing.storyId,
+          familyId: existing.familyId,
+          authorId: existing.authorId,
+          body: body,
+          createdAt: existing.createdAt,
+          authorDisplayName: existing.authorDisplayName,
+        );
+      } else {
+        final familyId =
+            widget.familyId ??
+            (await _stories.getStory(widget.storyId)).familyId;
+        saved = await _perspectives.create(
+          storyId: widget.storyId,
+          familyId: familyId,
+          body: body,
+        );
+      }
       if (!mounted) return;
       if (widget.asDialog) {
-        Navigator.of(context).pop(created);
+        Navigator.of(context).pop(saved);
       } else {
-        context.pop(created);
+        context.pop(saved);
       }
     } catch (_) {
       if (!mounted) return;
@@ -249,7 +275,9 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Add your perspective',
+                      _editing
+                          ? 'Edit your perspective'
+                          : 'Add your perspective',
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontSize: 28,
                         fontWeight: FontWeight.w700,
@@ -432,7 +460,7 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
               FilledButton.icon(
                 onPressed: _canPublish ? _publish : null,
                 icon: const Icon(Icons.history_edu, size: 18),
-                label: const Text('Publish perspective'),
+                label: Text(_editing ? 'Save' : 'Publish perspective'),
               ),
             ],
           ),

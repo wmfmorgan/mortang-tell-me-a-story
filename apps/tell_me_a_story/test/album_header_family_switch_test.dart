@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_header.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 
@@ -124,6 +125,68 @@ void main() {
       }
     },
   );
+
+  testWidgets('home sits left of Timeline and opens Landing', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final selected = <String>[];
+    FamilySelection.remember('keep');
+    final router = _router(
+      page: AlbumHeaderPage.timeline,
+      location: '/timeline',
+      onSelected: selected.add,
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    final home = tester.getTopLeft(find.byKey(const Key('header-nav-home')));
+    final stories = tester.getTopLeft(find.byKey(const Key('timeline-nav')));
+    final timeline = tester.getTopLeft(
+      find.byKey(const Key('header-nav-timeline')),
+    );
+    final drafts = tester.getTopLeft(find.byKey(const Key('drafts-nav')));
+    expect(home.dx, lessThan(stories.dx));
+    expect(stories.dx, lessThan(timeline.dx));
+    expect(timeline.dx, lessThan(drafts.dx));
+    final icon = tester.widget<Icon>(find.byIcon(Icons.home));
+    expect(icon.color, albumTerracotta);
+    expect(icon.size, 26);
+    expect(
+      tester.getSize(find.byKey(const Key('header-nav-home'))),
+      const Size(44, 44),
+    );
+    expect(find.byTooltip('Home'), findsOneWidget);
+    final semantics = tester.ensureSemantics();
+    expect(find.bySemanticsLabel('Home'), findsOneWidget);
+    semantics.dispose();
+    expect(
+      tester.getRect(find.byIcon(Icons.home)).center.dy,
+      closeTo(tester.getRect(find.text('Stories')).center.dy, 1),
+    );
+
+    await tester.tap(find.byKey(const Key('header-nav-home')));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/family');
+    expect(selected, isEmpty);
+    expect(FamilySelection.id, 'keep');
+  });
+
+  testWidgets('home on Landing stays', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final router = _router(
+      page: AlbumHeaderPage.familyLanding,
+      location: '/family',
+      onSelected: (_) {},
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('header-nav-home')));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/family');
+  });
 
   testWidgets('Rule 9: picking the current family on Landing stays', (
     tester,

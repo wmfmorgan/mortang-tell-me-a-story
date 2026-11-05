@@ -408,15 +408,20 @@ class _FakeCommentsApi implements CommentsGateway {
     List<Comment>? seed,
     this.throwOnList = false,
     this.throwOnCreate = false,
+    this.throwOnUpdate = false,
   }) : rows = [...?seed];
 
   final List<Comment> rows;
   final bool throwOnList;
   final bool throwOnCreate;
+  final bool throwOnUpdate;
   final bool throwOnDelete = false;
   final String authorId = 'u1';
   var createCalls = 0;
+  var updateCalls = 0;
   var deleteCalls = 0;
+  String? lastUpdateId;
+  String? lastUpdateBody;
   var _seq = 0;
 
   @override
@@ -448,8 +453,24 @@ class _FakeCommentsApi implements CommentsGateway {
   }
 
   @override
-  Future<void> update({required String id, required String body}) {
-    throw UnimplementedError();
+  Future<void> update({required String id, required String body}) async {
+    updateCalls++;
+    lastUpdateId = id;
+    lastUpdateBody = body;
+    if (throwOnUpdate) throw StateError('update failed');
+    ensureValidCommentBody(body);
+    final index = rows.indexWhere((row) => row.id == id);
+    if (index < 0) return;
+    final prev = rows[index];
+    rows[index] = Comment(
+      id: prev.id,
+      storyId: prev.storyId,
+      familyId: prev.familyId,
+      authorId: prev.authorId,
+      body: body.trim(),
+      createdAt: prev.createdAt,
+      authorDisplayName: prev.authorDisplayName,
+    );
   }
 
   @override
@@ -461,12 +482,18 @@ class _FakeCommentsApi implements CommentsGateway {
 }
 
 class _FakePerspectivesApi implements PerspectivesGateway {
-  _FakePerspectivesApi({List<Perspective>? seed}) : rows = [...?seed];
+  _FakePerspectivesApi({List<Perspective>? seed, this.throwOnDelete = false})
+    : rows = [...?seed];
 
   final List<Perspective> rows;
   final bool throwOnCreate = false;
+  final bool throwOnDelete;
   var listCalls = 0;
   var createCalls = 0;
+  var updateCalls = 0;
+  var deleteCalls = 0;
+  String? lastUpdateId;
+  String? lastUpdateBody;
   var _seq = 0;
 
   @override
@@ -498,12 +525,31 @@ class _FakePerspectivesApi implements PerspectivesGateway {
   }
 
   @override
-  Future<void> update({required String id, required String body}) {
-    throw UnimplementedError();
+  Future<void> update({required String id, required String body}) async {
+    updateCalls++;
+    lastUpdateId = id;
+    lastUpdateBody = body;
+    ensureValidPerspectiveBody(body);
+    final index = rows.indexWhere((row) => row.id == id);
+    if (index < 0) return;
+    final prev = rows[index];
+    rows[index] = Perspective(
+      id: prev.id,
+      storyId: prev.storyId,
+      familyId: prev.familyId,
+      authorId: prev.authorId,
+      body: body.trim(),
+      createdAt: prev.createdAt,
+      authorDisplayName: prev.authorDisplayName,
+    );
   }
 
   @override
-  Future<void> delete(String id) async {}
+  Future<void> delete(String id) async {
+    deleteCalls++;
+    if (throwOnDelete) throw StateError('delete failed');
+    rows.removeWhere((row) => row.id == id);
+  }
 }
 
 Widget _readerApp({
@@ -1223,6 +1269,59 @@ void main() {
     );
   });
 
+  testWidgets('comment and perspective menus keep the reader scrim', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        currentUserId: 'u1',
+        comments: _FakeCommentsApi(
+          seed: [
+            Comment(
+              id: 'mine',
+              storyId: _storyId,
+              familyId: _familyId,
+              authorId: 'u1',
+              body: 'My note',
+              createdAt: DateTime.utc(2026, 9, 27),
+              authorDisplayName: 'Me',
+            ),
+          ],
+        ),
+        perspectives: _FakePerspectivesApi(
+          seed: [
+            Perspective(
+              id: 'mine',
+              storyId: _storyId,
+              familyId: _familyId,
+              authorId: 'u1',
+              body: 'My telling',
+              createdAt: DateTime.utc(2026, 9, 26),
+              authorDisplayName: 'Me',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(BackdropFilter), findsOneWidget);
+
+    Future<void> openMenu(Key key) async {
+      final menu = find.byKey(key);
+      await tester.ensureVisible(menu);
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      expect(find.byType(BackdropFilter), findsOneWidget);
+      Navigator.of(tester.element(menu)).pop();
+      await tester.pumpAndSettle();
+    }
+
+    await openMenu(const Key('comment-menu-mine'));
+    await openMenu(const Key('perspective-menu-mine'));
+    await openMenu(const Key('reader-overflow'));
+  });
+
   testWidgets('own comment row can delete; other author has no menu', (
     tester,
   ) async {
@@ -1269,6 +1368,263 @@ void main() {
     expect(comments.deleteCalls, 1);
     expect(find.text('My note'), findsNothing);
     expect(find.text('Their note'), findsOneWidget);
+  });
+
+  testWidgets('author can edit their comment; cancel and failure keep it', (
+    tester,
+  ) async {
+    final comments = _FakeCommentsApi(
+      seed: [
+        Comment(
+          id: 'mine',
+          storyId: _storyId,
+          familyId: _familyId,
+          authorId: 'u1',
+          body: 'My note',
+          createdAt: DateTime.utc(2026, 9, 27),
+          authorDisplayName: 'Me',
+        ),
+        Comment(
+          id: 'theirs',
+          storyId: _storyId,
+          familyId: _familyId,
+          authorId: 'u2',
+          body: 'Their note',
+          createdAt: DateTime.utc(2026, 9, 27),
+          authorDisplayName: 'Aunt Clara',
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        comments: comments,
+        currentUserId: 'u1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('comment-menu-mine')), findsOneWidget);
+    expect(find.byKey(const Key('comment-menu-theirs')), findsNothing);
+
+    Future<void> openEdit() async {
+      final menu = find.byKey(const Key('comment-menu-mine'));
+      await tester.ensureVisible(menu);
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('comment-edit-mine')));
+      await tester.pumpAndSettle();
+    }
+
+    await openEdit();
+    final field = find.byKey(const Key('comment-edit-field-mine'));
+    expect(field, findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      'My note',
+    );
+    await tester.enterText(find.byType(TextField), 'A clearer note.');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(comments.updateCalls, 0);
+    expect(find.text('My note'), findsOneWidget);
+    expect(find.byKey(const Key('comment-edit-field-mine')), findsNothing);
+
+    await openEdit();
+    await tester.enterText(find.byType(TextField), '   ');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pump();
+    expect(comments.updateCalls, 0);
+    expect(find.byKey(const Key('comment-edit-field-mine')), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'A clearer note.');
+    await tester.pump();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(comments.updateCalls, 1);
+    expect(comments.lastUpdateId, 'mine');
+    expect(comments.lastUpdateBody, 'A clearer note.');
+    expect(find.text('A clearer note.'), findsOneWidget);
+    expect(find.text('My note'), findsNothing);
+    expect(find.text('Their note'), findsOneWidget);
+    expect(find.byKey(const Key('comment-edit-field-mine')), findsNothing);
+  });
+
+  testWidgets('failed comment edit keeps the field', (tester) async {
+    final comments = _FakeCommentsApi(
+      throwOnUpdate: true,
+      seed: [
+        Comment(
+          id: 'mine',
+          storyId: _storyId,
+          familyId: _familyId,
+          authorId: 'u1',
+          body: 'My note',
+          createdAt: DateTime.utc(2026, 9, 27),
+          authorDisplayName: 'Me',
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        comments: comments,
+        currentUserId: 'u1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final menu = find.byKey(const Key('comment-menu-mine'));
+    await tester.ensureVisible(menu);
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('comment-edit-mine')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Did not save');
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(comments.updateCalls, 1);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      'Did not save',
+    );
+    expect(find.text('My note'), findsNothing);
+  });
+
+  Perspective perspectiveRow({
+    required String id,
+    required String authorId,
+    required String body,
+    String author = 'Me',
+  }) {
+    return Perspective(
+      id: id,
+      storyId: _storyId,
+      familyId: _familyId,
+      authorId: authorId,
+      body: body,
+      createdAt: DateTime.utc(2026, 9, 26),
+      authorDisplayName: author,
+    );
+  }
+
+  testWidgets('author can edit and delete a perspective; others cannot', (
+    tester,
+  ) async {
+    final perspectives = _FakePerspectivesApi(
+      seed: [
+        perspectiveRow(id: 'mine', authorId: 'u1', body: 'My telling'),
+        perspectiveRow(
+          id: 'theirs',
+          authorId: 'u2',
+          body: 'Their telling',
+          author: 'Aunt Clara',
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        perspectives: perspectives,
+        currentUserId: 'u1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('perspective-menu-mine')), findsOneWidget);
+    expect(find.byKey(const Key('perspective-menu-theirs')), findsNothing);
+
+    final menu = find.byKey(const Key('perspective-menu-mine'));
+    await tester.ensureVisible(menu);
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('perspective-edit-mine')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit your perspective'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('perspective-body')))
+          .controller
+          ?.text,
+      'My telling',
+    );
+    await tester.enterText(
+      find.byKey(const Key('perspective-body')),
+      'A clearer telling.',
+    );
+    await tester.pump();
+    final save = find.widgetWithText(FilledButton, 'Save');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(perspectives.updateCalls, 1);
+    expect(perspectives.createCalls, 0);
+    expect(perspectives.lastUpdateId, 'mine');
+    expect(perspectives.lastUpdateBody, 'A clearer telling.');
+    expect(find.text('A clearer telling.'), findsOneWidget);
+    expect(find.text('My telling'), findsNothing);
+
+    await tester.ensureVisible(menu);
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('perspective-delete-mine')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('delete-perspective-dialog')), findsOneWidget);
+    expect(find.text('Delete this perspective?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(perspectives.deleteCalls, 0);
+    expect(find.text('A clearer telling.'), findsOneWidget);
+
+    await tester.ensureVisible(menu);
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('perspective-delete-mine')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('delete-perspective-go')));
+    await tester.pumpAndSettle();
+
+    expect(perspectives.deleteCalls, 1);
+    expect(find.text('A clearer telling.'), findsNothing);
+    expect(find.text('Their telling'), findsOneWidget);
+  });
+
+  testWidgets('failed perspective delete keeps the card', (tester) async {
+    final perspectives = _FakePerspectivesApi(
+      seed: [perspectiveRow(id: 'mine', authorId: 'u1', body: 'My telling')],
+      throwOnDelete: true,
+    );
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        perspectives: perspectives,
+        currentUserId: 'u1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final menu = find.byKey(const Key('perspective-menu-mine'));
+    await tester.ensureVisible(menu);
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('perspective-delete-mine')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('delete-perspective-go')));
+    await tester.pumpAndSettle();
+
+    expect(perspectives.deleteCalls, 1);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('My telling'), findsOneWidget);
   });
 
   testWidgets('member Add photos with injected bytes calls uploadPhoto', (
@@ -1526,6 +1882,7 @@ void main() {
     expect(find.text('A note from Ada'), findsOneWidget);
     expect(find.text('A longer telling'), findsOneWidget);
     expect(find.byKey(const Key('comment-menu-c-child')), findsNothing);
+    expect(find.byKey(const Key('perspective-menu-v-child')), findsNothing);
     expect(find.byKey(const Key('photo-remove')), findsNothing);
     expect(find.text('Delete'), findsNothing);
   });

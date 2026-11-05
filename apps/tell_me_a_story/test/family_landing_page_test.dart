@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/theme/album_header.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
@@ -19,7 +17,7 @@ void main() {
 
   tearDown(FamilySelection.clear);
 
-  testWidgets('empty week keeps the hero and the timeline pill', (
+  testWidgets('empty week keeps the hero and no all-stories button', (
     tester,
   ) async {
     await _pump(tester, role: 'member', stories: const []);
@@ -29,46 +27,14 @@ void main() {
     expect(find.text('Latest'), findsOneWidget);
     expect(find.text('Added in the past 7 days.'), findsOneWidget);
     expect(find.text('No stories added in the past 7 days.'), findsOneWidget);
-    _expectAllStoriesPill(tester, 'The Morgans');
+    expect(find.byKey(const Key('family-landing-view-all')), findsNothing);
+    expect(find.textContaining('View all stories'), findsNothing);
     expect(find.byKey(const Key('family-landing-hero-edit')), findsNothing);
     expect(find.text('Add a family photo'), findsNothing);
     expect(find.text('Featured'), findsNothing);
     expect(find.text('Oldest'), findsNothing);
     expect(find.text('Untitled'), findsNothing);
     expect(find.byKey(const Key('header-underline-timeline')), findsNothing);
-    expect(
-      tester.getRect(find.byKey(const Key('family-landing-view-all'))).bottom,
-      lessThan(900),
-    );
-
-    await tester.ensureVisible(
-      find.byKey(const Key('family-landing-view-all')),
-    );
-    await tester.tap(find.byKey(const Key('family-landing-view-all')));
-    await tester.pumpAndSettle();
-    expect(find.text('all-stories-page'), findsOneWidget);
-    expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
-  });
-
-  testWidgets('a long family name stays one line on the timeline pill', (
-    tester,
-  ) async {
-    const name = 'The Morgans of the Northern Shore and the South Meadow';
-    await _pump(tester, role: 'member', stories: const [], familyName: name);
-
-    _expectAllStoriesPill(tester, name);
-    final root = tester.renderObject(
-      find.descendant(
-        of: find.byKey(const Key('family-landing-view-all')),
-        matching: find.byType(Text),
-      ),
-    );
-    final paragraph = _paragraph(root);
-    expect(paragraph.didExceedMaxLines, isTrue);
-    final button = tester.getRect(
-      find.byKey(const Key('family-landing-view-all')),
-    );
-    expect(button.width, lessThanOrEqualTo(800));
   });
 
   testWidgets('Stories from Landing opens the timeline underlined', (
@@ -147,50 +113,6 @@ Story _story(
     timeframeStart: year == null ? null : DateTime.utc(year),
     datePrecision: StoryDatePrecision.year,
   );
-}
-
-RenderParagraph _paragraph(RenderObject object) {
-  if (object is RenderParagraph) return object;
-  late RenderParagraph found;
-  object.visitChildren((child) {
-    found = _paragraph(child);
-  });
-  return found;
-}
-
-void _expectAllStoriesPill(WidgetTester tester, String familyName) {
-  const labelPrefix = 'View all stories for ';
-  final label = '$labelPrefix$familyName';
-  final cta = find.byKey(const Key('family-landing-view-all'));
-  expect(cta, findsOneWidget);
-  expect(find.text('View all stories'), findsNothing);
-  expect(find.widgetWithText(TextButton, label), findsNothing);
-  final button = tester.widget<FilledButton>(cta);
-  const states = <WidgetState>{};
-  expect(button.style?.backgroundColor?.resolve(states), albumTerracotta);
-  expect(button.style?.foregroundColor?.resolve(states), albumParchment);
-  expect(button.style?.elevation?.resolve(states), 1);
-  expect(button.style?.shape?.resolve(states), isA<StadiumBorder>());
-  expect(
-    find.descendant(of: cta, matching: find.byIcon(Icons.add)),
-    findsNothing,
-  );
-  final text = tester.widget<Text>(
-    find.descendant(of: cta, matching: find.byType(Text)),
-  );
-  expect(text.data, label);
-  expect(text.maxLines, 1);
-  expect(text.overflow, TextOverflow.ellipsis);
-  expect(text.style?.fontSize, 18);
-  expect(text.style?.fontWeight, FontWeight.w600);
-  expect(
-    tester
-        .widget<Tooltip>(find.ancestor(of: cta, matching: find.byType(Tooltip)))
-        .message,
-    label,
-  );
-  final rect = tester.getRect(cta);
-  expect(rect.center.dx, closeTo(720, 1));
 }
 
 Future<void> _pump(

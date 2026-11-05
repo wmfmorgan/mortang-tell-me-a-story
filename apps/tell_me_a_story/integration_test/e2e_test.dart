@@ -99,7 +99,7 @@ void main() {
       await tester.tap(find.byKey(const Key('timeline-nav')));
       await pumpUntilFound(
         tester,
-        find.byKey(const Key('header-underline-timeline')),
+        find.byKey(const Key('header-underline-decades')),
       );
     });
     await _c1Step('empty-state', () async {
@@ -302,10 +302,10 @@ void main() {
         timeout: const Duration(seconds: 45),
       );
       await pumpUntilFound(tester, find.text(family));
-      await tester.tap(find.byKey(const Key('timeline-nav')));
+      await tester.tap(find.byKey(const Key('header-nav-timeline')));
       await pumpUntilFound(
         tester,
-        find.byKey(const Key('header-underline-timeline')),
+        find.byKey(const Key('header-underline-decades')),
       );
       expect(find.byKey(const Key('invite-email')), findsNothing);
     });
@@ -801,7 +801,7 @@ Future<void> _publish(
     await pumpUntilFound(tester, finder);
     final full = find.byKey(const Key('timeline-zoom-full'));
     if (full.evaluate().isEmpty) {
-      final openTimeline = find.byKey(const Key('all-stories-timeline'));
+      final openTimeline = find.byKey(const Key('header-nav-timeline'));
       await pumpUntilFound(tester, openTimeline);
       await tester.ensureVisible(openTimeline);
       await tester.tap(openTimeline);

@@ -73,4 +73,37 @@ void main() {
 
     expect(tester.widget<TextField>(_field()).controller?.text, 'Keep me');
   });
+
+  testWidgets('edit prefills, Save sends the text, Cancel does not', (
+    tester,
+  ) async {
+    final posted = <String>[];
+    var cancelled = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CommentComposer(
+            initialText: 'My note',
+            actionLabel: 'Save',
+            onCancel: () => cancelled++,
+            onPost: (body) async => posted.add(body),
+            composerKey: const Key('comment-edit-field'),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Post'), findsNothing);
+    expect(tester.widget<TextField>(_field()).controller?.text, 'My note');
+
+    await tester.enterText(_field(), '  A clearer note.  ');
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pump();
+    expect(cancelled, 1);
+    expect(posted, isEmpty);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(posted, ['A clearer note.']);
+  });
 }

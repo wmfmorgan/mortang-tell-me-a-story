@@ -33,10 +33,15 @@ class SearchRecord {
   final String? placeAddress;
 }
 
-/// Decade label for a story start, matching the 1900s–2020s capture chips.
+/// Inclusive decade-start years on the capture chips in `timeframe_chips.dart`.
+const decadePickerFirstYear = 1900;
+const decadePickerLastYear = 2020;
+
+/// Decade label for a story start, matching [decadePickerFirstYear] through
+/// [decadePickerLastYear] on the capture chips.
 String? decadeLabelFor(DateTime start) {
   final year = (start.year ~/ 10) * 10;
-  if (year < 1900 || year > 2020) return null;
+  if (year < decadePickerFirstYear || year > decadePickerLastYear) return null;
   return '${year}s';
 }
 

@@ -64,7 +64,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
   Map<String, Uint8List> _thumbs = const {};
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
-  var _canWrite = false;
+  late bool _canWrite;
   var _scrolledUnder = false;
   var _loadGeneration = 0;
   var _pinExtent = 88.0;
@@ -72,6 +72,8 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
   @override
   void initState() {
     super.initState();
+    _canWrite = FamilyMembership.canWrite(widget.familyId);
+    FamilySelection.remember(widget.familyId);
     _view = AllStoriesSession.of(widget.familyId);
     _search = TextEditingController(text: _view.query);
     _scroll.addListener(_onScroll);
@@ -140,6 +142,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     try {
       final mine = await _familiesApi.listMine();
       final stewarded = await _familiesApi.listStewarded();
+      FamilyMembership.remember(mine.map((row) => row.id));
       return (
         families: mine,
         stewarded: stewarded,
@@ -188,6 +191,10 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     _setView(_view.copyWith(startedTimelineOnly: !_view.startedTimelineOnly));
   }
 
+  void _toggleMembers() {
+    _setView(_view.copyWith(showMemberPills: !_view.showMemberPills));
+  }
+
   Future<void> _openStory(Story story) async {
     await context.push(AppRoutes.storyPath(story.id));
     if (!mounted) return;
@@ -197,10 +204,6 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
   void _openBranch(TreeFamily branch) {
     FamilySelection.remember(branch.id);
     context.go(AppRoutes.timeline);
-  }
-
-  void _openFamilyTimeline() {
-    _openBranch(TreeFamily(id: widget.familyId, name: _familyName()));
   }
 
   String _familyName() {
@@ -261,7 +264,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                 key: const Key('all-stories-scroll'),
                 controller: _scroll,
                 slivers: [
-                  SliverToBoxAdapter(child: _heading(name)),
+                  SliverToBoxAdapter(child: _heading()),
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _PinDelegate(
@@ -286,59 +289,21 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     );
   }
 
-  Widget _heading(String name) {
-    final label = 'View a Timeline of Stories for $name';
+  Widget _heading() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 24, 0, 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Semantics(
-              header: true,
-              headingLevel: 1,
-              child: Text(
-                'All Stories',
-                style: GoogleFonts.newsreader(
-                  color: albumInk,
-                  fontSize: 40,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
+      child: Semantics(
+        header: true,
+        headingLevel: 1,
+        child: Text(
+          key: const Key('all-stories-heading'),
+          'Stories',
+          style: GoogleFonts.newsreader(
+            color: albumInk,
+            fontSize: 40,
+            fontWeight: FontWeight.w500,
           ),
-          const SizedBox(width: 16),
-          Flexible(
-            child: AllStoriesFocusTarget(
-              radius: 999,
-              childBuilder: (node) => OutlinedButton(
-                key: const Key('all-stories-timeline'),
-                focusNode: node,
-                onPressed: _openFamilyTimeline,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: albumTerracotta,
-                  backgroundColor: albumParchment,
-                  side: const BorderSide(color: albumTerracotta),
-                  shape: const StadiumBorder(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                ),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.sourceSans3(
-                    color: albumTerracotta,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -361,6 +326,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  _membersToggle(locked: locked),
                   _spawnToggle(locked: locked),
                   _GroupBySwitch(
                     selected: _view.groupBy,
@@ -441,6 +407,60 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     );
   }
 
+  Widget _membersToggle({required bool locked}) {
+    final on = _view.showMemberPills;
+    final labelColor = locked
+        ? albumInk.withValues(alpha: 0.38)
+        : on
+        ? albumParchment
+        : albumInk;
+    return Semantics(
+      key: const Key('all-stories-members'),
+      button: true,
+      enabled: !locked,
+      toggled: on,
+      label: 'Members',
+      onTap: locked ? null : _toggleMembers,
+      child: AllStoriesFocusTarget(
+        radius: 999,
+        childBuilder: (node) => ExcludeSemantics(
+          child: Material(
+            color: on ? albumTerracotta : albumParchment,
+            shape: StadiumBorder(
+              side: BorderSide(
+                color: on ? albumTerracotta : albumInk.withValues(alpha: 0.15),
+              ),
+            ),
+            child: InkWell(
+              focusNode: node,
+              onTap: locked ? null : _toggleMembers,
+              customBorder: const StadiumBorder(),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Members',
+                        style: GoogleFonts.sourceSans3(
+                          color: labelColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _spawnToggle({required bool locked}) {
     final on = _view.startedTimelineOnly;
     final labelColor = locked
@@ -476,11 +496,6 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (on)
-                        Icon(Icons.check, size: 16, color: labelColor)
-                      else
-                        const AllStoriesDashedRing(size: 14, color: albumSage),
-                      const SizedBox(width: 8),
                       Text(
                         'Started a timeline',
                         style: GoogleFonts.sourceSans3(
@@ -755,6 +770,7 @@ class _GroupSection extends StatelessWidget {
       query: query,
       filterActive: filterActive,
       undimmed: undimmed[story.id] ?? true,
+      showMembers: view.showMemberPills,
       thumb: thumbs[story.id],
       onOpen: () => onOpen(story),
       onOpenBranch: onOpenBranch,
@@ -866,7 +882,7 @@ class _RenderPinMeasure extends RenderProxyBox {
   }
 }
 
-const _stackedControlsWidth = 760.0;
+const _stackedControlsWidth = 900.0;
 
 class _GroupBySwitch extends StatefulWidget {
   const _GroupBySwitch({

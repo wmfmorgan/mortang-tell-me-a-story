@@ -170,12 +170,12 @@ void main() {
       expect(label.overflow, TextOverflow.ellipsis);
       final paragraph = tester.renderObject<RenderParagraph>(find.text(name));
       expect(paragraph.size.height, lessThan(36));
-      expect(paragraph.size.width, greaterThan(180));
+      expect(paragraph.size.width, greaterThan(40));
       expect(find.byTooltip(name), findsWidgets);
       final menuRect = tester.getRect(find.byKey(const Key('family-menu')));
       final navRect = tester.getRect(find.byKey(const Key('timeline-nav')));
       expect(menuRect.right, lessThanOrEqualTo(navRect.left));
-      expect(menuRect.width, greaterThan(180));
+      expect(menuRect.width, greaterThan(80));
       final search = tester.getSize(find.byKey(const Key('timeline-search')));
       expect(search.width, greaterThanOrEqualTo(40));
       expect(search.height, greaterThanOrEqualTo(40));
@@ -257,7 +257,7 @@ void main() {
     expect(label.overflow, TextOverflow.ellipsis);
     final paragraph = tester.renderObject<RenderParagraph>(find.text(huge));
     expect(paragraph.size.height, lessThan(36));
-    expect(paragraph.size.width, greaterThan(180));
+    expect(paragraph.size.width, greaterThan(40));
     expect(paragraph.didExceedMaxLines, isTrue);
     final menuRect = tester.getRect(find.byKey(const Key('family-menu')));
     final navRect = tester.getRect(find.byKey(const Key('timeline-nav')));

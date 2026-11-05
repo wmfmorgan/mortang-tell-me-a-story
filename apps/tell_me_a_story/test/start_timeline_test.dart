@@ -1481,7 +1481,7 @@ void main() {
     );
     expect(text.maxLines, 1);
     expect(text.overflow, TextOverflow.ellipsis);
-    expect(text.data, contains('· 1955'));
+    expect(text.data, contains('Branch'));
     expect(
       find.byWidgetPredicate(
         (widget) =>
@@ -1535,7 +1535,7 @@ void main() {
     await tester.ensureVisible(ring);
     await tester.pumpAndSettle();
     expect(ring, findsOneWidget);
-    expect(find.text('Later line · 1990'), findsOneWidget);
+    expect(find.text('Later line Branch'), findsOneWidget);
     expect(tester.getRect(band).contains(tester.getCenter(ring)), isTrue);
     expect(tester.getRect(band).contains(tester.getCenter(label)), isTrue);
     expect(find.byKey(const Key('timeline-branch-mark-$later')), findsNothing);
@@ -1601,7 +1601,7 @@ void main() {
       (tester.getCenter(ring) - tester.getCenter(dot)).distance,
       lessThanOrEqualTo(1),
     );
-    expect(find.text('Side · 1955'), findsOneWidget);
+    expect(find.text('Side Branch'), findsOneWidget);
     expect(tester.getCenter(label).dx, greaterThan(tester.getCenter(dot).dx));
     expect(
       find.byWidgetPredicate(

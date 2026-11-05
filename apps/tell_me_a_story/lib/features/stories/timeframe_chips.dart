@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/album_theme.dart';
+import '../../data/search_api.dart';
 
 class DecadeRange {
   const DecadeRange(this.startYear);
@@ -28,7 +29,7 @@ class DecadeRange {
 }
 
 const decadeChips = [
-  DecadeRange(1900),
+  DecadeRange(decadePickerFirstYear),
   DecadeRange(1910),
   DecadeRange(1920),
   DecadeRange(1930),
@@ -40,7 +41,7 @@ const decadeChips = [
   DecadeRange(1990),
   DecadeRange(2000),
   DecadeRange(2010),
-  DecadeRange(2020),
+  DecadeRange(decadePickerLastYear),
 ];
 
 class TimeframeChips extends StatelessWidget {

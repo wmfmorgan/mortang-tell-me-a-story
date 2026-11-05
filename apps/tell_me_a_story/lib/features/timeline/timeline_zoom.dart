@@ -57,8 +57,12 @@ String storyTitle(Story story) {
   return title.isEmpty ? 'Untitled' : title;
 }
 
-String dotTooltip(Story story) =>
-    '${storyTitle(story)} (${storyDateLabelFor(story)})';
+String dotTooltip(Story story, {bool origin = false}) {
+  final title = storyTitle(story);
+  final when = storyDateLabelFor(story);
+  if (!origin) return '$title ($when)';
+  return '$title · Origin ($when)';
+}
 
 String excerpt(String? body, {int max = 180}) {
   final flat = (body ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -197,11 +201,8 @@ String? originTag({
   return 'Origin';
 }
 
-String branchMarkLabel(TreeFamily family) {
-  final year = family.branchYear;
-  if (year == null) return family.name;
-  return '${family.name} · $year';
-}
+/// Visible callout on every zoom. Names the other family as a branch.
+String branchMarkLabel(TreeFamily family) => '${family.name} Branch';
 
 MemberFamily? childFamily(List<MemberFamily> families, String currentId) {
   for (final family in families) {

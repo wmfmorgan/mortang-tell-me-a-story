@@ -58,11 +58,18 @@ void main() {
 
     router.go(AppRoutes.timeline);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-decades')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-timeline')), findsNothing);
     await tester.tap(find.byKey(const Key('timeline-nav')));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/family/$_family/stories');
     expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('header-nav-timeline')));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, AppRoutes.timeline);
+    expect(router.state.uri.queryParameters['view'], 'decades');
+    expect(find.byKey(const Key('header-underline-decades')), findsOneWidget);
   });
 
   testWidgets('W-03 the header search icon still opens Search', (tester) async {
@@ -80,13 +87,37 @@ void main() {
     tester,
   ) async {
     await _pumpReady(tester);
-    expect(find.text('All Stories'), findsOneWidget);
+    expect(find.byKey(const Key('all-stories-heading')), findsOneWidget);
     expect(_top(tester, '2020s'), lessThan(_top(tester, '2010s')));
     expect(_top(tester, '2010s'), lessThan(_top(tester, '1990s')));
     expect(
       tester.getTopLeft(find.text('Plain day')).dx,
       lessThan(tester.getTopLeft(find.text('Spawn')).dx),
     );
+  });
+
+  testWidgets('member pills stay hidden until Members is on', (tester) async {
+    await _pumpReady(tester);
+    expect(find.byKey(const Key('all-stories-person-plain-ben')), findsNothing);
+    expect(
+      find.byKey(const Key('all-stories-person-spawn-sarah')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const Key('all-stories-members')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('all-stories-person-plain-ben')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('all-stories-person-spawn-sarah')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('all-stories-members')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('all-stories-person-plain-ben')), findsNothing);
   });
 
   testWidgets('W-05 Member then Place keeps the query and the toggle', (
@@ -141,7 +172,7 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pump();
-    expect(find.text('All Stories'), findsOneWidget);
+    expect(find.byKey(const Key('all-stories-heading')), findsOneWidget);
     expect(find.byKey(const Key('all-stories-search')), findsOneWidget);
     expect(find.byKey(const Key('all-stories-skeleton')), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -180,12 +211,7 @@ void main() {
           .hasFlag(SemanticsFlag.isEnabled),
       isFalse,
     );
-    expect(
-      tester
-          .widget<OutlinedButton>(find.byKey(const Key('all-stories-timeline')))
-          .onPressed,
-      isNotNull,
-    );
+    expect(find.byKey(const Key('all-stories-timeline')), findsNothing);
     closeSemantics();
   });
 
@@ -201,7 +227,7 @@ void main() {
     expect(find.text("Couldn't load stories."), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
     expect(find.text('No stories yet.'), findsNothing);
-    expect(find.text('All Stories'), findsOneWidget);
+    expect(find.byKey(const Key('all-stories-heading')), findsOneWidget);
     final errorText = tester.widget<Text>(find.text("Couldn't load stories."));
     expect(
       errorText.style?.color,
@@ -228,12 +254,7 @@ void main() {
           .hasFlag(SemanticsFlag.isEnabled),
       isFalse,
     );
-    expect(
-      tester
-          .widget<OutlinedButton>(find.byKey(const Key('all-stories-timeline')))
-          .onPressed,
-      isNotNull,
-    );
+    expect(find.byKey(const Key('all-stories-timeline')), findsNothing);
     closeSemantics();
   });
 
@@ -322,13 +343,13 @@ void main() {
     );
   });
 
-  testWidgets('W-14 spawn marks show the origin line, branches, and ring', (
+  testWidgets('W-14 spawn marks show the origin line and branches', (
     tester,
   ) async {
     await _pumpReady(tester);
     expect(find.text('Origin · from Hart'), findsOneWidget);
-    expect(find.byKey(const Key('all-stories-ring-origin')), findsOneWidget);
-    expect(find.byKey(const Key('all-stories-ring-spawn')), findsOneWidget);
+    expect(find.byKey(const Key('all-stories-ring-origin')), findsNothing);
+    expect(find.byKey(const Key('all-stories-ring-spawn')), findsNothing);
     final east = tester.getTopLeft(
       find.byKey(const Key('all-stories-branch-spawn-east')),
     );
@@ -484,18 +505,11 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('W-18 the timeline button has no icon', (tester) async {
-    final router = await _pumpReady(tester);
-    final button = find.byKey(const Key('all-stories-timeline'));
-    expect(find.text('View a Timeline of Stories for $_name'), findsOneWidget);
-    expect(
-      find.descendant(of: button, matching: find.byType(Icon)),
-      findsNothing,
-    );
-    await tester.tap(button);
-    await tester.pumpAndSettle();
-    expect(FamilySelection.id, _family);
-    expect(router.state.uri.path, AppRoutes.timeline);
+  testWidgets('W-18 the heading has no timeline button', (tester) async {
+    await _pumpReady(tester);
+    expect(find.byKey(const Key('all-stories-heading')), findsOneWidget);
+    expect(find.byKey(const Key('all-stories-timeline')), findsNothing);
+    expect(find.textContaining('View a Timeline of Stories'), findsNothing);
   });
 
   testWidgets('W-19 returning from the timeline restores the view', (
@@ -509,7 +523,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('all-stories-toggle')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('all-stories-timeline')));
+    await tester.tap(find.byKey(const Key('header-nav-timeline')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-nav')));
     await tester.pumpAndSettle();

@@ -59,6 +59,7 @@ class _SearchPageState extends State<SearchPage> {
   String? _familyId;
   List<Person> _people = const [];
   List<Place> _places = const [];
+  List<int> _storyDecades = const [];
   List<SearchRecord> _results = const [];
   final _personIds = <String>[];
   String? _placeId;
@@ -66,6 +67,7 @@ class _SearchPageState extends State<SearchPage> {
   var _sort = SearchSort.relevant;
   var _searching = false;
   var _booting = true;
+  var _searchGen = 0;
 
   @override
   void initState() {
@@ -106,15 +108,22 @@ class _SearchPageState extends State<SearchPage> {
       if (!mounted) return;
       List<Person> people = const [];
       List<Place> places = const [];
+      var decades = const <int>[];
       if (familyId != null) {
         people = await _peopleApi.listPeople(familyId);
         places = await _placesApi.listPlaces(familyId);
+        try {
+          decades = await _decadesWithStories(familyId);
+        } catch (_) {
+          decades = const [];
+        }
       }
       if (!mounted) return;
       setState(() {
         _familyId = familyId;
         _people = people;
         _places = places;
+        _storyDecades = decades;
         _booting = false;
       });
     } catch (_) {
@@ -122,6 +131,21 @@ class _SearchPageState extends State<SearchPage> {
       setState(() => _booting = false);
       _showTryAgain();
     }
+  }
+
+  Future<List<int>> _decadesWithStories(String familyId) async {
+    final rows = await _searchApi.search(SearchRequest(familyId: familyId));
+    final years = <int>{};
+    for (final row in rows) {
+      final start = decadeStartYear(row.story.publishedStart);
+      if (start < decadeChips.first.startYear ||
+          start > decadeChips.last.startYear) {
+        continue;
+      }
+      years.add(start);
+    }
+    final sorted = years.toList()..sort();
+    return sorted;
   }
 
   void _showTryAgain() {
@@ -153,9 +177,10 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Future<void> _runSearch() async {
+    final gen = ++_searchGen;
     final familyId = _familyId;
     if (!_active || familyId == null) {
-      if (mounted) {
+      if (mounted && gen == _searchGen) {
         setState(() {
           _results = const [];
           _searching = false;
@@ -163,25 +188,24 @@ class _SearchPageState extends State<SearchPage> {
       }
       return;
     }
+    final request = SearchRequest(
+      familyId: familyId,
+      text: _field.text,
+      personIds: List<String>.from(_personIds),
+      placeId: _placeId,
+      decades: List<int>.from(_decades),
+      sort: _sort,
+    );
     setState(() => _searching = true);
     try {
-      final rows = await _searchApi.search(
-        SearchRequest(
-          familyId: familyId,
-          text: _field.text,
-          personIds: List<String>.from(_personIds),
-          placeId: _placeId,
-          decades: List<int>.from(_decades),
-          sort: _sort,
-        ),
-      );
-      if (!mounted) return;
+      final rows = await _searchApi.search(request);
+      if (!mounted || gen != _searchGen) return;
       setState(() {
         _results = rows;
         _searching = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || gen != _searchGen) return;
       setState(() => _searching = false);
       _showTryAgain();
     }
@@ -193,13 +217,17 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _clearFilters() {
+    _debounce?.cancel();
+    _searchGen++;
+    _field.clear();
     setState(() {
       _personIds.clear();
       _placeId = null;
       _decades.clear();
+      _sort = SearchSort.relevant;
+      _results = const [];
+      _searching = false;
     });
-    _debounce?.cancel();
-    _runSearch();
   }
 
   void _addPerson(String id) {
@@ -372,21 +400,14 @@ class _SearchPageState extends State<SearchPage> {
               children: [
                 Text(
                   'Tell Me a Story',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.newsreader(
                     color: albumInk,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 24,
                     fontStyle: FontStyle.italic,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'SEARCH ARCHIVE',
-                  style: GoogleFonts.sourceSans3(
-                    color: albumInk.withValues(alpha: 0.55),
-                    fontSize: 12,
-                    letterSpacing: 1.2,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: -0.3,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -615,34 +636,25 @@ class _SearchPageState extends State<SearchPage> {
   Widget _suggestedSection() {
     final people = _people.where((p) => !_personIds.contains(p.id));
     final places = _places.where((p) => p.id != _placeId);
+    final decades = _storyDecades.where((year) => !_decades.contains(year));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Suggested Family Members & Places',
-          style: GoogleFonts.newsreader(
-            color: albumInk,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        _suggestGroup(
+          title: 'Family Members',
           children: [
             for (final person in people)
               ActionChip(
                 key: Key('search-suggest-person-${person.id}'),
                 avatar: const Icon(Icons.person, size: 18),
                 label: Text(person.name),
-                onPressed: () => showPersonProfile(
-                  context,
-                  personId: person.id,
-                  name: person.name,
-                  people: _peopleApi,
-                ),
+                onPressed: () => _addPerson(person.id),
               ),
+          ],
+        ),
+        _suggestGroup(
+          title: 'Places',
+          children: [
             for (final place in places)
               ActionChip(
                 key: Key('search-suggest-place-${place.id}'),
@@ -652,7 +664,43 @@ class _SearchPageState extends State<SearchPage> {
               ),
           ],
         ),
+        _suggestGroup(
+          title: 'Decades',
+          children: [
+            for (final year in decades)
+              ActionChip(
+                key: Key('search-suggest-decade-$year'),
+                label: Text('${year}s'),
+                onPressed: () => _addDecade(year),
+              ),
+          ],
+        ),
       ],
+    );
+  }
+
+  Widget _suggestGroup({
+    required String title,
+    required List<Widget> children,
+  }) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.newsreader(
+              color: albumInk,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: children),
+        ],
+      ),
     );
   }
 

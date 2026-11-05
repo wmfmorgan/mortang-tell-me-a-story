@@ -12,6 +12,7 @@ class FamilySelection {
   static void clear() {
     _familyId = null;
     _userId = null;
+    FamilyMembership.clear();
   }
 
   /// Drops the remembered id when it is the family that was just soft-deleted.
@@ -25,7 +26,10 @@ class FamilySelection {
   /// Returns the remembered id after that check.
   static String? bindUser(String userId) {
     if (_userId != userId) {
-      if (_userId != null) _familyId = null;
+      if (_userId != null) {
+        _familyId = null;
+        FamilyMembership.clear();
+      }
       _userId = userId;
     }
     return _familyId;
@@ -50,4 +54,28 @@ String? resolveCurrentFamilyId({
     return remembered;
   }
   return fallback;
+}
+
+/// Families the signed-in user can write in, kept for this app session.
+///
+/// Header pages read this on the first frame so New story does not wait
+/// for the next membership fetch.
+abstract final class FamilyMembership {
+  static Set<String> _ids = const {};
+  static var known = false;
+
+  static Set<String> get ids => _ids;
+
+  static bool canWrite(String? familyId) =>
+      familyId != null && _ids.contains(familyId);
+
+  static void remember(Iterable<String> ids) {
+    _ids = Set.unmodifiable(ids);
+    known = true;
+  }
+
+  static void clear() {
+    _ids = const {};
+    known = false;
+  }
 }

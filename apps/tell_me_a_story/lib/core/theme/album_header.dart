@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/families_api.dart';
+import '../../data/family_selection.dart';
 import '../../data/manage_families_api.dart';
 import '../../data/profile_session.dart';
 import '../../features/family/family_role.dart';
@@ -48,6 +49,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
     this.capturePrimaryLabel = 'Publish story',
     this.onLogout,
     this.onStartTimeline,
+    this.onShowDecades,
   });
 
   final AlbumHeaderPage page;
@@ -70,6 +72,10 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
   /// Null hides the branch row. Hosts set this only when the current
   /// family is in the caller's membership list.
   final VoidCallback? onStartTimeline;
+
+  /// Timeline hosts set this so the Timeline item returns to Decades
+  /// when the route is already the timeline.
+  final VoidCallback? onShowDecades;
 
   static const height = 72.0;
 
@@ -96,7 +102,12 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               page: page,
               familyName: familyName,
               captureStatus: captureStatus,
+              gaps: _HeaderBar.barGaps,
             );
+            // Nav labels and actions cannot shrink. Below their floor the
+            // whole bar scales, the same way a 320px window does.
+            final scaleDown =
+                width <= _scaleAt || width < natural.inflexibleFloor;
             final bar = _HeaderBar(
               page: page,
               familyName: familyName,
@@ -112,14 +123,16 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               capturePrimaryLabel: capturePrimaryLabel,
               onLogout: onLogout,
               onStartTimeline: onStartTimeline,
+              onHome: () => _openHome(context),
+              onDecades: () => _openDecades(context),
               onTimeline: () => _openTimeline(context),
               onDrafts: () {
                 unawaited(_openDrafts(context));
               },
               onNewStory: () => _openNewStory(context),
-              metrics: width <= _scaleAt ? natural : natural.fit(width),
+              metrics: scaleDown ? natural : natural.fit(width),
             );
-            if (width <= _scaleAt) {
+            if (scaleDown) {
               return SizedBox(
                 width: width,
                 height: height,
@@ -135,6 +148,23 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
     );
+  }
+
+  void _openHome(BuildContext context) {
+    if (page == AlbumHeaderPage.familyLanding) return;
+    GoRouter.maybeOf(context)?.go(AppRoutes.familyLanding);
+  }
+
+  void _openDecades(BuildContext context) {
+    if (page == AlbumHeaderPage.timeline) onShowDecades?.call();
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return;
+    final uri = router.state.uri;
+    if (uri.path == AppRoutes.timeline &&
+        uri.queryParameters['view'] == 'decades') {
+      return;
+    }
+    router.go('${AppRoutes.timeline}?view=decades');
   }
 
   void _openTimeline(BuildContext context) {
@@ -174,6 +204,8 @@ class _HeaderBar extends StatelessWidget {
     required this.capturePrimaryLabel,
     required this.onLogout,
     required this.onStartTimeline,
+    required this.onHome,
+    required this.onDecades,
     required this.onTimeline,
     required this.onDrafts,
     required this.onNewStory,
@@ -194,13 +226,29 @@ class _HeaderBar extends StatelessWidget {
   final String capturePrimaryLabel;
   final Future<void> Function()? onLogout;
   final VoidCallback? onStartTimeline;
+  final VoidCallback onHome;
+  final VoidCallback onDecades;
   final VoidCallback onTimeline;
   final VoidCallback onDrafts;
   final VoidCallback onNewStory;
   final _HeaderMetrics metrics;
 
+  /// Show New story on the first frame. Hide it only after membership has
+  /// loaded and this family is not one the caller can write in.
+  bool get _showNewStory {
+    if (canWrite) return true;
+    final id = currentFamilyId ?? FamilySelection.id;
+    if (!FamilyMembership.known) return true;
+    if (id == null) return FamilyMembership.ids.isNotEmpty;
+    return FamilyMembership.ids.contains(id);
+  }
+
   /// Even gap between search, New story, and the avatar (UX Q5).
   static const _clusterGap = 12.0;
+
+  /// Unscaled gaps for the bar [Row], in child order: wordmark, hairline,
+  /// family, Home, Stories, Timeline, Drafts. [fit] may scale these.
+  static const barGaps = <double>[16, 12, 20, 8, 14, 14, 12];
 
   Widget _captureActions() {
     final actions = Row(
@@ -293,16 +341,24 @@ class _HeaderBar extends StatelessWidget {
             ),
           ),
           SizedBox(width: metrics.gaps[2]),
+          _HomeNav(onTap: onHome),
+          SizedBox(width: metrics.gaps[3]),
           _NavItem(
             key: const Key('timeline-nav'),
             label: 'Stories',
-            active:
-                page == AlbumHeaderPage.timeline ||
-                page == AlbumHeaderPage.allStories,
+            active: page == AlbumHeaderPage.allStories,
             underlineKey: const Key('header-underline-timeline'),
             onTap: onTimeline,
           ),
-          SizedBox(width: metrics.gaps[3]),
+          SizedBox(width: metrics.gaps[4]),
+          _NavItem(
+            key: const Key('header-nav-timeline'),
+            label: 'Timeline',
+            active: page == AlbumHeaderPage.timeline,
+            underlineKey: const Key('header-underline-decades'),
+            onTap: onDecades,
+          ),
+          SizedBox(width: metrics.gaps[5]),
           _NavItem(
             key: const Key('drafts-nav'),
             label: 'Draft Stories',
@@ -310,7 +366,7 @@ class _HeaderBar extends StatelessWidget {
             underlineKey: const Key('header-underline-drafts'),
             onTap: onDrafts,
           ),
-          SizedBox(width: metrics.gaps[4]),
+          SizedBox(width: metrics.gaps[6]),
           if (page == AlbumHeaderPage.capture) ...[
             const SizedBox(width: 40, height: 40, child: _SearchButton()),
             _captureActions(),
@@ -318,7 +374,7 @@ class _HeaderBar extends StatelessWidget {
           ] else ...[
             const _SearchButton(),
             const SizedBox(width: _clusterGap),
-            if (canWrite) ...[
+            if (_showNewStory) ...[
               FilledButton(
                 onPressed: () => onNewStory(),
                 style: FilledButton.styleFrom(
@@ -390,6 +446,7 @@ class _HeaderMetrics {
   static _HeaderMetrics of({
     required AlbumHeaderPage page,
     required String familyName,
+    required List<double> gaps,
     String? captureStatus,
   }) {
     return _HeaderMetrics(
@@ -398,11 +455,16 @@ class _HeaderMetrics {
       word: _textWidth('Tell Me a Story', _wordStyle),
       family: _textWidth(familyName, _familyStyle) + _familyChrome,
       search: page == AlbumHeaderPage.capture ? _searchHit : 0,
-      gaps: const [16, 12, 20, 18, 16],
+      gaps: gaps,
       loose: true,
       captureStatus: captureStatus,
     );
   }
+
+  /// Width of the pieces that stay full size: hairline, Home, nav labels,
+  /// and the action cluster. Wordmark, padding, gaps, and the family slot
+  /// absorb a narrower window until this floor, then the bar scales.
+  double get inflexibleFloor => _rigidWidth() + 8;
 
   /// Fits [viewport] by shrinking the wordmark, then padding and gaps.
   /// The family name is a flex child: it takes the leftover left of the
@@ -455,11 +517,14 @@ class _HeaderMetrics {
   }
 
   double _rigidWidth() {
-    // Hairline plus both nav labels and the action buttons. Those stay put
-    // while the chip, wordmark, and family name absorb a narrow window.
-    final timeline = _textWidth('Stories', _navStyle) + 4;
-    final drafts = _textWidth('Draft Stories', _navStyle) + 4;
-    return 1 + timeline + drafts + _actionsWidth();
+    // Hairline plus Home, the nav labels, and the action buttons. Those stay
+    // put while the wordmark, padding, gaps, and family name absorb a
+    // narrower window.
+    final home = _homeWidth();
+    final decades = _textWidth('Timeline', _navStyle) + _navPadH * 2;
+    final timeline = _textWidth('Stories', _navStyle) + _navPadH * 2;
+    final drafts = _textWidth('Draft Stories', _navStyle) + _navPadH * 2;
+    return 1 + home + decades + timeline + drafts + _actionsWidth();
   }
 
   double _actionsWidth() {
@@ -496,7 +561,8 @@ class _HeaderMetrics {
           'New story',
           GoogleFonts.sourceSans3(fontSize: 14, fontWeight: FontWeight.w500),
         ) +
-        57 +
+        // Plus circle 20, its 6px gap, and 16px of horizontal padding each side.
+        58 +
         _avatarSlot;
   }
 
@@ -545,6 +611,18 @@ double _textWidth(String text, TextStyle style) {
   )..layout();
   return painter.width;
 }
+
+/// Horizontal padding on Home and each nav label. Shared with [_rigidWidth].
+const _navPadH = 2.0;
+
+/// [_HomeNav] icon. The tap target is [_homeHit], not this size.
+const _homeIconSize = 26.0;
+
+/// Home tap target. Shared with [_homeWidth].
+const _homeHit = 44.0;
+
+/// Home is an icon button. Its width is the 44px target, not the glyph.
+double _homeWidth() => _homeHit;
 
 class _Wordmark extends StatelessWidget {
   const _Wordmark();
@@ -760,35 +838,27 @@ class _FamilyMenu extends StatelessWidget {
     final menuConstraints = width < 640
         ? BoxConstraints.tightFor(width: width - 32)
         : const BoxConstraints(maxWidth: 320);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final slot = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : double.infinity;
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: Builder(
-            builder: (buttonContext) {
-              return Tooltip(
-                message: familyName,
-                child: GestureDetector(
-                  key: const Key('family-menu'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    unawaited(_openMenu(buttonContext, menuConstraints));
-                  },
-                  child: _ClosedFamilyLabel(
-                    familyName: familyName,
-                    style: style,
-                    active: active,
-                    maxWidth: slot,
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Builder(
+        builder: (buttonContext) {
+          return Tooltip(
+            message: familyName,
+            child: GestureDetector(
+              key: const Key('family-menu'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                unawaited(_openMenu(buttonContext, menuConstraints));
+              },
+              child: _ClosedFamilyLabel(
+                familyName: familyName,
+                style: style,
+                active: active,
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -800,66 +870,110 @@ class _ClosedFamilyLabel extends StatelessWidget {
     required this.familyName,
     required this.style,
     required this.active,
-    required this.maxWidth,
   });
 
   final String familyName;
   final TextStyle style;
   final bool active;
-  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
-    const chrome = 46.0;
-    final textMax = maxWidth.isFinite ? maxWidth - chrome : double.infinity;
-    final cap = textMax > 0 ? textMax : 0.0;
-    final painter = TextPainter(
-      text: TextSpan(text: familyName, style: style),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-      ellipsis: '…',
-    )..layout(maxWidth: cap);
+    const iconGap = 4.0;
+    const iconSize = 18.0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final inner = constraints.maxWidth;
+          final bounded = inner.isFinite;
+          final showIcon = !bounded || inner >= iconGap + iconSize;
+          final room = !bounded
+              ? double.infinity
+              : (showIcon ? inner - iconGap - iconSize : inner);
+          final textMax = room > 0 ? room : 0.0;
+          final painter = TextPainter(
+            text: TextSpan(text: familyName, style: style),
+            textDirection: TextDirection.ltr,
+            maxLines: 1,
+            ellipsis: '…',
+          )..layout(maxWidth: textMax);
+          return Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomLeft,
             children: [
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: cap),
-                child: Semantics(
-                  label: familyName,
-                  excludeSemantics: true,
-                  child: Text(
-                    familyName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: style,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: textMax),
+                    child: Semantics(
+                      label: familyName,
+                      excludeSemantics: true,
+                      child: Text(
+                        familyName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: style,
+                      ),
+                    ),
+                  ),
+                  if (showIcon) ...[
+                    const SizedBox(width: iconGap),
+                    Icon(
+                      Icons.expand_more,
+                      size: iconSize,
+                      color: albumInk.withValues(alpha: 0.7),
+                    ),
+                  ],
+                ],
+              ),
+              Positioned(
+                left: 12,
+                bottom: -8,
+                child: Container(
+                  key: active ? const Key('header-underline-family') : null,
+                  width: painter.width,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: active ? albumInk : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.expand_more,
-                size: 18,
-                color: albumInk.withValues(alpha: 0.7),
-              ),
             ],
-          ),
-          const SizedBox(height: 6),
-          Container(
-            key: active ? const Key('header-underline-family') : null,
-            width: painter.width,
-            height: 2,
-            decoration: BoxDecoration(
-              color: active ? albumInk : Colors.transparent,
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-        ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _HomeNav extends StatelessWidget {
+  const _HomeNav({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      key: const Key('header-nav-home'),
+      tooltip: 'Home',
+      onPressed: onTap,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(
+        width: _homeHit,
+        height: _homeHit,
+      ),
+      style: IconButton.styleFrom(
+        foregroundColor: albumTerracotta,
+        fixedSize: const Size(_homeHit, _homeHit),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      icon: const Icon(
+        Icons.home,
+        color: albumTerracotta,
+        size: _homeIconSize,
+        semanticLabel: 'Home',
       ),
     );
   }
@@ -895,19 +1009,22 @@ class _NavItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        padding: const EdgeInsets.symmetric(horizontal: _navPadH, vertical: 4),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomCenter,
           children: [
             Text(label, style: style),
-            const SizedBox(height: 6),
-            Container(
-              key: active ? underlineKey : null,
-              width: painter.width,
-              height: 2,
-              decoration: BoxDecoration(
-                color: active ? albumInk : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
+            Positioned(
+              bottom: -8,
+              child: Container(
+                key: active ? underlineKey : null,
+                width: painter.width,
+                height: 2,
+                decoration: BoxDecoration(
+                  color: active ? albumInk : Colors.transparent,
+                  borderRadius: BorderRadius.circular(999),
+                ),
               ),
             ),
           ],

@@ -141,7 +141,7 @@ class _Search implements SearchGateway {
   @override
   Future<List<SearchRecord>> search(SearchRequest request) async {
     last = request;
-    if (hang) {
+    if (hang && request.text.trim().isNotEmpty) {
       await Completer<void>().future;
     }
     if (throwOnSearch) throw StateError('search failed');
@@ -271,9 +271,41 @@ void main() {
     );
     expect(find.text('Recent Searches'), findsOneWidget);
     expect(find.byKey(const Key('header-avatar')), findsNothing);
-    expect(find.text('Suggested Family Members & Places'), findsOneWidget);
+    expect(find.text('Family Members'), findsOneWidget);
+    expect(find.text('Places'), findsOneWidget);
+    expect(find.text('Decades'), findsOneWidget);
+    expect(find.text('1980s'), findsOneWidget);
+    expect(find.text('1990s'), findsNothing);
     expect(find.text('Clara'), findsWidgets);
     expect(find.text('Back Porch'), findsOneWidget);
+  });
+
+  testWidgets('a suggested name filters like a suggested place', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final search = _Search([_hit()]);
+    await tester.pumpWidget(_app(search: search));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('search-suggest-person-clara')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.byKey(const Key('search-filter-person-clara')), findsOneWidget);
+    expect(search.last?.personIds, ['clara']);
+    expect(find.byKey(const Key('search-suggest-person-clara')), findsNothing);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('search-suggest-decade-1980')),
+    );
+    await tester.tap(find.byKey(const Key('search-suggest-decade-1980')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('search-filter-decade')), findsOneWidget);
+    expect(find.text('1980s'), findsOneWidget);
+    expect(find.byKey(const Key('search-suggest-decade-1980')), findsNothing);
+    expect(search.last?.decades, [1980]);
   });
 
   testWidgets('a query with no hits shows the locked sentence', (tester) async {
@@ -323,6 +355,10 @@ void main() {
     await tester.pumpWidget(_app(search: search));
     await tester.pumpAndSettle();
 
+    await tester.enterText(find.byKey(const Key('search-field')), 'porch');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const Key('search-add-person')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Clara').last);
@@ -347,6 +383,13 @@ void main() {
     expect(find.byKey(const Key('search-filter-person-clara')), findsNothing);
     expect(find.text('1980s–1990s'), findsNothing);
     expect(find.text('Matching Archive Stories (1 result)'), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('search-field')))
+          .controller
+          ?.text,
+      isEmpty,
+    );
   });
 
   testWidgets('card uses the saved title, filled person, and quiet place', (
