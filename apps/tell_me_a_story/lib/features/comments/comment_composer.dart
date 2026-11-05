@@ -10,12 +10,28 @@ class CommentComposer extends StatefulWidget {
     required this.onPost,
     this.focusNode,
     this.enabled = true,
+    this.initialText,
+    this.actionLabel = 'Post',
+    this.onCancel,
+    this.composerKey = const Key('comment-composer'),
+    this.chrome = true,
   });
 
   /// Called with trimmed non-empty body. Throw to keep the field text.
   final Future<void> Function(String body) onPost;
   final FocusNode? focusNode;
   final bool enabled;
+
+  /// Prefills the field. Used when editing an existing comment.
+  final String? initialText;
+
+  /// Primary button label. New comments use Post; edits use Save.
+  final String actionLabel;
+  final VoidCallback? onCancel;
+  final Key composerKey;
+
+  /// The new-comment card chrome. In-place edit turns this off.
+  final bool chrome;
 
   @override
   State<CommentComposer> createState() => _CommentComposerState();
@@ -24,6 +40,13 @@ class CommentComposer extends StatefulWidget {
 class _CommentComposerState extends State<CommentComposer> {
   final _controller = TextEditingController();
   var _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialText;
+    if (initial != null) _controller.text = initial;
+  }
 
   @override
   void dispose() {
@@ -50,74 +73,95 @@ class _CommentComposerState extends State<CommentComposer> {
   @override
   Widget build(BuildContext context) {
     final enabled = widget.enabled && !_busy;
+    final field = Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              focusNode: widget.focusNode,
+              enabled: enabled,
+              minLines: 1,
+              maxLines: 4,
+              textInputAction: TextInputAction.newline,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE7DECE)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE7DECE)),
+                ),
+              ),
+            ),
+          ),
+          if (widget.onCancel != null) ...[
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: enabled ? widget.onCancel : null,
+              child: const Text('Cancel'),
+            ),
+          ],
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: enabled ? _submit : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: albumTerracotta,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 44),
+            ),
+            child: Text(widget.actionLabel),
+          ),
+        ],
+      ),
+    );
+    if (!widget.chrome) {
+      return KeyedSubtree(key: widget.composerKey, child: field);
+    }
     return DecoratedBox(
-      key: const Key('comment-composer'),
+      key: widget.composerKey,
       decoration: BoxDecoration(
         color: const Color(0xFFF6F1EB),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE7DECE)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                focusNode: widget.focusNode,
-                enabled: enabled,
-                minLines: 1,
-                maxLines: 4,
-                textInputAction: TextInputAction.newline,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: Colors.white,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFE7DECE)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFE7DECE)),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: enabled ? _submit : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: albumTerracotta,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(0, 44),
-              ),
-              child: const Text('Post'),
-            ),
-          ],
-        ),
-      ),
+      child: field,
     );
   }
 }
 
-/// Comment body + author; overflow Delete only when [canDelete].
+/// Comment body + author. Overflow Edit and Delete only when [canDelete].
 class CommentTile extends StatelessWidget {
   const CommentTile({
     super.key,
     required this.comment,
     required this.canDelete,
     this.onDelete,
+    this.onEdit,
+    this.editing = false,
+    this.onSave,
+    this.onCancelEdit,
+    this.editFocus,
   });
 
   final Comment comment;
   final bool canDelete;
   final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
+  final bool editing;
+  final Future<void> Function(String body)? onSave;
+  final VoidCallback? onCancelEdit;
+  final FocusNode? editFocus;
 
   @override
   Widget build(BuildContext context) {
@@ -177,18 +221,40 @@ class CommentTile extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(comment.body, style: theme.textTheme.bodyMedium),
+                    if (editing && onSave != null)
+                      CommentComposer(
+                        onPost: onSave!,
+                        focusNode: editFocus,
+                        initialText: comment.body,
+                        actionLabel: 'Save',
+                        onCancel: onCancelEdit,
+                        composerKey: Key('comment-edit-field-${comment.id}'),
+                        chrome: false,
+                      )
+                    else
+                      Text(comment.body, style: theme.textTheme.bodyMedium),
                   ],
                 ),
               ),
-              if (canDelete)
+              if (canDelete && !editing)
                 PopupMenuButton<String>(
                   key: Key('comment-menu-${comment.id}'),
+                  tooltip: 'Comment actions',
                   onSelected: (value) {
+                    if (value == 'edit') onEdit?.call();
                     if (value == 'delete') onDelete?.call();
                   },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  itemBuilder: (context) => [
+                    PopupMenuItem<String>(
+                      key: Key('comment-edit-${comment.id}'),
+                      value: 'edit',
+                      child: const Text('Edit'),
+                    ),
+                    PopupMenuItem<String>(
+                      key: Key('comment-delete-${comment.id}'),
+                      value: 'delete',
+                      child: const Text('Delete'),
+                    ),
                   ],
                 ),
             ],

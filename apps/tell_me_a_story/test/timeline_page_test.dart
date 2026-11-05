@@ -830,10 +830,11 @@ void main() {
     expect(find.text('Family'), findsOneWidget);
     expect(find.byKey(const Key('timeline-search')), findsOneWidget);
     expect(find.byKey(const Key('header-avatar')), findsOneWidget);
-    expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-decades')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-timeline')), findsNothing);
     expect(find.text('Save draft'), findsNothing);
     expect(find.text('Publish'), findsNothing);
-    expect(find.text('Timeline'), findsNothing);
+    expect(find.text('Timeline'), findsOneWidget);
     expect(find.text('Family Members'), findsNothing);
     expect(find.text('Places'), findsNothing);
     expect(find.text('Help'), findsNothing);
@@ -1302,6 +1303,34 @@ void main() {
     expect(find.text('1980s · IN FOCUS'), findsNothing);
     _expectZoom(tester, 'timeline-zoom-macro');
     expect(find.text('Fit all'), findsNothing);
+  });
+
+  testWidgets('Stories sits left of Timeline and Timeline opens Decades', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final timeline = tester.getTopLeft(
+      find.byKey(const Key('header-nav-timeline')),
+    );
+    final stories = tester.getTopLeft(find.byKey(const Key('timeline-nav')));
+    expect(stories.dx, lessThan(timeline.dx));
+    expect(find.byKey(const Key('header-underline-decades')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+
+    await tester.tap(find.byKey(const Key('header-nav-timeline')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-macro');
   });
 
   testWidgets('the zoom pill slides from Decades to Years to Days', (
@@ -3055,7 +3084,10 @@ void main() {
 
     expect(FamilySelection.id, bea);
     expect(_tooltipFor(tester, 'bea-story'), contains('Bea tale'));
-    expect(find.text('Origin · from Jenkins'), findsOneWidget);
+    expect(_tooltipFor(tester, 'bea-story'), isNot(contains('origin')));
+    expect(_tooltipFor(tester, 'ada'), contains('origin'));
+    expect(find.text('Origin · from Jenkins'), findsNothing);
+    expect(find.text('Ada tale'), findsNothing);
   });
 
   testWidgets('a tree-read open family is not listed and no row is checked', (
@@ -3234,7 +3266,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Origin'), findsOneWidget);
+    expect(find.text('Origin'), findsNothing);
+    expect(find.text('Root tale'), findsNothing);
+    expect(find.byKey(const Key('timeline-origin-ring')), findsOneWidget);
+    expect(_tooltipFor(tester, origin), contains('origin'));
     expect(find.textContaining('Origin · from'), findsNothing);
   });
 

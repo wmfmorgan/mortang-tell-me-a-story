@@ -56,7 +56,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
   List<TreeFamily> _tree = const [];
-  Set<String> _memberIds = const {};
+  Set<String> _memberIds = FamilyMembership.ids;
   String? _familyId;
   List<Story> _latest = const [];
   Map<String, Uint8List> _thumbs = const {};
@@ -101,6 +101,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
         stewarded = await live.listStewarded();
       }
       memberIds = rows.map((row) => row.id).toSet();
+      FamilyMembership.remember(memberIds);
     } catch (_) {
       rows = const [];
       stewarded = const [];
@@ -488,65 +489,7 @@ class _LatestShelf extends StatelessWidget {
               },
             ),
           ),
-        const SizedBox(height: 16),
-        _AllStoriesCta(familyName: familyName, familyId: familyId),
       ],
-    );
-  }
-}
-
-/// Centered terracotta pill. Same treatment as New story, no plus.
-class _AllStoriesCta extends StatelessWidget {
-  const _AllStoriesCta({required this.familyName, required this.familyId});
-
-  final String familyName;
-  final String? familyId;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = 'View all stories for $familyName';
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final textMax = (constraints.maxWidth - 32).clamp(0.0, double.infinity);
-        return Align(
-          alignment: Alignment.center,
-          child: Tooltip(
-            message: label,
-            child: FilledButton(
-              key: const Key('family-landing-view-all'),
-              onPressed: switch (familyId) {
-                final id? => () => context.go(AppRoutes.allStoriesPath(id)),
-                null => null,
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: albumTerracotta,
-                foregroundColor: albumParchment,
-                elevation: 1,
-                shape: const StadiumBorder(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: textMax),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  semanticsLabel: label,
-                  style: GoogleFonts.sourceSans3(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: albumParchment,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

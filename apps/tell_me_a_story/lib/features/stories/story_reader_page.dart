@@ -42,6 +42,22 @@ String readerArticleBody({String? body}) {
   return (body ?? '').trim();
 }
 
+/// True when a full page, such as the edit form, covers the reader.
+/// A menu or dialog is a [PopupRoute] and must keep this scrim up.
+bool readerScrimCovered(BuildContext context) {
+  final self = ModalRoute.of(context);
+  if (self == null || self.isCurrent) return false;
+  final navigator = self.navigator;
+  if (navigator == null) return true;
+  Route<dynamic>? top;
+  navigator.popUntil((route) {
+    top ??= route;
+    return true;
+  });
+  if (top == null || identical(top, self)) return false;
+  return top is! PopupRoute<dynamic>;
+}
+
 class OriginMenuEntry {
   const OriginMenuEntry({required this.familyId, required this.label});
 
@@ -171,10 +187,12 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   var _photoError = false;
   var _heroIndex = 0;
   var _composingComment = false;
+  String? _editingCommentId;
   var _canWrite = false;
   var _memberOfStoryFamily = false;
   Uint8List? _pendingPhotoBytes;
   final _composerFocus = FocusNode();
+  final _editFocus = FocusNode();
   final _composerKey = GlobalKey();
 
   bool get _canEditStory {
@@ -249,6 +267,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     _router?.routerDelegate.removeListener(_onRouteChanged);
     _ownedLive?.dispose();
     _composerFocus.dispose();
+    _editFocus.dispose();
     super.dispose();
   }
 
@@ -294,6 +313,64 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       setState(() => _perspectives = [..._perspectives, created]);
     }
     await _reloadPerspectives();
+  }
+
+  bool _canManagePerspective(Perspective row) {
+    return _canWrite &&
+        _currentUserId != null &&
+        row.authorId == _currentUserId;
+  }
+
+  Future<void> _openEditPerspective(Perspective row) async {
+    final updated = await AddPerspectivePage.show(
+      context,
+      storyId: widget.storyId,
+      familyId: _story?.familyId ?? row.familyId,
+      perspectivesApi: _perspectivesApi,
+      storiesApi: _stories,
+      storyAuthorId: _story?.authorId,
+      currentUserId: _currentUserId,
+      existing: row,
+    );
+    if (!mounted || updated == null) return;
+    setState(() {
+      _perspectives = [
+        for (final item in _perspectives)
+          if (item.id == updated.id) updated else item,
+      ];
+    });
+    await _reloadPerspectives();
+  }
+
+  Future<void> _confirmDeletePerspective(Perspective row) async {
+    if (_confirming) return;
+    _confirming = true;
+    try {
+      final confirmed = await showFamilyBlurDialog(
+        context,
+        dialogKey: const Key('delete-perspective-dialog'),
+        title: 'Delete this perspective?',
+        confirmLabel: 'Delete perspective',
+        confirmKey: const Key('delete-perspective-go'),
+        confirmColor: albumTerracotta,
+      );
+      if (!confirmed || !mounted) return;
+      await _perspectivesApi.delete(row.id);
+      if (!mounted) return;
+      setState(() {
+        _perspectives = [
+          for (final item in _perspectives)
+            if (item.id != row.id) item,
+        ];
+      });
+      await _reloadPerspectives();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+    } finally {
+      _confirming = false;
+    }
   }
 
   Future<void> _reloadPerspectives() async {
@@ -659,7 +736,10 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   }
 
   void _openComposer() {
-    setState(() => _composingComment = true);
+    setState(() {
+      _composingComment = true;
+      _editingCommentId = null;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _composerFocus.requestFocus();
@@ -775,12 +855,54 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     }
   }
 
+  void _startEditComment(Comment row) {
+    setState(() {
+      _editingCommentId = row.id;
+      _composingComment = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _editFocus.requestFocus();
+    });
+  }
+
+  Future<void> _saveComment(Comment row, String body) async {
+    try {
+      await _commentsApi.update(id: row.id, body: body);
+      if (!mounted) return;
+      setState(() {
+        _comments = [
+          for (final item in _comments)
+            if (item.id == row.id)
+              Comment(
+                id: item.id,
+                storyId: item.storyId,
+                familyId: item.familyId,
+                authorId: item.authorId,
+                body: body.trim(),
+                createdAt: item.createdAt,
+                authorDisplayName: item.authorDisplayName,
+              )
+            else
+              item,
+        ];
+        _editingCommentId = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+      rethrow;
+    }
+  }
+
   Future<void> _deleteComment(Comment row) async {
     try {
       await _commentsApi.delete(row.id);
       if (!mounted) return;
       setState(() {
         _comments = _comments.where((c) => c.id != row.id).toList();
+        if (_editingCommentId == row.id) _editingCommentId = null;
       });
     } catch (_) {
       if (!mounted) return;
@@ -791,9 +913,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   @override
   Widget build(BuildContext context) {
-    // A route pushed on top (edit) paints the same scrim. Leave this one out
-    // so the blur does not stack.
-    final covered = ModalRoute.of(context)?.isCurrent == false;
+    // The edit page paints its own scrim. A menu route must not drop this one.
+    final covered = readerScrimCovered(context);
     return AlbumModalFrame(
       frameKey: const Key('story-reader-modal'),
       markKey: const Key('story-reader-mark'),
@@ -1001,7 +1122,12 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                     _canWrite &&
                     _currentUserId != null &&
                     row.authorId == _currentUserId,
+                editing: _editingCommentId == row.id,
+                onEdit: () => _startEditComment(row),
                 onDelete: () => _deleteComment(row),
+                onSave: (body) => _saveComment(row, body),
+                onCancelEdit: () => setState(() => _editingCommentId = null),
+                editFocus: _editFocus,
               ),
             if (_composingComment)
               KeyedSubtree(
@@ -1266,6 +1392,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   Widget _perspectiveCard(Perspective row) {
     final theme = Theme.of(context);
+    final canManage = _canManagePerspective(row);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFFF6F1EB),
@@ -1301,6 +1428,32 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                     ],
                   ),
                 ),
+                if (canManage)
+                  PopupMenuButton<String>(
+                    key: Key('perspective-menu-${row.id}'),
+                    tooltip: 'Perspective actions',
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _openEditPerspective(row);
+                        return;
+                      }
+                      if (value == 'delete') {
+                        _confirmDeletePerspective(row);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem<String>(
+                        key: Key('perspective-edit-${row.id}'),
+                        value: 'edit',
+                        child: const Text('Edit'),
+                      ),
+                      PopupMenuItem<String>(
+                        key: Key('perspective-delete-${row.id}'),
+                        value: 'delete',
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 12),

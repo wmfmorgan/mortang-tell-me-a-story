@@ -55,12 +55,12 @@ class _DraftsPageState extends State<DraftsPage> {
   var _loading = true;
   var _loadError = false;
   var _busy = false;
-  String? _familyId;
+  String? _familyId = FamilySelection.id;
   List<Story> _drafts = const [];
   var _filter = _DraftsFilter.all;
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
-  Set<String> _memberIds = const {};
+  Set<String> _memberIds = FamilyMembership.ids;
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
@@ -94,6 +94,7 @@ class _DraftsPageState extends State<DraftsPage> {
       }
       final drafts = await _stories.listMyDrafts(familyId);
       if (!mounted) return;
+      FamilySelection.remember(familyId);
       setState(() {
         _familyId = familyId;
         _drafts = drafts;
@@ -118,6 +119,7 @@ class _DraftsPageState extends State<DraftsPage> {
         rows = await widget.familiesApi!.listMine();
         stewarded = await widget.familiesApi!.listStewarded();
         memberIds = rows.map((row) => row.id).toSet();
+        FamilyMembership.remember(memberIds);
       } else if (widget.inviteApi != null || widget.storiesApi != null) {
         final id = _familyId;
         if (id != null) {
@@ -130,6 +132,7 @@ class _DraftsPageState extends State<DraftsPage> {
         rows = await live.listMine();
         stewarded = await live.listStewarded();
         memberIds = rows.map((row) => row.id).toSet();
+        FamilyMembership.remember(memberIds);
       }
     } catch (_) {
       rows = const [];

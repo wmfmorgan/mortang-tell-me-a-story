@@ -801,7 +801,7 @@ Future<void> _publish(
     await pumpUntilFound(tester, finder);
     final full = find.byKey(const Key('timeline-zoom-full'));
     if (full.evaluate().isEmpty) {
-      final openTimeline = find.byKey(const Key('all-stories-timeline'));
+      final openTimeline = find.byKey(const Key('header-nav-timeline'));
       await pumpUntilFound(tester, openTimeline);
       await tester.ensureVisible(openTimeline);
       await tester.tap(openTimeline);

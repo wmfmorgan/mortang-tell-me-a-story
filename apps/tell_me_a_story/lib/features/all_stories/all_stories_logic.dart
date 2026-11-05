@@ -60,11 +60,13 @@ class AllStoriesViewState {
     this.groupBy = AllStoriesGroupBy.date,
     this.query = '',
     this.startedTimelineOnly = false,
+    this.showMemberPills = false,
   });
 
   final AllStoriesGroupBy groupBy;
   final String query;
   final bool startedTimelineOnly;
+  final bool showMemberPills;
 
   bool get filterActive => query.trim().isNotEmpty || startedTimelineOnly;
 
@@ -72,11 +74,13 @@ class AllStoriesViewState {
     AllStoriesGroupBy? groupBy,
     String? query,
     bool? startedTimelineOnly,
+    bool? showMemberPills,
   }) {
     return AllStoriesViewState(
       groupBy: groupBy ?? this.groupBy,
       query: query ?? this.query,
       startedTimelineOnly: startedTimelineOnly ?? this.startedTimelineOnly,
+      showMemberPills: showMemberPills ?? this.showMemberPills,
     );
   }
 }

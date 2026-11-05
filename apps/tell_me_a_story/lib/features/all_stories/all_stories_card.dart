@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -35,6 +34,7 @@ class AllStoriesCard extends StatelessWidget {
     required this.query,
     required this.filterActive,
     required this.undimmed,
+    this.showMembers = false,
     required this.thumb,
     required this.onOpen,
     required this.onOpenBranch,
@@ -46,6 +46,7 @@ class AllStoriesCard extends StatelessWidget {
   final String query;
   final bool filterActive;
   final bool undimmed;
+  final bool showMembers;
   final Uint8List? thumb;
   final VoidCallback onOpen;
   final ValueChanged<TreeFamily> onOpenBranch;
@@ -138,8 +139,10 @@ class AllStoriesCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 8),
-                  _pills(textColor, accent),
+                  if (_pills(textColor, accent) case final pills?) ...[
+                    const SizedBox(height: 8),
+                    pills,
+                  ],
                   if (placeHeading(story) case final place?) ...[
                     const SizedBox(height: 8),
                     Row(
@@ -199,80 +202,71 @@ class AllStoriesCard extends StatelessWidget {
               alpha: allStoriesVeilOpacity * dim,
             ),
           ),
-          if (mark.startedTimeline)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: _Ring(
-                key: Key('all-stories-ring-${story.id}'),
-                color: accent,
-              ),
-            ),
         ],
       ),
     );
   }
 
-  Widget _pills(Color textColor, Color accent) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        if (mark.startedTimeline)
-          _OriginPill(
-            text: mark.inheritedFromName == null
-                ? 'Origin'
-                : 'Origin · from ${mark.inheritedFromName}',
-            color: accent,
-          ),
-        for (final branch in mark.branches)
-          Semantics(
-            button: true,
-            label: 'Open the ${branch.name} timeline',
-            onTap: () => onOpenBranch(branch),
-            child: AllStoriesFocusTarget(
-              radius: 20,
-              childBuilder: (node) => TextButton(
-                key: Key('all-stories-branch-${story.id}-${branch.id}'),
-                focusNode: node,
-                onPressed: () => onOpenBranch(branch),
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(44, 44),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  foregroundColor: textColor,
-                  backgroundColor: albumPillFill,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: const BorderSide(color: albumPillBorder),
+  Widget? _pills(Color textColor, Color accent) {
+    final children = <Widget>[
+      if (mark.startedTimeline)
+        _OriginPill(
+          text: mark.inheritedFromName == null
+              ? 'Origin'
+              : 'Origin · from ${mark.inheritedFromName}',
+          color: accent,
+        ),
+      for (final branch in mark.branches)
+        Semantics(
+          button: true,
+          label: 'Open the ${branch.name} timeline',
+          onTap: () => onOpenBranch(branch),
+          child: AllStoriesFocusTarget(
+            radius: 20,
+            childBuilder: (node) => TextButton(
+              key: Key('all-stories-branch-${story.id}-${branch.id}'),
+              focusNode: node,
+              onPressed: () => onOpenBranch(branch),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(44, 44),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                foregroundColor: textColor,
+                backgroundColor: albumPillFill,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: const BorderSide(color: albumPillBorder),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.account_tree_outlined, size: 16, color: textColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    branch.name,
+                    style: GoogleFonts.sourceSans3(color: textColor),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.account_tree_outlined,
-                      size: 16,
-                      color: textColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      branch.name,
-                      style: GoogleFonts.sourceSans3(color: textColor),
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
           ),
+        ),
+      if (showMembers)
         for (final person in story.people)
           _PersonPill(
+            key: Key('all-stories-person-${story.id}-${person.id}'),
             name: person.name,
             color: textColor,
             matched: nameMatches(person.name, query),
           ),
-      ],
+    ];
+    if (children.isEmpty) return null;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: children,
     );
   }
 
@@ -428,30 +422,9 @@ class _AllStoriesFocusTargetState extends State<AllStoriesFocusTarget> {
   }
 }
 
-class AllStoriesDashedRing extends StatelessWidget {
-  const AllStoriesDashedRing({super.key, this.size = 16, required this.color});
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: albumParchment,
-          shape: BoxShape.circle,
-        ),
-        child: CustomPaint(painter: _DashedRingPainter(color)),
-      ),
-    );
-  }
-}
-
 class _PersonPill extends StatelessWidget {
   const _PersonPill({
+    super.key,
     required this.name,
     required this.color,
     required this.matched,
@@ -481,58 +454,6 @@ class _PersonPill extends StatelessWidget {
       ),
     );
   }
-}
-
-class _Ring extends StatelessWidget {
-  const _Ring({super.key, required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 16,
-      height: 16,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: albumParchment,
-          shape: BoxShape.circle,
-        ),
-        child: CustomPaint(painter: _DashedRingPainter(color)),
-      ),
-    );
-  }
-}
-
-class _DashedRingPainter extends CustomPainter {
-  const _DashedRingPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    const dash = 3.0;
-    const gap = 2.0;
-    final radius = size.width / 2;
-    final circumference = 2 * math.pi * radius;
-    final count = math.max(1, (circumference / (dash + gap)).floor());
-    final sweep = (dash / circumference) * 2 * math.pi;
-    final gapSweep = (gap / circumference) * 2 * math.pi;
-    var start = -math.pi / 2;
-    final rect = Offset.zero & size;
-    for (var i = 0; i < count; i++) {
-      canvas.drawArc(rect.deflate(1), start, sweep, false, paint);
-      start += sweep + gapSweep;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedRingPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 const _identity = <double>[

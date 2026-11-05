@@ -57,11 +57,11 @@ class _TimelinePageState extends State<TimelinePage> {
   PhotosGateway? _photosOverride;
   TimelineLive? _ownedLive;
   GoRouter? _router;
-  String? _familyId;
+  String? _familyId = FamilySelection.id;
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
   List<TreeFamily> _tree = const [];
-  Set<String> _memberIds = const {};
+  Set<String> _memberIds = FamilyMembership.ids;
   List<Story> _published = const [];
   var _loadingFamily = true;
   var _loadingPublished = true;
@@ -116,6 +116,14 @@ class _TimelinePageState extends State<TimelinePage> {
     if (!mounted) return;
     final path = _router?.routerDelegate.currentConfiguration.uri.path;
     if (path != AppRoutes.timeline) return;
+    final view = _router
+        ?.routerDelegate
+        .currentConfiguration
+        .uri
+        .queryParameters['view'];
+    if (view == 'decades' && _zoom != TimelineZoom.far) {
+      setState(() => _zoom = TimelineZoom.far);
+    }
     // go() back to /timeline keeps this State. A family created from Manage
     // families is remembered before navigation and has to replace the one
     // that was open when the user left.
@@ -157,6 +165,7 @@ class _TimelinePageState extends State<TimelinePage> {
     try {
       final id = await _readableSavedFamily();
       if (!mounted) return;
+      if (id != null) FamilySelection.remember(id);
       setState(() {
         _familyId = id;
         _loadingFamily = false;
@@ -265,6 +274,7 @@ class _TimelinePageState extends State<TimelinePage> {
         rows = await gateway.listMine();
         stewarded = await gateway.listStewarded();
         memberIds = rows.map((row) => row.id).toSet();
+        FamilyMembership.remember(memberIds);
       } else if (widget.storiesApi != null) {
         if (familyId != null) {
           rows = [
@@ -282,6 +292,7 @@ class _TimelinePageState extends State<TimelinePage> {
         rows = await live.listMine();
         stewarded = await live.listStewarded();
         memberIds = rows.map((row) => row.id).toSet();
+        FamilyMembership.remember(memberIds);
         if (familyId != null) {
           tree = await live.listFamilyTree(familyId);
         }
@@ -605,6 +616,10 @@ class _TimelinePageState extends State<TimelinePage> {
         canWrite: _canWrite,
         onInvite: _canWrite ? _openInvite : null,
         onStartTimeline: _canStartTimeline ? _startTimeline : null,
+        onShowDecades: () {
+          if (_zoom == TimelineZoom.far) return;
+          setState(() => _zoom = TimelineZoom.far);
+        },
         manageApi: widget.manageApi,
       ),
       body: LayoutBuilder(
@@ -693,7 +708,6 @@ class _TimelinePageState extends State<TimelinePage> {
         focusedId: _focusedStoryId,
         branching: branching,
         originStoryId: originId,
-        originTag: originLabel,
         onDot: _openStory,
         onEmpty: _zoomOut,
         onYear: _openMidOnYear,
@@ -825,7 +839,6 @@ class _FarRail extends StatefulWidget {
     required this.focusedId,
     required this.branching,
     this.originStoryId,
-    this.originTag,
     required this.onDot,
     required this.onEmpty,
     required this.onYear,
@@ -839,7 +852,6 @@ class _FarRail extends StatefulWidget {
   final String? focusedId;
   final RailBranching branching;
   final String? originStoryId;
-  final String? originTag;
   final ValueChanged<Story> onDot;
   final VoidCallback onEmpty;
   final ValueChanged<int> onYear;
@@ -1004,7 +1016,6 @@ class _FarRailState extends State<_FarRail> {
           band: band,
           branching: widget.branching,
           originStoryId: widget.originStoryId,
-          originTag: widget.originTag,
           onOpenBranch: widget.onOpenBranch,
           focused: band.startYear == _centerYear,
           opacity: _opacities[band.startYear] ?? 1,
@@ -1114,7 +1125,6 @@ class _FarDecadeRow extends StatelessWidget {
     required this.highlight,
     required this.branching,
     this.originStoryId,
-    this.originTag,
     required this.onDot,
     required this.onYear,
     required this.onOpenBranch,
@@ -1126,7 +1136,6 @@ class _FarDecadeRow extends StatelessWidget {
   final Story? highlight;
   final RailBranching branching;
   final String? originStoryId;
-  final String? originTag;
   final ValueChanged<Story> onDot;
   final ValueChanged<int> onYear;
   final ValueChanged<String> onOpenBranch;
@@ -1186,18 +1195,21 @@ class _FarDecadeRow extends StatelessWidget {
     for (final story in stories) {
       final frame = branching.frameFor(story);
       final highlighted = focused && story.id == highlight?.id;
+      final origin = story.id == originStoryId;
       if (frame.branchesStory) {
-        branched.add(_farBranch(context, frame, highlighted: highlighted));
-        branched.addAll(_farOriginChrome(context, story));
-      } else {
-        plain.add(
-          _FarDot(
-            story: story,
-            highlighted: highlighted,
-            onTap: () => onDot(story),
-          ),
+        branched.add(
+          _farBranch(context, frame, highlighted: highlighted, origin: origin),
         );
-        plain.addAll(_farOriginChrome(context, story));
+      } else {
+        final dot = _FarDot(
+          story: story,
+          highlighted: highlighted,
+          origin: origin,
+          onTap: () => onDot(story),
+        );
+        plain.add(
+          origin ? _OriginRing(highlighted: highlighted, child: dot) : dot,
+        );
       }
     }
     final dots = Column(
@@ -1276,24 +1288,11 @@ class _FarDecadeRow extends StatelessWidget {
     );
   }
 
-  List<Widget> _farOriginChrome(BuildContext context, Story story) {
-    if (story.id != originStoryId) return const [];
-    return [
-      if (originTag != null)
-        Text(
-          originTag!,
-          key: Key('timeline-origin-tag-${story.id}'),
-          style: Theme.of(context).textTheme.labelLarge
-              ?.copyWith(color: albumSage, fontWeight: FontWeight.w600),
-        ),
-      Text(storyTitle(story)),
-    ];
-  }
-
   Widget _farBranch(
     BuildContext context,
     StoryFrame frame, {
     required bool highlighted,
+    required bool origin,
   }) {
     final story = frame.story;
     final placed = placeBranchCallout(
@@ -1303,7 +1302,7 @@ class _FarDecadeRow extends StatelessWidget {
       dot: _FarDot(
         story: story,
         highlighted: highlighted,
-        branched: true,
+        origin: origin,
         onTap: () => onDot(story),
       ),
       dotDiameter: highlighted ? farDotHighlightedDiameter : farDotDiameter,
@@ -1383,18 +1382,51 @@ class _RenderCenterOnDot extends RenderShiftedBox {
   }
 }
 
+class _OriginRing extends StatelessWidget {
+  const _OriginRing({required this.highlighted, required this.child});
+
+  final bool highlighted;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final dot = highlighted ? farDotHighlightedDiameter : farDotDiameter;
+    final diameter = dot + 2 * calloutDotGap + 2 * calloutStroke;
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        IgnorePointer(
+          child: SizedBox(
+            key: const Key('timeline-origin-ring'),
+            width: diameter,
+            height: diameter,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: branchMoss, width: calloutStroke),
+              ),
+            ),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
 class _FarDot extends StatelessWidget {
   const _FarDot({
     required this.story,
     required this.highlighted,
     required this.onTap,
-    this.branched = false,
+    this.origin = false,
   });
 
   final Story story;
   final bool highlighted;
   final VoidCallback onTap;
-  final bool branched;
+  final bool origin;
 
   @override
   Widget build(BuildContext context) {
@@ -1412,20 +1444,12 @@ class _FarDot extends StatelessWidget {
             border: highlighted
                 ? Border.all(color: albumTerracotta, width: 2)
                 : null,
-            boxShadow: highlighted && !branched
-                ? [
-                    BoxShadow(
-                      color: albumTerracotta.withValues(alpha: 0.35),
-                      blurRadius: 0,
-                      spreadRadius: 3,
-                    ),
-                  ]
-                : null,
           ),
         ),
       ),
     );
-    return Tooltip(message: dotTooltip(story), child: dot);
+    final tip = origin ? '${dotTooltip(story)} · origin' : dotTooltip(story);
+    return Tooltip(message: tip, child: dot);
   }
 }
 

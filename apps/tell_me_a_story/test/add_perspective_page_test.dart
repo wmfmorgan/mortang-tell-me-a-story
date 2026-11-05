@@ -11,13 +11,20 @@ const _familyId = '00000000-0000-0000-0000-000000000001';
 const _storyId = 's1';
 
 class _FakePerspectivesApi implements PerspectivesGateway {
-  _FakePerspectivesApi({this.throwOnCreate = false});
+  _FakePerspectivesApi({
+    this.throwOnCreate = false,
+    this.throwOnUpdate = false,
+  });
 
   final bool throwOnCreate;
+  final bool throwOnUpdate;
   var createCalls = 0;
+  var updateCalls = 0;
   String? lastStoryId;
   String? lastFamilyId;
   String? lastBody;
+  String? lastUpdateId;
+  String? lastUpdateBody;
 
   @override
   Future<List<Perspective>> listForStory(String storyId) async => const [];
@@ -46,8 +53,12 @@ class _FakePerspectivesApi implements PerspectivesGateway {
   }
 
   @override
-  Future<void> update({required String id, required String body}) {
-    throw UnimplementedError();
+  Future<void> update({required String id, required String body}) async {
+    updateCalls++;
+    lastUpdateId = id;
+    lastUpdateBody = body;
+    if (throwOnUpdate) throw StateError('update failed');
+    ensureValidPerspectiveBody(body);
   }
 
   @override
@@ -55,8 +66,48 @@ class _FakePerspectivesApi implements PerspectivesGateway {
 }
 
 Finder _publish() => find.widgetWithText(FilledButton, 'Publish perspective');
+Finder _save() => find.widgetWithText(FilledButton, 'Save');
 Finder _cancel() => find.widgetWithText(OutlinedButton, 'Cancel');
 Finder _bodyField() => find.byKey(const Key('perspective-body'));
+
+final _existing = Perspective(
+  id: 'v1',
+  storyId: _storyId,
+  familyId: _familyId,
+  authorId: 'u1',
+  body: 'From the porch it looked different.',
+  createdAt: DateTime.utc(2026, 9, 26),
+  authorDisplayName: 'Me',
+);
+
+Future<void> _pumpEdit(
+  WidgetTester tester, {
+  required PerspectivesGateway api,
+  required Perspective existing,
+}) async {
+  final router = GoRouter(
+    initialLocation: AppRoutes.storyPath(_storyId),
+    routes: [
+      GoRoute(
+        path: AppRoutes.story,
+        builder: (context, state) => const Scaffold(body: Text('reader-dest')),
+      ),
+      GoRoute(
+        path: AppRoutes.storyPerspective,
+        builder: (context, state) => AddPerspectivePage(
+          storyId: state.pathParameters['storyId']!,
+          familyId: _familyId,
+          perspectivesApi: api,
+          existing: existing,
+        ),
+      ),
+    ],
+  );
+  await tester.pumpWidget(TellMeAStoryApp(router: router));
+  await tester.pumpAndSettle();
+  router.push(AppRoutes.storyPerspectivePath(_storyId));
+  await tester.pumpAndSettle();
+}
 
 Future<GoRouter> _pumpOverlay(
   WidgetTester tester, {
@@ -233,5 +284,68 @@ void main() {
     expect(find.text('Try again'), findsOneWidget);
     expect(find.byKey(const Key('add-perspective')), findsOneWidget);
     expect(tester.widget<TextField>(_bodyField()).controller?.text, 'Keep me');
+  });
+
+  testWidgets('edit prefills the body and saves with update', (tester) async {
+    final api = _FakePerspectivesApi();
+    await _pumpEdit(tester, api: api, existing: _existing);
+
+    expect(find.text('Edit your perspective'), findsOneWidget);
+    expect(find.text('Add your perspective'), findsNothing);
+    expect(_publish(), findsNothing);
+    expect(
+      tester.widget<TextField>(_bodyField()).controller?.text,
+      'From the porch it looked different.',
+    );
+    expect(tester.widget<FilledButton>(_save()).onPressed, isNotNull);
+
+    await tester.enterText(_bodyField(), '  A clearer telling.  ');
+    await tester.pump();
+    await tester.ensureVisible(_save());
+    await tester.tap(_save());
+    await tester.pumpAndSettle();
+
+    expect(api.updateCalls, 1);
+    expect(api.createCalls, 0);
+    expect(api.lastUpdateId, 'v1');
+    expect(api.lastUpdateBody, 'A clearer telling.');
+    expect(find.byKey(const Key('add-perspective')), findsNothing);
+    expect(find.text('reader-dest'), findsOneWidget);
+  });
+
+  testWidgets('empty edit body disables Save', (tester) async {
+    final api = _FakePerspectivesApi();
+    await _pumpEdit(tester, api: api, existing: _existing);
+
+    await tester.enterText(_bodyField(), '   ');
+    await tester.pump();
+
+    expect(tester.widget<FilledButton>(_save()).onPressed, isNull);
+    await tester.ensureVisible(_save());
+    await tester.tap(_save());
+    await tester.pump();
+
+    expect(api.updateCalls, 0);
+    expect(find.byKey(const Key('add-perspective')), findsOneWidget);
+  });
+
+  testWidgets('failed edit shows Try again and stays open', (tester) async {
+    final api = _FakePerspectivesApi(throwOnUpdate: true);
+    await _pumpEdit(tester, api: api, existing: _existing);
+
+    await tester.enterText(_bodyField(), 'Still here');
+    await tester.pump();
+    await tester.ensureVisible(_save());
+    await tester.tap(_save());
+    await tester.pumpAndSettle();
+
+    expect(api.updateCalls, 1);
+    expect(api.createCalls, 0);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.byKey(const Key('add-perspective')), findsOneWidget);
+    expect(
+      tester.widget<TextField>(_bodyField()).controller?.text,
+      'Still here',
+    );
   });
 }
