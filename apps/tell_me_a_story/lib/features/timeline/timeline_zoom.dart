@@ -57,8 +57,12 @@ String storyTitle(Story story) {
   return title.isEmpty ? 'Untitled' : title;
 }
 
-String dotTooltip(Story story) =>
-    '${storyTitle(story)} (${storyDateLabelFor(story)})';
+String dotTooltip(Story story, {bool origin = false}) {
+  final title = storyTitle(story);
+  final when = storyDateLabelFor(story);
+  if (!origin) return '$title ($when)';
+  return '$title · Origin ($when)';
+}
 
 String excerpt(String? body, {int max = 180}) {
   final flat = (body ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();

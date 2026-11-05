@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -89,7 +90,7 @@ void main() {
     );
   });
 
-  test('a parent family is not a callout', () {
+  test('a parent family is not a child callout', () {
     const parent = TreeFamily(id: 'parent', name: 'Parent', branchYear: 1990);
     const open = TreeFamily(
       id: 'open',
@@ -102,8 +103,13 @@ void main() {
       tree: const [parent, open],
       stories: [_story('s1'), _story('other')],
     );
-    expect(onRail.frameFor(_story('s1')).callouts, isEmpty);
+    final origin = onRail.frameFor(_story('s1'));
+    expect(origin.callouts, isEmpty);
+    expect(origin.parent?.familyId, 'parent');
+    expect(origin.parent?.label, 'Parent');
+    expect(origin.parent?.semanticsLabel, 'Open Parent timeline');
     expect(onRail.frameFor(_story('other')).callouts, isEmpty);
+    expect(onRail.frameFor(_story('other')).parent, isNull);
 
     const noOrigin = TreeFamily(
       id: 'open',
@@ -116,6 +122,7 @@ void main() {
       stories: [_story('s1')],
     );
     expect(unmarked.frameFor(_story('s1')).callouts, isEmpty);
+    expect(unmarked.frameFor(_story('s1')).parent, isNull);
 
     const missingOrigin = TreeFamily(
       id: 'open',
@@ -129,6 +136,38 @@ void main() {
       stories: [_story('s1')],
     );
     expect(missing.frameFor(_story('s1')).callouts, isEmpty);
+    expect(missing.frameFor(_story('s1')).parent, isNull);
+  });
+
+  test('a parent callout uses the open family branch year', () {
+    const parent = TreeFamily(
+      id: 'parent',
+      name: 'The WFM Morgans',
+      branchYear: 1980,
+    );
+    const open = TreeFamily(
+      id: 'open',
+      name: 'Open',
+      parentFamilyId: 'parent',
+      originStoryId: 's1',
+      branchYear: 1995,
+    );
+    final branching = railBranching(
+      open: open,
+      tree: const [parent, open],
+      stories: [_story('s1')],
+    );
+    final link = branching.frameFor(_story('s1')).parent;
+    expect(link?.label, 'The WFM Morgans · 1995');
+    expect(link?.familyId, 'parent');
+    expect(branching.frameFor(_story('s1')).callouts, isEmpty);
+
+    final missingParent = railBranching(
+      open: open,
+      tree: const [open],
+      stories: [_story('s1')],
+    );
+    expect(missingParent.frameFor(_story('s1')).parent, isNull);
   });
 
   test('a parent that also branches from this family is a callout', () {
@@ -153,6 +192,7 @@ void main() {
     final frame = branching.frameFor(_story('s1'));
     expect(frame.callouts.map((callout) => callout.familyId), ['p']);
     expect(frame.callouts.single.label, 'P · 1972');
+    expect(frame.parent, isNull);
   });
 
   test('the leader starts outside the ring and the left side mirrors', () {
@@ -262,6 +302,48 @@ void main() {
     );
     expect(geometry.cardTop, geometry.labelRects.last.bottom);
     expect(geometry.cardRailEdge, geometry.labelRects.first.left);
+  });
+
+  test('an upward leader leaves the top and runs to the left', () {
+    const dot = 12.0;
+    const label = Size(120, 44);
+    final left = layoutCallouts(
+      side: CalloutSide.left,
+      dotDiameter: dot,
+      centerToLane: calloutHit / 2,
+      labelSizes: const [label],
+      rise: CalloutRise.up,
+      aroundRing: false,
+    );
+    final start = left.leaders.single.start;
+    expect(start.dx, closeTo(0, 0.01));
+    expect(start.dy, closeTo(-(dot / 2 + calloutLeaderGap), 0.01));
+    final elbow = left.leaders.single.elbow;
+    expect(elbow.dx, closeTo(-calloutDiagonal, 0.01));
+    expect(elbow.dy, closeTo(start.dy - calloutDiagonal, 0.01));
+    expect(elbow.dy, lessThan(start.dy));
+    final end = left.leaders.single.end;
+    expect(end.dy, closeTo(elbow.dy, 0.01));
+    expect(elbow.dx - end.dx, greaterThanOrEqualTo(calloutMinRun - 0.01));
+    expect(left.labelRects.single.center.dy, closeTo(end.dy, 0.01));
+    expect(left.labelRects.single.right, lessThan(0));
+    expect(
+      end.dx - left.labelRects.single.right,
+      closeTo(calloutLabelGap, 0.01),
+    );
+
+    final right = layoutCallouts(
+      side: CalloutSide.right,
+      dotDiameter: dot,
+      centerToLane: calloutHit / 2,
+      labelSizes: const [label],
+      rise: CalloutRise.up,
+      aroundRing: false,
+    );
+    expect(right.leaders.single.start.dx, closeTo(0, 0.01));
+    expect(right.leaders.single.start.dy, closeTo(start.dy, 0.01));
+    expect(right.leaders.single.elbow.dx, closeTo(-elbow.dx, 0.01));
+    expect(right.labelRects.single.center.dy, closeTo(end.dy, 0.01));
   });
 }
 

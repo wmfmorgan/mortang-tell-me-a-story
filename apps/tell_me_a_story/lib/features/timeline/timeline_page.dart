@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -1196,7 +1198,11 @@ class _FarDecadeRow extends StatelessWidget {
       final frame = branching.frameFor(story);
       final highlighted = focused && story.id == highlight?.id;
       final origin = story.id == originStoryId;
-      if (frame.branchesStory) {
+      if (frame.parent != null) {
+        branched.add(
+          _farParent(context, frame, highlighted: highlighted, origin: origin),
+        );
+      } else if (frame.branchesStory) {
         branched.add(
           _farBranch(context, frame, highlighted: highlighted, origin: origin),
         );
@@ -1208,7 +1214,7 @@ class _FarDecadeRow extends StatelessWidget {
           onTap: () => onDot(story),
         );
         plain.add(
-          origin ? _OriginRing(highlighted: highlighted, child: dot) : dot,
+          origin ? _OriginDot(highlighted: highlighted, child: dot) : dot,
         );
       }
     }
@@ -1288,6 +1294,34 @@ class _FarDecadeRow extends StatelessWidget {
     );
   }
 
+  Widget _farParent(
+    BuildContext context,
+    StoryFrame frame, {
+    required bool highlighted,
+    required bool origin,
+  }) {
+    final story = frame.story;
+    final mark = decadeParentMark(
+      context: context,
+      frame: frame,
+      dot: _FarDot(
+        story: story,
+        highlighted: highlighted,
+        origin: origin,
+        onTap: () => onDot(story),
+      ),
+      dotDiameter: highlighted ? farDotHighlightedDiameter : farDotDiameter,
+      centerToLane: calloutHit / 2,
+      maxLabelWidth: calloutLabelWidthFar,
+      onOpen: onOpenBranch,
+    );
+    return _CenterOnDot(
+      dotExtent: calloutHit,
+      dotTop: mark.dotTop,
+      child: mark.child,
+    );
+  }
+
   Widget _farBranch(
     BuildContext context,
     StoryFrame frame, {
@@ -1340,13 +1374,20 @@ class _FarDecadeRow extends StatelessWidget {
 }
 
 class _CenterOnDot extends SingleChildRenderObjectWidget {
-  const _CenterOnDot({required this.dotExtent, required super.child});
+  const _CenterOnDot({
+    required this.dotExtent,
+    this.dotTop = 0,
+    required super.child,
+  });
 
   final double dotExtent;
 
+  /// Where the dot box starts in the child. Zero when the callout hangs below.
+  final double dotTop;
+
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return _RenderCenterOnDot(dotExtent);
+    return _RenderCenterOnDot(dotExtent, dotTop);
   }
 
   @override
@@ -1354,18 +1395,27 @@ class _CenterOnDot extends SingleChildRenderObjectWidget {
     BuildContext context,
     _RenderCenterOnDot renderObject,
   ) {
-    renderObject.dotExtent = dotExtent;
+    renderObject
+      ..dotExtent = dotExtent
+      ..dotTop = dotTop;
   }
 }
 
 class _RenderCenterOnDot extends RenderShiftedBox {
-  _RenderCenterOnDot(this._dotExtent) : super(null);
+  _RenderCenterOnDot(this._dotExtent, this._dotTop) : super(null);
 
   double _dotExtent;
+  double _dotTop;
 
   set dotExtent(double value) {
     if (_dotExtent == value) return;
     _dotExtent = value;
+    markNeedsLayout();
+  }
+
+  set dotTop(double value) {
+    if (_dotTop == value) return;
+    _dotTop = value;
     markNeedsLayout();
   }
 
@@ -1374,38 +1424,41 @@ class _RenderCenterOnDot extends RenderShiftedBox {
     final child = this.child!;
     child.layout(constraints.loosen(), parentUsesSize: true);
     final childSize = child.size;
-    final pad = childSize.height > _dotExtent
-        ? childSize.height - _dotExtent
-        : 0.0;
-    size = constraints.constrain(Size(childSize.width, pad + childSize.height));
-    (child.parentData! as BoxParentData).offset = Offset(0, pad);
+    // A downward callout hangs under a top-aligned dot, so the spare space
+    // goes above it. An upward parent callout hangs over the dot, so the
+    // spare space goes below it. Either way the dot stays on the row center.
+    final below = childSize.height - (_dotTop + _dotExtent);
+    final extraAbove = below > _dotTop ? below - _dotTop : 0.0;
+    final extraBelow = _dotTop > below ? _dotTop - below : 0.0;
+    size = constraints.constrain(
+      Size(childSize.width, extraAbove + childSize.height + extraBelow),
+    );
+    (child.parentData! as BoxParentData).offset = Offset(0, extraAbove);
   }
 }
 
-class _OriginRing extends StatelessWidget {
-  const _OriginRing({required this.highlighted, required this.child});
+/// Moss ring for an origin story that has no callout of its own.
+class _OriginDot extends StatelessWidget {
+  const _OriginDot({required this.highlighted, required this.child});
 
   final bool highlighted;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final dot = highlighted ? farDotHighlightedDiameter : farDotDiameter;
-    final diameter = dot + 2 * calloutDotGap + 2 * calloutStroke;
+    final diameter = highlighted ? farDotHighlightedDiameter : farDotDiameter;
+    final ring = diameter + 2 * calloutDotGap + 2 * calloutStroke;
     return Stack(
       alignment: Alignment.center,
       clipBehavior: Clip.none,
       children: [
         IgnorePointer(
-          child: SizedBox(
-            key: const Key('timeline-origin-ring'),
-            width: diameter,
-            height: diameter,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: branchMoss, width: calloutStroke),
-              ),
+          child: Container(
+            width: ring,
+            height: ring,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: branchMoss, width: calloutStroke),
             ),
           ),
         ),
@@ -1444,12 +1497,23 @@ class _FarDot extends StatelessWidget {
             border: highlighted
                 ? Border.all(color: albumTerracotta, width: 2)
                 : null,
+            boxShadow: highlighted
+                ? [
+                    BoxShadow(
+                      color: albumTerracotta.withValues(alpha: 0.35),
+                      blurRadius: 0,
+                      spreadRadius: 3,
+                    ),
+                  ]
+                : null,
           ),
         ),
       ),
     );
-    final tip = origin ? '${dotTooltip(story)} · origin' : dotTooltip(story);
-    return Tooltip(message: tip, child: dot);
+    return Tooltip(
+      message: dotTooltip(story, origin: origin),
+      child: dot,
+    );
   }
 }
 
@@ -2164,10 +2228,28 @@ class _DialRow extends StatelessWidget {
             left: cardOnLeft ? 0 : placed.push,
             right: cardOnLeft ? placed.push : 0,
           );
+    final parentOverlay = frame.parent == null
+        ? null
+        : parentCalloutOverlay(
+            context: context,
+            frame: frame,
+            side: cardOnLeft ? CalloutSide.left : CalloutSide.right,
+            maxLabelWidth: calloutLabelWidthDial,
+            onOpen: onOpenBranch,
+          );
     Widget sideCard(bool show) {
       if (!show) return const SizedBox.shrink();
-      if (placed == null) return card;
-      return Padding(padding: pushPad, child: card);
+      final shown = parentOverlay == null
+          ? card
+          : _HangParentCallout(
+              anchor: parentOverlay.anchor,
+              cardOnLeft: cardOnLeft,
+              balance: placed == null,
+              callout: parentOverlay.child,
+              card: card,
+            );
+      if (placed == null) return shown;
+      return Padding(padding: pushPad, child: shown);
     }
 
     Widget sideLabel(bool show) {
@@ -2266,6 +2348,140 @@ class _DialRow extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Places [callout] so [anchor] sits on the top center of [card].
+///
+/// A left card stays flush with the right edge, and a right card stays flush
+/// with the left edge, so the rail alignment does not move. [balance] adds
+/// the same space below the card that the callout takes above it, which keeps
+/// a centered rail dot on the card.
+class _HangParentCallout extends MultiChildRenderObjectWidget {
+  _HangParentCallout({
+    required this.anchor,
+    required this.cardOnLeft,
+    required this.balance,
+    required Widget card,
+    required Widget callout,
+  }) : super(children: [card, callout]);
+
+  final Offset anchor;
+  final bool cardOnLeft;
+  final bool balance;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderHangParentCallout(anchor, cardOnLeft, balance);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderHangParentCallout renderObject,
+  ) {
+    renderObject
+      ..anchor = anchor
+      ..cardOnLeft = cardOnLeft
+      ..balance = balance;
+  }
+}
+
+class _HangParentParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderHangParentCallout extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _HangParentParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _HangParentParentData> {
+  _RenderHangParentCallout(this._anchor, this._cardOnLeft, this._balance);
+
+  Offset _anchor;
+  bool _cardOnLeft;
+  bool _balance;
+
+  set anchor(Offset value) {
+    if (_anchor == value) return;
+    _anchor = value;
+    markNeedsLayout();
+  }
+
+  set cardOnLeft(bool value) {
+    if (_cardOnLeft == value) return;
+    _cardOnLeft = value;
+    markNeedsLayout();
+  }
+
+  set balance(bool value) {
+    if (_balance == value) return;
+    _balance = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _HangParentParentData) {
+      child.parentData = _HangParentParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final card = firstChild;
+    final callout = card == null ? null : childAfter(card);
+    if (card == null || callout == null) {
+      size = constraints.smallest;
+      return;
+    }
+    final maxWidth = constraints.maxWidth;
+    card.layout(
+      BoxConstraints(maxWidth: maxWidth.isFinite ? maxWidth : double.infinity),
+      parentUsesSize: true,
+    );
+    callout.layout(const BoxConstraints(), parentUsesSize: true);
+
+    final rawCalloutX = card.size.width / 2 - _anchor.dx;
+    var cardX = _cardOnLeft && rawCalloutX < 0 ? -rawCalloutX : 0.0;
+    var calloutX = rawCalloutX + cardX;
+    final cardY = _anchor.dy;
+    final contentWidth = math.max(
+      cardX + card.size.width,
+      math.max(calloutX, 0) + callout.size.width,
+    );
+    final contentHeight = math.max(
+      cardY + card.size.height,
+      callout.size.height,
+    );
+    final spaceBelow = contentHeight - cardY - card.size.height;
+    final extraBelow = _balance ? math.max(0.0, cardY - spaceBelow) : 0.0;
+    size = constraints.constrain(
+      Size(contentWidth, contentHeight + extraBelow),
+    );
+    if (_cardOnLeft && size.width + 0.01 < contentWidth) {
+      final shift = size.width - contentWidth;
+      cardX += shift;
+      calloutX += shift;
+    }
+    (card.parentData! as _HangParentParentData).offset = Offset(cardX, cardY);
+    (callout.parentData! as _HangParentParentData).offset = Offset(calloutX, 0);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    return defaultHitTestChildren(result, position: position);
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (hitTestChildren(result, position: position)) {
+      result.add(BoxHitTestEntry(this, position));
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    defaultPaint(context, offset);
   }
 }
 
