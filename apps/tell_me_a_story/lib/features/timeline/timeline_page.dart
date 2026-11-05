@@ -2781,6 +2781,124 @@ class _FullCardRailState extends State<_FullCardRail> {
   }
 }
 
+/// Days parent callout. The mark is the decade parent: moss ring, theme
+/// label, and a 45° leader off the upper-right of the ring. The story dot
+/// stays on the rail and the card sits below the mark, so the label is clear
+/// of the card.
+Widget _daysParentRow({
+  required double gap,
+  required bool wide,
+  required bool cardOnLeft,
+  required Widget card,
+  required DecadeParentMark mark,
+}) {
+  Widget wideCard(bool show) {
+    if (!show) return const SizedBox.shrink();
+    return FractionallySizedBox(widthFactor: 0.92, child: card);
+  }
+
+  return Padding(
+    padding: EdgeInsets.only(bottom: gap),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _PinDotOnRail(
+          dotCenterX: mark.dotCenterX,
+          railX: wide ? null : _narrowFullDotCenter,
+          child: mark.child,
+        ),
+        if (wide)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: wideCard(cardOnLeft),
+                ),
+              ),
+              const SizedBox(width: calloutGutter),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: wideCard(!cardOnLeft),
+                ),
+              ),
+            ],
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(left: _narrowFullDotColumn),
+            child: card,
+          ),
+      ],
+    ),
+  );
+}
+
+const _narrowFullDotColumn = 28.0;
+const _narrowFullDotCenter = _narrowFullDotColumn / 2;
+
+/// Puts [child]'s story-dot center on the rail. [railX] is that x in this
+/// widget. A null [railX] uses the horizontal center, which is the wide spine.
+class _PinDotOnRail extends SingleChildRenderObjectWidget {
+  const _PinDotOnRail({
+    required this.dotCenterX,
+    required this.railX,
+    required super.child,
+  });
+
+  final double dotCenterX;
+  final double? railX;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderPinDotOnRail(dotCenterX, railX);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderPinDotOnRail renderObject,
+  ) {
+    renderObject
+      ..dotCenterX = dotCenterX
+      ..railX = railX;
+  }
+}
+
+class _RenderPinDotOnRail extends RenderShiftedBox {
+  _RenderPinDotOnRail(this._dotCenterX, this._railX) : super(null);
+
+  double _dotCenterX;
+  double? _railX;
+
+  set dotCenterX(double value) {
+    if (_dotCenterX == value) return;
+    _dotCenterX = value;
+    markNeedsLayout();
+  }
+
+  set railX(double? value) {
+    if (_railX == value) return;
+    _railX = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    final child = this.child!;
+    child.layout(constraints.loosen(), parentUsesSize: true);
+    final width = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : child.size.width;
+    size = constraints.constrain(Size(width, child.size.height));
+    final rail = _railX ?? size.width / 2;
+    (child.parentData! as BoxParentData).offset = Offset(rail - _dotCenterX, 0);
+  }
+}
+
 class _FullCardRow extends StatelessWidget {
   const _FullCardRow({
     super.key,
@@ -2836,6 +2954,23 @@ class _FullCardRow extends StatelessWidget {
       focused: focused,
       branched: frame.branchesStory,
     );
+    if (frame.parent != null) {
+      return _daysParentRow(
+        gap: gap,
+        wide: wide,
+        cardOnLeft: cardOnLeft,
+        card: card,
+        mark: decadeParentMark(
+          context: context,
+          frame: frame,
+          dot: GestureDetector(onTap: onOpen, child: dot),
+          dotDiameter: focused ? fullDotFocusedDiameter : fullDotDiameter,
+          centerToLane: calloutHit / 2,
+          maxLabelWidth: calloutLabelWidthFar,
+          onOpen: onOpenBranch,
+        ),
+      );
+    }
     final placed = frame.branchesStory
         ? placeBranchCallout(
             context: context,
@@ -2857,7 +2992,7 @@ class _FullCardRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(
-                width: 28,
+                width: _narrowFullDotColumn,
                 child: Align(alignment: Alignment.center, child: dot),
               ),
               Expanded(child: card),

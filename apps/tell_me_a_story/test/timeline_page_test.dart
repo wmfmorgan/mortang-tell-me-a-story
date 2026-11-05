@@ -3495,6 +3495,132 @@ void main() {
       leaders.any((leader) => leader.start.dy > 0 && leader.start.dx > 0),
       isTrue,
     );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    final daysDot = tester.getCenter(
+      find.byKey(const Key('timeline-full-dot-$origin')),
+    );
+    final daysParent = tester.getCenter(
+      find.byKey(const Key('timeline-branch-callout-$parent')),
+    );
+    final daysChild = tester.getCenter(
+      find.byKey(const Key('timeline-branch-callout-$bea')),
+    );
+    expect(daysParent.dy, lessThan(daysDot.dy));
+    expect(daysParent.dx, greaterThan(daysDot.dx));
+    expect(daysChild.dy, greaterThan(daysDot.dy));
+    expect(daysChild.dx, greaterThan(daysDot.dx));
+    final daysCard = tester.getTopLeft(
+      find.byKey(const Key('timeline-card-$origin')),
+    );
+    expect(daysParent.dy, lessThan(daysCard.dy));
+    expect(daysChild.dy, lessThan(daysCard.dy));
+    final daysLeaders = _calloutLeaders(tester);
+    expect(daysLeaders, hasLength(2));
+    final daysParentLeader = daysLeaders.firstWhere(
+      (leader) => leader.start.dy < 0,
+    );
+    expect(
+      (daysParentLeader.elbow.dx - daysParentLeader.start.dx).abs(),
+      closeTo(calloutDiagonal, 0.01),
+    );
+    expect(
+      (daysParentLeader.elbow.dy - daysParentLeader.start.dy).abs(),
+      closeTo(calloutDiagonal, 0.01),
+    );
+  });
+
+  testWidgets('a days parent callout matches the decade parent', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    const origin = 'origin';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: origin,
+              title: 'The beginning',
+              timeframeStart: DateTime(1995),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Child line',
+              createdAt: DateTime.utc(1995),
+              parentFamilyId: parent,
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: parent, name: 'The WFM Morgans'),
+            TreeFamily(
+              id: _familyId,
+              name: 'Child line',
+              parentFamilyId: parent,
+              originStoryId: origin,
+              branchYear: 1995,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+
+    final parentName = find.byKey(const Key('timeline-branch-callout-$parent'));
+    expect(parentName, findsOneWidget);
+    final parentText = tester.widget<Text>(
+      find.descendant(of: parentName, matching: find.byType(Text)),
+    );
+    expect(parentText.data, 'The WFM Morgans Branch');
+    expect(parentText.style?.color, branchMoss);
+    expect(parentText.style?.fontWeight, FontWeight.w500);
+    expect(
+      parentText.style?.fontSize,
+      Theme.of(tester.element(parentName)).textTheme.labelLarge?.fontSize,
+    );
+    expect(parentText.style?.fontSize, isNot(calloutParentFontSize));
+    expect(find.text('Origin · from The WFM Morgans'), findsOneWidget);
+    final dotFinder = find.byKey(const Key('timeline-full-dot-$origin'));
+    expect(_mossRingOn(tester, dotFinder), isTrue);
+    final dot = tester.getCenter(dotFinder);
+    final label = tester.getCenter(parentName);
+    final cardTop = tester.getTopLeft(
+      find.byKey(const Key('timeline-card-$origin')),
+    );
+    expect(label.dy, lessThan(dot.dy));
+    expect(label.dx, greaterThan(dot.dx));
+    expect(label.dy, lessThan(cardTop.dy));
+    expect(tester.getBottomLeft(dotFinder).dy, lessThanOrEqualTo(cardTop.dy));
+    final leader = _calloutLeaders(tester).single;
+    expect(leader.start.dx, greaterThan(0));
+    expect(leader.start.dy, lessThan(0));
+    expect(leader.start.dx.abs(), closeTo(leader.start.dy.abs(), 0.01));
+    expect(
+      (leader.elbow.dx - leader.start.dx).abs(),
+      closeTo(calloutDiagonal, 0.01),
+    );
+    expect(
+      (leader.elbow.dy - leader.start.dy).abs(),
+      closeTo(calloutDiagonal, 0.01),
+    );
+    expect(leader.elbow.dx, greaterThan(leader.start.dx));
+    expect(leader.elbow.dy, lessThan(leader.start.dy));
+    expect(leader.end.dy, closeTo(leader.elbow.dy, 0.01));
+    expect(leader.end.dx, greaterThan(leader.elbow.dx));
+
+    await tester.tap(parentName);
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, parent);
   });
 
   testWidgets('a root origin uses a plain Origin tag', (tester) async {
@@ -3658,13 +3784,19 @@ void main() {
             .abs(),
         lessThanOrEqualTo(1),
       );
+      final originDot = find.byKey(const Key('timeline-full-dot-$origin'));
+      expect(find.text('Parent Branch'), findsOneWidget);
+      expect(
+        tester.getBottomLeft(originDot).dy,
+        lessThanOrEqualTo(tester.getTopLeft(originCard).dy),
+      );
       expect(
         (tester
                     .getCenter(
-                      find.byKey(const Key('timeline-full-dot-$origin')),
+                      find.byKey(const Key('timeline-full-dot-$plain')),
                     )
                     .dy -
-                tester.getCenter(originCard).dy)
+                tester.getCenter(plainCard).dy)
             .abs(),
         lessThanOrEqualTo(1),
       );

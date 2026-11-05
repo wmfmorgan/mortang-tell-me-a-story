@@ -398,14 +398,23 @@ PlacedBranch placeBranchCallout({
 }
 
 class DecadeParentMark {
-  const DecadeParentMark({required this.child, required this.dotTop});
+  const DecadeParentMark({
+    required this.child,
+    required this.dotTop,
+    required this.dotCenterX,
+  });
 
   /// Ring, leaders, dot, and labels. The dot box starts at [dotTop].
   final Widget child;
+
+  /// Y of the dot box in [child].
   final double dotTop;
+
+  /// X of the story-dot center in [child].
+  final double dotCenterX;
 }
 
-/// Decade mark for an origin story that has a parent timeline. The parent
+/// Parent mark for an origin story. Decades and Days both use it. The parent
 /// label sits above and to the right. A moss ring circles the dot, and the
 /// leader is the child callout mirrored onto the upper 45° point.
 /// Child callouts, when the same story also started a branch, stay below it.
@@ -527,6 +536,7 @@ DecadeParentMark decadeParentMark({
   );
   return DecadeParentMark(
     dotTop: above,
+    dotCenterX: dotCenterX,
     child: single == null
         ? mark
         : BranchCalloutTarget(
