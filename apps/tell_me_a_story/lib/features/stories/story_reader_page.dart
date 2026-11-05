@@ -42,22 +42,6 @@ String readerArticleBody({String? body}) {
   return (body ?? '').trim();
 }
 
-/// True when a full page, such as the edit form, covers the reader.
-/// A menu or dialog is a [PopupRoute] and must keep this scrim up.
-bool readerScrimCovered(BuildContext context) {
-  final self = ModalRoute.of(context);
-  if (self == null || self.isCurrent) return false;
-  final navigator = self.navigator;
-  if (navigator == null) return true;
-  Route<dynamic>? top;
-  navigator.popUntil((route) {
-    top ??= route;
-    return true;
-  });
-  if (top == null || identical(top, self)) return false;
-  return top is! PopupRoute<dynamic>;
-}
-
 class OriginMenuEntry {
   const OriginMenuEntry({required this.familyId, required this.label});
 
@@ -183,6 +167,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   List<Comment> _comments = const [];
   List<Perspective> _perspectives = const [];
   var _busy = false;
+  var _editOpen = false;
   var _confirming = false;
   var _photoError = false;
   var _heroIndex = 0;
@@ -293,9 +278,14 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   Future<void> _openEdit() async {
     final id = _story?.id;
     if (id == null || GoRouter.maybeOf(context) == null) return;
-    final saved = await context.push<bool>(AppRoutes.storyEditPath(id));
-    if (!mounted || saved != true) return;
-    await _load();
+    setState(() => _editOpen = true);
+    try {
+      final saved = await context.push<bool>(AppRoutes.storyEditPath(id));
+      if (!mounted || saved != true) return;
+      await _load();
+    } finally {
+      if (mounted) setState(() => _editOpen = false);
+    }
   }
 
   Future<void> _openPerspective() async {
@@ -913,8 +903,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   @override
   Widget build(BuildContext context) {
-    // The edit page paints its own scrim. A menu route must not drop this one.
-    final covered = readerScrimCovered(context);
+    // The edit page paints its own scrim. Menus stay on this one.
+    final covered = _editOpen;
     return AlbumModalFrame(
       frameKey: const Key('story-reader-modal'),
       markKey: const Key('story-reader-mark'),

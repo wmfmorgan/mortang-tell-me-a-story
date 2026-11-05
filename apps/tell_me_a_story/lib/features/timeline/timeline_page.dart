@@ -59,6 +59,7 @@ class _TimelinePageState extends State<TimelinePage> {
   PhotosGateway? _photosOverride;
   TimelineLive? _ownedLive;
   GoRouter? _router;
+  var _strippingDecadeView = false;
   String? _familyId = FamilySelection.id;
   List<MemberFamily> _families = const [];
   List<StewardFamily> _stewarded = const [];
@@ -101,10 +102,13 @@ class _TimelinePageState extends State<TimelinePage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final router = GoRouter.maybeOf(context);
-    if (identical(router, _router)) return;
-    _router?.routerDelegate.removeListener(_onRouteChanged);
-    _router = router;
-    _router?.routerDelegate.addListener(_onRouteChanged);
+    if (!identical(router, _router)) {
+      _router?.routerDelegate.removeListener(_onRouteChanged);
+      _router = router;
+      _router?.routerDelegate.addListener(_onRouteChanged);
+    }
+    final uri = _router?.routerDelegate.currentConfiguration.uri;
+    if (uri != null) _consumeDecadeView(uri);
   }
 
   @override
@@ -116,16 +120,9 @@ class _TimelinePageState extends State<TimelinePage> {
 
   void _onRouteChanged() {
     if (!mounted) return;
-    final path = _router?.routerDelegate.currentConfiguration.uri.path;
-    if (path != AppRoutes.timeline) return;
-    final view = _router
-        ?.routerDelegate
-        .currentConfiguration
-        .uri
-        .queryParameters['view'];
-    if (view == 'decades' && _zoom != TimelineZoom.far) {
-      setState(() => _zoom = TimelineZoom.far);
-    }
+    final uri = _router?.routerDelegate.currentConfiguration.uri;
+    if (uri == null || uri.path != AppRoutes.timeline) return;
+    if (_consumeDecadeView(uri)) return;
     // go() back to /timeline keeps this State. A family created from Manage
     // families is remembered before navigation and has to replace the one
     // that was open when the user left.
@@ -135,6 +132,29 @@ class _TimelinePageState extends State<TimelinePage> {
       return;
     }
     _reloadOpenTimeline();
+  }
+
+  /// `?view=decades` means "open on Decades" once. Apply it, then drop the
+  /// query so a later return from a story does not snap the zoom back.
+  bool _consumeDecadeView(Uri uri) {
+    if (uri.queryParameters['view'] != 'decades') return false;
+    if (_zoom != TimelineZoom.far) {
+      setState(() => _zoom = TimelineZoom.far);
+    }
+    if (_strippingDecadeView) return true;
+    _strippingDecadeView = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _strippingDecadeView = false;
+      if (!mounted) return;
+      final now = _router?.routerDelegate.currentConfiguration.uri;
+      if (now == null ||
+          now.path != AppRoutes.timeline ||
+          now.queryParameters['view'] != 'decades') {
+        return;
+      }
+      _router?.go(AppRoutes.timeline);
+    });
+    return true;
   }
 
   Future<void> _reloadOpenTimeline() async {
@@ -167,7 +187,6 @@ class _TimelinePageState extends State<TimelinePage> {
     try {
       final id = await _readableSavedFamily();
       if (!mounted) return;
-      if (id != null) FamilySelection.remember(id);
       setState(() {
         _familyId = id;
         _loadingFamily = false;
@@ -1496,15 +1515,6 @@ class _FarDot extends StatelessWidget {
             shape: BoxShape.circle,
             border: highlighted
                 ? Border.all(color: albumTerracotta, width: 2)
-                : null,
-            boxShadow: highlighted
-                ? [
-                    BoxShadow(
-                      color: albumTerracotta.withValues(alpha: 0.35),
-                      blurRadius: 0,
-                      spreadRadius: 3,
-                    ),
-                  ]
                 : null,
           ),
         ),
@@ -2923,11 +2933,7 @@ class _RenderDaysAttachedCallout extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _HangParentParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _HangParentParentData> {
-  _RenderDaysAttachedCallout({
-    required _DaysCardSlot slot,
-    required Offset anchor,
-  }) : _slot = slot,
-       _anchor = anchor;
+  _RenderDaysAttachedCallout({required this._slot, required this._anchor});
 
   _DaysCardSlot _slot;
   Offset _anchor;

@@ -102,7 +102,12 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               page: page,
               familyName: familyName,
               captureStatus: captureStatus,
+              gaps: _HeaderBar.barGaps,
             );
+            // Nav labels and actions cannot shrink. Below their floor the
+            // whole bar scales, the same way a 320px window does.
+            final scaleDown =
+                width <= _scaleAt || width < natural.inflexibleFloor;
             final bar = _HeaderBar(
               page: page,
               familyName: familyName,
@@ -125,9 +130,9 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
                 unawaited(_openDrafts(context));
               },
               onNewStory: () => _openNewStory(context),
-              metrics: width <= _scaleAt ? natural : natural.fit(width),
+              metrics: scaleDown ? natural : natural.fit(width),
             );
-            if (width <= _scaleAt) {
+            if (scaleDown) {
               return SizedBox(
                 width: width,
                 height: height,
@@ -240,6 +245,10 @@ class _HeaderBar extends StatelessWidget {
 
   /// Even gap between search, New story, and the avatar (UX Q5).
   static const _clusterGap = 12.0;
+
+  /// Unscaled gaps for the bar [Row], in child order: wordmark, hairline,
+  /// family, Home, Stories, Timeline, Drafts. [fit] may scale these.
+  static const barGaps = <double>[16, 12, 20, 8, 14, 14, 12];
 
   Widget _captureActions() {
     final actions = Row(
@@ -437,6 +446,7 @@ class _HeaderMetrics {
   static _HeaderMetrics of({
     required AlbumHeaderPage page,
     required String familyName,
+    required List<double> gaps,
     String? captureStatus,
   }) {
     return _HeaderMetrics(
@@ -445,11 +455,16 @@ class _HeaderMetrics {
       word: _textWidth('Tell Me a Story', _wordStyle),
       family: _textWidth(familyName, _familyStyle) + _familyChrome,
       search: page == AlbumHeaderPage.capture ? _searchHit : 0,
-      gaps: const [16, 12, 20, 8, 18, 18, 16],
+      gaps: gaps,
       loose: true,
       captureStatus: captureStatus,
     );
   }
+
+  /// Width of the pieces that stay full size: hairline, Home, nav labels,
+  /// and the action cluster. Wordmark, padding, gaps, and the family slot
+  /// absorb a narrower window until this floor, then the bar scales.
+  double get inflexibleFloor => _rigidWidth() + 8;
 
   /// Fits [viewport] by shrinking the wordmark, then padding and gaps.
   /// The family name is a flex child: it takes the leftover left of the
@@ -502,12 +517,13 @@ class _HeaderMetrics {
   }
 
   double _rigidWidth() {
-    // Hairline plus both nav labels and the action buttons. Those stay put
-    // while the chip, wordmark, and family name absorb a narrow window.
-    const home = 30.0;
-    final decades = _textWidth('Timeline', _navStyle) + 4;
-    final timeline = _textWidth('Stories', _navStyle) + 4;
-    final drafts = _textWidth('Draft Stories', _navStyle) + 4;
+    // Hairline plus Home, the nav labels, and the action buttons. Those stay
+    // put while the wordmark, padding, gaps, and family name absorb a
+    // narrower window.
+    final home = _homeWidth();
+    final decades = _textWidth('Timeline', _navStyle) + _navPadH * 2;
+    final timeline = _textWidth('Stories', _navStyle) + _navPadH * 2;
+    final drafts = _textWidth('Draft Stories', _navStyle) + _navPadH * 2;
     return 1 + home + decades + timeline + drafts + _actionsWidth();
   }
 
@@ -545,7 +561,8 @@ class _HeaderMetrics {
           'New story',
           GoogleFonts.sourceSans3(fontSize: 14, fontWeight: FontWeight.w500),
         ) +
-        57 +
+        // Plus circle 20, its 6px gap, and 16px of horizontal padding each side.
+        58 +
         _avatarSlot;
   }
 
@@ -594,6 +611,16 @@ double _textWidth(String text, TextStyle style) {
   )..layout();
   return painter.width;
 }
+
+/// Horizontal padding on Home and each nav label. Shared with [_rigidWidth].
+const _navPadH = 2.0;
+
+/// [_HomeNav] icon. Shared with [_homeWidth].
+const _homeIconSize = 26.0;
+
+/// Home is an icon, so it has no [TextPainter]. Its width is the icon plus
+/// the same horizontal padding the nav labels add on top of [_textWidth].
+double _homeWidth() => _homeIconSize + _navPadH * 2;
 
 class _Wordmark extends StatelessWidget {
   const _Wordmark();
@@ -809,35 +836,27 @@ class _FamilyMenu extends StatelessWidget {
     final menuConstraints = width < 640
         ? BoxConstraints.tightFor(width: width - 32)
         : const BoxConstraints(maxWidth: 320);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final slot = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : double.infinity;
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: Builder(
-            builder: (buttonContext) {
-              return Tooltip(
-                message: familyName,
-                child: GestureDetector(
-                  key: const Key('family-menu'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    unawaited(_openMenu(buttonContext, menuConstraints));
-                  },
-                  child: _ClosedFamilyLabel(
-                    familyName: familyName,
-                    style: style,
-                    active: active,
-                    maxWidth: slot,
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Builder(
+        builder: (buttonContext) {
+          return Tooltip(
+            message: familyName,
+            child: GestureDetector(
+              key: const Key('family-menu'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                unawaited(_openMenu(buttonContext, menuConstraints));
+              },
+              child: _ClosedFamilyLabel(
+                familyName: familyName,
+                style: style,
+                active: active,
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -849,69 +868,79 @@ class _ClosedFamilyLabel extends StatelessWidget {
     required this.familyName,
     required this.style,
     required this.active,
-    required this.maxWidth,
   });
 
   final String familyName;
   final TextStyle style;
   final bool active;
-  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
-    const chrome = 46.0;
-    final textMax = maxWidth.isFinite ? maxWidth - chrome : double.infinity;
-    final cap = textMax > 0 ? textMax : 0.0;
-    final painter = TextPainter(
-      text: TextSpan(text: familyName, style: style),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-      ellipsis: '…',
-    )..layout(maxWidth: cap);
+    const iconGap = 4.0;
+    const iconSize = 18.0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.bottomLeft,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final inner = constraints.maxWidth;
+          final bounded = inner.isFinite;
+          final showIcon = !bounded || inner >= iconGap + iconSize;
+          final room = !bounded
+              ? double.infinity
+              : (showIcon ? inner - iconGap - iconSize : inner);
+          final textMax = room > 0 ? room : 0.0;
+          final painter = TextPainter(
+            text: TextSpan(text: familyName, style: style),
+            textDirection: TextDirection.ltr,
+            maxLines: 1,
+            ellipsis: '…',
+          )..layout(maxWidth: textMax);
+          return Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomLeft,
             children: [
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: cap),
-                child: Semantics(
-                  label: familyName,
-                  excludeSemantics: true,
-                  child: Text(
-                    familyName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: style,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: textMax),
+                    child: Semantics(
+                      label: familyName,
+                      excludeSemantics: true,
+                      child: Text(
+                        familyName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: style,
+                      ),
+                    ),
+                  ),
+                  if (showIcon) ...[
+                    const SizedBox(width: iconGap),
+                    Icon(
+                      Icons.expand_more,
+                      size: iconSize,
+                      color: albumInk.withValues(alpha: 0.7),
+                    ),
+                  ],
+                ],
+              ),
+              Positioned(
+                left: 12,
+                bottom: -8,
+                child: Container(
+                  key: active ? const Key('header-underline-family') : null,
+                  width: painter.width,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: active ? albumInk : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.expand_more,
-                size: 18,
-                color: albumInk.withValues(alpha: 0.7),
-              ),
             ],
-          ),
-          Positioned(
-            left: 12,
-            bottom: -8,
-            child: Container(
-              key: active ? const Key('header-underline-family') : null,
-              width: painter.width,
-              height: 2,
-              decoration: BoxDecoration(
-                color: active ? albumInk : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -928,8 +957,8 @@ class _HomeNav extends StatelessWidget {
       key: const Key('header-nav-home'),
       onTap: onTap,
       child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-        child: Icon(Icons.home, color: albumTerracotta, size: 26),
+        padding: EdgeInsets.symmetric(horizontal: _navPadH, vertical: 4),
+        child: Icon(Icons.home, color: albumTerracotta, size: _homeIconSize),
       ),
     );
   }
@@ -965,7 +994,7 @@ class _NavItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: _navPadH, vertical: 4),
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,

@@ -112,7 +112,11 @@ class _SearchPageState extends State<SearchPage> {
       if (familyId != null) {
         people = await _peopleApi.listPeople(familyId);
         places = await _placesApi.listPlaces(familyId);
-        decades = await _decadesWithStories(familyId);
+        try {
+          decades = await _decadesWithStories(familyId);
+        } catch (_) {
+          decades = const [];
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -134,7 +138,10 @@ class _SearchPageState extends State<SearchPage> {
     final years = <int>{};
     for (final row in rows) {
       final start = decadeStartYear(row.story.publishedStart);
-      if (start < 1900 || start > 2020) continue;
+      if (start < decadeChips.first.startYear ||
+          start > decadeChips.last.startYear) {
+        continue;
+      }
       years.add(start);
     }
     final sorted = years.toList()..sort();

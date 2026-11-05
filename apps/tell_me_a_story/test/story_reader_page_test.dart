@@ -482,15 +482,11 @@ class _FakeCommentsApi implements CommentsGateway {
 }
 
 class _FakePerspectivesApi implements PerspectivesGateway {
-  _FakePerspectivesApi({
-    List<Perspective>? seed,
-    this.throwOnUpdate = false,
-    this.throwOnDelete = false,
-  }) : rows = [...?seed];
+  _FakePerspectivesApi({List<Perspective>? seed, this.throwOnDelete = false})
+    : rows = [...?seed];
 
   final List<Perspective> rows;
   final bool throwOnCreate = false;
-  final bool throwOnUpdate;
   final bool throwOnDelete;
   var listCalls = 0;
   var createCalls = 0;
@@ -533,7 +529,6 @@ class _FakePerspectivesApi implements PerspectivesGateway {
     updateCalls++;
     lastUpdateId = id;
     lastUpdateBody = body;
-    if (throwOnUpdate) throw StateError('update failed');
     ensureValidPerspectiveBody(body);
     final index = rows.indexWhere((row) => row.id == id);
     if (index < 0) return;
@@ -1504,7 +1499,7 @@ void main() {
     expect(find.text('My note'), findsNothing);
   });
 
-  Perspective _perspective({
+  Perspective perspectiveRow({
     required String id,
     required String authorId,
     required String body,
@@ -1526,8 +1521,8 @@ void main() {
   ) async {
     final perspectives = _FakePerspectivesApi(
       seed: [
-        _perspective(id: 'mine', authorId: 'u1', body: 'My telling'),
-        _perspective(
+        perspectiveRow(id: 'mine', authorId: 'u1', body: 'My telling'),
+        perspectiveRow(
           id: 'theirs',
           authorId: 'u2',
           body: 'Their telling',
@@ -1606,7 +1601,7 @@ void main() {
 
   testWidgets('failed perspective delete keeps the card', (tester) async {
     final perspectives = _FakePerspectivesApi(
-      seed: [_perspective(id: 'mine', authorId: 'u1', body: 'My telling')],
+      seed: [perspectiveRow(id: 'mine', authorId: 'u1', body: 'My telling')],
       throwOnDelete: true,
     );
     await tester.pumpWidget(

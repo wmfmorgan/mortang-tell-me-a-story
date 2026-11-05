@@ -1254,6 +1254,41 @@ void main() {
     auth.dispose();
   });
 
+  testWidgets('opening a story from Years and popping stays on Years', (
+    tester,
+  ) async {
+    final story = _published(title: 'Jam');
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: _FakeInviteApi(),
+      storiesApi: _FakeStoriesApi(published: [story]),
+    );
+    addTearDown(auth.dispose);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+    router.go('${AppRoutes.timeline}?view=decades');
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-macro');
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+
+    await tester.tap(find.byKey(Key('timeline-stub-${story.id}')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('story-reader-close')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+    expect(
+      router.routerDelegate.currentConfiguration.uri.queryParameters['view'],
+      isNot('decades'),
+    );
+  });
+
   testWidgets('empty space steps out and controls do not', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -2950,16 +2985,7 @@ void main() {
                 )
                 .decoration!
             as BoxDecoration;
-    final highlighted =
-        tester.getSize(find.byKey(const Key('timeline-dot-branch'))).width >
-        farDotDiameter;
-    if (highlighted) {
-      final shadow = decoration.boxShadow!.single;
-      expect(shadow.color, albumTerracotta.withValues(alpha: 0.35));
-      expect(shadow.spreadRadius, 3);
-    } else {
-      expect(decoration.boxShadow, isNull);
-    }
+    expect(decoration.boxShadow, isNull);
   });
 
   testWidgets('enter on the callout opens the branch', (tester) async {
