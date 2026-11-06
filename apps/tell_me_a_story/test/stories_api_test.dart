@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 
 void main() {
@@ -159,4 +161,121 @@ void main() {
     );
     expect(isDuplicateStoryKey(StateError('network')), isFalse);
   });
+
+  test('Story.photoPaths prefers the edited object and keeps hero order', () {
+    final story = Story.fromJson({
+      'id': 's1',
+      'family_id': 'f1',
+      'author_id': 'u1',
+      'status': 'published',
+      'timeframe_start': '1980-01-01',
+      'photos': [
+        {
+          'id': 'b',
+          'storage_path': 'f1/s1/b.jpg',
+          'edited_storage_path': null,
+          'sort_order': 1,
+        },
+        {
+          'id': 'a',
+          'storage_path': 'f1/s1/a.jpg',
+          'edited_storage_path': 'f1/s1/a.edited.2.jpg',
+          'edit_version': 2,
+          'sort_order': 0,
+        },
+      ],
+    });
+
+    expect(story.photoPaths, ['f1/s1/a.edited.2.jpg', 'f1/s1/b.jpg']);
+    expect(story.id, 's1');
+  });
+
+  test('Story.photoPaths falls back to the original after a reset', () {
+    final story = Story.fromJson({
+      'id': 's1',
+      'family_id': 'f1',
+      'author_id': 'u1',
+      'status': 'published',
+      'photos': [
+        {
+          'id': 'a',
+          'storage_path': 'f1/s1/a.jpg',
+          'edited_storage_path': null,
+          'edit_version': 3,
+          'sort_order': 0,
+        },
+      ],
+    });
+
+    expect(story.photoPaths, ['f1/s1/a.jpg']);
+  });
+
+  test('downloadFirstThumbs requests each effective path once', () async {
+    final requested = <String>[];
+    final gateway = _RecordingPhotos(
+      onDownload: (path) async {
+        requested.add(path);
+        return Uint8List.fromList([1, 2, 3]);
+      },
+    );
+    final edited = _storyWithPaths(['f/s/a.edited.1.jpg']);
+    final shared = _storyWithPaths(['f/s/a.edited.1.jpg'], id: 's2');
+    final original = _storyWithPaths(['f/s/b.jpg'], id: 's3');
+
+    final thumbs = await downloadFirstThumbs(
+      [edited, shared, original],
+      gateway,
+    );
+
+    expect(requested, ['f/s/a.edited.1.jpg', 'f/s/b.jpg']);
+    expect(thumbs.keys, ['s1', 's2', 's3']);
+    expect(thumbs['s1'], thumbs['s2']);
+  });
+}
+
+Story _storyWithPaths(List<String> paths, {String id = 's1'}) {
+  return Story(
+    id: id,
+    familyId: 'f',
+    authorId: 'u',
+    status: StoryStatus.published,
+    photoPaths: paths,
+  );
+}
+
+class _RecordingPhotos implements PhotosGateway {
+  _RecordingPhotos({required this.onDownload});
+
+  final Future<Uint8List> Function(String path) onDownload;
+
+  @override
+  Future<Uint8List> downloadBytes(String storagePath) => onDownload(storagePath);
+
+  @override
+  Future<void> deleteAllForStory({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  @override
+  Future<void> deletePhoto(Photo photo) async {}
+
+  @override
+  Future<List<Photo>> listPhotos(String storyId) async => const [];
+
+  @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) async {}
+
+  @override
+  Future<Photo> uploadPhoto({
+    required String familyId,
+    required String storyId,
+    required Uint8List bytes,
+    required int sortOrder,
+  }) {
+    throw UnimplementedError();
+  }
 }
