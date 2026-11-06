@@ -10,8 +10,6 @@ const storyPhotosBucket = 'story-photos';
 const _photoSelect =
     'id, story_id, family_id, uploader_id, storage_path, edited_storage_path, edit_version, sort_order';
 
-const _keepEditedPath = Object();
-
 /// Family-scoped story photo row (private `story-photos` object + `photos` table).
 class Photo {
   const Photo({
@@ -50,7 +48,7 @@ class Photo {
   }
 
   Photo copyWith({
-    Object? editedStoragePath = _keepEditedPath,
+    required String? editedStoragePath,
     int? editVersion,
     int? sortOrder,
   }) {
@@ -60,9 +58,7 @@ class Photo {
       familyId: familyId,
       uploaderId: uploaderId,
       storagePath: storagePath,
-      editedStoragePath: identical(editedStoragePath, _keepEditedPath)
-          ? this.editedStoragePath
-          : editedStoragePath as String?,
+      editedStoragePath: editedStoragePath,
       editVersion: editVersion ?? this.editVersion,
       sortOrder: sortOrder ?? this.sortOrder,
     );
@@ -126,7 +122,12 @@ List<Photo> photosWithHeroFirst(List<Photo> photos, String heroId) {
   }
   return [
     for (var i = 0; i < sorted.length; i++)
-      sorted[i].sortOrder == i ? sorted[i] : sorted[i].copyWith(sortOrder: i),
+      sorted[i].sortOrder == i
+          ? sorted[i]
+          : sorted[i].copyWith(
+              editedStoragePath: sorted[i].editedStoragePath,
+              sortOrder: i,
+            ),
   ];
 }
 
@@ -315,7 +316,6 @@ class PhotosApi implements PhotosGateway {
     if (listNames != null) {
       names = await listNames(prefix);
     } else {
-      // storage_client list() takes a named [path], not a positional folder.
       final objects = await _client.storage
           .from(storyPhotosBucket)
           .list(path: prefix);

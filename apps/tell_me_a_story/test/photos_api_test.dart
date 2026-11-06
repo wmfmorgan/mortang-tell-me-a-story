@@ -254,7 +254,10 @@ void main() {
       editVersion: 2,
       sortOrder: 1,
     );
-    final reordered = photo.copyWith(sortOrder: 0);
+    final reordered = photo.copyWith(
+      editedStoragePath: photo.editedStoragePath,
+      sortOrder: 0,
+    );
     expect(reordered.effectiveStoragePath, 'f/s/ph1.edited.2.jpg');
     expect(reordered.editVersion, 2);
     expect(reordered.sortOrder, 0);
