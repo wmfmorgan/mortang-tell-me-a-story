@@ -232,15 +232,15 @@ void main() {
       photo('c', 1),
     ], 'a');
 
-    expect(ordered.map((row) => row.id).toList(), ['a', 'c', 'b']);
+    expect(ordered.map((row) => row.id).toList(), ['a', 'b', 'c']);
     expect(ordered.map((row) => row.sortOrder).toList(), [0, 1, 2]);
     expect(ordered[0].editedStoragePath, 'f/s/a.edited.4.jpg');
     expect(ordered[0].editVersion, 4);
     expect(ordered[0].effectiveStoragePath, 'f/s/a.edited.4.jpg');
-    expect(ordered[2].editedStoragePath, 'f/s/b.edited.1.jpg');
-    expect(ordered[2].editVersion, 1);
-    expect(ordered[1].editedStoragePath, isNull);
-    expect(ordered[1].effectiveStoragePath, 'f/s/c.jpg');
+    expect(ordered[1].editedStoragePath, 'f/s/b.edited.1.jpg');
+    expect(ordered[1].editVersion, 1);
+    expect(ordered[2].editedStoragePath, isNull);
+    expect(ordered[2].effectiveStoragePath, 'f/s/c.jpg');
   });
 
   test('copyWith refreshes sort order and can clear the edited path', () {
@@ -264,36 +264,39 @@ void main() {
     expect(reset.effectiveStoragePath, photo.storagePath);
   });
 
-  test('deletePhoto removes original and edited objects before the row', () async {
-    final removed = <List<String>>[];
-    final deletedIds = <String>[];
-    final api = PhotosApi(
-      client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-      removeObjects: (paths) async {
-        removed.add(paths);
-      },
-      deletePhotoRow: (photoId) async {
-        deletedIds.add(photoId);
-      },
-    );
-    const photo = Photo(
-      id: 'ph1',
-      storyId: 's',
-      familyId: 'f',
-      uploaderId: 'u',
-      storagePath: 'f/s/ph1.jpg',
-      editedStoragePath: 'f/s/ph1.edited.2.jpg',
-      editVersion: 2,
-      sortOrder: 0,
-    );
+  test(
+    'deletePhoto removes original and edited objects before the row',
+    () async {
+      final removed = <List<String>>[];
+      final deletedIds = <String>[];
+      final api = PhotosApi(
+        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
+        removeObjects: (paths) async {
+          removed.add(paths);
+        },
+        deletePhotoRow: (photoId) async {
+          deletedIds.add(photoId);
+        },
+      );
+      const photo = Photo(
+        id: 'ph1',
+        storyId: 's',
+        familyId: 'f',
+        uploaderId: 'u',
+        storagePath: 'f/s/ph1.jpg',
+        editedStoragePath: 'f/s/ph1.edited.2.jpg',
+        editVersion: 2,
+        sortOrder: 0,
+      );
 
-    await api.deletePhoto(photo);
+      await api.deletePhoto(photo);
 
-    expect(removed, [
-      ['f/s/ph1.jpg', 'f/s/ph1.edited.2.jpg'],
-    ]);
-    expect(deletedIds, ['ph1']);
-  });
+      expect(removed, [
+        ['f/s/ph1.jpg', 'f/s/ph1.edited.2.jpg'],
+      ]);
+      expect(deletedIds, ['ph1']);
+    },
+  );
 
   test('deletePhoto leaves the row when storage removal fails', () async {
     final deletedIds = <String>[];
@@ -321,69 +324,78 @@ void main() {
     expect(deletedIds, isEmpty);
   });
 
-  test('deletePhoto removes only the original when the photo is unedited', () async {
-    final removed = <List<String>>[];
-    final api = PhotosApi(
-      client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-      removeObjects: (paths) async {
-        removed.add(paths);
-      },
-      deletePhotoRow: (photoId) async {},
-    );
-    const photo = Photo(
-      id: 'ph1',
-      storyId: 's',
-      familyId: 'f',
-      uploaderId: 'u',
-      storagePath: 'f/s/ph1.jpg',
-      sortOrder: 0,
-    );
+  test(
+    'deletePhoto removes only the original when the photo is unedited',
+    () async {
+      final removed = <List<String>>[];
+      final api = PhotosApi(
+        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
+        removeObjects: (paths) async {
+          removed.add(paths);
+        },
+        deletePhotoRow: (photoId) async {},
+      );
+      const photo = Photo(
+        id: 'ph1',
+        storyId: 's',
+        familyId: 'f',
+        uploaderId: 'u',
+        storagePath: 'f/s/ph1.jpg',
+        sortOrder: 0,
+      );
 
-    await api.deletePhoto(photo);
+      await api.deletePhoto(photo);
 
-    expect(removed, [
-      ['f/s/ph1.jpg'],
-    ]);
-  });
+      expect(removed, [
+        ['f/s/ph1.jpg'],
+      ]);
+    },
+  );
 
-  test('deleteAllForStory removes original and edited names under the prefix', () async {
-    final removed = <List<String>>[];
-    final api = PhotosApi(
-      client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-      listStoryObjects: (prefix) async {
-        expect(prefix, 'f/s');
-        return ['ph1.jpg', 'ph1.edited.2.jpg', 'ph2.png'];
-      },
-      removeObjects: (paths) async {
-        removed.add(paths);
-      },
-    );
+  test(
+    'deleteAllForStory removes original and edited names under the prefix',
+    () async {
+      final removed = <List<String>>[];
+      final api = PhotosApi(
+        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
+        listStoryObjects: (prefix) async {
+          expect(prefix, 'f/s');
+          return ['ph1.jpg', 'ph1.edited.2.jpg', 'ph2.png'];
+        },
+        removeObjects: (paths) async {
+          removed.add(paths);
+        },
+      );
 
-    await api.deleteAllForStory(familyId: 'f', storyId: 's');
+      await api.deleteAllForStory(familyId: 'f', storyId: 's');
 
-    expect(removed, [
-      ['f/s/ph1.jpg', 'f/s/ph1.edited.2.jpg', 'f/s/ph2.png'],
-    ]);
-  });
+      expect(removed, [
+        ['f/s/ph1.jpg', 'f/s/ph1.edited.2.jpg', 'f/s/ph2.png'],
+      ]);
+    },
+  );
 
-  test('deleteAllForStory does not remove objects when listing fails', () async {
-    final removed = <List<String>>[];
-    final api = PhotosApi(
-      client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-      listStoryObjects: (prefix) async {
-        throw Exception('storage');
-      },
-      removeObjects: (paths) async {
-        removed.add(paths);
-      },
-    );
+  test(
+    'deleteAllForStory does not remove objects when listing fails',
+    () async {
+      final removed = <List<String>>[];
+      final api = PhotosApi(
+        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
+        listStoryObjects: (prefix) async {
+          throw Exception('storage');
+        },
+        removeObjects: (paths) async {
+          removed.add(paths);
+        },
+      );
 
-    await expectLater(
-      api.deleteAllForStory(familyId: 'f', storyId: 's'),
-      throwsA(isA<Exception>()),
-    );
-    expect(removed, isEmpty);
-  });
+      await expectLater(
+        api.deleteAllForStory(familyId: 'f', storyId: 's'),
+        throwsA(isA<Exception>()),
+      );
+      expect(removed, isEmpty);
+    },
+  );
 }
 
 Uint8List _solidPng(int width, int height) {

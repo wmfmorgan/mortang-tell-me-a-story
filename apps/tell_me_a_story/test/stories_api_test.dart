@@ -222,10 +222,11 @@ void main() {
     final shared = _storyWithPaths(['f/s/a.edited.1.jpg'], id: 's2');
     final original = _storyWithPaths(['f/s/b.jpg'], id: 's3');
 
-    final thumbs = await downloadFirstThumbs(
-      [edited, shared, original],
-      gateway,
-    );
+    final thumbs = await downloadFirstThumbs([
+      edited,
+      shared,
+      original,
+    ], gateway);
 
     expect(requested, ['f/s/a.edited.1.jpg', 'f/s/b.jpg']);
     expect(thumbs.keys, ['s1', 's2', 's3']);
@@ -249,7 +250,8 @@ class _RecordingPhotos implements PhotosGateway {
   final Future<Uint8List> Function(String path) onDownload;
 
   @override
-  Future<Uint8List> downloadBytes(String storagePath) => onDownload(storagePath);
+  Future<Uint8List> downloadBytes(String storagePath) =>
+      onDownload(storagePath);
 
   @override
   Future<void> deleteAllForStory({

@@ -259,10 +259,15 @@ List<String> _photoPaths(Object? photos) {
       (b['sort_order'] as int?) ?? 0,
     ),
   );
-  return [
-    for (final row in rows)
-      if (row['storage_path'] is String) row['storage_path'] as String,
-  ];
+  return [for (final row in rows) ?_effectivePhotoPath(row)];
+}
+
+String? _effectivePhotoPath(Map<dynamic, dynamic> row) {
+  final edited = row['edited_storage_path'];
+  if (edited is String) return edited;
+  final original = row['storage_path'];
+  if (original is String) return original;
+  return null;
 }
 
 /// One published story on a person profile.
@@ -411,10 +416,10 @@ class StoriesApi implements StoriesGateway {
   final SupabaseClient _client;
 
   static const _storySelect =
-      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, story_people(person_id), photos(id), profiles!author_id(display_name, avatar_path)';
+      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, story_people(person_id), photos(id, edited_storage_path, edit_version), profiles!author_id(display_name, avatar_path)';
 
   static const _publishedSelect =
-      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, places(label, address), story_people(person_id, people(name, user_id)), profiles!author_id(display_name, avatar_path), photos(id, storage_path, sort_order), comments(id), perspectives(id)';
+      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, places(label, address), story_people(person_id, people(name, user_id)), profiles!author_id(display_name, avatar_path), photos(id, storage_path, edited_storage_path, edit_version, sort_order), comments(id), perspectives(id)';
 
   @override
   Future<Story> createDraft({
@@ -607,7 +612,7 @@ class StoriesApi implements StoriesGateway {
           'date_precision, created_at, place_id, status, published_at, '
           'places(label), story_people!inner(person_id, people(name)), '
           'profiles!author_id(display_name, avatar_path), '
-          'photos(id, storage_path, sort_order)',
+          'photos(id, storage_path, edited_storage_path, edit_version, sort_order)',
         )
         .eq('status', 'published')
         .eq('story_people.person_id', personId)
@@ -703,7 +708,7 @@ class StoriesApi implements StoriesGateway {
     final rows = await _client
         .from('stories')
         .select(
-          'id, family_id, author_id, title, timeframe_start, timeframe_end, date_precision, status, published_at, photos(id, storage_path, sort_order)',
+          'id, family_id, author_id, title, timeframe_start, timeframe_end, date_precision, status, published_at, photos(id, storage_path, edited_storage_path, edit_version, sort_order)',
         )
         .eq('family_id', familyId)
         .eq('status', 'published')
@@ -840,10 +845,14 @@ Future<Map<String, Uint8List>> downloadFirstThumbs(
   };
   if (gateway == null) return const {};
   final out = <String, Uint8List>{};
+  final seen = <String, Uint8List>{};
   for (final story in stories) {
     if (story.photoPaths.isEmpty) continue;
+    final path = story.photoPaths.first;
     try {
-      final bytes = await gateway.downloadBytes(story.photoPaths.first);
+      final cached = seen[path];
+      final bytes = cached ?? await gateway.downloadBytes(path);
+      if (cached == null) seen[path] = bytes;
       if (bytes.isNotEmpty) out[story.id] = bytes;
     } catch (_) {
       // A missing thumb stays a parchment blank.

@@ -191,7 +191,7 @@ class SearchApi implements SearchGateway {
       'id, family_id, author_id, title, body, timeframe_start, timeframe_end, '
       'date_precision, created_at, place_id, status, published_at, places(label, address), '
       'story_people(person_id, people(name)), profiles!author_id(display_name), '
-      'photos(id, storage_path, sort_order)';
+      'photos(id, storage_path, edited_storage_path, edit_version, sort_order)';
 
   @override
   Future<List<SearchRecord>> search(SearchRequest request) async {

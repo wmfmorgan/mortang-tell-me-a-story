@@ -261,10 +261,12 @@ class _StubMapboxSearch implements MapboxSearchGateway {
 }
 
 class _FakePhotosApi implements PhotosGateway {
-  _FakePhotosApi({List<String>? callLog}) : callLog = callLog ?? [];
+  _FakePhotosApi({List<String>? callLog, this.failDelete = false})
+    : callLog = callLog ?? [];
 
   final List<String> deletedStories = [];
   final List<String> callLog;
+  final bool failDelete;
 
   @override
   Future<List<Photo>> listPhotos(String storyId) async => const [];
@@ -295,6 +297,7 @@ class _FakePhotosApi implements PhotosGateway {
     required String storyId,
   }) async {
     callLog.add('photos:$storyId');
+    if (failDelete) throw Exception('storage');
     deletedStories.add(storyId);
   }
 
@@ -504,6 +507,22 @@ void main() {
       );
     },
   );
+
+  testWidgets('storage failure on prefix cleanup keeps the draft row', (
+    tester,
+  ) async {
+    final api = _FakeStoriesApi(drafts: [_draft(id: 's1')]);
+    final photos = _FakePhotosApi(failDelete: true);
+    await tester.pumpWidget(_drafts(stories: api, photos: photos));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Discard draft'));
+    await tester.pumpAndSettle();
+
+    expect(api.discarded, isEmpty);
+    expect(find.text('Continue writing'), findsOneWidget);
+    expect(find.text('Couldn’t discard draft. Try again.'), findsOneWidget);
+  });
 
   testWidgets('drafts bar keeps Drafts and switches the family list', (
     tester,

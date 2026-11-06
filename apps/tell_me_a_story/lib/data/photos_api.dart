@@ -8,7 +8,9 @@ const maxPhotosPerStory = 20;
 const storyPhotosBucket = 'story-photos';
 
 const _photoSelect =
-    'id, story_id, family_id, uploader_id, storage_path, sort_order';
+    'id, story_id, family_id, uploader_id, storage_path, edited_storage_path, edit_version, sort_order';
+
+const _keepEditedPath = Object();
 
 /// Family-scoped story photo row (private `story-photos` object + `photos` table).
 class Photo {
@@ -18,6 +20,8 @@ class Photo {
     required this.familyId,
     required this.uploaderId,
     required this.storagePath,
+    this.editedStoragePath,
+    this.editVersion = 0,
     required this.sortOrder,
   });
 
@@ -26,7 +30,11 @@ class Photo {
   final String familyId;
   final String uploaderId;
   final String storagePath;
+  final String? editedStoragePath;
+  final int editVersion;
   final int sortOrder;
+
+  String get effectiveStoragePath => editedStoragePath ?? storagePath;
 
   factory Photo.fromJson(Map<String, dynamic> json) {
     return Photo(
@@ -35,9 +43,36 @@ class Photo {
       familyId: json['family_id'] as String,
       uploaderId: json['uploader_id'] as String,
       storagePath: json['storage_path'] as String,
+      editedStoragePath: json['edited_storage_path'] as String?,
+      editVersion: _editVersion(json['edit_version']),
       sortOrder: json['sort_order'] as int,
     );
   }
+
+  Photo copyWith({
+    Object? editedStoragePath = _keepEditedPath,
+    int? editVersion,
+    int? sortOrder,
+  }) {
+    return Photo(
+      id: id,
+      storyId: storyId,
+      familyId: familyId,
+      uploaderId: uploaderId,
+      storagePath: storagePath,
+      editedStoragePath: identical(editedStoragePath, _keepEditedPath)
+          ? this.editedStoragePath
+          : editedStoragePath as String?,
+      editVersion: editVersion ?? this.editVersion,
+      sortOrder: sortOrder ?? this.sortOrder,
+    );
+  }
+}
+
+int _editVersion(Object? raw) {
+  if (raw is int) return raw;
+  if (raw is num) return raw.toInt();
+  return 0;
 }
 
 class CompressedPhoto {
@@ -91,16 +126,7 @@ List<Photo> photosWithHeroFirst(List<Photo> photos, String heroId) {
   }
   return [
     for (var i = 0; i < sorted.length; i++)
-      sorted[i].sortOrder == i
-          ? sorted[i]
-          : Photo(
-              id: sorted[i].id,
-              storyId: sorted[i].storyId,
-              familyId: sorted[i].familyId,
-              uploaderId: sorted[i].uploaderId,
-              storagePath: sorted[i].storagePath,
-              sortOrder: i,
-            ),
+      sorted[i].sortOrder == i ? sorted[i] : sorted[i].copyWith(sortOrder: i),
   ];
 }
 
@@ -171,6 +197,8 @@ class PhotosApi implements PhotosGateway {
     Future<Map<String, dynamic>> Function(Map<String, dynamic> row)?
     insertPhoto,
     Future<Uint8List> Function(String path)? downloadBytes,
+    Future<void> Function(String photoId)? deletePhotoRow,
+    Future<List<String>> Function(String prefix)? listStoryObjects,
   }) : _client = client ?? Supabase.instance.client,
        _maxCountLoader = maxCountLoader,
        _photoIdFactory = photoIdFactory,
@@ -178,7 +206,9 @@ class PhotosApi implements PhotosGateway {
        _uploadBinary = uploadBinary,
        _removeObjects = removeObjects,
        _insertPhoto = insertPhoto,
-       _downloadBytes = downloadBytes;
+       _downloadBytes = downloadBytes,
+       _deletePhotoRow = deletePhotoRow,
+       _listStoryObjects = listStoryObjects;
 
   final SupabaseClient _client;
   final Future<int> Function()? _maxCountLoader;
@@ -189,6 +219,8 @@ class PhotosApi implements PhotosGateway {
   final Future<Map<String, dynamic>> Function(Map<String, dynamic> row)?
   _insertPhoto;
   final Future<Uint8List> Function(String path)? _downloadBytes;
+  final Future<void> Function(String photoId)? _deletePhotoRow;
+  final Future<List<String>> Function(String prefix)? _listStoryObjects;
 
   @override
   Future<List<Photo>> listPhotos(String storyId) async {
@@ -260,7 +292,15 @@ class PhotosApi implements PhotosGateway {
 
   @override
   Future<void> deletePhoto(Photo photo) async {
-    await _remove([photo.storagePath]);
+    final paths = <String>[photo.storagePath];
+    final edited = photo.effectiveStoragePath;
+    if (edited != photo.storagePath) paths.add(edited);
+    await _remove(paths);
+    final deleteRow = _deletePhotoRow;
+    if (deleteRow != null) {
+      await deleteRow(photo.id);
+      return;
+    }
     await _client.from('photos').delete().eq('id', photo.id);
   }
 
@@ -270,12 +310,19 @@ class PhotosApi implements PhotosGateway {
     required String storyId,
   }) async {
     final prefix = '$familyId/$storyId';
-    // storage_client list() takes a named [path], not a positional folder.
-    final objects = await _client.storage
-        .from(storyPhotosBucket)
-        .list(path: prefix);
-    if (objects.isEmpty) return;
-    await _remove([for (final object in objects) '$prefix/${object.name}']);
+    final listNames = _listStoryObjects;
+    final List<String> names;
+    if (listNames != null) {
+      names = await listNames(prefix);
+    } else {
+      // storage_client list() takes a named [path], not a positional folder.
+      final objects = await _client.storage
+          .from(storyPhotosBucket)
+          .list(path: prefix);
+      names = [for (final object in objects) object.name];
+    }
+    if (names.isEmpty) return;
+    await _remove([for (final name in names) '$prefix/$name']);
   }
 
   @override
