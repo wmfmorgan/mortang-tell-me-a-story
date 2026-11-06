@@ -19,10 +19,10 @@ CHECK = HERE / "check.py"
 TODAY = date(2026, 10, 22)
 GREEN = (
     "class=delegated name=authenticated_security_definer_function_executable "
-    "level=WARN count=30\n"
+    "level=WARN count=32\n"
     "class=accepted name=auth_leaked_password_protection level=WARN count=1\n"
     "class=report-only name=unused_index level=INFO count=19\n"
-    "summary new=0 stale=0 delegated=30 accepted=1 report-only=19\n"
+    "summary new=0 stale=0 delegated=32 accepted=1 report-only=19\n"
     "advisors prod: GREEN\n"
 )
 PARSE_RED = "error kind=parse\nadvisors prod: RED\n"

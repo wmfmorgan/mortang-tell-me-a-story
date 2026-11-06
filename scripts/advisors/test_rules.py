@@ -357,14 +357,14 @@ class RulesTest(unittest.TestCase):
         code, out = self.run_prod(baseline_doc(delegated=[DELEGATED]), security, [])
         self.assertEqual(code, 1)
         self.assertIn("class=new name=authenticated_security_definer_function_executable level=WARN count=1", out)
-        self.assertIn("class=delegated name=authenticated_security_definer_function_executable level=WARN count=30", out)
+        self.assertIn("class=delegated name=authenticated_security_definer_function_executable level=WARN count=32", out)
         self.assertNotIn("not_allowed", out)
         self.assertNotIn("SENTINEL", out)
 
     def test_definer_missing_finding_fails(self):
         allow = check.load_allowlist(check.catalog_path())
         kept = [sig for sig in allow if sig.name != "transfer_ownership"]
-        self.assertEqual(len(kept), 29)
+        self.assertEqual(len(kept), 31)
         rows = [definer_row(sig) for sig in kept]
         code, out = self.run_local(baseline_doc(delegated=[DELEGATED]), rows)
         self.assertEqual(code, 1)
@@ -481,7 +481,7 @@ class RulesTest(unittest.TestCase):
 
     def test_allowlist_comes_from_catalog_file(self):
         sigs = check.load_allowlist(check.catalog_path())
-        self.assertEqual(len(sigs), 30)
+        self.assertEqual(len(sigs), 32)
         names = {sig.name for sig in sigs}
         self.assertIn("add_co_owner", names)
         self.assertIn("my_profile", names)
@@ -493,7 +493,7 @@ class RulesTest(unittest.TestCase):
         rename = next(sig for sig in sigs if sig.name == "rename_family")
         self.assertEqual(check.normalize_arg_types("fid uuid, name text"), rename.types)
 
-    def test_real_baseline_matches_thirty_definers(self):
+    def test_real_baseline_matches_thirty_two_definers(self):
         allow = check.load_allowlist(check.catalog_path())
         rows = [definer_row(sig) for sig in allow]
         rows.append(csv_row("unused_index", "INFO", {"schema": "public", "name": "stories", "type": "index"}))
@@ -508,8 +508,8 @@ class RulesTest(unittest.TestCase):
             ["--layer", "local", "--baseline", str(REAL_BASELINE), "--findings", str(findings)]
         )
         self.assertEqual(code, 0, out)
-        self.assertIn("delegated name=authenticated_security_definer_function_executable matched=30", out)
-        self.assertIn("summary new=0 stale=0 delegated=30 accepted=0 report-only=1 local-skip=1", out)
+        self.assertIn("delegated name=authenticated_security_definer_function_executable matched=32", out)
+        self.assertIn("summary new=0 stale=0 delegated=32 accepted=0 report-only=1 local-skip=1", out)
         self.assertIn("report-only name=unused_index count=1", out)
         self.assertIn("report-only name=table_bloat count=0", out)
         self.assertIn("local-skip name=pg_graphql_anon_table_exposed count=0", out)

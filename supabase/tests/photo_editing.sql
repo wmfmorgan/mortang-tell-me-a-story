@@ -417,12 +417,14 @@ select throws_ok(
   $$update public.photos
     set edited_storage_path = 'blocked'
     where id = (select pub_photo from m84)$$,
-  '42501'
+  '42501', null,
+  'direct edited_storage_path update is denied by privilege'
 );
 select throws_ok(
   $$select set_config('app.photo_edit_rpc', 'on', true);
     update public.photos set edit_version = 7 where id = (select pub_photo from m84)$$,
-  '42501'
+  '42501', null,
+  'setting app.photo_edit_rpc does not grant the edit columns'
 );
 select throws_ok(
   $$insert into public.photos (
@@ -433,7 +435,8 @@ select throws_ok(
       family_id::text || '/' || published_id::text || '/a8400000-0000-4000-8000-0000000000b6.jpg',
       'blocked'
     from m84$$,
-  '42501'
+  '42501', null,
+  'a client insert cannot set edited_storage_path'
 );
 select throws_ok(
   $$insert into public.photos (
@@ -444,7 +447,8 @@ select throws_ok(
       family_id::text || '/' || published_id::text || '/a8400000-0000-4000-8000-0000000000b7.jpg',
       1
     from m84$$,
-  '42501'
+  '42501', null,
+  'a client insert cannot set edit_version'
 );
 select lives_ok(
   $$insert into public.photos (id, story_id, family_id, uploader_id, storage_path, sort_order)
@@ -666,7 +670,8 @@ select throws_ok(
       pg_temp.edited_path(family_id, published_id, 'a8400000-0000-4000-8000-0000000000ee', 1),
       author_id::text
     from m84$$,
-  '42501'
+  '42501', null,
+  'an edited name for an unknown photo is denied'
 );
 
 set local request.jwt.claim.sub = 'a8400000-0000-4000-8000-0000000000a4';

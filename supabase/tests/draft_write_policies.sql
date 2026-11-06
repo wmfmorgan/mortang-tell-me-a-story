@@ -566,7 +566,7 @@ END))) AND (EXISTS ( SELECT 1
             WHEN ((storage.foldername(objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(objects.name))[1])::uuid
             ELSE NULL::uuid
         END) AND ((s.status = 'published'::story_status) OR (s.author_id = ( SELECT auth.uid() AS uid))))))) OR ((bucket_id = 'story-photos'::text) AND (name ~~ '%.edited.%'::text) AND can_edit_story_photo_object(name)))$pol$,
-  'story_photos_update_member qual matches #42'
+  'story_photos_update_member qual keeps draft-write rules for originals and edited names for editors'
 );
 
 select is(
@@ -595,7 +595,7 @@ END))) AND (EXISTS ( SELECT 1
             WHEN ((storage.foldername(objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(objects.name))[1])::uuid
             ELSE NULL::uuid
         END) AND ((s.status = 'published'::story_status) OR (s.author_id = ( SELECT auth.uid() AS uid)))))) AND (lower(storage.extension(name)) = ANY (ARRAY['jpg'::text, 'jpeg'::text, 'png'::text, 'webp'::text]))) OR ((bucket_id = 'story-photos'::text) AND (name ~~ '%.edited.%'::text) AND can_edit_story_photo_object(name)))$pol$,
-  'story_photos_update_member with_check matches #42'
+  'story_photos_update_member with_check keeps draft-write rules for originals and edited names for editors'
 );
 
 select is(
@@ -628,7 +628,7 @@ CASE
     WHEN ((storage.foldername(name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(name))[2])::uuid
     ELSE NULL::uuid
 END)))) OR ((bucket_id = 'story-photos'::text) AND (name ~~ '%.edited.%'::text) AND can_edit_story_photo_object(name)))$pol$,
-  'story_photos_delete_member qual matches #42'
+  'story_photos_delete_member qual keeps the original delete and edited names for editors'
 );
 
 select is(

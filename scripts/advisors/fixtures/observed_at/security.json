@@ -601,6 +601,46 @@
       "observed_at": "synthetic-stamp-sentinel-29"
     },
     {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-31",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-31",
+      "detail": "synthetic-detail-sentinel-31",
+      "remediation": "synthetic-remediation-sentinel-31",
+      "metadata": {
+        "schema": "public",
+        "name": "reset_photo_edit",
+        "arguments": "uuid, bigint",
+        "marker": "synthetic-metadata-sentinel-31"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-31",
+      "observed_at": "synthetic-stamp-sentinel-31"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "title": "synthetic-title-sentinel-32",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "synthetic-description-sentinel-32",
+      "detail": "synthetic-detail-sentinel-32",
+      "remediation": "synthetic-remediation-sentinel-32",
+      "metadata": {
+        "schema": "public",
+        "name": "save_photo_edit",
+        "arguments": "uuid, bigint, text",
+        "marker": "synthetic-metadata-sentinel-32"
+      },
+      "cache_key": "synthetic-cache-key-sentinel-32",
+      "observed_at": "synthetic-stamp-sentinel-32"
+    },
+    {
       "name": "auth_leaked_password_protection",
       "title": "synthetic-title-sentinel-30",
       "level": "WARN",

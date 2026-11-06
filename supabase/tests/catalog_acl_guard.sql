@@ -76,7 +76,7 @@ $$, $$values
   ('revoke_invite(uuid)'),('same_family_tree(uuid, uuid)'),('set_family_origin(uuid, uuid)'),
   ('reset_photo_edit(uuid, bigint)'),('save_photo_edit(uuid, bigint, text)'),
   ('soft_delete_family(uuid)'),('story_row_exists(uuid)'),('transfer_ownership(uuid, uuid, text)')
-$$, 'authenticated-executable SECURITY DEFINER set equals the PR #39 allowlist');
+$$, 'authenticated-executable SECURITY DEFINER set equals the allowlist');
 
 select * from finish();
 rollback;
