@@ -669,15 +669,15 @@ class _NewStoryPageState extends State<NewStoryPage> {
     if (bytes == null || _busy) return;
     final editing = _editingApi();
     final router = GoRouter.maybeOf(context);
-    final Photo? saved;
+    final PhotoEditorResult? saved;
     final args = PhotoEditorArgs(photo: photo, bytes: bytes, editing: editing);
     if (router != null) {
-      saved = await context.push<Photo>(
+      saved = await context.push<PhotoEditorResult>(
         AppRoutes.photoEditorPath(photo.storyId, photo.id),
         extra: args,
       );
     } else {
-      saved = await Navigator.of(context).push<Photo>(
+      saved = await Navigator.of(context).push<PhotoEditorResult>(
         MaterialPageRoute(
           builder: (context) =>
               PhotoEditorPage(photo: photo, bytes: bytes, editing: editing),
@@ -685,14 +685,14 @@ class _NewStoryPageState extends State<NewStoryPage> {
       );
     }
     if (!mounted || saved == null) return;
-    _applyEditResult(saved, bytes);
+    _applyEditResult(saved.photo, saved.bytes);
   }
 
-  void _applyEditResult(Photo saved, Uint8List fallbackBytes) {
+  void _applyEditResult(Photo saved, Uint8List editedBytes) {
     setState(() {
       final index = _storyPhotos.indexWhere((photo) => photo.id == saved.id);
       if (index >= 0) _storyPhotos[index] = saved;
-      _photoPreviews[saved.id] = fallbackBytes;
+      _photoPreviews[saved.id] = editedBytes;
     });
     _pruneOrphanUpload(saved);
   }

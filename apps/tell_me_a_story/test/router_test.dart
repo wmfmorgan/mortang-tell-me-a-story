@@ -743,7 +743,7 @@ void main() {
     final gateway = _RouteGateway(photo);
     final image = img.Image(width: 8, height: 4);
     img.fill(image, color: img.ColorRgb8(10, 20, 30));
-    final popped = router.push<Photo>(
+    final popped = router.push<PhotoEditorResult>(
       AppRoutes.photoEditorPath(photo.storyId, photo.id),
       extra: PhotoEditorArgs(
         photo: photo,
@@ -760,8 +760,9 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     final saved = await popped;
-    expect(saved?.editedStoragePath, endsWith('.edited.1.jpg'));
-    expect(saved?.editVersion, 1);
+    expect(saved?.photo.editedStoragePath, endsWith('.edited.1.jpg'));
+    expect(saved?.photo.editVersion, 1);
+    expect(saved?.bytes, isNotEmpty);
     auth.dispose();
   });
 }

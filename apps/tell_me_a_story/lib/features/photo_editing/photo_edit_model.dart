@@ -217,10 +217,10 @@ class PhotoEditModel {
     required this.pixelsEpoch,
     required PhotoEditDocument? gestureBase,
     required int nextLayer,
-  }) : _undo = undo, // ignore: prefer_initializing_formals
-       _redo = redo, // ignore: prefer_initializing_formals
-       _gestureBase = gestureBase, // ignore: prefer_initializing_formals
-       _nextLayer = nextLayer; // ignore: prefer_initializing_formals
+  }) : _undo = undo, // ignore: prefer_initializing_formals, private `_undo:` is rejected
+       _redo = redo, // ignore: prefer_initializing_formals, private `_redo:` is rejected
+       _gestureBase = gestureBase, // ignore: prefer_initializing_formals, private `_gestureBase:` is rejected
+       _nextLayer = nextLayer; // ignore: prefer_initializing_formals, private `_nextLayer:` is rejected
 
   final PhotoEditDocument opening;
   final PhotoEditDocument document;

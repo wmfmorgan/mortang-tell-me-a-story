@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -842,19 +843,19 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     setState(() => _editOpen = true);
     try {
       final router = GoRouter.maybeOf(context);
-      final Photo? saved;
+      final PhotoEditorResult? saved;
       final args = PhotoEditorArgs(
         photo: photo,
         bytes: bytes,
         editing: editing,
       );
       if (router != null) {
-        saved = await context.push<Photo>(
+        saved = await context.push<PhotoEditorResult>(
           AppRoutes.photoEditorPath(photo.storyId, photo.id),
           extra: args,
         );
       } else {
-        saved = await Navigator.of(context).push<Photo>(
+        saved = await Navigator.of(context).push<PhotoEditorResult>(
           MaterialPageRoute(
             builder: (context) =>
                 PhotoEditorPage(photo: photo, bytes: bytes, editing: editing),
@@ -862,12 +863,14 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         );
       }
       if (!mounted || saved == null) return;
-      final updated = saved;
+      final updated = saved.photo;
+      final editedBytes = saved.bytes;
       setState(() {
         _photos = [
           for (final item in _photos)
             if (item.id == updated.id) updated else item,
         ];
+        _previews = {..._previews, updated.id: editedBytes};
       });
       try {
         final next = await _photosApi.downloadBytes(
@@ -875,9 +878,13 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         );
         if (!mounted) return;
         setState(() => _previews = {..._previews, updated.id: next});
-      } catch (_) {
-        if (!mounted) return;
-        setState(() => _previews = {..._previews, updated.id: bytes});
+      } catch (error, stack) {
+        developer.log(
+          'reader photo reload',
+          name: 'photo_editor',
+          error: error,
+          stackTrace: stack,
+        );
       }
     } finally {
       if (mounted) setState(() => _editOpen = false);

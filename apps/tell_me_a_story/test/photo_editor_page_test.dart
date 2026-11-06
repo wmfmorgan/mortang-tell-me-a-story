@@ -7,6 +7,8 @@ import 'package:image/image.dart' as img;
 import 'package:tell_me_a_story/core/photo/photo_editing_storage.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story/features/photo_editing/photo_edit_model.dart';
+import 'package:tell_me_a_story/features/photo_editing/photo_edit_renderer.dart';
 import 'package:tell_me_a_story/features/photo_editing/photo_editor_page.dart';
 
 class _Gateway implements PhotoEditingGateway {
@@ -91,17 +93,18 @@ Uint8List _jpeg() {
   return Uint8List.fromList(img.encodeJpg(image));
 }
 
-Future<Photo?> _pump(
+Future<PhotoEditorResult?> _pump(
   WidgetTester tester, {
   required _Gateway gateway,
   Photo? photo,
+  PhotoEditRenderer? renderer,
   Size size = const Size(400, 800),
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  Photo? popped;
+  PhotoEditorResult? popped;
   await tester.pumpWidget(
     MaterialApp(
       theme: albumTheme(),
@@ -109,12 +112,13 @@ Future<Photo?> _pump(
         builder: (context) {
           return TextButton(
             onPressed: () async {
-              popped = await Navigator.of(context).push<Photo>(
+              popped = await Navigator.of(context).push<PhotoEditorResult>(
                 MaterialPageRoute(
                   builder: (context) => PhotoEditorPage(
                     photo: photo ?? _photo(),
                     bytes: _jpeg(),
                     editing: PhotoEditingApi(gateway),
+                    renderer: renderer,
                   ),
                 ),
               );
@@ -129,6 +133,19 @@ Future<Photo?> _pump(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
   return popped;
+}
+
+class _BoomRenderer extends PhotoEditRenderer {
+  const _BoomRenderer();
+
+  @override
+  Future<Uint8List> bakeJpeg({
+    required Uint8List source,
+    required PhotoEditDocument document,
+    int quality = 90,
+  }) async {
+    throw StateError('bake failed');
+  }
 }
 
 void main() {
@@ -215,5 +232,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(gateway.reads, greaterThan(0));
     expect(gateway.uploads.last, endsWith('.edited.5.jpg'));
+  });
+
+  testWidgets('a bake failure leaves the editor usable', (tester) async {
+    final gateway = _Gateway(_photo());
+    await _pump(tester, gateway: gateway, renderer: const _BoomRenderer());
+    await tester.tap(find.text(photoToolRotate));
+    await tester.pump();
+    await tester.tap(find.text(photoRotateRight));
+    await tester.pump();
+    await tester.tap(find.text(photoSave));
+    await tester.pumpAndSettle();
+    expect(find.text(photoSaveError), findsOneWidget);
+    expect(find.text(photoSaving), findsNothing);
+    await tester.tap(find.byKey(const Key('editor-cancel')));
+    await tester.pumpAndSettle();
+    expect(find.text(photoDiscardTitle), findsOneWidget);
+  });
+
+  testWidgets('one brightness drag is one undo step', (tester) async {
+    final gateway = _Gateway(_photo());
+    await _pump(tester, gateway: gateway, size: const Size(800, 1200));
+    await tester.tap(find.text(photoToolAdjust));
+    await tester.pump();
+    await tester.drag(find.byType(Slider).first, const Offset(120, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Brightness 0'), findsNothing);
+    await tester.tap(find.byTooltip(photoUndo));
+    await tester.pump();
+    expect(find.text('Brightness 0'), findsOneWidget);
   });
 }

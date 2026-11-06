@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -79,6 +80,14 @@ const photoSwatchNames = <TextSwatch, String>{
   TextSwatch.branchMoss: 'Branch moss',
 };
 
+/// Saved row plus the JPEG the editor just baked or reloaded.
+class PhotoEditorResult {
+  const PhotoEditorResult({required this.photo, required this.bytes});
+
+  final Photo photo;
+  final Uint8List bytes;
+}
+
 /// Arguments the route receives. The route does not read the database itself.
 class PhotoEditorArgs {
   const PhotoEditorArgs({
@@ -103,12 +112,14 @@ class PhotoEditorPage extends StatefulWidget {
     this.photo,
     this.bytes,
     this.editing,
+    this.renderer,
     this.pageKey,
   });
 
   final Photo? photo;
   final Uint8List? bytes;
   final PhotoEditingApi? editing;
+  final PhotoEditRenderer? renderer;
   final ValueKey<String>? pageKey;
 
   @override
@@ -116,7 +127,8 @@ class PhotoEditorPage extends StatefulWidget {
 }
 
 class _PhotoEditorPageState extends State<PhotoEditorPage> {
-  final _renderer = const PhotoEditRenderer();
+  late final PhotoEditRenderer _renderer =
+      widget.renderer ?? const PhotoEditRenderer();
   final _saveFocus = FocusNode();
   final _resetFocus = FocusNode();
   UnsavedGuard? _guard;
@@ -205,6 +217,56 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     _guard?.changed();
   }
 
+  void _startGesture() {
+    final model = _model;
+    if (model == null) return;
+    _setModel(model.beginGesture());
+  }
+
+  void _endGesture() {
+    final model = _model;
+    if (model == null) return;
+    _setModel(model.endGesture());
+  }
+
+  void _previewBrightness(double value) {
+    final model = _model;
+    if (model == null) return;
+    final started = model.beginGesture();
+    _setModel(
+      started.previewDocument(
+        started.document.copyWith(brightness: value.round().clamp(-100, 100)),
+      ),
+    );
+  }
+
+  void _previewContrast(double value) {
+    final model = _model;
+    if (model == null) return;
+    final started = model.beginGesture();
+    _setModel(
+      started.previewDocument(
+        started.document.copyWith(contrast: value.round().clamp(-100, 100)),
+      ),
+    );
+  }
+
+  void _previewTextSize(double value) {
+    final model = _model;
+    if (model == null) return;
+    final selected = model.selected;
+    if (selected == null) return;
+    final size = value.clamp(16, 96).toDouble();
+    final layers = [
+      for (final layer in model.document.layers)
+        if (layer.id == selected.id) layer.copyWith(fontSize: size) else layer,
+    ];
+    final started = model.beginGesture();
+    _setModel(
+      started.previewDocument(started.document.copyWith(layers: layers)),
+    );
+  }
+
   Future<void> _close() async {
     if (_phase == _EditorPhase.saving) return;
     if (!_dirty) {
@@ -220,13 +282,26 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     if (discard == photoDiscardEdits && mounted) _leave(null);
   }
 
-  void _leave(Photo? photo) {
+  void _leave(PhotoEditorResult? result) {
     final router = GoRouter.maybeOf(context);
     if (router != null && router.canPop()) {
-      router.pop(photo);
+      router.pop(result);
       return;
     }
-    Navigator.of(context).pop(photo);
+    Navigator.of(context).pop(result);
+  }
+
+  void _logFailure(String where, Object error, StackTrace stack) {
+    developer.log(where, name: 'photo_editor', error: error, stackTrace: stack);
+  }
+
+  void _saveFailed() {
+    setState(() {
+      _phase = _EditorPhase.ready;
+      _banner = photoSaveError;
+      _bannerIsReset = false;
+    });
+    _saveFocus.requestFocus();
   }
 
   Future<void> _save() async {
@@ -251,24 +326,28 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       final result = await editing.savePhotoEdit(photo.id, _expected, path);
       if (!mounted) return;
       _leave(
-        photo.copyWith(
-          editedStoragePath: path,
-          editVersion: result.editVersion,
+        PhotoEditorResult(
+          photo: photo.copyWith(
+            editedStoragePath: path,
+            editVersion: result.editVersion,
+          ),
+          bytes: jpeg,
         ),
       );
-    } on PhotoEditException catch (error) {
+    } on PhotoEditException catch (error, stack) {
       if (!mounted) return;
+      _logFailure('save', error, stack);
       setState(() => _phase = _EditorPhase.ready);
       if (error.kind == PhotoEditFailureKind.conflict) {
         _conflictFromReset = false;
         await _showConflict();
       } else {
-        setState(() {
-          _banner = photoSaveError;
-          _bannerIsReset = false;
-        });
-        _saveFocus.requestFocus();
+        _saveFailed();
       }
+    } catch (error, stack) {
+      if (!mounted) return;
+      _logFailure('save', error, stack);
+      _saveFailed();
     }
   }
 
@@ -296,14 +375,21 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     try {
       final result = await editing.resetPhotoEdit(photo.id, _expected);
       if (!mounted) return;
-      _leave(
-        photo.copyWith(
-          editedStoragePath: null,
-          editVersion: result.editVersion,
-        ),
+      final cleared = photo.copyWith(
+        editedStoragePath: null,
+        editVersion: result.editVersion,
       );
-    } on PhotoEditException catch (error) {
+      var preview = _bytes ?? Uint8List(0);
+      try {
+        preview = await editing.download(cleared.effectiveStoragePath);
+      } catch (error, stack) {
+        _logFailure('reset download', error, stack);
+      }
       if (!mounted) return;
+      _leave(PhotoEditorResult(photo: cleared, bytes: preview));
+    } on PhotoEditException catch (error, stack) {
+      if (!mounted) return;
+      _logFailure('reset', error, stack);
       setState(() => _phase = _EditorPhase.ready);
       if (error.kind == PhotoEditFailureKind.conflict) {
         _conflictFromReset = true;
@@ -315,6 +401,15 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
         });
         _resetFocus.requestFocus();
       }
+    } catch (error, stack) {
+      if (!mounted) return;
+      _logFailure('reset', error, stack);
+      setState(() {
+        _phase = _EditorPhase.ready;
+        _banner = photoResetError;
+        _bannerIsReset = true;
+      });
+      _resetFocus.requestFocus();
     }
   }
 
@@ -355,8 +450,9 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       } else {
         await _save();
       }
-    } on PhotoEditException {
+    } catch (error, stack) {
       if (!mounted) return;
+      _logFailure('retry', error, stack);
       setState(() {
         _phase = _EditorPhase.ready;
         _banner = _conflictFromReset ? photoResetError : photoSaveError;
@@ -386,8 +482,9 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       _photo = latest;
       _expected = latest.editVersion;
       await _prepare(bytes);
-    } catch (_) {
+    } catch (error, stack) {
       if (!mounted) return;
+      _logFailure('load latest', error, stack);
       setState(() {
         _phase = _EditorPhase.ready;
         _banner = photoLoadError;
@@ -837,9 +934,9 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
             min: 16,
             max: 96,
             label: photoSizeLabel,
-            onChanged: enabled
-                ? (value) => _setModel(model.setSelectedSize(value))
-                : null,
+            onChangeStart: enabled ? (_) => _startGesture() : null,
+            onChanged: enabled ? _previewTextSize : null,
+            onChangeEnd: enabled ? (_) => _endGesture() : null,
           ),
           Text(photoColorLabel),
           Wrap(
@@ -893,9 +990,9 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
           min: -100,
           max: 100,
           label: photoBrightness,
-          onChanged: enabled
-              ? (value) => _setModel(model.setBrightness(value.round()))
-              : null,
+          onChangeStart: enabled ? (_) => _startGesture() : null,
+          onChanged: enabled ? _previewBrightness : null,
+          onChangeEnd: enabled ? (_) => _endGesture() : null,
         ),
         TextButton(
           onPressed: enabled ? () => _setModel(model.resetBrightness()) : null,
@@ -907,9 +1004,9 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
           min: -100,
           max: 100,
           label: photoContrast,
-          onChanged: enabled
-              ? (value) => _setModel(model.setContrast(value.round()))
-              : null,
+          onChangeStart: enabled ? (_) => _startGesture() : null,
+          onChanged: enabled ? _previewContrast : null,
+          onChangeEnd: enabled ? (_) => _endGesture() : null,
         ),
         TextButton(
           onPressed: enabled ? () => _setModel(model.resetContrast()) : null,
