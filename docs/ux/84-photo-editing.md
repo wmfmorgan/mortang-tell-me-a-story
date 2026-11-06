@@ -1,10 +1,10 @@
 # #84 Photo editing
 
-**Status: LOCKED rev 1.2 — 2026-11-06 2:16 PM CT; pending Bill via Erlich** (delta: F-04 conflict/reload and dirty-work interactions; F-05 exact sticker assets and existing serif). Rev 1.1 locked 8:24 AM CT (delta: hero display change dropped; already fixed by #151). Rev 1.0 locked 8:16 AM CT. Bill, in his 1:1: screens "i approve!" (8:15); Q1 "Rotate only"; Q2 "Edits follow the draft" (8:16).
+**Status: LOCKED rev 1.2 — 2026-11-06 2:16 PM CT** (F-04 locked as written by Bill via Erlich, choice (a), 2:14 PM CT; C30–C37 approved by Bill 2:16 PM CT and locked by Jared) (delta: F-04 conflict/reload and dirty-work interactions; F-05 exact sticker assets and existing serif). Rev 1.1 locked 8:24 AM CT (delta: hero display change dropped; already fixed by #151). Rev 1.0 locked 8:16 AM CT. Bill, in his 1:1: screens "i approve!" (8:15); Q1 "Rotate only"; Q2 "Edits follow the draft" (8:16).
 
 Changelog: rev 1.2 adds the version-conflict dialog and explicit retry, the dirty reload guard, twelve original bundled SVG sticker IDs/files, and the existing `GoogleFonts.literata` Text-tool identifier; no prior editor, hero or tool behavior changes.
 
-Open UI questions: **F-04 interaction picks below, pending Bill via Erlich.** These close the spec’s open behavior choices; Jared still stamps C30–C37. Stitch links and previews: [Stitch screens](#stitch-screens).
+Open UI questions: **None.** F-04 interaction picks LOCKED (Bill via Erlich, 2:14 PM CT); C30–C37 LOCKED (Bill 2:16 PM CT; Jared locked). Stitch links and previews: [Stitch screens](#stitch-screens).
 
 ## Sources
 
@@ -163,14 +163,14 @@ The spec saves and resets by compare-and-swap against the photo’s **opened `ed
 | 36 | Dirty reload body | Your unsaved edits will be replaced. Your latest saved photo will be loaded. |
 | 37 | Dirty reload actions | Keep editing / Load latest |
 
-**37 numbered entries**; combined labels in a cell are one stamp row, not separate strings. C1–C29 are unchanged; C30–C37 are new and need Jared’s stamp.
+**37 numbered entries**; combined labels in a cell are one stamp row, not separate strings. C1–C29 are unchanged; C30–C37 are new and LOCKED (Bill 2:16 PM CT; Jared locked).
 
 ## Resolved UI questions
 
 1. **Flip:** LOCKED rotate-only, 90° steps; no horizontal/vertical flip (Bill, 2026-11-06 8:15 AM CT: "Rotate only").
 2. **Attach-time edits:** LOCKED to follow the existing draft-photo lifecycle; if the draft is discarded, its photo edits go with it. No new retention promise (Bill, 2026-11-06 8:16 AM CT: "Edits follow the draft").
 
-3. **F-04 interaction picks (pending Bill via Erlich):** centered modal on both responsive layouts; Keep editing as default focus/safe action; explicit version-refreshing retry rather than automatic retry/rebase; destructive Load latest always confirmed when dirty; browser-native prompt when refresh/tab-close cannot show the custom dialog. No new persistence, merge or recovery scope.
+3. **F-04 interaction picks (LOCKED, Bill via Erlich, choice (a), 2:14 PM CT):** centered modal on both responsive layouts; Keep editing as default focus/safe action; explicit version-refreshing retry rather than automatic retry/rebase; destructive Load latest always confirmed when dirty; browser-native prompt when refresh/tab-close cannot show the custom dialog. No new persistence, merge or recovery scope.
 4. **F-05 asset/font picks:** stable IDs/files above; original SVG artwork licensed for this repo; Text uses the existing `GoogleFonts.literata` identifier only. Stickers and Text remain in scope; “Rotate only” only excluded flip.
 
 All other unspecified choices above are pure UI choices expressly labeled **Mugatu pick**.
