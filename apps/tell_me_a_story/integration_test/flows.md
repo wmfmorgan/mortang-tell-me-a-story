@@ -13,3 +13,4 @@ Lock: `docs/design-doc/e2e.md` (U1) and `docs/design-doc/e2e-addendum-a.md`. `e2
 | C7 | `C7 search by person, place and timeframe finds the story` | US-9; M7 | `features/search/`, `data/search_api.dart` |
 | C8 | `C8 user from another family sees no content on a story url` | §14 Automated #1; §13 | `features/stories/`, `core/router/` |
 | C9 | `C9 sign out redirects guarded routes to the landing page` | router signed-out guard; M10 nav | `core/theme/album_header.dart`, `core/router/` |
+| C10 | `C10 author edits and resets a published photo` | §14 M3; #84 photo editing | `features/photo_editing/`, `features/stories/`, `core/router/`, `data/photos_api.dart` |

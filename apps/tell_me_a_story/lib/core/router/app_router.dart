@@ -29,6 +29,7 @@ import '../../features/family/family_landing_page.dart';
 import '../../features/family/manage_families_page.dart';
 import '../../features/family/manage_family_page.dart';
 import '../../features/search/search_recents.dart';
+import '../../features/photo_editing/photo_editor_page.dart';
 import '../../features/stories/story_reader_page.dart';
 import '../../features/timeline/timeline_page.dart';
 import '../../data/search_api.dart';
@@ -193,6 +194,11 @@ abstract final class AppRoutes {
   static String manageFamilyPath(String id) => '/manage-families/$id';
 
   static String storyPerspectivePath(String id) => '/stories/$id/perspective';
+
+  static const photoEditor = '/stories/:storyId/photos/:photoId/edit';
+
+  static String photoEditorPath(String storyId, String photoId) =>
+      '/stories/$storyId/photos/$photoId/edit';
 }
 
 /// Where a signed-in session opens from the magic-link route.
@@ -387,6 +393,23 @@ GoRouter createAppRouter({
             familyId: extra is String ? extra : null,
             perspectivesApi: perspectivesApi,
             storiesApi: storiesApi,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.photoEditor,
+        pageBuilder: (context, state) {
+          final extra = state.extra;
+          final args = extra is PhotoEditorArgs ? extra : null;
+          final key = state.pageKey;
+          return albumModalPage(
+            pageKey: key,
+            child: PhotoEditorPage(
+              photo: args?.photo,
+              bytes: args?.bytes,
+              editing: args?.editing,
+              pageKey: key,
+            ),
           );
         },
       ),

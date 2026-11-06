@@ -18,6 +18,8 @@ import '../../data/people_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/stories_api.dart';
+import '../photo_editing/photo_editor_page.dart';
+import '../../core/photo/photo_editing_storage.dart';
 import '../people/add_person_modal.dart';
 import '../people/person_profile_dialog.dart';
 import '../places/place_map.dart';
@@ -41,6 +43,7 @@ class NewStoryPage extends StatefulWidget {
     this.mapboxSearch,
     this.storiesApi,
     this.photosApi,
+    this.photoEditingApi,
     this.pickImageBytes,
     this.hasMapboxToken,
     this.mapBuilder,
@@ -54,6 +57,9 @@ class NewStoryPage extends StatefulWidget {
   final MapboxSearchGateway? mapboxSearch;
   final StoriesGateway? storiesApi;
   final PhotosGateway? photosApi;
+
+  /// Save/reset port for an attached photo. Tests inject a fake.
+  final PhotoEditingApi? photoEditingApi;
 
   /// Gallery picker override so widget tests never open the system picker.
   final Future<Uint8List?> Function()? pickImageBytes;
@@ -131,6 +137,15 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   PhotosGateway get _photos =>
       widget.photosApi ?? (_photosOverride ??= PhotosApi());
+
+  PhotoEditingApi? _editingSession;
+
+  PhotoEditingApi _editingApi() {
+    return widget.photoEditingApi ??
+        (_editingSession ??= PhotoEditingApi(
+          SupabasePhotoEditingGateway(Supabase.instance.client),
+        ));
+  }
 
   bool get _editing => widget.editStoryId != null;
 
@@ -649,6 +664,53 @@ class _NewStoryPageState extends State<NewStoryPage> {
     }
   }
 
+  Future<void> _editPhoto(Photo photo) async {
+    final bytes = _photoPreviews[photo.id];
+    if (bytes == null || _busy) return;
+    final editing = _editingApi();
+    final router = GoRouter.maybeOf(context);
+    final Photo? saved;
+    final args = PhotoEditorArgs(photo: photo, bytes: bytes, editing: editing);
+    if (router != null) {
+      saved = await context.push<Photo>(
+        AppRoutes.photoEditorPath(photo.storyId, photo.id),
+        extra: args,
+      );
+    } else {
+      saved = await Navigator.of(context).push<Photo>(
+        MaterialPageRoute(
+          builder: (context) =>
+              PhotoEditorPage(photo: photo, bytes: bytes, editing: editing),
+        ),
+      );
+    }
+    if (!mounted || saved == null) return;
+    _applyEditResult(saved, bytes);
+  }
+
+  void _applyEditResult(Photo saved, Uint8List fallbackBytes) {
+    setState(() {
+      final index = _storyPhotos.indexWhere((photo) => photo.id == saved.id);
+      if (index >= 0) _storyPhotos[index] = saved;
+      _photoPreviews[saved.id] = fallbackBytes;
+    });
+    _pruneOrphanUpload(saved);
+  }
+
+  Future<void> _pruneOrphanUpload(Photo saved) async {
+    final editing = _editingApi();
+    final protected = <String>{saved.storagePath};
+    if (saved.editVersion > 0 && saved.editedStoragePath != null) {
+      protected.add(saved.editedStoragePath!);
+    }
+    try {
+      await editing.retryCleanup(protected: protected);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _photoError = true);
+    }
+  }
+
   Future<void> _onRemovePhoto(Photo photo) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -694,6 +756,14 @@ class _NewStoryPageState extends State<NewStoryPage> {
         body: body ?? _body.text,
         placeId: placeId ?? _selectedPlace?.id ?? _placeId,
         personIds: personIds ?? _personIdsToWrite,
+        editedPhotos: [
+          for (final photo in _storyPhotos)
+            (
+              id: photo.id,
+              editedStoragePath: photo.editedStoragePath,
+              editVersion: photo.editVersion,
+            ),
+        ],
       ),
       autosave: autosave,
     );
@@ -1202,6 +1272,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
                   onAdd: _onAddPhoto,
                   onRemove: _onRemovePhoto,
                   onToggleHero: _onToggleHero,
+                  onEdit: _editPhoto,
+                  editLabel: photoEditAttachLabel,
                   onRetry: _onRetryPhoto,
                   uploadFailed: _photoError,
                   canAdd: _storyPhotos.length < maxPhotosPerStory,
@@ -1415,6 +1487,7 @@ class _DraftSnapshot {
     required this.body,
     required this.placeId,
     required this.personIds,
+    this.editedPhotos = const [],
   });
 
   final String? id;
@@ -1426,6 +1499,8 @@ class _DraftSnapshot {
   final String body;
   final String? placeId;
   final List<String>? personIds;
+  final List<({String id, String? editedStoragePath, int editVersion})>
+  editedPhotos;
 }
 
 class _FormSnapshot {

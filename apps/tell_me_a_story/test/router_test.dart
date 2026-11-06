@@ -17,7 +17,10 @@ import 'package:tell_me_a_story/data/perspectives_api.dart'
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:image/image.dart' as img;
+import 'package:tell_me_a_story/core/photo/photo_editing_storage.dart';
 import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
+import 'package:tell_me_a_story/features/photo_editing/photo_editor_page.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/family/family_landing_page.dart';
@@ -693,6 +696,119 @@ void main() {
 
     auth.dispose();
   });
+
+  test('photo editor path is a typed deep link', () {
+    expect(
+      AppRoutes.photoEditorPath('story-1', 'photo-1'),
+      '/stories/story-1/photos/photo-1/edit',
+    );
+    expect(AppRoutes.photoEditor, '/stories/:storyId/photos/:photoId/edit');
+  });
+
+  testWidgets('signed-out photo editor returns to the magic link', (
+    tester,
+  ) async {
+    final auth = AuthRefresh(initiallySignedIn: false);
+    final router = createAppRouter(authRefresh: auth);
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+    router.go(AppRoutes.photoEditorPath('story-1', 'photo-1'));
+    await tester.pumpAndSettle();
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.magicLink,
+    );
+    auth.dispose();
+  });
+
+  testWidgets('photo editor route pops the saved photo', (tester) async {
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: _StubInviteApi(),
+      peopleApi: _StubPeopleApi(),
+      placesApi: _StubPlacesApi(),
+      mapboxSearch: _StubMapboxSearch(),
+    );
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+    final photo = Photo(
+      id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+      storyId: '11111111-1111-1111-1111-111111111111',
+      familyId: '22222222-2222-2222-2222-222222222222',
+      uploaderId: 'user',
+      storagePath: 'orig.jpg',
+      sortOrder: 0,
+    );
+    final gateway = _RouteGateway(photo);
+    final image = img.Image(width: 8, height: 4);
+    img.fill(image, color: img.ColorRgb8(10, 20, 30));
+    final popped = router.push<Photo>(
+      AppRoutes.photoEditorPath(photo.storyId, photo.id),
+      extra: PhotoEditorArgs(
+        photo: photo,
+        bytes: Uint8List.fromList(img.encodeJpg(image)),
+        editing: PhotoEditingApi(gateway),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('photo-editor')), findsOneWidget);
+    await tester.tap(find.text('Rotate'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rotate right 90°'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    final saved = await popped;
+    expect(saved?.editedStoragePath, endsWith('.edited.1.jpg'));
+    expect(saved?.editVersion, 1);
+    auth.dispose();
+  });
+}
+
+class _RouteGateway implements PhotoEditingGateway {
+  _RouteGateway(this.photo);
+
+  final Photo photo;
+
+  @override
+  Future<Uint8List> download(String path) async => Uint8List(0);
+
+  @override
+  Future<Photo> readPhoto(String photoId) async => photo;
+
+  @override
+  Future<void> remove(List<String> paths) async {}
+
+  @override
+  Future<PhotoEditResult> resetPhotoEdit({
+    required String photoId,
+    required int expectedVersion,
+  }) async {
+    return PhotoEditResult(
+      editVersion: expectedVersion + 1,
+      previousPath: null,
+    );
+  }
+
+  @override
+  Future<PhotoEditResult> savePhotoEdit({
+    required String photoId,
+    required int expectedVersion,
+    required String editedPath,
+  }) async {
+    return PhotoEditResult(
+      editVersion: expectedVersion + 1,
+      previousPath: null,
+    );
+  }
+
+  @override
+  Future<void> uploadJpeg({
+    required String path,
+    required Uint8List bytes,
+    void Function(double progress)? onProgress,
+  }) async {}
 }
 
 class _MemberOf extends FamiliesGateway {
