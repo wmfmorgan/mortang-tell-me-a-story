@@ -1,6 +1,6 @@
 # #84 Photo editing
 
-**Status: LOCKED rev 1.0 — 2026-11-06 8:16 AM CT.** Bill, in his 1:1: screens "i approve!" (8:15); Q1 "Rotate only"; Q2 "Edits follow the draft" (8:16).
+**Status: LOCKED rev 1.1 — 2026-11-06 8:24 AM CT** (delta: hero display change dropped; already fixed by #151). Rev 1.0 locked 8:16 AM CT. Bill, in his 1:1: screens "i approve!" (8:15); Q1 "Rotate only"; Q2 "Edits follow the draft" (8:16).
 
 Open UI questions: none. Stitch links and previews: [Stitch screens](#stitch-screens).
 
@@ -68,9 +68,7 @@ Independent **Brightness** and **Contrast** sliders, each −100…0…+100, ini
 
 ## Hero-crop response
 
-**Crop does not by itself fix #84’s complaint.** Cropping changes stored image bounds. A portrait hero rendered with `BoxFit.cover` + center alignment can still enlarge the image and cut off its top even after a crop.
-
-**Recommended separate display fix, same #84 implementation (Mugatu pick):** render the large story-card/hero photo with `BoxFit.cover` and `Alignment.topCenter` so top-edge content is preserved. This is deterministic and avoids adding an unapproved focal-point data model. Crop remains available for deliberate reframing. Do not claim this guarantees every face is visible in every extreme aspect mismatch; it addresses the reported top cutoff without silently changing crop semantics.
+**No hero display change in #84 (rev 1.1).** The issue's "zooms in too far and cuts off the top" was already fixed on main by [PR #151](https://github.com/wmfmorgan/mortang-tell-me-a-story/pull/151) (235df7c, 2026-10-29, "show reader and card photos whole"): the reader's large photo (`photo_frame.dart`) and the timeline card photo use `BoxFit.contain` on a parchment field, so the whole photo shows. Keep `contain`; do not switch any surface to `cover` + `topCenter`. The Family Landing featured hero (16:9 `cover`, locked in 79-family-landing) is unchanged. "Adjustable" in the issue is met by the editor's Crop tool, and the cropped copy shows everywhere per the Save rules.
 
 ## Accessibility
 
