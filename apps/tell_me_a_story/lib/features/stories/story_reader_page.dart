@@ -451,7 +451,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         for (final photo in photos) {
           try {
             previews[photo.id] = await _photosApi.downloadBytes(
-              photo.storagePath,
+              photo.effectiveStoragePath,
             );
           } catch (_) {
             // Missing bytes fall back to PhotoStrip placeholder icon.

@@ -337,6 +337,7 @@ class _FakePhotosApi implements PhotosGateway {
   String? lastStoryId;
   int? lastSortOrder;
   final List<Photo> deleted = [];
+  final List<String> downloaded = [];
 
   @override
   Future<List<Photo>> listPhotos(String storyId) async {
@@ -399,8 +400,10 @@ class _FakePhotosApi implements PhotosGateway {
   }) async {}
 
   @override
-  Future<Uint8List> downloadBytes(String storagePath) async =>
-      Uint8List.fromList(bytes);
+  Future<Uint8List> downloadBytes(String storagePath) async {
+    downloaded.add(storagePath);
+    return Uint8List.fromList(bytes);
+  }
 }
 
 class _FakeCommentsApi implements CommentsGateway {
@@ -627,6 +630,36 @@ void main() {
       readerArticleBody(body: 'Picnic at the lake\nWe brought pie.'),
       'Picnic at the lake\nWe brought pie.',
     );
+  });
+
+  testWidgets('reader downloads the edited object and shows those bytes', (
+    tester,
+  ) async {
+    final photos = _FakePhotosApi(
+      bytes: _pngOf(12, 8),
+      seed: const [
+        Photo(
+          id: 'ph1',
+          storyId: _storyId,
+          familyId: _familyId,
+          uploaderId: 'u1',
+          storagePath: 'f/s/ph1.jpg',
+          editedStoragePath: 'f/s/ph1.edited.2.jpg',
+          editVersion: 2,
+          sortOrder: 0,
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        photos: photos,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(photos.downloaded, ['f/s/ph1.edited.2.jpg']);
+    expect(find.byKey(const Key('story-hero-ph1')), findsOneWidget);
   });
 
   testWidgets('published story renders body, people, place, sections', (

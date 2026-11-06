@@ -398,7 +398,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
       final previews = <String, Uint8List>{};
       for (final photo in listed) {
         try {
-          previews[photo.id] = await _photos.downloadBytes(photo.storagePath);
+          previews[photo.id] = await _photos.downloadBytes(
+            photo.effectiveStoragePath,
+          );
         } catch (_) {
           // Keep the tile; placeholder icon if bytes are missing.
         }
