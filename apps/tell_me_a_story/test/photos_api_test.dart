@@ -193,6 +193,29 @@ void main() {
     expect(photo.editedStoragePath, isNull);
     expect(photo.editVersion, 0);
     expect(photo.effectiveStoragePath, 'f1/s1/ph1.jpg');
+
+    final absent = Photo.fromJson({
+      'id': 'ph1',
+      'story_id': 's1',
+      'family_id': 'f1',
+      'uploader_id': 'u1',
+      'storage_path': 'f1/s1/ph1.jpg',
+      'sort_order': 0,
+    });
+    expect(absent.editVersion, 0);
+
+    expect(
+      () => Photo.fromJson({
+        'id': 'ph1',
+        'story_id': 's1',
+        'family_id': 'f1',
+        'uploader_id': 'u1',
+        'storage_path': 'f1/s1/ph1.jpg',
+        'edit_version': '3',
+        'sort_order': 0,
+      }),
+      throwsFormatException,
+    );
   });
 
   test('Photo.fromJson prefers the edited object and reads the version', () {
@@ -354,6 +377,33 @@ void main() {
       ]);
     },
   );
+
+  test('deletePhoto skips an edited path that repeats the original', () async {
+    final removed = <List<String>>[];
+    final api = PhotosApi(
+      client: SupabaseClient('http://127.0.0.1', 'anon-key'),
+      removeObjects: (paths) async {
+        removed.add(paths);
+      },
+      deletePhotoRow: (photoId) async {},
+    );
+    const photo = Photo(
+      id: 'ph1',
+      storyId: 's',
+      familyId: 'f',
+      uploaderId: 'u',
+      storagePath: 'f/s/ph1.jpg',
+      editedStoragePath: 'f/s/ph1.jpg',
+      editVersion: 1,
+      sortOrder: 0,
+    );
+
+    await api.deletePhoto(photo);
+
+    expect(removed, [
+      ['f/s/ph1.jpg'],
+    ]);
+  });
 
   test(
     'deleteAllForStory removes original and edited names under the prefix',

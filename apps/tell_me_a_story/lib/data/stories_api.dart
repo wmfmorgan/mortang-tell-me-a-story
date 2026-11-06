@@ -262,10 +262,14 @@ List<String> _photoPaths(Object? photos) {
   return [for (final row in rows) ?_effectivePhotoPath(row)];
 }
 
-String? _effectivePhotoPath(Map<dynamic, dynamic> row) {
-  final edited = row['edited_storage_path'];
+String? _effectivePhotoPath(Map row) {
+  final keyed = <String, Object?>{
+    for (final entry in row.entries)
+      if (entry.key != null) entry.key.toString(): entry.value,
+  };
+  final edited = keyed['edited_storage_path'];
   if (edited is String) return edited;
-  final original = row['storage_path'];
+  final original = keyed['storage_path'];
   if (original is String) return original;
   return null;
 }
@@ -416,7 +420,7 @@ class StoriesApi implements StoriesGateway {
   final SupabaseClient _client;
 
   static const _storySelect =
-      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, story_people(person_id), photos(id, edited_storage_path, edit_version), profiles!author_id(display_name, avatar_path)';
+      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, story_people(person_id), photos(id, storage_path, edited_storage_path, edit_version, sort_order), profiles!author_id(display_name, avatar_path)';
 
   static const _publishedSelect =
       'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, places(label, address), story_people(person_id, people(name, user_id)), profiles!author_id(display_name, avatar_path), photos(id, storage_path, edited_storage_path, edit_version, sort_order), comments(id), perspectives(id)';

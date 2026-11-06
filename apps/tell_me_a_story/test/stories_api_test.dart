@@ -162,6 +162,75 @@ void main() {
     expect(isDuplicateStoryKey(StateError('network')), isFalse);
   });
 
+  test('lean story select resolves original, edited, and reset photos', () {
+    final source = File('lib/data/stories_api.dart').readAsStringSync();
+    final select = RegExp(r"static const _storySelect =\s*'([^']+)'")
+        .firstMatch(source)!
+        .group(1)!;
+    final columns = RegExp(r'photos\(([^)]+)\)')
+        .firstMatch(select)!
+        .group(1)!
+        .split(',')
+        .map((column) => column.trim())
+        .toSet();
+
+    Map<String, Object?> photo({
+      required String id,
+      required int sortOrder,
+      required String storagePath,
+      required String? editedStoragePath,
+      required int editVersion,
+    }) {
+      final full = <String, Object?>{
+        'id': id,
+        'storage_path': storagePath,
+        'edited_storage_path': editedStoragePath,
+        'edit_version': editVersion,
+        'sort_order': sortOrder,
+      };
+      return {
+        for (final column in columns)
+          if (full.containsKey(column)) column: full[column],
+      };
+    }
+
+    final story = Story.fromJson({
+      'id': 's1',
+      'family_id': 'f1',
+      'author_id': 'u1',
+      'status': 'draft',
+      'photos': [
+        photo(
+          id: 'orig',
+          sortOrder: 0,
+          storagePath: 'f/s/orig.jpg',
+          editedStoragePath: null,
+          editVersion: 0,
+        ),
+        photo(
+          id: 'edit',
+          sortOrder: 1,
+          storagePath: 'f/s/edit.jpg',
+          editedStoragePath: 'f/s/edit.edited.2.jpg',
+          editVersion: 2,
+        ),
+        photo(
+          id: 'reset',
+          sortOrder: 2,
+          storagePath: 'f/s/reset.jpg',
+          editedStoragePath: null,
+          editVersion: 4,
+        ),
+      ],
+    });
+
+    expect(story.photoPaths, [
+      'f/s/orig.jpg',
+      'f/s/edit.edited.2.jpg',
+      'f/s/reset.jpg',
+    ]);
+  });
+
   test('Story.photoPaths prefers the edited object and keeps hero order', () {
     final story = Story.fromJson({
       'id': 's1',

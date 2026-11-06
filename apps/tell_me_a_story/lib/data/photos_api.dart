@@ -66,9 +66,9 @@ class Photo {
 }
 
 int _editVersion(Object? raw) {
+  if (raw == null) return 0;
   if (raw is int) return raw;
-  if (raw is num) return raw.toInt();
-  return 0;
+  throw FormatException('invalid edit_version');
 }
 
 class CompressedPhoto {
@@ -294,8 +294,8 @@ class PhotosApi implements PhotosGateway {
   @override
   Future<void> deletePhoto(Photo photo) async {
     final paths = <String>[photo.storagePath];
-    final edited = photo.effectiveStoragePath;
-    if (edited != photo.storagePath) paths.add(edited);
+    final edited = photo.editedStoragePath;
+    if (edited != null && edited != photo.storagePath) paths.add(edited);
     await _remove(paths);
     final deleteRow = _deletePhotoRow;
     if (deleteRow != null) {
