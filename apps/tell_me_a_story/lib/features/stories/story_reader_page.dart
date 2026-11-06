@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -21,6 +22,8 @@ import '../../data/profile_api.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../comments/comment_composer.dart';
+import '../photo_editing/photo_editor_page.dart';
+import '../../core/photo/photo_editing_storage.dart';
 import '../people/person_profile_dialog.dart';
 import '../family/family_blur_dialog.dart';
 import '../family/start_timeline_dialog.dart';
@@ -115,6 +118,7 @@ class StoryReaderPage extends StatefulWidget {
     this.familiesApi,
     this.manageApi,
     this.pickImageBytes,
+    this.photoEditingApi,
     this.currentUserId,
     this.live,
   });
@@ -132,6 +136,9 @@ class StoryReaderPage extends StatefulWidget {
 
   /// Gallery picker override so widget tests never open the system picker.
   final Future<Uint8List?> Function()? pickImageBytes;
+
+  /// Injected save/reset port. Tests pass a fake. Production builds one on demand.
+  final PhotoEditingApi? photoEditingApi;
 
   /// Session uid for author-only comment delete. Tests inject this.
   final String? currentUserId;
@@ -826,6 +833,114 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     }
   }
 
+  Future<void> _editPhoto(Photo photo) async {
+    if (!_canEditStory) return;
+    final bytes = _previews[photo.id];
+    if (bytes == null) return;
+    final editing =
+        widget.photoEditingApi ??
+        PhotoEditingApi(SupabasePhotoEditingGateway(Supabase.instance.client));
+    setState(() => _editOpen = true);
+    try {
+      final router = GoRouter.maybeOf(context);
+      final PhotoEditorResult? saved;
+      final args = PhotoEditorArgs(
+        photo: photo,
+        bytes: bytes,
+        editing: editing,
+      );
+      if (router != null) {
+        saved = await context.push<PhotoEditorResult>(
+          AppRoutes.photoEditorPath(photo.storyId, photo.id),
+          extra: args,
+        );
+      } else {
+        saved = await Navigator.of(context).push<PhotoEditorResult>(
+          MaterialPageRoute(
+            builder: (context) =>
+                PhotoEditorPage(photo: photo, bytes: bytes, editing: editing),
+          ),
+        );
+      }
+      if (!mounted || saved == null) return;
+      final updated = saved.photo;
+      final editedBytes = saved.bytes;
+      setState(() {
+        _photos = [
+          for (final item in _photos)
+            if (item.id == updated.id) updated else item,
+        ];
+        _previews = {..._previews, updated.id: editedBytes};
+      });
+      try {
+        final next = await _photosApi.downloadBytes(
+          updated.effectiveStoragePath,
+        );
+        if (!mounted) return;
+        setState(() => _previews = {..._previews, updated.id: next});
+      } catch (error, stack) {
+        developer.log(
+          'reader photo reload',
+          name: 'photo_editor',
+          error: error,
+          stackTrace: stack,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _editOpen = false);
+    }
+  }
+
+  Future<void> _resetPhoto(Photo photo) async {
+    if (!_canEditStory || photo.editedStoragePath == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: albumParchment,
+          title: const Text(photoResetTitle),
+          content: const Text(photoResetBody),
+          actions: [
+            TextButton(
+              autofocus: true,
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text(photoKeepEdits),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text(photoResetAction),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+    final editing =
+        widget.photoEditingApi ??
+        PhotoEditingApi(SupabasePhotoEditingGateway(Supabase.instance.client));
+    try {
+      final result = await editing.resetPhotoEdit(photo.id, photo.editVersion);
+      if (!mounted) return;
+      final cleared = photo.copyWith(
+        editedStoragePath: null,
+        editVersion: result.editVersion,
+      );
+      setState(() {
+        _photos = [
+          for (final item in _photos)
+            if (item.id == cleared.id) cleared else item,
+        ];
+      });
+      final next = await _photosApi.downloadBytes(cleared.effectiveStoragePath);
+      if (!mounted) return;
+      setState(() => _previews = {..._previews, cleared.id: next});
+    } on PhotoEditException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text(photoResetError)));
+    }
+  }
+
   Future<void> _onRemovePhoto(Photo photo) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -1016,6 +1131,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                       (_canEditStory ||
                           (_canWrite && photo.uploaderId == _currentUserId)),
                   onRetry: _onRetryPhoto,
+                  onEdit: _canEditStory ? _editPhoto : null,
+                  editLabel: photoEditExistingLabel,
+                  onResetOriginal: _canEditStory ? _resetPhoto : null,
                   uploadFailed: _photoError,
                   canAdd: canAddPhoto,
                   columns: columns,

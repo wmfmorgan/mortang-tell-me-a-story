@@ -1,4 +1,8 @@
-import 'package:flutter/material.dart' show TextField, FilledButton;
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart' show TextField, FilledButton, Key;
+import 'package:image/image.dart' as img;
+import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -387,6 +391,72 @@ void main() {
       });
     }
   }, timeout: const Timeout(Duration(minutes: 4)));
+
+  testWidgets('C10 author edits and resets a published photo', (tester) async {
+    final email = e2eEmail(flow: 10, n: 1);
+    final family = e2eFamilyName(flow: 10, n: 1);
+    final title = 'Edited photo $e2eRunId';
+    final story = await _publishAlbumStory(
+      tester,
+      'C10',
+      email: email,
+      family: family,
+      title: title,
+      body: 'A published photo the author can edit.',
+      person: 'Ada',
+      placeLabel: 'Kitchen',
+      address: '1 Album Lane',
+    );
+    final photo = await _step('C10', 'attach', () {
+      final image = img.Image(width: 32, height: 24);
+      img.fill(image, color: img.ColorRgb8(40, 80, 120));
+      return PhotosApi().uploadPhoto(
+        familyId: story.familyId,
+        storyId: story.id,
+        bytes: Uint8List.fromList(img.encodeJpg(image)),
+        sortOrder: 0,
+      );
+    });
+    await _openPublished(tester, 'C10', story);
+    await _step('C10', 'edit', () async {
+      final edit = find.byKey(Key('photo-edit-${photo.id}'));
+      await pumpUntilFound(tester, edit);
+      await tester.ensureVisible(edit);
+      await tester.tap(edit);
+      await pumpUntilFound(tester, find.byKey(const Key('photo-editor')));
+      await tester.tap(find.text('Rotate'));
+      await tester.pump();
+      await tester.tap(find.text('Rotate right 90°'));
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await pumpUntilFound(tester, find.byKey(const Key('story-reader-modal')));
+    });
+    await _step('C10', 'edited', () async {
+      final row = await Supabase.instance.client
+          .from('photos')
+          .select('edited_storage_path, edit_version')
+          .eq('id', photo.id)
+          .single();
+      expect(row['edited_storage_path'], isNotNull);
+      expect(row['edit_version'], 1);
+    });
+    await _step('C10', 'reset', () async {
+      final reset = find.byKey(Key('photo-reset-${photo.id}'));
+      await pumpUntilFound(tester, reset);
+      await tester.ensureVisible(reset);
+      await tester.tap(reset);
+      await pumpUntilFound(tester, find.text('Reset to original?'));
+      await tester.tap(find.text('Reset'));
+      await tester.pump(const Duration(seconds: 1));
+      final row = await Supabase.instance.client
+          .from('photos')
+          .select('edited_storage_path, edit_version')
+          .eq('id', photo.id)
+          .single();
+      expect(row['edited_storage_path'], isNull);
+      expect(row['edit_version'], 2);
+    });
+  }, timeout: const Timeout(Duration(minutes: 8)));
 }
 
 Future<T> _c1Step<T>(String label, Future<T> Function() body) async {

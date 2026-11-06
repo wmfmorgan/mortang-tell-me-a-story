@@ -4,8 +4,8 @@ final String e2eRunId = DateTime.now()
     .toRadixString(36);
 
 String e2eEmail({required int flow, required int n}) {
-  if (flow < 1 || flow > 9) {
-    throw ArgumentError.value(flow, 'flow', 'use c1 through c9');
+  if (flow < 1 || flow > 10) {
+    throw ArgumentError.value(flow, 'flow', 'use c1 through c10');
   }
   if (n < 1) {
     throw ArgumentError.value(n, 'n', 'n starts at 1');
@@ -14,8 +14,8 @@ String e2eEmail({required int flow, required int n}) {
 }
 
 String e2eFamilyName({required int flow, required int n}) {
-  if (flow < 1 || flow > 9) {
-    throw ArgumentError.value(flow, 'flow', 'use c1 through c9');
+  if (flow < 1 || flow > 10) {
+    throw ArgumentError.value(flow, 'flow', 'use c1 through c10');
   }
   if (n < 1) {
     throw ArgumentError.value(n, 'n', 'n starts at 1');

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../data/photos_api.dart';
+import '../photo_editing/photo_editor_page.dart';
 
 const photoUploadFailureCopy =
     'Couldn’t upload the photo. Check your connection and try again.';
@@ -31,6 +32,9 @@ class PhotoStrip extends StatelessWidget {
     this.addEnabled = true,
     this.canRemove,
     this.onToggleHero,
+    this.onEdit,
+    this.editLabel = photoEditAttachLabel,
+    this.onResetOriginal,
   });
 
   final List<Photo> photos;
@@ -67,6 +71,15 @@ class PhotoStrip extends StatelessWidget {
   /// When set, each thumb shows a hero icon. The first photo by sort order
   /// is the hero until another is chosen.
   final ValueChanged<Photo>? onToggleHero;
+
+  /// Opens the editor for this photo. Null hides the control.
+  final ValueChanged<Photo>? onEdit;
+
+  /// Accessible name for [onEdit]. Attach uses "Edit photo". The reader uses "Edit".
+  final String editLabel;
+
+  /// Shown beside Edit when the photo already has a saved edit.
+  final ValueChanged<Photo>? onResetOriginal;
 
   @override
   Widget build(BuildContext context) {
@@ -130,6 +143,9 @@ class PhotoStrip extends StatelessWidget {
           showRemove: canRemove?.call(photo) ?? true,
           isHero: photo.id == heroId,
           onToggleHero: onToggleHero,
+          onEdit: onEdit,
+          editLabel: editLabel,
+          onResetOriginal: onResetOriginal,
           width: width,
           height: height,
           padRight: padRight,
@@ -254,6 +270,9 @@ class _Thumb extends StatelessWidget {
     required this.width,
     required this.height,
     this.onToggleHero,
+    this.onEdit,
+    this.editLabel = photoEditAttachLabel,
+    this.onResetOriginal,
     this.preview,
     this.padRight = true,
   });
@@ -264,6 +283,9 @@ class _Thumb extends StatelessWidget {
   final bool showRemove;
   final bool isHero;
   final ValueChanged<Photo>? onToggleHero;
+  final ValueChanged<Photo>? onEdit;
+  final String editLabel;
+  final ValueChanged<Photo>? onResetOriginal;
   final double width;
   final double height;
   final bool padRight;
@@ -325,6 +347,38 @@ class _Thumb extends StatelessWidget {
                   ),
                   onPressed: () => onToggleHero!(photo),
                   icon: Icon(isHero ? Icons.star : Icons.star_border),
+                ),
+              ),
+            if (onEdit != null)
+              Positioned(
+                left: 4,
+                bottom: 4,
+                child: IconButton(
+                  key: Key('photo-edit-${photo.id}'),
+                  tooltip: editLabel,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  onPressed: () => onEdit!(photo),
+                  icon: const Icon(Icons.edit_outlined, color: albumInk),
+                ),
+              ),
+            if (onResetOriginal != null && photo.editedStoragePath != null)
+              Positioned(
+                right: 4,
+                bottom: 4,
+                child: IconButton(
+                  key: Key('photo-reset-${photo.id}'),
+                  tooltip: photoResetOriginal,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  onPressed: () => onResetOriginal!(photo),
+                  icon: const Icon(Icons.restart_alt, color: albumInk),
                 ),
               ),
             if (showRemove)

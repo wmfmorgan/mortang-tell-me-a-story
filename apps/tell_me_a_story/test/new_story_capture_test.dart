@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+import 'package:tell_me_a_story/core/photo/photo_editing_storage.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
@@ -383,13 +385,16 @@ class _FakePhotosApi implements PhotosGateway {
     this.failUpload = false,
     this.failDecode = false,
     List<Photo>? seed,
-  }) : rows = [...?seed];
+    Uint8List? previewBytes,
+  }) : rows = [...?seed],
+       preview = previewBytes ?? Uint8List(0);
 
   var failUpload = false;
   var failDecode = false;
   var uploadCalls = 0;
   final List<Photo> rows;
   final List<Photo> deleted = [];
+  Uint8List preview;
 
   @override
   Future<List<Photo>> listPhotos(String storyId) async {
@@ -454,7 +459,7 @@ class _FakePhotosApi implements PhotosGateway {
   }) async {}
 
   @override
-  Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
+  Future<Uint8List> downloadBytes(String storagePath) async => preview;
 }
 
 const _ada = Person(
@@ -506,6 +511,7 @@ Widget _captureShell({
   Future<Uint8List?> Function()? picker,
   String? draftId,
   String? editStoryId,
+  PhotoEditingApi? photoEditingApi,
 }) {
   return MaterialApp(
     home: NewStoryPage(
@@ -515,6 +521,7 @@ Widget _captureShell({
       mapboxSearch: _FakeMapboxSearch(),
       storiesApi: stories ?? _FakeStoriesApi(),
       photosApi: photos ?? _FakePhotosApi(),
+      photoEditingApi: photoEditingApi,
       pickImageBytes: picker ?? (() async => null),
       hasMapboxToken: true,
       mapBuilder: _defaultStubMap,
@@ -1999,6 +2006,65 @@ void main() {
       expect(stories.personIdsArgs, everyElement(isNull));
     },
   );
+
+  testWidgets('an edit refreshes the attach preview with the baked jpeg', (
+    tester,
+  ) async {
+    final original = Uint8List.fromList(
+      img.encodeJpg(img.Image(width: 8, height: 4)),
+    );
+    final photos = _FakePhotosApi(
+      previewBytes: original,
+      seed: [
+        Photo(
+          id: 'ph1',
+          storyId: 's1',
+          familyId: _familyId,
+          uploaderId: 'u1',
+          storagePath: '$_familyId/s1/ph1.jpg',
+          sortOrder: 0,
+        ),
+      ],
+    );
+    final stories = _FakeStoriesApi(
+      story: Story(
+        id: 's1',
+        familyId: _familyId,
+        authorId: 'u1',
+        status: StoryStatus.draft,
+        title: 'Draft',
+        timeframeStart: DateTime.utc(1990, 6, 1),
+        timeframeEnd: DateTime.utc(1990, 6, 1),
+      ),
+    );
+    await tester.pumpWidget(
+      _captureShell(
+        stories: stories,
+        photos: photos,
+        draftId: 's1',
+        photoEditingApi: PhotoEditingApi(_PreviewGateway()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final edit = find.byKey(const Key('photo-edit-ph1'));
+    await tester.ensureVisible(edit);
+    await tester.tap(edit);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rotate'));
+    await tester.pump();
+    await tester.tap(find.text('Rotate right 90°'));
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    final shown = tester
+        .widgetList<Image>(find.byType(Image))
+        .map((image) => image.image)
+        .whereType<MemoryImage>()
+        .single;
+    expect(shown.bytes, isNot(original));
+    expect(shown.bytes[0], 0xff);
+    expect(shown.bytes[1], 0xd8);
+  });
 }
 
 Story _mattIsBorn({
@@ -2018,4 +2084,44 @@ Story _mattIsBorn({
     status: status,
     personIds: personIds,
   );
+}
+
+class _PreviewGateway implements PhotoEditingGateway {
+  @override
+  Future<Uint8List> download(String path) async => Uint8List(0);
+
+  @override
+  Future<Photo> readPhoto(String photoId) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> remove(List<String> paths) async {}
+
+  @override
+  Future<PhotoEditResult> resetPhotoEdit({
+    required String photoId,
+    required int expectedVersion,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<PhotoEditResult> savePhotoEdit({
+    required String photoId,
+    required int expectedVersion,
+    required String editedPath,
+  }) async {
+    return PhotoEditResult(
+      editVersion: expectedVersion + 1,
+      previousPath: null,
+    );
+  }
+
+  @override
+  Future<void> uploadJpeg({
+    required String path,
+    required Uint8List bytes,
+    void Function(double progress)? onProgress,
+  }) async {}
 }

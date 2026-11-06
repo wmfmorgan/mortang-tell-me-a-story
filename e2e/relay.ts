@@ -1,7 +1,7 @@
 const mailpit = "http://127.0.0.1:57324";
 const pollMs = 250;
 const deadlineMs = 30_000;
-const emailPattern = /^e2e-[a-z0-9]+-c[1-9]-[0-9]+@example\.test$/;
+const emailPattern = /^e2e-[a-z0-9]+-c(?:10|[1-9])-[0-9]+@example\.test$/;
 const localApi = new Set(["http://127.0.0.1:57321", "http://localhost:57321"]);
 const appOrigins = ["http://127.0.0.1:3000", "http://localhost:3000"];
 const verifyPattern = /https?:\/\/[^\s"'<>]+\/auth\/v1\/verify\?[^\s"'<>]+/;
