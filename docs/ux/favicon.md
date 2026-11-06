@@ -1,5 +1,5 @@
 # Favicon / app icon UX delta
-**Status: LOCKED rev 1.0 — 2026-11-05 ~6:01 PM CT**
+**Status: LOCKED rev 1.1 — 2026-11-06 7:18 AM CT** (rev 1.0 locked 2026-11-05 ~6:01 PM CT)
 **Decision: Bill picked option A (Branch dot) via Erlich.**
 
 ## Mark
@@ -12,6 +12,7 @@ The standard mark sits on a parchment rounded square.
 - `#8B5E4B` — terracotta: solid primary timeline dot.
 - `#5B7F3A` — branchMoss: primary-dot ring, elbow leader, and branch dot.
 - No other colors are used in the source glyph or icon backgrounds.
+- Web manifest `background_color` and `theme_color` are both parchment `#FBF7F2` (rev 1.1, Bill via Erlich 2026-11-06 7:18 AM CT).
 
 ## Asset inventory and purpose
 - `favicon-16.png` — 16 × 16 px; small browser favicon.
