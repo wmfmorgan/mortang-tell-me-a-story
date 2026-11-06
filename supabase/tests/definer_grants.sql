@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(67);
+select plan(72);
 
 select ok(
   not has_function_privilege('anon', 'public.upsert_story_member(uuid, uuid)', 'execute'),
@@ -385,6 +385,27 @@ select is(
   ),
   0::bigint,
   'remove_member still drops the membership'
+);
+
+select ok(
+  has_function_privilege('authenticated', 'public.save_photo_edit(uuid, bigint, text)', 'execute'),
+  'authenticated can execute save_photo_edit'
+);
+select ok(
+  has_function_privilege('authenticated', 'public.reset_photo_edit(uuid, bigint)', 'execute'),
+  'authenticated can execute reset_photo_edit'
+);
+select ok(
+  has_function_privilege('authenticated', 'public.story_photo_story_id(text)', 'execute'),
+  'authenticated can execute story_photo_story_id'
+);
+select ok(
+  has_function_privilege('authenticated', 'public.story_photo_family_id(text)', 'execute'),
+  'authenticated can execute story_photo_family_id'
+);
+select ok(
+  has_function_privilege('authenticated', 'public.can_edit_story_photo_object(text)', 'execute'),
+  'authenticated can execute can_edit_story_photo_object'
 );
 
 select * from finish();

@@ -52,12 +52,12 @@ select is_empty($$
     and has_table_privilege(r.rolname, c.oid, p.priv)
 $$, 'D: no TRUNCATE/REFERENCES/TRIGGER for anon/authenticated on public tables');
 
--- Definer allowlist (PR #39). Prod 2026-10-20: exactly these 30.
+-- Definer allowlist. #84 adds save_photo_edit and reset_photo_edit: exactly these 32.
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.prosecdef
      and has_function_privilege('authenticated', p.oid, 'EXECUTE')),
-  30, 'exactly 30 SECURITY DEFINER functions are executable by authenticated');
+  32, 'exactly 32 SECURITY DEFINER functions are executable by authenticated');
 select set_eq($$
   select format('%s(%s)', p.proname, oidvectortypes(p.proargtypes))
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -74,8 +74,9 @@ $$, $$values
   ('person_profile(uuid)'),('recover_family(uuid)'),('remove_co_owner(uuid, uuid)'),
   ('remove_member(uuid, uuid)'),('rename_family(uuid, text)'),('resend_invite(uuid)'),
   ('revoke_invite(uuid)'),('same_family_tree(uuid, uuid)'),('set_family_origin(uuid, uuid)'),
+  ('reset_photo_edit(uuid, bigint)'),('save_photo_edit(uuid, bigint, text)'),
   ('soft_delete_family(uuid)'),('story_row_exists(uuid)'),('transfer_ownership(uuid, uuid, text)')
-$$, 'authenticated-executable SECURITY DEFINER set equals the PR #39 allowlist');
+$$, 'authenticated-executable SECURITY DEFINER set equals the allowlist');
 
 select * from finish();
 rollback;

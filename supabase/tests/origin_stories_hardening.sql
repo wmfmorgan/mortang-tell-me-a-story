@@ -348,35 +348,35 @@ select throws_ok(
   $$update public.photos
     set id = 'e1e1e1e1-11a2-4111-8111-e1e1e1e1e1e1'
     where id = 'e0e0e0e0-11a2-4111-8111-e0e0e0e0e0e0'$$,
-  'P0001', 'FORBIDDEN: field is locked',
+  '42501', null,
   'photo id is locked'
 );
 select throws_ok(
   $$update public.photos
     set story_id = (select s2 from m11_ctx)
     where id = 'e0e0e0e0-11a2-4111-8111-e0e0e0e0e0e0'$$,
-  'P0001', 'FORBIDDEN: field is locked',
+  '42501', null,
   'a photo cannot move to another story the author can contribute to'
 );
 select throws_ok(
   $$update public.photos
     set family_id = (select other_id from m11_ctx)
     where id = 'e0e0e0e0-11a2-4111-8111-e0e0e0e0e0e0'$$,
-  'P0001', 'FORBIDDEN: field is locked',
+  '42501', null,
   'photo family_id is locked'
 );
 select throws_ok(
   $$update public.photos
     set uploader_id = (select user_b from m11_ctx)
     where id = 'e0e0e0e0-11a2-4111-8111-e0e0e0e0e0e0'$$,
-  'P0001', 'FORBIDDEN: field is locked',
+  '42501', null,
   'photo uploader_id is locked'
 );
 select throws_ok(
   $$update public.photos
     set storage_path = (select parent_id::text || '/' || s2::text || '/moved.jpg' from m11_ctx)
     where id = 'e0e0e0e0-11a2-4111-8111-e0e0e0e0e0e0'$$,
-  'P0001', 'FORBIDDEN: field is locked',
+  '42501', null,
   'photo storage_path is locked'
 );
 
@@ -1004,7 +1004,7 @@ select is(
 select is(
   coalesce((select qual from pg_policies
     where schemaname = 'storage' and policyname = 'story_photos_delete_member'), ''),
-  $pol$((bucket_id = 'story-photos'::text) AND ((is_family_member(
+  $pol$(((name !~~ '%.edited.%'::text) AND (bucket_id = 'story-photos'::text) AND ((is_family_member(
 CASE
     WHEN ((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(name))[1])::uuid
     ELSE NULL::uuid
@@ -1030,8 +1030,8 @@ END,
 CASE
     WHEN ((storage.foldername(name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(name))[2])::uuid
     ELSE NULL::uuid
-END))))$pol$,
-  'story_photos_delete_member qual matches main'
+END)))) OR ((bucket_id = 'story-photos'::text) AND (name ~~ '%.edited.%'::text) AND can_edit_story_photo_object(name)))$pol$,
+  'story_photos_delete_member qual keeps the original delete and edited names for editors'
 );
 select is(
   coalesce((select with_check from pg_policies
@@ -1049,7 +1049,7 @@ select is(
 select is(
   coalesce((select with_check from pg_policies
     where schemaname = 'storage' and policyname = 'story_photos_insert_member'), ''),
-  $pol$((bucket_id = 'story-photos'::text) AND (array_length(storage.foldername(name), 1) = 2) AND can_contribute_to_story(
+  $pol$(((name !~~ '%.edited.%'::text) AND (bucket_id = 'story-photos'::text) AND (array_length(storage.foldername(name), 1) = 2) AND can_contribute_to_story(
 CASE
     WHEN ((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(name))[1])::uuid
     ELSE NULL::uuid
@@ -1067,14 +1067,14 @@ END) AND (EXISTS ( SELECT 1
         CASE
             WHEN ((storage.foldername(objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(objects.name))[1])::uuid
             ELSE NULL::uuid
-        END)))) AND (lower(storage.extension(name)) = ANY (ARRAY['jpg'::text, 'jpeg'::text, 'png'::text, 'webp'::text])))$pol$,
-  'story_photos_insert_member with_check matches main'
+        END)))) AND (lower(storage.extension(name)) = ANY (ARRAY['jpg'::text, 'jpeg'::text, 'png'::text, 'webp'::text]))) OR ((bucket_id = 'story-photos'::text) AND (name ~~ '%.edited.%'::text) AND can_edit_story_photo_object(name)))$pol$,
+  'story_photos_insert_member with_check keeps the origin insert and edited names for editors'
 );
 
 select is(
   coalesce((select qual from pg_policies
     where schemaname = 'storage' and policyname = 'story_photos_update_member'), ''),
-  $pol$((bucket_id = 'story-photos'::text) AND (array_length(storage.foldername(name), 1) = 2) AND (is_live_family_member(
+  $pol$(((name !~~ '%.edited.%'::text) AND (bucket_id = 'story-photos'::text) AND (array_length(storage.foldername(name), 1) = 2) AND (is_live_family_member(
 CASE
     WHEN ((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(name))[1])::uuid
     ELSE NULL::uuid
@@ -1096,13 +1096,13 @@ END))) AND (EXISTS ( SELECT 1
         CASE
             WHEN ((storage.foldername(objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(objects.name))[1])::uuid
             ELSE NULL::uuid
-        END) AND ((s.status = 'published'::story_status) OR (s.author_id = ( SELECT auth.uid() AS uid)))))))$pol$,
-  'story_photos_update_member qual matches main'
+        END) AND ((s.status = 'published'::story_status) OR (s.author_id = ( SELECT auth.uid() AS uid))))))) OR ((bucket_id = 'story-photos'::text) AND (name ~~ '%.edited.%'::text) AND can_edit_story_photo_object(name)))$pol$,
+  'story_photos_update_member qual keeps draft-write rules for originals and edited names for editors'
 );
 select is(
   coalesce((select with_check from pg_policies
     where schemaname = 'storage' and policyname = 'story_photos_update_member'), ''),
-  $pol$((bucket_id = 'story-photos'::text) AND (array_length(storage.foldername(name), 1) = 2) AND (is_live_family_member(
+  $pol$(((name !~~ '%.edited.%'::text) AND (bucket_id = 'story-photos'::text) AND (array_length(storage.foldername(name), 1) = 2) AND (is_live_family_member(
 CASE
     WHEN ((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(name))[1])::uuid
     ELSE NULL::uuid
@@ -1124,8 +1124,8 @@ END))) AND (EXISTS ( SELECT 1
         CASE
             WHEN ((storage.foldername(objects.name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN ((storage.foldername(objects.name))[1])::uuid
             ELSE NULL::uuid
-        END) AND ((s.status = 'published'::story_status) OR (s.author_id = ( SELECT auth.uid() AS uid)))))) AND (lower(storage.extension(name)) = ANY (ARRAY['jpg'::text, 'jpeg'::text, 'png'::text, 'webp'::text])))$pol$,
-  'story_photos_update_member with_check matches main'
+        END) AND ((s.status = 'published'::story_status) OR (s.author_id = ( SELECT auth.uid() AS uid)))))) AND (lower(storage.extension(name)) = ANY (ARRAY['jpg'::text, 'jpeg'::text, 'png'::text, 'webp'::text]))) OR ((bucket_id = 'story-photos'::text) AND (name ~~ '%.edited.%'::text) AND can_edit_story_photo_object(name)))$pol$,
+  'story_photos_update_member with_check keeps draft-write rules for originals and edited names for editors'
 );
 
 select * from finish();

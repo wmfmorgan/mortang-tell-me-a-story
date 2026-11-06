@@ -550,8 +550,7 @@ set local request.jwt.claim.sub = 'c1300000-0000-4000-8000-0000000000c1';
 select throws_ok(
   $$update public.photos set storage_path = 'nope'
     where id = (select photo_id from m13_ctx)$$,
-  'P0001',
-  'FORBIDDEN: field is locked',
+  '42501', null,
   'photos_guard_update still locks columns other than sort_order'
 );
 
