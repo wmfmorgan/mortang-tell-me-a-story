@@ -7,9 +7,9 @@ import '../playback/playback_controller.dart';
 import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
 import '../widgets/story_card.dart';
-import 'canvas_label.dart';
 import 'renderer_contract.dart';
 import 'story_marker.dart';
+import 'time_axis_painter.dart';
 import 'time_scale.dart';
 
 enum ZoomLod { decades, years, cards }
@@ -212,7 +212,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
                         bottomY: visible.bottom,
                         timeScale: _scale,
                         lod: lod,
-                        labelStyle: Theme.of(context).textTheme.labelSmall!,
+                        labelStyle: LabText.axis(Theme.of(context).textTheme),
                         cursorX: _playback?.cursorYear == null
                             ? null
                             : _scale.toPx(_playback!.cursorYear!),
@@ -517,56 +517,24 @@ class _ZoomAxisPainter extends CustomPainter {
   /// World x of the playback cursor, or null when idle.
   final double? cursorX;
 
-  void _label(Canvas canvas, String text, Offset at) {
-    canvas
-      ..save()
-      ..translate(at.dx, at.dy)
-      ..scale(1 / scale);
-    paintLabel(
-      canvas,
-      text,
-      labelStyle,
-      const Offset(2, -2),
-      anchor: Alignment.bottomLeft,
-    );
-    canvas.restore();
-  }
-
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = labInk.withValues(alpha: 0.6)
-      ..strokeWidth = 1 / scale;
-    canvas.drawLine(Offset(0, axisY), Offset(size.width, axisY), paint);
-    for (final t in timeScale.yearTicks()) {
-      if (t.kind == TickKind.decade) {
-        canvas.drawLine(
-          Offset(t.px, axisY),
-          Offset(t.px, axisY + 12 / scale),
-          paint,
-        );
-        _label(canvas, '${t.year}', Offset(t.px, axisY));
-        continue;
-      }
-      if (lod == ZoomLod.decades) continue;
-      canvas.drawLine(
-        Offset(t.px, axisY),
-        Offset(t.px, axisY + 6 / scale),
-        paint,
-      );
-      if (timeScale.pxPerYear * scale >= 48) {
-        _label(canvas, '${t.year}', Offset(t.px, axisY));
-      }
-    }
-    if (lod == ZoomLod.cards) {
-      for (final t in timeScale.monthTicks()) {
-        canvas.drawLine(
-          Offset(t.px, axisY),
-          Offset(t.px, axisY + 3 / scale),
-          paint,
-        );
-      }
-    }
+    paintTimeAxis(
+      canvas,
+      timeScale,
+      direction: Axis.horizontal,
+      cross: axisY,
+      labelStyle: labelStyle,
+      finest: switch (lod) {
+        ZoomLod.decades => TickKind.decade,
+        ZoomLod.years => TickKind.year,
+        ZoomLod.cards => TickKind.month,
+      },
+      labelYears: timeScale.pxPerYear * scale >= 48,
+      zoom: scale,
+      spineFrom: 0,
+      spineTo: size.width,
+    );
     final cx = cursorX;
     if (cx != null) {
       paintPlaybackCursor(
