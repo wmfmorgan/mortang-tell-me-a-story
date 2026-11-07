@@ -736,6 +736,7 @@ class StoriesApi implements StoriesGateway {
     await _client.from('stories').delete().eq('id', storyId);
   }
 
+  @override
   Future<void> linkPerson({
     required String storyId,
     required String personId,

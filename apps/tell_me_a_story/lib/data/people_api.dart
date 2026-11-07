@@ -239,6 +239,7 @@ class PeopleApi implements PeopleGateway {
         .order('name');
     return rows.map(Person.fromJson).toList();
   }
+
   @override
   Future<List<Person>> listTreePeople(String familyId) {
     return withAppErrors(() async {
@@ -410,6 +411,7 @@ class PeopleApi implements PeopleGateway {
     final role = row?['role'];
     return originSteward(role is String ? role : null);
   }
+
   @override
   Future<void> markPassedAway({
     required String personId,
