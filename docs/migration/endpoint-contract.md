@@ -269,9 +269,9 @@ class PeopleEndpoint extends Endpoint {
   Future<List<PersonDto>> listFamily(Session s, UuidValue familyId);
   Future<List<PersonDto>> listTree(Session s, UuidValue familyId);         // tree people + linked-user birth coarsened, ONE call (was 2 + N)
   Future<PersonDto> create(Session s, UuidValue familyId, PersonWriteDto input, ByteData? picture);   // picture ≤512px jpeg, inline
-  Future<PersonDto?> forEdit(Session s, UuidValue personId);               // includes userId + email; steward/self only
+  Future<PersonDto?> forEdit(Session s, UuidValue personId);               // any tree member (business-rules §2.3: tree members read and edit unlinked rows); null for missing/outsider
   Future<PersonProfileDto> profile(Session s, UuidValue personId);         // throws AppException(AppErrorCode.notFound)
-  Future<PersonDto> update(Session s, UuidValue personId, PersonWriteDto input, ByteData? picture);   // duplicate email → AppException(AppErrorCode.conflict, 'That email is already used')
+  Future<PersonDto> update(Session s, UuidValue personId, PersonWriteDto input, ByteData? picture);   // unlinked: any tree member; linked: self only, name locked; people.email has no unique index, so no duplicate-email CONFLICT
   Future<List<PersonDto>> listUnlinked(Session s, UuidValue familyId);
   Future<bool> isHomeFamilySteward(Session s, UuidValue familyId);
   Future<void> markPassedAway(Session s, UuidValue personId, bool value);

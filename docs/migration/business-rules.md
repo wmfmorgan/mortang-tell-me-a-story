@@ -429,7 +429,10 @@ Owner only → `FORBIDDEN: owner only`. `former_becomes ∉ {co_owner, member}` 
 | VALIDATION | person is linked to an account (D5) | person delete |
 | VALIDATION | person has not signed in / cannot mark yourself | mark_passed_away |
 | VALIDATION | date required / year required | stories date guard |
-| VALIDATION | photo limit reached | photo cap |
+| PHOTO_CAP | photo limit reached (`AppErrorCode.photoCap`) | photo cap (startUpload, finishUpload) |
+| VALIDATION | photo is empty / photo is too large / image type does not match / photo already added / unsupported image type | photo and cover upload (Serverpod) |
+| STORAGE_FAILED | upload not found | finishUpload (Serverpod) |
+| VALIDATION | about must be at most 500 characters / picture must be a JPEG image / picture is too large / birth (or death) date and precision must both be set / birth (or death) year must be between 1000 and 9999 / death date needs passed away / death is before birth / birth date comes from the account | people create/update (Serverpod) |
 | VALIDATION | invalid edited path | save photo edit |
 | VALIDATION | cover_photo_path must be {family_id}/cover.(jpg\|jpeg\|png\|webp) | families guard |
 | VALIDATION | invite has no email address | resend |
@@ -557,7 +560,7 @@ Tags
 76. Given caller member of two unrelated trees, when tagging/moving tag to person in the other tree, then refused; cross-family-in-other-tree link refused.
 77. Given tagging a person with matching email or the owner, then no membership is created or changed.
 Photos
-78. Given story with 20 photos, when attaching 21st, then VALIDATION "photo limit reached".
+78. Given story with 20 photos, when attaching 21st, then PHOTO_CAP (`AppErrorCode.photoCap`) "photo limit reached"; the same when the cap fills between upload start and finish.
 79. Given photo/comment/perspective whose family_id ≠ story family, then refused.
 80. Given storage key with second folder not a story, three folders, or non-uuid segments, then refused without errors; tree reader selecting such keys gets 0 rows.
 81. Given photo, when changing id/story/family/uploader/storage_path, then FORBIDDEN "field is locked"; sort_order change allowed (uploader or editor).
