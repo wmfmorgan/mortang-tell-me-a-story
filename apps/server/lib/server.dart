@@ -20,6 +20,7 @@ void run(List<String> args) async {
   }
 
   configureAuth(useDevLoginCode: local);
+  installAuthenticationHandler(pod);
 
   pod.addCloudStorage(DatabaseCloudStorage('private'));
 

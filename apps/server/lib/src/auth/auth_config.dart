@@ -30,6 +30,14 @@ void configureAuth({required bool useDevLoginCode}) {
   );
 }
 
+/// Makes [pod] check request tokens with the auth services [configureAuth]
+/// set up. Without it Serverpod keeps its default handler, which throws
+/// `UnimplementedError`, so every signed-in call fails with HTTP 500. Call
+/// before `pod.start()`; the server reads the handler when it starts.
+void installAuthenticationHandler(Serverpod pod) {
+  pod.authenticationHandler = AuthServices.instance.authenticationHandler;
+}
+
 Future<void> _createAppUser(
   Session session,
   AuthUserModel authUser, {
