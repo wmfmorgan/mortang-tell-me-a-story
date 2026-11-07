@@ -11,12 +11,18 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
+
 import 'package:http/http.dart' as _i85jenna;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
     as _iacc;
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:tell_me_a_story_client/src/protocol/dto/story_dto.dart'
+    as _ilx6iivj;
+import 'package:tell_me_a_story_client/src/protocol/dto/story_write_dto.dart'
+    as _isb2dxzu;
+
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -345,6 +351,88 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// Stories, their people tags, and search (endpoint-contract §2.2;
+/// business-rules §2.5, §2.6, §4.4).
+///
+/// Writes post a `story` live event after commit, only while the story is
+/// published (and on the publish transition); draft edits post nothing.
+/// {@category Endpoint}
+class EndpointStory extends _isc.EndpointRef {
+  EndpointStory(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'story';
+
+  /// A new draft by the caller in live [familyId]. Idempotent on [id]: when
+  /// that story exists and the caller wrote it in [familyId], [input] is
+  /// applied as an update and the story returned. Without [allowUndated] a
+  /// start date is required.
+  _ida.Future<_ilx6iivj.StoryDto> createDraft(
+    _isc.UuidValue familyId,
+    _isb2dxzu.StoryWriteDto input, {
+    _isc.UuidValue? id,
+    required bool allowUndated,
+  }) => caller.callServerEndpoint<_ilx6iivj.StoryDto>(
+    'story',
+    'createDraft',
+    {
+      'familyId': familyId,
+      'input': input,
+      'id': id,
+      'allowUndated': allowUndated,
+    },
+  );
+
+  /// Applies [input] (null fields keep their value; a list in
+  /// `personIds` replaces the tags). Author, or steward on a published story.
+  _ida.Future<_ilx6iivj.StoryDto> updateDraft(
+    _isc.UuidValue storyId,
+    _isb2dxzu.StoryWriteDto input,
+  ) => caller.callServerEndpoint<_ilx6iivj.StoryDto>(
+    'story',
+    'updateDraft',
+    {
+      'storyId': storyId,
+      'input': input,
+    },
+  );
+
+  /// Like [updateDraft], but only while the story is a draft: false once it
+  /// is published, and nothing changes.
+  _ida.Future<bool> autosaveDraft(
+    _isc.UuidValue storyId,
+    _isb2dxzu.StoryWriteDto input,
+  ) => caller.callServerEndpoint<bool>(
+    'story',
+    'autosaveDraft',
+    {
+      'storyId': storyId,
+      'input': input,
+    },
+  );
+
+  /// The story when the caller may read it, else `NOT_FOUND: story`.
+  _ida.Future<_ilx6iivj.StoryDto> get(_isc.UuidValue storyId) =>
+      caller.callServerEndpoint<_ilx6iivj.StoryDto>(
+        'story',
+        'get',
+        {'storyId': storyId},
+      );
+
+  /// Tags [personId] (same tree) on the story; a repeat is a no-op.
+  _ida.Future<void> linkPerson(
+    _isc.UuidValue storyId,
+    _isc.UuidValue personId,
+  ) => caller.callServerEndpoint<void>(
+    'story',
+    'linkPerson',
+    {
+      'storyId': storyId,
+      'personId': personId,
+    },
+  );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -385,6 +473,7 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    story = EndpointStory(this);
     modules = Modules(this);
   }
 
@@ -392,12 +481,15 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointJwtRefresh jwtRefresh;
 
+  late final EndpointStory story;
+
   late final Modules modules;
 
   @override
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'story': story,
   };
 
   @override

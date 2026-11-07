@@ -13,3 +13,9 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+story:
+  - createDraft:
+  - updateDraft:
+  - autosaveDraft:
+  - get:
+  - linkPerson:

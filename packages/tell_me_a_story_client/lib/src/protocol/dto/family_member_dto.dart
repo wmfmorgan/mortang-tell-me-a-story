@@ -11,6 +11,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+
 import '../membership_role.dart' as _id460rmf;
 
 /// A member of a family. No email: other users' emails are not exposed.

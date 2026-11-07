@@ -15,8 +15,11 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
+import 'package:tell_me_a_story_server/src/generated/dto/story_write_dto.dart'
+    as _iu03akf8;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../endpoints/story_endpoint.dart' as _iiu4mi32;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
@@ -32,6 +35,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'story': _iiu4mi32.StoryEndpoint()
+        ..initialize(
+          server,
+          'story',
           null,
         ),
     };
@@ -326,6 +335,142 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['story'] = _is.EndpointConnector(
+      name: 'story',
+      endpoint: endpoints['story']!,
+      methodConnectors: {
+        'createDraft': _is.MethodConnector(
+          name: 'createDraft',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'input': _is.ParameterDescription(
+              name: 'input',
+              type: _is.getType<_iu03akf8.StoryWriteDto>(),
+              nullable: false,
+            ),
+            'id': _is.ParameterDescription(
+              name: 'id',
+              type: _is.getType<_is.UuidValue?>(),
+              nullable: true,
+            ),
+            'allowUndated': _is.ParameterDescription(
+              name: 'allowUndated',
+              type: _is.getType<bool>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).createDraft(
+                    session,
+                    params['familyId'],
+                    params['input'],
+                    id: params['id'],
+                    allowUndated: params['allowUndated'],
+                  ),
+        ),
+        'updateDraft': _is.MethodConnector(
+          name: 'updateDraft',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'input': _is.ParameterDescription(
+              name: 'input',
+              type: _is.getType<_iu03akf8.StoryWriteDto>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).updateDraft(
+                    session,
+                    params['storyId'],
+                    params['input'],
+                  ),
+        ),
+        'autosaveDraft': _is.MethodConnector(
+          name: 'autosaveDraft',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'input': _is.ParameterDescription(
+              name: 'input',
+              type: _is.getType<_iu03akf8.StoryWriteDto>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).autosaveDraft(
+                    session,
+                    params['storyId'],
+                    params['input'],
+                  ),
+        ),
+        'get': _is.MethodConnector(
+          name: 'get',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['story'] as _iiu4mi32.StoryEndpoint).get(
+                session,
+                params['storyId'],
+              ),
+        ),
+        'linkPerson': _is.MethodConnector(
+          name: 'linkPerson',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).linkPerson(
+                    session,
+                    params['storyId'],
+                    params['personId'],
+                  ),
         ),
       },
     );
