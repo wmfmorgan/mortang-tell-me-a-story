@@ -83,43 +83,74 @@ class PhotoEndpoint extends Endpoint {
   static AppException _photoCap() =>
       AppException(code: AppErrorCode.photoCap, message: 'photo limit reached');
 
+  static AppException _uploadNotFound() => AppException(
+    code: AppErrorCode.storageFailed,
+    message: 'upload not found',
+  );
+
   /// The image types a story photo may have.
   static const _mimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
   /// Verifies the uploaded blob for [photoId], checks its bytes and the cap,
-  /// and writes the row. On any failure the blob is queued for deletion,
-  /// except when the row already exists (the blob is that row's).
+  /// and writes the row. On any failure the candidate blobs are queued for
+  /// deletion, except when the row already exists (the blob is that row's).
   Future<PhotoDto> finishUpload(
     Session session,
     UuidValue storyId,
     UuidValue photoId,
     int sortOrder,
   ) async {
-    final story = await _contributable(session, storyId);
-    final uploaderId = Authz(session).requireUser();
+    final authz = Authz(session);
+    final uploaderId = authz.requireUser();
+    final story = await Story.db.findById(session, storyId);
+    // A story deleted before the finish leaves no familyId to rebuild the
+    // keys from (keys are never parsed); its upload can't be found again.
+    if (story == null) throw forbidden();
+    final keys = {
+      for (final mime in _mimeTypes)
+        mime: photoOriginalKey(
+          familyId: story.familyId,
+          storyId: storyId,
+          photoId: photoId,
+          mimeType: mime,
+        ),
+    };
+    if (!await authz.canContribute(story)) {
+      // Access lost between start and finish: drop the orphaned upload.
+      await session.db.transaction((t) async {
+        if (await Photo.db.findById(session, photoId, transaction: t) == null) {
+          await queueBlobDeletions(session, keys.values, transaction: t);
+        }
+      });
+      throw forbidden();
+    }
     final (
       photo,
       error,
     ) = await session.db.transaction<(Photo?, AppException?)>((t) async {
       // Serializes the cap count and the double-finish check per story.
-      await Story.db.findById(
+      final locked = await Story.db.findById(
         session,
         storyId,
         transaction: t,
         lockMode: LockMode.forNoKeyUpdate,
       );
+      if (locked == null) {
+        // Deleted while we waited for the lock; its photos are gone too.
+        await queueBlobDeletions(session, keys.values, transaction: t);
+        return (null, forbidden());
+      }
       if (await Photo.db.findById(session, photoId, transaction: t) != null) {
         return (null, validation('photo already added'));
       }
-      final keys = {
-        for (final mime in _mimeTypes)
-          mime: photoOriginalKey(
-            familyId: story.familyId,
-            storyId: storyId,
-            photoId: photoId,
-            mimeType: mime,
-          ),
-      };
+      // Already queued (an earlier failed finish): on S3 `verifyUpload` only
+      // stats the blob, so it would still pass while the drain deletes it.
+      final queued = await BlobDeletion.db.count(
+        session,
+        where: (b) => b.key.inSet(keys.values.toSet()),
+        transaction: t,
+      );
+      if (queued > 0) return (null, _uploadNotFound());
       String? declared;
       for (final MapEntry(key: mime, value: key) in keys.entries) {
         if (await session.storage.verifyUpload(
@@ -132,13 +163,7 @@ class PhotoEndpoint extends Endpoint {
       }
       if (declared == null) {
         await queueBlobDeletions(session, keys.values, transaction: t);
-        return (
-          null,
-          AppException(
-            code: AppErrorCode.storageFailed,
-            message: 'upload not found',
-          ),
-        );
+        return (null, _uploadNotFound());
       }
       final key = keys[declared]!;
       final refused = await _checkUpload(
@@ -187,10 +212,7 @@ class PhotoEndpoint extends Endpoint {
         path: key,
       );
     } on CloudStorageException {
-      return AppException(
-        code: AppErrorCode.storageFailed,
-        message: 'upload not found',
-      );
+      return _uploadNotFound();
     }
     if (bytes.lengthInBytes > photoMaxBytes) {
       return validation('photo is too large');

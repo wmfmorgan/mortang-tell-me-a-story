@@ -4,6 +4,7 @@ import 'package:serverpod/serverpod.dart';
 import 'package:tell_me_a_story_server/src/auth/auth_config.dart';
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
 import 'package:tell_me_a_story_server/src/media/blob_keys.dart';
+import 'package:tell_me_a_story_server/src/media/blob_outbox.dart';
 import 'package:test/test.dart';
 
 import 'support/fixtures.dart';
@@ -362,6 +363,114 @@ void main() {
           throwsAppError(AppErrorCode.storageFailed, 'upload not found'),
         );
         expect(await Photo.db.findById(fx.s, ticket.photoId), isNull);
+      },
+    );
+
+    /// Every key `finishUpload` may consider for [photoId] on [story].
+    Set<String> candidateKeys(Story story, UuidValue photoId) => {
+      for (final mime in ['image/jpeg', 'image/png', 'image/webp'])
+        photoOriginalKey(
+          familyId: story.familyId,
+          storyId: story.id!,
+          photoId: photoId,
+          mimeType: mime,
+        ),
+    };
+
+    test(
+      'when the uploaded key is already queued for deletion then '
+      'STORAGE_FAILED and no row (on S3, verifyUpload only stats the blob)',
+      () async {
+        final member = await fx.user();
+        final story = (await familyStory(member)).$2;
+        final as = asUser(sessionBuilder, member);
+        final ticket = await endpoints.photo.startUpload(
+          as,
+          story.id!,
+          'image/jpeg',
+          jpegBytes().lengthInBytes,
+        );
+        await fx.clientUpload(ticket.key, jpegBytes());
+        await queueBlobDeletions(fx.s, [ticket.key]);
+
+        await expectLater(
+          endpoints.photo.finishUpload(as, story.id!, ticket.photoId, 0),
+          throwsAppError(AppErrorCode.storageFailed, 'upload not found'),
+        );
+        expect(await Photo.db.findById(fx.s, ticket.photoId), isNull);
+      },
+    );
+
+    test(
+      'when the uploader leaves the family between start and finish then '
+      'FORBIDDEN, the candidate keys are queued and no row',
+      () async {
+        final member = await fx.user();
+        final (family, story) = await familyStory(await fx.user());
+        final membership = await fx.join(family, member);
+        final as = asUser(sessionBuilder, member);
+        final ticket = await endpoints.photo.startUpload(
+          as,
+          story.id!,
+          'image/jpeg',
+          jpegBytes().lengthInBytes,
+        );
+        await fx.clientUpload(ticket.key, jpegBytes());
+        await Membership.db.deleteRow(fx.s, membership);
+
+        await expectLater(
+          endpoints.photo.finishUpload(as, story.id!, ticket.photoId, 0),
+          throwsAppError(AppErrorCode.forbidden),
+        );
+        expect(await Photo.db.findById(fx.s, ticket.photoId), isNull);
+        final keys = candidateKeys(story, ticket.photoId);
+        expect(await fx.queued(keys), keys);
+      },
+    );
+
+    test(
+      'when the story is deleted while the finish waits for its lock then '
+      'FORBIDDEN, the candidate keys are queued and no row',
+      () async {
+        final member = await fx.user();
+        final story = (await familyStory(member)).$2;
+        final as = asUser(sessionBuilder, member);
+        final ticket = await endpoints.photo.startUpload(
+          as,
+          story.id!,
+          'image/jpeg',
+          jpegBytes().lengthInBytes,
+        );
+        await fx.clientUpload(ticket.key, jpegBytes());
+
+        late Future<Object?> outcome;
+        await fx.s.db.transaction((t) async {
+          await Story.db.findById(
+            fx.s,
+            story.id!,
+            transaction: t,
+            lockMode: LockMode.forUpdate,
+          );
+          // The finish passes its unlocked access check, then blocks on the
+          // story lock until this transaction deletes the story and commits.
+          outcome = endpoints.photo
+              .finishUpload(as, story.id!, ticket.photoId, 0)
+              .then<Object?>((_) => null, onError: (Object e) => e);
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          await Story.db.deleteRow(fx.s, story, transaction: t);
+        });
+
+        expect(
+          await outcome,
+          isA<AppException>().having(
+            (e) => e.code,
+            'code',
+            AppErrorCode.forbidden,
+          ),
+        );
+        expect(await Photo.db.findById(fx.s, ticket.photoId), isNull);
+        final keys = candidateKeys(story, ticket.photoId);
+        expect(await fx.queued(keys), keys);
       },
     );
 
