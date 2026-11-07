@@ -1,6 +1,7 @@
 import 'src/auth/auth_config.dart';
 import 'src/auth/local_mode.dart';
 import 'src/db/constraints.dart';
+import 'src/future_calls/schedule.dart';
 import 'src/generated/serverpod.dart';
 
 /// The starting point of the Serverpod server.
@@ -24,4 +25,5 @@ void run(List<String> args) async {
 
   await pod.start();
   await applyConstraints(pod);
+  await scheduleMaintenance(pod.futureCalls);
 }

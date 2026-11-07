@@ -17,6 +17,8 @@ import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:tell_me_a_story_client/src/protocol/dto/live_event_dto.dart'
+    as _iliy4w0g;
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -345,6 +347,39 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// Live change streams. Authorized once, at subscribe.
+/// {@category Endpoint}
+class EndpointLive extends _isc.EndpointRef {
+  EndpointLive(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'live';
+
+  /// Events for [familyId]: live members and tree readers.
+  _ida.Stream<_iliy4w0g.LiveEventDto> watchFamily(_isc.UuidValue familyId) =>
+      caller.callStreamingServerEndpoint<
+        _ida.Stream<_iliy4w0g.LiveEventDto>,
+        _iliy4w0g.LiveEventDto
+      >(
+        'live',
+        'watchFamily',
+        {'familyId': familyId},
+        {},
+      );
+
+  /// Events for [storyId]: whoever may read the story (`canReadStory`).
+  _ida.Stream<_iliy4w0g.LiveEventDto> watchStory(_isc.UuidValue storyId) =>
+      caller.callStreamingServerEndpoint<
+        _ida.Stream<_iliy4w0g.LiveEventDto>,
+        _iliy4w0g.LiveEventDto
+      >(
+        'live',
+        'watchStory',
+        {'storyId': storyId},
+        {},
+      );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -385,6 +420,7 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    live = EndpointLive(this);
     modules = Modules(this);
   }
 
@@ -392,12 +428,15 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointJwtRefresh jwtRefresh;
 
+  late final EndpointLive live;
+
   late final Modules modules;
 
   @override
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'live': live,
   };
 
   @override

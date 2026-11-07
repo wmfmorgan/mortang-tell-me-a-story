@@ -13,3 +13,6 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+live:
+  - watchFamily:
+  - watchStory:
