@@ -166,4 +166,39 @@ void main() {
       );
     });
   });
+  group('PeopleApi.listTreePeople', () {
+    test('a hidden linked profile fails with a non-catalog error', () async {
+      final api = PeopleApi(
+        client: _client(
+          _Http((request) {
+            final path = request.url.path;
+            if (path.endsWith('/rpc/list_family_tree')) {
+              return (status: 200, body: [{'id': 'f1'}]);
+            }
+            if (path.endsWith('/rpc/person_profile')) {
+              return _error(400, 'P0001', 'NOT_FOUND: person');
+            }
+            return (
+              status: 200,
+              body: [
+                {
+                  'id': 'p1',
+                  'family_id': 'f1',
+                  'name': 'Ada',
+                  'user_id': 'u1',
+                  'passed_away': false,
+                },
+              ],
+            );
+          }),
+        ),
+      );
+      await expectLater(
+        api.listTreePeople('f1'),
+        throwsA(
+          allOf(isA<StateError>(), isNot(isA<AppException>())),
+        ),
+      );
+    });
+  });
 }
