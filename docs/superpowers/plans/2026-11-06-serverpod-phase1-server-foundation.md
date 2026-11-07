@@ -324,7 +324,7 @@ fields:
 indexes:
   families_tree_idx:
     fields: treeId
-  ### Target of the composite FKs (people + parent) in constraints.sql.
+  ### Target of the composite FKs (people + parent) in constraintsSql.
   families_id_tree_uidx:
     fields: id, treeId
     unique: true
@@ -800,6 +800,10 @@ import 'src/generated/serverpod.dart';
 void run(List<String> args) async {
   final pod = Serverpod(args);
 
+  // Superseded: as built, the dev code is gated by isLocalPod(pod)
+  // (apps/server/lib/src/auth/local_mode.dart): run mode development/test
+  // AND an embedded Postgres (database.dataPath). The run-mode-only check
+  // below would enable the fixed code against a real database.
   configureAuth(
     useDevLoginCode: pod.runMode == ServerpodRunMode.development ||
         pod.runMode == ServerpodRunMode.test,
@@ -1034,6 +1038,10 @@ import 'src/generated/serverpod.dart';
 void run(List<String> args) async {
   final pod = Serverpod(args);
 
+  // Superseded: as built, the dev code is gated by isLocalPod(pod)
+  // (apps/server/lib/src/auth/local_mode.dart): run mode development/test
+  // AND an embedded Postgres (database.dataPath). The run-mode-only check
+  // below would enable the fixed code against a real database.
   configureAuth(
     useDevLoginCode: pod.runMode == ServerpodRunMode.development ||
         pod.runMode == ServerpodRunMode.test,

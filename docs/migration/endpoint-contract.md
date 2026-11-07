@@ -13,7 +13,7 @@ Paths are relative to `apps/tell_me_a_story/` unless they say otherwise. "ids" m
 | Dev code delivery | Set `EmailIdpConfig.sendOtpLoginVerificationCode` to a callback that logs the code. If it is unset, codes go through `sendRegistrationVerificationCode` | https://docs.serverpod.dev/concepts/authentication/providers/email/setup |
 | Client session | `client.auth` is a `FlutterAuthSessionManager`. It exposes `authInfoListenable: ValueListenable<AuthSuccess?>`, `authInfo`, `isAuthenticated`, `initialize()`, `updateSignedInUser(AuthSuccess?)`, `signOutDevice()` | `serverpod_auth_core_flutter-4.1.1/lib/src/session_manager.dart:68,93`; `serverpod_auth_core_client-4.1.1/lib/src/session_manager.dart:65-272` |
 | Blobs | Large images (story photos, family covers) use `session.storage.createUploadDescription(...)`, then the client's `FileUploader(desc).upload(...)`, then `session.storage.verifyUpload(...)`. Small images (512 px avatars) go inline as a `ByteData` argument, which stays under the 512 KiB `maxRequestSize` default. Reads go through an authorized endpoint that returns `ByteData` (`session.storage.retrieveFile`) | https://docs.serverpod.dev/concepts/file-uploads |
-| Errors | One serializable exception `AppException{code: AppErrorCode, message: String}`, with `AppErrorCode` = `notFound, forbidden, validation, inviteInvalid, conflict, photoCap, storageFailed`. Unauthenticated calls are rejected by Serverpod itself (`requireLogin = true` on every app endpoint except `InviteEndpoint.preview`) | https://docs.serverpod.dev/concepts/endpoints-and-apis/error-handling-and-exceptions |
+| Errors | One serializable exception `AppException{AppErrorCode code, String message}`, with `AppErrorCode` (`serialized: byName`) = `authRequired, forbidden, notFound, validation, conflict, inviteInvalid, inviteAccepted, inviteExpired, photoCap, storageFailed`. Signed-out callers are rejected by Serverpod itself (`requireLogin = true` on every app endpoint except `InviteEndpoint.preview`, 401); inside endpoints, `Authz.requireUser()` throws `AppErrorCode.authRequired` | https://docs.serverpod.dev/concepts/endpoints-and-apis/error-handling-and-exceptions |
 | Schema | Per SchemaDesign (IRC, `local://schema-design.md`). UUID PKs. `app_user` holds displayName, avatarKey, about, birthDate, birthPrecision and birthVisibility. People have **no** birth columns: a person's birth comes from the linked `app_user`, coarsened by birthVisibility. Email is read from `serverpod_auth_core_profile.email` | SchemaDesign IRC message |
 
 ### Why the client keeps its domain models
@@ -160,10 +160,16 @@ Each method is one F call; errors map to `ManageFamiliesException{code,message}`
 
 ### 2.1 Shared DTOs (protocol)
 ```yaml
+# app_error_code.spy.yaml
+enum: AppErrorCode  # serialized: byName
+# values: authRequired, forbidden, notFound, validation, conflict,
+#         inviteInvalid, inviteAccepted, inviteExpired, photoCap, storageFailed
+
 # app_exception.spy.yaml
 exception: AppException
 fields: { code: AppErrorCode, message: String }
-enum: AppErrorCode  # notFound, forbidden, validation, inviteInvalid, conflict, photoCap, storageFailed
+# Signed-out callers never reach an endpoint body: requireLogin rejects them
+# with 401. Authz.requireUser() throws AppErrorCode.authRequired as a backstop.
 
 class: MemberFamilyDto      # id, name, parentId?, branchYear?, createdAt, role: MemberRole, coverKey?
 class: StewardFamilyDto     # id, name, role, deletedAt?
@@ -255,8 +261,8 @@ class PeopleEndpoint extends Endpoint {
   Future<List<PersonDto>> listTree(Session s, UuidValue familyId);         // tree people + linked-user birth coarsened, ONE call (was 2 + N)
   Future<PersonDto> create(Session s, UuidValue familyId, PersonWriteDto input, ByteData? picture);   // picture ≤512px jpeg, inline
   Future<PersonDto?> forEdit(Session s, UuidValue personId);               // includes userId + email; steward/self only
-  Future<PersonProfileDto> profile(Session s, UuidValue personId);         // throws AppException(notFound)
-  Future<PersonDto> update(Session s, UuidValue personId, PersonWriteDto input, ByteData? picture);   // duplicate email → AppException(conflict, 'That email is already used')
+  Future<PersonProfileDto> profile(Session s, UuidValue personId);         // throws AppException(AppErrorCode.notFound)
+  Future<PersonDto> update(Session s, UuidValue personId, PersonWriteDto input, ByteData? picture);   // duplicate email → AppException(AppErrorCode.conflict, 'That email is already used')
   Future<List<PersonDto>> listUnlinked(Session s, UuidValue familyId);
   Future<bool> isHomeFamilySteward(Session s, UuidValue familyId);
   Future<void> markPassedAway(Session s, UuidValue personId, bool value);
@@ -268,7 +274,7 @@ class StoryEndpoint extends Endpoint {
       // IDEMPOTENT on id: if a row with that id exists and the caller authored it, apply input as an update and return it.
   Future<StoryDto> updateDraft(Session s, UuidValue storyId, StoryWriteDto input);
   Future<bool> autosaveDraft(Session s, UuidValue storyId, StoryWriteDto input);     // false when no longer a draft
-  Future<StoryDto> publish(Session s, UuidValue storyId);    // server checks readiness → AppException(validation)
+  Future<StoryDto> publish(Session s, UuidValue storyId);    // server checks readiness → AppException(AppErrorCode.validation)
   Future<StoryDto> get(Session s, UuidValue storyId);
   Future<StoryDto?> getPublished(Session s, UuidValue storyId);    // serves getPublished AND getPublishedOrigin (one DTO shape)
   Future<List<StoryDto>> listMyDrafts(Session s, UuidValue familyId);
@@ -282,7 +288,7 @@ class StoryEndpoint extends Endpoint {
 // ── photos ──────────────────────────────────────────────────────────────
 class PhotoEndpoint extends Endpoint {
   Future<List<PhotoDto>> list(Session s, UuidValue storyId);
-  Future<PhotoUploadTicketDto> startUpload(Session s, UuidValue storyId, int byteLength);   // cap 20 → AppException(photoCap)
+  Future<PhotoUploadTicketDto> startUpload(Session s, UuidValue storyId, int byteLength);   // cap 20 → AppException(AppErrorCode.photoCap)
   Future<PhotoDto> finishUpload(Session s, UuidValue storyId, UuidValue photoId, int sortOrder); // verifyUpload, insert row; deletes blob on failure
   Future<void> delete(Session s, UuidValue photoId);         // blobs (original + edited) + row
   Future<void> setHero(Session s, UuidValue storyId, UuidValue photoId);   // one transaction rewriting sort_order 0..n-1
@@ -397,7 +403,7 @@ LOC = lines changed (added + removed), estimated.
 |---|---|---|
 | `lib/core/server/server_client.dart` (replaces `lib/core/supabase/`) | `late final Client serverClient` built with `Client(Env.serverUrl)..authSessionManager = FlutterAuthSessionManager()`, plus `initServer()` that awaits `client.auth.initialize()` [UNVERIFIED exact 4.1.1 wiring; ServerpodResearch] | 40 |
 | `lib/core/server/app_session.dart` | `AppSession` gives one place to read `currentUserId` (`client.auth.authInfo?.authUserId.toString()`), `isSignedIn`, `signOut()` (`client.auth.signOutDevice()`), and a `ValueListenable` | 40 |
-| `lib/data/dto_mapping.dart` | `Story.fromDto`, `Person.fromDto`, `Place.fromDto`, `Photo.fromDto`, `Comment/Perspective.fromNote`, `MemberFamily.fromDto`, …; `_ymd` / `_utcDate` helpers; and `AppException` → existing exception types (`InviteApiException`, `ManageFamiliesException`, `OriginRpcException`, `PersonProfileNotFound`, `StorageFailedException`, `StateError('PHOTO_CAP')`) | 250 |
+| `lib/data/dto_mapping.dart` | `Story.fromDto`, `Person.fromDto`, `Place.fromDto`, `Photo.fromDto`, `Comment/Perspective.fromNote`, `MemberFamily.fromDto`, …; `_ymd` / `_utcDate` helpers; and error mapping. Phase 2 already unified the old per-gateway exceptions into the client `AppException` (`lib/data/app_exception.dart`), so Phase 4 only maps server `AppErrorCode` → client `AppErrorCode` (server `authRequired` → client `unauthenticated`). `StorageFailedException` and `StateError('PHOTO_CAP')` remain for photos | 250 |
 | `packages/tell_me_a_story_client` (generated) | pubspec path dependency | 0 hand-written |
 
 ### Changed files in `lib/`
@@ -432,11 +438,11 @@ LOC = lines changed (added + removed), estimated.
 | `lib/data/comments_api.dart`, `perspectives_api.dart` | impl → `note.*` with a kind; delete `fromJson` | 40 each |
 | `lib/data/places_api.dart` (221) | impl → `place.*`; `buildPlaceInsert` → `PlaceInputDto` builder | −80 / +50 |
 | `lib/data/invite_api.dart` (231) | `_invoke` / `FunctionException` → endpoint calls + `AppException` mapping; `createFamily` → `family.createRoot`; `currentFamilyId` uses `family.listMine` | −90 / +50 |
-| `lib/data/manage_families_api.dart` (197) | each method is one endpoint call; `_invoke` → `AppException` → `ManageFamiliesException` | −80 / +45 |
+| `lib/data/manage_families_api.dart` (197) | each method is one endpoint call; server `AppException` → client `AppException` via `dto_mapping.dart` | −80 / +45 |
 | `lib/data/profile_api.dart` (249) | `loadOwn` → `profile.me`; `saveAvatar` inline `ByteData`; `downloadAvatar` → `media.get` (drops the `http` signed-URL fetch); `updateEmail` per §2.4 | −80 / +50 |
 | `lib/data/search_api.dart` | `search` → `story.listPublished` + `Story.fromDto` + `filterSearchRecords`; delete `searchRecordFromRow` | 20 |
 | `lib/data/timeline_live.dart` (146) | `SupabaseTimelineLive` → `ServerTimelineLive`, which subscribes to `live.watchFamily` / `live.watchStory` and keeps the 200 ms debounce. `timelineEventMatters` takes a `LiveEventDto` (or keeps its named params, mapped from the DTO) | −80 / +60 |
-| `lib/data/rpc_error.dart` | `PostgrestException` prefix parsing → `if (error is AppException && error.code in {notFound, forbidden, validation, inviteInvalid, conflict}) return error.message` | 15 |
+| `lib/data/supabase_errors.dart` | **delete** at cutover: Phase 2 already routes every Supabase error into the client `AppException`; after Phase 4 the only source is server `AppErrorCode` mapped in `dto_mapping.dart` (`mapRpcError` reads `AppException.message`) | −40 |
 | `lib/data/profile_session.dart`, `family_selection.dart` | no change (comment-only "after Supabase starts" `:13`) | 1 |
 
 Total: about **−1 900 / +1 400** lines in `lib/`. The largest single items are the two auth pages (~270) and `stories_api.dart`.
@@ -454,10 +460,10 @@ Integration tests and other affected tests come last. Gateway fakes in widget te
 | `test/family_landing_latest_test.dart` | `familiesCoverColumnMissing(PostgrestException…)` (`:57-79`) | delete those 3 cases (the function is gone); `latestShelf` tests stay |
 | `test/family_selection_test.dart` | `StreamController<AuthState>` + `AuthState(signedOut)` (`:79-91`) | `ValueNotifier<AuthSuccess?>` set to null |
 | `test/profile_session_test.dart` | same (`:37-49`) | same |
-| `test/invite_chrome_test.dart` | `updateError = PostgrestException(23505 …)` (`:263,299,333`) | `AppException(conflict, 'That email is already used')`. The raw "duplicate key" message cases become a single conflict case, because the server always sends the catalog text |
+| `test/invite_chrome_test.dart` | `updateError = PostgrestException(23505 …)` (`:263,299,333`) | `AppException(AppErrorCode.conflict, 'That email is already used')`. The raw "duplicate key" message cases become a single conflict case, because the server always sends the catalog text |
 | `test/m13_fit_finish_test.dart` | `_Sender implements MagicLinkSender`, `AuthException('Request failed', statusCode: '429')` (`:73,364`) | `_Otp implements OtpSignIn`; throw `EmailAccountRequestException(reason: tooManyAttempts)`; add code-entry steps |
-| `test/m14_3_dob_passed_away_test.dart` | `markError = PostgrestException('FORBIDDEN: …')` (`:187`) | `AppException(forbidden, …)` |
-| `test/new_story_capture_test.dart` | `PostgrestException` 23505 `story_people_pkey` (`:357`), 42501 RLS (`:1638`), 23505 `photos_pkey` (`:1843`) | duplicate-link tests: the fake `linkPerson` just succeeds, and the test asserts no error UI. RLS → `AppException(forbidden)`. `photos_pkey` → `AppException(conflict)` (still surfaces as an error) |
+| `test/m14_3_dob_passed_away_test.dart` | `markError = PostgrestException('FORBIDDEN: …')` (`:187`) | `AppException(AppErrorCode.forbidden, …)` |
+| `test/new_story_capture_test.dart` | `PostgrestException` 23505 `story_people_pkey` (`:357`), 42501 RLS (`:1638`), 23505 `photos_pkey` (`:1843`) | duplicate-link tests: the fake `linkPerson` just succeeds, and the test asserts no error UI. RLS → `AppException(AppErrorCode.forbidden)`. `photos_pkey` → `AppException(AppErrorCode.conflict)` (still surfaces as an error) |
 | `test/new_story_shell_test.dart` | `PostgrestException` `stories_pkey` on a retried create (`:944`) | fake `createDraft` returns the existing story on a repeated id; assert that autosave then updates |
 | `test/people_api_test.dart` | `Person.fromJson`, `personProfileFromRpc`, and `listTreePeople` over a stubbed PostgREST `httpClient` (`:111-240+`) | delete the PostgREST stub group (the tree walk and linked-birth coarsening move to **server** integration tests); keep `ensureValidPersonCreate`; add `Person.fromDto` tests |
 | `test/photos_api_test.dart` | `SupabaseClient('http://127.0.0.1','anon-key')` + injectables (`:66-436`) | keep compression/cap/hero-order tests; delete `removeObjects`/`listStoryObjects`/storage-path tests (they move to server tests: key generation, delete removes the edited blob too, cap) |

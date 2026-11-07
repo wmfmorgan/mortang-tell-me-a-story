@@ -61,15 +61,15 @@ On a **fresh** database, Serverpod applies only the latest migration's `definiti
 
 Also, `create-repair-migration` diffs the live DB against the target and drops indexes it doesn't know about (CLI `tools/serverpod_cli/lib/src/database/migration.dart:320-326`). Normal `create-migration` diffs project definitions only, so it leaves raw objects alone.
 
-**Decision:** keep all raw SQL in one idempotent file, `apps/server/lib/src/db/constraints.sql` (§3.3). Run it right after `await pod.start()`, which is where migrations are applied (`serverpod.dart:831-834`):
+**Decision:** keep all raw SQL in one idempotent Dart constant, `constraintsSql` in `apps/server/lib/src/db/constraints.dart` (§3.3). `applyConstraints(pod)` runs it right after `await pod.start()`, which is where migrations are applied (`serverpod.dart:831-834`):
 
 ```dart
 final s = await pod.createSession();            // serverpod.dart:1207
-try { await s.db.unsafeSimpleExecute(await File('lib/src/db/constraints.sql').readAsString()); }
+try { await s.db.unsafeSimpleExecute(constraintsSql); }
 finally { await s.close(); }
 ```
 
-`unsafeSimpleExecute` (https://docs.serverpod.dev/concepts/data-and-the-database/database/raw-access, `serverpod_database/lib/src/database.dart:622`) uses the simple protocol, so the multi-statement `DO` block works. The same call belongs in the test harness setup.
+`unsafeSimpleExecute` (https://docs.serverpod.dev/concepts/data-and-the-database/database/raw-access, `serverpod_database/lib/src/database.dart:622`) uses the simple protocol, so the multi-statement `DO` block works. The test setup runs the same `constraintsSql`.
 
 ---
 
@@ -216,7 +216,7 @@ fields:
 indexes:
   families_tree_idx:
     fields: treeId
-  ### Target of the composite FKs (people + parent) in constraints.sql.
+  ### Target of the composite FKs (people + parent) in constraintsSql.
   families_id_tree_uidx:
     fields: id, treeId
     unique: true
@@ -642,7 +642,9 @@ These need cross-row or cross-table logic, and the old repo already did them in 
 | Resend only while pending; revoke not after accept | `20261010184643` | Derived status |
 | Purge after 60 days | `purge_expired_families` | Recurring future call (§4.3). Children's parentId is cleared by the FK. |
 
-### 3.3 `apps/server/lib/src/db/constraints.sql` (idempotent, PG 15+; tested on PG 17.11)
+### 3.3 `constraintsSql` in `apps/server/lib/src/db/constraints.dart` (idempotent, PG 15+; tested on PG 17.11)
+
+The SQL below is the body of the `constraintsSql` Dart constant, applied by `applyConstraints` after `pod.start()` and in test setup.
 
 ```sql
 -- Invariants Serverpod model YAML cannot express. Idempotent: safe to run on

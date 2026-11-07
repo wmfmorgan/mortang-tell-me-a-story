@@ -1,7 +1,7 @@
 # Serverpod notes for Tell Me a Story (target: Serverpod 4.1.1)
 
 Researched 2026-11-06 from pub.dev API and docs.serverpod.dev, which documents 4.x only.
-Main decided: **4.1.1**, email OTP login via `EmailOtpIdpBaseEndpoint`, Postgres 17 from mise.
+Main decided: **4.1.1**, email OTP login via `EmailOtpIdpBaseEndpoint`. Postgres is Serverpod's embedded Postgres 16 in dev/test (`dataPath` in `config/*.yaml`; not mise) and managed Postgres ≥16 in prod. The external-PG config sketch in §3 below predates that decision.
 
 ## 1. Version, SDK, install
 - pub.dev `serverpod` latest = **4.1.1** (published 2026-11-05), `environment.sdk: ^3.12.2`. Dart 3.13.5 satisfies this. The last 3.x release is 3.4.13 (2026-08-28, sdk ^3.8.0). Source: `https://pub.dev/api/packages/serverpod`.

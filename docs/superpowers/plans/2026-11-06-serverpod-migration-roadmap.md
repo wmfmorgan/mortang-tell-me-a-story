@@ -6,7 +6,7 @@
 
 **Architecture:** The Flutter client stays. Its `lib/data` gateways are re-pointed from `supabase_flutter` to a generated Serverpod client. Authorization moves out of RLS and SECURITY DEFINER SQL into Dart services keyed on family and tree. Blobs go to local disk in dev and S3-compatible storage in prod. Live updates use Serverpod streams. The daily purge becomes a Serverpod future call.
 
-**Tech Stack:** Flutter 3.47.7 / Dart 3.13.5, Serverpod 4.1.1 (email one-time-code login needs 4.1+; 4.x needs Postgres ≥16), PostgreSQL 17 (mise-managed binaries, repo-local data dir), mise, just.
+**Tech Stack:** Flutter 3.47.7 / Dart 3.13.5, Serverpod 4.1.1 (email one-time-code login needs 4.1+; 4.x needs Postgres ≥16), PostgreSQL: Serverpod's embedded Postgres 16 in dev/test (`dataPath` in `config/*.yaml`, not mise-managed) and managed Postgres ≥16 in prod, mise, just.
 
 **Decisions locked (2026-11-06):**
 - Fresh start. Existing Supabase data is test data, so nothing is migrated and the hosted project gets retired.

@@ -20,7 +20,7 @@ fields:
 indexes:
   families_tree_idx:
     fields: treeId
-  ### Target of the composite FKs (people + parent) in constraints.sql.
+  ### Target of the composite FKs (people + parent) in constraintsSql.
   families_id_tree_uidx:
     fields: id, treeId
     unique: true
