@@ -1,20 +1,24 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 
-/// Drops the carried-over session and the in-memory family and profile.
+/// Signs the carried-over session out and drops the in-memory family and
+/// profile.
 Future<void> resetAppState() async {
-  if (Supabase.instance.client.auth.currentSession != null) {
-    await Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
-  }
+  final auth = serverClient.auth;
+  if (auth.isAuthenticated) await auth.signOutDevice();
   FamilySelection.clear();
   ProfileSession.instance.clear();
 }
 
+/// The family a favorite was created in, and the label the picker shows.
+typedef FavoritePlace = ({String familyId, String label});
+
 /// Favorite on the signed-in user's current family. No Mapbox id.
-Future<Place> createFavoritePlace({
+Future<FavoritePlace> createFavoritePlace({
   required String label,
   required String address,
 }) async {
@@ -22,7 +26,7 @@ Future<Place> createFavoritePlace({
   if (familyId == null) {
     throw StateError('no family for favorite place');
   }
-  return PlacesApi().createPlace(
+  final place = await PlacesApi().createPlace(
     familyId: familyId,
     label: label,
     address: address,
@@ -30,4 +34,5 @@ Future<Place> createFavoritePlace({
     lng: -97.7431,
     isFavorite: true,
   );
+  return (familyId: familyId, label: place.label);
 }
