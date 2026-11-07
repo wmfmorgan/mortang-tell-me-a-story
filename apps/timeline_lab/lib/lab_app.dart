@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'filter/timeline_filter.dart';
 import 'lab_controller.dart';
+import 'model/lab_models.dart';
 import 'model/seed.dart';
 import 'playback/playback_controller.dart';
 import 'renderers/renderer_contract.dart';
@@ -155,43 +156,86 @@ class LabHome extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: selected == null
                 ? const SizedBox(width: double.infinity)
-                : DecoratedBox(
-                    key: const Key('selected-panel'),
-                    decoration: const BoxDecoration(
-                      color: labPillFill,
-                      border: Border(top: BorderSide(color: labBorder)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          StoryCard(
-                            story: selected,
-                            dataset: c.dataset,
-                            matched: true,
-                            selected: false,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              selected.body,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ),
-                          IconButton(
-                            key: const Key('selected-close'),
-                            tooltip: 'Close',
-                            icon: const Icon(Icons.close),
-                            onPressed: () => c.select(null),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                : _SelectedPanel(controller: c, story: selected),
           ),
           _StatusRow(controller: c, playback: playback),
         ],
+      ),
+    );
+  }
+}
+
+/// The selected story under the playback bar. Compact windows stack the card
+/// over a 3-line body. The panel never takes more than 30% of the window; it
+/// scrolls instead.
+class _SelectedPanel extends StatelessWidget {
+  const _SelectedPanel({required this.controller, required this.story});
+
+  final LabController controller;
+  final LabStory story;
+
+  @override
+  Widget build(BuildContext context) {
+    final window = MediaQuery.sizeOf(context);
+    final compact = window.width < LabBreakpoint.compact;
+    final card = StoryCard(
+      story: story,
+      dataset: controller.dataset,
+      matched: true,
+      selected: false,
+    );
+    final body = Text(
+      story.body,
+      maxLines: compact ? 3 : null,
+      overflow: compact ? TextOverflow.ellipsis : null,
+      style: Theme.of(context).textTheme.bodyMedium,
+    );
+    final close = IconButton(
+      key: const Key('selected-close'),
+      tooltip: 'Close',
+      icon: const Icon(Icons.close),
+      onPressed: () => controller.select(null),
+    );
+    return DecoratedBox(
+      key: const Key('selected-panel'),
+      decoration: const BoxDecoration(
+        color: labPillFill,
+        border: Border(top: BorderSide(color: labBorder)),
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: window.height * 0.3),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: card,
+                          ),
+                        ),
+                        close,
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    body,
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    card,
+                    const SizedBox(width: 12),
+                    Expanded(child: body),
+                    close,
+                  ],
+                ),
+        ),
       ),
     );
   }

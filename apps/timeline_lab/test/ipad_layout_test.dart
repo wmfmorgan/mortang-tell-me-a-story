@@ -6,11 +6,7 @@ import 'support/ipad.dart';
 
 /// Sweep cases that overflow until the iPad plan task named in the reason
 /// lands. Each fixing task deletes its entries here as its red step.
-const _knownRed = <String, String>{
-  'split_third with a selected story': 'panel (ipad Task 6)',
-  'split_third_wide with a selected story': 'panel (ipad Task 6)',
-  'slide_over with a selected story': 'panel (ipad Task 6)',
-};
+const _knownRed = <String, String>{};
 
 void main() {
   group('no overflow', () {
@@ -54,5 +50,17 @@ void main() {
     final bar = tester.getRect(find.byKey(const Key('playback-bar')));
     final scrubber = tester.getRect(find.byKey(const Key('playback-scrubber')));
     expect(scrubber.width, greaterThan(bar.width - 48));
+  }, variant: ios);
+
+  testWidgets('selected panel never starves the renderer (Slide Over)', (
+    tester,
+  ) async {
+    final size = ipadSizes['slide_over']!;
+    final c = await pumpIpad(tester, size);
+    c.select(c.entries.last.story.id);
+    await tester.pumpAndSettle();
+    final panel = tester.getSize(find.byKey(const Key('selected-panel')));
+    expect(panel.height, lessThanOrEqualTo(size.height * 0.3 + 1));
+    expect(tester.getSize(rendererRoot).height, greaterThan(300));
   }, variant: ios);
 }
