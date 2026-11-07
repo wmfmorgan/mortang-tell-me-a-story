@@ -77,6 +77,10 @@ class _LabHomeState extends State<LabHome> {
   final _searchFocus = FocusNode(debugLabel: 'filter-search');
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  /// The last non-empty timeline, fed to the offstage renderer while the
+  /// empty state is up.
+  ({LabDataset dataset, List<TimelineEntry> entries})? _lastShown;
+
   @override
   void dispose() {
     _rootFocus.dispose();
@@ -148,21 +152,29 @@ class _LabHomeState extends State<LabHome> {
   Widget _build(BuildContext context) {
     final c = widget.controller;
     final playback = widget.playback;
+    final empty = c.entries.isEmpty;
+    if (!empty) _lastShown = (dataset: c.dataset, entries: c.entries);
+    final shown = _lastShown ?? (dataset: c.dataset, entries: c.entries);
     // The renderer stays mounted under the empty state so a transient
-    // no-match query keeps its zoom, scroll and view switches.
+    // no-match query keeps its zoom, scroll offset and view switches. While
+    // hidden it gets the last non-empty entries, so scrollables keep their
+    // extent, and it leaves the focus order.
     final renderer = Offstage(
-      offstage: c.entries.isEmpty,
-      child: KeyedSubtree(
-        key: ValueKey((c.renderer, c.datasetSize)),
-        child: buildRenderer(
-          c.renderer,
-          TimelineViewData(
-            dataset: c.dataset,
-            entries: c.entries,
-            mode: c.filter.mode,
-            selectedId: c.selectedStoryId,
-            onSelect: c.select,
-            playback: playback,
+      offstage: empty,
+      child: ExcludeFocus(
+        excluding: empty,
+        child: KeyedSubtree(
+          key: ValueKey((c.renderer, c.datasetSize)),
+          child: buildRenderer(
+            c.renderer,
+            TimelineViewData(
+              dataset: shown.dataset,
+              entries: shown.entries,
+              mode: c.filter.mode,
+              selectedId: c.selectedStoryId,
+              onSelect: c.select,
+              playback: playback,
+            ),
           ),
         ),
       ),

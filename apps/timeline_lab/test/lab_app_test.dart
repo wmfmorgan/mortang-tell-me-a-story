@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timeline_lab/filter/timeline_filter.dart';
 import 'package:timeline_lab/lab_app.dart';
@@ -396,6 +397,68 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('empty-timeline')), findsNothing);
     expect(laneBy(tester), {LaneBy.family});
+  });
+
+  testWidgets('a no-match typo keeps the renderer scroll offset', (
+    tester,
+  ) async {
+    final c = await _pump(tester);
+    c.setFilter(const TimelineFilter(mode: FilterMode.hide));
+    await tester.pumpAndSettle();
+    ScrollPosition position() => tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(SliverListTimeline, skipOffstage: false),
+                matching: find.byType(Scrollable, skipOffstage: false),
+              )
+              .first,
+        )
+        .position;
+    position().jumpTo(1500);
+    await tester.pumpAndSettle();
+    expect(position().pixels, 1500);
+
+    await tester.enterText(find.byKey(const Key('filter-search')), 'zzz');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('empty-timeline')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('filter-search')), '');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('empty-timeline')), findsNothing);
+    expect(position().pixels, 1500);
+  });
+
+  testWidgets('Tab skips the hidden renderer behind the empty state', (
+    tester,
+  ) async {
+    final c = await _pump(tester);
+    c.setRenderer(RendererKind.swimlanes);
+    c.setFilter(
+      const TimelineFilter(query: 'zzz-no-match', mode: FilterMode.hide),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('empty-timeline')), findsOneWidget);
+
+    bool inRenderer(BuildContext? context) {
+      if (context == null) return false;
+      var found = context.widget is SwimlanesTimeline;
+      context.visitAncestorElements((e) {
+        if (e.widget is SwimlanesTimeline) found = true;
+        return !found;
+      });
+      return found;
+    }
+
+    final reached = <String>[];
+    for (var i = 0; i < 80; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      final focus = FocusManager.instance.primaryFocus;
+      if (inRenderer(focus?.context)) reached.add('$focus');
+    }
+    expect(reached, isEmpty);
+    expect(find.byKey(const Key('lane-by'), skipOffstage: false), findsOne);
   });
 
   testWidgets('every renderer survives an empty Hide-mode timeline', (
