@@ -16,3 +16,14 @@ jwtRefresh:
 live:
   - watchFamily:
   - watchStory:
+people:
+  - listFamily:
+  - listTree:
+  - create:
+  - forEdit:
+  - profile:
+  - update:
+  - listUnlinked:
+  - isHomeFamilySteward:
+  - markPassedAway:
+  - delete:

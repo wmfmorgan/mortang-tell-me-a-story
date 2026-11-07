@@ -10,16 +10,20 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:typed_data' as _idt;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
+import 'package:tell_me_a_story_server/src/generated/dto/person_write_dto.dart'
+    as _imyz5bcs;
 import 'package:tell_me_a_story_server/src/generated/future_calls.dart'
     as _iggapxvt;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../endpoints/live_endpoint.dart' as _ixgr9pqx;
+import '../endpoints/people_endpoint.dart' as _iqqt4psm;
 export 'future_calls.dart' show ServerpodFutureCallsGetter;
 
 class Endpoints extends _is.EndpointDispatch {
@@ -42,6 +46,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'live',
+          null,
+        ),
+      'people': _iqqt4psm.PeopleEndpoint()
+        ..initialize(
+          server,
+          'people',
           null,
         ),
     };
@@ -384,6 +394,232 @@ class Endpoints extends _is.EndpointDispatch {
                 session,
                 params['storyId'],
               ),
+        ),
+      },
+    );
+    connectors['people'] = _is.EndpointConnector(
+      name: 'people',
+      endpoint: endpoints['people']!,
+      methodConnectors: {
+        'listFamily': _is.MethodConnector(
+          name: 'listFamily',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['people'] as _iqqt4psm.PeopleEndpoint).listFamily(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'listTree': _is.MethodConnector(
+          name: 'listTree',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['people'] as _iqqt4psm.PeopleEndpoint).listTree(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'create': _is.MethodConnector(
+          name: 'create',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'input': _is.ParameterDescription(
+              name: 'input',
+              type: _is.getType<_imyz5bcs.PersonWriteDto>(),
+              nullable: false,
+            ),
+            'picture': _is.ParameterDescription(
+              name: 'picture',
+              type: _is.getType<_idt.ByteData?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['people'] as _iqqt4psm.PeopleEndpoint).create(
+                    session,
+                    params['familyId'],
+                    params['input'],
+                    params['picture'],
+                  ),
+        ),
+        'forEdit': _is.MethodConnector(
+          name: 'forEdit',
+          params: {
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['people'] as _iqqt4psm.PeopleEndpoint).forEdit(
+                    session,
+                    params['personId'],
+                  ),
+        ),
+        'profile': _is.MethodConnector(
+          name: 'profile',
+          params: {
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['people'] as _iqqt4psm.PeopleEndpoint).profile(
+                    session,
+                    params['personId'],
+                  ),
+        ),
+        'update': _is.MethodConnector(
+          name: 'update',
+          params: {
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'input': _is.ParameterDescription(
+              name: 'input',
+              type: _is.getType<_imyz5bcs.PersonWriteDto>(),
+              nullable: false,
+            ),
+            'picture': _is.ParameterDescription(
+              name: 'picture',
+              type: _is.getType<_idt.ByteData?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['people'] as _iqqt4psm.PeopleEndpoint).update(
+                    session,
+                    params['personId'],
+                    params['input'],
+                    params['picture'],
+                  ),
+        ),
+        'listUnlinked': _is.MethodConnector(
+          name: 'listUnlinked',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['people'] as _iqqt4psm.PeopleEndpoint)
+                  .listUnlinked(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'isHomeFamilySteward': _is.MethodConnector(
+          name: 'isHomeFamilySteward',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['people'] as _iqqt4psm.PeopleEndpoint)
+                  .isHomeFamilySteward(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'markPassedAway': _is.MethodConnector(
+          name: 'markPassedAway',
+          params: {
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'value': _is.ParameterDescription(
+              name: 'value',
+              type: _is.getType<bool>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['people'] as _iqqt4psm.PeopleEndpoint)
+                  .markPassedAway(
+                    session,
+                    params['personId'],
+                    params['value'],
+                  ),
+        ),
+        'delete': _is.MethodConnector(
+          name: 'delete',
+          params: {
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['people'] as _iqqt4psm.PeopleEndpoint).delete(
+                    session,
+                    params['personId'],
+                  ),
         ),
       },
     );

@@ -11,6 +11,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
+import 'dart:typed_data' as _idt;
 import 'package:http/http.dart' as _i85jenna;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
     as _iacc;
@@ -19,6 +20,12 @@ import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:tell_me_a_story_client/src/protocol/dto/live_event_dto.dart'
     as _iliy4w0g;
+import 'package:tell_me_a_story_client/src/protocol/dto/person_dto.dart'
+    as _ippgtqmg;
+import 'package:tell_me_a_story_client/src/protocol/dto/person_profile_dto.dart'
+    as _i60h803r;
+import 'package:tell_me_a_story_client/src/protocol/dto/person_write_dto.dart'
+    as _i9fxgjdp;
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -380,6 +387,132 @@ class EndpointLive extends _isc.EndpointRef {
       );
 }
 
+/// People are tree-scoped: reads and unlinked edits need a live membership
+/// somewhere in the person's tree (`Authz.isTreeMemberOf(person.treeId)`).
+/// Steward-only actions (mark passed away, delete) check the live home family.
+/// {@category Endpoint}
+class EndpointPeople extends _isc.EndpointRef {
+  EndpointPeople(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'people';
+
+  /// People whose home is [familyId], by name. The family must be live and
+  /// in the caller's tree.
+  _ida.Future<List<_ippgtqmg.PersonDto>> listFamily(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<List<_ippgtqmg.PersonDto>>(
+        'people',
+        'listFamily',
+        {'familyId': familyId},
+      );
+
+  /// Every person in [familyId]'s tree, by name, in one call. Linked people
+  /// carry their account birth, coarsened for everyone but themselves.
+  _ida.Future<List<_ippgtqmg.PersonDto>> listTree(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<List<_ippgtqmg.PersonDto>>(
+        'people',
+        'listTree',
+        {'familyId': familyId},
+      );
+
+  /// Adds an unlinked person with [familyId] as home. A [picture] (JPEG,
+  /// ≤ 2 MiB) is stored inline under a fresh `personAvatarKey`.
+  _ida.Future<_ippgtqmg.PersonDto> create(
+    _isc.UuidValue familyId,
+    _i9fxgjdp.PersonWriteDto input,
+    _idt.ByteData? picture,
+  ) => caller.callServerEndpoint<_ippgtqmg.PersonDto>(
+    'people',
+    'create',
+    {
+      'familyId': familyId,
+      'input': input,
+      'picture': picture,
+    },
+  );
+
+  /// The person row for the edit dialog, including `userId` and `email`, for
+  /// any tree member; null when missing or outside the caller's trees.
+  _ida.Future<_ippgtqmg.PersonDto?> forEdit(_isc.UuidValue personId) =>
+      caller.callServerEndpoint<_ippgtqmg.PersonDto?>(
+        'people',
+        'forEdit',
+        {'personId': personId},
+      );
+
+  /// The profile dialog (old `person_profile`). Never carries `userId` or
+  /// `email`. A linked account's about and avatar win when set; its birth is
+  /// coarsened by `birthVisibility` for everyone but the linked self.
+  _ida.Future<_i60h803r.PersonProfileDto> profile(_isc.UuidValue personId) =>
+      caller.callServerEndpoint<_i60h803r.PersonProfileDto>(
+        'people',
+        'profile',
+        {'personId': personId},
+      );
+
+  /// Edits a person. Unlinked: any tree member. Linked: only the linked self,
+  /// with the name locked to the account, and no passed-away or death change.
+  /// A [picture] replaces the avatar; [PersonWriteDto.clearPicture] removes
+  /// it. The old key is queued for deletion in the same transaction.
+  _ida.Future<_ippgtqmg.PersonDto> update(
+    _isc.UuidValue personId,
+    _i9fxgjdp.PersonWriteDto input,
+    _idt.ByteData? picture,
+  ) => caller.callServerEndpoint<_ippgtqmg.PersonDto>(
+    'people',
+    'update',
+    {
+      'personId': personId,
+      'input': input,
+      'picture': picture,
+    },
+  );
+
+  /// The invite picker: people in [familyId]'s tree who are unlinked, not
+  /// passed away, and have no pending invite (not accepted, not revoked,
+  /// unexpired), by name.
+  _ida.Future<List<_ippgtqmg.PersonDto>> listUnlinked(
+    _isc.UuidValue familyId,
+  ) => caller.callServerEndpoint<List<_ippgtqmg.PersonDto>>(
+    'people',
+    'listUnlinked',
+    {'familyId': familyId},
+  );
+
+  /// Whether the caller is an owner or co-owner of live [familyId].
+  _ida.Future<bool> isHomeFamilySteward(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<bool>(
+        'people',
+        'isHomeFamilySteward',
+        {'familyId': familyId},
+      );
+
+  /// Sets or clears a linked person's passed-away flag (old
+  /// `mark_passed_away`). Checks in the business-rules.md §4.3 order;
+  /// clearing the flag clears the death fields.
+  _ida.Future<void> markPassedAway(
+    _isc.UuidValue personId,
+    bool value,
+  ) => caller.callServerEndpoint<void>(
+    'people',
+    'markPassedAway',
+    {
+      'personId': personId,
+      'value': value,
+    },
+  );
+
+  /// Deletes an unlinked person (D5): owner or co-owner of the live home
+  /// family only. Tags and kinships cascade; invites keep a null person. The
+  /// avatar key is queued for deletion in the same transaction.
+  _ida.Future<void> delete(_isc.UuidValue personId) =>
+      caller.callServerEndpoint<void>(
+        'people',
+        'delete',
+        {'personId': personId},
+      );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -421,6 +554,7 @@ class Client extends _isc.ServerpodClientShared {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
     live = EndpointLive(this);
+    people = EndpointPeople(this);
     modules = Modules(this);
   }
 
@@ -430,6 +564,8 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointLive live;
 
+  late final EndpointPeople people;
+
   late final Modules modules;
 
   @override
@@ -437,6 +573,7 @@ class Client extends _isc.ServerpodClientShared {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
     'live': live,
+    'people': people,
   };
 
   @override
