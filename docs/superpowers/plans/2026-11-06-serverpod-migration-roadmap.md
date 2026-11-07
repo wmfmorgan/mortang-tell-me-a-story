@@ -25,6 +25,7 @@
 - `docs/migration/schema-design.md`: new schema as Serverpod models
 - `docs/migration/endpoint-contract.md`: gateway → endpoint map and client change list
 - `docs/migration/serverpod-notes.md`: Serverpod 4.1 APIs used by these plans
+- `docs/migration/timeline-lab-handoff.md`: timeline UI, visual system and iPad findings from the timeline lab (`apps/timeline_lab/`), to apply to the client
 
 ---
 
@@ -46,3 +47,4 @@ These need an answer before the phase that touches them.
 2. **The behaviours listed in `business-rules.md` §6**: accept on a soft-deleted family, invites not bound to an email, moderation, purge leaving photo blobs behind, decade precision unusable, and so on. Keep each as-is or fix it while porting (Phase 3).
 3. **Tree semantics.** Tree reads are now `treeId` equality among live families. The old recursive walk split a tree at a soft-deleted middle family; the new one doesn't. Phase 1 adopts the simpler rule; reverse it only if the split mattered.
 4. **`decade` date precision is dropped** (`schema-design.md` §0.3). It was already impossible to create; the client's `legacyDecade` paths are removed at cutover.
+5. **Timeline UI from the timeline lab.** Which main timeline view to keep, whether the family tree, treemap and playback ship, and when to apply the visual-system and iPad changes (recommended: after Phase 4). See `timeline-lab-handoff.md` §4.
