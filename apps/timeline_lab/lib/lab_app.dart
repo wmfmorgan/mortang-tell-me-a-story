@@ -200,15 +200,23 @@ class LabHome extends StatelessWidget {
               ],
             ),
           ),
-          PlaybackBar(playback: playback),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 200),
-            alignment: Alignment.topCenter,
-            child: selected == null
-                ? const SizedBox(width: double.infinity)
-                : _SelectedPanel(controller: c, story: selected),
+          SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PlaybackBar(playback: playback),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  alignment: Alignment.topCenter,
+                  child: selected == null
+                      ? const SizedBox(width: double.infinity)
+                      : _SelectedPanel(controller: c, story: selected),
+                ),
+                _StatusRow(controller: c, playback: playback),
+              ],
+            ),
           ),
-          _StatusRow(controller: c, playback: playback),
         ],
       ),
     );
