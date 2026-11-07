@@ -43,3 +43,6 @@ supabase/.temp
 # Terraform
 infra/gcp/.terraform/
 infra/gcp/*.tfstate*
+
+# Firebase CLI deploy cache
+.firebase/
