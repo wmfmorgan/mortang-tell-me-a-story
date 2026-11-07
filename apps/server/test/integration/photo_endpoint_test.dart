@@ -101,5 +101,98 @@ void main() {
         }
       },
     );
+
+    test(
+      'when a member starts an upload then the ticket names a fresh key '
+      "under the story's family",
+      () async {
+        final member = await fx.user();
+        final (family, story) = await familyStory(member);
+
+        final ticket = await endpoints.photo.startUpload(
+          asUser(sessionBuilder, member),
+          story.id!,
+          'image/png',
+          100,
+        );
+
+        expect(
+          ticket.key,
+          'families/${family.id}/stories/${story.id}/photos/'
+          '${ticket.photoId}/original.png',
+        );
+        expect(ticket.uploadDescription, isNotEmpty);
+      },
+    );
+
+    test(
+      'when the type is unsupported or the size is out of range '
+      'then VALIDATION',
+      () async {
+        final member = await fx.user();
+        final story = (await familyStory(member)).$2;
+        final as = asUser(sessionBuilder, member);
+        for (final (mime, size, message) in [
+          ('image/gif', 100, 'unsupported image type'),
+          ('image/jpeg', 0, 'photo is empty'),
+          ('image/jpeg', photoMaxBytes + 1, 'photo is too large'),
+        ]) {
+          await expectLater(
+            endpoints.photo.startUpload(as, story.id!, mime, size),
+            throwsAppError(AppErrorCode.validation, message),
+          );
+        }
+      },
+    );
+
+    // BR 78
+    test(
+      'Given story with 20 photos, when attaching 21st, '
+      'then "photo limit reached"',
+      () async {
+        final member = await fx.user();
+        final story = (await familyStory(member)).$2;
+        for (var i = 0; i < 20; i++) {
+          await fx.photo(story, sortOrder: i);
+        }
+        await expectLater(
+          endpoints.photo.startUpload(
+            asUser(sessionBuilder, member),
+            story.id!,
+            'image/jpeg',
+            100,
+          ),
+          throwsAppError(AppErrorCode.photoCap, 'photo limit reached'),
+        );
+      },
+    );
+
+    // BR 27
+    test(
+      'Given parent member (tree reader), when inserting photo on child '
+      'story, then refused',
+      () async {
+        final parentMember = await fx.user();
+        final childMember = await fx.user();
+        final parent = await fx.family(await fx.tree());
+        await fx.join(parent, parentMember);
+        final child = await fx.family(
+          Tree(id: parent.treeId),
+          parentId: parent.id,
+        );
+        await fx.join(child, childMember);
+        final story = await fx.story(child, authorId: childMember);
+
+        await expectLater(
+          endpoints.photo.startUpload(
+            asUser(sessionBuilder, parentMember),
+            story.id!,
+            'image/jpeg',
+            100,
+          ),
+          throwsAppError(AppErrorCode.forbidden),
+        );
+      },
+    );
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

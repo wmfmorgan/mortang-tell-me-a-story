@@ -20,6 +20,8 @@ import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:tell_me_a_story_client/src/protocol/dto/photo_dto.dart'
     as _ighpoo1p;
+import 'package:tell_me_a_story_client/src/protocol/dto/photo_upload_ticket_dto.dart'
+    as _izmc1ptl;
 
 import 'protocol.dart' as _il2as5qe;
 
@@ -365,6 +367,22 @@ class EndpointPhoto extends _isc.EndpointRef {
         'list',
         {'storyId': storyId},
       );
+
+  /// Authorizes an upload of [byteLength] bytes of [mimeType] and returns the
+  /// server-built key with its upload description.
+  _ida.Future<_izmc1ptl.PhotoUploadTicketDto> startUpload(
+    _isc.UuidValue storyId,
+    String mimeType,
+    int byteLength,
+  ) => caller.callServerEndpoint<_izmc1ptl.PhotoUploadTicketDto>(
+    'photo',
+    'startUpload',
+    {
+      'storyId': storyId,
+      'mimeType': mimeType,
+      'byteLength': byteLength,
+    },
+  );
 }
 
 class Modules {

@@ -15,3 +15,4 @@ jwtRefresh:
   - refreshAccessToken:
 photo:
   - list:
+  - startUpload:

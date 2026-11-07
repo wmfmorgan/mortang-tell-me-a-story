@@ -21,6 +21,8 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
 import 'package:serverpod_test/serverpod_test.dart' as _ist;
 import 'package:tell_me_a_story_server/src/generated/dto/photo_dto.dart'
     as _iav5ek9v;
+import 'package:tell_me_a_story_server/src/generated/dto/photo_upload_ticket_dto.dart'
+    as _ir66cl7f;
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
 import 'package:tell_me_a_story_server/src/generated/endpoints.dart';
 export 'package:serverpod_test/serverpod_test_public_exports.dart';
@@ -667,6 +669,43 @@ class _PhotoEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<List<_iav5ek9v.PhotoDto>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ir66cl7f.PhotoUploadTicketDto> startUpload(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue storyId,
+    String mimeType,
+    int byteLength,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'photo',
+            method: 'startUpload',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'photo',
+          methodName: 'startUpload',
+          parameters: _ist.testObjectToJson({
+            'storyId': storyId,
+            'mimeType': mimeType,
+            'byteLength': byteLength,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ir66cl7f.PhotoUploadTicketDto>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
