@@ -171,8 +171,8 @@ class Authz {
           t.deletedAt.equals(null),
     );
     for (final child in children) {
-      if (await effectiveOrigin(child) == story.id &&
-          await isLiveMember(child.id!)) {
+      if (await isLiveMember(child.id!) &&
+          await effectiveOrigin(child) == story.id) {
         return true;
       }
     }

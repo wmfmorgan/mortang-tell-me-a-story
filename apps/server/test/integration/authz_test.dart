@@ -257,24 +257,56 @@ void main() {
         expect(await authzFor(member).canEditStory(gone), isFalse);
       });
 
-      test('members contribute to published stories only', () async {
-        expect(await authzFor(owner).canContribute(published), isTrue);
-        expect(await authzFor(owner).canContribute(draft), isFalse);
-        expect(await authzFor(member).canContribute(draft), isTrue);
-      });
+      test(
+        'members contribute to published stories; authors also to their drafts',
+        () async {
+          expect(await authzFor(owner).canContribute(published), isTrue);
+          expect(await authzFor(owner).canContribute(draft), isFalse);
+          expect(await authzFor(member).canContribute(draft), isTrue);
+        },
+      );
 
       test('origin contributors contribute to the origin story only', () async {
         expect(await authzFor(branchMember).canContribute(origin), isTrue);
         expect(await authzFor(branchMember).canContribute(published), isFalse);
       });
 
-      test('an unpublished origin ends origin contribution', () async {
-        final drafted = await Story.db.updateRow(
+      test('a soft-deleted parent ends origin contribution', () async {
+        expect(await authzFor(branchMember).canContribute(origin), isTrue);
+        await Family.db.updateRow(
           fx.s,
-          origin.copyWith(status: StoryStatus.draft, publishedAt: null),
+          root.copyWith(deletedAt: DateTime.now().toUtc()),
         );
-        expect(await authzFor(branchMember).canContribute(drafted), isFalse);
+        expect(await authzFor(branchMember).canContribute(origin), isFalse);
       });
+
+      test(
+        'a story in a soft-deleted family is unreadable, even to its author',
+        () async {
+          final gone = await fx.story(deletedBranch, authorId: member);
+          expect(await authzFor(member).canReadStory(gone), isFalse);
+          expect(await authzFor(branchMember).canReadStory(gone), isFalse);
+        },
+      );
+
+      test(
+        'members of a soft-deleted child are not origin contributors',
+        () async {
+          final goneChild = await Family.db.insertRow(
+            fx.s,
+            Family(
+              treeId: root.treeId,
+              parentId: root.id,
+              name: 'Gone child',
+              originStoryId: origin.id,
+              deletedAt: DateTime.now().toUtc(),
+            ),
+          );
+          final user = await fx.user();
+          await fx.join(goneChild, user);
+          expect(await authzFor(user).canContribute(origin), isFalse);
+        },
+      );
     });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }
