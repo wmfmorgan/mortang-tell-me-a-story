@@ -481,6 +481,44 @@ class Endpoints extends _is.EndpointDispatch {
                     params['picture'],
                   ),
         ),
+        'listUnlinked': _is.MethodConnector(
+          name: 'listUnlinked',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['people'] as _iqqt4psm.PeopleEndpoint)
+                  .listUnlinked(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'isHomeFamilySteward': _is.MethodConnector(
+          name: 'isHomeFamilySteward',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['people'] as _iqqt4psm.PeopleEndpoint)
+                  .isHomeFamilySteward(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
         'markPassedAway': _is.MethodConnector(
           name: 'markPassedAway',
           params: {

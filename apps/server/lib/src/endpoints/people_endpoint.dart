@@ -181,6 +181,44 @@ class PeopleEndpoint extends Endpoint {
     return (await _toDtos(session, authz, [saved])).single;
   }
 
+  /// The invite picker: people in [familyId]'s tree who are unlinked, not
+  /// passed away, and have no pending invite (not accepted, not revoked,
+  /// unexpired), by name.
+  Future<List<PersonDto>> listUnlinked(
+    Session session,
+    UuidValue familyId,
+  ) async {
+    final authz = Authz(session);
+    final family = await _readableFamily(authz, familyId);
+    if (family == null) throw notFound('family not found');
+    final people = await Person.db.find(
+      session,
+      where: (t) =>
+          t.treeId.equals(family.treeId) &
+          t.userId.equals(null) &
+          t.passedAway.equals(false),
+      orderByList: (t) => [t.name.asc(), t.id.asc()],
+    );
+    if (people.isEmpty) return const [];
+    final invited = await Invite.db.find(
+      session,
+      where: (t) =>
+          t.personId.inSet(people.map((p) => p.id!).toSet()) &
+          t.acceptedAt.equals(null) &
+          t.revokedAt.equals(null) &
+          (t.expiresAt > DateTime.now().toUtc()),
+    );
+    final pending = invited.map((i) => i.personId).toSet();
+    return _toDtos(session, authz, [
+      for (final p in people)
+        if (!pending.contains(p.id)) p,
+    ]);
+  }
+
+  /// Whether the caller is an owner or co-owner of live [familyId].
+  Future<bool> isHomeFamilySteward(Session session, UuidValue familyId) =>
+      Authz(session).isLiveSteward(familyId);
+
   /// Sets or clears a linked person's passed-away flag (old
   /// `mark_passed_away`). Checks in the business-rules.md §4.3 order;
   /// clearing the flag clears the death fields.

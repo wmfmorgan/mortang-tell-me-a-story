@@ -435,6 +435,25 @@ class EndpointPeople extends _isc.EndpointRef {
     },
   );
 
+  /// The invite picker: people in [familyId]'s tree who are unlinked, not
+  /// passed away, and have no pending invite (not accepted, not revoked,
+  /// unexpired), by name.
+  _ida.Future<List<_ippgtqmg.PersonDto>> listUnlinked(
+    _isc.UuidValue familyId,
+  ) => caller.callServerEndpoint<List<_ippgtqmg.PersonDto>>(
+    'people',
+    'listUnlinked',
+    {'familyId': familyId},
+  );
+
+  /// Whether the caller is an owner or co-owner of live [familyId].
+  _ida.Future<bool> isHomeFamilySteward(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<bool>(
+        'people',
+        'isHomeFamilySteward',
+        {'familyId': familyId},
+      );
+
   /// Sets or clears a linked person's passed-away flag (old
   /// `mark_passed_away`). Checks in the business-rules.md §4.3 order;
   /// clearing the flag clears the death fields.

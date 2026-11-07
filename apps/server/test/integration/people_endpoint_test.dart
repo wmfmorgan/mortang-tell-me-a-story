@@ -678,6 +678,134 @@ void main() {
       );
     });
 
+    group('invite picker and steward check', () {
+      // BR 120
+      test(
+        'when listing unlinked people then the whole live tree is covered, '
+        'without linked, passed or pending-invite people; outsider and '
+        'missing family are NOT_FOUND',
+        () async {
+          final inParent = await fx.person(parent, name: 'A parent');
+          final inChild = await fx.person(child, name: 'B child');
+          await fx.person(parent, userId: member, name: 'C linked');
+          await fx.person(child, name: 'D passed', passedAway: true);
+          final invited = await fx.person(parent, name: 'E invited');
+          await fx.invite(parent, personId: invited.id);
+          final expired = await fx.person(parent, name: 'F expired');
+          final expiredInvite = await fx.invite(parent, personId: expired.id);
+          await Invite.db.updateRow(
+            fx.s,
+            expiredInvite.copyWith(
+              createdAt: DateTime.now().toUtc().subtract(
+                const Duration(days: 9),
+              ),
+              expiresAt: DateTime.now().toUtc().subtract(
+                const Duration(days: 1),
+              ),
+            ),
+          );
+          final revoked = await fx.person(parent, name: 'G revoked');
+          final revokedInvite = await fx.invite(parent, personId: revoked.id);
+          await Invite.db.updateRow(
+            fx.s,
+            revokedInvite.copyWith(revokedAt: DateTime.now().toUtc()),
+          );
+
+          final list = await endpoints.people.listUnlinked(
+            as(childMember),
+            child.id!,
+          );
+
+          expect(list.map((p) => p.id), [
+            inParent.id,
+            inChild.id,
+            expired.id,
+            revoked.id,
+          ]);
+          await expectLater(
+            endpoints.people.listUnlinked(as(stranger), parent.id!),
+            throwsAppError(AppErrorCode.notFound, 'family not found'),
+          );
+          await expectLater(
+            endpoints.people.listUnlinked(
+              as(member),
+              UuidValue.fromString(const Uuid().v7()),
+            ),
+            throwsAppError(AppErrorCode.notFound, 'family not found'),
+          );
+        },
+      );
+
+      // BR 105
+      test(
+        'when an unlinked person is flagged then they leave the unlinked list '
+        'and return when cleared; a linked person stays out after unmark',
+        () async {
+          final ada = await fx.person(parent, name: 'Ada');
+          final linked = await fx.person(parent, userId: coOwner, name: 'Co');
+          Future<List<UuidValue>> ids() async =>
+              (await endpoints.people.listUnlinked(
+                as(member),
+                parent.id!,
+              )).map((p) => p.id).toList();
+
+          await endpoints.people.update(
+            as(member),
+            ada.id!,
+            personWrite(passedAway: true, writePassedAway: true),
+            null,
+          );
+          expect(await ids(), isNot(contains(ada.id)));
+
+          await endpoints.people.update(
+            as(member),
+            ada.id!,
+            personWrite(passedAway: false, writePassedAway: true),
+            null,
+          );
+          expect(await ids(), contains(ada.id));
+
+          await endpoints.people.markPassedAway(as(owner), linked.id!, true);
+          await endpoints.people.markPassedAway(as(owner), linked.id!, false);
+          expect(await ids(), isNot(contains(linked.id)));
+        },
+      );
+
+      test(
+        'when asking isHomeFamilySteward then owner and co-owner of the live '
+        'family are true; members and other-family owners are false',
+        () async {
+          expect(
+            await endpoints.people.isHomeFamilySteward(as(owner), parent.id!),
+            isTrue,
+          );
+          expect(
+            await endpoints.people.isHomeFamilySteward(as(coOwner), parent.id!),
+            isTrue,
+          );
+          expect(
+            await endpoints.people.isHomeFamilySteward(as(member), parent.id!),
+            isFalse,
+          );
+          expect(
+            await endpoints.people.isHomeFamilySteward(
+              as(childMember),
+              parent.id!,
+            ),
+            isFalse,
+          );
+          await Family.db.updateRow(
+            fx.s,
+            parent.copyWith(deletedAt: DateTime.now().toUtc()),
+          );
+          expect(
+            await endpoints.people.isHomeFamilySteward(as(owner), parent.id!),
+            isFalse,
+          );
+        },
+      );
+    });
+
     group('markPassedAway', () {
       // BR 103
       test(

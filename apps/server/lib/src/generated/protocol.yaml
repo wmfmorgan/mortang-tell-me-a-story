@@ -20,4 +20,6 @@ people:
   - forEdit:
   - profile:
   - update:
+  - listUnlinked:
+  - isHomeFamilySteward:
   - markPassedAway:

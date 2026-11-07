@@ -846,6 +846,68 @@ class _PeopleEndpoint {
     });
   }
 
+  _ida.Future<List<_ij552cxk.PersonDto>> listUnlinked(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'people',
+            method: 'listUnlinked',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'people',
+          methodName: 'listUnlinked',
+          parameters: _ist.testObjectToJson({'familyId': familyId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_ij552cxk.PersonDto>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<bool> isHomeFamilySteward(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'people',
+            method: 'isHomeFamilySteward',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'people',
+          methodName: 'isHomeFamilySteward',
+          parameters: _ist.testObjectToJson({'familyId': familyId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<bool>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
   _ida.Future<void> markPassedAway(
     _ist.TestSessionBuilder sessionBuilder,
     _is.UuidValue personId,
