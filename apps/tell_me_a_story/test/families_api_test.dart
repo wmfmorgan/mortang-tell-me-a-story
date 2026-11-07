@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
@@ -124,5 +125,21 @@ void main() {
     expect(invite.sentAt, sent);
     expect(invite.createdAt, created);
     expect(invite.expiresAt, expires);
+  });
+
+  test('originErrorCopy keeps the old set-origin messages', () {
+    AppException copy(AppErrorCode code) =>
+        originErrorCopy(AppException(code: code, message: 'server text'))
+            as AppException;
+    expect(
+      copy(AppErrorCode.forbidden).message,
+      'You do not have permission to do that.',
+    );
+    expect(copy(AppErrorCode.forbidden).code, AppErrorCode.forbidden);
+    expect(copy(AppErrorCode.notFound).message, 'Not found.');
+    expect(copy(AppErrorCode.notFound).code, AppErrorCode.notFound);
+    expect(copy(AppErrorCode.validation).message, 'server text');
+    final other = StateError('x');
+    expect(originErrorCopy(other), same(other));
   });
 }

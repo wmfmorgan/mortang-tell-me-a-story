@@ -122,6 +122,33 @@ class OriginDependent {
   final String name;
 }
 
+/// The set-origin copy users saw before the server cutover: forbidden and
+/// not-found get fixed sentences; validation keeps the server's message.
+/// Anything else is returned unchanged.
+Object originErrorCopy(Object error) {
+  if (error is! AppException) return error;
+  return switch (error.code) {
+    AppErrorCode.forbidden => const AppException(
+      code: AppErrorCode.forbidden,
+      message: 'You do not have permission to do that.',
+    ),
+    AppErrorCode.notFound => const AppException(
+      code: AppErrorCode.notFound,
+      message: 'Not found.',
+    ),
+    _ => error,
+  };
+}
+
+/// Runs a set-origin call with [originErrorCopy] applied to its errors.
+Future<T> _withOriginCopy<T>(Future<T> Function() call) async {
+  try {
+    return await withServerErrors(call);
+  } catch (error, stackTrace) {
+    Error.throwWithStackTrace(originErrorCopy(error), stackTrace);
+  }
+}
+
 abstract class FamiliesGateway {
   Future<List<MemberFamily>> listMine();
 
@@ -395,7 +422,7 @@ class FamiliesApi
     required String familyId,
     required String storyId,
   }) {
-    return withServerErrors(
+    return _withOriginCopy(
       () => _client.family.setOrigin(
         server.UuidValue.fromString(familyId),
         server.UuidValue.fromString(storyId),
@@ -405,7 +432,7 @@ class FamiliesApi
 
   @override
   Future<List<OriginDependent>> listOriginDependents(String storyId) async {
-    final rows = await withServerErrors(
+    final rows = await _withOriginCopy(
       () => _client.family.listOriginDependents(
         server.UuidValue.fromString(storyId),
       ),

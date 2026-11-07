@@ -84,9 +84,6 @@ _familyWithJoiner(String owner, String joiner) async {
   );
 }
 
-Matcher _code(AppErrorCode code) =>
-    throwsA(isA<AppException>().having((e) => e.code, 'code', code));
-
 void main() {
   setUpAll(waitForLiveServer);
 
@@ -257,7 +254,15 @@ void main() {
     await expectLater(
       FamiliesApi(client: setup.joinerClient)
           .setFamilyOrigin(familyId: setup.familyId, storyId: storyId),
-      _code(AppErrorCode.forbidden),
+      throwsA(
+        isA<AppException>()
+            .having((e) => e.code, 'code', AppErrorCode.forbidden)
+            .having(
+              (e) => e.message,
+              'message',
+              'You do not have permission to do that.',
+            ),
+      ),
     );
   });
 }
