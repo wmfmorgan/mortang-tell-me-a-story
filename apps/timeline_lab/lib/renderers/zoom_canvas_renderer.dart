@@ -263,7 +263,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
 
   List<Widget> _laneLabels(BuildContext context, double scale, Rect visible) {
     final lanes = familyLaneOrder(data.dataset);
-    final style = Theme.of(context).textTheme.labelMedium;
+    final style = LabText.lane(Theme.of(context).textTheme);
     final left = math.max(0.0, visible.left) + 8 / scale;
     return [
       for (final (i, id) in lanes.indexed)
@@ -287,7 +287,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
         matched: c.matched + (e.matched ? 1 : 0),
       );
     }
-    final style = Theme.of(context).textTheme.labelMedium;
+    final theme = Theme.of(context).textTheme;
     return [
       for (final MapEntry(key: decade, value: c) in counts.entries)
         _pin(
@@ -306,13 +306,24 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
                   height: 2 * (8 + math.sqrt(c.all) * 3),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: labTerracotta.withValues(
-                      alpha: c.matched > 0 ? 0.85 : labDimOpacity,
-                    ),
+                    // Decision D6: filled = has matches, hollow = all dimmed.
+                    color: c.matched > 0 ? labTerracotta : null,
+                    border: c.matched > 0
+                        ? null
+                        : Border.all(
+                            color: labTerracotta,
+                            width: LabMarker.hollow,
+                          ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text('${decade}s · ${c.matched}', style: style),
+                const SizedBox(height: LabSpace.xs),
+                Text('${decade}s', style: LabText.axis(theme)),
+                Text(
+                  c.matched == c.all
+                      ? '${c.all} stories'
+                      : '${c.matched} of ${c.all}',
+                  style: LabText.count(theme),
+                ),
               ],
             ),
           ),
@@ -452,8 +463,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
         ),
       );
     }
-    final chipStyle = Theme.of(context).textTheme.labelMedium
-        ?.copyWith(color: labParchment);
+    final chipStyle = LabText.badge(Theme.of(context).textTheme);
     for (final chip in packed.overflow) {
       if (!inView(chip.x, chip.lane)) continue;
       final shown = [
@@ -479,7 +489,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: labInk,
-                borderRadius: BorderRadius.circular(LabRadius.card),
+                borderRadius: BorderRadius.circular(LabRadius.pill),
               ),
               child: Text('+${shown.length}', style: chipStyle),
             ),

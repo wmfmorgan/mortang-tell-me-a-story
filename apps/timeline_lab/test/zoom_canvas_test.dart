@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timeline_lab/filter/timeline_filter.dart';
 import 'package:timeline_lab/lab_controller.dart';
 import 'package:timeline_lab/renderers/renderer_contract.dart';
 import 'package:timeline_lab/renderers/story_marker.dart';
@@ -101,5 +102,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(_scale(tester), closeTo(2, 1e-6));
     expect(find.byKey(const Key('decade-bubble-2000')), findsNothing);
+  });
+
+  testWidgets('a decade with no matches draws a hollow bubble', (tester) async {
+    final c = LabController()
+      ..setFilter(const TimelineFilter(fromYear: 1990, toYear: 1999));
+    addTearDown(c.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: labTheme(useGoogleFonts: false),
+        home: Scaffold(
+          body: ZoomCanvasTimeline(
+            data: TimelineViewData(
+              dataset: c.dataset,
+              entries: c.entries,
+              mode: c.filter.mode,
+              selectedId: null,
+              onSelect: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    BoxDecoration bubble(int decade) =>
+        tester
+                .widget<Container>(
+                  find
+                      .descendant(
+                        of: find.byKey(Key('decade-bubble-$decade')),
+                        matching: find.byType(Container),
+                      )
+                      .first,
+                )
+                .decoration!
+            as BoxDecoration;
+    expect(bubble(2020).color, isNull);
+    expect(bubble(2020).border, isNotNull);
+    expect(bubble(1990).color, labTerracotta);
   });
 }
