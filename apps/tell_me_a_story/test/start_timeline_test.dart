@@ -935,14 +935,20 @@ void main() {
     );
     await tester.pump();
 
-    manage.error = const AppException(code: AppErrorCode.validation, message: 'too many levels');
+    manage.error = const AppException(
+      code: AppErrorCode.validation,
+      message: 'too many levels',
+    );
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text('too many levels'), findsOneWidget);
     expect(find.textContaining('VALIDATION:'), findsNothing);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
-    manage.error = const AppException(code: AppErrorCode.notFound, message: 'story');
+    manage.error = const AppException(
+      code: AppErrorCode.notFound,
+      message: 'story',
+    );
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(
@@ -951,7 +957,10 @@ void main() {
     );
     expect(find.text('story'), findsNothing);
 
-    manage.error = const AppException(code: AppErrorCode.forbidden, message: 'member only');
+    manage.error = const AppException(
+      code: AppErrorCode.forbidden,
+      message: 'member only',
+    );
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text("You're not a member of Parent anymore."), findsOneWidget);
@@ -967,14 +976,20 @@ void main() {
     expect(find.text('Try again'), findsOneWidget);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
-    manage.error = const AppException(code: AppErrorCode.validation, message: 'create_branch_family returned no id');
+    manage.error = const AppException(
+      code: AppErrorCode.validation,
+      message: 'create_branch_family returned no id',
+    );
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text('Try again'), findsOneWidget);
     expect(find.text('create_branch_family returned no id'), findsNothing);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
-    manage.error = const AppException(code: AppErrorCode.validation, message: 'Request failed');
+    manage.error = const AppException(
+      code: AppErrorCode.validation,
+      message: 'Request failed',
+    );
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text('Try again'), findsOneWidget);
@@ -986,7 +1001,10 @@ void main() {
     tester,
   ) async {
     final manage = _Manage()
-      ..error = const AppException(code: AppErrorCode.notFound, message: 'story');
+      ..error = const AppException(
+        code: AppErrorCode.notFound,
+        message: 'story',
+      );
     await _openForm(
       tester,
       origin: _story(),

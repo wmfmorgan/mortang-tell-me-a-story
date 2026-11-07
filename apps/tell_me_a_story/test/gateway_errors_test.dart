@@ -41,31 +41,37 @@ _Reply _error(int status, String code, String message) =>
 
 void main() {
   group('catalog RPC errors', () {
-    test('PeopleApi.markPassedAway reports FORBIDDEN as AppException', () async {
-      final api = PeopleApi(
-        client: _client(
-          _Http((_) => _error(400, 'P0001', 'FORBIDDEN: not a steward')),
-        ),
-      );
-      await expectLater(
-        api.markPassedAway(personId: 'p1', value: true),
-        throwsA(
-          isA<AppException>()
-              .having((e) => e.code, 'code', AppErrorCode.forbidden)
-              .having((e) => e.message, 'message', 'not a steward'),
-        ),
-      );
-    });
+    test(
+      'PeopleApi.markPassedAway reports FORBIDDEN as AppException',
+      () async {
+        final api = PeopleApi(
+          client: _client(
+            _Http((_) => _error(400, 'P0001', 'FORBIDDEN: not a steward')),
+          ),
+        );
+        await expectLater(
+          api.markPassedAway(personId: 'p1', value: true),
+          throwsA(
+            isA<AppException>()
+                .having((e) => e.code, 'code', AppErrorCode.forbidden)
+                .having((e) => e.message, 'message', 'not a steward'),
+          ),
+        );
+      },
+    );
 
-    test('PeopleApi.markPassedAway leaves an uncatalogued error alone', () async {
-      final api = PeopleApi(
-        client: _client(_Http((_) => _error(500, 'XX000', 'boom'))),
-      );
-      await expectLater(
-        api.markPassedAway(personId: 'p1', value: true),
-        throwsA(isA<PostgrestException>()),
-      );
-    });
+    test(
+      'PeopleApi.markPassedAway leaves an uncatalogued error alone',
+      () async {
+        final api = PeopleApi(
+          client: _client(_Http((_) => _error(500, 'XX000', 'boom'))),
+        );
+        await expectLater(
+          api.markPassedAway(personId: 'p1', value: true),
+          throwsA(isA<PostgrestException>()),
+        );
+      },
+    );
 
     test('StoriesApi.linkPerson reports VALIDATION as AppException', () async {
       final api = StoriesApi(
@@ -89,7 +95,9 @@ void main() {
   group('edge functions without a session', () {
     test('InviteApi reports unauthenticated', () async {
       final api = InviteApi(
-        client: _client(_Http((_) => (status: 200, body: const <String, Object>{}))),
+        client: _client(
+          _Http((_) => (status: 200, body: const <String, Object>{})),
+        ),
       );
       await expectLater(
         api.createInvite(familyId: 'f1'),
@@ -103,7 +111,9 @@ void main() {
 
     test('ManageFamiliesApi reports unauthenticated', () async {
       final api = ManageFamiliesApi(
-        client: _client(_Http((_) => (status: 200, body: const <String, Object>{}))),
+        client: _client(
+          _Http((_) => (status: 200, body: const <String, Object>{})),
+        ),
       );
       await expectLater(
         api.renameFamily(familyId: 'f1', name: 'Morgan'),
@@ -157,12 +167,18 @@ void main() {
 
     test('PeopleApi.personProfile reports NOT_FOUND as AppException', () async {
       final api = PeopleApi(
-        client: _client(_Http((_) => _error(400, 'P0001', 'NOT_FOUND: person'))),
+        client: _client(
+          _Http((_) => _error(400, 'P0001', 'NOT_FOUND: person')),
+        ),
       );
       await expectLater(
         api.personProfile('p1'),
         throwsA(
-          isA<AppException>().having((e) => e.code, 'code', AppErrorCode.notFound),
+          isA<AppException>().having(
+            (e) => e.code,
+            'code',
+            AppErrorCode.notFound,
+          ),
         ),
       );
     });
@@ -174,7 +190,12 @@ void main() {
           _Http((request) {
             final path = request.url.path;
             if (path.endsWith('/rpc/list_family_tree')) {
-              return (status: 200, body: [{'id': 'f1'}]);
+              return (
+                status: 200,
+                body: [
+                  {'id': 'f1'},
+                ],
+              );
             }
             if (path.endsWith('/rpc/person_profile')) {
               return _error(400, 'P0001', 'NOT_FOUND: person');
@@ -196,9 +217,7 @@ void main() {
       );
       await expectLater(
         api.listTreePeople('f1'),
-        throwsA(
-          allOf(isA<StateError>(), isNot(isA<AppException>())),
-        ),
+        throwsA(allOf(isA<StateError>(), isNot(isA<AppException>()))),
       );
     });
   });
@@ -238,7 +257,12 @@ void main() {
   });
   group('StoriesApi.discard', () {
     _Reply storyRow(http.BaseRequest request) => request.method == 'GET'
-        ? (status: 200, body: [{'family_id': 'f1'}])
+        ? (
+            status: 200,
+            body: [
+              {'family_id': 'f1'},
+            ],
+          )
         : (status: 200, body: const <Object>[]);
 
     test('removes the photo objects, then the row', () async {

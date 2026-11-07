@@ -144,7 +144,10 @@ AppException? _originError(Object error) {
     );
   }
   if (raw.contains('NOT_FOUND')) {
-    return const AppException(code: AppErrorCode.notFound, message: 'Not found.');
+    return const AppException(
+      code: AppErrorCode.notFound,
+      message: 'Not found.',
+    );
   }
   if (raw.contains('VALIDATION')) {
     const marker = 'VALIDATION: ';

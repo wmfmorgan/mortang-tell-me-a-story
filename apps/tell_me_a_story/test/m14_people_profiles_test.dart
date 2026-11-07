@@ -702,7 +702,9 @@ void main() {
     expect(thumb.image, isA<MemoryImage>());
   });
 
-  testWidgets('Edit person shows the stored picture from bytes', (tester) async {
+  testWidgets('Edit person shows the stored picture from bytes', (
+    tester,
+  ) async {
     final people = _People()..picture = _png();
     await tester.pumpWidget(
       MaterialApp(
@@ -813,10 +815,7 @@ class _People extends PeopleGateway {
   @override
   Future<PersonProfile?> personProfile(String personId) async {
     if (missing) {
-      throw const AppException(
-        code: AppErrorCode.notFound,
-        message: 'person',
-      );
+      throw const AppException(code: AppErrorCode.notFound, message: 'person');
     }
     return profile;
   }
@@ -824,6 +823,7 @@ class _People extends PeopleGateway {
   @override
   Future<Person?> personForEdit(String personId) async => editor;
 
+  @override
   Future<Uint8List?> pictureBytes({
     required String personId,
     String? path,
@@ -980,7 +980,8 @@ class _Manage implements ManageFamiliesGateway {
   }
 }
 
-Uint8List _png() => Uint8List.fromList(img.encodePng(img.Image(width: 2, height: 2)));
+Uint8List _png() =>
+    Uint8List.fromList(img.encodePng(img.Image(width: 2, height: 2)));
 
 Future<void> _openProfileWith(
   WidgetTester tester,

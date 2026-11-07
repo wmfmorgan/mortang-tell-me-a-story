@@ -2,7 +2,13 @@
 /// (docs/migration/endpoint-contract.md §2.1) for the codes the Supabase
 /// backend produces today, plus [unauthenticated] for calls made without a
 /// session.
-enum AppErrorCode { notFound, forbidden, validation, inviteInvalid, unauthenticated }
+enum AppErrorCode {
+  notFound,
+  forbidden,
+  validation,
+  inviteInvalid,
+  unauthenticated,
+}
 
 /// An expected failure whose [message] is user-facing copy.
 class AppException implements Exception {

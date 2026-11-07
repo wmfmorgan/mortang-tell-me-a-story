@@ -668,9 +668,7 @@ class StoriesApi implements StoriesGateway {
       final path = story.photoPaths.isEmpty ? null : story.photoPaths.first;
       if (path != null && path.isNotEmpty) {
         try {
-          thumb = await _client.storage
-              .from(storyPhotosBucket)
-              .download(path);
+          thumb = await _client.storage.from(storyPhotosBucket).download(path);
         } catch (_) {
           thumb = null;
         }
@@ -784,10 +782,7 @@ class StoriesApi implements StoriesGateway {
   }
 
   @override
-  Future<void> linkPerson({
-    required String storyId,
-    required String personId,
-  }) {
+  Future<void> linkPerson({required String storyId, required String personId}) {
     return withAppErrors(() async {
       try {
         await _client.from('story_people').insert({

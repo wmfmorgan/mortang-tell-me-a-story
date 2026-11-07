@@ -417,10 +417,7 @@ class PeopleApi implements PeopleGateway {
   }
 
   @override
-  Future<void> markPassedAway({
-    required String personId,
-    required bool value,
-  }) {
+  Future<void> markPassedAway({required String personId, required bool value}) {
     return withAppErrors(() async {
       await _client.rpc(
         'mark_passed_away',

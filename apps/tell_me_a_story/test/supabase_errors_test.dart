@@ -66,7 +66,10 @@ void main() {
     });
 
     test('leaves other errors untouched', () async {
-      const raw = PostgrestException(message: 'permission denied', code: '42501');
+      const raw = PostgrestException(
+        message: 'permission denied',
+        code: '42501',
+      );
       await expectLater(
         withAppErrors<void>(() async => throw raw),
         throwsA(same(raw)),

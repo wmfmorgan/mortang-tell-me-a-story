@@ -201,32 +201,36 @@ void main() {
     expect(people.marks, isEmpty);
   });
 
-  testWidgets('with no injected id the profile asks AppSession who is signed in', (
-    tester,
-  ) async {
-    AppSession.instance = const _Session('member');
-    addTearDown(() => AppSession.instance = const SupabaseAppSession());
-    final people = _People()
-      ..profile = const PersonProfile(
-        id: 'p1',
-        familyId: _familyId,
-        name: 'Ada',
-        isLinked: true,
-      )
-      ..editor = const Person(
-        id: 'p1',
-        familyId: _familyId,
-        name: 'Ada',
-        userId: 'member',
-      )
-      ..steward = true;
-    await _openProfile(tester, people);
+  testWidgets(
+    'with no injected id the profile asks AppSession who is signed in',
+    (tester) async {
+      AppSession.instance = const _Session('member');
+      addTearDown(() => AppSession.instance = const SupabaseAppSession());
+      final people = _People()
+        ..profile = const PersonProfile(
+          id: 'p1',
+          familyId: _familyId,
+          name: 'Ada',
+          isLinked: true,
+        )
+        ..editor = const Person(
+          id: 'p1',
+          familyId: _familyId,
+          name: 'Ada',
+          userId: 'member',
+        )
+        ..steward = true;
+      await _openProfile(tester, people);
 
-    expect(find.byType(PersonProfileDialog), findsOneWidget);
-    expect(find.byKey(const Key('person-profile-story-count')), findsOneWidget);
-    // The signed-in user is Ada herself, so the steward check never runs.
-    expect(find.text('Mark as passed away'), findsNothing);
-  });
+      expect(find.byType(PersonProfileDialog), findsOneWidget);
+      expect(
+        find.byKey(const Key('person-profile-story-count')),
+        findsOneWidget,
+      );
+      // The signed-in user is Ada herself, so the steward check never runs.
+      expect(find.text('Mark as passed away'), findsNothing);
+    },
+  );
 
   testWidgets('an unmapped mark error says Try again', (tester) async {
     final people = _People()
