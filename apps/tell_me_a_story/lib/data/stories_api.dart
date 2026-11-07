@@ -1,11 +1,11 @@
 import 'dart:typed_data';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
+import '../core/server/server_client.dart';
 import 'photos_api.dart';
+import 'server/server_errors.dart';
 import 'server/wire.dart';
-import 'supabase_errors.dart';
 
 enum StoryStatus { draft, published }
 
@@ -397,29 +397,6 @@ void ensureValidDraftSave({required DateTime? timeframeStart}) {
   }
 }
 
-/// A retried insert of the same client id. The caller updates that row.
-bool isDuplicateStoryKey(Object error) {
-  if (error is! PostgrestException) return false;
-  if (error.code == '23505') return true;
-  final message = error.message.toLowerCase();
-  return message.contains('duplicate key');
-}
-
-/// Runs [insert]. When a retried create collides on its client-chosen [id],
-/// runs [update] instead, so creating the same draft twice is one draft.
-Future<T> createOrUpdateExisting<T>({
-  required String? id,
-  required Future<T> Function() insert,
-  required Future<T> Function() update,
-}) async {
-  try {
-    return await insert();
-  } catch (error) {
-    if (id == null || !isDuplicateStoryKey(error)) rethrow;
-    return update();
-  }
-}
-
 abstract class StoriesGateway {
   Future<Story> createDraft({
     String? id,
@@ -475,30 +452,21 @@ abstract class StoriesGateway {
     DateTime? now,
   });
 
-  /// Deletes the story and its photo objects. A storage failure keeps the row.
+  /// Deletes the caller's own story with its photos, notes and tags.
   Future<void> discard(String storyId);
 
-  /// One `story_people` insert. Does not replace the story's other people.
+  /// Tags [personId] on the story. Does not replace the story's other
+  /// people; a repeat is a no-op.
   Future<void> linkPerson({required String storyId, required String personId});
 }
 
-/// PostgREST CRUD gateway for family-scoped `stories` rows.
+/// The story gateway on the server's `story` endpoint.
 class StoriesApi implements StoriesGateway {
-  StoriesApi({SupabaseClient? client, PhotosApi? photos})
-    : _client = client ?? Supabase.instance.client,
-      _photosOverride = photos;
+  StoriesApi({server.Client? client}) : _injected = client;
 
-  final SupabaseClient _client;
-  final PhotosApi? _photosOverride;
+  final server.Client? _injected;
 
-  /// Story photo storage that [discard] cleans up.
-  late final PhotosApi _photos = _photosOverride ?? PhotosApi(client: _client);
-
-  static const _storySelect =
-      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, story_people(person_id), photos(id, storage_path, edited_storage_path, edit_version, sort_order), profiles!author_id(display_name, avatar_path)';
-
-  static const _publishedSelect =
-      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, places(label, address), story_people(person_id, people(name, user_id)), profiles!author_id(display_name, avatar_path), photos(id, storage_path, edited_storage_path, edit_version, sort_order), comments(id), perspectives(id)';
+  server.Client get _client => _injected ?? serverClient;
 
   @override
   Future<Story> createDraft({
@@ -516,44 +484,24 @@ class StoriesApi implements StoriesGateway {
     if (!allowUndated) {
       ensureValidDraftSave(timeframeStart: timeframeStart);
     }
-    return createOrUpdateExisting(
-      id: id,
-      insert: () async {
-        final uid = _client.auth.currentUser!.id;
-        final payload = <String, dynamic>{
-          'family_id': familyId,
-          'author_id': uid,
-          'title': storedStoryTitle(title),
-          'body': body?.trim(),
-          'timeframe_start': timeframeStart == null
-              ? null
-              : _date(timeframeStart),
-          'timeframe_end': timeframeEnd == null ? null : _date(timeframeEnd),
-          if (datePrecision != null) 'date_precision': datePrecision,
-          'place_id': placeId,
-          'status': 'draft',
-        };
-        if (id != null) payload['id'] = id;
-        final row = await _client
-            .from('stories')
-            .insert(payload)
-            .select(_storySelect)
-            .single();
-        final story = Story.fromJson(row);
-        await _replacePeople(story.id, personIds);
-        return getStory(story.id);
-      },
-      update: () => updateDraft(
-        storyId: id!,
-        timeframeStart: timeframeStart,
-        timeframeEnd: timeframeEnd,
-        datePrecision: datePrecision,
-        title: title,
-        body: body,
-        placeId: placeId,
-        personIds: personIds,
+    // The server makes a retried create of the same [id] one draft.
+    final dto = await withServerErrors(
+      () => _client.story.createDraft(
+        _uuid(familyId),
+        storyWriteDto(
+          timeframeStart: timeframeStart,
+          timeframeEnd: timeframeEnd,
+          datePrecision: datePrecision,
+          title: title,
+          body: body,
+          placeId: placeId,
+          personIds: personIds,
+        ),
+        id: id == null ? null : _uuid(id),
+        allowUndated: allowUndated,
       ),
     );
+    return Story.fromDto(dto);
   }
 
   @override
@@ -567,19 +515,21 @@ class StoriesApi implements StoriesGateway {
     String? placeId,
     List<String>? personIds,
   }) async {
-    // The bool is ignored on purpose. It only reports "no longer a draft" for autosave (draftsOnly); getStory below returns the row as stored.
-    await _applyStoryWrite(
-      storyId: storyId,
-      draftsOnly: false,
-      timeframeStart: timeframeStart,
-      timeframeEnd: timeframeEnd,
-      datePrecision: datePrecision,
-      title: title,
-      body: body,
-      placeId: placeId,
-      personIds: personIds,
+    final dto = await withServerErrors(
+      () => _client.story.updateDraft(
+        _uuid(storyId),
+        storyWriteDto(
+          timeframeStart: timeframeStart,
+          timeframeEnd: timeframeEnd,
+          datePrecision: datePrecision,
+          title: title,
+          body: body,
+          placeId: placeId,
+          personIds: personIds,
+        ),
+      ),
     );
-    return getStory(storyId);
+    return Story.fromDto(dto);
   }
 
   @override
@@ -593,282 +543,130 @@ class StoriesApi implements StoriesGateway {
     String? placeId,
     List<String>? personIds,
   }) {
-    return _applyStoryWrite(
-      storyId: storyId,
-      draftsOnly: true,
-      timeframeStart: timeframeStart,
-      timeframeEnd: timeframeEnd,
-      datePrecision: datePrecision,
-      title: title,
-      body: body,
-      placeId: placeId,
-      personIds: personIds,
+    return withServerErrors(
+      () => _client.story.autosaveDraft(
+        _uuid(storyId),
+        storyWriteDto(
+          timeframeStart: timeframeStart,
+          timeframeEnd: timeframeEnd,
+          datePrecision: datePrecision,
+          title: title,
+          body: body,
+          placeId: placeId,
+          personIds: personIds,
+        ),
+      ),
     );
   }
 
-  /// Story update plus `story_people` replace. [draftsOnly] is the only fork.
-  Future<bool> _applyStoryWrite({
-    required String storyId,
-    required bool draftsOnly,
-    DateTime? timeframeStart,
-    DateTime? timeframeEnd,
-    String? datePrecision,
-    String? title,
-    String? body,
-    String? placeId,
-    List<String>? personIds,
-  }) async {
-    if (timeframeStart != null) {
-      ensureValidDraftSave(timeframeStart: timeframeStart);
-    }
-    final patch = <String, dynamic>{};
-    if (timeframeStart != null) {
-      patch['timeframe_start'] = _date(timeframeStart);
-    }
-    if (timeframeEnd != null) {
-      patch['timeframe_end'] = _date(timeframeEnd);
-    }
-    if (datePrecision != null) {
-      patch['date_precision'] = datePrecision;
-    }
-    // Null leaves the column alone. A blank string clears a saved title.
-    if (title != null) {
-      patch['title'] = storedStoryTitle(title);
-    }
-    if (body != null) {
-      patch['body'] = body.trim();
-    }
-    if (placeId != null) {
-      patch['place_id'] = placeId.isEmpty ? null : placeId;
-    }
-    if (patch.isNotEmpty) {
-      var update = _client.from('stories').update(patch).eq('id', storyId);
-      if (draftsOnly) {
-        update = update.eq('status', 'draft');
-      }
-      final rows = await update.select('id');
-      if (rows.isEmpty) return false;
-    } else if (draftsOnly) {
-      final rows = await _client
-          .from('stories')
-          .select('id')
-          .eq('id', storyId)
-          .eq('status', 'draft');
-      if (rows.isEmpty) return false;
-    }
-    if (personIds != null) {
-      await _replacePeople(storyId, personIds);
-    }
-    return true;
-  }
+  /// The server checks publish readiness and refuses with `validation`.
+  @override
+  Future<Story> publish(String storyId) async => Story.fromDto(
+    await withServerErrors(() => _client.story.publish(_uuid(storyId))),
+  );
 
   @override
-  Future<Story> publish(String storyId) async {
-    final story = await getStory(storyId);
-    if (!publishReadiness(
-      title: story.title,
-      body: story.body,
-      timeframeStart: story.timeframeStart,
-      personIds: story.personIds,
-      placeId: story.placeId,
-    ).canPublish) {
-      throw ArgumentError('VALIDATION');
-    }
-    await _client
-        .from('stories')
-        .update({
-          'status': 'published',
-          'published_at': DateTime.now().toUtc().toIso8601String(),
-        })
-        .eq('id', storyId);
-    return getStory(storyId);
-  }
+  Future<Story> getStory(String storyId) async => Story.fromDto(
+    await withServerErrors(() => _client.story.get(_uuid(storyId))),
+  );
 
   @override
-  Future<Story> getStory(String storyId) async {
-    final row = await _client
-        .from('stories')
-        .select(_storySelect)
-        .eq('id', storyId)
-        .single();
-    return Story.fromJson(row);
+  Future<Story?> getPublished(String storyId) async {
+    final dto = await withServerErrors(
+      () => _client.story.getPublished(_uuid(storyId)),
+    );
+    return dto == null ? null : Story.fromDto(dto);
   }
 
-  @override
-  Future<Story?> getPublished(String storyId) {
-    return _getPublishedWith(storyId, _storySelect);
-  }
-
-  /// Published stories tagged with [personId], oldest first.
+  /// Published stories tagged with [personId] in live families of its tree,
+  /// oldest first, each with its first photo.
   Future<List<PersonStoryCard>> storiesForPerson(String personId) async {
-    final rows = await _client
-        .from('stories')
-        .select(
-          'id, family_id, author_id, title, body, timeframe_start, timeframe_end, '
-          'date_precision, created_at, place_id, status, published_at, '
-          'places(label), story_people!inner(person_id, people(name)), '
-          'profiles!author_id(display_name, avatar_path), '
-          'photos(id, storage_path, edited_storage_path, edit_version, sort_order)',
-        )
-        .eq('status', 'published')
-        .eq('story_people.person_id', personId)
-        .order('timeframe_start');
-    final cards = <PersonStoryCard>[];
-    for (final row in rows) {
-      final story = Story.fromJson(row);
-      final title = story.title?.trim() ?? '';
-      Uint8List? thumb;
-      final path = story.photoPaths.isEmpty ? null : story.photoPaths.first;
-      if (path != null && path.isNotEmpty) {
-        try {
-          thumb = await _client.storage.from(storyPhotosBucket).download(path);
-        } catch (_) {
-          thumb = null;
-        }
-      }
-      cards.add(
+    final stories = await _stories(
+      () => _client.story.listForPerson(_uuid(personId)),
+    );
+    final thumbs = await downloadFirstThumbs(stories, null, client: _client);
+    return [
+      for (final story in stories)
         PersonStoryCard(
           id: story.id,
-          title: title.isEmpty ? 'Untitled' : title,
+          title: storedStoryTitle(story.title) ?? 'Untitled',
           whenLabel: _profileWhen(story),
           place: story.placeLabel,
           photoCount: story.photoCount,
-          thumbBytes: thumb,
+          thumbBytes: thumbs[story.id],
         ),
-      );
-    }
-    return cards;
+    ];
   }
+
+  /// The caller's drafts, in timeline order with undated drafts last.
+  @override
+  Future<List<Story>> listMyDrafts(String familyId) =>
+      _stories(() => _client.story.listMyDrafts(_uuid(familyId)));
 
   @override
-  Future<List<Story>> listMyDrafts(String familyId) async {
-    final uid = _client.auth.currentUser!.id;
-    final rows = await _client
-        .from('stories')
-        .select(_storySelect)
-        .eq('family_id', familyId)
-        .eq('status', 'draft')
-        .eq('author_id', uid)
-        .order('timeframe_start', nullsFirst: false)
-        .order('date_precision')
-        .order('created_at')
-        .order('id');
-    final stories = rows.map(Story.fromJson).toList();
-    stories.sort(compareStories);
-    return stories;
-  }
+  Future<List<Story>> listPublished(String familyId) =>
+      _stories(() => _client.story.listPublished(_uuid(familyId)));
 
   @override
-  Future<List<Story>> listPublished(String familyId) {
-    return withAppErrors(() async {
-      final rows = await _client
-          .from('stories')
-          .select(_publishedSelect)
-          .eq('family_id', familyId)
-          .eq('status', 'published')
-          .order('timeframe_start')
-          .order('date_precision')
-          .order('created_at')
-          .order('id');
-      return rows.map(Story.fromJson).toList();
-    });
-  }
+  Future<Story?> getPublishedOrigin(String storyId) => getPublished(storyId);
 
-  @override
-  Future<Story?> getPublishedOrigin(String storyId) {
-    return _getPublishedWith(storyId, _publishedSelect);
-  }
-
-  Future<Story?> _getPublishedWith(String storyId, String select) async {
-    final row = await _client
-        .from('stories')
-        .select(select)
-        .eq('id', storyId)
-        .eq('status', 'published')
-        .maybeSingle();
-    if (row == null) return null;
-    return Story.fromJson(row);
-  }
-
+  /// The server's clock sets the window; [now] only matters to fakes.
   @override
   Future<List<Story>> listLatestPublished(
     String familyId, {
     int withinDays = 7,
     int limit = 3,
     DateTime? now,
-  }) async {
-    final cutoff = latestPublishedCutoff(
-      now ?? DateTime.now(),
-      withinDays: withinDays,
-    );
-    final rows = await _client
-        .from('stories')
-        .select(
-          'id, family_id, author_id, title, timeframe_start, timeframe_end, date_precision, status, published_at, photos(id, storage_path, edited_storage_path, edit_version, sort_order)',
-        )
-        .eq('family_id', familyId)
-        .eq('status', 'published')
-        .gte('published_at', cutoff.toUtc().toIso8601String())
-        .order('published_at', ascending: false)
-        .order('id', ascending: false)
-        .limit(limit);
-    return latestShelf(
-      rows.map(Story.fromJson),
-      now: now ?? DateTime.now(),
+  }) => _stories(
+    () => _client.story.listLatestPublished(
+      _uuid(familyId),
       withinDays: withinDays,
       limit: limit,
-    );
-  }
+    ),
+  );
 
   @override
-  Future<void> discard(String storyId) async {
-    final rows = await _client
-        .from('stories')
-        .select('family_id')
-        .eq('id', storyId)
-        .limit(1);
-    final familyId = rows.isEmpty ? null : rows.first['family_id'] as String?;
-    if (familyId != null) {
-      await _photos.deleteAllForStory(familyId: familyId, storyId: storyId);
-    }
-    await _client.from('stories').delete().eq('id', storyId);
-  }
+  Future<void> discard(String storyId) =>
+      withServerErrors(() => _client.story.discard(_uuid(storyId)));
 
   @override
-  Future<void> linkPerson({required String storyId, required String personId}) {
-    return withAppErrors(() async {
-      try {
-        await _client.from('story_people').insert({
-          'story_id': storyId,
-          'person_id': personId,
-        });
-      } on PostgrestException catch (error) {
-        // A retried link: the row this call writes already exists.
-        if (error.code != '23505' ||
-            !error.message.contains('story_people_pkey')) {
-          rethrow;
-        }
-      }
-    });
-  }
+  Future<void> linkPerson({
+    required String storyId,
+    required String personId,
+  }) => withServerErrors(
+    () => _client.story.linkPerson(_uuid(storyId), _uuid(personId)),
+  );
 
-  Future<void> _replacePeople(String storyId, List<String> personIds) async {
-    await _client.from('story_people').delete().eq('story_id', storyId);
-    if (personIds.isEmpty) return;
-    await _client.from('story_people').insert([
-      for (final personId in personIds)
-        {'story_id': storyId, 'person_id': personId},
-    ]);
-  }
+  Future<List<Story>> _stories(
+    Future<List<server.StoryDto>> Function() call,
+  ) async => [
+    for (final dto in await withServerErrors(call)) Story.fromDto(dto),
+  ];
 }
 
-/// Writes calendar dates as `YYYY-MM-DD` for Postgres `date` columns.
-String _date(DateTime value) {
-  final y = value.year.toString().padLeft(4, '0');
-  final m = value.month.toString().padLeft(2, '0');
-  final d = value.day.toString().padLeft(2, '0');
-  return '$y-$m-$d';
-}
+server.UuidValue _uuid(String id) => server.UuidValue.fromString(id);
+
+/// The server's write payload for the [StoriesGateway] fields. A null field
+/// keeps the stored value, an empty [placeId] clears the place, and a
+/// [personIds] list, even an empty one, replaces the tags.
+server.StoryWriteDto storyWriteDto({
+  DateTime? timeframeStart,
+  DateTime? timeframeEnd,
+  String? datePrecision,
+  String? title,
+  String? body,
+  String? placeId,
+  List<String>? personIds,
+}) => server.StoryWriteDto(
+  dateStart: toWireDate(timeframeStart),
+  dateEnd: toWireDate(timeframeEnd),
+  datePrecision: precisionFromName(datePrecision),
+  title: title,
+  body: body,
+  placeId: placeId == null || placeId.isEmpty ? null : _uuid(placeId),
+  clearPlace: placeId != null && placeId.isEmpty,
+  personIds: personIds == null ? null : [for (final id in personIds) _uuid(id)],
+);
 
 int decadeStartYear(DateTime start) => (start.year ~/ 10) * 10;
 
@@ -942,30 +740,58 @@ StoryStatus _storyStatusFrom(String raw) {
   };
 }
 
-/// First photo of each story. A missing or empty file is omitted.
-/// A null gateway downloads nothing unless a story has a photo path, in
-/// which case it uses [PhotosApi].
+/// First photo of each story, by story id. A missing or empty blob is
+/// omitted, and a failed fetch leaves every thumb blank. With [photos]
+/// (tests) each key is downloaded once; without it all keys are fetched in
+/// one `media.getMany` call on [client] (default [serverClient]).
 Future<Map<String, Uint8List>> downloadFirstThumbs(
   List<Story> stories,
-  PhotosGateway? photos,
-) async {
-  final gateway = switch (photos) {
-    final given? => given,
-    null when stories.any((story) => story.photoPaths.isNotEmpty) =>
-      PhotosApi(),
-    null => null,
+  PhotosGateway? photos, {
+  server.Client? client,
+}) async {
+  final keys = {
+    for (final story in stories)
+      if (story.photoPaths.isNotEmpty) story.photoPaths.first,
   };
-  if (gateway == null) return const {};
+  if (keys.isEmpty) return const {};
+  final bytes = photos == null
+      ? await _getMany(client, keys)
+      : await _downloadEach(photos, keys);
   final out = <String, Uint8List>{};
-  final seen = <String, Uint8List>{};
   for (final story in stories) {
     if (story.photoPaths.isEmpty) continue;
-    final path = story.photoPaths.first;
+    final data = bytes[story.photoPaths.first];
+    if (data != null && data.isNotEmpty) out[story.id] = data;
+  }
+  return out;
+}
+
+Future<Map<String, Uint8List>> _getMany(
+  server.Client? client,
+  Set<String> keys,
+) async {
+  try {
+    final blobs = await withServerErrors(
+      () => (client ?? serverClient).media.getMany(keys.toList()),
+    );
+    return {
+      for (final MapEntry(:key, :value) in blobs.entries)
+        key: Uint8List.sublistView(value),
+    };
+  } catch (_) {
+    // Missing thumbs stay parchment blanks.
+    return const {};
+  }
+}
+
+Future<Map<String, Uint8List>> _downloadEach(
+  PhotosGateway photos,
+  Set<String> keys,
+) async {
+  final out = <String, Uint8List>{};
+  for (final key in keys) {
     try {
-      final cached = seen[path];
-      final bytes = cached ?? await gateway.downloadBytes(path);
-      if (cached == null) seen[path] = bytes;
-      if (bytes.isNotEmpty) out[story.id] = bytes;
+      out[key] = await photos.downloadBytes(key);
     } catch (_) {
       // A missing thumb stays a parchment blank.
     }

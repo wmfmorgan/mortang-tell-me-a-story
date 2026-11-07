@@ -8,8 +8,6 @@ import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/data/photos_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
 
 typedef _Reply = ({int status, Object body});
 
@@ -72,24 +70,6 @@ void main() {
         );
       },
     );
-
-    test('StoriesApi.linkPerson reports VALIDATION as AppException', () async {
-      final api = StoriesApi(
-        client: _client(
-          _Http(
-            (_) => _error(400, 'P0001', 'VALIDATION: Already on this story'),
-          ),
-        ),
-      );
-      await expectLater(
-        api.linkPerson(storyId: 's1', personId: 'p1'),
-        throwsA(
-          isA<AppException>()
-              .having((e) => e.code, 'code', AppErrorCode.validation)
-              .having((e) => e.message, 'message', 'Already on this story'),
-        ),
-      );
-    });
   });
 
   group('edge functions without a session', () {
@@ -219,96 +199,6 @@ void main() {
         api.listTreePeople('f1'),
         throwsA(allOf(isA<StateError>(), isNot(isA<AppException>()))),
       );
-    });
-  });
-  group('StoriesApi.linkPerson duplicates', () {
-    test('an existing story_people row counts as linked', () async {
-      final api = StoriesApi(
-        client: _client(
-          _Http(
-            (_) => _error(
-              409,
-              '23505',
-              'duplicate key value violates unique constraint "story_people_pkey"',
-            ),
-          ),
-        ),
-      );
-      await api.linkPerson(storyId: 's1', personId: 'p1');
-    });
-
-    test('a duplicate on another constraint still fails', () async {
-      final api = StoriesApi(
-        client: _client(
-          _Http(
-            (_) => _error(
-              409,
-              '23505',
-              'duplicate key value violates unique constraint "photos_pkey"',
-            ),
-          ),
-        ),
-      );
-      await expectLater(
-        api.linkPerson(storyId: 's1', personId: 'p1'),
-        throwsA(isA<PostgrestException>()),
-      );
-    });
-  });
-  group('StoriesApi.discard', () {
-    _Reply storyRow(http.BaseRequest request) => request.method == 'GET'
-        ? (
-            status: 200,
-            body: [
-              {'family_id': 'f1'},
-            ],
-          )
-        : (status: 200, body: const <Object>[]);
-
-    test('removes the photo objects, then the row', () async {
-      final log = <String>[];
-      final transport = _Http((request) {
-        log.add('${request.method} ${request.url.path}');
-        return storyRow(request);
-      });
-      final client = _client(transport);
-      final api = StoriesApi(
-        client: client,
-        photos: PhotosApi(
-          client: client,
-          listStoryObjects: (prefix) async {
-            log.add('list $prefix');
-            return ['ph1.jpg', 'ph1.edited.2.jpg'];
-          },
-          removeObjects: (paths) async {
-            log.add('remove ${paths.join(',')}');
-          },
-        ),
-      );
-
-      await api.discard('s1');
-
-      expect(log, [
-        'GET /rest/v1/stories',
-        'list f1/s1',
-        'remove f1/s1/ph1.jpg,f1/s1/ph1.edited.2.jpg',
-        'DELETE /rest/v1/stories',
-      ]);
-    });
-
-    test('keeps the row when photo cleanup fails', () async {
-      final transport = _Http(storyRow);
-      final client = _client(transport);
-      final api = StoriesApi(
-        client: client,
-        photos: PhotosApi(
-          client: client,
-          listStoryObjects: (_) async => throw Exception('storage'),
-        ),
-      );
-
-      await expectLater(api.discard('s1'), throwsA(isA<Exception>()));
-      expect(transport.calls, ['GET /rest/v1/stories']);
     });
   });
 }

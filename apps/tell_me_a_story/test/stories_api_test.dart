@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
@@ -263,67 +262,64 @@ void main() {
     expect(hits, isEmpty);
   });
 
-  test('isDuplicateStoryKey matches a stories primary key collision', () {
-    expect(
-      isDuplicateStoryKey(
-        const PostgrestException(
-          message:
-              'duplicate key value violates unique constraint "stories_pkey"',
-          code: '23505',
-        ),
-      ),
-      isTrue,
-    );
-    expect(isDuplicateStoryKey(StateError('network')), isFalse);
+  group('storyWriteDto', () {
+    test('sends wire dates, the precision, text, place and people', () {
+      final dto = storyWriteDto(
+        timeframeStart: DateTime(1987, 3, 1),
+        timeframeEnd: DateTime(1987, 3, 31),
+        datePrecision: 'month',
+        title: 'Harbor',
+        body: 'A day on the water',
+        placeId: _placeId.toString(),
+        personIds: [_personA.toString(), _personB.toString()],
+      );
+
+      expect(dto.dateStart, DateTime.utc(1987, 3, 1));
+      expect(dto.dateEnd, DateTime.utc(1987, 3, 31));
+      expect(dto.datePrecision, server.DatePrecision.month);
+      expect(dto.title, 'Harbor');
+      expect(dto.body, 'A day on the water');
+      expect(dto.placeId, _placeId);
+      expect(dto.clearPlace, isFalse);
+      expect(dto.personIds, [_personA, _personB]);
+    });
+
+    test('null fields stay null so the server keeps them', () {
+      final dto = storyWriteDto();
+
+      expect(dto.dateStart, isNull);
+      expect(dto.dateEnd, isNull);
+      expect(dto.datePrecision, isNull);
+      expect(dto.title, isNull);
+      expect(dto.body, isNull);
+      expect(dto.placeId, isNull);
+      expect(dto.clearPlace, isFalse);
+      expect(dto.personIds, isNull);
+    });
+
+    test('an empty place id clears the place', () {
+      final dto = storyWriteDto(placeId: '');
+
+      expect(dto.placeId, isNull);
+      expect(dto.clearPlace, isTrue);
+    });
+
+    test('an empty person list replaces the tags with none', () {
+      expect(storyWriteDto(personIds: const []).personIds, isEmpty);
+    });
   });
 
-  group('createOrUpdateExisting', () {
-    test('a duplicate client id runs the update', () async {
-      final calls = <String>[];
-      final result = await createOrUpdateExisting<String>(
-        id: 's1',
-        insert: () async {
-          calls.add('insert');
-          throw const PostgrestException(
-            message:
-                'duplicate key value violates unique constraint "stories_pkey"',
-            code: '23505',
-          );
-        },
-        update: () async {
-          calls.add('update');
-          return 'updated';
-        },
-      );
-      expect(result, 'updated');
-      expect(calls, ['insert', 'update']);
-    });
+  test('createDraft refuses a missing date before calling the server', () {
+    expect(
+      StoriesApi().createDraft(familyId: _familyId.toString(), title: 'Jam'),
+      throwsArgumentError,
+    );
+  });
 
-    test('without a client id the duplicate is rethrown', () async {
-      await expectLater(
-        createOrUpdateExisting<String>(
-          id: null,
-          insert: () async => throw const PostgrestException(
-            message: 'duplicate key value',
-            code: '23505',
-          ),
-          update: () async => 'updated',
-        ),
-        throwsA(isA<PostgrestException>()),
-      );
-    });
+  test('downloadFirstThumbs without photos asks nobody', () async {
+    final thumbs = await downloadFirstThumbs([_storyWithPaths(const [])], null);
 
-    test('other insert errors are rethrown', () async {
-      final error = StateError('network');
-      await expectLater(
-        createOrUpdateExisting<String>(
-          id: 's1',
-          insert: () async => throw error,
-          update: () async => 'updated',
-        ),
-        throwsA(same(error)),
-      );
-    });
+    expect(thumbs, isEmpty);
   });
 
   test('downloadFirstThumbs requests each effective path once', () async {
