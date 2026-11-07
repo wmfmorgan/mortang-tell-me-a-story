@@ -286,6 +286,150 @@ class StoryEndpoint extends Endpoint {
       ),
     );
   }
+
+  /// Publishes the caller's own draft after the readiness check. A
+  /// non-author editor gets `FORBIDDEN: field is locked`. Publishing a
+  /// published story returns it unchanged.
+  Future<StoryDto> publish(Session session, UuidValue storyId) async {
+    final story = await _editable(session, storyId);
+    if (story.authorId != Authz(session).userId) {
+      throw forbidden('field is locked');
+    }
+    final published = await session.db.transaction<Story?>((t) async {
+      final row = await Story.db.findById(
+        session,
+        storyId,
+        transaction: t,
+        lockMode: LockMode.forUpdate,
+      );
+      if (row == null) throw forbidden();
+      if (row.status == StoryStatus.published) return null;
+      final tagCount = await StoryPerson.db.count(
+        session,
+        where: (r) => r.storyId.equals(storyId),
+        transaction: t,
+      );
+      _requireReady(row, tagCount);
+      final now = DateTime.now().toUtc();
+      return Story.db.updateRow(
+        session,
+        row.copyWith(
+          status: StoryStatus.published,
+          publishedAt: now,
+          updatedAt: now,
+        ),
+        transaction: t,
+      );
+    });
+    if (published == null) return get(session, storyId);
+    await _postIfPublished(session, published);
+    return _dto(session, published);
+  }
+
+  /// The story when it is published and readable by the caller, else null.
+  /// Serves both the app's getPublished and getPublishedOrigin.
+  Future<StoryDto?> getPublished(Session session, UuidValue storyId) async {
+    final story = await _readable(session, storyId);
+    if (story == null || story.status != StoryStatus.published) return null;
+    return _dto(session, story);
+  }
+
+  /// The caller's drafts in live [familyId], in timeline order (undated
+  /// last).
+  Future<List<StoryDto>> listMyDrafts(
+    Session session,
+    UuidValue familyId,
+  ) async {
+    final authz = Authz(session);
+    final uid = authz.requireUser();
+    await authz.requireLiveMember(familyId);
+    final stories = await Story.db.find(
+      session,
+      where: (t) =>
+          t.familyId.equals(familyId) &
+          t.status.equals(StoryStatus.draft) &
+          t.authorId.equals(uid),
+      orderByList: _timelineOrder,
+    );
+    return storyDtos(session, stories);
+  }
+
+  /// [familyId]'s published stories in timeline order (schema-design §0.5).
+  Future<List<StoryDto>> listPublished(
+    Session session,
+    UuidValue familyId,
+  ) async {
+    await _requireFamilyReader(session, familyId);
+    final stories = await Story.db.find(
+      session,
+      where: (t) =>
+          t.familyId.equals(familyId) & t.status.equals(StoryStatus.published),
+      orderByList: _timelineOrder,
+    );
+    return storyDtos(session, stories);
+  }
+
+  /// Published in the last [withinDays] days, newest first (`latestOrder`),
+  /// at most [limit].
+  Future<List<StoryDto>> listLatestPublished(
+    Session session,
+    UuidValue familyId, {
+    int withinDays = 7,
+    int limit = 3,
+  }) async {
+    await _requireFamilyReader(session, familyId);
+    final cutoff = DateTime.now().toUtc().subtract(Duration(days: withinDays));
+    final stories = await Story.db.find(
+      session,
+      where: (t) =>
+          t.familyId.equals(familyId) &
+          t.status.equals(StoryStatus.published) &
+          (t.publishedAt >= cutoff),
+      orderByList: (t) => [t.publishedAt.desc(), t.id.desc()],
+      limit: limit,
+    );
+    return storyDtos(session, stories);
+  }
+
+  /// Published stories in live families of the person's tree that tag
+  /// [personId], oldest first. A person outside the caller's tree is
+  /// `NOT_FOUND: person`.
+  Future<List<StoryDto>> listForPerson(
+    Session session,
+    UuidValue personId,
+  ) async {
+    final person = await Person.db.findById(session, personId);
+    if (person == null || !await Authz(session).isTreeMemberOf(person.treeId)) {
+      throw notFound('person');
+    }
+    final tags = await StoryPerson.db.find(
+      session,
+      where: (t) => t.personId.equals(personId),
+    );
+    if (tags.isEmpty) return [];
+    final liveFamilies = await Family.db.find(
+      session,
+      where: (t) => t.treeId.equals(person.treeId) & t.deletedAt.equals(null),
+    );
+    final stories = await Story.db.find(
+      session,
+      where: (t) =>
+          t.id.inSet(<UuidValue>{for (final tag in tags) tag.storyId}) &
+          t.status.equals(StoryStatus.published) &
+          t.familyId.inSet(<UuidValue>{for (final f in liveFamilies) f.id!}),
+      orderByList: _timelineOrder,
+    );
+    return storyDtos(session, stories);
+  }
+
+  /// Published stories of [familyId] are readable by its live members and
+  /// tree readers (business-rules §2.5); everyone else is FORBIDDEN.
+  Future<void> _requireFamilyReader(
+    Session session,
+    UuidValue familyId,
+  ) async {
+    if (!await Authz(session).isTreeReadable(familyId)) throw forbidden();
+  }
 }
 
 // ── helpers
@@ -294,4 +438,25 @@ class StoryEndpoint extends Endpoint {
 String? _text(String? value) {
   final trimmed = value?.trim();
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
+}
+
+/// `timelineOrder` (schema-design §0.5): dateStart, datePrecision,
+/// createdAt, id ascending. Undated drafts sort last (Postgres ASC puts
+/// NULLs last).
+List<Order> _timelineOrder(StoryTable t) => [
+  t.dateStart.asc(),
+  t.datePrecision.asc(),
+  t.createdAt.asc(),
+  t.id.asc(),
+];
+
+/// The app's publish readiness (`publishReadiness`, stories_api.dart:314),
+/// now on the server. The date comes first: it is the business-rules §4.4
+/// rule.
+void _requireReady(Story story, int tagCount) {
+  if (story.dateStart == null) throw validation('date required');
+  if ((story.title ?? '').trim().isEmpty) throw validation('title required');
+  if ((story.body ?? '').trim().isEmpty) throw validation('body required');
+  if (tagCount == 0) throw validation('person required');
+  if (story.placeId == null) throw validation('place required');
 }

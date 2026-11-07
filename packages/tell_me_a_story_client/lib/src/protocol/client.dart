@@ -431,6 +431,70 @@ class EndpointStory extends _isc.EndpointRef {
       'personId': personId,
     },
   );
+
+  /// Publishes the caller's own draft after the readiness check. A
+  /// non-author editor gets `FORBIDDEN: field is locked`. Publishing a
+  /// published story returns it unchanged.
+  _ida.Future<_ilx6iivj.StoryDto> publish(_isc.UuidValue storyId) =>
+      caller.callServerEndpoint<_ilx6iivj.StoryDto>(
+        'story',
+        'publish',
+        {'storyId': storyId},
+      );
+
+  /// The story when it is published and readable by the caller, else null.
+  /// Serves both the app's getPublished and getPublishedOrigin.
+  _ida.Future<_ilx6iivj.StoryDto?> getPublished(_isc.UuidValue storyId) =>
+      caller.callServerEndpoint<_ilx6iivj.StoryDto?>(
+        'story',
+        'getPublished',
+        {'storyId': storyId},
+      );
+
+  /// The caller's drafts in live [familyId], in timeline order (undated
+  /// last).
+  _ida.Future<List<_ilx6iivj.StoryDto>> listMyDrafts(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+        'story',
+        'listMyDrafts',
+        {'familyId': familyId},
+      );
+
+  /// [familyId]'s published stories in timeline order (schema-design §0.5).
+  _ida.Future<List<_ilx6iivj.StoryDto>> listPublished(
+    _isc.UuidValue familyId,
+  ) => caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+    'story',
+    'listPublished',
+    {'familyId': familyId},
+  );
+
+  /// Published in the last [withinDays] days, newest first (`latestOrder`),
+  /// at most [limit].
+  _ida.Future<List<_ilx6iivj.StoryDto>> listLatestPublished(
+    _isc.UuidValue familyId, {
+    required int withinDays,
+    required int limit,
+  }) => caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+    'story',
+    'listLatestPublished',
+    {
+      'familyId': familyId,
+      'withinDays': withinDays,
+      'limit': limit,
+    },
+  );
+
+  /// Published stories in live families of the person's tree that tag
+  /// [personId], oldest first. A person outside the caller's tree is
+  /// `NOT_FOUND: person`.
+  _ida.Future<List<_ilx6iivj.StoryDto>> listForPerson(
+    _isc.UuidValue personId,
+  ) => caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+    'story',
+    'listForPerson',
+    {'personId': personId},
+  );
 }
 
 class Modules {

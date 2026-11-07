@@ -622,5 +622,395 @@ void main() {
         },
       );
     });
+
+    group('publish', () {
+      // BR 63
+      test(
+        'when a dateless draft is published then VALIDATION "date required"; '
+        'with dates set it publishes',
+        () async {
+          final ready = await c.ready();
+          final draft = await endpoints.story.createDraft(
+            by(c.author),
+            c.family.id!,
+            write(
+              title: ready.title,
+              body: ready.body,
+              placeId: ready.placeId,
+              personIds: ready.personIds,
+            ),
+            allowUndated: true,
+          );
+          await expectLater(
+            endpoints.story.publish(by(c.author), draft.id),
+            throwsAppError(AppErrorCode.validation, 'date required'),
+          );
+          await endpoints.story.updateDraft(
+            by(c.author),
+            draft.id,
+            write(dateStart: DateTime.utc(1950), datePrecision: DatePrecision.year),
+          );
+          final dto = await endpoints.story.publish(by(c.author), draft.id);
+          expect(dto.status, StoryStatus.published);
+          expect(dto.publishedAt, isNotNull);
+        },
+      );
+
+      test(
+        'when a draft misses a title, body, person or place then VALIDATION '
+        'names what is missing',
+        () async {
+          final ready = await c.ready();
+          final cases = {
+            'title required': write(title: ' '),
+            'body required': write(body: ''),
+            'person required': write(personIds: []),
+            'place required': write(clearPlace: true),
+          };
+          for (final MapEntry(key: message, value: gap) in cases.entries) {
+            final draft = await endpoints.story.createDraft(
+              by(c.author),
+              c.family.id!,
+              ready, allowUndated: false,
+            );
+            await endpoints.story.updateDraft(by(c.author), draft.id, gap);
+            await expectLater(
+              endpoints.story.publish(by(c.author), draft.id),
+              throwsAppError(AppErrorCode.validation, message),
+            );
+          }
+        },
+      );
+
+      // BR 72
+      test(
+        'when an owner publishes the author\'s story then FORBIDDEN "field is '
+        'locked"; the owner cannot publish a draft they cannot see',
+        () async {
+          final published = await c.published();
+          await expectLater(
+            endpoints.story.publish(by(c.owner), published.id!),
+            throwsAppError(AppErrorCode.forbidden, 'field is locked'),
+          );
+          final draft = await c.draft();
+          await expectLater(
+            endpoints.story.publish(by(c.owner), draft.id!),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          expect(
+            (await Story.db.findById(fx.s, draft.id!))!.status,
+            StoryStatus.draft,
+          );
+        },
+      );
+
+      test(
+        'when the story is published then one story event with status '
+        'published is posted; publishing again posts nothing',
+        () async {
+          final draft = await endpoints.story.createDraft(
+            by(c.author),
+            c.family.id!,
+            await c.ready(), allowUndated: false,
+          );
+          final family = liveEvents(fx.s, familyChannel(c.family.id!));
+          final first = await endpoints.story.publish(by(c.author), draft.id);
+          final again = await endpoints.story.publish(by(c.author), draft.id);
+          await settle();
+          expect(again.publishedAt, first.publishedAt);
+          expect(family, hasLength(1));
+          expect(family.single.kind, LiveKind.story);
+          expect(family.single.storyId, draft.id);
+          expect(family.single.storyStatus, StoryStatus.published);
+        },
+      );
+    });
+
+    group('reading', () {
+      // BR 68 (story part)
+      test(
+        'when a draft exists then only its author reads it; members, '
+        'stewards and tree readers do not',
+        () async {
+          final draft = await c.draft();
+          final branch = await c.branch();
+          expect(
+            (await endpoints.story.get(by(c.author), draft.id!)).id,
+            draft.id,
+          );
+          for (final user in [c.member, c.owner, c.coOwner, branch.member]) {
+            await expectLater(
+              endpoints.story.get(by(user), draft.id!),
+              throwsAppError(AppErrorCode.notFound, 'story'),
+            );
+          }
+          expect(
+            await endpoints.story.getPublished(by(c.author), draft.id!),
+            isNull,
+          );
+          expect(
+            (await endpoints.story.listMyDrafts(
+              by(c.author),
+              c.family.id!,
+            )).map((s) => s.id),
+            [draft.id],
+          );
+          expect(
+            await endpoints.story.listMyDrafts(by(c.owner), c.family.id!),
+            isEmpty,
+          );
+          expect(
+            await endpoints.story.listPublished(by(c.author), c.family.id!),
+            isEmpty,
+          );
+        },
+      );
+
+      // BR 70
+      test(
+        'when the author publishes then members, stewards and tree readers '
+        'read the story with its tags and place',
+        () async {
+          final draft = await endpoints.story.createDraft(
+            by(c.author),
+            c.family.id!,
+            await c.ready(), allowUndated: false,
+          );
+          await endpoints.story.publish(by(c.author), draft.id);
+          final branch = await c.branch();
+          for (final user in [c.member, c.owner, c.coOwner, branch.member]) {
+            final dto = await endpoints.story.get(by(user), draft.id);
+            expect(dto.people, hasLength(1));
+            expect(dto.placeLabel, 'Home');
+            expect(
+              await endpoints.story.getPublished(by(user), draft.id),
+              isNotNull,
+            );
+            expect(
+              (await endpoints.story.listPublished(
+                by(user),
+                c.family.id!,
+              )).map((s) => s.id),
+              [draft.id],
+            );
+          }
+        },
+      );
+
+      // BR 26 (story part)
+      test(
+        'when a parent member reads a child family then they see its '
+        'published story with tags and place, not its drafts',
+        () async {
+          final branch = await c.branch();
+          final kid = await fx.person(branch.family, name: 'Kid');
+          final place = await fx.place(c.tree);
+          final story = await fx.story(
+            branch.family,
+            authorId: branch.member,
+            placeId: place.id,
+          );
+          await fx.tag(story, kid);
+          final draft = await fx.story(
+            branch.family,
+            authorId: branch.member,
+            status: StoryStatus.draft,
+          );
+          final list = await endpoints.story.listPublished(
+            by(c.member),
+            branch.family.id!,
+          );
+          expect(list.map((s) => s.id), [story.id]);
+          expect(list.single.people.map((p) => p.name), ['Kid']);
+          expect(list.single.placeLabel, 'Home');
+          await expectLater(
+            endpoints.story.get(by(c.member), draft.id!),
+            throwsAppError(AppErrorCode.notFound, 'story'),
+          );
+        },
+      );
+
+      // BR 28 (story part)
+      test(
+        'when a stranger reads a child published story then it is refused',
+        () async {
+          final branch = await c.branch();
+          final story = await fx.story(branch.family, authorId: branch.member);
+          await expectLater(
+            endpoints.story.get(by(c.stranger), story.id!),
+            throwsAppError(AppErrorCode.notFound, 'story'),
+          );
+          expect(
+            await endpoints.story.getPublished(by(c.stranger), story.id!),
+            isNull,
+          );
+          await expectLater(
+            endpoints.story.listPublished(by(c.stranger), branch.family.id!),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+        },
+      );
+
+      // BR 74 (stories)
+      test(
+        'when a member of family A reads family B then they see none of B\'s '
+        'stories',
+        () async {
+          final b = await Clan.of(fx);
+          final story = await b.published();
+          await expectLater(
+            endpoints.story.get(by(c.member), story.id!),
+            throwsAppError(AppErrorCode.notFound, 'story'),
+          );
+          await expectLater(
+            endpoints.story.listPublished(by(c.member), b.family.id!),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          await expectLater(
+            endpoints.story.listLatestPublished(by(c.member), b.family.id!, withinDays: 7, limit: 3,),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          await expectLater(
+            endpoints.story.listMyDrafts(by(c.member), b.family.id!),
+            throwsAppError(AppErrorCode.forbidden, 'member only'),
+          );
+        },
+      );
+
+      // BR 67
+      test(
+        'when stories share a start then they are ordered year, month, day, '
+        'then createdAt',
+        () async {
+          Future<Story> at(DatePrecision precision, DateTime end, int minute) =>
+              Story.db.insertRow(
+                fx.s,
+                Story(
+                  familyId: c.family.id!,
+                  treeId: c.tree.id!,
+                  authorId: c.author,
+                  status: StoryStatus.published,
+                  dateStart: DateTime.utc(1950),
+                  dateEnd: end,
+                  datePrecision: precision,
+                  publishedAt: DateTime.now().toUtc(),
+                  createdAt: DateTime.utc(2026, 1, 1, 0, minute),
+                ),
+              );
+          final day = await at(DatePrecision.day, DateTime.utc(1950), 1);
+          final month = await at(
+            DatePrecision.month,
+            DateTime.utc(1950, 1, 31),
+            2,
+          );
+          final yearLater = await at(
+            DatePrecision.year,
+            DateTime.utc(1950, 12, 31),
+            4,
+          );
+          final year = await at(
+            DatePrecision.year,
+            DateTime.utc(1950, 12, 31),
+            3,
+          );
+          final list = await endpoints.story.listPublished(
+            by(c.member),
+            c.family.id!,
+          );
+          expect(list.map((s) => s.id), [
+            year.id,
+            yearLater.id,
+            month.id,
+            day.id,
+          ]);
+        },
+      );
+
+      test(
+        'when listing the latest then published stories inside the window '
+        'come newest first, at most limit',
+        () async {
+          Future<Story> publishedDaysAgo(int days) async {
+            final story = await c.published();
+            return Story.db.updateRow(
+              fx.s,
+              story.copyWith(
+                publishedAt: DateTime.now().toUtc().subtract(
+                  Duration(days: days, minutes: 1),
+                ),
+              ),
+            );
+          }
+
+          final one = await publishedDaysAgo(1);
+          final two = await publishedDaysAgo(2);
+          final three = await publishedDaysAgo(3);
+          await publishedDaysAgo(10);
+          await c.draft();
+          expect(
+            (await endpoints.story.listLatestPublished(
+              by(c.member),
+              c.family.id!, withinDays: 7, limit: 3,
+            )).map((s) => s.id),
+            [one.id, two.id, three.id],
+          );
+          expect(
+            (await endpoints.story.listLatestPublished(
+              by(c.member),
+              c.family.id!,
+              withinDays: 30,
+              limit: 2,
+            )).map((s) => s.id),
+            [one.id, two.id],
+          );
+        },
+      );
+
+      test(
+        'when listing a person\'s stories then published stories tagging '
+        'them across the tree come oldest first',
+        () async {
+          final person = await fx.person(c.family);
+          final branch = await c.branch();
+          final gone = await c.branch();
+          final s1950 = await c.published();
+          final s1940 = await Story.db.insertRow(
+            fx.s,
+            Story(
+              familyId: branch.family.id!,
+              treeId: c.tree.id!,
+              authorId: branch.member,
+              status: StoryStatus.published,
+              dateStart: DateTime.utc(1940),
+              dateEnd: DateTime.utc(1940, 12, 31),
+              datePrecision: DatePrecision.year,
+              publishedAt: DateTime.now().toUtc(),
+            ),
+          );
+          final draft = await c.draft();
+          final hidden = await fx.story(gone.family, authorId: gone.member);
+          await fx.softDelete(gone.family);
+          await c.published();
+          for (final story in [s1950, s1940, draft, hidden]) {
+            await fx.tag(story, person);
+          }
+          expect(
+            (await endpoints.story.listForPerson(
+              by(c.member),
+              person.id!,
+            )).map((s) => s.id),
+            [s1940.id, s1950.id],
+          );
+          await expectLater(
+            endpoints.story.listForPerson(by(c.stranger), person.id!),
+            throwsAppError(AppErrorCode.notFound, 'person'),
+          );
+        },
+      );
+
+      test('when the story is missing then getPublished is null', () async {
+        expect(await endpoints.story.getPublished(by(c.member), newId()), isNull);
+      });
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

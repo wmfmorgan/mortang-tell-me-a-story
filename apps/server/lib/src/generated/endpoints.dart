@@ -472,6 +472,132 @@ class Endpoints extends _is.EndpointDispatch {
                     params['personId'],
                   ),
         ),
+        'publish': _is.MethodConnector(
+          name: 'publish',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).publish(
+                    session,
+                    params['storyId'],
+                  ),
+        ),
+        'getPublished': _is.MethodConnector(
+          name: 'getPublished',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).getPublished(
+                    session,
+                    params['storyId'],
+                  ),
+        ),
+        'listMyDrafts': _is.MethodConnector(
+          name: 'listMyDrafts',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).listMyDrafts(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'listPublished': _is.MethodConnector(
+          name: 'listPublished',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).listPublished(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'listLatestPublished': _is.MethodConnector(
+          name: 'listLatestPublished',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'withinDays': _is.ParameterDescription(
+              name: 'withinDays',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['story'] as _iiu4mi32.StoryEndpoint)
+                  .listLatestPublished(
+                    session,
+                    params['familyId'],
+                    withinDays: params['withinDays'],
+                    limit: params['limit'],
+                  ),
+        ),
+        'listForPerson': _is.MethodConnector(
+          name: 'listForPerson',
+          params: {
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).listForPerson(
+                    session,
+                    params['personId'],
+                  ),
+        ),
       },
     );
     modules['serverpod_auth_idp'] = _iais.Endpoints()

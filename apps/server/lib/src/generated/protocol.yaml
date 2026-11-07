@@ -19,3 +19,9 @@ story:
   - autosaveDraft:
   - get:
   - linkPerson:
+  - publish:
+  - getPublished:
+  - listMyDrafts:
+  - listPublished:
+  - listLatestPublished:
+  - listForPerson:
