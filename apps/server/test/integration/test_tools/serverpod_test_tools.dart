@@ -28,6 +28,10 @@ import 'package:tell_me_a_story_server/src/generated/dto/person_profile_dto.dart
     as _iabh2694;
 import 'package:tell_me_a_story_server/src/generated/dto/person_write_dto.dart'
     as _imyz5bcs;
+import 'package:tell_me_a_story_server/src/generated/dto/photo_dto.dart'
+    as _iav5ek9v;
+import 'package:tell_me_a_story_server/src/generated/dto/photo_upload_ticket_dto.dart'
+    as _ir66cl7f;
 import 'package:tell_me_a_story_server/src/generated/future_calls.dart'
     as _iggapxvt;
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
@@ -171,7 +175,11 @@ class TestEndpoints {
 
   late final _LiveEndpoint live;
 
+  late final _MediaEndpoint media;
+
   late final _PeopleEndpoint people;
+
+  late final _PhotoEndpoint photo;
 }
 
 class _InternalTestEndpoints extends TestEndpoints
@@ -193,7 +201,15 @@ class _InternalTestEndpoints extends TestEndpoints
       endpoints,
       serializationManager,
     );
+    media = _MediaEndpoint(
+      endpoints,
+      serializationManager,
+    );
     people = _PeopleEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    photo = _PhotoEndpoint(
       endpoints,
       serializationManager,
     );
@@ -731,6 +747,79 @@ class _LiveEndpoint {
   }
 }
 
+class _MediaEndpoint {
+  _MediaEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_idt.ByteData?> get(
+    _ist.TestSessionBuilder sessionBuilder,
+    String key,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'media',
+            method: 'get',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'media',
+          methodName: 'get',
+          parameters: _ist.testObjectToJson({'key': key}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_idt.ByteData?>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<Map<String, _idt.ByteData>> getMany(
+    _ist.TestSessionBuilder sessionBuilder,
+    List<String> keys,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'media',
+            method: 'getMany',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'media',
+          methodName: 'getMany',
+          parameters: _ist.testObjectToJson({'keys': keys}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<Map<String, _idt.ByteData>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
 class _PeopleEndpoint {
   _PeopleEndpoint(
     this._endpointDispatch,
@@ -1052,6 +1141,188 @@ class _PeopleEndpoint {
           endpointPath: 'people',
           methodName: 'delete',
           parameters: _ist.testObjectToJson({'personId': personId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _PhotoEndpoint {
+  _PhotoEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<List<_iav5ek9v.PhotoDto>> list(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue storyId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'photo',
+            method: 'list',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'photo',
+          methodName: 'list',
+          parameters: _ist.testObjectToJson({'storyId': storyId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_iav5ek9v.PhotoDto>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ir66cl7f.PhotoUploadTicketDto> startUpload(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue storyId,
+    String mimeType,
+    int byteLength,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'photo',
+            method: 'startUpload',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'photo',
+          methodName: 'startUpload',
+          parameters: _ist.testObjectToJson({
+            'storyId': storyId,
+            'mimeType': mimeType,
+            'byteLength': byteLength,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ir66cl7f.PhotoUploadTicketDto>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_iav5ek9v.PhotoDto> finishUpload(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue storyId,
+    _is.UuidValue photoId,
+    int sortOrder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'photo',
+            method: 'finishUpload',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'photo',
+          methodName: 'finishUpload',
+          parameters: _ist.testObjectToJson({
+            'storyId': storyId,
+            'photoId': photoId,
+            'sortOrder': sortOrder,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iav5ek9v.PhotoDto>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> delete(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue photoId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'photo',
+            method: 'delete',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'photo',
+          methodName: 'delete',
+          parameters: _ist.testObjectToJson({'photoId': photoId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> setHero(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue storyId,
+    _is.UuidValue photoId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'photo',
+            method: 'setHero',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'photo',
+          methodName: 'setHero',
+          parameters: _ist.testObjectToJson({
+            'storyId': storyId,
+            'photoId': photoId,
+          }),
           serializationManager: _serializationManager,
         );
         var _localReturnValue =

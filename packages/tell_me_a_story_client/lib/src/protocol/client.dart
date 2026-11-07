@@ -26,6 +26,10 @@ import 'package:tell_me_a_story_client/src/protocol/dto/person_profile_dto.dart'
     as _i60h803r;
 import 'package:tell_me_a_story_client/src/protocol/dto/person_write_dto.dart'
     as _i9fxgjdp;
+import 'package:tell_me_a_story_client/src/protocol/dto/photo_dto.dart'
+    as _ighpoo1p;
+import 'package:tell_me_a_story_client/src/protocol/dto/photo_upload_ticket_dto.dart'
+    as _izmc1ptl;
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -387,6 +391,32 @@ class EndpointLive extends _isc.EndpointRef {
       );
 }
 
+/// Authorized blob reads (endpoint-contract.md §2.0): every key is resolved
+/// to the row that holds it and access is checked on that row. Nobody parses
+/// keys. Unknown, unreadable and missing blobs all look the same: null from
+/// [get], absent from [getMany].
+/// {@category Endpoint}
+class EndpointMedia extends _isc.EndpointRef {
+  EndpointMedia(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'media';
+
+  _ida.Future<_idt.ByteData?> get(String key) =>
+      caller.callServerEndpoint<_idt.ByteData?>(
+        'media',
+        'get',
+        {'key': key},
+      );
+
+  _ida.Future<Map<String, _idt.ByteData>> getMany(List<String> keys) =>
+      caller.callServerEndpoint<Map<String, _idt.ByteData>>(
+        'media',
+        'getMany',
+        {'keys': keys},
+      );
+}
+
 /// People are tree-scoped: reads and unlinked edits need a live membership
 /// somewhere in the person's tree (`Authz.isTreeMemberOf(person.treeId)`).
 /// Steward-only actions (mark passed away, delete) check the live home family.
@@ -513,6 +543,80 @@ class EndpointPeople extends _isc.EndpointRef {
       );
 }
 
+/// Story photos (business-rules.md §2.7 without edit save/reset, §4.5; upload
+/// flow schema-design.md §4.2).
+/// {@category Endpoint}
+class EndpointPhoto extends _isc.EndpointRef {
+  EndpointPhoto(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'photo';
+
+  /// The story's photos, hero first.
+  _ida.Future<List<_ighpoo1p.PhotoDto>> list(_isc.UuidValue storyId) =>
+      caller.callServerEndpoint<List<_ighpoo1p.PhotoDto>>(
+        'photo',
+        'list',
+        {'storyId': storyId},
+      );
+
+  /// Authorizes an upload of [byteLength] bytes of [mimeType] and returns the
+  /// server-built key with its upload description.
+  _ida.Future<_izmc1ptl.PhotoUploadTicketDto> startUpload(
+    _isc.UuidValue storyId,
+    String mimeType,
+    int byteLength,
+  ) => caller.callServerEndpoint<_izmc1ptl.PhotoUploadTicketDto>(
+    'photo',
+    'startUpload',
+    {
+      'storyId': storyId,
+      'mimeType': mimeType,
+      'byteLength': byteLength,
+    },
+  );
+
+  /// Verifies the uploaded blob for [photoId], checks its bytes and the cap,
+  /// and writes the row. On any failure the candidate blobs are queued for
+  /// deletion, except when the row already exists (the blob is that row's).
+  _ida.Future<_ighpoo1p.PhotoDto> finishUpload(
+    _isc.UuidValue storyId,
+    _isc.UuidValue photoId,
+    int sortOrder,
+  ) => caller.callServerEndpoint<_ighpoo1p.PhotoDto>(
+    'photo',
+    'finishUpload',
+    {
+      'storyId': storyId,
+      'photoId': photoId,
+      'sortOrder': sortOrder,
+    },
+  );
+
+  /// Deletes the row; its original and edited keys are queued in the same
+  /// transaction.
+  _ida.Future<void> delete(_isc.UuidValue photoId) =>
+      caller.callServerEndpoint<void>(
+        'photo',
+        'delete',
+        {'photoId': photoId},
+      );
+
+  /// Makes [photoId] the hero: one transaction rewrites the story's
+  /// `sortOrder` to 0..n-1 with it first, keeping the others' order.
+  _ida.Future<void> setHero(
+    _isc.UuidValue storyId,
+    _isc.UuidValue photoId,
+  ) => caller.callServerEndpoint<void>(
+    'photo',
+    'setHero',
+    {
+      'storyId': storyId,
+      'photoId': photoId,
+    },
+  );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -554,7 +658,9 @@ class Client extends _isc.ServerpodClientShared {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
     live = EndpointLive(this);
+    media = EndpointMedia(this);
     people = EndpointPeople(this);
+    photo = EndpointPhoto(this);
     modules = Modules(this);
   }
 
@@ -564,7 +670,11 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointLive live;
 
+  late final EndpointMedia media;
+
   late final EndpointPeople people;
+
+  late final EndpointPhoto photo;
 
   late final Modules modules;
 
@@ -573,7 +683,9 @@ class Client extends _isc.ServerpodClientShared {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
     'live': live,
+    'media': media,
     'people': people,
+    'photo': photo,
   };
 
   @override

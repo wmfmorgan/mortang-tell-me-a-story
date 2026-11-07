@@ -16,6 +16,9 @@ jwtRefresh:
 live:
   - watchFamily:
   - watchStory:
+media:
+  - get:
+  - getMany:
 people:
   - listFamily:
   - listTree:
@@ -27,3 +30,9 @@ people:
   - isHomeFamilySteward:
   - markPassedAway:
   - delete:
+photo:
+  - list:
+  - startUpload:
+  - finishUpload:
+  - delete:
+  - setHero:

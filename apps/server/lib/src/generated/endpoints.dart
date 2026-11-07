@@ -23,7 +23,9 @@ import 'package:tell_me_a_story_server/src/generated/future_calls.dart'
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../endpoints/live_endpoint.dart' as _ixgr9pqx;
+import '../endpoints/media_endpoint.dart' as _iaymoujt;
 import '../endpoints/people_endpoint.dart' as _iqqt4psm;
+import '../endpoints/photo_endpoint.dart' as _ihuw68ce;
 export 'future_calls.dart' show ServerpodFutureCallsGetter;
 
 class Endpoints extends _is.EndpointDispatch {
@@ -48,10 +50,22 @@ class Endpoints extends _is.EndpointDispatch {
           'live',
           null,
         ),
+      'media': _iaymoujt.MediaEndpoint()
+        ..initialize(
+          server,
+          'media',
+          null,
+        ),
       'people': _iqqt4psm.PeopleEndpoint()
         ..initialize(
           server,
           'people',
+          null,
+        ),
+      'photo': _ihuw68ce.PhotoEndpoint()
+        ..initialize(
+          server,
+          'photo',
           null,
         ),
     };
@@ -397,6 +411,49 @@ class Endpoints extends _is.EndpointDispatch {
         ),
       },
     );
+    connectors['media'] = _is.EndpointConnector(
+      name: 'media',
+      endpoint: endpoints['media']!,
+      methodConnectors: {
+        'get': _is.MethodConnector(
+          name: 'get',
+          params: {
+            'key': _is.ParameterDescription(
+              name: 'key',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['media'] as _iaymoujt.MediaEndpoint).get(
+                session,
+                params['key'],
+              ),
+        ),
+        'getMany': _is.MethodConnector(
+          name: 'getMany',
+          params: {
+            'keys': _is.ParameterDescription(
+              name: 'keys',
+              type: _is.getType<List<String>>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['media'] as _iaymoujt.MediaEndpoint).getMany(
+                    session,
+                    params['keys'],
+                  ),
+        ),
+      },
+    );
     connectors['people'] = _is.EndpointConnector(
       name: 'people',
       endpoint: endpoints['people']!,
@@ -619,6 +676,135 @@ class Endpoints extends _is.EndpointDispatch {
                   (endpoints['people'] as _iqqt4psm.PeopleEndpoint).delete(
                     session,
                     params['personId'],
+                  ),
+        ),
+      },
+    );
+    connectors['photo'] = _is.EndpointConnector(
+      name: 'photo',
+      endpoint: endpoints['photo']!,
+      methodConnectors: {
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['photo'] as _ihuw68ce.PhotoEndpoint).list(
+                session,
+                params['storyId'],
+              ),
+        ),
+        'startUpload': _is.MethodConnector(
+          name: 'startUpload',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'mimeType': _is.ParameterDescription(
+              name: 'mimeType',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'byteLength': _is.ParameterDescription(
+              name: 'byteLength',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['photo'] as _ihuw68ce.PhotoEndpoint).startUpload(
+                    session,
+                    params['storyId'],
+                    params['mimeType'],
+                    params['byteLength'],
+                  ),
+        ),
+        'finishUpload': _is.MethodConnector(
+          name: 'finishUpload',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'photoId': _is.ParameterDescription(
+              name: 'photoId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'sortOrder': _is.ParameterDescription(
+              name: 'sortOrder',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['photo'] as _ihuw68ce.PhotoEndpoint).finishUpload(
+                    session,
+                    params['storyId'],
+                    params['photoId'],
+                    params['sortOrder'],
+                  ),
+        ),
+        'delete': _is.MethodConnector(
+          name: 'delete',
+          params: {
+            'photoId': _is.ParameterDescription(
+              name: 'photoId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['photo'] as _ihuw68ce.PhotoEndpoint).delete(
+                session,
+                params['photoId'],
+              ),
+        ),
+        'setHero': _is.MethodConnector(
+          name: 'setHero',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'photoId': _is.ParameterDescription(
+              name: 'photoId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['photo'] as _ihuw68ce.PhotoEndpoint).setHero(
+                    session,
+                    params['storyId'],
+                    params['photoId'],
                   ),
         ),
       },

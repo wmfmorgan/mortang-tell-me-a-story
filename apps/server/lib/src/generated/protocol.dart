@@ -11,6 +11,7 @@
 // ignore_for_file: dead_code, unnecessary_type_check
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:typed_data' as _idt;
 import 'package:serverpod/protocol.dart' as _isp;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
@@ -19,6 +20,8 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import 'package:tell_me_a_story_server/src/generated/dto/person_dto.dart'
     as _ij552cxk;
+import 'package:tell_me_a_story_server/src/generated/dto/photo_dto.dart'
+    as _iav5ek9v;
 import 'app_error_code.dart' as _imu8gbx5;
 import 'app_exception.dart' as _it4z223c;
 import 'app_user.dart' as _i2j2xfrn;
@@ -264,7 +267,10 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<List<_is.UuidValue>>,
           _is.getType<List<int>>,
           _is.getType<List<_is.UuidValue>?>,
+          _is.getType<Map<String, _idt.ByteData>>,
+          _is.getType<List<String>>,
           _is.getType<List<_ij552cxk.PersonDto>>,
+          _is.getType<List<_iav5ek9v.PhotoDto>>,
         ],
         modules: const [
           _iais.Protocol.new,
@@ -2467,9 +2473,25 @@ class Protocol extends _is.DatabaseSerializationManager
               : null)
           as T;
     }
+    if (t == Map<String, _idt.ByteData>) {
+      return (data as Map).map(
+            (k, v) =>
+                MapEntry(deserialize<String>(k), deserialize<_idt.ByteData>(v)),
+          )
+          as T;
+    }
+    if (t == List<String>) {
+      return (data as List).map((e) => deserialize<String>(e)).toList() as T;
+    }
     if (t == List<_ij552cxk.PersonDto>) {
       return (data as List)
               .map((e) => deserialize<_ij552cxk.PersonDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_iav5ek9v.PhotoDto>) {
+      return (data as List)
+              .map((e) => deserialize<_iav5ek9v.PhotoDto>(e))
               .toList()
           as T;
     }
