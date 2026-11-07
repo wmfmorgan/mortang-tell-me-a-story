@@ -168,6 +168,8 @@ The test case numbers are business-rules §7. "Port" means rewrite as a Serverpo
 
 **Met on 2026-11-07 at `9e54065`:** format 0 changed; analyze clean for the server and the client; `just server-test` +422; `just test` +708. `just server` booted three times on one dev database: every endpoint route answers 401 without a session, and `serverpod_future_call` holds one row each for `purge-families` and `drain-blobs`. The boot warning about missing foreign keys is expected (schema-design §3.3 caveats).
 
+**Missed by these checks, fixed in `f203a6d`:** `run()` never installed the auth handler, so every signed-in call on a real server failed with HTTP 500 (`UnimplementedError`). The integration tests inject identities through `AuthenticationOverride`, and the boot smoke only checked that anonymous calls get 401, so neither exercised a real token. The Phase 4 planning smoke against `just server` found it. `login_test` now authenticates a real login token through `installAuthenticationHandler`, and Phase 4 adds live client tests (`just test-live`) so this class of bug is caught.
+
 **Decided by the product owner (2026-11-07, roadmap D10–D13):**
 - D10: only the owner of a linked person's live home family sets their death date, through `people.setDeathDate` (added, BR 138). Co-owners still toggle the passed-away flag.
 - D11: a blob uploaded for a story that is deleted before `finishUpload` stays in storage. Accepted; no sweep.
