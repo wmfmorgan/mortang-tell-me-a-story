@@ -30,6 +30,7 @@ family:
   - recover:
   - setOrigin:
   - listOriginDependents:
+  - createBranch:
 place:
   - list:
   - favorites:

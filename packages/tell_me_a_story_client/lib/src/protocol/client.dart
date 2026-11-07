@@ -561,6 +561,29 @@ class EndpointFamily extends _isc.EndpointRef {
     'listOriginDependents',
     {'storyId': storyId},
   );
+
+  /// "Start a new timeline" (business-rules.md §3.2, in that check order).
+  /// The owner and each picked linked member get a linked person in the tree
+  /// (D6d). A lost race on `people_tree_user_uidx` reruns the write once.
+  _ida.Future<_isc.UuidValue> createBranch({
+    required _isc.UuidValue parentFamilyId,
+    required _isc.UuidValue originStoryId,
+    required String name,
+    required int branchYear,
+    required _isc.UuidValue ownerUserId,
+    required List<_isc.UuidValue> personIds,
+  }) => caller.callServerEndpoint<_isc.UuidValue>(
+    'family',
+    'createBranch',
+    {
+      'parentFamilyId': parentFamilyId,
+      'originStoryId': originStoryId,
+      'name': name,
+      'branchYear': branchYear,
+      'ownerUserId': ownerUserId,
+      'personIds': personIds,
+    },
+  );
 }
 
 /// Places are shared by every family in a tree (business-rules.md §2.4, §8

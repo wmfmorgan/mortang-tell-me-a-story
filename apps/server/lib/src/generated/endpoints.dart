@@ -682,6 +682,55 @@ class Endpoints extends _is.EndpointDispatch {
                     params['storyId'],
                   ),
         ),
+        'createBranch': _is.MethodConnector(
+          name: 'createBranch',
+          params: {
+            'parentFamilyId': _is.ParameterDescription(
+              name: 'parentFamilyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'originStoryId': _is.ParameterDescription(
+              name: 'originStoryId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'name': _is.ParameterDescription(
+              name: 'name',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'branchYear': _is.ParameterDescription(
+              name: 'branchYear',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'ownerUserId': _is.ParameterDescription(
+              name: 'ownerUserId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'personIds': _is.ParameterDescription(
+              name: 'personIds',
+              type: _is.getType<List<_is.UuidValue>>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .createBranch(
+                    session,
+                    parentFamilyId: params['parentFamilyId'],
+                    originStoryId: params['originStoryId'],
+                    name: params['name'],
+                    branchYear: params['branchYear'],
+                    ownerUserId: params['ownerUserId'],
+                    personIds: params['personIds'],
+                  ),
+        ),
       },
     );
     connectors['place'] = _is.EndpointConnector(

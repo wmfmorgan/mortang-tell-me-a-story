@@ -901,5 +901,377 @@ void main() {
         },
       );
     });
+
+    group('createBranch', () {
+      late UuidValue parentOwner, starter, owner, coOwner, stranger;
+      late Family parent;
+      late Story origin;
+
+      setUp(() async {
+        parentOwner = await fx.user();
+        starter = await fx.user();
+        owner = await fx.userWithEmail(uniqueEmail(), displayName: 'Xavier');
+        coOwner = await fx.user();
+        stranger = await fx.user();
+        parent = await fx.rootOwnedBy(parentOwner, name: 'Morgans');
+        await fx.join(parent, starter);
+        await fx.join(parent, owner);
+        await fx.join(parent, coOwner, MembershipRole.coOwner);
+        origin = await fx.story(parent);
+      });
+
+      Future<UuidValue> branch(
+        UuidValue caller, {
+        Family? from,
+        UuidValue? originStoryId,
+        String name = 'Branch',
+        int branchYear = 1987,
+        UuidValue? ownerUserId,
+        List<UuidValue> personIds = const [],
+      }) => endpoints.family.createBranch(
+        by(caller),
+        parentFamilyId: (from ?? parent).id!,
+        originStoryId: originStoryId ?? origin.id!,
+        name: name,
+        branchYear: branchYear,
+        ownerUserId: ownerUserId ?? owner,
+        personIds: personIds,
+      );
+
+      Future<int> familyCount() => Family.db.count(
+        fx.s,
+        where: (t) => t.treeId.equals(parent.treeId),
+      );
+
+      // BR 50
+      test(
+        'when a parent member creates " The Morgan-Reyes " for X then the '
+        'branch is trimmed, parented, dated, created by the caller, has the '
+        'origin and exactly one owner X',
+        () async {
+          final id = await branch(starter, name: ' The Morgan-Reyes ');
+          final created = (await Family.db.findById(fx.s, id))!;
+          expect(created.name, 'The Morgan-Reyes');
+          expect(created.parentId, parent.id);
+          expect(created.treeId, parent.treeId);
+          expect(created.branchYear, 1987);
+          expect(created.createdById, starter);
+          expect(created.originStoryId, origin.id);
+          final owners = await Membership.db.find(
+            fx.s,
+            where: (t) =>
+                t.familyId.equals(id) & t.role.equals(MembershipRole.owner),
+          );
+          expect(owners.map((m) => m.userId), [owner]);
+        },
+      );
+
+      // BR 51
+      test(
+        'when the caller is neither picked nor owner then it is not a member '
+        'of the branch and stays owner of the parent',
+        () async {
+          final id = await branch(parentOwner);
+          expect(
+            await fx.roleOf((await Family.db.findById(fx.s, id))!, parentOwner),
+            isNull,
+          );
+          expect(await fx.roleOf(parent, parentOwner), MembershipRole.owner);
+        },
+      );
+
+      // BR 52 (D6d)
+      test(
+        'when people are picked then linked ones become members, unlinked get '
+        'nothing, no people are copied, the owner keeps owner, and the owner '
+        'and each linked member have exactly one linked person in the tree',
+        () async {
+          final linkedUser = await fx.user();
+          await fx.join(parent, linkedUser);
+          final linked = await fx.person(parent, userId: linkedUser);
+          final unlinked = await fx.person(parent, name: 'No account');
+          final ownerPerson = await fx.person(parent, userId: owner);
+          final peopleBefore = await Person.db.count(
+            fx.s,
+            where: (t) => t.treeId.equals(parent.treeId),
+          );
+
+          final id = await branch(
+            starter,
+            personIds: [linked.id!, unlinked.id!, ownerPerson.id!, linked.id!],
+          );
+
+          final created = (await Family.db.findById(fx.s, id))!;
+          final memberships = await Membership.db.find(
+            fx.s,
+            where: (t) => t.familyId.equals(id),
+          );
+          expect(
+            {for (final m in memberships) m.userId: m.role},
+            {owner: MembershipRole.owner, linkedUser: MembershipRole.member},
+          );
+          expect(
+            await Person.db.count(
+              fx.s,
+              where: (t) => t.treeId.equals(created.treeId),
+            ),
+            peopleBefore,
+          );
+          for (final user in [owner, linkedUser]) {
+            expect(await fx.linkedPeople(parent.treeId, user), hasLength(1));
+          }
+        },
+      );
+
+      // BR 52 (D6d: owner without a linked person gets one in the branch)
+      test(
+        'when the owner has no linked person in the tree then one is created '
+        'in the branch with the display name',
+        () async {
+          final id = await branch(starter);
+          final linked = await fx.linkedPeople(parent.treeId, owner);
+          expect(linked, hasLength(1));
+          expect(linked.single.homeFamilyId, id);
+          expect(linked.single.name, 'Xavier');
+        },
+      );
+
+      // BR 115
+      test(
+        'when a user is a member of parent and child then exactly one linked '
+        'person is in the tree',
+        () async {
+          await fx.person(parent, userId: owner);
+          await branch(starter);
+          expect(await fx.linkedPeople(parent.treeId, owner), hasLength(1));
+        },
+      );
+
+      // BR 53
+      test(
+        'when a parent co-owner creates with itself as owner then OK; the new '
+        'owner can change origin and the starter cannot',
+        () async {
+          final id = await branch(coOwner, ownerUserId: coOwner);
+          final other = await fx.story(parent);
+          await endpoints.family.setOrigin(by(coOwner), id, other.id!);
+          final viaStarter = await branch(starter);
+          await expectLater(
+            endpoints.family.setOrigin(by(starter), viaStarter, other.id!),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          expect(
+            (await Family.db.findById(fx.s, id))!.originStoryId,
+            other.id,
+          );
+        },
+      );
+
+      // BR 54
+      test(
+        'when the origin is random, draft, sibling or grandparent then '
+        'NOT_FOUND "story" and no family is written',
+        () async {
+          final draft = await fx.story(parent, status: StoryStatus.draft);
+          final sibling = await fx.childOf(parent, owner: starter);
+          final siblingStory = await fx.story(sibling);
+          final child = await fx.childOf(parent, owner: starter);
+          final before = await familyCount();
+          for (final storyId in [
+            const Uuid().v7obj(),
+            draft.id!,
+            siblingStory.id!,
+          ]) {
+            await expectLater(
+              branch(starter, originStoryId: storyId),
+              throwsAppError(AppErrorCode.notFound, 'story'),
+            );
+          }
+          await expectLater(
+            branch(
+              starter,
+              from: child,
+              originStoryId: origin.id!,
+              ownerUserId: starter,
+            ),
+            throwsAppError(AppErrorCode.notFound, 'story'),
+          );
+          expect(await familyCount(), before);
+        },
+      );
+
+      // BR 55
+      test(
+        'when a stranger, a tree reader who is not a parent member, or a '
+        'missing parent then FORBIDDEN "member only" before story and name',
+        () async {
+          final reader = await fx.user();
+          await fx.childOf(parent, owner: reader);
+          for (final user in [stranger, reader]) {
+            await expectLater(
+              branch(
+                user,
+                originStoryId: const Uuid().v7obj(),
+                name: ' ',
+              ),
+              throwsAppError(AppErrorCode.forbidden, 'member only'),
+            );
+          }
+          await expectLater(
+            endpoints.family.createBranch(
+              by(starter),
+              parentFamilyId: const Uuid().v7obj(),
+              originStoryId: origin.id!,
+              name: 'X',
+              branchYear: 1987,
+              ownerUserId: owner,
+              personIds: const [],
+            ),
+            throwsAppError(AppErrorCode.forbidden, 'member only'),
+          );
+        },
+      );
+
+      // BR 56
+      test(
+        'when the origin is bad and the name blank then NOT_FOUND',
+        () async {
+          await expectLater(
+            branch(starter, originStoryId: const Uuid().v7obj(), name: ' '),
+            throwsAppError(AppErrorCode.notFound, 'story'),
+          );
+        },
+      );
+
+      // BR 57, BR 61 (Dart argument checks)
+      test(
+        'when the name is blank then "name is required"; year 987 or 10000 '
+        'then "attach year must be four digits"',
+        () async {
+          await expectLater(
+            branch(starter, name: ' \t '),
+            throwsAppError(AppErrorCode.validation, 'name is required'),
+          );
+          for (final year in [987, 10000]) {
+            await expectLater(
+              branch(starter, branchYear: year),
+              throwsAppError(
+                AppErrorCode.validation,
+                'attach year must be four digits',
+              ),
+            );
+          }
+        },
+      );
+
+      // BR 58
+      test(
+        'when the owner is not a parent member then VALIDATION "owner must be '
+        'a member of the parent family"',
+        () async {
+          await expectLater(
+            branch(starter, ownerUserId: stranger),
+            throwsAppError(
+              AppErrorCode.validation,
+              'owner must be a member of the parent family',
+            ),
+          );
+        },
+      );
+
+      // BR 59
+      test(
+        'when a picked person is from another family then VALIDATION "members '
+        'must come from the parent family" and nothing is written',
+        () async {
+          final sibling = await fx.childOf(parent, owner: starter);
+          final siblingPerson = await fx.person(sibling);
+          final foreign = await fx.person(await fx.rootOwnedBy(stranger));
+          final before = await familyCount();
+          for (final p in [siblingPerson, foreign]) {
+            await expectLater(
+              branch(starter, personIds: [p.id!]),
+              throwsAppError(
+                AppErrorCode.validation,
+                'members must come from the parent family',
+              ),
+            );
+          }
+          await expectLater(
+            branch(starter, personIds: [const Uuid().v7obj()]),
+            throwsAppError(
+              AppErrorCode.validation,
+              'members must come from the parent family',
+            ),
+          );
+          expect(await familyCount(), before);
+          expect(await fx.linkedPeople(parent.treeId, owner), isEmpty);
+        },
+      );
+
+      // BR 60
+      test(
+        'when the parent is at depth 62 then create succeeds; one deeper is '
+        'VALIDATION "too many levels" and nothing is written',
+        () async {
+          var deepest = parent;
+          for (var depth = 1; depth <= 62; depth++) {
+            deepest = await fx.childOf(deepest, name: 'L$depth');
+          }
+          await fx.join(deepest, owner);
+          final atDepth63 = await branch(
+            owner,
+            from: deepest,
+            originStoryId: (await fx.story(deepest)).id!,
+            ownerUserId: owner,
+          );
+          final deeper = (await Family.db.findById(fx.s, atDepth63))!;
+          final before = await familyCount();
+          await expectLater(
+            branch(
+              owner,
+              from: deeper,
+              originStoryId: (await fx.story(deeper)).id!,
+              ownerUserId: owner,
+            ),
+            throwsAppError(AppErrorCode.validation, 'too many levels'),
+          );
+          expect(await familyCount(), before);
+        },
+      );
+
+      test(
+        'when the owner linked person is inserted concurrently then the lost '
+        'people_tree_user_uidx race reruns once and reuses that person',
+        () async {
+          final racer = sessionBuilder.build();
+          late Person raced;
+          final insert = racer.db.transaction((t) async {
+            raced = await Person.db.insertRow(
+              racer,
+              Person(
+                treeId: parent.treeId,
+                homeFamilyId: parent.id!,
+                userId: owner,
+                name: 'Raced',
+              ),
+              transaction: t,
+            );
+            // Hold the uncommitted row so the endpoint's insert blocks on it.
+            await Future<void>.delayed(const Duration(milliseconds: 500));
+          });
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          final id = await branch(starter);
+          await insert;
+
+          final linked = await fx.linkedPeople(parent.treeId, owner);
+          expect(linked.map((p) => p.id), [raced.id]);
+          expect(
+            await fx.roleOf((await Family.db.findById(fx.s, id))!, owner),
+            MembershipRole.owner,
+          );
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

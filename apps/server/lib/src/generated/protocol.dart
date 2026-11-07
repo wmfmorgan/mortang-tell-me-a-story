@@ -279,6 +279,7 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<List<_i585khmk.TreeFamilyDto>>,
           _is.getType<List<_iaubiddc.FamilyMemberDto>>,
           _is.getType<List<_i0qdi0y3.OriginDependentDto>>,
+          _is.getType<List<_is.UuidValue>>,
           _is.getType<List<_i3xh6672.PlaceDto>>,
         ],
         modules: const [
@@ -2510,6 +2511,10 @@ class Protocol extends _is.DatabaseSerializationManager
       return (data as List)
               .map((e) => deserialize<_i0qdi0y3.OriginDependentDto>(e))
               .toList()
+          as T;
+    }
+    if (t == List<_is.UuidValue>) {
+      return (data as List).map((e) => deserialize<_is.UuidValue>(e)).toList()
           as T;
     }
     if (t == List<_i3xh6672.PlaceDto>) {

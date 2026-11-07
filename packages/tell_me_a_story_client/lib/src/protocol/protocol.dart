@@ -272,6 +272,7 @@ class Protocol extends _isc.SerializationManager
           _isc.getType<List<_iwn4wr2j.TreeFamilyDto>>,
           _isc.getType<List<_ie59njid.FamilyMemberDto>>,
           _isc.getType<List<_i6upf1dr.OriginDependentDto>>,
+          _isc.getType<List<_isc.UuidValue>>,
           _isc.getType<List<_irx46cwk.PlaceDto>>,
         ],
         modules: const [
@@ -799,6 +800,10 @@ class Protocol extends _isc.SerializationManager
       return (data as List)
               .map((e) => deserialize<_i6upf1dr.OriginDependentDto>(e))
               .toList()
+          as T;
+    }
+    if (t == List<_isc.UuidValue>) {
+      return (data as List).map((e) => deserialize<_isc.UuidValue>(e)).toList()
           as T;
     }
     if (t == List<_irx46cwk.PlaceDto>) {

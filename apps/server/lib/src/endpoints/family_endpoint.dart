@@ -9,6 +9,10 @@ import '../generated/protocol.dart';
 /// §3.5); the 3f purge removes it afterwards.
 const recoveryWindow = Duration(days: 60);
 
+/// Branch creation refuses a parent this many levels deep (business-rules.md
+/// §3.2 step 7).
+const maxBranchDepth = 63;
+
 /// Families, memberships and covers (business-rules.md §2.1, §2.2, §3.1–§3.3,
 /// §3.5, §3.6; schema-design.md §3.2). Every write and member read needs a
 /// live family (D6b); only `recover` and the steward reads `listStewarded`,
@@ -462,6 +466,113 @@ ORDER BY f."createdAt", f."id"
           OriginDependentDto(familyId: f.id!, name: f.name),
     ];
   }
+
+  // ── branch ───────────────────────────────────────────────────────────
+
+  /// "Start a new timeline" (business-rules.md §3.2, in that check order).
+  /// The owner and each picked linked member get a linked person in the tree
+  /// (D6d). A lost race on `people_tree_user_uidx` reruns the write once.
+  Future<UuidValue> createBranch(
+    Session session, {
+    required UuidValue parentFamilyId,
+    required UuidValue originStoryId,
+    required String name,
+    required int branchYear,
+    required UuidValue ownerUserId,
+    List<UuidValue> personIds = const [],
+  }) async {
+    final authz = Authz(session);
+    final uid = authz.requireUser();
+    await authz.requireLiveMember(parentFamilyId);
+    final parent = (await Family.db.findById(session, parentFamilyId))!;
+    final story = await Story.db.findById(session, originStoryId);
+    if (story == null ||
+        story.status != StoryStatus.published ||
+        story.familyId != parentFamilyId) {
+      throw notFound('story');
+    }
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) throw validation('name is required');
+    if (branchYear < 1000 || branchYear > 9999) {
+      throw validation('attach year must be four digits');
+    }
+    final ownerMembership = await Membership.db.findFirstRow(
+      session,
+      where: (t) =>
+          t.familyId.equals(parentFamilyId) & t.userId.equals(ownerUserId),
+    );
+    if (ownerMembership == null) {
+      throw validation('owner must be a member of the parent family');
+    }
+    final pickedIds = personIds.toSet();
+    final picked = pickedIds.isEmpty
+        ? const <Person>[]
+        : await Person.db.find(
+            session,
+            where: (t) => t.id.inSet(pickedIds),
+          );
+    if (picked.length != pickedIds.length ||
+        picked.any((p) => p.homeFamilyId != parentFamilyId)) {
+      throw validation('members must come from the parent family');
+    }
+    if (await _depth(session, parent) >= maxBranchDepth) {
+      throw validation('too many levels');
+    }
+    final memberIds = {
+      for (final p in picked)
+        if (p.userId != null) p.userId!,
+    };
+
+    Future<UuidValue> write() => session.db.transaction((t) async {
+      final branch = await Family.db.insertRow(
+        session,
+        Family(
+          treeId: parent.treeId,
+          parentId: parentFamilyId,
+          name: trimmed,
+          branchYear: branchYear,
+          originStoryId: originStoryId,
+          createdById: uid,
+        ),
+        transaction: t,
+      );
+      await Membership.db.insertRow(
+        session,
+        Membership(
+          familyId: branch.id!,
+          userId: ownerUserId,
+          role: MembershipRole.owner,
+        ),
+        transaction: t,
+      );
+      for (final memberId in memberIds.difference({ownerUserId})) {
+        await Membership.db.insertRow(
+          session,
+          Membership(familyId: branch.id!, userId: memberId),
+          transaction: t,
+        );
+      }
+      for (final userId in {ownerUserId, ...memberIds}) {
+        await ensureLinkedPerson(
+          session,
+          treeId: parent.treeId,
+          homeFamilyId: branch.id!,
+          userId: userId,
+          transaction: t,
+        );
+      }
+      return branch.id!;
+    });
+
+    try {
+      return await write();
+    } on DatabaseQueryException catch (e) {
+      if (e.code != '23505' || e.constraintName != 'people_tree_user_uidx') {
+        rethrow;
+      }
+      return write();
+    }
+  }
 }
 
 /// The caller's role per family id, optionally owners and co-owners only.
@@ -539,3 +650,18 @@ Future<void> _setRole(
   columns: (m) => [m.role],
   transaction: t,
 );
+
+/// Ancestors above [family], walking `parentId` (deleted families included,
+/// D8); cycle-safe and capped one past [maxBranchDepth].
+Future<int> _depth(Session session, Family family) async {
+  final seen = {family.id!};
+  var depth = 0;
+  var cursor = family;
+  while (cursor.parentId != null && depth <= maxBranchDepth) {
+    final up = await Family.db.findById(session, cursor.parentId!);
+    if (up == null || !seen.add(up.id!)) break;
+    depth++;
+    cursor = up;
+  }
+  return depth;
+}

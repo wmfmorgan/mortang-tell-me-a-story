@@ -1198,6 +1198,49 @@ class _FamilyEndpoint {
       }
     });
   }
+
+  _ida.Future<_is.UuidValue> createBranch(
+    _ist.TestSessionBuilder sessionBuilder, {
+    required _is.UuidValue parentFamilyId,
+    required _is.UuidValue originStoryId,
+    required String name,
+    required int branchYear,
+    required _is.UuidValue ownerUserId,
+    required List<_is.UuidValue> personIds,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'family',
+            method: 'createBranch',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'family',
+          methodName: 'createBranch',
+          parameters: _ist.testObjectToJson({
+            'parentFamilyId': parentFamilyId,
+            'originStoryId': originStoryId,
+            'name': name,
+            'branchYear': branchYear,
+            'ownerUserId': ownerUserId,
+            'personIds': personIds,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_is.UuidValue>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
 }
 
 class _PlaceEndpoint {
