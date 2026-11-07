@@ -79,6 +79,19 @@ void main() {
       },
     );
 
+    test('a person linked in another tree is not reused', () async {
+      final user = await fx.userWithEmail('ed@example.com');
+      final homeA = await fx.family(await fx.tree());
+      final homeB = await fx.family(await fx.tree());
+
+      final inA = await ensure(homeA, user);
+      final inB = await ensure(homeB, user);
+
+      expect(inB.id, isNot(inA.id));
+      expect(inB.treeId, homeB.treeId);
+      expect(inB.homeFamilyId, homeB.id);
+    });
+
     test(
       'without a display name the email local part, then Member, is used',
       () async {
