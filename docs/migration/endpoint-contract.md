@@ -255,7 +255,7 @@ class FamilyEndpoint extends Endpoint {
 // ── invites ─────────────────────────────────────────────────────────────
 class InviteEndpoint extends Endpoint {
   Future<CreatedInviteDto> create(Session s, UuidValue familyId, {String? email, UuidValue? personId});
-  Future<void> sendEmail(Session s, UuidValue inviteId);
+  Future<void> sendEmail(Session s, UuidValue inviteId, String token); // token = the raw token create returned; only its hash is stored, so the server can't rebuild the link without it. sha256(token) must equal tokenHash (constant time), else AppErrorCode.inviteInvalid
   Future<UuidValue> accept(Session s, String token);       // returns familyId; single transaction (membership + person link); refuses deleted family and email mismatch with AppErrorCode.inviteInvalid
   Future<DateTime> resend(Session s, UuidValue inviteId);  // new expires_at
   Future<void> revoke(Session s, UuidValue inviteId);
@@ -407,7 +407,7 @@ class LiveEndpoint extends Endpoint {
 | search page boot | `story.facets` | replaces the second boot search and the family-only people chips |
 | Invite.currentFamilyId | `family.listMine` + the existing client selection logic | 2 → 1 |
 | Invite.createFamily | `family.createRoot` | merged with ManageFamilies.createRootFamily |
-| Invite.createInvite / sendInviteEmail / acceptInvite | `invite.create` / `invite.sendEmail` / `invite.accept` | |
+| Invite.createInvite / sendInviteEmail / acceptInvite | `invite.create` / `invite.sendEmail` / `invite.accept` | `sendEmail(inviteId, token)` passes `CreatedInviteDto.token` from the same create |
 | InviteLink.validateInviteToken | `invitePublic.preview` | |
 | ManageFamilies.* | `family.*` and `invite.resend` / `invite.revoke` | |
 | Profile.loadOwn | `profile.me` | 2 → 1 |
