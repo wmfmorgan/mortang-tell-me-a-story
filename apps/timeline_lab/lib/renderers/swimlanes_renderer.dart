@@ -144,7 +144,7 @@ class _SwimlanesTimelineState extends State<SwimlanesTimeline> {
     final lanes = laneKeys(d, _laneBy);
     final cols = d.maxYear - d.minYear + 1;
     final buckets = bucketLanes(widget.data.entries, d, _laneBy);
-    final labelStyle = Theme.of(context).textTheme.labelMedium;
+    final theme = Theme.of(context).textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,7 +173,7 @@ class _SwimlanesTimelineState extends State<SwimlanesTimeline> {
                   itemExtent: _colWidth,
                   itemCount: cols,
                   itemBuilder: (context, i) => Center(
-                    child: Text('${d.minYear + i}', style: labelStyle),
+                    child: Text('${d.minYear + i}', style: LabText.axis(theme)),
                   ),
                 ),
               ),
@@ -199,7 +199,7 @@ class _SwimlanesTimelineState extends State<SwimlanesTimeline> {
                     ),
                     child: Text(
                       laneLabel(d, lanes[i]),
-                      style: labelStyle,
+                      style: LabText.lane(theme),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -339,7 +339,7 @@ class LaneCell extends StatelessWidget {
                 e.story.title,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall
+                style: Theme.of(context).textTheme.labelMedium
                     ?.copyWith(color: e.matched ? labInk : labDimmedInk),
               ),
             ),
@@ -369,7 +369,7 @@ class LaneCell extends StatelessWidget {
           if (shown.length > maxDots)
             Text(
               '+${shown.length - maxDots}',
-              style: Theme.of(context).textTheme.labelSmall,
+              style: LabText.count(Theme.of(context).textTheme),
             ),
         ],
       );
@@ -380,7 +380,7 @@ class LaneCell extends StatelessWidget {
           ? null
           : (details) => _onTapUp(context, details, shown),
       child: Container(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(LabSpace.s),
         decoration: BoxDecoration(
           color: selected ? labPillFill : null,
           border: Border(
