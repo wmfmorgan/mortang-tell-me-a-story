@@ -24,10 +24,16 @@ import 'package:tell_me_a_story_server/src/generated/dto/person_write_dto.dart'
     as _imyz5bcs;
 import 'package:tell_me_a_story_server/src/generated/dto/place_input_dto.dart'
     as _iqvasz3a;
+import 'package:tell_me_a_story_server/src/generated/dto/story_search_dto.dart'
+    as _ix1z7n33;
+import 'package:tell_me_a_story_server/src/generated/dto/story_write_dto.dart'
+    as _iu03akf8;
 import 'package:tell_me_a_story_server/src/generated/future_calls.dart'
     as _iggapxvt;
 import 'package:tell_me_a_story_server/src/generated/membership_role.dart'
     as _ic4z8goi;
+import 'package:tell_me_a_story_server/src/generated/note_kind.dart'
+    as _ija2hb8o;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../endpoints/family_endpoint.dart' as _ibe5smjw;
@@ -35,10 +41,12 @@ import '../endpoints/invite_endpoint.dart' as _ip80nve4;
 import '../endpoints/invite_public_endpoint.dart' as _ip1i0qvr;
 import '../endpoints/live_endpoint.dart' as _ixgr9pqx;
 import '../endpoints/media_endpoint.dart' as _iaymoujt;
+import '../endpoints/note_endpoint.dart' as _i4n3t746;
 import '../endpoints/people_endpoint.dart' as _iqqt4psm;
 import '../endpoints/photo_endpoint.dart' as _ihuw68ce;
 import '../endpoints/place_endpoint.dart' as _ilyqdzjc;
 import '../endpoints/profile_endpoint.dart' as _i2cx2pww;
+import '../endpoints/story_endpoint.dart' as _iiu4mi32;
 export 'future_calls.dart' show ServerpodFutureCallsGetter;
 
 class Endpoints extends _is.EndpointDispatch {
@@ -87,6 +95,12 @@ class Endpoints extends _is.EndpointDispatch {
           'media',
           null,
         ),
+      'note': _i4n3t746.NoteEndpoint()
+        ..initialize(
+          server,
+          'note',
+          null,
+        ),
       'people': _iqqt4psm.PeopleEndpoint()
         ..initialize(
           server,
@@ -109,6 +123,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'profile',
+          null,
+        ),
+      'story': _iiu4mi32.StoryEndpoint()
+        ..initialize(
+          server,
+          'story',
           null,
         ),
     };
@@ -1091,6 +1111,109 @@ class Endpoints extends _is.EndpointDispatch {
         ),
       },
     );
+    connectors['note'] = _is.EndpointConnector(
+      name: 'note',
+      endpoint: endpoints['note']!,
+      methodConnectors: {
+        'listForStory': _is.MethodConnector(
+          name: 'listForStory',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'kind': _is.ParameterDescription(
+              name: 'kind',
+              type: _is.getType<_ija2hb8o.NoteKind?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['note'] as _i4n3t746.NoteEndpoint).listForStory(
+                    session,
+                    params['storyId'],
+                    kind: params['kind'],
+                  ),
+        ),
+        'create': _is.MethodConnector(
+          name: 'create',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'kind': _is.ParameterDescription(
+              name: 'kind',
+              type: _is.getType<_ija2hb8o.NoteKind>(),
+              nullable: false,
+            ),
+            'body': _is.ParameterDescription(
+              name: 'body',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['note'] as _i4n3t746.NoteEndpoint).create(
+                session,
+                params['storyId'],
+                params['kind'],
+                params['body'],
+              ),
+        ),
+        'update': _is.MethodConnector(
+          name: 'update',
+          params: {
+            'noteId': _is.ParameterDescription(
+              name: 'noteId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'body': _is.ParameterDescription(
+              name: 'body',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['note'] as _i4n3t746.NoteEndpoint).update(
+                session,
+                params['noteId'],
+                params['body'],
+              ),
+        ),
+        'delete': _is.MethodConnector(
+          name: 'delete',
+          params: {
+            'noteId': _is.ParameterDescription(
+              name: 'noteId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['note'] as _i4n3t746.NoteEndpoint).delete(
+                session,
+                params['noteId'],
+              ),
+        ),
+      },
+    );
     connectors['people'] = _is.EndpointConnector(
       name: 'people',
       endpoint: endpoints['people']!,
@@ -1730,6 +1853,323 @@ class Endpoints extends _is.EndpointDispatch {
                 Map<String, dynamic> params,
               ) async => (endpoints['profile'] as _i2cx2pww.ProfileEndpoint)
                   .clearAvatar(session),
+        ),
+      },
+    );
+    connectors['story'] = _is.EndpointConnector(
+      name: 'story',
+      endpoint: endpoints['story']!,
+      methodConnectors: {
+        'createDraft': _is.MethodConnector(
+          name: 'createDraft',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'input': _is.ParameterDescription(
+              name: 'input',
+              type: _is.getType<_iu03akf8.StoryWriteDto>(),
+              nullable: false,
+            ),
+            'id': _is.ParameterDescription(
+              name: 'id',
+              type: _is.getType<_is.UuidValue?>(),
+              nullable: true,
+            ),
+            'allowUndated': _is.ParameterDescription(
+              name: 'allowUndated',
+              type: _is.getType<bool>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).createDraft(
+                    session,
+                    params['familyId'],
+                    params['input'],
+                    id: params['id'],
+                    allowUndated: params['allowUndated'],
+                  ),
+        ),
+        'updateDraft': _is.MethodConnector(
+          name: 'updateDraft',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'input': _is.ParameterDescription(
+              name: 'input',
+              type: _is.getType<_iu03akf8.StoryWriteDto>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).updateDraft(
+                    session,
+                    params['storyId'],
+                    params['input'],
+                  ),
+        ),
+        'autosaveDraft': _is.MethodConnector(
+          name: 'autosaveDraft',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'input': _is.ParameterDescription(
+              name: 'input',
+              type: _is.getType<_iu03akf8.StoryWriteDto>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).autosaveDraft(
+                    session,
+                    params['storyId'],
+                    params['input'],
+                  ),
+        ),
+        'get': _is.MethodConnector(
+          name: 'get',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['story'] as _iiu4mi32.StoryEndpoint).get(
+                session,
+                params['storyId'],
+              ),
+        ),
+        'linkPerson': _is.MethodConnector(
+          name: 'linkPerson',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).linkPerson(
+                    session,
+                    params['storyId'],
+                    params['personId'],
+                  ),
+        ),
+        'publish': _is.MethodConnector(
+          name: 'publish',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).publish(
+                    session,
+                    params['storyId'],
+                  ),
+        ),
+        'getPublished': _is.MethodConnector(
+          name: 'getPublished',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).getPublished(
+                    session,
+                    params['storyId'],
+                  ),
+        ),
+        'listMyDrafts': _is.MethodConnector(
+          name: 'listMyDrafts',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).listMyDrafts(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'listPublished': _is.MethodConnector(
+          name: 'listPublished',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).listPublished(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'listLatestPublished': _is.MethodConnector(
+          name: 'listLatestPublished',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'withinDays': _is.ParameterDescription(
+              name: 'withinDays',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['story'] as _iiu4mi32.StoryEndpoint)
+                  .listLatestPublished(
+                    session,
+                    params['familyId'],
+                    withinDays: params['withinDays'],
+                    limit: params['limit'],
+                  ),
+        ),
+        'listForPerson': _is.MethodConnector(
+          name: 'listForPerson',
+          params: {
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).listForPerson(
+                    session,
+                    params['personId'],
+                  ),
+        ),
+        'discard': _is.MethodConnector(
+          name: 'discard',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).discard(
+                    session,
+                    params['storyId'],
+                  ),
+        ),
+        'search': _is.MethodConnector(
+          name: 'search',
+          params: {
+            'q': _is.ParameterDescription(
+              name: 'q',
+              type: _is.getType<_ix1z7n33.StorySearchDto>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['story'] as _iiu4mi32.StoryEndpoint).search(
+                session,
+                params['q'],
+              ),
+        ),
+        'facets': _is.MethodConnector(
+          name: 'facets',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['story'] as _iiu4mi32.StoryEndpoint).facets(
+                session,
+                params['familyId'],
+              ),
         ),
       },
     );

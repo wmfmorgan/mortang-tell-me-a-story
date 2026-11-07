@@ -22,6 +22,8 @@ import 'package:tell_me_a_story_server/src/generated/dto/family_member_dto.dart'
     as _iaubiddc;
 import 'package:tell_me_a_story_server/src/generated/dto/member_family_dto.dart'
     as _ikh01baz;
+import 'package:tell_me_a_story_server/src/generated/dto/note_dto.dart'
+    as _i7033pn0;
 import 'package:tell_me_a_story_server/src/generated/dto/origin_dependent_dto.dart'
     as _i0qdi0y3;
 import 'package:tell_me_a_story_server/src/generated/dto/person_dto.dart'
@@ -32,6 +34,8 @@ import 'package:tell_me_a_story_server/src/generated/dto/place_dto.dart'
     as _i3xh6672;
 import 'package:tell_me_a_story_server/src/generated/dto/steward_family_dto.dart'
     as _inqlo9cu;
+import 'package:tell_me_a_story_server/src/generated/dto/story_dto.dart'
+    as _i5ckn2f1;
 import 'package:tell_me_a_story_server/src/generated/dto/tree_family_dto.dart'
     as _i585khmk;
 import 'app_error_code.dart' as _imu8gbx5;
@@ -287,9 +291,11 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<List<_is.UuidValue>>,
           _is.getType<Map<String, _idt.ByteData>>,
           _is.getType<List<String>>,
+          _is.getType<List<_i7033pn0.NoteDto>>,
           _is.getType<List<_ij552cxk.PersonDto>>,
           _is.getType<List<_iav5ek9v.PhotoDto>>,
           _is.getType<List<_i3xh6672.PlaceDto>>,
+          _is.getType<List<_i5ckn2f1.StoryDto>>,
         ],
         modules: const [
           _iais.Protocol.new,
@@ -2536,6 +2542,12 @@ class Protocol extends _is.DatabaseSerializationManager
     if (t == List<String>) {
       return (data as List).map((e) => deserialize<String>(e)).toList() as T;
     }
+    if (t == List<_i7033pn0.NoteDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i7033pn0.NoteDto>(e))
+              .toList()
+          as T;
+    }
     if (t == List<_ij552cxk.PersonDto>) {
       return (data as List)
               .map((e) => deserialize<_ij552cxk.PersonDto>(e))
@@ -2551,6 +2563,12 @@ class Protocol extends _is.DatabaseSerializationManager
     if (t == List<_i3xh6672.PlaceDto>) {
       return (data as List)
               .map((e) => deserialize<_i3xh6672.PlaceDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i5ckn2f1.StoryDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i5ckn2f1.StoryDto>(e))
               .toList()
           as T;
     }

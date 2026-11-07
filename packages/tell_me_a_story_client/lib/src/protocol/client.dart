@@ -38,6 +38,8 @@ import 'package:tell_me_a_story_client/src/protocol/dto/live_event_dto.dart'
     as _iliy4w0g;
 import 'package:tell_me_a_story_client/src/protocol/dto/member_family_dto.dart'
     as _ii9mmjc2;
+import 'package:tell_me_a_story_client/src/protocol/dto/note_dto.dart'
+    as _i29gav6s;
 import 'package:tell_me_a_story_client/src/protocol/dto/origin_dependent_dto.dart'
     as _i6upf1dr;
 import 'package:tell_me_a_story_client/src/protocol/dto/own_profile_dto.dart'
@@ -58,10 +60,20 @@ import 'package:tell_me_a_story_client/src/protocol/dto/place_input_dto.dart'
     as _iyhrnw9c;
 import 'package:tell_me_a_story_client/src/protocol/dto/steward_family_dto.dart'
     as _iy83v9y2;
+import 'package:tell_me_a_story_client/src/protocol/dto/story_dto.dart'
+    as _ilx6iivj;
+import 'package:tell_me_a_story_client/src/protocol/dto/story_facets_dto.dart'
+    as _i29ka0kp;
+import 'package:tell_me_a_story_client/src/protocol/dto/story_search_dto.dart'
+    as _iv05ipkh;
+import 'package:tell_me_a_story_client/src/protocol/dto/story_write_dto.dart'
+    as _isb2dxzu;
 import 'package:tell_me_a_story_client/src/protocol/dto/tree_family_dto.dart'
     as _iwn4wr2j;
 import 'package:tell_me_a_story_client/src/protocol/membership_role.dart'
     as _ivz934fu;
+import 'package:tell_me_a_story_client/src/protocol/note_kind.dart'
+    as _i9uyyhv9;
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -793,6 +805,68 @@ class EndpointMedia extends _isc.EndpointRef {
       );
 }
 
+/// Comments and perspectives (`story_notes`; business-rules §2.8, §4.8;
+/// D4). Only the body is editable. Writes post a `note` live event after
+/// commit, only while the story is published.
+/// {@category Endpoint}
+class EndpointNote extends _isc.EndpointRef {
+  EndpointNote(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'note';
+
+  /// The story's notes ([kind], or both when null), oldest first. A missing
+  /// or unreadable story is `NOT_FOUND: story`.
+  _ida.Future<List<_i29gav6s.NoteDto>> listForStory(
+    _isc.UuidValue storyId, {
+    _i9uyyhv9.NoteKind? kind,
+  }) => caller.callServerEndpoint<List<_i29gav6s.NoteDto>>(
+    'note',
+    'listForStory',
+    {
+      'storyId': storyId,
+      'kind': kind,
+    },
+  );
+
+  /// A note by the caller; needs `canContribute` on the story.
+  _ida.Future<_i29gav6s.NoteDto> create(
+    _isc.UuidValue storyId,
+    _i9uyyhv9.NoteKind kind,
+    String body,
+  ) => caller.callServerEndpoint<_i29gav6s.NoteDto>(
+    'note',
+    'create',
+    {
+      'storyId': storyId,
+      'kind': kind,
+      'body': body,
+    },
+  );
+
+  /// Replaces the body of the caller's own note while they can contribute.
+  _ida.Future<void> update(
+    _isc.UuidValue noteId,
+    String body,
+  ) => caller.callServerEndpoint<void>(
+    'note',
+    'update',
+    {
+      'noteId': noteId,
+      'body': body,
+    },
+  );
+
+  /// Deletes a note: its author while they can contribute, or an owner or
+  /// co-owner of the story's live family on a published story (D4).
+  _ida.Future<void> delete(_isc.UuidValue noteId) =>
+      caller.callServerEndpoint<void>(
+        'note',
+        'delete',
+        {'noteId': noteId},
+      );
+}
+
 /// People are tree-scoped: reads and unlinked edits need a live membership
 /// somewhere in the person's tree (`Authz.isTreeMemberOf(person.treeId)`).
 /// Steward-only actions (mark passed away, delete) check the live home family.
@@ -1146,6 +1220,179 @@ class EndpointProfile extends _isc.EndpointRef {
   );
 }
 
+/// Stories, their people tags, and search (endpoint-contract §2.2;
+/// business-rules §2.5, §2.6, §4.4).
+///
+/// Writes post a `story` live event after commit, only while the story is
+/// published (and on the publish transition); draft edits post nothing.
+/// {@category Endpoint}
+class EndpointStory extends _isc.EndpointRef {
+  EndpointStory(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'story';
+
+  /// A new draft by the caller in live [familyId]. Idempotent on [id]: when
+  /// that story exists and the caller wrote it in [familyId], [input] is
+  /// applied as an update and the story returned. Without [allowUndated] a
+  /// start date is required.
+  _ida.Future<_ilx6iivj.StoryDto> createDraft(
+    _isc.UuidValue familyId,
+    _isb2dxzu.StoryWriteDto input, {
+    _isc.UuidValue? id,
+    required bool allowUndated,
+  }) => caller.callServerEndpoint<_ilx6iivj.StoryDto>(
+    'story',
+    'createDraft',
+    {
+      'familyId': familyId,
+      'input': input,
+      'id': id,
+      'allowUndated': allowUndated,
+    },
+  );
+
+  /// Applies [input] (null fields keep their value; a list in
+  /// `personIds` replaces the tags). Author, or steward on a published story.
+  _ida.Future<_ilx6iivj.StoryDto> updateDraft(
+    _isc.UuidValue storyId,
+    _isb2dxzu.StoryWriteDto input,
+  ) => caller.callServerEndpoint<_ilx6iivj.StoryDto>(
+    'story',
+    'updateDraft',
+    {
+      'storyId': storyId,
+      'input': input,
+    },
+  );
+
+  /// Like [updateDraft], but only while the story is a draft: false once it
+  /// is published, and nothing changes.
+  _ida.Future<bool> autosaveDraft(
+    _isc.UuidValue storyId,
+    _isb2dxzu.StoryWriteDto input,
+  ) => caller.callServerEndpoint<bool>(
+    'story',
+    'autosaveDraft',
+    {
+      'storyId': storyId,
+      'input': input,
+    },
+  );
+
+  /// The story when the caller may read it, else `NOT_FOUND: story`.
+  _ida.Future<_ilx6iivj.StoryDto> get(_isc.UuidValue storyId) =>
+      caller.callServerEndpoint<_ilx6iivj.StoryDto>(
+        'story',
+        'get',
+        {'storyId': storyId},
+      );
+
+  /// Tags [personId] (same tree) on the story; a repeat is a no-op.
+  _ida.Future<void> linkPerson(
+    _isc.UuidValue storyId,
+    _isc.UuidValue personId,
+  ) => caller.callServerEndpoint<void>(
+    'story',
+    'linkPerson',
+    {
+      'storyId': storyId,
+      'personId': personId,
+    },
+  );
+
+  /// Publishes the caller's own draft after the readiness check. A
+  /// non-author editor gets `FORBIDDEN: field is locked`. Publishing a
+  /// published story returns it unchanged.
+  _ida.Future<_ilx6iivj.StoryDto> publish(_isc.UuidValue storyId) =>
+      caller.callServerEndpoint<_ilx6iivj.StoryDto>(
+        'story',
+        'publish',
+        {'storyId': storyId},
+      );
+
+  /// The story when it is published and readable by the caller, else null.
+  /// Serves both the app's getPublished and getPublishedOrigin.
+  _ida.Future<_ilx6iivj.StoryDto?> getPublished(_isc.UuidValue storyId) =>
+      caller.callServerEndpoint<_ilx6iivj.StoryDto?>(
+        'story',
+        'getPublished',
+        {'storyId': storyId},
+      );
+
+  /// The caller's drafts in live [familyId], in timeline order (undated
+  /// last).
+  _ida.Future<List<_ilx6iivj.StoryDto>> listMyDrafts(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+        'story',
+        'listMyDrafts',
+        {'familyId': familyId},
+      );
+
+  /// [familyId]'s published stories in timeline order (schema-design §0.5).
+  _ida.Future<List<_ilx6iivj.StoryDto>> listPublished(
+    _isc.UuidValue familyId,
+  ) => caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+    'story',
+    'listPublished',
+    {'familyId': familyId},
+  );
+
+  /// Published in the last [withinDays] days, newest first (`latestOrder`),
+  /// at most [limit].
+  _ida.Future<List<_ilx6iivj.StoryDto>> listLatestPublished(
+    _isc.UuidValue familyId, {
+    required int withinDays,
+    required int limit,
+  }) => caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+    'story',
+    'listLatestPublished',
+    {
+      'familyId': familyId,
+      'withinDays': withinDays,
+      'limit': limit,
+    },
+  );
+
+  /// Published stories in live families of the person's tree that tag
+  /// [personId], oldest first. A person outside the caller's tree is
+  /// `NOT_FOUND: person`.
+  _ida.Future<List<_ilx6iivj.StoryDto>> listForPerson(
+    _isc.UuidValue personId,
+  ) => caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+    'story',
+    'listForPerson',
+    {'personId': personId},
+  );
+
+  /// Deletes the caller's own story (any status) with its photos, notes and
+  /// tags. Owners can't delete other people's stories (D4). Photo blob keys
+  /// are queued for deletion in the same transaction.
+  _ida.Future<void> discard(_isc.UuidValue storyId) =>
+      caller.callServerEndpoint<void>(
+        'story',
+        'discard',
+        {'storyId': storyId},
+      );
+
+  /// Published stories of `q.familyId` matching [q] (endpoint-contract §2.2
+  /// search semantics). Live members and tree readers only.
+  _ida.Future<List<_ilx6iivj.StoryDto>> search(_iv05ipkh.StorySearchDto q) =>
+      caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+        'story',
+        'search',
+        {'q': q},
+      );
+
+  /// Decade, person and place facets over [familyId]'s published stories.
+  _ida.Future<_i29ka0kp.StoryFacetsDto> facets(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<_i29ka0kp.StoryFacetsDto>(
+        'story',
+        'facets',
+        {'familyId': familyId},
+      );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -1191,10 +1438,12 @@ class Client extends _isc.ServerpodClientShared {
     invitePublic = EndpointInvitePublic(this);
     live = EndpointLive(this);
     media = EndpointMedia(this);
+    note = EndpointNote(this);
     people = EndpointPeople(this);
     photo = EndpointPhoto(this);
     place = EndpointPlace(this);
     profile = EndpointProfile(this);
+    story = EndpointStory(this);
     modules = Modules(this);
   }
 
@@ -1212,6 +1461,8 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointMedia media;
 
+  late final EndpointNote note;
+
   late final EndpointPeople people;
 
   late final EndpointPhoto photo;
@@ -1219,6 +1470,8 @@ class Client extends _isc.ServerpodClientShared {
   late final EndpointPlace place;
 
   late final EndpointProfile profile;
+
+  late final EndpointStory story;
 
   late final Modules modules;
 
@@ -1231,10 +1484,12 @@ class Client extends _isc.ServerpodClientShared {
     'invitePublic': invitePublic,
     'live': live,
     'media': media,
+    'note': note,
     'people': people,
     'photo': photo,
     'place': place,
     'profile': profile,
+    'story': story,
   };
 
   @override

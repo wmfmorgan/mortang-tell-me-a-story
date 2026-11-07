@@ -21,6 +21,8 @@ import 'package:tell_me_a_story_client/src/protocol/dto/family_member_dto.dart'
     as _ie59njid;
 import 'package:tell_me_a_story_client/src/protocol/dto/member_family_dto.dart'
     as _ii9mmjc2;
+import 'package:tell_me_a_story_client/src/protocol/dto/note_dto.dart'
+    as _i29gav6s;
 import 'package:tell_me_a_story_client/src/protocol/dto/origin_dependent_dto.dart'
     as _i6upf1dr;
 import 'package:tell_me_a_story_client/src/protocol/dto/person_dto.dart'
@@ -31,6 +33,8 @@ import 'package:tell_me_a_story_client/src/protocol/dto/place_dto.dart'
     as _irx46cwk;
 import 'package:tell_me_a_story_client/src/protocol/dto/steward_family_dto.dart'
     as _iy83v9y2;
+import 'package:tell_me_a_story_client/src/protocol/dto/story_dto.dart'
+    as _ilx6iivj;
 import 'package:tell_me_a_story_client/src/protocol/dto/tree_family_dto.dart'
     as _iwn4wr2j;
 import 'app_error_code.dart' as _imu8gbx5;
@@ -279,9 +283,11 @@ class Protocol extends _isc.SerializationManager
           _isc.getType<List<_isc.UuidValue>>,
           _isc.getType<Map<String, _idt.ByteData>>,
           _isc.getType<List<String>>,
+          _isc.getType<List<_i29gav6s.NoteDto>>,
           _isc.getType<List<_ippgtqmg.PersonDto>>,
           _isc.getType<List<_ighpoo1p.PhotoDto>>,
           _isc.getType<List<_irx46cwk.PlaceDto>>,
+          _isc.getType<List<_ilx6iivj.StoryDto>>,
         ],
         modules: const [
           _iaic.Protocol.new,
@@ -824,6 +830,12 @@ class Protocol extends _isc.SerializationManager
     if (t == List<String>) {
       return (data as List).map((e) => deserialize<String>(e)).toList() as T;
     }
+    if (t == List<_i29gav6s.NoteDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i29gav6s.NoteDto>(e))
+              .toList()
+          as T;
+    }
     if (t == List<_ippgtqmg.PersonDto>) {
       return (data as List)
               .map((e) => deserialize<_ippgtqmg.PersonDto>(e))
@@ -839,6 +851,12 @@ class Protocol extends _isc.SerializationManager
     if (t == List<_irx46cwk.PlaceDto>) {
       return (data as List)
               .map((e) => deserialize<_irx46cwk.PlaceDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_ilx6iivj.StoryDto>) {
+      return (data as List)
+              .map((e) => deserialize<_ilx6iivj.StoryDto>(e))
               .toList()
           as T;
     }

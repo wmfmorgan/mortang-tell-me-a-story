@@ -48,6 +48,11 @@ live:
 media:
   - get:
   - getMany:
+note:
+  - listForStory:
+  - create:
+  - update:
+  - delete:
 people:
   - listFamily:
   - listTree:
@@ -80,3 +85,18 @@ profile:
   - saveAccount:
   - saveAvatar:
   - clearAvatar:
+story:
+  - createDraft:
+  - updateDraft:
+  - autosaveDraft:
+  - get:
+  - linkPerson:
+  - publish:
+  - getPublished:
+  - listMyDrafts:
+  - listPublished:
+  - listLatestPublished:
+  - listForPerson:
+  - discard:
+  - search:
+  - facets:
