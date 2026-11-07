@@ -213,13 +213,34 @@ void main() {
     expect(c.filter.isActive, isFalse);
   });
 
+  testWidgets('renderer view switches use singular segment names', (
+    tester,
+  ) async {
+    final c = await _pump(tester);
+    for (final (kind, key, names) in [
+      (RendererKind.swimlanes, 'lane-by', ['Person', 'Family']),
+      (RendererKind.treeGraph, 'tree-by', ['Time', 'Family']),
+      (RendererKind.treemap, 'treemap-by', ['Decade', 'Family', 'Person']),
+    ]) {
+      c.setRenderer(kind);
+      await tester.pumpAndSettle();
+      for (final n in names) {
+        expect(
+          find.descendant(of: find.byKey(Key(key)), matching: find.text(n)),
+          findsOneWidget,
+          reason: '$kind $n',
+        );
+      }
+    }
+  });
+
   Set<LaneBy> laneBy(WidgetTester tester) => tester
       .widget<SegmentedButton<LaneBy>>(find.byKey(const Key('lane-by')))
       .selected;
 
   Finder familiesSegment() => find.descendant(
     of: find.byKey(const Key('lane-by')),
-    matching: find.text('Families'),
+    matching: find.text('Family'),
   );
 
   testWidgets('renderer state survives the 900px breakpoint', (tester) async {

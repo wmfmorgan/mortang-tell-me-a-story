@@ -5,6 +5,7 @@ import '../model/lab_models.dart';
 import '../playback/playback_controller.dart';
 import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
+import '../widgets/view_switch.dart';
 import 'canvas_label.dart';
 import 'renderer_contract.dart';
 import 'story_marker.dart';
@@ -124,21 +125,20 @@ class _TreeGraphTimelineState extends State<TreeGraphTimeline> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: SegmentedButton<TreeBy>(
-            key: const Key('tree-by'),
-            segments: const [
-              ButtonSegment(value: TreeBy.time, label: Text('Time')),
-              ButtonSegment(value: TreeBy.family, label: Text('Family')),
-            ],
-            selected: {_by},
-            onSelectionChanged: (s) => setState(() {
-              _by = s.first;
-              _expanded.clear();
-              _rebuild();
-            }),
-          ),
+        ViewSwitch<TreeBy>(
+          switchKey: const Key('tree-by'),
+          label: 'Tree',
+          values: TreeBy.values,
+          labelOf: (v) => switch (v) {
+            TreeBy.time => 'Time',
+            TreeBy.family => 'Family',
+          },
+          selected: _by,
+          onChanged: (v) => setState(() {
+            _by = v;
+            _expanded.clear();
+            _rebuild();
+          }),
         ),
         Expanded(
           child: layout == null
