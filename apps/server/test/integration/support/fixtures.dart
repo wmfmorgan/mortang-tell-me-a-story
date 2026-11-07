@@ -63,6 +63,27 @@ class Fx {
   Future<UuidValue> user() async =>
       (await AuthServices.instance.authUsers.create(s)).id;
 
+  /// A new auth user with an email login, as the email-code sign-up leaves
+  /// it, and optionally a display name on the app's `users` row.
+  Future<UuidValue> userWithEmail(String email, {String? displayName}) async {
+    final id = await user();
+    await EmailAccount.db.insertRow(
+      s,
+      EmailAccount(authUserId: id, email: email, passwordHash: ''),
+    );
+    if (displayName != null) {
+      final appUser = await AppUser.db.findFirstRow(
+        s,
+        where: (t) => t.authUserId.equals(id),
+      );
+      await AppUser.db.updateRow(
+        s,
+        appUser!.copyWith(displayName: displayName),
+      );
+    }
+    return id;
+  }
+
   Future<Membership> join(
     Family family,
     UuidValue user, [
