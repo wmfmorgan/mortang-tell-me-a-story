@@ -2,11 +2,7 @@
 class Env {
   const Env._();
 
-  static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-
-  /// Serverpod API server, e.g. `http://127.0.0.1:8080`. Replaces the
-  /// Supabase defines at the Phase 4 cutover.
+  /// Serverpod API server, e.g. `http://127.0.0.1:8080`.
   static const serverUrl = String.fromEnvironment('SERVER_URL');
 
   /// Shareable app origin for invite links. Staging MS: change define only.
@@ -29,28 +25,22 @@ class Env {
     return value.length >= 20;
   }
 
-  /// Fails closed when required dart-defines are missing or clearly invalid.
+  /// Fails closed when SERVER_URL is missing or clearly invalid.
   /// Does not require MAPBOX_ACCESS_TOKEN (soft — place picker failure UX).
-  static void validate() {
-    if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+  static void validate() => validateServerUrl(serverUrl);
+
+  /// Throws [StateError] unless [value] is an absolute http(s) URL.
+  static void validateServerUrl(String value) {
+    if (value.isEmpty) {
       throw StateError(
-        'Missing required --dart-define values: '
-        'SUPABASE_URL and SUPABASE_ANON_KEY (anon key only).',
+        'Missing required --dart-define value: SERVER_URL '
+        '(e.g. http://127.0.0.1:8080).',
       );
     }
-    if (!isAbsoluteHttpUrl(supabaseUrl)) {
+    if (!isAbsoluteHttpUrl(value)) {
       throw StateError(
-        'Invalid SUPABASE_URL="$supabaseUrl". '
-        'Use the absolute API URL from `supabase status` '
-        '(e.g. http://127.0.0.1:57321), not "..." or the Flutter web port.',
-      );
-    }
-    if (supabaseAnonKey == '...' ||
-        supabaseAnonKey.startsWith('<') ||
-        supabaseAnonKey.length < 20) {
-      throw StateError(
-        'Invalid SUPABASE_ANON_KEY. Copy ANON_KEY from '
-        '`supabase status -o env` (do not use README placeholders).',
+        'Invalid SERVER_URL="$value". Use the absolute server URL, '
+        'e.g. http://127.0.0.1:8080.',
       );
     }
   }

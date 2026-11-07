@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/album_theme.dart';
-import 'magic_link_redirect.dart';
+import 'otp_sign_in.dart';
+import 'sign_in_code_form.dart';
 
 const _landingInkMuted = albumInk;
 const _landingLine = Color(0xFFB9B0AD);
@@ -15,33 +15,23 @@ const _landingOnPrimary = Color(0xFFFFF6F3);
 const landingHeadline = 'Your family’s stories, kept together.';
 const landingSubhead =
     'A private place to write down the moments you remember, and read the ones your family remembers too.';
-const landingPasswordNote = "We'll email you a link. No password needed.";
+const landingPasswordNote =
+    "We'll email you a 6-digit code. No password needed.";
+const sendCodeLabel = 'Email me a sign-in code';
+const sendingCodeLabel = 'Sending…';
+const invalidEmailMessage = 'Please enter a full email address.';
 
-/// Sends a magic-link email. Tests inject this instead of [GoTrueClient].
-abstract class MagicLinkSender {
-  Future<void> send(String email, {required String redirectTo});
-}
+final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
-class GoTrueMagicLinkSender implements MagicLinkSender {
-  GoTrueMagicLinkSender(this.auth);
-
-  final GoTrueClient auth;
-
-  @override
-  Future<void> send(String email, {required String redirectTo}) {
-    return auth.signInWithOtp(email: email, emailRedirectTo: redirectTo);
-  }
-}
+/// Whether [email] (already trimmed) looks like a full address.
+bool isFullEmail(String email) => _emailPattern.hasMatch(email);
 
 /// Signed-out landing. Signed-in visitors are redirected by the router.
 class MagicLinkPage extends StatefulWidget {
-  const MagicLinkPage({super.key, this.auth, this.sender});
+  const MagicLinkPage({super.key, this.otpSignIn});
 
-  /// Injectable for tests; defaults to [Supabase.instance.client.auth].
-  final GoTrueClient? auth;
-
-  /// When set, used instead of [auth].
-  final MagicLinkSender? sender;
+  /// Injectable for tests; defaults to [ServerOtpSignIn].
+  final OtpSignIn? otpSignIn;
 
   @override
   State<MagicLinkPage> createState() => _MagicLinkPageState();
@@ -49,15 +39,12 @@ class MagicLinkPage extends StatefulWidget {
 
 class _MagicLinkPageState extends State<MagicLinkPage> {
   final _emailController = TextEditingController();
+  late final OtpSignIn _otp = widget.otpSignIn ?? ServerOtpSignIn();
   var _sending = false;
-  var _sent = false;
+  var _signingIn = false;
+  String? _requestId;
+  String? _sentTo;
   String? _error;
-
-  static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-
-  MagicLinkSender get _sender =>
-      widget.sender ??
-      GoTrueMagicLinkSender(widget.auth ?? Supabase.instance.client.auth);
 
   @override
   void dispose() {
@@ -65,10 +52,10 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
     super.dispose();
   }
 
-  Future<void> _requestMagicLink() async {
+  Future<void> _sendCode() async {
     final email = _emailController.text.trim();
-    if (!_emailPattern.hasMatch(email)) {
-      setState(() => _error = 'Please enter a full email address.');
+    if (!isFullEmail(email)) {
+      setState(() => _error = invalidEmailMessage);
       return;
     }
 
@@ -78,25 +65,42 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
     });
 
     try {
-      await _sender.send(email, redirectTo: magicLinkEmailRedirectTo());
-      if (!mounted) return;
-      setState(() => _sent = true);
-    } on AuthException catch (e) {
+      final requestId = await _otp.sendCode(email);
       if (!mounted) return;
       setState(() {
-        _error = e.message.isEmpty ? 'Request failed' : e.message;
+        _requestId = requestId;
+        _sentTo = email;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Request failed');
+      setState(() => _error = signInErrorMessage(e));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
   }
 
+  Future<void> _signIn(String code) async {
+    final requestId = _requestId;
+    if (requestId == null) return;
+    setState(() {
+      _signingIn = true;
+      _error = null;
+    });
+    try {
+      // Success changes the auth session; the router leaves this page.
+      await _otp.signIn(requestId: requestId, code: code);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = signInErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
+    }
+  }
+
   void _useDifferentEmail() {
     setState(() {
-      _sent = false;
+      _requestId = null;
+      _sentTo = null;
       _error = null;
       _sending = false;
     });
@@ -321,7 +325,7 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
         ),
         child: Padding(
           padding: const EdgeInsets.all(40),
-          child: _sent ? _sentCard() : _form(),
+          child: _requestId != null ? _codeCard() : _form(),
         ),
       ),
     );
@@ -364,7 +368,7 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
           keyboardType: TextInputType.emailAddress,
           autofillHints: const [AutofillHints.email],
           enabled: !_sending,
-          onSubmitted: (_) => _requestMagicLink(),
+          onSubmitted: (_) => _sendCode(),
           style: GoogleFonts.literata(color: albumInk, fontSize: 16),
           cursorColor: albumTerracotta,
           decoration: InputDecoration(
@@ -395,9 +399,9 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
         ],
         const SizedBox(height: 20),
         _primaryButton(
-          label: _sending ? 'Sending…' : 'Email me a sign-in link',
+          label: _sending ? sendingCodeLabel : sendCodeLabel,
           showArrow: !_sending,
-          onPressed: _sending ? null : _requestMagicLink,
+          onPressed: _sending ? null : _sendCode,
         ),
         const SizedBox(height: 16),
         DecoratedBox(
@@ -423,42 +427,27 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
     );
   }
 
-  Widget _sentCard() {
+  Widget _codeCard() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Check your email',
+          signInCodeHeading,
           style: GoogleFonts.newsreader(
             color: albumInk,
             fontSize: 24,
             fontWeight: FontWeight.w500,
           ),
         ),
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            _error!,
-            key: const Key('magic-link-error'),
-            style: GoogleFonts.literata(color: albumTerracotta, fontSize: 14),
-          ),
-        ],
-        const SizedBox(height: 20),
-        _primaryButton(
-          label: _sending ? 'Sending…' : 'Send it again',
-          showArrow: false,
-          onPressed: _sending ? null : _requestMagicLink,
-        ),
         const SizedBox(height: 8),
-        TextButton(
-          onPressed: _sending ? null : _useDifferentEmail,
-          child: Text(
-            'Use a different email',
-            style: GoogleFonts.sourceSans3(
-              color: albumTerracotta,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+        SignInCodeForm(
+          message: 'We sent a 6-digit code to $_sentTo.',
+          signingIn: _signingIn,
+          sending: _sending,
+          error: _error,
+          onSubmit: _signIn,
+          onResend: _sendCode,
+          onUseDifferentEmail: _useDifferentEmail,
         ),
       ],
     );

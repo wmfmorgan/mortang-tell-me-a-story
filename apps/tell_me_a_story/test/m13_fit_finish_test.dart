@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
+    show EmailAccountRequestException, EmailAccountRequestExceptionReason;
 import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/core/router/auth_refresh.dart';
 import 'package:tell_me_a_story/core/theme/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
@@ -11,6 +15,7 @@ import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/auth/invite_sign_in_page.dart';
 import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
+import 'package:tell_me_a_story/features/auth/otp_sign_in.dart';
 import 'package:tell_me_a_story/features/family/delete_family_dialog.dart';
 import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 
@@ -25,15 +30,15 @@ void main() {
     );
   });
 
-  testWidgets('landing copy, resend, 429, and a different email', (
+  testWidgets('landing copy, bad email, send failure, and a different email', (
     tester,
   ) async {
-    final sender = _Sender();
+    final otp = _Otp();
     tester.view.physicalSize = const Size(1440, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(MaterialApp(home: MagicLinkPage(sender: sender)));
+    await tester.pumpWidget(MaterialApp(home: MagicLinkPage(otpSignIn: otp)));
     expect(find.text('Tell Me a Story'), findsOneWidget);
     expect(find.text(landingHeadline), findsOneWidget);
     expect(find.text(landingSubhead), findsOneWidget);
@@ -45,8 +50,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Email address'), findsOneWidget);
-    expect(find.text('Email me a sign-in link'), findsOneWidget);
-    expect(find.text(landingPasswordNote), findsOneWidget);
+    expect(find.text('Email me a sign-in code'), findsOneWidget);
+    expect(
+      find.text("We'll email you a 6-digit code. No password needed."),
+      findsOneWidget,
+    );
     expect(
       find.text(
         'Private to your family. Stories stay inside the family you share them with.',
@@ -56,39 +64,96 @@ void main() {
     expect(find.text('Forgot password'), findsNothing);
 
     await tester.enterText(find.byKey(const Key('magic-link-email')), 'nope');
-    await tester.ensureVisible(find.text('Email me a sign-in link'));
-    await tester.tap(find.text('Email me a sign-in link'));
-    await tester.pump();
+    await _tapText(tester, 'Email me a sign-in code');
     expect(find.text('Please enter a full email address.'), findsOneWidget);
-    expect(sender.calls, 0);
+    expect(otp.sent, isEmpty);
 
+    otp.sendError = Exception('offline');
     await tester.enterText(find.byKey(const Key('magic-link-email')), 'a@b.co');
-    await tester.ensureVisible(find.text('Email me a sign-in link'));
-    await tester.tap(find.text('Email me a sign-in link'));
-    await tester.pumpAndSettle();
-    expect(find.text('Check your email'), findsOneWidget);
-    expect(sender.calls, 1);
-    expect(sender.redirectTo, isNot(contains('invite')));
-
-    sender.error = AuthException('Request failed', statusCode: '429');
-    await tester.ensureVisible(find.text('Send it again'));
-    await tester.tap(find.text('Send it again'));
-    await tester.pumpAndSettle();
-    expect(find.text('Check your email'), findsOneWidget);
+    await _tapText(tester, 'Email me a sign-in code');
     expect(find.text('Request failed'), findsOneWidget);
-    expect(sender.calls, 2);
+    expect(find.text('Check your email'), findsNothing);
 
-    await tester.ensureVisible(find.text('Use a different email'));
-    await tester.tap(find.text('Use a different email'));
-    await tester.pump();
+    otp.sendError = null;
+    await _tapText(tester, 'Email me a sign-in code');
+    expect(find.text('Check your email'), findsOneWidget);
+    expect(find.text('We sent a 6-digit code to a@b.co.'), findsOneWidget);
+    expect(find.text('Sign-in code'), findsOneWidget);
+    expect(find.byKey(const Key('sign-in-code')), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
+    final codeField = tester.widget<TextField>(
+      find.byKey(const Key('sign-in-code')),
+    );
+    expect(codeField.decoration?.hintText, isNull);
+    expect(otp.sent, ['a@b.co', 'a@b.co']);
+
+    await _tapText(tester, 'Use a different email');
     expect(find.text('Sign in or get started'), findsOneWidget);
     expect(find.text('Check your email'), findsNothing);
+  });
+
+  testWidgets('landing code step: errors, a new code, and sign-in', (
+    tester,
+  ) async {
+    final otp = _Otp();
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(home: MagicLinkPage(otpSignIn: otp)));
+    await tester.enterText(
+      find.byKey(const Key('magic-link-email')),
+      ' a@b.co ',
+    );
+    await _tapText(tester, 'Email me a sign-in code');
+    expect(otp.sent, ['a@b.co']);
+
+    for (final (reason, copy) in [
+      (
+        EmailAccountRequestExceptionReason.invalid,
+        "That code isn't right. Check it and try again.",
+      ),
+      (
+        EmailAccountRequestExceptionReason.expired,
+        'That code has expired. Send a new one.',
+      ),
+      (
+        EmailAccountRequestExceptionReason.tooManyAttempts,
+        'Too many tries. Wait a few minutes, then send a new code.',
+      ),
+    ]) {
+      otp.signInError = EmailAccountRequestException(reason: reason);
+      await _enterCode(tester, '123456');
+      expect(find.text(copy), findsOneWidget);
+    }
+
+    otp.signInError = null;
+    await _tapText(tester, 'Send a new code');
+    expect(otp.sent, ['a@b.co', 'a@b.co']);
+    expect(
+      find.text('Too many tries. Wait a few minutes, then send a new code.'),
+      findsNothing,
+    );
+    expect(find.text('Check your email'), findsOneWidget);
+
+    final pending = Completer<void>();
+    otp.signInGate = pending;
+    await tester.enterText(find.byKey(const Key('sign-in-code')), '111111');
+    await tester.tap(find.byKey(const Key('sign-in-code-submit')));
+    await tester.pump();
+    expect(find.text('Signing in…'), findsOneWidget);
+    pending.complete();
+    await tester.pumpAndSettle();
+    expect(otp.signIns.last, ('req-2', '111111'));
+    expect(find.text('Sign in'), findsOneWidget);
   });
 
   testWidgets('invite page live, dead, null inviter, and signed-in accept', (
     tester,
   ) async {
-    final sender = _Sender();
+    final auth = AuthRefresh(initiallySignedIn: false);
+    addTearDown(auth.dispose);
+    final otp = _Otp()..onSignIn = () => auth.setSignedIn(true);
     final invites = _Invites();
     final router = GoRouter(
       initialLocation: '/invite/tok',
@@ -106,9 +171,14 @@ void main() {
               ),
             ),
             inviteApi: invites,
-            sender: sender,
-            signedIn: () => false,
+            otpSignIn: otp,
+            authRefresh: auth,
+            signedIn: () => auth.isSignedIn,
           ),
+        ),
+        GoRoute(
+          path: AppRoutes.familyLanding,
+          builder: (context, state) => const Text('landing-home'),
         ),
         GoRoute(
           path: AppRoutes.timeline,
@@ -128,17 +198,35 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Bea invited you to Ada.'), findsOneWidget);
-
-    await tester.enterText(find.byKey(const Key('invite-email')), 'a@b.co');
-    final send = find.text('Email me a sign-in link');
-    await tester.ensureVisible(send);
-    await tester.tap(send);
-    await tester.pumpAndSettle();
     expect(
-      find.text('We sent a sign-in link to a@b.co. Tap it to join Ada.'),
+      find.text("We'll email you a 6-digit code. No password needed."),
       findsOneWidget,
     );
-    expect(sender.redirectTo, contains('/invite/tok'));
+
+    await tester.enterText(find.byKey(const Key('invite-email')), 'a@b.co');
+    await _tapText(tester, 'Email me a sign-in code');
+    expect(
+      find.text('We sent a code to a@b.co. Enter it to join Ada.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('invite-sent')), findsOneWidget);
+    expect(otp.sent, ['a@b.co']);
+
+    otp.signInError = EmailAccountRequestException(
+      reason: EmailAccountRequestExceptionReason.invalid,
+    );
+    await _enterCode(tester, '000000');
+    expect(
+      find.text("That code isn't right. Check it and try again."),
+      findsOneWidget,
+    );
+    expect(invites.accepts, 0);
+
+    otp.signInError = null;
+    await _enterCode(tester, '111111');
+    expect(find.text('landing-home'), findsOneWidget);
+    expect(invites.accepts, 1);
+    expect(otp.signIns.last, ('req-1', '111111'));
 
     router.go('/invite/dead');
     await tester.pumpWidget(
@@ -361,17 +449,45 @@ void main() {
   });
 }
 
-class _Sender implements MagicLinkSender {
-  int calls = 0;
-  String? redirectTo;
-  Object? error;
+Future<void> _tapText(WidgetTester tester, String text) async {
+  final target = find.text(text);
+  await tester.ensureVisible(target);
+  await tester.tap(target);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _enterCode(WidgetTester tester, String code) async {
+  await tester.enterText(find.byKey(const Key('sign-in-code')), code);
+  final submit = find.byKey(const Key('sign-in-code-submit'));
+  await tester.ensureVisible(submit);
+  await tester.tap(submit);
+  await tester.pumpAndSettle();
+}
+
+class _Otp implements OtpSignIn {
+  final sent = <String>[];
+  final signIns = <(String, String)>[];
+  Object? sendError;
+  Object? signInError;
+  Completer<void>? signInGate;
+  void Function()? onSignIn;
 
   @override
-  Future<void> send(String email, {required String redirectTo}) async {
-    calls++;
-    this.redirectTo = redirectTo;
-    final thrown = error;
-    if (thrown != null) throw thrown;
+  Future<String> sendCode(String email) async {
+    sent.add(email);
+    final error = sendError;
+    if (error != null) throw error;
+    return 'req-${sent.length}';
+  }
+
+  @override
+  Future<void> signIn({required String requestId, required String code}) async {
+    signIns.add((requestId, code));
+    final gate = signInGate;
+    if (gate != null) await gate.future;
+    final error = signInError;
+    if (error != null) throw error;
+    onSignIn?.call();
   }
 }
 
