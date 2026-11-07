@@ -39,7 +39,7 @@ class _TreemapTimelineState extends State<TreemapTimeline> {
 
     final Widget body;
     if (groups.isEmpty) {
-      body = const Center(child: Text('No stories'));
+      body = const SizedBox.shrink();
     } else if (cell != null) {
       body = _StoryTiles(cell: cell, data: data);
     } else if (group != null) {

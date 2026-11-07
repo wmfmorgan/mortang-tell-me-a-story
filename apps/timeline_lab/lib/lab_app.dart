@@ -10,6 +10,7 @@ import 'playback/playback_controller.dart';
 import 'renderers/renderer_contract.dart';
 import 'shell/lab_shortcuts.dart';
 import 'theme/lab_theme.dart';
+import 'widgets/empty_timeline.dart';
 import 'widgets/filter_panel.dart';
 import 'widgets/playback_bar.dart';
 import 'widgets/story_card.dart';
@@ -144,20 +145,24 @@ class _LabHomeState extends State<LabHome> {
   Widget _build(BuildContext context) {
     final c = widget.controller;
     final playback = widget.playback;
-    final renderer = KeyedSubtree(
-      key: ValueKey((c.renderer, c.datasetSize)),
-      child: buildRenderer(
-        c.renderer,
-        TimelineViewData(
-          dataset: c.dataset,
-          entries: c.entries,
-          mode: c.filter.mode,
-          selectedId: c.selectedStoryId,
-          onSelect: c.select,
-          playback: playback,
-        ),
-      ),
-    );
+    final renderer = c.entries.isEmpty
+        ? EmptyTimeline(
+            onClear: () => c.setFilter(TimelineFilter(mode: c.filter.mode)),
+          )
+        : KeyedSubtree(
+            key: ValueKey((c.renderer, c.datasetSize)),
+            child: buildRenderer(
+              c.renderer,
+              TimelineViewData(
+                dataset: c.dataset,
+                entries: c.entries,
+                mode: c.filter.mode,
+                selectedId: c.selectedStoryId,
+                onSelect: c.select,
+                playback: playback,
+              ),
+            ),
+          );
     final selected = c.selectedStory;
     final window = MediaQuery.sizeOf(context);
     final wide = window.width >= LabBreakpoint.sidebar;

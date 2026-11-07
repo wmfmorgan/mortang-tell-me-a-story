@@ -352,4 +352,28 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('no matches in Hide mode shows the empty state; Clear restores', (
+    tester,
+  ) async {
+    final c = await _pump(tester);
+    c.setFilter(
+      const TimelineFilter(query: 'zzz-no-match', mode: FilterMode.hide),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('empty-timeline')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('empty-clear')));
+    await tester.pumpAndSettle();
+    expect(c.filter.isActive, isFalse);
+    expect(c.filter.mode, FilterMode.hide);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('filter-search')))
+          .controller!
+          .text,
+      isEmpty,
+    );
+    expect(find.byKey(const Key('empty-timeline')), findsNothing);
+  });
 }

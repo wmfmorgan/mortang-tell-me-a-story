@@ -114,6 +114,21 @@ void main() {
     );
   });
 
+  testWidgets('golden sliverList_empty', (tester) async {
+    _surface(tester, const Size(1280, 800));
+    final c = LabController()
+      ..setFilter(
+        const TimelineFilter(query: 'zzz-no-match', mode: FilterMode.hide),
+      );
+    addTearDown(c.dispose);
+    await tester.pumpWidget(LabApp(useGoogleFonts: false, controller: c));
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(LabHome),
+      matchesGoldenFile('goldens/sliverList_empty.png'),
+    );
+  });
+
   // iPad goldens: logical sizes at DPR 1, iOS density, 24/20 pt insets.
   for (final (name, size, kind) in [
     (
