@@ -128,7 +128,7 @@ void main() {
       tester,
     ) async {
       watch();
-      client.fake.latest.addError(server.ServerpodClientUnauthorized());
+      client.fake.latest.addError(const server.WebSocketClosedException());
       await tester.pump(const Duration(milliseconds: 999));
       expect(client.fake.families, hasLength(1));
       await tester.pump(const Duration(milliseconds: 1));
@@ -170,6 +170,42 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
 
       expect(client.fake.families, hasLength(2));
+    });
+
+    for (final refusal in <String, Object Function()>{
+      'forbidden': () => server.AppException(
+        code: server.AppErrorCode.forbidden,
+        message: 'member only',
+      ),
+      'notFound': () => server.AppException(
+        code: server.AppErrorCode.notFound,
+        message: 'not found',
+      ),
+      'unauthorized': server.ServerpodClientUnauthorized.new,
+    }.entries) {
+      testWidgets('a ${refusal.key} refusal stops the feed for good', (
+        tester,
+      ) async {
+        watch();
+        client.fake.latest.addError(refusal.value());
+        await tester.pump(const Duration(minutes: 1));
+
+        expect(client.fake.families, hasLength(1));
+        expect(changes, 0);
+      });
+    }
+
+    testWidgets('a refused story feed is not reopened either', (tester) async {
+      live.watchStory(storyId: _story, onChange: () => changes++);
+      client.fake.latest.addError(
+        server.AppException(
+          code: server.AppErrorCode.forbidden,
+          message: 'forbidden',
+        ),
+      );
+      await tester.pump(const Duration(minutes: 1));
+
+      expect(client.fake.stories, [_story]);
     });
 
     testWidgets('dispose stops the stream, the debounce and the retry', (

@@ -38,10 +38,11 @@ abstract class TimelineLive {
 /// `watchFamily`, the reader `watchStory`. A change calls `onChange` after
 /// 200 ms without further events.
 ///
-/// A stream that fails or ends (a dropped WebSocket, a refused or expired
-/// sign-in) never reaches the UI. It is reopened after 1 s, doubling up to
-/// 30 s while it keeps failing; any event resets the delay. [dispose] stops
-/// both feeds.
+/// A stream that fails or ends never reaches the UI. A dropped WebSocket or
+/// an ended stream is reopened after 1 s, doubling up to 30 s while it keeps
+/// failing; any event resets the delay. A permanent refusal (the server's
+/// `AppException`, e.g. no longer a member or the family is deleted, or a
+/// refused sign-in) closes the feed for good. [dispose] stops both feeds.
 class ServerTimelineLive implements TimelineLive {
   ServerTimelineLive({server.Client? client}) : _injected = client;
 
@@ -122,7 +123,7 @@ class _LiveFeed {
     try {
       _subscription = open().listen(
         _onEvent,
-        onError: (Object _) => _reopen(),
+        onError: _onError,
         onDone: _reopen,
         cancelOnError: true,
       );
@@ -131,6 +132,23 @@ class _LiveFeed {
       _reopen();
     }
   }
+
+  void _onError(Object error) {
+    if (_isRefusal(error)) {
+      // Retrying cannot help: stay closed.
+      _subscription = null;
+      _closed = true;
+      return;
+    }
+    _reopen();
+  }
+
+  /// The server's own `AppException` (forbidden, notFound, …) and a refused
+  /// sign-in are permanent; anything else is treated as a dropped connection.
+  static bool _isRefusal(Object error) =>
+      error is server.AppException ||
+      error is server.ServerpodClientUnauthorized ||
+      error is server.ServerpodClientForbidden;
 
   void _onEvent(server.LiveEventDto event) {
     _retryDelay = _firstRetry;
