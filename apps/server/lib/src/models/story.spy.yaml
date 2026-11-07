@@ -3,6 +3,8 @@ table: stories
 fields:
   id: UuidValue?, defaultPersist=random_v7
   familyId: UuidValue, relation(parent=families, onDelete=Cascade)
+  ### Copy of families.treeId (immutable), kept equal by stories_family_tree_fk.
+  treeId: UuidValue
   ### Null only after the author's account is deleted.
   authorId: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
   title: String?
@@ -12,6 +14,7 @@ fields:
   dateStart: DateTime?
   dateEnd: DateTime?
   datePrecision: DatePrecision?
+  ### Same tree enforced by stories_place_tree_fk (SET NULL placeId only).
   placeId: UuidValue?, relation(parent=places, onDelete=SetNull)
   publishedAt: DateTime?
   createdAt: DateTime, default=now
@@ -31,3 +34,7 @@ indexes:
     fields: familyId, publishedAt
   stories_place_idx:
     fields: placeId
+  ### Target of story_people_story_tree_fk and families_origin_tree_fk.
+  stories_id_tree_uidx:
+    fields: id, treeId
+    unique: true

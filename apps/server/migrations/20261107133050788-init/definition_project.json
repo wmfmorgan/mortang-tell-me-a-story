@@ -318,6 +318,14 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
+          "name": "treeId",
+          "fieldName": "treeId",
+          "columnType": 7,
+          "isNullable": false,
+          "dartType": "UuidValue"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
           "name": "personId",
           "fieldName": "personId",
           "columnType": 7,
@@ -371,6 +379,15 @@
           "columnType": 4,
           "isNullable": true,
           "dartType": "DateTime?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "lastSentAt",
+          "fieldName": "lastSentAt",
+          "columnType": 4,
+          "isNullable": false,
+          "columnDefault": "now",
+          "dartType": "DateTime"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
@@ -490,6 +507,186 @@
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
               "definition": "personId"
+            }
+          ],
+          "type": "btree",
+          "isUnique": false,
+          "isPrimary": false
+        }
+      ],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
+      "name": "kinships",
+      "dartName": "Kinship",
+      "module": "tell_me_a_story",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 7,
+          "isNullable": false,
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "treeId",
+          "fieldName": "treeId",
+          "columnType": 7,
+          "isNullable": false,
+          "dartType": "UuidValue"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "kind",
+          "fieldName": "kind",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "protocol:KinshipKind"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "fromPersonId",
+          "fieldName": "fromPersonId",
+          "columnType": 7,
+          "isNullable": false,
+          "dartType": "UuidValue"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "toPersonId",
+          "fieldName": "toPersonId",
+          "columnType": 7,
+          "isNullable": false,
+          "dartType": "UuidValue"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "createdById",
+          "fieldName": "createdById",
+          "columnType": 7,
+          "isNullable": true,
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "createdAt",
+          "fieldName": "createdAt",
+          "columnType": 4,
+          "isNullable": false,
+          "columnDefault": "now",
+          "dartType": "DateTime"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "kinships_fk_0",
+          "columns": [
+            "treeId"
+          ],
+          "referenceTable": "trees",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "kinships_fk_1",
+          "columns": [
+            "fromPersonId"
+          ],
+          "referenceTable": "people",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "kinships_fk_2",
+          "columns": [
+            "toPersonId"
+          ],
+          "referenceTable": "people",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "kinships_fk_3",
+          "columns": [
+            "createdById"
+          ],
+          "referenceTable": "serverpod_auth_core_user",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 0
+        }
+      ],
+      "indexes": [
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "kinships_from_to_kind_uidx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "fromPersonId"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "toPersonId"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "kind"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        },
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "kinships_to_idx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "toPersonId"
+            }
+          ],
+          "type": "btree",
+          "isUnique": false,
+          "isPrimary": false
+        },
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "kinships_tree_idx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "treeId"
             }
           ],
           "type": "btree",
@@ -635,16 +832,16 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "familyId",
-          "fieldName": "familyId",
+          "name": "treeId",
+          "fieldName": "treeId",
           "columnType": 7,
           "isNullable": false,
           "dartType": "UuidValue"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "treeId",
-          "fieldName": "treeId",
+          "name": "homeFamilyId",
+          "fieldName": "homeFamilyId",
           "columnType": 7,
           "isNullable": false,
           "dartType": "UuidValue"
@@ -664,14 +861,6 @@
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
-        },
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "relationship",
-          "fieldName": "relationship",
-          "columnType": 0,
-          "isNullable": true,
-          "dartType": "String?"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
@@ -696,6 +885,38 @@
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "birthDate",
+          "fieldName": "birthDate",
+          "columnType": 4,
+          "isNullable": true,
+          "dartType": "DateTime?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "birthPrecision",
+          "fieldName": "birthPrecision",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "protocol:DatePrecision?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "deathDate",
+          "fieldName": "deathDate",
+          "columnType": 4,
+          "isNullable": true,
+          "dartType": "DateTime?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "deathPrecision",
+          "fieldName": "deathPrecision",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "protocol:DatePrecision?"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
@@ -738,9 +959,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "people_fk_0",
           "columns": [
-            "familyId"
+            "treeId"
           ],
-          "referenceTable": "families",
+          "referenceTable": "trees",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -751,6 +972,20 @@
         {
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "people_fk_1",
+          "columns": [
+            "homeFamilyId"
+          ],
+          "referenceTable": "families",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 2
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "people_fk_2",
           "columns": [
             "userId"
           ],
@@ -764,7 +999,7 @@
         },
         {
           "__className__": "serverpod.ForeignKeyDefinition",
-          "constraintName": "people_fk_2",
+          "constraintName": "people_fk_3",
           "columns": [
             "createdById"
           ],
@@ -799,12 +1034,31 @@
         },
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "people_family_name_idx",
+          "indexName": "people_id_tree_uidx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "familyId"
+              "definition": "id"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "treeId"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        },
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "people_tree_name_idx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "treeId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -818,12 +1072,12 @@
         },
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "people_tree_name_idx",
+          "indexName": "people_home_family_name_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "treeId"
+              "definition": "homeFamilyId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -999,8 +1253,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "familyId",
-          "fieldName": "familyId",
+          "name": "treeId",
+          "fieldName": "treeId",
           "columnType": 7,
           "isNullable": false,
           "dartType": "UuidValue"
@@ -1061,6 +1315,15 @@
           "columnType": 4,
           "isNullable": true,
           "dartType": "DateTime?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "createdAt",
+          "fieldName": "createdAt",
+          "columnType": 4,
+          "isNullable": false,
+          "columnDefault": "now",
+          "dartType": "DateTime"
         }
       ],
       "foreignKeys": [
@@ -1068,9 +1331,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "places_fk_0",
           "columns": [
-            "familyId"
+            "treeId"
           ],
-          "referenceTable": "families",
+          "referenceTable": "trees",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1082,12 +1345,31 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "places_family_label_idx",
+          "indexName": "places_id_tree_uidx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "familyId"
+              "definition": "id"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "treeId"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        },
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "places_tree_label_idx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "treeId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -1101,12 +1383,12 @@
         },
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "places_family_mapbox_uidx",
+          "indexName": "places_tree_mapbox_uidx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "familyId"
+              "definition": "treeId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -1120,12 +1402,12 @@
         },
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "places_family_last_used_idx",
+          "indexName": "places_tree_last_used_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "familyId"
+              "definition": "treeId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -1160,6 +1442,14 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "familyId",
           "fieldName": "familyId",
+          "columnType": 7,
+          "isNullable": false,
+          "dartType": "UuidValue"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "treeId",
+          "fieldName": "treeId",
           "columnType": 7,
           "isNullable": false,
           "dartType": "UuidValue"
@@ -1391,6 +1681,25 @@
           "type": "btree",
           "isUnique": false,
           "isPrimary": false
+        },
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "stories_id_tree_uidx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "id"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "treeId"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
         }
       ],
       "managed": true
@@ -1548,6 +1857,14 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "personId",
           "fieldName": "personId",
+          "columnType": 7,
+          "isNullable": false,
+          "dartType": "UuidValue"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "treeId",
+          "fieldName": "treeId",
           "columnType": 7,
           "isNullable": false,
           "dartType": "UuidValue"

@@ -22,6 +22,8 @@ import 'app_user.dart' as _i2j2xfrn;
 import 'birth_visibility.dart' as _i2x3tia5;
 import 'date_precision.dart' as _ilvyd2nu;
 import 'family.dart' as _igf5ho4a;
+import 'kinship.dart' as _itzlol5n;
+import 'kinship_kind.dart' as _iq59nsdl;
 import 'membership.dart' as _iu35fd1a;
 import 'membership_role.dart' as _iur1rrwm;
 import 'note_kind.dart' as _ixhn57mr;
@@ -39,6 +41,8 @@ export 'app_user.dart';
 export 'birth_visibility.dart';
 export 'date_precision.dart';
 export 'family.dart';
+export 'kinship.dart';
+export 'kinship_kind.dart';
 export 'membership.dart';
 export 'membership_role.dart';
 export 'note_kind.dart';
@@ -71,6 +75,8 @@ class Protocol extends _isc.SerializationManager
           _isc.getType<_i2x3tia5.BirthVisibility>,
           _isc.getType<_ilvyd2nu.DatePrecision>,
           _isc.getType<_igf5ho4a.Family>,
+          _isc.getType<_itzlol5n.Kinship>,
+          _isc.getType<_iq59nsdl.KinshipKind>,
           _isc.getType<_iu35fd1a.Membership>,
           _isc.getType<_iur1rrwm.MembershipRole>,
           _isc.getType<_ixhn57mr.NoteKind>,
@@ -88,6 +94,8 @@ class Protocol extends _isc.SerializationManager
           _isc.getType<_i2x3tia5.BirthVisibility?>,
           _isc.getType<_ilvyd2nu.DatePrecision?>,
           _isc.getType<_igf5ho4a.Family?>,
+          _isc.getType<_itzlol5n.Kinship?>,
+          _isc.getType<_iq59nsdl.KinshipKind?>,
           _isc.getType<_iu35fd1a.Membership?>,
           _isc.getType<_iur1rrwm.MembershipRole?>,
           _isc.getType<_ixhn57mr.NoteKind?>,
@@ -111,6 +119,8 @@ class Protocol extends _isc.SerializationManager
           'BirthVisibility',
           'DatePrecision',
           'Family',
+          'Kinship',
+          'KinshipKind',
           'Membership',
           'MembershipRole',
           'NoteKind',
@@ -167,6 +177,12 @@ class Protocol extends _isc.SerializationManager
     if (t == _igf5ho4a.Family) {
       return _igf5ho4a.Family.fromJson(data) as T;
     }
+    if (t == _itzlol5n.Kinship) {
+      return _itzlol5n.Kinship.fromJson(data) as T;
+    }
+    if (t == _iq59nsdl.KinshipKind) {
+      return _iq59nsdl.KinshipKind.fromJson(data) as T;
+    }
     if (t == _iu35fd1a.Membership) {
       return _iu35fd1a.Membership.fromJson(data) as T;
     }
@@ -219,6 +235,12 @@ class Protocol extends _isc.SerializationManager
     }
     if (t == _isc.getType<_igf5ho4a.Family?>()) {
       return (data != null ? _igf5ho4a.Family.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_itzlol5n.Kinship?>()) {
+      return (data != null ? _itzlol5n.Kinship.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_iq59nsdl.KinshipKind?>()) {
+      return (data != null ? _iq59nsdl.KinshipKind.fromJson(data) : null) as T;
     }
     if (t == _isc.getType<_iu35fd1a.Membership?>()) {
       return (data != null ? _iu35fd1a.Membership.fromJson(data) : null) as T;
@@ -275,6 +297,8 @@ class Protocol extends _isc.SerializationManager
       _i2x3tia5.BirthVisibility => 'BirthVisibility',
       _ilvyd2nu.DatePrecision => 'DatePrecision',
       _igf5ho4a.Family => 'Family',
+      _itzlol5n.Kinship => 'Kinship',
+      _iq59nsdl.KinshipKind => 'KinshipKind',
       _iu35fd1a.Membership => 'Membership',
       _iur1rrwm.MembershipRole => 'MembershipRole',
       _ixhn57mr.NoteKind => 'NoteKind',
@@ -315,6 +339,10 @@ class Protocol extends _isc.SerializationManager
         return 'DatePrecision';
       case _igf5ho4a.Family():
         return 'Family';
+      case _itzlol5n.Kinship():
+        return 'Kinship';
+      case _iq59nsdl.KinshipKind():
+        return 'KinshipKind';
       case _iu35fd1a.Membership():
         return 'Membership';
       case _iur1rrwm.MembershipRole():
@@ -376,6 +404,12 @@ class Protocol extends _isc.SerializationManager
     }
     if (dataClassName == 'Family') {
       return deserialize<_igf5ho4a.Family>(data['data']);
+    }
+    if (dataClassName == 'Kinship') {
+      return deserialize<_itzlol5n.Kinship>(data['data']);
+    }
+    if (dataClassName == 'KinshipKind') {
+      return deserialize<_iq59nsdl.KinshipKind>(data['data']);
     }
     if (dataClassName == 'Membership') {
       return deserialize<_iu35fd1a.Membership>(data['data']);

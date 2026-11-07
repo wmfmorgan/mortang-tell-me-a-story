@@ -20,12 +20,14 @@ abstract class StoryPerson
     this.id,
     required this.storyId,
     required this.personId,
+    required this.treeId,
   });
 
   factory StoryPerson({
     _isc.UuidValue? id,
     required _isc.UuidValue storyId,
     required _isc.UuidValue personId,
+    required _isc.UuidValue treeId,
   }) = _StoryPersonImpl;
 
   factory StoryPerson.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -39,6 +41,7 @@ abstract class StoryPerson
       personId: _isc.UuidValueJsonExtension.fromJson(
         jsonSerialization['personId'],
       ),
+      treeId: _isc.UuidValueJsonExtension.fromJson(jsonSerialization['treeId']),
     );
   }
 
@@ -51,6 +54,9 @@ abstract class StoryPerson
 
   _isc.UuidValue personId;
 
+  /// Copy of the story's treeId; story_people_story_tree_fk and story_people_person_tree_fk make tags same-tree.
+  _isc.UuidValue treeId;
+
   /// Returns a shallow copy of this [StoryPerson]
   /// with some or all fields replaced by the given arguments.
   @_isc.useResult
@@ -58,6 +64,7 @@ abstract class StoryPerson
     _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     _isc.UuidValue? storyId,
     _isc.UuidValue? personId,
+    _isc.UuidValue? treeId,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -66,6 +73,7 @@ abstract class StoryPerson
       if (id != null) 'id': id?.toJson(),
       'storyId': storyId.toJson(),
       'personId': personId.toJson(),
+      'treeId': treeId.toJson(),
     };
   }
 
@@ -76,6 +84,7 @@ abstract class StoryPerson
       if (id != null) 'id': id?.toJson(),
       'storyId': storyId.toJson(),
       'personId': personId.toJson(),
+      'treeId': treeId.toJson(),
     };
   }
 
@@ -90,10 +99,12 @@ class _StoryPersonImpl extends StoryPerson {
     _isc.UuidValue? id,
     required _isc.UuidValue storyId,
     required _isc.UuidValue personId,
+    required _isc.UuidValue treeId,
   }) : super._(
          id: id,
          storyId: storyId,
          personId: personId,
+         treeId: treeId,
        );
 
   /// Returns a shallow copy of this [StoryPerson]
@@ -104,11 +115,13 @@ class _StoryPersonImpl extends StoryPerson {
     _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     _isc.UuidValue? storyId,
     _isc.UuidValue? personId,
+    _isc.UuidValue? treeId,
   }) {
     return StoryPerson(
       id: id is _isc.UndefinedSentinel ? this.id : id,
       storyId: storyId ?? this.storyId,
       personId: personId ?? this.personId,
+      treeId: treeId ?? this.treeId,
     );
   }
 }

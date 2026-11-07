@@ -52,10 +52,6 @@ BEGIN
       ('memberships', 'memberships_role_valid',
         $$CHECK ("role" IN ('owner', 'coOwner', 'member'))$$),
       -- people -------------------------------------------------------------
-      -- people.treeId must equal the family's treeId.
-      ('people', 'people_family_tree_fk',
-        $$FOREIGN KEY ("familyId", "treeId") REFERENCES families ("id", "treeId")
-          ON DELETE CASCADE$$),
       ('people', 'people_name_not_blank',
         $$CHECK (btrim("name") <> '')$$),
       ('people', 'people_about_len',

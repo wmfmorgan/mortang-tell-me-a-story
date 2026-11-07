@@ -11,19 +11,24 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'date_precision.dart' as _ilvyd2nu;
 
+/// A human in one tree, shared by every family (timeline) in the tree.
 abstract class Person
     implements _isc.SerializableModel, _isc.ProtocolSerialization {
   Person._({
     this.id,
-    required this.familyId,
     required this.treeId,
+    required this.homeFamilyId,
     this.userId,
     required this.name,
-    this.relationship,
     this.email,
     this.about,
     this.avatarKey,
+    this.birthDate,
+    this.birthPrecision,
+    this.deathDate,
+    this.deathPrecision,
     bool? passedAway,
     this.createdById,
     DateTime? createdAt,
@@ -34,14 +39,17 @@ abstract class Person
 
   factory Person({
     _isc.UuidValue? id,
-    required _isc.UuidValue familyId,
     required _isc.UuidValue treeId,
+    required _isc.UuidValue homeFamilyId,
     _isc.UuidValue? userId,
     required String name,
-    String? relationship,
     String? email,
     String? about,
     String? avatarKey,
+    DateTime? birthDate,
+    _ilvyd2nu.DatePrecision? birthPrecision,
+    DateTime? deathDate,
+    _ilvyd2nu.DatePrecision? deathPrecision,
     bool? passedAway,
     _isc.UuidValue? createdById,
     DateTime? createdAt,
@@ -53,18 +61,33 @@ abstract class Person
       id: jsonSerialization['id'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      familyId: _isc.UuidValueJsonExtension.fromJson(
-        jsonSerialization['familyId'],
-      ),
       treeId: _isc.UuidValueJsonExtension.fromJson(jsonSerialization['treeId']),
+      homeFamilyId: _isc.UuidValueJsonExtension.fromJson(
+        jsonSerialization['homeFamilyId'],
+      ),
       userId: jsonSerialization['userId'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['userId']),
       name: jsonSerialization['name'] as String,
-      relationship: jsonSerialization['relationship'] as String?,
       email: jsonSerialization['email'] as String?,
       about: jsonSerialization['about'] as String?,
       avatarKey: jsonSerialization['avatarKey'] as String?,
+      birthDate: jsonSerialization['birthDate'] == null
+          ? null
+          : _isc.DateTimeJsonExtension.fromJson(jsonSerialization['birthDate']),
+      birthPrecision: jsonSerialization['birthPrecision'] == null
+          ? null
+          : _ilvyd2nu.DatePrecision.fromJson(
+              (jsonSerialization['birthPrecision'] as int),
+            ),
+      deathDate: jsonSerialization['deathDate'] == null
+          ? null
+          : _isc.DateTimeJsonExtension.fromJson(jsonSerialization['deathDate']),
+      deathPrecision: jsonSerialization['deathPrecision'] == null
+          ? null
+          : _ilvyd2nu.DatePrecision.fromJson(
+              (jsonSerialization['deathPrecision'] as int),
+            ),
       passedAway: jsonSerialization['passedAway'] == null
           ? null
           : _isc.BoolJsonExtension.fromJson(jsonSerialization['passedAway']),
@@ -87,19 +110,18 @@ abstract class Person
   /// the id will be null.
   _isc.UuidValue? id;
 
-  _isc.UuidValue familyId;
-
-  /// Copy of families.treeId (immutable); kept equal by raw composite FK
-  /// people_family_tree_fk. Exists so "one linked person per tree" is a plain unique index.
+  /// Owning tree. Deleted with the tree, or explicitly.
   _isc.UuidValue treeId;
 
-  /// Linked account. Unique per tree; NULLs are distinct so unlinked people don't collide.
+  /// Family the person was added in; its stewards hold steward-only rights.
+  /// Same tree enforced by people_home_family_tree_fk. The purge job reassigns it before deleting the family (§4.3).
+  _isc.UuidValue homeFamilyId;
+
+  /// Linked account. Unique per tree; NULLs are distinct.
   _isc.UuidValue? userId;
 
   /// For linked people this mirrors AppUser.displayName (app-layer sync, §3.2).
   String name;
-
-  String? relationship;
 
   /// Lower-cased, trimmed, non-empty or null (CHECK).
   String? email;
@@ -107,8 +129,18 @@ abstract class Person
   /// ≤ 500 chars (CHECK).
   String? about;
 
-  /// Blob key, see §4. families/{familyId}/people/{personId}/avatar/{blobId}.jpg
+  /// Blob key, see §4. trees/{treeId}/people/{personId}/avatar/{blobId}.jpg
   String? avatarKey;
+
+  /// UTC midnight aligned to precision (CHECK people_birth_shape). While linked, AppUser birth wins on read.
+  DateTime? birthDate;
+
+  _ilvyd2nu.DatePrecision? birthPrecision;
+
+  /// UTC midnight aligned to precision (CHECK people_death_shape). Requires passedAway.
+  DateTime? deathDate;
+
+  _ilvyd2nu.DatePrecision? deathPrecision;
 
   bool passedAway;
 
@@ -123,14 +155,17 @@ abstract class Person
   @_isc.useResult
   Person copyWith({
     _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
-    _isc.UuidValue? familyId,
     _isc.UuidValue? treeId,
+    _isc.UuidValue? homeFamilyId,
     _isc.UuidValue? userId = const _isc.$UndefinedUuidValue(),
     String? name,
-    String? relationship,
     String? email,
     String? about,
     String? avatarKey,
+    DateTime? birthDate = const _isc.$UndefinedDateTime(),
+    _ilvyd2nu.DatePrecision? birthPrecision,
+    DateTime? deathDate = const _isc.$UndefinedDateTime(),
+    _ilvyd2nu.DatePrecision? deathPrecision,
     bool? passedAway,
     _isc.UuidValue? createdById = const _isc.$UndefinedUuidValue(),
     DateTime? createdAt,
@@ -141,14 +176,17 @@ abstract class Person
     return {
       '__className__': 'Person',
       if (id != null) 'id': id?.toJson(),
-      'familyId': familyId.toJson(),
       'treeId': treeId.toJson(),
+      'homeFamilyId': homeFamilyId.toJson(),
       if (userId != null) 'userId': userId?.toJson(),
       'name': name,
-      if (relationship != null) 'relationship': relationship,
       if (email != null) 'email': email,
       if (about != null) 'about': about,
       if (avatarKey != null) 'avatarKey': avatarKey,
+      if (birthDate != null) 'birthDate': birthDate?.toJson(),
+      if (birthPrecision != null) 'birthPrecision': birthPrecision?.toJson(),
+      if (deathDate != null) 'deathDate': deathDate?.toJson(),
+      if (deathPrecision != null) 'deathPrecision': deathPrecision?.toJson(),
       'passedAway': passedAway,
       if (createdById != null) 'createdById': createdById?.toJson(),
       'createdAt': createdAt.toJson(),
@@ -161,14 +199,17 @@ abstract class Person
     return {
       '__className__': 'Person',
       if (id != null) 'id': id?.toJson(),
-      'familyId': familyId.toJson(),
       'treeId': treeId.toJson(),
+      'homeFamilyId': homeFamilyId.toJson(),
       if (userId != null) 'userId': userId?.toJson(),
       'name': name,
-      if (relationship != null) 'relationship': relationship,
       if (email != null) 'email': email,
       if (about != null) 'about': about,
       if (avatarKey != null) 'avatarKey': avatarKey,
+      if (birthDate != null) 'birthDate': birthDate?.toJson(),
+      if (birthPrecision != null) 'birthPrecision': birthPrecision?.toJson(),
+      if (deathDate != null) 'deathDate': deathDate?.toJson(),
+      if (deathPrecision != null) 'deathPrecision': deathPrecision?.toJson(),
       'passedAway': passedAway,
       if (createdById != null) 'createdById': createdById?.toJson(),
       'createdAt': createdAt.toJson(),
@@ -187,28 +228,34 @@ class _Undefined {}
 class _PersonImpl extends Person {
   _PersonImpl({
     _isc.UuidValue? id,
-    required _isc.UuidValue familyId,
     required _isc.UuidValue treeId,
+    required _isc.UuidValue homeFamilyId,
     _isc.UuidValue? userId,
     required String name,
-    String? relationship,
     String? email,
     String? about,
     String? avatarKey,
+    DateTime? birthDate,
+    _ilvyd2nu.DatePrecision? birthPrecision,
+    DateTime? deathDate,
+    _ilvyd2nu.DatePrecision? deathPrecision,
     bool? passedAway,
     _isc.UuidValue? createdById,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : super._(
          id: id,
-         familyId: familyId,
          treeId: treeId,
+         homeFamilyId: homeFamilyId,
          userId: userId,
          name: name,
-         relationship: relationship,
          email: email,
          about: about,
          avatarKey: avatarKey,
+         birthDate: birthDate,
+         birthPrecision: birthPrecision,
+         deathDate: deathDate,
+         deathPrecision: deathPrecision,
          passedAway: passedAway,
          createdById: createdById,
          createdAt: createdAt,
@@ -221,14 +268,17 @@ class _PersonImpl extends Person {
   @override
   Person copyWith({
     _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
-    _isc.UuidValue? familyId,
     _isc.UuidValue? treeId,
+    _isc.UuidValue? homeFamilyId,
     _isc.UuidValue? userId = const _isc.$UndefinedUuidValue(),
     String? name,
-    Object? relationship = _Undefined,
     Object? email = _Undefined,
     Object? about = _Undefined,
     Object? avatarKey = _Undefined,
+    DateTime? birthDate = const _isc.$UndefinedDateTime(),
+    Object? birthPrecision = _Undefined,
+    DateTime? deathDate = const _isc.$UndefinedDateTime(),
+    Object? deathPrecision = _Undefined,
     bool? passedAway,
     _isc.UuidValue? createdById = const _isc.$UndefinedUuidValue(),
     DateTime? createdAt,
@@ -236,14 +286,25 @@ class _PersonImpl extends Person {
   }) {
     return Person(
       id: id is _isc.UndefinedSentinel ? this.id : id,
-      familyId: familyId ?? this.familyId,
       treeId: treeId ?? this.treeId,
+      homeFamilyId: homeFamilyId ?? this.homeFamilyId,
       userId: userId is _isc.UndefinedSentinel ? this.userId : userId,
       name: name ?? this.name,
-      relationship: relationship is String? ? relationship : this.relationship,
       email: email is String? ? email : this.email,
       about: about is String? ? about : this.about,
       avatarKey: avatarKey is String? ? avatarKey : this.avatarKey,
+      birthDate: birthDate is _isc.UndefinedSentinel
+          ? this.birthDate
+          : birthDate,
+      birthPrecision: birthPrecision is _ilvyd2nu.DatePrecision?
+          ? birthPrecision
+          : this.birthPrecision,
+      deathDate: deathDate is _isc.UndefinedSentinel
+          ? this.deathDate
+          : deathDate,
+      deathPrecision: deathPrecision is _ilvyd2nu.DatePrecision?
+          ? deathPrecision
+          : this.deathPrecision,
       passedAway: passedAway ?? this.passedAway,
       createdById: createdById is _isc.UndefinedSentinel
           ? this.createdById

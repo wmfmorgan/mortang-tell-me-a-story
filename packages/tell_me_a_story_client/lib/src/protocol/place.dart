@@ -12,11 +12,12 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 
+/// A real-world place, shared by every family in the tree.
 abstract class Place
     implements _isc.SerializableModel, _isc.ProtocolSerialization {
   Place._({
     this.id,
-    required this.familyId,
+    required this.treeId,
     required this.label,
     required this.address,
     required this.lat,
@@ -24,11 +25,13 @@ abstract class Place
     this.mapboxPlaceId,
     bool? isFavorite,
     this.lastUsedAt,
-  }) : isFavorite = isFavorite ?? false;
+    DateTime? createdAt,
+  }) : isFavorite = isFavorite ?? false,
+       createdAt = createdAt ?? DateTime.now();
 
   factory Place({
     _isc.UuidValue? id,
-    required _isc.UuidValue familyId,
+    required _isc.UuidValue treeId,
     required String label,
     required String address,
     required double lat,
@@ -36,6 +39,7 @@ abstract class Place
     String? mapboxPlaceId,
     bool? isFavorite,
     DateTime? lastUsedAt,
+    DateTime? createdAt,
   }) = _PlaceImpl;
 
   factory Place.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -43,9 +47,7 @@ abstract class Place
       id: jsonSerialization['id'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      familyId: _isc.UuidValueJsonExtension.fromJson(
-        jsonSerialization['familyId'],
-      ),
+      treeId: _isc.UuidValueJsonExtension.fromJson(jsonSerialization['treeId']),
       label: jsonSerialization['label'] as String,
       address: jsonSerialization['address'] as String,
       lat: (jsonSerialization['lat'] as num).toDouble(),
@@ -59,6 +61,9 @@ abstract class Place
           : _isc.DateTimeJsonExtension.fromJson(
               jsonSerialization['lastUsedAt'],
             ),
+      createdAt: jsonSerialization['createdAt'] == null
+          ? null
+          : _isc.DateTimeJsonExtension.fromJson(jsonSerialization['createdAt']),
     );
   }
 
@@ -67,7 +72,7 @@ abstract class Place
   /// the id will be null.
   _isc.UuidValue? id;
 
-  _isc.UuidValue familyId;
+  _isc.UuidValue treeId;
 
   String label;
 
@@ -83,12 +88,14 @@ abstract class Place
 
   DateTime? lastUsedAt;
 
+  DateTime createdAt;
+
   /// Returns a shallow copy of this [Place]
   /// with some or all fields replaced by the given arguments.
   @_isc.useResult
   Place copyWith({
     _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
-    _isc.UuidValue? familyId,
+    _isc.UuidValue? treeId,
     String? label,
     String? address,
     double? lat,
@@ -96,13 +103,14 @@ abstract class Place
     String? mapboxPlaceId,
     bool? isFavorite,
     DateTime? lastUsedAt = const _isc.$UndefinedDateTime(),
+    DateTime? createdAt,
   });
   @override
   Map<String, dynamic> toJson() {
     return {
       '__className__': 'Place',
       if (id != null) 'id': id?.toJson(),
-      'familyId': familyId.toJson(),
+      'treeId': treeId.toJson(),
       'label': label,
       'address': address,
       'lat': lat,
@@ -110,6 +118,7 @@ abstract class Place
       if (mapboxPlaceId != null) 'mapboxPlaceId': mapboxPlaceId,
       'isFavorite': isFavorite,
       if (lastUsedAt != null) 'lastUsedAt': lastUsedAt?.toJson(),
+      'createdAt': createdAt.toJson(),
     };
   }
 
@@ -118,7 +127,7 @@ abstract class Place
     return {
       '__className__': 'Place',
       if (id != null) 'id': id?.toJson(),
-      'familyId': familyId.toJson(),
+      'treeId': treeId.toJson(),
       'label': label,
       'address': address,
       'lat': lat,
@@ -126,6 +135,7 @@ abstract class Place
       if (mapboxPlaceId != null) 'mapboxPlaceId': mapboxPlaceId,
       'isFavorite': isFavorite,
       if (lastUsedAt != null) 'lastUsedAt': lastUsedAt?.toJson(),
+      'createdAt': createdAt.toJson(),
     };
   }
 
@@ -140,7 +150,7 @@ class _Undefined {}
 class _PlaceImpl extends Place {
   _PlaceImpl({
     _isc.UuidValue? id,
-    required _isc.UuidValue familyId,
+    required _isc.UuidValue treeId,
     required String label,
     required String address,
     required double lat,
@@ -148,9 +158,10 @@ class _PlaceImpl extends Place {
     String? mapboxPlaceId,
     bool? isFavorite,
     DateTime? lastUsedAt,
+    DateTime? createdAt,
   }) : super._(
          id: id,
-         familyId: familyId,
+         treeId: treeId,
          label: label,
          address: address,
          lat: lat,
@@ -158,6 +169,7 @@ class _PlaceImpl extends Place {
          mapboxPlaceId: mapboxPlaceId,
          isFavorite: isFavorite,
          lastUsedAt: lastUsedAt,
+         createdAt: createdAt,
        );
 
   /// Returns a shallow copy of this [Place]
@@ -166,7 +178,7 @@ class _PlaceImpl extends Place {
   @override
   Place copyWith({
     _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
-    _isc.UuidValue? familyId,
+    _isc.UuidValue? treeId,
     String? label,
     String? address,
     double? lat,
@@ -174,10 +186,11 @@ class _PlaceImpl extends Place {
     Object? mapboxPlaceId = _Undefined,
     bool? isFavorite,
     DateTime? lastUsedAt = const _isc.$UndefinedDateTime(),
+    DateTime? createdAt,
   }) {
     return Place(
       id: id is _isc.UndefinedSentinel ? this.id : id,
-      familyId: familyId ?? this.familyId,
+      treeId: treeId ?? this.treeId,
       label: label ?? this.label,
       address: address ?? this.address,
       lat: lat ?? this.lat,
@@ -189,6 +202,7 @@ class _PlaceImpl extends Place {
       lastUsedAt: lastUsedAt is _isc.UndefinedSentinel
           ? this.lastUsedAt
           : lastUsedAt,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

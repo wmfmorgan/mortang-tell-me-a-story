@@ -19,6 +19,7 @@ abstract class Story
   Story._({
     this.id,
     required this.familyId,
+    required this.treeId,
     this.authorId,
     this.title,
     this.body,
@@ -37,6 +38,7 @@ abstract class Story
   factory Story({
     _isc.UuidValue? id,
     required _isc.UuidValue familyId,
+    required _isc.UuidValue treeId,
     _isc.UuidValue? authorId,
     String? title,
     String? body,
@@ -58,6 +60,7 @@ abstract class Story
       familyId: _isc.UuidValueJsonExtension.fromJson(
         jsonSerialization['familyId'],
       ),
+      treeId: _isc.UuidValueJsonExtension.fromJson(jsonSerialization['treeId']),
       authorId: jsonSerialization['authorId'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['authorId']),
@@ -103,6 +106,9 @@ abstract class Story
 
   _isc.UuidValue familyId;
 
+  /// Copy of families.treeId (immutable), kept equal by stories_family_tree_fk.
+  _isc.UuidValue treeId;
+
   /// Null only after the author's account is deleted.
   _isc.UuidValue? authorId;
 
@@ -119,6 +125,7 @@ abstract class Story
 
   _ilvyd2nu.DatePrecision? datePrecision;
 
+  /// Same tree enforced by stories_place_tree_fk (SET NULL placeId only).
   _isc.UuidValue? placeId;
 
   DateTime? publishedAt;
@@ -133,6 +140,7 @@ abstract class Story
   Story copyWith({
     _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     _isc.UuidValue? familyId,
+    _isc.UuidValue? treeId,
     _isc.UuidValue? authorId = const _isc.$UndefinedUuidValue(),
     String? title,
     String? body,
@@ -151,6 +159,7 @@ abstract class Story
       '__className__': 'Story',
       if (id != null) 'id': id?.toJson(),
       'familyId': familyId.toJson(),
+      'treeId': treeId.toJson(),
       if (authorId != null) 'authorId': authorId?.toJson(),
       if (title != null) 'title': title,
       if (body != null) 'body': body,
@@ -171,6 +180,7 @@ abstract class Story
       '__className__': 'Story',
       if (id != null) 'id': id?.toJson(),
       'familyId': familyId.toJson(),
+      'treeId': treeId.toJson(),
       if (authorId != null) 'authorId': authorId?.toJson(),
       if (title != null) 'title': title,
       if (body != null) 'body': body,
@@ -197,6 +207,7 @@ class _StoryImpl extends Story {
   _StoryImpl({
     _isc.UuidValue? id,
     required _isc.UuidValue familyId,
+    required _isc.UuidValue treeId,
     _isc.UuidValue? authorId,
     String? title,
     String? body,
@@ -211,6 +222,7 @@ class _StoryImpl extends Story {
   }) : super._(
          id: id,
          familyId: familyId,
+         treeId: treeId,
          authorId: authorId,
          title: title,
          body: body,
@@ -231,6 +243,7 @@ class _StoryImpl extends Story {
   Story copyWith({
     _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     _isc.UuidValue? familyId,
+    _isc.UuidValue? treeId,
     _isc.UuidValue? authorId = const _isc.$UndefinedUuidValue(),
     Object? title = _Undefined,
     Object? body = _Undefined,
@@ -246,6 +259,7 @@ class _StoryImpl extends Story {
     return Story(
       id: id is _isc.UndefinedSentinel ? this.id : id,
       familyId: familyId ?? this.familyId,
+      treeId: treeId ?? this.treeId,
       authorId: authorId is _isc.UndefinedSentinel ? this.authorId : authorId,
       title: title is String? ? title : this.title,
       body: body is String? ? body : this.body,

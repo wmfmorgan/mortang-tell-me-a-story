@@ -84,10 +84,10 @@ abstract class Family
 
   String name;
 
-  /// 1..9999 (CHECK).
+  /// Attach year, 1000..9999 (CHECK families_branch_year_1000_9999). Null for roots.
   int? branchYear;
 
-  /// Story in the parent family this branch started from.
+  /// Origin story: published, in the parent family (branch) or this family (root). Set at branch creation, changeable by stewards (setOrigin). Same tree enforced by families_origin_tree_fk; the effective origin is derived (§3.5).
   _isc.UuidValue? originStoryId;
 
   /// Blob key, see §4. families/{familyId}/cover/{blobId}.{jpg|png|webp}

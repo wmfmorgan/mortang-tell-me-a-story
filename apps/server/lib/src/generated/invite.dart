@@ -13,8 +13,8 @@
 import 'dart:async' as _ida;
 import 'package:serverpod/serverpod.dart' as _is;
 
-/// serverOnly: tokenHash must never be serialized to the app; endpoints return an
-/// InviteSummary DTO (id, email, personId, status, expiresAt, createdAt).
+/// serverOnly: tokenHash must never be serialized to the app; endpoints return a
+/// PendingInviteDto (id, email, personId, sentAt, expiresAt, createdAt).
 /// Status is derived: acceptedAt → accepted; revokedAt → revoked;
 /// expiresAt <= now → expired; else pending.
 abstract class Invite
@@ -22,6 +22,7 @@ abstract class Invite
   Invite._({
     this.id,
     required this.familyId,
+    required this.treeId,
     this.personId,
     this.email,
     required this.tokenHash,
@@ -29,13 +30,16 @@ abstract class Invite
     this.acceptedById,
     this.acceptedAt,
     this.revokedAt,
+    DateTime? lastSentAt,
     required this.expiresAt,
     DateTime? createdAt,
-  }) : createdAt = createdAt ?? DateTime.now();
+  }) : lastSentAt = lastSentAt ?? DateTime.now(),
+       createdAt = createdAt ?? DateTime.now();
 
   factory Invite({
     _is.UuidValue? id,
     required _is.UuidValue familyId,
+    required _is.UuidValue treeId,
     _is.UuidValue? personId,
     String? email,
     required String tokenHash,
@@ -43,6 +47,7 @@ abstract class Invite
     _is.UuidValue? acceptedById,
     DateTime? acceptedAt,
     DateTime? revokedAt,
+    DateTime? lastSentAt,
     required DateTime expiresAt,
     DateTime? createdAt,
   }) = _InviteImpl;
@@ -55,6 +60,7 @@ abstract class Invite
       familyId: _is.UuidValueJsonExtension.fromJson(
         jsonSerialization['familyId'],
       ),
+      treeId: _is.UuidValueJsonExtension.fromJson(jsonSerialization['treeId']),
       personId: jsonSerialization['personId'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['personId']),
@@ -76,6 +82,9 @@ abstract class Invite
       revokedAt: jsonSerialization['revokedAt'] == null
           ? null
           : _is.DateTimeJsonExtension.fromJson(jsonSerialization['revokedAt']),
+      lastSentAt: jsonSerialization['lastSentAt'] == null
+          ? null
+          : _is.DateTimeJsonExtension.fromJson(jsonSerialization['lastSentAt']),
       expiresAt: _is.DateTimeJsonExtension.fromJson(
         jsonSerialization['expiresAt'],
       ),
@@ -94,6 +103,9 @@ abstract class Invite
 
   _is.UuidValue familyId;
 
+  /// Copy of families.treeId, kept equal by invites_family_tree_fk; invites_person_tree_fk keeps personId in the tree.
+  _is.UuidValue treeId;
+
   _is.UuidValue? personId;
 
   /// Null = open link invite. Lower-cased/trimmed (CHECK).
@@ -110,6 +122,9 @@ abstract class Invite
 
   DateTime? revokedAt;
 
+  /// Set on create and on every resend.
+  DateTime lastSentAt;
+
   /// Set by the app: now + 7 days (create and resend). No YAML default can express it.
   DateTime expiresAt;
 
@@ -124,6 +139,7 @@ abstract class Invite
   Invite copyWith({
     _is.UuidValue? id = const _is.$UndefinedUuidValue(),
     _is.UuidValue? familyId,
+    _is.UuidValue? treeId,
     _is.UuidValue? personId = const _is.$UndefinedUuidValue(),
     String? email,
     String? tokenHash,
@@ -131,6 +147,7 @@ abstract class Invite
     _is.UuidValue? acceptedById = const _is.$UndefinedUuidValue(),
     DateTime? acceptedAt = const _is.$UndefinedDateTime(),
     DateTime? revokedAt = const _is.$UndefinedDateTime(),
+    DateTime? lastSentAt,
     DateTime? expiresAt,
     DateTime? createdAt,
   });
@@ -140,6 +157,7 @@ abstract class Invite
       '__className__': 'Invite',
       if (id != null) 'id': id?.toJson(),
       'familyId': familyId.toJson(),
+      'treeId': treeId.toJson(),
       if (personId != null) 'personId': personId?.toJson(),
       if (email != null) 'email': email,
       'tokenHash': tokenHash,
@@ -147,6 +165,7 @@ abstract class Invite
       if (acceptedById != null) 'acceptedById': acceptedById?.toJson(),
       if (acceptedAt != null) 'acceptedAt': acceptedAt?.toJson(),
       if (revokedAt != null) 'revokedAt': revokedAt?.toJson(),
+      'lastSentAt': lastSentAt.toJson(),
       'expiresAt': expiresAt.toJson(),
       'createdAt': createdAt.toJson(),
     };
@@ -191,6 +210,7 @@ class _InviteImpl extends Invite {
   _InviteImpl({
     _is.UuidValue? id,
     required _is.UuidValue familyId,
+    required _is.UuidValue treeId,
     _is.UuidValue? personId,
     String? email,
     required String tokenHash,
@@ -198,11 +218,13 @@ class _InviteImpl extends Invite {
     _is.UuidValue? acceptedById,
     DateTime? acceptedAt,
     DateTime? revokedAt,
+    DateTime? lastSentAt,
     required DateTime expiresAt,
     DateTime? createdAt,
   }) : super._(
          id: id,
          familyId: familyId,
+         treeId: treeId,
          personId: personId,
          email: email,
          tokenHash: tokenHash,
@@ -210,6 +232,7 @@ class _InviteImpl extends Invite {
          acceptedById: acceptedById,
          acceptedAt: acceptedAt,
          revokedAt: revokedAt,
+         lastSentAt: lastSentAt,
          expiresAt: expiresAt,
          createdAt: createdAt,
        );
@@ -221,6 +244,7 @@ class _InviteImpl extends Invite {
   Invite copyWith({
     _is.UuidValue? id = const _is.$UndefinedUuidValue(),
     _is.UuidValue? familyId,
+    _is.UuidValue? treeId,
     _is.UuidValue? personId = const _is.$UndefinedUuidValue(),
     Object? email = _Undefined,
     String? tokenHash,
@@ -228,12 +252,14 @@ class _InviteImpl extends Invite {
     _is.UuidValue? acceptedById = const _is.$UndefinedUuidValue(),
     DateTime? acceptedAt = const _is.$UndefinedDateTime(),
     DateTime? revokedAt = const _is.$UndefinedDateTime(),
+    DateTime? lastSentAt,
     DateTime? expiresAt,
     DateTime? createdAt,
   }) {
     return Invite(
       id: id is _is.UndefinedSentinel ? this.id : id,
       familyId: familyId ?? this.familyId,
+      treeId: treeId ?? this.treeId,
       personId: personId is _is.UndefinedSentinel ? this.personId : personId,
       email: email is String? ? email : this.email,
       tokenHash: tokenHash ?? this.tokenHash,
@@ -249,6 +275,7 @@ class _InviteImpl extends Invite {
       revokedAt: revokedAt is _is.UndefinedSentinel
           ? this.revokedAt
           : revokedAt,
+      lastSentAt: lastSentAt ?? this.lastSentAt,
       expiresAt: expiresAt ?? this.expiresAt,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -261,6 +288,12 @@ class InviteUpdateTable extends _is.UpdateTable<InviteTable> {
   _is.ColumnValue<_is.UuidValue, _is.UuidValue> familyId(_is.UuidValue value) =>
       _is.ColumnValue(
         table.familyId,
+        value,
+      );
+
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> treeId(_is.UuidValue value) =>
+      _is.ColumnValue(
+        table.treeId,
         value,
       );
 
@@ -307,6 +340,12 @@ class InviteUpdateTable extends _is.UpdateTable<InviteTable> {
         value,
       );
 
+  _is.ColumnValue<DateTime, DateTime> lastSentAt(DateTime value) =>
+      _is.ColumnValue(
+        table.lastSentAt,
+        value,
+      );
+
   _is.ColumnValue<DateTime, DateTime> expiresAt(DateTime value) =>
       _is.ColumnValue(
         table.expiresAt,
@@ -325,6 +364,10 @@ class InviteTable extends _is.Table<_is.UuidValue?> {
     updateTable = InviteUpdateTable(this);
     familyId = _is.ColumnUuid(
       'familyId',
+      this,
+    );
+    treeId = _is.ColumnUuid(
+      'treeId',
       this,
     );
     personId = _is.ColumnUuid(
@@ -355,6 +398,11 @@ class InviteTable extends _is.Table<_is.UuidValue?> {
       'revokedAt',
       this,
     );
+    lastSentAt = _is.ColumnDateTime(
+      'lastSentAt',
+      this,
+      hasDefault: true,
+    );
     expiresAt = _is.ColumnDateTime(
       'expiresAt',
       this,
@@ -369,6 +417,9 @@ class InviteTable extends _is.Table<_is.UuidValue?> {
   late final InviteUpdateTable updateTable;
 
   late final _is.ColumnUuid familyId;
+
+  /// Copy of families.treeId, kept equal by invites_family_tree_fk; invites_person_tree_fk keeps personId in the tree.
+  late final _is.ColumnUuid treeId;
 
   late final _is.ColumnUuid personId;
 
@@ -386,6 +437,9 @@ class InviteTable extends _is.Table<_is.UuidValue?> {
 
   late final _is.ColumnDateTime revokedAt;
 
+  /// Set on create and on every resend.
+  late final _is.ColumnDateTime lastSentAt;
+
   /// Set by the app: now + 7 days (create and resend). No YAML default can express it.
   late final _is.ColumnDateTime expiresAt;
 
@@ -395,6 +449,7 @@ class InviteTable extends _is.Table<_is.UuidValue?> {
   List<_is.Column> get columns => [
     id,
     familyId,
+    treeId,
     personId,
     email,
     tokenHash,
@@ -402,6 +457,7 @@ class InviteTable extends _is.Table<_is.UuidValue?> {
     acceptedById,
     acceptedAt,
     revokedAt,
+    lastSentAt,
     expiresAt,
     createdAt,
   ];

@@ -20,6 +20,7 @@ abstract class Story
   Story._({
     this.id,
     required this.familyId,
+    required this.treeId,
     this.authorId,
     this.title,
     this.body,
@@ -38,6 +39,7 @@ abstract class Story
   factory Story({
     _is.UuidValue? id,
     required _is.UuidValue familyId,
+    required _is.UuidValue treeId,
     _is.UuidValue? authorId,
     String? title,
     String? body,
@@ -59,6 +61,7 @@ abstract class Story
       familyId: _is.UuidValueJsonExtension.fromJson(
         jsonSerialization['familyId'],
       ),
+      treeId: _is.UuidValueJsonExtension.fromJson(jsonSerialization['treeId']),
       authorId: jsonSerialization['authorId'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['authorId']),
@@ -106,6 +109,9 @@ abstract class Story
 
   _is.UuidValue familyId;
 
+  /// Copy of families.treeId (immutable), kept equal by stories_family_tree_fk.
+  _is.UuidValue treeId;
+
   /// Null only after the author's account is deleted.
   _is.UuidValue? authorId;
 
@@ -122,6 +128,7 @@ abstract class Story
 
   _ilvyd2nu.DatePrecision? datePrecision;
 
+  /// Same tree enforced by stories_place_tree_fk (SET NULL placeId only).
   _is.UuidValue? placeId;
 
   DateTime? publishedAt;
@@ -139,6 +146,7 @@ abstract class Story
   Story copyWith({
     _is.UuidValue? id = const _is.$UndefinedUuidValue(),
     _is.UuidValue? familyId,
+    _is.UuidValue? treeId,
     _is.UuidValue? authorId = const _is.$UndefinedUuidValue(),
     String? title,
     String? body,
@@ -157,6 +165,7 @@ abstract class Story
       '__className__': 'Story',
       if (id != null) 'id': id?.toJson(),
       'familyId': familyId.toJson(),
+      'treeId': treeId.toJson(),
       if (authorId != null) 'authorId': authorId?.toJson(),
       if (title != null) 'title': title,
       if (body != null) 'body': body,
@@ -177,6 +186,7 @@ abstract class Story
       '__className__': 'Story',
       if (id != null) 'id': id?.toJson(),
       'familyId': familyId.toJson(),
+      'treeId': treeId.toJson(),
       if (authorId != null) 'authorId': authorId?.toJson(),
       if (title != null) 'title': title,
       if (body != null) 'body': body,
@@ -225,6 +235,7 @@ class _StoryImpl extends Story {
   _StoryImpl({
     _is.UuidValue? id,
     required _is.UuidValue familyId,
+    required _is.UuidValue treeId,
     _is.UuidValue? authorId,
     String? title,
     String? body,
@@ -239,6 +250,7 @@ class _StoryImpl extends Story {
   }) : super._(
          id: id,
          familyId: familyId,
+         treeId: treeId,
          authorId: authorId,
          title: title,
          body: body,
@@ -259,6 +271,7 @@ class _StoryImpl extends Story {
   Story copyWith({
     _is.UuidValue? id = const _is.$UndefinedUuidValue(),
     _is.UuidValue? familyId,
+    _is.UuidValue? treeId,
     _is.UuidValue? authorId = const _is.$UndefinedUuidValue(),
     Object? title = _Undefined,
     Object? body = _Undefined,
@@ -274,6 +287,7 @@ class _StoryImpl extends Story {
     return Story(
       id: id is _is.UndefinedSentinel ? this.id : id,
       familyId: familyId ?? this.familyId,
+      treeId: treeId ?? this.treeId,
       authorId: authorId is _is.UndefinedSentinel ? this.authorId : authorId,
       title: title is String? ? title : this.title,
       body: body is String? ? body : this.body,
@@ -301,6 +315,12 @@ class StoryUpdateTable extends _is.UpdateTable<StoryTable> {
   _is.ColumnValue<_is.UuidValue, _is.UuidValue> familyId(_is.UuidValue value) =>
       _is.ColumnValue(
         table.familyId,
+        value,
+      );
+
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> treeId(_is.UuidValue value) =>
+      _is.ColumnValue(
+        table.treeId,
         value,
       );
 
@@ -378,6 +398,10 @@ class StoryTable extends _is.Table<_is.UuidValue?> {
       'familyId',
       this,
     );
+    treeId = _is.ColumnUuid(
+      'treeId',
+      this,
+    );
     authorId = _is.ColumnUuid(
       'authorId',
       this,
@@ -433,6 +457,9 @@ class StoryTable extends _is.Table<_is.UuidValue?> {
 
   late final _is.ColumnUuid familyId;
 
+  /// Copy of families.treeId (immutable), kept equal by stories_family_tree_fk.
+  late final _is.ColumnUuid treeId;
+
   /// Null only after the author's account is deleted.
   late final _is.ColumnUuid authorId;
 
@@ -449,6 +476,7 @@ class StoryTable extends _is.Table<_is.UuidValue?> {
 
   late final _is.ColumnEnum<_ilvyd2nu.DatePrecision> datePrecision;
 
+  /// Same tree enforced by stories_place_tree_fk (SET NULL placeId only).
   late final _is.ColumnUuid placeId;
 
   late final _is.ColumnDateTime publishedAt;
@@ -461,6 +489,7 @@ class StoryTable extends _is.Table<_is.UuidValue?> {
   List<_is.Column> get columns => [
     id,
     familyId,
+    treeId,
     authorId,
     title,
     body,
