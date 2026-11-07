@@ -23,34 +23,35 @@ Branch `feat/p4e-photos-notes` off `feat/p4-cutover`. Scope row: index §"4e Pho
 | `lib/features/stories/story_reader_page.dart` | delete shown on `canDelete`; edit only on own notes; carry `canDelete` through local edits; drop the `person.relationship` line. Live swap left to 4z (needs 4c's `ServerTimelineLive`). |
 | `lib/features/comments/comment_composer.dart` | `CommentTile` shows the Edit item only when `onEdit` is given (so a steward sees Delete only). |
 | `lib/features/perspectives/add_perspective_page.dart` | carry `canDelete` on edit. |
-| `test/photos_api_test.dart` | keep compression, cap, hero order, copyWith; `fromDto` tests; upload seam test; delete storage tests. |
-| `test/comments_api_test.dart`, `test/perspectives_api_test.dart` | `fromNote` tests replace `fromJson`. |
-| `test/story_reader_page_test.dart` | own-note seeds get `canDelete: true`; new steward test. |
-| `test/live/photos_api_live_test.dart`, `test/live/notes_live_test.dart` | live round trips. |
+| `test/photos_api_test.dart` | keep compression, cap, hero order, copyWith; `fromDto` tests replace `fromJson`; delete `storyPhotoStoragePath` and all storage/seam tests (the upload seam is exercised live). |
+| `test/comments_api_test.dart`, `test/perspectives_api_test.dart` | `fromNote` tests replace `fromJson`; fakes carry `canDelete`. |
+| `test/story_reader_page_test.dart`, `test/add_perspective_page_test.dart` | own-note seeds and fakes carry `canDelete: true`; new steward test. |
+| `test/gateway_errors_test.dart` | delete the `StoriesApi.discard` photo-cleanup group (helper removed; whole file goes in 4z). |
+| `test/live/photos_api_live_test.dart`, `test/live/notes_live_test.dart`, `test/live/support/story_fixture.dart` | live round trips; fixture builds a publishable story (date, person, place) and joins a member by invite. |
 
 ## Tasks
 
 ### Task 1: Notes map from `NoteDto`
-- [ ] Write `fromNote` tests in `comments_api_test.dart` / `perspectives_api_test.dart` (ids as strings, `authorName` → `authorLabel`, null author → `Member`, `canDelete` copied). Run: fails (no `fromNote`).
-- [ ] Implement `Comment.fromNote` / `Perspective.fromNote`, `canDelete`, gateways over `note.listForStory(id, kind:)`, `note.create`, `note.update`, `note.delete`, each in `withServerErrors`. Body validation stays before the network.
-- [ ] Run tests: pass. Commit `feat(client): comments and perspectives on note endpoint`.
+- [x] Write `fromNote` tests in `comments_api_test.dart` / `perspectives_api_test.dart` (ids as strings, `authorName` → `authorLabel`, null author → `Member`, `canDelete` copied). Run: fails (no `fromNote`).
+- [x] Implement `Comment.fromNote` / `Perspective.fromNote`, `canDelete`, gateways over `note.listForStory(id, kind:)`, `note.create`, `note.update`, `note.delete`, each in `withServerErrors`. Body validation stays before the network.
+- [x] Run tests: pass. Commit `feat(client): comments and perspectives on note endpoint`.
 
 ### Task 2: Photos on `photo.*`
-- [ ] Write `Photo.fromDto` tests and an upload test with a fake `PhotoUploadBinary` returning false → `StorageFailedException`, using a `server.Client` against an unreachable host is NOT needed: the seam is called only after `startUpload`, so the upload test goes live (Task 4). Unit test: `fromDto` + kept helpers. Run: fails.
-- [ ] Implement `PhotosApi`: `uploadPhoto` = compress → `startUpload(storyId, mime, len)` → `uploadBinary(ticket.uploadDescription, bytes)` (default `FileUploader(desc).uploadByteData`) → false ⇒ `StorageFailedException` → `finishUpload(storyId, ticket.photoId, sortOrder)`. `downloadBytes(key)` = `media.get`; null ⇒ `StorageFailedException(code: 'NOT_FOUND')`.
-- [ ] `stories_api.dart`: `discard` deletes the row only. Run tests: pass. Commit `feat(client): photos on photo endpoint`.
+- [x] Rewrite `photos_api_test.dart`: `Photo.fromDto` tests (keys, nullable uploader, edited key) plus the kept helper tests. Run: fails (no `fromDto`). The upload seam needs a real `startUpload` ticket, so its refusal path is tested live (Task 4).
+- [x] Implement `PhotosApi`: `uploadPhoto` = compress → `startUpload(storyId, mime, len)` → `uploadBinary(ticket.uploadDescription, bytes)` (default `FileUploader(desc).uploadByteData`) → false or throw ⇒ `StorageFailedException` → `finishUpload(storyId, ticket.photoId, sortOrder)`. The cap is the server's (`photoCap` → `StateError('PHOTO_CAP')`). `downloadBytes(key)` = `media.get`; null ⇒ `StorageFailedException(code: 'NOT_FOUND')`.
+- [x] `stories_api.dart`: `discard` deletes the row only (no `photos:` seam). Run tests: pass. Commit `feat(client): photos on photo endpoint; drop deleteAllForStory`.
 
 ### Task 3: Reader D4 + relationship line
-- [ ] Add reader test: steward (`u-owner`) sees a menu with Delete but no Edit on another member's comment and perspective with `canDelete: true`; tapping Delete calls the gateway. Update own-note seeds to `canDelete: true`. Run: fails.
-- [ ] Reader: comment `canDelete: row.canDelete`, `onEdit` only for own+`_canWrite`; perspective menu when own or `canDelete`, items filtered. Drop `relationship` chip text. Run: pass. Commit `feat(client): stewards delete others' notes (D4)`.
+- [x] Add reader test: a steward (`u1`) sees a menu with Delete but no Edit on another member's comment and perspective with `canDelete: true`; tapping Delete calls the gateway. Own-note seeds get `canDelete: true`. Run: fails.
+- [x] Reader: comment `canDelete: row.canDelete`, `onEdit` only for own+`_canWrite`; perspective menu when own or `canDelete`, items filtered. Drop the `relationship` chip text. Run: pass. Commit `feat(client): stewards delete others' notes (D4); drop relationship line`.
 
 ### Task 4: Live tests
-- [ ] `test/live/photos_api_live_test.dart`: owner creates family + draft story, uploads two photos, lists (hero first), setHero, downloadBytes, deletePhoto.
-- [ ] `test/live/notes_live_test.dart`: comments and perspectives CRUD; owner sees `canDelete` on member's note on a published story and deletes it; member sees `canDelete` false on owner's note.
-- [ ] `just test-live` passes. Commit `test(client): photos and notes live tests`.
+- [x] `test/live/photos_api_live_test.dart`: upload two, list, setHero, downloadBytes, deletePhoto; refused upload (`uploadBinary` → false) is `StorageFailedException` with no row; unknown key is `NOT_FOUND`.
+- [x] `test/live/notes_live_test.dart`: comments and perspectives CRUD; owner sees `canDelete` on a member's note on a published story and deletes it; member sees `canDelete` false on the owner's note and is refused.
+- [x] `just test-live` passes (8). Commit `test(client): photos and notes live tests`.
 
 ### Task 5: Gate
-- [ ] `dart format --output=none --set-exit-if-changed lib test` 0 changed; `flutter analyze` ≤ 23; `flutter test`; `just test-live`.
+- [x] `dart format --output=none --set-exit-if-changed lib test` 0 changed; `flutter analyze` 14 issues (≤ 23); `flutter test` 706 passed (1 skipped); `just test-live` 8 passed.
 
 ## Left to others
 - 4z: reader `SupabaseTimelineLive()` → `ServerTimelineLive()` (4c builds it).
