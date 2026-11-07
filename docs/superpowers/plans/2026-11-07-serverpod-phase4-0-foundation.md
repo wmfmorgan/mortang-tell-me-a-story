@@ -613,7 +613,7 @@ test-live:
 - [ ] **Step 5: Run both ways**
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter test` (no server needed)
-Expected: `+723 ~2: All tests passed!` (the two live tests are skipped)
+Expected: `+723 ~1: All tests passed!` (the `live` file is skipped as one entry)
 
 Then, in one shell, run `mise exec -- just server`. In another: `mise exec -- just test-live`
 Expected: `+2: All tests passed!`
@@ -640,7 +640,7 @@ With `just server` running: `mise exec -- just test-live`.
 Expected:
 - format: 0 changed;
 - analyze: `23 issues found.`;
-- `+723 ~2`;
+- `+723 ~1`;
 - server: `+425`;
 - live: `+2`.
 

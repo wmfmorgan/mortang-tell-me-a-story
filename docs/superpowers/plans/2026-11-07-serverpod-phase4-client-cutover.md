@@ -26,7 +26,7 @@ If the server and a gateway disagree, the server's endpoint and its tests win. R
 
 | Part | Plan | Status |
 |---|---|---|
-| 4.0 Shared foundation | `2026-11-07-serverpod-phase4-0-foundation.md` | planned, verified in scratch (723 + 2 live) |
+| 4.0 Shared foundation | `2026-11-07-serverpod-phase4-0-foundation.md` | landed (`f92a1d6`..`5858d75`; app 723 + live 2) |
 | 4a Shell and auth | `2026-11-07-serverpod-phase4a-shell-auth.md` | plan written at slice start |
 | 4b Families, directory, covers, invites | `2026-11-07-serverpod-phase4b-families-invites.md` | plan written at slice start |
 | 4c Stories, search, timeline live | `2026-11-07-serverpod-phase4c-stories-search.md` | plan written at slice start |
@@ -42,9 +42,10 @@ Each slice plan is written by its executor at slice start, following superpowers
 ## Conventions
 
 **Gateway shape.**
-- **Constructor:** the `*Api` class keeps its name and its interface. The constructor becomes `XxxApi({Client? client})`. The client is read lazily (`Client get _client => _injected ?? serverClient;`), so widget tests that build a default gateway never need a server.
+- **Constructor:** the `*Api` class keeps its name and its interface. The constructor becomes `XxxApi({server.Client? client})`. The client is read lazily (`server.Client get _client => _injected ?? serverClient;`), so widget tests that build a default gateway never need a server.
+- **Import the generated client with a prefix:** `import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;`. It exports `AppException`, `AppErrorCode`, `Person`, `Photo`, `Place`, `Story`, `BirthVisibility` and `StoryStatus`, which clash with the app's own classes.
 - **Old seams:** drop the Supabase-era test hooks (`uploadBinary`, `removeObjects` and so on) unless the slice row keeps one.
-- **Every server call** is `withServerErrors(() => _client.<endpoint>.<method>(...))`.
+- **Every server call** that returns a `Future` is `withServerErrors(() => _client.<endpoint>.<method>(...))`. Streams (`live.watchFamily` / `watchStory`, 4c) aren't covered: a 401 arrives as a stream error carrying `ServerpodClientUnauthorized`, and the stream code handles it.
 - **Mapping:** DTO → domain mapping is a `fromDto` factory or function next to the domain class, in the gateway's own file. Use `wire.dart` for date-only values (`toWireDate` / `fromWireDate`), roles and precision. Ids cross as `UuidValue.fromString(id)` / `id.toString()`.
 - **Parameter defaults:** the generated client makes server-side defaults required (`allowUndated`, `withinDays`, `limit`, `personIds`). Pass them explicitly.
 - **Blobs:** `media.get(key)` / `media.getMany(keys)` return `ByteData`; convert with `Uint8List.sublistView`. Uploads go start → `FileUploader(desc).uploadByteData(...)` → finish. `uploadByteData` returning false is `StorageFailedException`.
@@ -55,7 +56,8 @@ Each slice plan is written by its executor at slice start, following superpowers
 - Every gateway method gets at least one `live` test in `test/live/<gateway>_live_test.dart`:
   - tag it `@Tags(['live'])` and call `setUpAll(waitForLiveServer)`;
   - use `signInLive(freshEmail(...))` for each user involved;
-  - assert the domain values the features read, not DTO wiring.
+  - assert the domain values the features read, not DTO wiring;
+  - `signInLive` replaces the global `serverClient`. A test with more than one user passes each gateway its own `client:` (the value `signInLive` returns) instead of relying on the default.
 - A slice is green only with `flutter test` passing, `flutter analyze` at no more than 23 issues, and `just test-live` passing against `just server`.
 - `test/theme/no_hardcoded_colors_test.dart`: keep file paths stable. If a listed file loses its last color hit, remove it from the skip list. Never add one; new UI uses `album_theme.dart` tokens.
 
@@ -90,7 +92,7 @@ Each slice plan is written by its executor at slice start, following superpowers
 - **Change:**
   - **Startup:** `main` calls `initServer()`. `AuthRefresh` listens to `serverClient.auth.authInfoListenable`. On sign-in it binds `ProfileSession` and `FamilySelection` to the user; that work moves out of `invite_api.dart`.
   - **Session:** `AppSession.instance` becomes `ServerAppSession`: `currentUserId` = `authInfo?.authUserId.toString()`, `signOut` = `signOutDevice()`.
-  - **Login seam:** a new `OtpSignIn { Future<String> start(String email); Future<void> verify(String requestId, String code); }` with `ServerOtpSignIn`. `verify` runs `verifyOtpLoginCode`, then `finishOtpLogin` or `finishOtpRegistration` depending on `accountExists`, then `updateSignedInUser`.
+  - **Session:** `AppSession.instance` becomes `ServerAppSession`: `currentUserId` = `authInfo?.authUserId.toString()`, `signOut` = `signOutDevice()`. Startup must survive an unreadable saved session: if `initServer()` throws while restoring (for example a corrupted secure-storage entry on web), clear the stored session and start signed out, with a test.
   - **Login pages:** both pages switch to email → code entry. The invite page keeps its `_onAuth` → `_accept()` flow. `EmailAccountRequestException` reasons map to the copy below.
 - **Tests:**
   - Delete `auth_callback_test`, `magic_link_redirect_test`.
