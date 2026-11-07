@@ -155,9 +155,10 @@ class _Row extends StatelessWidget {
     final s = entry.story;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      // The card sets the row height; the rail fills it. No IntrinsicHeight:
-      // it measures a flexible card at the full spare width, so a wrapped
-      // title would come up short and overflow.
+      // The card sets the row height; the rail fills it. Not IntrinsicHeight
+      // around a Row with a Flexible card: the Row measures the card's height
+      // at the full spare width, but SizedBox lays it out at 280 pt, so a
+      // title that wraps only at 280 pt overflows the bottom (24 pt at ≥744 pt).
       child: Stack(
         children: [
           Positioned(
