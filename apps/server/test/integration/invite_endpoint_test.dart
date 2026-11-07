@@ -1066,5 +1066,110 @@ void main() {
         },
       );
     });
+    group('revoke', () {
+      // BR 127
+      test(
+        'when a plain member revokes then FORBIDDEN "owner or co-owner only"',
+        () async {
+          final member = await fx.user();
+          final family = await familyOf(member);
+          final (:invite, token: _) = await fx.tokenInvite(family);
+
+          await expectLater(
+            endpoints.invite.revoke(asUser(sessionBuilder, member), invite.id!),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+          expect((await fx.reload(invite)).revokedAt, isNull);
+        },
+      );
+
+      test(
+        'when the invite is unknown then NOT_FOUND "invite not found"',
+        () async {
+          await expectLater(
+            endpoints.invite.revoke(
+              asUser(sessionBuilder, await fx.user()),
+              UuidValue.fromString('00000000-0000-4000-8000-000000000000'),
+            ),
+            throwsAppError(AppErrorCode.notFound, 'invite not found'),
+          );
+        },
+      );
+
+      // BR 130
+      test(
+        'when an owner revokes then the row is kept as revoked and accepting '
+        'its token fails; revoking twice is a no-op; revoking an accepted '
+        'invite is INVITE_INVALID',
+        () async {
+          final owner = await fx.user();
+          final family = await familyOf(owner, role: MembershipRole.owner);
+          final session = asUser(sessionBuilder, owner);
+          final (:invite, :token) = await fx.tokenInvite(family);
+
+          await endpoints.invite.revoke(session, invite.id!);
+          final revoked = await fx.reload(invite);
+          expect(revoked.revokedAt, isNotNull);
+          expect(revoked.tokenHash, invite.tokenHash);
+          await expectLater(
+            endpoints.invite.accept(
+              asUser(sessionBuilder, await fx.user()),
+              token,
+            ),
+            throwsAppError(AppErrorCode.inviteInvalid, 'Invite is not valid'),
+          );
+
+          await endpoints.invite.revoke(session, invite.id!);
+          expect((await fx.reload(invite)).revokedAt, revoked.revokedAt);
+
+          final accepted = await fx.tokenInvite(
+            family,
+            acceptedById: await fx.user(),
+          );
+          await expectLater(
+            endpoints.invite.revoke(session, accepted.invite.id!),
+            throwsAppError(AppErrorCode.inviteInvalid, 'invite is not pending'),
+          );
+          expect((await fx.reload(accepted.invite)).revokedAt, isNull);
+        },
+      );
+
+      // BR 137 (invite part)
+      test(
+        'Given a soft-deleted family, when its member sends or its owner '
+        'resends or revokes one of its invites then FORBIDDEN and nothing '
+        'changes',
+        () async {
+          final owner = await fx.user();
+          final family = await familyOf(
+            owner,
+            role: MembershipRole.owner,
+            deletedAt: DateTime.now().toUtc(),
+          );
+          final (:invite, :token) = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+          );
+          final session = asUser(sessionBuilder, owner);
+
+          await expectLater(
+            endpoints.invite.sendEmail(session, invite.id!, token),
+            throwsAppError(AppErrorCode.forbidden, 'Not a family member'),
+          );
+          await expectLater(
+            endpoints.invite.resend(session, invite.id!),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+          await expectLater(
+            endpoints.invite.revoke(session, invite.id!),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+          final row = await fx.reload(invite);
+          expect(row.tokenHash, invite.tokenHash);
+          expect(row.revokedAt, isNull);
+          expect(mail.sent, isEmpty);
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

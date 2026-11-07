@@ -441,6 +441,25 @@ class Endpoints extends _is.EndpointDispatch {
                     params['inviteId'],
                   ),
         ),
+        'revoke': _is.MethodConnector(
+          name: 'revoke',
+          params: {
+            'inviteId': _is.ParameterDescription(
+              name: 'inviteId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['invite'] as _ip80nve4.InviteEndpoint).revoke(
+                    session,
+                    params['inviteId'],
+                  ),
+        ),
       },
     );
     connectors['invitePublic'] = _is.EndpointConnector(

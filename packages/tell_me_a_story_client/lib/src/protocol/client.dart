@@ -409,6 +409,15 @@ class EndpointInvite extends _isc.EndpointRef {
         'resend',
         {'inviteId': inviteId},
       );
+
+  /// Owner or co-owner. The row and its token hash stay, so accepting that
+  /// token later fails INVITE_INVALID. Revoking twice is a no-op.
+  _ida.Future<void> revoke(_isc.UuidValue inviteId) =>
+      caller.callServerEndpoint<void>(
+        'invite',
+        'revoke',
+        {'inviteId': inviteId},
+      );
 }
 
 /// The anonymous invite landing (business-rules.md §3.4, validate).

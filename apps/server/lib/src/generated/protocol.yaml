@@ -18,5 +18,6 @@ invite:
   - sendEmail:
   - accept:
   - resend:
+  - revoke:
 invitePublic:
   - preview:

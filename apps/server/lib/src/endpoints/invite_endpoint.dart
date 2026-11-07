@@ -291,4 +291,27 @@ class InviteEndpoint extends Endpoint {
     );
     return invite.expiresAt;
   }
+
+  /// Owner or co-owner. The row and its token hash stay, so accepting that
+  /// token later fails INVITE_INVALID. Revoking twice is a no-op.
+  Future<void> revoke(Session session, UuidValue inviteId) async {
+    final authz = Authz(session);
+    await session.db.transaction((t) async {
+      final row = await Invite.db.findById(
+        session,
+        inviteId,
+        transaction: t,
+        lockMode: LockMode.forUpdate,
+      );
+      if (row == null) throw notFound('invite not found');
+      await authz.requireLiveSteward(row.familyId);
+      if (row.acceptedAt != null) throw inviteInvalid('invite is not pending');
+      if (row.revokedAt != null) return;
+      await Invite.db.updateRow(
+        session,
+        row.copyWith(revokedAt: DateTime.now().toUtc()),
+        transaction: t,
+      );
+    });
+  }
 }
