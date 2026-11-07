@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'family_covers.dart';
 import 'recovery_window.dart';
+import 'supabase_errors.dart';
 
 /// A family the signed-in member can already read.
 class MemberFamily {
@@ -361,18 +362,20 @@ class FamiliesApi
     required String familyId,
     required Uint8List bytes,
     String? previousPath,
-  }) async {
-    final path = await save(familyId: familyId, bytes: bytes);
-    await _client
-        .from('families')
-        .update({'cover_photo_path': path})
-        .eq('id', familyId);
-    if (previousPath != null &&
-        previousPath.isNotEmpty &&
-        previousPath != path) {
-      await _client.storage.from(familyCoversBucket).remove([previousPath]);
-    }
-    return path;
+  }) {
+    return withAppErrors(() async {
+      final path = await save(familyId: familyId, bytes: bytes);
+      await _client
+          .from('families')
+          .update({'cover_photo_path': path})
+          .eq('id', familyId);
+      if (previousPath != null &&
+          previousPath.isNotEmpty &&
+          previousPath != path) {
+        await _client.storage.from(familyCoversBucket).remove([previousPath]);
+      }
+      return path;
+    });
   }
 
   /// Delete the hero object and clear `cover_photo_path`.
@@ -380,12 +383,14 @@ class FamiliesApi
   Future<void> clearCoverPhoto({
     required String familyId,
     required String? path,
-  }) async {
-    await clear(familyId: familyId, path: path);
-    await _client
-        .from('families')
-        .update({'cover_photo_path': null})
-        .eq('id', familyId);
+  }) {
+    return withAppErrors(() async {
+      await clear(familyId: familyId, path: path);
+      await _client
+          .from('families')
+          .update({'cover_photo_path': null})
+          .eq('id', familyId);
+    });
   }
 
   static const _mineSelectWithCover =

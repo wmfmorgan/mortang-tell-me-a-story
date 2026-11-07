@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'families_api.dart';
 import 'photos_api.dart';
+import 'supabase_errors.dart';
 
 /// Family-scoped person row. Relationship is optional; new people send null.
 class Person {
@@ -241,16 +242,17 @@ class PeopleApi implements PeopleGateway {
         .order('name');
     return rows.map(Person.fromJson).toList();
   }
-
   @override
-  Future<List<Person>> listTreePeople(String familyId) async {
-    final familyIds = await _treeFamilyIds(familyId);
-    final rows = await _client
-        .from('people')
-        .select(_treeSelect)
-        .inFilter('family_id', familyIds)
-        .order('name');
-    return Future.wait(rows.map(_treePerson));
+  Future<List<Person>> listTreePeople(String familyId) {
+    return withAppErrors(() async {
+      final familyIds = await _treeFamilyIds(familyId);
+      final rows = await _client
+          .from('people')
+          .select(_treeSelect)
+          .inFilter('family_id', familyIds)
+          .order('name');
+      return Future.wait(rows.map(_treePerson));
+    });
   }
 
   /// One [Person] per tree row. Linked profiles load together.
@@ -299,25 +301,27 @@ class PeopleApi implements PeopleGateway {
     final trimmedAbout = _aboutOrNull(about);
     ensureValidPersonCreate(name: name, about: trimmedAbout);
     final trimmedEmail = _emailOrNull(email);
-    final uid = _client.auth.currentUser!.id;
-    final row = await _client
-        .from('people')
-        .insert({
-          'family_id': familyId,
-          'name': name.trim(),
-          'relationship': null,
-          'email': ?trimmedEmail,
-          'passed_away': passedAway,
-          'about': ?trimmedAbout,
-          'created_by': uid,
-        })
-        .select(_rowSelect)
-        .single();
-    var person = Person.fromJson(row);
-    if (pictureBytes != null && pictureBytes.isNotEmpty) {
-      person = await _uploadPersonPicture(person, pictureBytes);
-    }
-    return person;
+    return withAppErrors(() async {
+      final uid = _client.auth.currentUser!.id;
+      final row = await _client
+          .from('people')
+          .insert({
+            'family_id': familyId,
+            'name': name.trim(),
+            'relationship': null,
+            'email': ?trimmedEmail,
+            'passed_away': passedAway,
+            'about': ?trimmedAbout,
+            'created_by': uid,
+          })
+          .select(_rowSelect)
+          .single();
+      var person = Person.fromJson(row);
+      if (pictureBytes != null && pictureBytes.isNotEmpty) {
+        person = await _uploadPersonPicture(person, pictureBytes);
+      }
+      return person;
+    });
   }
 
   @override
@@ -375,17 +379,19 @@ class PeopleApi implements PeopleGateway {
     if (writePassedAway) patch['passed_away'] = passedAway;
     if (writeAbout) patch['about'] = trimmedAbout;
     if (writeEmail) patch['email'] = _emailOrNull(email);
-    final row = await _client
-        .from('people')
-        .update(patch)
-        .eq('id', personId)
-        .select(_rowSelect)
-        .single();
-    var person = Person.fromJson(row);
-    if (pictureBytes != null && pictureBytes.isNotEmpty) {
-      person = await _uploadPersonPicture(person, pictureBytes);
-    }
-    return person;
+    return withAppErrors(() async {
+      final row = await _client
+          .from('people')
+          .update(patch)
+          .eq('id', personId)
+          .select(_rowSelect)
+          .single();
+      var person = Person.fromJson(row);
+      if (pictureBytes != null && pictureBytes.isNotEmpty) {
+        person = await _uploadPersonPicture(person, pictureBytes);
+      }
+      return person;
+    });
   }
 
   @override
@@ -401,16 +407,17 @@ class PeopleApi implements PeopleGateway {
     final role = row?['role'];
     return originSteward(role is String ? role : null);
   }
-
   @override
   Future<void> markPassedAway({
     required String personId,
     required bool value,
-  }) async {
-    await _client.rpc(
-      'mark_passed_away',
-      params: {'p_person_id': personId, 'p_value': value},
-    );
+  }) {
+    return withAppErrors(() async {
+      await _client.rpc(
+        'mark_passed_away',
+        params: {'p_person_id': personId, 'p_value': value},
+      );
+    });
   }
 
   @override

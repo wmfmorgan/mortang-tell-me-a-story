@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'photos_api.dart';
+import 'supabase_errors.dart';
 
 enum StoryStatus { draft, published }
 
@@ -669,17 +670,19 @@ class StoriesApi implements StoriesGateway {
   }
 
   @override
-  Future<List<Story>> listPublished(String familyId) async {
-    final rows = await _client
-        .from('stories')
-        .select(_publishedSelect)
-        .eq('family_id', familyId)
-        .eq('status', 'published')
-        .order('timeframe_start')
-        .order('date_precision')
-        .order('created_at')
-        .order('id');
-    return rows.map(Story.fromJson).toList();
+  Future<List<Story>> listPublished(String familyId) {
+    return withAppErrors(() async {
+      final rows = await _client
+          .from('stories')
+          .select(_publishedSelect)
+          .eq('family_id', familyId)
+          .eq('status', 'published')
+          .order('timeframe_start')
+          .order('date_precision')
+          .order('created_at')
+          .order('id');
+      return rows.map(Story.fromJson).toList();
+    });
   }
 
   @override
@@ -733,14 +736,15 @@ class StoriesApi implements StoriesGateway {
     await _client.from('stories').delete().eq('id', storyId);
   }
 
-  @override
   Future<void> linkPerson({
     required String storyId,
     required String personId,
-  }) async {
-    await _client.from('story_people').insert({
-      'story_id': storyId,
-      'person_id': personId,
+  }) {
+    return withAppErrors(() async {
+      await _client.from('story_people').insert({
+        'story_id': storyId,
+        'person_id': personId,
+      });
     });
   }
 

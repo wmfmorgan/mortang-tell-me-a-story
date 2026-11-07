@@ -4,9 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
+import '../../data/app_exception.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
-import '../../data/rpc_error.dart';
 import '../family/family_blur_dialog.dart';
 
 /// Invite dialog matching the Stitch Email, Link, and SMS screens.
@@ -218,7 +218,7 @@ class _InviteModalState extends State<InviteModal> {
       if (!mounted) return;
       setState(() {
         _rowBusyId = null;
-        _rowError[person.id] = mapRpcError(error) ?? 'Try again';
+        _rowError[person.id] = appErrorMessage(error) ?? 'Try again';
       });
       return;
     }

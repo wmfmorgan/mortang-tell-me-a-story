@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/config/env.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
@@ -260,9 +260,9 @@ void main() {
     (tester) async {
       final api = _StubInviteApi();
       final people = _EmailPeople()
-        ..updateError = const PostgrestException(
-          message: 'VALIDATION: That email is already used',
-          code: '23505',
+        ..updateError = const AppException(
+          code: AppErrorCode.validation,
+          message: 'That email is already used',
         );
       await tester.binding.setSurfaceSize(const Size(900, 1400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -296,9 +296,8 @@ void main() {
     (tester) async {
       final api = _StubInviteApi();
       final people = _EmailPeople()
-        ..updateError = const PostgrestException(
-          message: 'duplicate key value violates unique constraint',
-          code: '23505',
+        ..updateError = Exception(
+          'duplicate key value violates unique constraint',
         );
       await tester.binding.setSurfaceSize(const Size(900, 1400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -330,9 +329,8 @@ void main() {
   ) async {
     final api = _StubInviteApi();
     final people = _EmailPeople()
-      ..updateError = const PostgrestException(
-        message: 'duplicate key value violates unique constraint',
-        code: '23505',
+      ..updateError = Exception(
+        'duplicate key value violates unique constraint',
       );
     await tester.binding.setSurfaceSize(const Size(900, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));

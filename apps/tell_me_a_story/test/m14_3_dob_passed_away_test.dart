@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/profile_api.dart';
@@ -185,8 +185,9 @@ void main() {
         userId: 'member',
       )
       ..steward = true
-      ..markError = const PostgrestException(
-        message: 'FORBIDDEN: not a steward',
+      ..markError = const AppException(
+        code: AppErrorCode.forbidden,
+        message: 'not a steward',
       );
     await _openProfile(tester, people, signedInUserId: 'owner');
     await tester.tap(find.text('Mark as passed away'));

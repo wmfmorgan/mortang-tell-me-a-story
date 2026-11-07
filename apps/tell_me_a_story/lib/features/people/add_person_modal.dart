@@ -5,9 +5,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/app_exception.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
-import '../../data/rpc_error.dart';
 import '../family/family_blur_dialog.dart';
 
 /// People added from this modal, and whether the caller chose "Send invite".
@@ -125,7 +125,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
   }
 
   void _showSaveError(Object error) {
-    final message = mapRpcError(error) ?? 'Couldn’t save person. Try again.';
+    final message = appErrorMessage(error) ?? 'Couldn’t save person. Try again.';
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }

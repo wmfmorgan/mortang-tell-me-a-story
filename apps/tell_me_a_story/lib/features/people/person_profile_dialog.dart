@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
 import '../../core/server/app_session.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/app_exception.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
-import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 import '../family/family_blur_dialog.dart';
 import '../stories/story_date.dart';
@@ -219,7 +219,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+        SnackBar(content: Text(appErrorMessage(error) ?? 'Try again')),
       );
       return;
     }

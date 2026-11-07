@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 
@@ -433,8 +433,9 @@ void main() {
       storyId: 'story-1',
       session: session,
       linkPerson: ({required String storyId, required String personId}) async {
-        throw const PostgrestException(
-          message: 'VALIDATION: Already on this story',
+        throw const AppException(
+          code: AppErrorCode.validation,
+          message: 'Already on this story',
         );
       },
     );
@@ -493,8 +494,9 @@ void main() {
       linkPerson: ({required String storyId, required String personId}) async {
         linkCalls++;
         if (linkCalls == 1) {
-          throw const PostgrestException(
-            message: 'VALIDATION: Already on this story',
+          throw const AppException(
+            code: AppErrorCode.validation,
+            message: 'Already on this story',
           );
         }
       },
@@ -530,7 +532,10 @@ void main() {
       api: api,
       storyId: 'story-1',
       linkPerson: ({required String storyId, required String personId}) async {
-        throw const PostgrestException(message: 'VALIDATION: Already linked');
+        throw const AppException(
+          code: AppErrorCode.validation,
+          message: 'Already linked',
+        );
       },
     );
     await tester.enterText(_search, 'Grace Hopper');
@@ -859,8 +864,9 @@ void main() {
               if (personId == 'a2') {
                 graceAttempts++;
                 if (graceAttempts == 1) {
-                  throw const PostgrestException(
-                    message: 'VALIDATION: Already on this story',
+                  throw const AppException(
+                    code: AppErrorCode.validation,
+                    message: 'Already on this story',
                   );
                 }
               }
@@ -943,8 +949,9 @@ void main() {
             ({required String storyId, required String personId}) async {
               links.add((storyId: storyId, personId: personId));
               if (personId == 'a2') {
-                throw const PostgrestException(
-                  message: 'VALIDATION: Already on this story',
+                throw const AppException(
+                  code: AppErrorCode.validation,
+                  message: 'Already on this story',
                 );
               }
             },
