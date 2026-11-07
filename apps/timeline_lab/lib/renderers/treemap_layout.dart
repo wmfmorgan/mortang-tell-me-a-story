@@ -176,6 +176,13 @@ void _sortDesc<T>(List<T> list, int Function(T) key) {
     ..addAll(indexed.map((p) => p.$2));
 }
 
-/// Shading in dim mode: a cell with no matches stays pale, a fully matched
-/// one is strongest. Hide mode always passes 1 (only matches remain).
-double treemapFillAlpha(double matchedShare) => 0.12 + 0.5 * matchedShare;
+/// Cell shade. With nothing dimmed every cell gets the same quiet tint (area
+/// is the information). In dim mode the matched share steps through four
+/// readable buckets; 0 stays bare parchment.
+double treemapShade(double matchedShare, {required bool dimming}) {
+  if (!dimming) return 0.10;
+  if (matchedShare == 0) return 0;
+  if (matchedShare < 0.5) return 0.16;
+  if (matchedShare < 1) return 0.28;
+  return 0.40;
+}

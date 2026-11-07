@@ -32,6 +32,7 @@ class _TreemapTimelineState extends State<TreemapTimeline> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
+    final dimming = data.anyDimmed;
     final groups = buildTreemap(data.entries, data.dataset, _by);
     final group = groups.where((g) => g.id == _groupId).firstOrNull;
     final cell = group?.cells.where((c) => c.id == _cellId).firstOrNull;
@@ -45,6 +46,7 @@ class _TreemapTimelineState extends State<TreemapTimeline> {
       body = _CellGrid(
         group: group,
         data: data,
+        dimming: dimming,
         onCell: (c) => setState(() => _cellId = c.id),
         large: true,
       );
@@ -57,6 +59,7 @@ class _TreemapTimelineState extends State<TreemapTimeline> {
               child: _GroupTile(
                 group: g,
                 data: data,
+                dimming: dimming,
                 onGroup: () => setState(() {
                   _groupId = g.id;
                   _cellId = null;
@@ -130,12 +133,14 @@ class _GroupTile extends StatelessWidget {
   const _GroupTile({
     required this.group,
     required this.data,
+    required this.dimming,
     required this.onGroup,
     required this.onCell,
   });
 
   final TreemapGroup group;
   final TimelineViewData data;
+  final bool dimming;
   final VoidCallback onGroup;
   final ValueChanged<TreemapCell> onCell;
 
@@ -172,6 +177,7 @@ class _GroupTile extends StatelessWidget {
                 child: _CellGrid(
                   group: group,
                   data: data,
+                  dimming: dimming,
                   onCell: onCell,
                   onGroup: onGroup,
                 ),
@@ -191,6 +197,7 @@ class _CellGrid extends StatelessWidget {
   const _CellGrid({
     required this.group,
     required this.data,
+    required this.dimming,
     required this.onCell,
     this.large = false,
     this.onGroup,
@@ -198,6 +205,7 @@ class _CellGrid extends StatelessWidget {
 
   final TreemapGroup group;
   final TimelineViewData data;
+  final bool dimming;
   final ValueChanged<TreemapCell> onCell;
   final bool large;
   final VoidCallback? onGroup;
@@ -213,6 +221,7 @@ class _CellGrid extends StatelessWidget {
             key: Key('treemap-cell-${c.id}'),
             cell: c,
             data: data,
+            dimming: dimming,
             large: large,
             onTap: () => onCell(c),
             onSmallTap: large ? null : onGroup,
@@ -230,6 +239,7 @@ class TreemapCellTile extends StatelessWidget {
     super.key,
     required this.cell,
     required this.data,
+    required this.dimming,
     required this.onTap,
     this.large = false,
     this.onSmallTap,
@@ -237,6 +247,7 @@ class TreemapCellTile extends StatelessWidget {
 
   final TreemapCell cell;
   final TimelineViewData data;
+  final bool dimming;
   final VoidCallback onTap;
   final bool large;
 
@@ -262,7 +273,9 @@ class TreemapCellTile extends StatelessWidget {
 
   Widget _build(BuildContext context, double revealed) {
     final share = cell.count == 0 ? 0.0 : cell.matchedCount / cell.count;
-    final fill = labTerracotta.withValues(alpha: treemapFillAlpha(share));
+    final fill = labTerracotta.withValues(
+      alpha: treemapShade(share, dimming: dimming),
+    );
     final theme = Theme.of(context).textTheme;
     final selected = cell.entries.any((e) => e.story.id == data.selectedId);
     return Semantics(
@@ -285,10 +298,10 @@ class TreemapCellTile extends StatelessWidget {
                     .call(),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: labTerracotta.withValues(alpha: 0.05),
+                color: labParchment,
                 border: Border.all(
-                  color: selected ? labTerracotta : labPillBorder,
-                  width: selected ? 2 : 1,
+                  color: selected ? labTerracotta : labBorder,
+                  width: selected ? LabStroke.mark : LabStroke.hairline,
                 ),
               ),
               child: Stack(
@@ -320,7 +333,9 @@ class TreemapCellTile extends StatelessWidget {
                           softWrap: false,
                           style: (large ? theme.titleSmall : theme.labelSmall)
                               ?.copyWith(
-                                color: share > 0 ? labInk : labDimmedInk,
+                                color: share > 0 || !dimming
+                                    ? labInk
+                                    : labDimmedInk,
                               ),
                         ),
                       );
