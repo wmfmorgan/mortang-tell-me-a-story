@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timeline_lab/filter/timeline_filter.dart';
+import 'package:timeline_lab/lab_app.dart';
 import 'package:timeline_lab/renderers/renderer_contract.dart';
 
 import 'support/ipad.dart';
@@ -145,6 +146,34 @@ void main() {
         tester.getRect(find.byKey(const Key('status-bar'))).bottom,
         lessThanOrEqualTo(size.height - ipadBottomInset),
       );
+    }, variant: ios);
+  }
+
+  for (final kind in RendererKind.values) {
+    testWidgets('rotation mid-playback keeps state (${kind.name})', (
+      tester,
+    ) async {
+      final c = await pumpIpad(tester, ipadSizes['mini_portrait']!, kind: kind);
+      c.select(c.entries[c.entries.length ~/ 2].story.id);
+      await tester.pumpAndSettle();
+      final pb = tester.widget<LabHome>(find.byType(LabHome)).playback;
+      final renderer = tester.element(rendererRoot);
+      pb.play();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      final before = pb.clock;
+      final errors = await collectFlutterErrors(() async {
+        tester.view.physicalSize = ipadSizes['mini_landscape']! * 2;
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+      });
+      expect(errors, isEmpty);
+      expect(pb.playing, isTrue);
+      expect(pb.clock, greaterThan(before));
+      expect(c.selectedStoryId, isNotNull);
+      expect(tester.element(rendererRoot), same(renderer));
+      pb.stop();
+      await tester.pump();
     }, variant: ios);
   }
 }
