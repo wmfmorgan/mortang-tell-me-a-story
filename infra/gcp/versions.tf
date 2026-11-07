@@ -14,7 +14,7 @@ terraform {
 
   # Created by bootstrap.sh.
   backend "gcs" {
-    bucket = "story-line-tfstate"
+    bucket = "story-line-nra-tfstate"
     prefix = "prod"
   }
 }

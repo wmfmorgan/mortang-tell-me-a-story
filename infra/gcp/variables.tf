@@ -1,7 +1,7 @@
 variable "project_id" {
   description = "GCP project that hosts Story Line."
   type        = string
-  default     = "story-line"
+  default     = "story-line-nra"
 }
 
 variable "region" {
@@ -13,5 +13,5 @@ variable "region" {
 variable "web_origin" {
   description = "Origin serving the Flutter web app (Firebase Hosting); used in invite links."
   type        = string
-  default     = "https://story-line.web.app"
+  default     = "https://story-line-nra.web.app"
 }
