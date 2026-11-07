@@ -58,17 +58,6 @@ class _FilterPanelState extends State<FilterPanel> {
             onChanged: (q) => controller.setFilter(filter.copyWith(query: q)),
           ),
           const SizedBox(height: 16),
-          SegmentedButton<FilterMode>(
-            key: const Key('filter-mode'),
-            segments: const [
-              ButtonSegment(value: FilterMode.hide, label: Text('Hide')),
-              ButtonSegment(value: FilterMode.dim, label: Text('Dim')),
-            ],
-            selected: {filter.mode},
-            onSelectionChanged: (s) =>
-                controller.setFilter(filter.copyWith(mode: s.first)),
-          ),
-          const SizedBox(height: 16),
           Text(
             'Era ${values.start.round()}–${values.end.round()}',
             style: labelStyle,

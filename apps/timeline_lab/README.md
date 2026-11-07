@@ -17,16 +17,18 @@ just lab                       # Chrome
 cd apps/timeline_lab && flutter run -d chrome   # or -d macos
 ```
 
-The top bar has three controls:
+The top bar has two controls:
 
-- The **renderer** picker.
-- The **dataset size**: 120, 1 000 or 5 000 stories. Every size uses seed 42.
-- The **performance overlay** toggle (the speed icon).
+- The **renderer** switch, one segment per renderer.
+- The **bench** menu (speed icon): dataset size (120, 1 000 or 5 000
+  stories, all seed 42) and the performance overlay.
 
-The filters are people, places and families (each multi-select), an era brush
-and text search. Search covers title, body and person names, but not place,
-which matches All Stories `matchesSearch`. A per-session **Hide / Dim** toggle
-picks the filter mode.
+The filters are people, places and families (each multi-select), an era
+brush and text search. Search covers title, body and person names, but not
+place, which matches All Stories `matchesSearch`. The status row at the
+bottom shows the match count, the playback caption and the per-session
+**Hide / Dim** switch. Playback design and speed share one options menu
+(tune icon) labelled with the current choice, e.g. `Sweep · 1×`.
 
 ## Playback
 

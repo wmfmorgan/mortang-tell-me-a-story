@@ -43,6 +43,7 @@ class _LabAppState extends State<LabApp> with SingleTickerProviderStateMixin {
     home: LabHome(
       controller: _controller,
       playback: _playback,
+      showPerf: _showPerf,
       onTogglePerf: () => setState(() => _showPerf = !_showPerf),
     ),
   );
@@ -53,11 +54,13 @@ class LabHome extends StatelessWidget {
     super.key,
     required this.controller,
     required this.playback,
+    this.showPerf = false,
     this.onTogglePerf,
   });
 
   final LabController controller;
   final PlaybackController playback;
+  final bool showPerf;
   final VoidCallback? onTogglePerf;
 
   @override
@@ -95,40 +98,14 @@ class LabHome extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Timeline Lab'),
         actions: [
-          DropdownMenu<RendererKind>(
-            key: const Key('renderer-picker'),
-            initialSelection: c.renderer,
-            label: const Text('Renderer'),
-            width: 220,
-            onSelected: (k) {
-              if (k != null) c.setRenderer(k);
-            },
-            dropdownMenuEntries: [
-              for (final k in RendererKind.values)
-                DropdownMenuEntry(value: k, label: k.label),
-            ],
-          ),
-          const SizedBox(width: 12),
-          DropdownMenu<int>(
-            key: const Key('dataset-size'),
-            initialSelection: c.datasetSize,
-            label: const Text('Stories'),
-            width: 140,
-            onSelected: (n) {
-              if (n != null) c.setDatasetSize(n);
-            },
-            dropdownMenuEntries: [
-              for (final n in datasetSizes)
-                DropdownMenuEntry(value: n, label: '$n'),
-            ],
-          ),
-          IconButton(
-            tooltip: 'Performance overlay',
-            icon: const Icon(Icons.speed),
-            onPressed: onTogglePerf,
+          _BenchMenu(
+            controller: c,
+            showPerf: showPerf,
+            onTogglePerf: onTogglePerf,
           ),
           const SizedBox(width: 8),
         ],
+        bottom: _RendererSwitch(controller: c),
       ),
       body: Column(
         children: [
@@ -161,8 +138,9 @@ class LabHome extends StatelessWidget {
                     Expanded(
                       child: Stack(
                         children: [
-                          Positioned.fill(child: renderer),
+                          // Behind the renderer: tiles and cards cover it.
                           PlaybackWatermark(playback: playback),
+                          Positioned.fill(child: renderer),
                         ],
                       ),
                     ),
@@ -171,7 +149,7 @@ class LabHome extends StatelessWidget {
               },
             ),
           ),
-          PlaybackBar(controller: c, playback: playback),
+          PlaybackBar(playback: playback),
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             alignment: Alignment.topCenter,
@@ -212,18 +190,120 @@ class LabHome extends StatelessWidget {
                     ),
                   ),
           ),
-          Container(
-            key: const Key('status-bar'),
-            height: 40,
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: labBorder)),
-            ),
-            child: Text(
-              statusLine(c.matchCount, c.dataset.stories.length, c.filter),
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
+          _StatusRow(controller: c, playback: playback),
+        ],
+      ),
+    );
+  }
+}
+
+/// One tap per renderer: comparing them is the point of the lab.
+class _RendererSwitch extends StatelessWidget implements PreferredSizeWidget {
+  const _RendererSwitch({required this.controller});
+
+  final LabController controller;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(56);
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: SegmentedButton<RendererKind>(
+        key: const Key('renderer-picker'),
+        showSelectedIcon: false,
+        segments: [
+          for (final k in RendererKind.values)
+            ButtonSegment(value: k, label: Text(k.label)),
+        ],
+        selected: {controller.renderer},
+        onSelectionChanged: (s) => controller.setRenderer(s.first),
+      ),
+    ),
+  );
+}
+
+/// Dataset size and the performance overlay: bench settings, one button.
+class _BenchMenu extends StatelessWidget {
+  const _BenchMenu({
+    required this.controller,
+    required this.showPerf,
+    this.onTogglePerf,
+  });
+
+  final LabController controller;
+  final bool showPerf;
+  final VoidCallback? onTogglePerf;
+
+  @override
+  Widget build(BuildContext context) => MenuAnchor(
+    menuChildren: [
+      for (final n in datasetSizes)
+        MenuItemButton(
+          key: Key('dataset-size-$n'),
+          leadingIcon: Icon(n == controller.datasetSize ? Icons.check : null),
+          onPressed: () => controller.setDatasetSize(n),
+          child: Text('$n stories'),
+        ),
+      const Divider(height: 1),
+      CheckboxMenuButton(
+        value: showPerf,
+        onChanged: (_) => onTogglePerf?.call(),
+        child: const Text('Performance overlay'),
+      ),
+    ],
+    builder: (context, menu, _) => TextButton.icon(
+      key: const Key('dataset-size'),
+      onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+      icon: const Icon(Icons.speed),
+      label: Text('${controller.datasetSize} stories'),
+    ),
+  );
+}
+
+/// Match count, playback caption and Hide/Dim on one line.
+class _StatusRow extends StatelessWidget {
+  const _StatusRow({required this.controller, required this.playback});
+
+  final LabController controller;
+  final PlaybackController playback;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = controller;
+    final filter = c.filter;
+    return Container(
+      key: const Key('status-bar'),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: labBorder)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            statusLine(c.matchCount, c.dataset.stories.length, filter),
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: PlaybackCaption(controller: c, playback: playback),
+          ),
+          const SizedBox(width: 16),
+          SegmentedButton<FilterMode>(
+            key: const Key('filter-mode'),
+            style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: FilterMode.hide, label: Text('Hide')),
+              ButtonSegment(value: FilterMode.dim, label: Text('Dim')),
+            ],
+            selected: {filter.mode},
+            onSelectionChanged: (s) =>
+                c.setFilter(filter.copyWith(mode: s.first)),
           ),
         ],
       ),
