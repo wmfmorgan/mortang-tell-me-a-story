@@ -16,7 +16,7 @@ import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 const _ada = 'ada';
 
-const _person = Person(id: 'p1', familyId: _ada, name: 'Ada', createdBy: 'u1');
+const _person = Person(id: 'p1', familyId: _ada, name: 'Ada');
 
 final _park = Place(
   id: 'pl1',

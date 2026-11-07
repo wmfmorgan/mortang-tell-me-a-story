@@ -72,7 +72,6 @@ class _FakePeopleApi extends PeopleGateway {
       name: name.trim(),
       email: email,
       about: about,
-      createdBy: 'u1',
     );
     rows.add(person);
     return person;
@@ -246,15 +245,7 @@ void main() {
 
   testWidgets('Add person opens AddPersonModal', (tester) async {
     final people = _FakePeopleApi(
-      seed: const [
-        Person(
-          id: 'p1',
-          familyId: _familyId,
-          name: 'Ada',
-          relationship: 'Aunt',
-          createdBy: 'u1',
-        ),
-      ],
+      seed: const [Person(id: 'p1', familyId: _familyId, name: 'Ada')],
     );
 
     await tester.pumpWidget(_shell(people: people));
@@ -297,15 +288,7 @@ void main() {
 
   testWidgets('selecting person shows chip in memory only', (tester) async {
     final people = _FakePeopleApi(
-      seed: const [
-        Person(
-          id: 'p1',
-          familyId: _familyId,
-          name: 'Ada',
-          relationship: 'Aunt',
-          createdBy: 'u1',
-        ),
-      ],
+      seed: const [Person(id: 'p1', familyId: _familyId, name: 'Ada')],
     );
 
     await tester.pumpWidget(_shell(people: people));
@@ -326,14 +309,8 @@ void main() {
   testWidgets('picking two people adds both chips', (tester) async {
     final people = _FakePeopleApi(
       seed: const [
-        Person(
-          id: 'p1',
-          familyId: _familyId,
-          name: 'Ada',
-          relationship: 'Aunt',
-          createdBy: 'u1',
-        ),
-        Person(id: 'p2', familyId: _familyId, name: 'Grace', createdBy: 'u1'),
+        Person(id: 'p1', familyId: _familyId, name: 'Ada'),
+        Person(id: 'p2', familyId: _familyId, name: 'Grace'),
       ],
     );
 
@@ -620,15 +597,7 @@ void main() {
         _shell(
           stories: stories,
           people: _FakePeopleApi(
-            seed: const [
-              Person(
-                id: 'p1',
-                familyId: _familyId,
-                name: 'Ada',
-                relationship: 'Aunt',
-                createdBy: 'u1',
-              ),
-            ],
+            seed: const [Person(id: 'p1', familyId: _familyId, name: 'Ada')],
           ),
           places: _FakePlacesApi(
             seed: [
@@ -791,15 +760,7 @@ void main() {
       _shell(
         stories: stories,
         people: _FakePeopleApi(
-          seed: const [
-            Person(
-              id: 'p1',
-              familyId: _familyId,
-              name: 'Ada',
-              relationship: 'Aunt',
-              createdBy: 'u1',
-            ),
-          ],
+          seed: const [Person(id: 'p1', familyId: _familyId, name: 'Ada')],
         ),
         places: _FakePlacesApi(
           seed: [

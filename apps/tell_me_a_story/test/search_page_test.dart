@@ -63,13 +63,7 @@ class _People extends PeopleGateway {
 
   @override
   Future<List<Person>> listPeople(String familyId) async => const [
-    Person(
-      id: 'clara',
-      familyId: _family,
-      name: 'Clara',
-      relationship: 'Aunt',
-      createdBy: 'u',
-    ),
+    Person(id: 'clara', familyId: _family, name: 'Clara'),
   ];
 }
 

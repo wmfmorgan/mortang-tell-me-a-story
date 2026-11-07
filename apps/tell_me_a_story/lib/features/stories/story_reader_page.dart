@@ -1360,14 +1360,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
               _initialsAvatar(person.name, size: 22),
               const SizedBox(width: 6),
               Text(person.name, style: Theme.of(context).textTheme.labelMedium),
-              if ((person.relationship ?? '').trim().isNotEmpty) ...[
-                const SizedBox(width: 4),
-                Text(
-                  person.relationship!,
-                  style: Theme.of(context).textTheme.labelSmall
-                      ?.copyWith(color: const Color(0xFF6B5E55)),
-                ),
-              ],
             ],
           ),
         ),

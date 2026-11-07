@@ -849,13 +849,7 @@ void main() {
           ],
         ),
         people: _People(const [
-          Person(
-            id: 'p-blank',
-            familyId: _parent,
-            name: ' ',
-            relationship: 'Cousin',
-            createdBy: _me,
-          ),
+          Person(id: 'p-blank', familyId: _parent, name: ' '),
         ]),
         manage: manage,
       );
@@ -1159,13 +1153,7 @@ void main() {
             builder: (context, state) => NewStoryPage(
               inviteApi: _Invite(_parent),
               peopleApi: _People(const [
-                Person(
-                  id: 'p1',
-                  familyId: _parent,
-                  name: 'Ada',
-                  relationship: 'Aunt',
-                  createdBy: _me,
-                ),
+                Person(id: 'p1', familyId: _parent, name: 'Ada'),
               ]),
               placesApi: _Places(const [
                 Place(
@@ -1326,13 +1314,7 @@ void main() {
           builder: (context, state) => NewStoryPage(
             inviteApi: _Invite(_parent),
             peopleApi: _People(const [
-              Person(
-                id: 'p1',
-                familyId: _parent,
-                name: 'Ada',
-                relationship: 'Aunt',
-                createdBy: _me,
-              ),
+              Person(id: 'p1', familyId: _parent, name: 'Ada'),
             ]),
             placesApi: _Places(const [
               Place(

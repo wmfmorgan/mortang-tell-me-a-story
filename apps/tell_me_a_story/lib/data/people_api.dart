@@ -1,19 +1,19 @@
 import 'dart:typed_data';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-import 'app_exception.dart';
-import 'families_api.dart';
+import '../core/server/server_client.dart';
 import 'photos_api.dart';
-import 'supabase_errors.dart';
+import 'server/server_errors.dart';
+import 'server/wire.dart';
 
-/// Family-scoped person row. Relationship is optional; new people send null.
+/// A person in a family tree. [familyId] is the person's home family;
+/// [avatarPath] is the picture's blob key.
 class Person {
   const Person({
     required this.id,
     required this.familyId,
     required this.name,
-    this.relationship,
     this.email,
     this.birthDate,
     this.birthPrecision,
@@ -23,13 +23,11 @@ class Person {
     this.avatarPath,
     this.userId,
     this.passedAway = false,
-    this.createdBy = '',
   });
 
   final String id;
   final String familyId;
   final String name;
-  final String? relationship;
   final String? email;
   final DateTime? birthDate;
   final String? birthPrecision;
@@ -39,29 +37,24 @@ class Person {
   final String? avatarPath;
   final String? userId;
   final bool passedAway;
-  final String createdBy;
 
-  factory Person.fromJson(Map<String, dynamic> json) {
-    return Person(
-      id: json['id'] as String,
-      familyId: json['family_id'] as String,
-      name: json['name'] as String,
-      relationship: json['relationship'] as String?,
-      email: json['email'] as String?,
-      birthDate: personDateFromJson(json['birth_date']),
-      birthPrecision: json['birth_precision'] as String?,
-      passingDate: personDateFromJson(json['passing_date']),
-      passingPrecision: json['passing_precision'] as String?,
-      about: json['about'] as String?,
-      avatarPath: json['avatar_path'] as String?,
-      userId: json['user_id'] as String?,
-      passedAway: json['passed_away'] == true,
-      createdBy: json['created_by'] as String? ?? '',
-    );
-  }
+  factory Person.fromDto(server.PersonDto dto) => Person(
+    id: dto.id.toString(),
+    familyId: dto.homeFamilyId.toString(),
+    name: dto.name,
+    email: dto.email,
+    birthDate: fromWireDate(dto.birthDate),
+    birthPrecision: _precision(dto.birthPrecision),
+    passingDate: fromWireDate(dto.deathDate),
+    passingPrecision: _precision(dto.deathPrecision),
+    about: dto.about,
+    avatarPath: dto.avatarKey,
+    userId: dto.userId?.toString(),
+    passedAway: dto.passedAway,
+  );
 }
 
-/// Fields `person_profile` returns. Never includes user_id or email.
+/// What the profile dialog shows. Never includes userId or email.
 class PersonProfile {
   const PersonProfile({
     required this.id,
@@ -89,40 +82,23 @@ class PersonProfile {
   final bool passedAway;
   final bool isLinked;
 
-  factory PersonProfile.fromJson(Map<String, dynamic> json) {
-    return PersonProfile(
-      id: json['id'] as String,
-      familyId: json['family_id'] as String,
-      name: json['name'] as String,
-      birthDate: personDateFromJson(json['birth_date']),
-      birthPrecision: json['birth_precision'] as String?,
-      about: json['about'] as String?,
-      avatarPath: json['avatar_path'] as String?,
-      passingDate: personDateFromJson(json['passing_date']),
-      passingPrecision: json['passing_precision'] as String?,
-      passedAway: json['passed_away'] == true,
-      isLinked: json['is_linked'] == true,
-    );
-  }
-}
-
-/// PostgREST returns a `returns table` function as a one-element list.
-PersonProfile? personProfileFromRpc(Object? res) {
-  final row = switch (res) {
-    List(isEmpty: true) => null,
-    final List rows => rows.first,
-    final Map map => map,
-    _ => null,
-  };
-  if (row is! Map) return null;
-  return PersonProfile.fromJson(
-    row.map((key, value) => MapEntry(key.toString(), value)),
+  factory PersonProfile.fromDto(server.PersonProfileDto dto) => PersonProfile(
+    id: dto.id.toString(),
+    familyId: dto.homeFamilyId.toString(),
+    name: dto.name,
+    isLinked: dto.isLinked,
+    birthDate: fromWireDate(dto.birthDate),
+    birthPrecision: _precision(dto.birthPrecision),
+    about: dto.about,
+    avatarPath: dto.avatarKey,
+    passingDate: fromWireDate(dto.deathDate),
+    passingPrecision: _precision(dto.deathPrecision),
+    passedAway: dto.passedAway,
   );
 }
 
-const personAvatarsBucket = 'person-avatars';
-
-String personAvatarObjectPath(String personId) => '$personId/avatar.jpg';
+String? _precision(server.DatePrecision? precision) =>
+    precision == null ? null : precisionName(precision);
 
 /// Year → YYYY-01-01, month → YYYY-MM-01, day → that date. Never a range.
 ({DateTime date, String precision}) storedPersonDate({
@@ -139,20 +115,6 @@ String personAvatarObjectPath(String personId) => '$personId/avatar.jpg';
   return (date: DateTime(year, 1, 1), precision: 'year');
 }
 
-DateTime? personDateFromJson(Object? raw) {
-  if (raw == null) return null;
-  if (raw is DateTime) return raw;
-  if (raw is String && raw.isNotEmpty) return DateTime.parse(raw);
-  return null;
-}
-
-String personDateIso(DateTime date) {
-  final y = date.year.toString().padLeft(4, '0');
-  final m = date.month.toString().padLeft(2, '0');
-  final d = date.day.toString().padLeft(2, '0');
-  return '$y-$m-$d';
-}
-
 /// Rejects an empty name, or an about longer than 500, before the network.
 void ensureValidPersonCreate({required String name, String? about}) {
   if (name.trim().isEmpty) {
@@ -166,8 +128,9 @@ void ensureValidPersonCreate({required String name, String? about}) {
 abstract class PeopleGateway {
   Future<List<Person>> listPeople(String familyId);
 
-  /// People in [familyId]'s tree. Linked rows take a trimmed birth from
-  /// `person_profile`. The default reads [listPeople] so fakes stay unchanged.
+  /// People in [familyId]'s tree. Linked rows carry the account birth,
+  /// coarsened by its visibility. The default reads [listPeople] so fakes
+  /// stay unchanged.
   Future<List<Person>> listTreePeople(String familyId) => listPeople(familyId);
 
   Future<Person> createPerson({
@@ -179,7 +142,7 @@ abstract class PeopleGateway {
     List<int>? pictureBytes,
   });
 
-  /// Tree-member row, including `user_id`. Not `person_profile`.
+  /// Tree-member row, including `userId` and `email`. Not [personProfile].
   Future<Person?> personForEdit(String personId) async => null;
 
   Future<PersonProfile?> personProfile(String personId) async => null;
@@ -205,101 +168,42 @@ abstract class PeopleGateway {
   /// another family in the tree, are false.
   Future<bool> isHomeFamilySteward(String familyId) async => false;
 
-  /// `mark_passed_away(p_person_id, p_value)`.
+  /// Sets or clears a linked person's passed-away flag (stewards only).
   Future<void> markPassedAway({required String personId, required bool value}) {
     throw UnimplementedError();
   }
 
-  /// Picture bytes: `person-avatars` when [path] is `{personId}/avatar.jpg`,
-  /// else `avatars`. Null when there is no picture.
+  /// Picture bytes for the blob key [path] (a person's or a linked
+  /// account's avatar). Null when there is no picture.
   Future<Uint8List?> pictureBytes({
     required String personId,
     String? path,
   }) async => null;
 }
 
-/// PostgREST CRUD gateway for family-scoped `people` rows.
+/// People of a family tree through the `people` endpoint; pictures through
+/// `media`.
 class PeopleApi implements PeopleGateway {
-  PeopleApi({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+  PeopleApi({server.Client? client}) : _injected = client;
 
-  final SupabaseClient _client;
+  final server.Client? _injected;
 
-  static const _rowSelect =
-      'id, family_id, name, relationship, email, created_by, '
-      'about, avatar_path, user_id, passed_away';
-
-  static const _treeSelect = 'id, family_id, name, user_id, passed_away';
+  server.Client get _client => _injected ?? serverClient;
 
   @override
   Future<List<Person>> listPeople(String familyId) async {
-    final rows = await _client
-        .from('people')
-        .select(_rowSelect)
-        .eq('family_id', familyId)
-        .order('name');
-    return rows.map(Person.fromJson).toList();
+    final rows = await withServerErrors(
+      () => _client.people.listFamily(_uuid(familyId)),
+    );
+    return rows.map(Person.fromDto).toList();
   }
 
   @override
-  Future<List<Person>> listTreePeople(String familyId) {
-    return withAppErrors(() async {
-      final familyIds = await _treeFamilyIds(familyId);
-      final rows = await _client
-          .from('people')
-          .select(_treeSelect)
-          .inFilter('family_id', familyIds)
-          .order('name');
-      return Future.wait(rows.map(_treePerson));
-    });
-  }
-
-  /// One [Person] per tree row. Linked profiles load together.
-  Future<Person> _treePerson(Map<String, dynamic> row) async {
-    final userId = row['user_id'] as String?;
-    final profile = userId == null
-        ? null
-        : await _treeProfile(row['id'] as String);
-    return Person(
-      id: row['id'] as String,
-      familyId: row['family_id'] as String,
-      name: row['name'] as String,
-      userId: userId,
-      passedAway: profile?.passedAway ?? row['passed_away'] == true,
-      birthDate: profile?.birthDate,
-      birthPrecision: profile?.birthPrecision,
+  Future<List<Person>> listTreePeople(String familyId) async {
+    final rows = await withServerErrors(
+      () => _client.people.listTree(_uuid(familyId)),
     );
-  }
-
-  /// [personProfile] for one tree row. A hidden linked row fails the listing
-  /// with a non-catalog error, so callers keep their generic failure copy.
-  Future<PersonProfile?> _treeProfile(String personId) async {
-    try {
-      return await personProfile(personId);
-    } on AppException catch (error, stack) {
-      if (error.code != AppErrorCode.notFound) rethrow;
-      Error.throwWithStackTrace(
-        StateError('person_profile: ${error.message}'),
-        stack,
-      );
-    }
-  }
-
-  /// Families in [familyId]'s tree. One family when the walk returns none.
-  Future<List<String>> _treeFamilyIds(String familyId) async {
-    final tree = await _client.rpc(
-      'list_family_tree',
-      params: {'fid': familyId},
-    );
-    if (tree is! List) {
-      throw StateError('list_family_tree did not return a list');
-    }
-    final ids = <String>[
-      for (final row in tree)
-        if (row is Map && row['id'] is String) row['id'] as String,
-    ];
-    if (ids.isEmpty) return [familyId];
-    return ids;
+    return rows.map(Person.fromDto).toList();
   }
 
   @override
@@ -314,49 +218,39 @@ class PeopleApi implements PeopleGateway {
     final trimmedAbout = _aboutOrNull(about);
     ensureValidPersonCreate(name: name, about: trimmedAbout);
     final trimmedEmail = _emailOrNull(email);
-    return withAppErrors(() async {
-      final uid = _client.auth.currentUser!.id;
-      final row = await _client
-          .from('people')
-          .insert({
-            'family_id': familyId,
-            'name': name.trim(),
-            'relationship': null,
-            'email': ?trimmedEmail,
-            'passed_away': passedAway,
-            'about': ?trimmedAbout,
-            'created_by': uid,
-          })
-          .select(_rowSelect)
-          .single();
-      var person = Person.fromJson(row);
-      if (pictureBytes != null && pictureBytes.isNotEmpty) {
-        person = await _uploadPersonPicture(person, pictureBytes);
-      }
-      return person;
-    });
+    final input = server.PersonWriteDto(
+      name: name.trim(),
+      writeAbout: trimmedAbout != null,
+      about: trimmedAbout,
+      writeEmail: trimmedEmail != null,
+      email: trimmedEmail,
+      writePassedAway: true,
+      passedAway: passedAway,
+      writeBirth: false,
+      writeDeath: false,
+      clearPicture: false,
+    );
+    final picture = _picture(pictureBytes);
+    final row = await withServerErrors(
+      () => _client.people.create(_uuid(familyId), input, picture),
+    );
+    return Person.fromDto(row);
   }
 
   @override
   Future<Person?> personForEdit(String personId) async {
-    final row = await _client
-        .from('people')
-        .select(_rowSelect)
-        .eq('id', personId)
-        .maybeSingle();
-    if (row == null) return null;
-    return Person.fromJson(row);
+    final row = await withServerErrors(
+      () => _client.people.forEdit(_uuid(personId)),
+    );
+    return row == null ? null : Person.fromDto(row);
   }
 
   @override
-  Future<PersonProfile?> personProfile(String personId) {
-    return withAppErrors(() async {
-      final res = await _client.rpc(
-        'person_profile',
-        params: {'p_person_id': personId},
-      );
-      return personProfileFromRpc(res);
-    });
+  Future<PersonProfile?> personProfile(String personId) async {
+    final row = await withServerErrors(
+      () => _client.people.profile(_uuid(personId)),
+    );
+    return PersonProfile.fromDto(row);
   }
 
   @override
@@ -377,72 +271,43 @@ class PeopleApi implements PeopleGateway {
       name: name,
       about: writeAbout ? trimmedAbout : null,
     );
-    final clearing =
-        clearPicture && (pictureBytes == null || pictureBytes.isEmpty);
-    final patch = <String, dynamic>{
-      'name': name.trim(),
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-      if (clearing) 'avatar_path': null,
-    };
-    if (writePassedAway) patch['passed_away'] = passedAway;
-    if (writeAbout) patch['about'] = trimmedAbout;
-    if (writeEmail) patch['email'] = _emailOrNull(email);
-    return withAppErrors(() async {
-      final row = await _client
-          .from('people')
-          .update(patch)
-          .eq('id', personId)
-          .select(_rowSelect)
-          .single();
-      var person = Person.fromJson(row);
-      if (pictureBytes != null && pictureBytes.isNotEmpty) {
-        person = await _uploadPersonPicture(person, pictureBytes);
-      }
-      return person;
-    });
+    final picture = _picture(pictureBytes);
+    final input = server.PersonWriteDto(
+      name: name.trim(),
+      writePassedAway: writePassedAway,
+      passedAway: writePassedAway ? passedAway : null,
+      writeAbout: writeAbout,
+      about: trimmedAbout,
+      writeEmail: writeEmail,
+      email: writeEmail ? _emailOrNull(email) : null,
+      writeBirth: false,
+      writeDeath: false,
+      clearPicture: clearPicture && picture == null,
+    );
+    final row = await withServerErrors(
+      () => _client.people.update(_uuid(personId), input, picture),
+    );
+    return Person.fromDto(row);
   }
 
   @override
-  Future<bool> isHomeFamilySteward(String familyId) async {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) return false;
-    final row = await _client
-        .from('memberships')
-        .select('role')
-        .eq('family_id', familyId)
-        .eq('user_id', uid)
-        .maybeSingle();
-    final role = row?['role'];
-    return originSteward(role is String ? role : null);
-  }
+  Future<bool> isHomeFamilySteward(String familyId) => withServerErrors(
+    () => _client.people.isHomeFamilySteward(_uuid(familyId)),
+  );
 
   @override
   Future<void> markPassedAway({required String personId, required bool value}) {
-    return withAppErrors(() async {
-      await _client.rpc(
-        'mark_passed_away',
-        params: {'p_person_id': personId, 'p_value': value},
-      );
-    });
+    return withServerErrors(
+      () => _client.people.markPassedAway(_uuid(personId), value),
+    );
   }
 
   @override
   Future<List<Person>> listUnlinkedPeople(String familyId) async {
-    final res = await _client.rpc(
-      'list_unlinked_people',
-      params: {'p_family_id': familyId},
+    final rows = await withServerErrors(
+      () => _client.people.listUnlinked(_uuid(familyId)),
     );
-    if (res is! List) return const [];
-    return [
-      for (final row in res)
-        if (row is Map)
-          Person(
-            id: row['id'] as String,
-            familyId: row['family_id'] as String,
-            name: row['name'] as String,
-            email: row['email'] as String?,
-          ),
-    ];
+    return rows.map(Person.fromDto).toList();
   }
 
   @override
@@ -451,43 +316,23 @@ class PeopleApi implements PeopleGateway {
     String? path,
   }) async {
     if (path == null || path.isEmpty) return null;
-    final bucket = path == personAvatarObjectPath(personId)
-        ? personAvatarsBucket
-        : avatarsBucketName;
-    return _client.storage.from(bucket).download(path);
-  }
-
-  Future<Person> _uploadPersonPicture(Person person, List<int> bytes) async {
-    final compressed = compressStoryPhoto(
-      Uint8List.fromList(bytes),
-      maxEdge: 512,
-      quality: 80,
-    );
-    final path = personAvatarObjectPath(person.id);
-    await _client.storage
-        .from(personAvatarsBucket)
-        .uploadBinary(
-          path,
-          compressed.bytes,
-          fileOptions: const FileOptions(
-            contentType: 'image/jpeg',
-            upsert: true,
-          ),
-        );
-    final row = await _client
-        .from('people')
-        .update({
-          'avatar_path': path,
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        })
-        .eq('id', person.id)
-        .select(_rowSelect)
-        .single();
-    return Person.fromJson(row);
+    final data = await withServerErrors(() => _client.media.get(path));
+    return data == null ? null : Uint8List.sublistView(data);
   }
 }
 
-const avatarsBucketName = 'avatars';
+/// [bytes] compressed to a 512 px JPEG, sent inline; null when empty.
+ByteData? _picture(List<int>? bytes) {
+  if (bytes == null || bytes.isEmpty) return null;
+  final compressed = compressStoryPhoto(
+    Uint8List.fromList(bytes),
+    maxEdge: 512,
+    quality: 80,
+  );
+  return ByteData.sublistView(compressed.bytes);
+}
+
+server.UuidValue _uuid(String id) => server.UuidValue.fromString(id);
 
 String? _emailOrNull(String? email) {
   if (email == null) return null;
