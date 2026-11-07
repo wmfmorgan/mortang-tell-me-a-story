@@ -1,7 +1,8 @@
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart';
 
-/// A fresh root family owned by [owner] with one undated story in it,
-/// published when [publish] is true. Returns `(familyId, storyId)`.
+/// A fresh root family owned by [owner] with one story in it (dated 1980,
+/// tagged with the family's people and a new place), published when
+/// [publish] is true. Returns `(familyId, storyId)`.
 Future<(String, String)> liveFamilyStory(
   Client owner, {
   bool publish = false,

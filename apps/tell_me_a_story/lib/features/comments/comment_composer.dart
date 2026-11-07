@@ -140,7 +140,8 @@ class _CommentComposerState extends State<CommentComposer> {
   }
 }
 
-/// Comment body + author. Overflow Edit and Delete only when [canDelete].
+/// Comment body + author. The overflow shows Edit when [onEdit] is passed and
+/// Delete when [canDelete] is true.
 class CommentTile extends StatelessWidget {
   const CommentTile({
     super.key,
