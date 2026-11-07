@@ -53,7 +53,81 @@ class _MediaAccess {
 
   Future<Set<String>> visible(Set<String> keys) async {
     if (keys.isEmpty || authz.userId == null) return {};
-    return {...await _photoKeys(keys)};
+    return {
+      ...await _photoKeys(keys),
+      ...await _coverKeys(keys),
+      ...await _personAvatarKeys(keys),
+      ...await _userAvatarKeys(keys),
+    };
+  }
+
+  /// Family covers: live member of that family (D6b: not while deleted).
+  Future<List<String>> _coverKeys(Set<String> keys) async {
+    final families = await Family.db.find(
+      session,
+      where: (t) => t.coverKey.inSet(keys),
+    );
+    return [
+      for (final family in families)
+        if (await authz.isLiveMember(family.id!)) family.coverKey!,
+    ];
+  }
+
+  /// Person avatars: member of a live family in the person's tree (D8).
+  Future<List<String>> _personAvatarKeys(Set<String> keys) async {
+    final people = await Person.db.find(
+      session,
+      where: (t) => t.avatarKey.inSet(keys),
+    );
+    final readable = <UuidValue, bool>{};
+    return [
+      for (final person in people)
+        if (readable[person.treeId] ??= await authz.isTreeMemberOf(
+          person.treeId,
+        ))
+          person.avatarKey!,
+    ];
+  }
+
+  /// User avatars: the user themself, or a co-member of a live family.
+  Future<List<String>> _userAvatarKeys(Set<String> keys) async {
+    final users = await AppUser.db.find(
+      session,
+      where: (t) => t.avatarKey.inSet(keys),
+    );
+    return [
+      for (final user in users)
+        if (user.authUserId == authz.userId ||
+            await _sharesLiveFamily(user.authUserId))
+          user.avatarKey!,
+    ];
+  }
+
+  Set<UuidValue>? _myLiveFamilies;
+
+  Future<bool> _sharesLiveFamily(UuidValue other) async {
+    final mine = _myLiveFamilies ??= await _liveFamiliesOf(authz.userId!);
+    if (mine.isEmpty) return false;
+    final shared = await Membership.db.count(
+      session,
+      where: (t) => t.userId.equals(other) & t.familyId.inSet(mine),
+    );
+    return shared > 0;
+  }
+
+  Future<Set<UuidValue>> _liveFamiliesOf(UuidValue user) async {
+    final memberships = await Membership.db.find(
+      session,
+      where: (t) => t.userId.equals(user),
+    );
+    if (memberships.isEmpty) return {};
+    final live = await Family.db.find(
+      session,
+      where: (t) =>
+          t.id.inSet(<UuidValue>{for (final m in memberships) m.familyId}) &
+          t.deletedAt.equals(null),
+    );
+    return {for (final family in live) family.id!};
   }
 
   /// Photo originals and edits: `canReadStory` of the photo's story.

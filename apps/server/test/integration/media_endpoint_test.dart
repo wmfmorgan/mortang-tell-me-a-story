@@ -137,5 +137,90 @@ void main() {
         );
       },
     );
+
+    // BR 25
+    test(
+      'Given a family cover, member can read it; non-member cannot; member '
+      'of soft-deleted family cannot',
+      () async {
+        final member = await fx.user();
+        final family = await fx.family(await fx.tree());
+        await fx.join(family, member);
+        final key = await fx.cover(family);
+
+        expect(await read(member, key), bytesOf(jpegBytes()));
+        expect(await read(await fx.user(), key), isNull);
+
+        await fx.softDelete((await Family.db.findById(fx.s, family.id!))!);
+        expect(await read(member, key), isNull);
+      },
+    );
+
+    test(
+      'Given a person avatar, a member of any live family in the tree reads '
+      "it, also after the person's home family is soft-deleted; an outsider "
+      'cannot',
+      () async {
+        final cousin = await fx.user();
+        final tree = await fx.tree();
+        final home = await fx.family(tree);
+        final other = await fx.family(tree, name: 'Other');
+        await fx.join(other, cousin);
+        final key = await fx.personAvatar(await fx.person(home));
+
+        expect(await read(cousin, key), bytesOf(jpegBytes()));
+        expect(await read(await fx.user(), key), isNull);
+
+        await fx.softDelete(home);
+        expect(await read(cousin, key), bytesOf(jpegBytes()));
+      },
+    );
+
+    test(
+      'Given a user avatar, the user and a co-member of a live family read '
+      'it; a stranger, or a co-member only through a soft-deleted family, '
+      'cannot',
+      () async {
+        final owner = await fx.user();
+        final coMember = await fx.user();
+        final formerCoMember = await fx.user();
+        final live = await fx.family(await fx.tree());
+        await fx.join(live, owner);
+        await fx.join(live, coMember);
+        final deleted = await fx.family(
+          await fx.tree(),
+          deletedAt: DateTime.now().toUtc(),
+        );
+        await fx.join(deleted, owner);
+        await fx.join(deleted, formerCoMember);
+        final key = await fx.userAvatar(owner);
+
+        expect(await read(owner, key), bytesOf(jpegBytes()));
+        expect(await read(coMember, key), bytesOf(jpegBytes()));
+        expect(await read(formerCoMember, key), isNull);
+        expect(await read(await fx.user(), key), isNull);
+      },
+    );
+
+    test(
+      'when getMany asks for a cover, a person avatar and a user avatar '
+      'then each is checked on its own row',
+      () async {
+        final member = await fx.user();
+        final family = await fx.family(await fx.tree());
+        await fx.join(family, member);
+        final cover = await fx.cover(family);
+        final avatar = await fx.personAvatar(await fx.person(family));
+        final mine = await fx.userAvatar(member);
+        final strangers = await fx.userAvatar(await fx.user());
+
+        final got = await endpoints.media.getMany(
+          asUser(sessionBuilder, member),
+          [cover, avatar, mine, strangers],
+        );
+
+        expect(got.keys.toSet(), {cover, avatar, mine});
+      },
+    );
   }, rollbackDatabase: RollbackDatabase.disabled);
 }
