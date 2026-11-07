@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import '../core/server/server_client.dart';
+import 'app_exception.dart';
 import 'photos_api.dart';
 import 'server/server_errors.dart';
 
@@ -12,6 +13,19 @@ class CoverPhotoException implements Exception {
   CoverPhotoException(this.message);
 
   final String message;
+}
+
+const _coverFailed = 'Couldn’t save the family photo. Try again.';
+
+/// Runs a cover call through [withServerErrors] and shows any server
+/// refusal as the cover copy, never raw server text.
+/// [StorageFailedException] passes through.
+Future<T> withCoverErrors<T>(Future<T> Function() call) async {
+  try {
+    return await withServerErrors(call);
+  } on AppException catch (_, stackTrace) {
+    Error.throwWithStackTrace(CoverPhotoException(_coverFailed), stackTrace);
+  }
 }
 
 /// Download, upload, and clear for family covers.
@@ -46,19 +60,19 @@ class FamilyCoversApi implements FamilyCoverClient {
     required Uint8List bytes,
   }) async {
     if (bytes.isEmpty) {
-      throw CoverPhotoException('Couldn’t save the family photo. Try again.');
+      throw CoverPhotoException(_coverFailed);
     }
     final CompressedPhoto compressed;
     try {
       compressed = compressStoryPhoto(bytes, maxEdge: 1920, quality: 80);
     } on ArgumentError {
-      throw CoverPhotoException('Couldn’t save the family photo. Try again.');
+      throw CoverPhotoException(_coverFailed);
     }
     if (compressed.bytes.length > familyCoverMaxBytes) {
-      throw CoverPhotoException('Couldn’t save the family photo. Try again.');
+      throw CoverPhotoException(_coverFailed);
     }
     final id = server.UuidValue.fromString(familyId);
-    return withServerErrors(() async {
+    return withCoverErrors(() async {
       final ticket = await _client.family.startCoverUpload(
         id,
         'image/jpeg',
@@ -74,7 +88,7 @@ class FamilyCoversApi implements FamilyCoverClient {
   /// Clears the cover; the server deletes its object. [path] is not used.
   @override
   Future<void> clear({required String familyId, required String? path}) {
-    return withServerErrors(
+    return withCoverErrors(
       () => _client.family.clearCover(server.UuidValue.fromString(familyId)),
     );
   }
