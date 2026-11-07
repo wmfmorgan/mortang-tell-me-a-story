@@ -22,6 +22,8 @@ import 'package:tell_me_a_story_server/src/generated/future_calls.dart'
     as _iggapxvt;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../endpoints/invite_endpoint.dart' as _ip80nve4;
+import '../endpoints/invite_public_endpoint.dart' as _ip1i0qvr;
 import '../endpoints/live_endpoint.dart' as _ixgr9pqx;
 import '../endpoints/media_endpoint.dart' as _iaymoujt;
 import '../endpoints/people_endpoint.dart' as _iqqt4psm;
@@ -42,6 +44,18 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'invite': _ip80nve4.InviteEndpoint()
+        ..initialize(
+          server,
+          'invite',
+          null,
+        ),
+      'invitePublic': _ip1i0qvr.InvitePublicEndpoint()
+        ..initialize(
+          server,
+          'invitePublic',
           null,
         ),
       'live': _ixgr9pqx.LiveEndpoint()
@@ -359,6 +373,151 @@ class Endpoints extends _is.EndpointDispatch {
                       .refreshAccessToken(
                         session,
                         refreshToken: params['refreshToken'],
+                      ),
+        ),
+      },
+    );
+    connectors['invite'] = _is.EndpointConnector(
+      name: 'invite',
+      endpoint: endpoints['invite']!,
+      methodConnectors: {
+        'create': _is.MethodConnector(
+          name: 'create',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'email': _is.ParameterDescription(
+              name: 'email',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['invite'] as _ip80nve4.InviteEndpoint).create(
+                    session,
+                    params['familyId'],
+                    email: params['email'],
+                    personId: params['personId'],
+                  ),
+        ),
+        'sendEmail': _is.MethodConnector(
+          name: 'sendEmail',
+          params: {
+            'inviteId': _is.ParameterDescription(
+              name: 'inviteId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'token': _is.ParameterDescription(
+              name: 'token',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['invite'] as _ip80nve4.InviteEndpoint).sendEmail(
+                    session,
+                    params['inviteId'],
+                    params['token'],
+                  ),
+        ),
+        'accept': _is.MethodConnector(
+          name: 'accept',
+          params: {
+            'token': _is.ParameterDescription(
+              name: 'token',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['invite'] as _ip80nve4.InviteEndpoint).accept(
+                    session,
+                    params['token'],
+                  ),
+        ),
+        'resend': _is.MethodConnector(
+          name: 'resend',
+          params: {
+            'inviteId': _is.ParameterDescription(
+              name: 'inviteId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['invite'] as _ip80nve4.InviteEndpoint).resend(
+                    session,
+                    params['inviteId'],
+                  ),
+        ),
+        'revoke': _is.MethodConnector(
+          name: 'revoke',
+          params: {
+            'inviteId': _is.ParameterDescription(
+              name: 'inviteId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['invite'] as _ip80nve4.InviteEndpoint).revoke(
+                    session,
+                    params['inviteId'],
+                  ),
+        ),
+      },
+    );
+    connectors['invitePublic'] = _is.EndpointConnector(
+      name: 'invitePublic',
+      endpoint: endpoints['invitePublic']!,
+      methodConnectors: {
+        'preview': _is.MethodConnector(
+          name: 'preview',
+          params: {
+            'token': _is.ParameterDescription(
+              name: 'token',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['invitePublic'] as _ip1i0qvr.InvitePublicEndpoint)
+                      .preview(
+                        session,
+                        params['token'],
                       ),
         ),
       },

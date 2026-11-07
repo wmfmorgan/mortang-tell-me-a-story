@@ -13,6 +13,14 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+invite:
+  - create:
+  - sendEmail:
+  - accept:
+  - resend:
+  - revoke:
+invitePublic:
+  - preview:
 live:
   - watchFamily:
   - watchStory:

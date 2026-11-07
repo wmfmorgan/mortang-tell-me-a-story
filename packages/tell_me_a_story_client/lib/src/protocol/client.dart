@@ -18,6 +18,10 @@ import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:tell_me_a_story_client/src/protocol/dto/created_invite_dto.dart'
+    as _iq9lh22z;
+import 'package:tell_me_a_story_client/src/protocol/dto/invite_preview_dto.dart'
+    as _i9tmm7fr;
 import 'package:tell_me_a_story_client/src/protocol/dto/live_event_dto.dart'
     as _iliy4w0g;
 import 'package:tell_me_a_story_client/src/protocol/dto/person_dto.dart'
@@ -358,6 +362,96 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// Invites (business-rules.md §2.9, §3.4; decisions D2, D3, D6a, D6b).
+/// {@category Endpoint}
+class EndpointInvite extends _isc.EndpointRef {
+  EndpointInvite(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'invite';
+
+  /// Any live member invites (D3). [email] is trimmed and lower-cased; blank
+  /// means a link-only invite. The raw token is returned once; only its hash
+  /// is stored.
+  _ida.Future<_iq9lh22z.CreatedInviteDto> create(
+    _isc.UuidValue familyId, {
+    String? email,
+    _isc.UuidValue? personId,
+  }) => caller.callServerEndpoint<_iq9lh22z.CreatedInviteDto>(
+    'invite',
+    'create',
+    {
+      'familyId': familyId,
+      'email': email,
+      'personId': personId,
+    },
+  );
+
+  /// Any live member emails a pending invite. [token] is the raw token from
+  /// [create]: only its hash is stored, so the link can't be rebuilt without
+  /// it.
+  _ida.Future<void> sendEmail(
+    _isc.UuidValue inviteId,
+    String token,
+  ) => caller.callServerEndpoint<void>(
+    'invite',
+    'sendEmail',
+    {
+      'inviteId': inviteId,
+      'token': token,
+    },
+  );
+
+  /// Joins the invite's family and returns its id. Single transaction:
+  /// membership, person link, invite marked accepted. A double-tapped accept
+  /// that loses the linked-person race reruns once and finds the committed
+  /// person.
+  _ida.Future<_isc.UuidValue> accept(String token) =>
+      caller.callServerEndpoint<_isc.UuidValue>(
+        'invite',
+        'accept',
+        {'token': token},
+      );
+
+  /// Owner or co-owner: rotates the token, moves `expiresAt` to now + 7 days
+  /// (reviving an expired pending invite) and emails the new link. When the
+  /// email fails the token stays rotated, so a retry is safe.
+  _ida.Future<DateTime> resend(_isc.UuidValue inviteId) =>
+      caller.callServerEndpoint<DateTime>(
+        'invite',
+        'resend',
+        {'inviteId': inviteId},
+      );
+
+  /// Owner or co-owner. The row and its token hash stay, so accepting that
+  /// token later fails INVITE_INVALID. Revoking twice is a no-op.
+  _ida.Future<void> revoke(_isc.UuidValue inviteId) =>
+      caller.callServerEndpoint<void>(
+        'invite',
+        'revoke',
+        {'inviteId': inviteId},
+      );
+}
+
+/// The anonymous invite landing (business-rules.md §3.4, validate).
+/// {@category Endpoint}
+class EndpointInvitePublic extends _isc.EndpointRef {
+  EndpointInvitePublic(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'invitePublic';
+
+  /// Anyone, signed in or not. An unknown token, a soft-deleted family (D6a),
+  /// an accepted, revoked or expired invite all give `valid: false` with no
+  /// family or inviter.
+  _ida.Future<_i9tmm7fr.InvitePreviewDto> preview(String token) =>
+      caller.callServerEndpoint<_i9tmm7fr.InvitePreviewDto>(
+        'invitePublic',
+        'preview',
+        {'token': token},
+      );
+}
+
 /// Live change streams. Authorized once, at subscribe.
 /// {@category Endpoint}
 class EndpointLive extends _isc.EndpointRef {
@@ -657,6 +751,8 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    invite = EndpointInvite(this);
+    invitePublic = EndpointInvitePublic(this);
     live = EndpointLive(this);
     media = EndpointMedia(this);
     people = EndpointPeople(this);
@@ -667,6 +763,10 @@ class Client extends _isc.ServerpodClientShared {
   late final EndpointEmailIdp emailIdp;
 
   late final EndpointJwtRefresh jwtRefresh;
+
+  late final EndpointInvite invite;
+
+  late final EndpointInvitePublic invitePublic;
 
   late final EndpointLive live;
 
@@ -682,6 +782,8 @@ class Client extends _isc.ServerpodClientShared {
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'invite': invite,
+    'invitePublic': invitePublic,
     'live': live,
     'media': media,
     'people': people,
