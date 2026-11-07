@@ -145,7 +145,7 @@ class _TreeGraphTimelineState extends State<TreeGraphTimeline> {
         ),
         Expanded(
           child: layout == null
-              ? Center(child: Text('No stories', style: theme.bodyMedium))
+              ? const SizedBox.shrink()
               : NotificationListener<ScrollStartNotification>(
                   onNotification: (n) =>
                       disableFollowOnUserScroll(n, _playback),

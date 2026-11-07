@@ -25,7 +25,20 @@ class _FilterPanelState extends State<FilterPanel> {
   );
 
   @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_syncSearch);
+  }
+
+  /// Runs on controller notifications, never during build.
+  void _syncSearch() {
+    final q = widget.controller.filter.query;
+    if (_search.text != q) _search.text = q;
+  }
+
+  @override
   void dispose() {
+    widget.controller.removeListener(_syncSearch);
     _search.dispose();
     super.dispose();
   }
@@ -154,10 +167,8 @@ class _FilterPanelState extends State<FilterPanel> {
           const SizedBox(height: LabSpace.l),
           TextButton(
             key: const Key('filter-clear'),
-            onPressed: () {
-              _search.clear();
-              controller.setFilter(TimelineFilter(mode: filter.mode));
-            },
+            onPressed: () =>
+                controller.setFilter(TimelineFilter(mode: filter.mode)),
             child: const Text('Clear'),
           ),
         ],
