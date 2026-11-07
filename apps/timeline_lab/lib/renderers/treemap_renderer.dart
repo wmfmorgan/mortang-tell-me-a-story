@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../filter/timeline_filter.dart';
+import '../input/pointer_input.dart';
 import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
 import '../widgets/view_switch.dart';
@@ -168,7 +169,12 @@ class _GroupTile extends StatelessWidget {
                   ),
                 ),
               Expanded(
-                child: _CellGrid(group: group, data: data, onCell: onCell),
+                child: _CellGrid(
+                  group: group,
+                  data: data,
+                  onCell: onCell,
+                  onGroup: onGroup,
+                ),
               ),
             ],
           );
@@ -187,12 +193,14 @@ class _CellGrid extends StatelessWidget {
     required this.data,
     required this.onCell,
     this.large = false,
+    this.onGroup,
   });
 
   final TreemapGroup group;
   final TimelineViewData data;
   final ValueChanged<TreemapCell> onCell;
   final bool large;
+  final VoidCallback? onGroup;
 
   @override
   Widget build(BuildContext context) => TreemapLayout(
@@ -207,6 +215,7 @@ class _CellGrid extends StatelessWidget {
             data: data,
             large: large,
             onTap: () => onCell(c),
+            onSmallTap: large ? null : onGroup,
           ),
         ),
     ],
@@ -223,12 +232,17 @@ class TreemapCellTile extends StatelessWidget {
     required this.data,
     required this.onTap,
     this.large = false,
+    this.onSmallTap,
   });
 
   final TreemapCell cell;
   final TimelineViewData data;
   final VoidCallback onTap;
   final bool large;
+
+  /// Tap target for fingers when this cell is under [LabTarget.min] in
+  /// either axis (overview only). Null means [onTap] for every input.
+  final VoidCallback? onSmallTap;
 
   @override
   Widget build(BuildContext context) {
@@ -256,53 +270,67 @@ class TreemapCellTile extends StatelessWidget {
       label:
           '${cell.label}, ${cell.count} stories'
           '${data.mode == FilterMode.dim ? ', ${cell.matchedCount} matching' : ''}',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: labTerracotta.withValues(alpha: 0.05),
-            border: Border.all(
-              color: selected ? labTerracotta : labPillBorder,
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: FractionallySizedBox(
-                  heightFactor: revealed.clamp(0, 1),
-                  widthFactor: 1,
-                  child: ColoredBox(color: fill),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final small =
+              box.maxWidth < LabTarget.min || box.maxHeight < LabTarget.min;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            // A finger can't aim at a sub-44 pt cell. It opens the whole
+            // group instead, where cells are large.
+            onTapUp: (d) =>
+                (small && onSmallTap != null && isFingerLike(d.kind)
+                        ? onSmallTap!
+                        : onTap)
+                    .call(),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: labTerracotta.withValues(alpha: 0.05),
+                border: Border.all(
+                  color: selected ? labTerracotta : labPillBorder,
+                  width: selected ? 2 : 1,
                 ),
               ),
-              LayoutBuilder(
-                builder: (context, box) {
-                  if (box.maxWidth < 34 || box.maxHeight < 18) {
-                    return const SizedBox.shrink();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Text(
-                      large || box.maxHeight >= 34
-                          ? '${cell.label}\n${_countLabel(cell.count, cell.matchedCount, data.mode)}'
-                          : cell.label,
-                      maxLines: 2,
-                      overflow: TextOverflow.clip,
-                      // Label and count are separate lines; never break
-                      // "1920s" mid-word in a narrow cell.
-                      softWrap: false,
-                      style: (large ? theme.titleSmall : theme.labelSmall)
-                          ?.copyWith(color: share > 0 ? labInk : labDimmedInk),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: FractionallySizedBox(
+                      heightFactor: revealed.clamp(0, 1),
+                      widthFactor: 1,
+                      child: ColoredBox(color: fill),
                     ),
-                  );
-                },
+                  ),
+                  LayoutBuilder(
+                    builder: (context, box) {
+                      if (box.maxWidth < 34 || box.maxHeight < 18) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Text(
+                          large || box.maxHeight >= 34
+                              ? '${cell.label}\n${_countLabel(cell.count, cell.matchedCount, data.mode)}'
+                              : cell.label,
+                          maxLines: 2,
+                          overflow: TextOverflow.clip,
+                          // Label and count are separate lines; never break
+                          // "1920s" mid-word in a narrow cell.
+                          softWrap: false,
+                          style: (large ? theme.titleSmall : theme.labelSmall)
+                              ?.copyWith(
+                                color: share > 0 ? labInk : labDimmedInk,
+                              ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
