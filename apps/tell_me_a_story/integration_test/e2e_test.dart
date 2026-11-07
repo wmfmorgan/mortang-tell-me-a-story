@@ -26,7 +26,7 @@ void main() {
 
   setUpAll(assertLocalSupabase);
 
-  testWidgets('C1 magic-link sign-in lands on timeline', (tester) async {
+  testWidgets('C1 email-code sign-in lands on timeline', (tester) async {
     final email = e2eEmail(flow: 1, n: 1);
     final name = 'Ada $e2eRunId';
 
