@@ -13,3 +13,5 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+invite:
+  - create:

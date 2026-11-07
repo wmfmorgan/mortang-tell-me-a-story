@@ -17,6 +17,8 @@ import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:tell_me_a_story_client/src/protocol/dto/created_invite_dto.dart'
+    as _iq9lh22z;
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -345,6 +347,32 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// Invites (business-rules.md §2.9, §3.4; decisions D2, D3, D6a, D6b).
+/// {@category Endpoint}
+class EndpointInvite extends _isc.EndpointRef {
+  EndpointInvite(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'invite';
+
+  /// Any live member invites (D3). [email] is trimmed and lower-cased; blank
+  /// means a link-only invite. The raw token is returned once; only its hash
+  /// is stored.
+  _ida.Future<_iq9lh22z.CreatedInviteDto> create(
+    _isc.UuidValue familyId, {
+    String? email,
+    _isc.UuidValue? personId,
+  }) => caller.callServerEndpoint<_iq9lh22z.CreatedInviteDto>(
+    'invite',
+    'create',
+    {
+      'familyId': familyId,
+      'email': email,
+      'personId': personId,
+    },
+  );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -385,6 +413,7 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    invite = EndpointInvite(this);
     modules = Modules(this);
   }
 
@@ -392,12 +421,15 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointJwtRefresh jwtRefresh;
 
+  late final EndpointInvite invite;
+
   late final Modules modules;
 
   @override
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'invite': invite,
   };
 
   @override
