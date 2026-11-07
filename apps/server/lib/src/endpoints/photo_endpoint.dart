@@ -97,73 +97,74 @@ class PhotoEndpoint extends Endpoint {
   ) async {
     final story = await _contributable(session, storyId);
     final uploaderId = Authz(session).requireUser();
-    final (photo, error) = await session.db
-        .transaction<(Photo?, AppException?)>((t) async {
-          // Serializes the cap count and the double-finish check per story.
-          await Story.db.findById(
-            session,
-            storyId,
-            transaction: t,
-            lockMode: LockMode.forNoKeyUpdate,
-          );
-          if (await Photo.db.findById(session, photoId, transaction: t) !=
-              null) {
-            return (null, validation('photo already added'));
-          }
-          final keys = {
-            for (final mime in _mimeTypes)
-              mime: photoOriginalKey(
-                familyId: story.familyId,
-                storyId: storyId,
-                photoId: photoId,
-                mimeType: mime,
-              ),
-          };
-          String? declared;
-          for (final MapEntry(key: mime, value: key) in keys.entries) {
-            if (await session.storage.verifyUpload(
-              storageId: blobStorageId,
-              path: key,
-            )) {
-              declared = mime;
-              break;
-            }
-          }
-          if (declared == null) {
-            await queueBlobDeletions(session, keys.values, transaction: t);
-            return (
-              null,
-              AppException(
-                code: AppErrorCode.storageFailed,
-                message: 'upload not found',
-              ),
-            );
-          }
-          final key = keys[declared]!;
-          final refused = await _checkUpload(
-            session,
-            storyId,
-            key,
-            declared,
-            t,
-          );
-          if (refused != null) {
-            await queueBlobDeletions(session, [key], transaction: t);
-            return (null, refused);
-          }
-          final row = await Photo.db.insertRow(
-            session,
-            Photo(
-              id: photoId,
-              storyId: storyId,
-              uploaderId: uploaderId,
-              originalKey: key,
-              sortOrder: sortOrder,
-            ),
-            transaction: t,
-          );
-          return (row, null);
-        });
+    final (
+      photo,
+      error,
+    ) = await session.db.transaction<(Photo?, AppException?)>((t) async {
+      // Serializes the cap count and the double-finish check per story.
+      await Story.db.findById(
+        session,
+        storyId,
+        transaction: t,
+        lockMode: LockMode.forNoKeyUpdate,
+      );
+      if (await Photo.db.findById(session, photoId, transaction: t) != null) {
+        return (null, validation('photo already added'));
+      }
+      final keys = {
+        for (final mime in _mimeTypes)
+          mime: photoOriginalKey(
+            familyId: story.familyId,
+            storyId: storyId,
+            photoId: photoId,
+            mimeType: mime,
+          ),
+      };
+      String? declared;
+      for (final MapEntry(key: mime, value: key) in keys.entries) {
+        if (await session.storage.verifyUpload(
+          storageId: blobStorageId,
+          path: key,
+        )) {
+          declared = mime;
+          break;
+        }
+      }
+      if (declared == null) {
+        await queueBlobDeletions(session, keys.values, transaction: t);
+        return (
+          null,
+          AppException(
+            code: AppErrorCode.storageFailed,
+            message: 'upload not found',
+          ),
+        );
+      }
+      final key = keys[declared]!;
+      final refused = await _checkUpload(
+        session,
+        storyId,
+        key,
+        declared,
+        t,
+      );
+      if (refused != null) {
+        await queueBlobDeletions(session, [key], transaction: t);
+        return (null, refused);
+      }
+      final row = await Photo.db.insertRow(
+        session,
+        Photo(
+          id: photoId,
+          storyId: storyId,
+          uploaderId: uploaderId,
+          originalKey: key,
+          sortOrder: sortOrder,
+        ),
+        transaction: t,
+      );
+      return (row, null);
+    });
     if (error != null) throw error;
     await _postIfPublished(session, story, deleted: false);
     return _dto(photo!, story);
