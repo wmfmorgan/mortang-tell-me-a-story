@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
 import 'package:tell_me_a_story_server/src/auth/auth_config.dart';
@@ -19,7 +21,12 @@ Matcher pgError(String code, [String? constraint]) {
 const fkViolation = '23503';
 const checkViolation = '23514';
 const uniqueViolation = '23505';
-const restrictViolation = '23001';
+
+final _random = Random.secure();
+
+/// A well-formed, unique token hash (invites_token_hash_uidx is global).
+String tokenHash() =>
+    List.generate(64, (_) => _random.nextInt(16).toRadixString(16)).join();
 
 /// Row builders. Every test makes its own trees, so tests stay independent
 /// on the shared (non-rolled-back) test database.
@@ -137,7 +144,7 @@ class Fx {
           familyId: family.id!,
           treeId: family.treeId,
           personId: personId,
-          tokenHash: 'a' * 64,
+          tokenHash: tokenHash(),
           expiresAt: DateTime.now().toUtc().add(const Duration(days: 7)),
         ),
       );
@@ -551,7 +558,8 @@ void main() {
 
         await expectLater(
           Family.db.deleteRow(session, family),
-          throwsA(pgError(restrictViolation)),
+          // Postgres reports ON DELETE RESTRICT as a plain FK violation.
+          throwsA(pgError(fkViolation)),
         );
       });
     });
@@ -723,7 +731,7 @@ void main() {
               Invite(
                 familyId: family.id!,
                 treeId: other.id!,
-                tokenHash: 'b' * 64,
+                tokenHash: tokenHash(),
                 expiresAt: DateTime.now().toUtc().add(const Duration(days: 7)),
               ),
             ),
