@@ -19,10 +19,10 @@
 | 3.0 Shared foundation | `2026-11-07-serverpod-phase3-0-foundation.md` | — | landed (server tests 100/100) |
 | 3a Families, places, profile | `2026-11-07-serverpod-phase3a-families.md` | 3.0 | landed (merge `0e07f17`) |
 | 3b People | `2026-11-07-serverpod-phase3b-people.md` | 3.0 | landed (merge `af56009`) |
-| 3c Stories, tags, notes, search | `2026-11-07-serverpod-phase3c-stories.md` | 3.0 | landed |
+| 3c Stories, tags, notes, search | `2026-11-07-serverpod-phase3c-stories.md` | 3.0 | landed (merge `9e54065`) |
 | 3d Photos and media | `2026-11-07-serverpod-phase3d-photos-media.md` | 3.0 | landed (merge `33236ee`) |
 | 3e Invites | `2026-11-07-serverpod-phase3e-invites.md` | 3.0 | landed (merge `cfa17fc`) |
-| 3f Live streams, purge, blob drain | `2026-11-07-serverpod-phase3f-live-purge.md` | 3.0 | landed |
+| 3f Live streams, purge, blob drain | `2026-11-07-serverpod-phase3f-live-purge.md` | 3.0 | landed (merge `1a14d83`) |
 
 No slice depends on another slice's code. Every cross-slice need (predicates, keys, the blob queue, `ensureLinkedPerson`, channel names, DTOs) is in 3.0.
 
@@ -165,3 +165,14 @@ The test case numbers are business-rules §7. "Port" means rewrite as a Serverpo
 - `dart format --set-exit-if-changed`, `dart analyze` (server and client) and `just server-test` pass on `feat/serverpod-migration`. `just test` (Flutter) still passes; the app is untouched.
 - `just server` boots, applies migrations and constraints, and registers both future calls without duplicates on a second boot.
 - Then write the Phase 4 (client cutover) plan.
+
+**Met on 2026-11-07 at `9e54065`:** format 0 changed; analyze clean for the server and the client; `just server-test` +422; `just test` +708. `just server` booted three times on one dev database: every endpoint route answers 401 without a session, and `serverpod_future_call` holds one row each for `purge-families` and `drain-blobs`. The boot warning about missing foreign keys is expected (schema-design §3.3 caveats).
+
+**Open for the product owner** (left as specified; none blocks Phase 4):
+- Nobody can set a linked person's death date. Only the linked self may update a linked row, but the self is barred from death fields, and `markPassedAway` carries only the flag (schema-design §3.2 says stewards may set it).
+- An upload whose story is deleted *before* `finishUpload` leaves its blob in storage. The key can't be rebuilt without the story, and keys are never parsed.
+- There is no unpublish endpoint (none in the contract), so the "unpublish" live event never fires.
+- `InvitePreviewDto` has no error code, so preview can't tell accepted from expired. The app shows one message for both anyway.
+- An email-code sign-up has no display name (business-rules case 109 assumed one from metadata). A person created for such a user falls back to the email local part.
+- Production needs the `inviteAppOrigin` password set (there is no committed template).
+- Generated client methods turn Dart parameter defaults into required named parameters (`createDraft.allowUndated`, `listLatestPublished.withinDays/limit`, `recents.limit`, `createBranch.personIds`). Phase 4 callers pass them explicitly.
