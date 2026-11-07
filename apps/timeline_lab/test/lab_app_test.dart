@@ -376,4 +376,43 @@ void main() {
     );
     expect(find.byKey(const Key('empty-timeline')), findsNothing);
   });
+
+  testWidgets('a no-match typo keeps the renderer and its view state', (
+    tester,
+  ) async {
+    final c = await _pump(tester);
+    c.setRenderer(RendererKind.swimlanes);
+    c.setFilter(const TimelineFilter(mode: FilterMode.hide));
+    await tester.pumpAndSettle();
+    await tester.tap(familiesSegment());
+    await tester.pumpAndSettle();
+    expect(laneBy(tester), {LaneBy.family});
+
+    await tester.enterText(find.byKey(const Key('filter-search')), 'zzz');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('empty-timeline')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('filter-search')), '');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('empty-timeline')), findsNothing);
+    expect(laneBy(tester), {LaneBy.family});
+  });
+
+  testWidgets('every renderer survives an empty Hide-mode timeline', (
+    tester,
+  ) async {
+    final c = await _pump(tester);
+    for (final kind in RendererKind.values) {
+      c.setRenderer(kind);
+      c.setFilter(
+        const TimelineFilter(query: 'zzz-no-match', mode: FilterMode.hide),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('empty-timeline')), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: '$kind');
+      c.setFilter(const TimelineFilter(mode: FilterMode.hide));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: '$kind');
+    }
+  });
 }
