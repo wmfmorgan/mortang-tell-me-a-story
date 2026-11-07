@@ -137,6 +137,43 @@ void main() {
           throwsAppError(AppErrorCode.forbidden, 'owner only'),
         );
       });
+
+      test('a custom message replaces the default forbidden text', () async {
+        await expectLater(
+          authzFor(stranger).requireLiveMember(
+            root.id!,
+            message: 'Not a family member',
+          ),
+          throwsAppError(AppErrorCode.forbidden, 'Not a family member'),
+        );
+      });
+    });
+
+    group('tree membership by tree id', () {
+      test(
+        'branch member is a tree member; stranger and anonymous are not',
+        () async {
+          expect(
+            await authzFor(branchMember).isTreeMemberOf(root.treeId),
+            isTrue,
+          );
+          expect(await authzFor(stranger).isTreeMemberOf(root.treeId), isFalse);
+          expect(await authzFor(null).isTreeMemberOf(root.treeId), isFalse);
+        },
+      );
+
+      test('membership only in a soft-deleted family does not count', () async {
+        final user = await fx.user();
+        await fx.join(deletedBranch, user);
+        expect(await authzFor(user).isTreeMemberOf(root.treeId), isFalse);
+      });
+
+      test('a soft-deleted home family does not hide the tree', () async {
+        expect(
+          await authzFor(member).isTreeMemberOf(deletedBranch.treeId),
+          isTrue,
+        );
+      });
     });
 
     group('effective origin', () {

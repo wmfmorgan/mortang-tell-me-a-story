@@ -64,28 +64,37 @@ class Authz {
   }
 
   /// The caller's role in live [familyId]; otherwise
-  /// `AppException(forbidden, 'member only')`. A missing or soft-deleted
-  /// family is refused the same way, so ids don't leak.
-  Future<MembershipRole> requireLiveMember(UuidValue familyId) async {
+  /// `AppException(forbidden, 'member only')`, or [message] when given (e.g.
+  /// invite create uses `message: 'Not a family member'`). A missing or
+  /// soft-deleted family is refused the same way, so ids don't leak.
+  Future<MembershipRole> requireLiveMember(
+    UuidValue familyId, {
+    String? message,
+  }) async {
     final role = await _liveRole(familyId);
-    if (role == null) throw forbidden('member only');
+    if (role == null) throw forbidden(message ?? 'member only');
     return role;
   }
 
   /// Owner or co-owner of live [familyId]; otherwise
-  /// `AppException(forbidden, 'owner or co-owner only')`.
-  Future<MembershipRole> requireLiveSteward(UuidValue familyId) async {
+  /// `AppException(forbidden, 'owner or co-owner only')`, or [message] when
+  /// given.
+  Future<MembershipRole> requireLiveSteward(
+    UuidValue familyId, {
+    String? message,
+  }) async {
     final role = await _liveRole(familyId);
     if (role != MembershipRole.owner && role != MembershipRole.coOwner) {
-      throw forbidden('owner or co-owner only');
+      throw forbidden(message ?? 'owner or co-owner only');
     }
     return role!;
   }
 
-  /// Owner of live [familyId]; otherwise `AppException(forbidden, 'owner only')`.
-  Future<void> requireLiveOwner(UuidValue familyId) async {
+  /// Owner of live [familyId]; otherwise `AppException(forbidden, 'owner
+  /// only')`, or [message] when given.
+  Future<void> requireLiveOwner(UuidValue familyId, {String? message}) async {
     if (await _liveRole(familyId) != MembershipRole.owner) {
-      throw forbidden('owner only');
+      throw forbidden(message ?? 'owner only');
     }
   }
 
@@ -95,13 +104,14 @@ class Authz {
     return roleIn(familyId);
   }
 
-  /// [familyId] is live and the caller is a member of some live family in the
-  /// same tree.
-  Future<bool> isTreeReadable(UuidValue familyId) async {
+  /// The caller is a member of some live family whose `treeId` is [treeId].
+  ///
+  /// Tree-scoped rows (places, people) are checked by their `treeId`, never
+  /// through a home family that might be soft-deleted (D8: a deleted family
+  /// doesn't split the tree).
+  Future<bool> isTreeMemberOf(UuidValue treeId) async {
     final uid = userId;
     if (uid == null) return false;
-    final family = await Family.db.findById(session, familyId);
-    if (family == null || family.deletedAt != null) return false;
     final memberships = await Membership.db.find(
       session,
       where: (t) => t.userId.equals(uid),
@@ -111,10 +121,18 @@ class Authz {
       session,
       where: (t) =>
           t.id.inSet(memberships.map((m) => m.familyId).toSet()) &
-          t.treeId.equals(family.treeId) &
+          t.treeId.equals(treeId) &
           t.deletedAt.equals(null),
     );
     return count > 0;
+  }
+
+  /// [familyId] is live and the caller is a member of some live family in the
+  /// same tree.
+  Future<bool> isTreeReadable(UuidValue familyId) async {
+    final family = await Family.db.findById(session, familyId);
+    if (family == null || family.deletedAt != null) return false;
+    return isTreeMemberOf(family.treeId);
   }
 
   /// Same as [isTreeReadable]; kept as the business-rules name.
