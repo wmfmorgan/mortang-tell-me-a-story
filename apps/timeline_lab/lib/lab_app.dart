@@ -491,7 +491,9 @@ class _BenchMenu extends StatelessWidget {
   );
 }
 
-/// Match count, playback caption and Hide/Dim on one line.
+/// Match count, playback caption and Hide/Dim on one line. Below
+/// [LabBreakpoint.compact] the caption drops out so the count keeps the room;
+/// the count ellipsizes rather than overflow.
 class _StatusRow extends StatelessWidget {
   const _StatusRow({required this.controller, required this.playback});
 
@@ -502,6 +504,13 @@ class _StatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = controller;
     final filter = c.filter;
+    final compact = MediaQuery.sizeOf(context).width < LabBreakpoint.compact;
+    final status = Text(
+      statusLine(c.matchCount, c.dataset.stories.length, filter),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.labelLarge,
+    );
     return Container(
       key: const Key('status-bar'),
       height: 48,
@@ -511,14 +520,13 @@ class _StatusRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(
-            statusLine(c.matchCount, c.dataset.stories.length, filter),
-            style: Theme.of(context).textTheme.labelLarge,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: PlaybackCaption(controller: c, playback: playback),
-          ),
+          if (compact) Expanded(child: status) else status,
+          if (!compact) ...[
+            const SizedBox(width: 16),
+            Expanded(
+              child: PlaybackCaption(controller: c, playback: playback),
+            ),
+          ],
           const SizedBox(width: 16),
           SegmentedButton<FilterMode>(
             key: const Key('filter-mode'),

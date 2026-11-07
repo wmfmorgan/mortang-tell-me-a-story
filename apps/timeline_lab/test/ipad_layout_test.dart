@@ -28,6 +28,30 @@ void main() {
         expect(errors, isEmpty);
       }, variant: ios);
     }
+
+    for (final size in [1000, 5000]) {
+      testWidgets('slide_over with an active filter on $size stories', (
+        tester,
+      ) async {
+        final errors = await collectFlutterErrors(() async {
+          final c = await pumpIpad(tester, ipadSizes['slide_over']!);
+          c.setDatasetSize(size);
+          c.setFilter(const TimelineFilter(personIds: {'p-1'}));
+          await tester.pumpAndSettle();
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('status-bar')),
+              matching: find.text(
+                statusLine(c.matchCount, size, c.filter),
+                findRichText: true,
+              ),
+            ),
+            findsOneWidget,
+          );
+        });
+        expect(errors, isEmpty);
+      }, variant: ios);
+    }
   });
 
   testWidgets('compact playback bar gives the scrubber its own row', (
