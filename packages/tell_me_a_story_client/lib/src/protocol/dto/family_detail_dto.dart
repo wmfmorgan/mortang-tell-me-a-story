@@ -12,7 +12,6 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:tell_me_a_story_client/src/protocol/protocol.dart' as _ipmlb5v5;
-
 import '../dto/family_member_dto.dart' as _iu0vkf0x;
 import '../dto/pending_invite_dto.dart' as _i6tk8dmd;
 import '../membership_role.dart' as _id460rmf;

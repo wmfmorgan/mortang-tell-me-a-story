@@ -11,7 +11,6 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
-
 import '../note_kind.dart' as _ird4e221;
 
 /// A comment or perspective. familyId is derived from the story. canDelete is computed for the caller (D4).

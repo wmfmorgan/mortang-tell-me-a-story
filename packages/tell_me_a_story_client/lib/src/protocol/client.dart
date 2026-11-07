@@ -12,7 +12,6 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
 import 'dart:typed_data' as _idt;
-
 import 'package:http/http.dart' as _i85jenna;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
     as _iacc;
@@ -47,7 +46,6 @@ import 'package:tell_me_a_story_client/src/protocol/dto/tree_family_dto.dart'
     as _iwn4wr2j;
 import 'package:tell_me_a_story_client/src/protocol/membership_role.dart'
     as _ivz934fu;
-
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -444,8 +442,8 @@ class EndpointFamily extends _isc.EndpointRef {
   /// Family, members and pending invites. Live members read a live family;
   /// owners and co-owners also read a soft-deleted one (recovery read, D6b),
   /// whose invites are not readable, so `pendingInvites` is empty.
-  _ida.Future<_is49z41e.FamilyDetailDto?> detail(_isc.UuidValue familyId) =>
-      caller.callServerEndpoint<_is49z41e.FamilyDetailDto?>(
+  _ida.Future<_is49z41e.FamilyDetailDto> detail(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<_is49z41e.FamilyDetailDto>(
         'family',
         'detail',
         {'familyId': familyId},
@@ -522,7 +520,8 @@ class EndpointFamily extends _isc.EndpointRef {
   );
 
   /// Owner only. Only sets `deletedAt`; the purge (3f) removes the family
-  /// after the recovery window.
+  /// after the recovery window. Repeating it as the owner of an already
+  /// deleted family is a no-op (business-rules.md §3.5).
   _ida.Future<void> softDelete(_isc.UuidValue familyId) =>
       caller.callServerEndpoint<void>(
         'family',
@@ -606,7 +605,9 @@ class EndpointFamily extends _isc.EndpointRef {
   /// Verifies the upload at [key], checks its size and that its bytes are the
   /// image type its extension names, then makes it the cover. A rejected blob
   /// is queued for deletion; the previous cover key is queued in the same
-  /// transaction that replaces it.
+  /// transaction that replaces it. Finishing the current cover again is a
+  /// no-op; a key already queued for deletion (e.g. a replaced cover) is
+  /// STORAGE_FAILED.
   _ida.Future<String> finishCoverUpload(
     _isc.UuidValue familyId,
     String key,

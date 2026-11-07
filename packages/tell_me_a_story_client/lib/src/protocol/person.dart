@@ -11,7 +11,6 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
-
 import 'date_precision.dart' as _ilvyd2nu;
 
 /// A human in one tree, shared by every family (timeline) in the tree.

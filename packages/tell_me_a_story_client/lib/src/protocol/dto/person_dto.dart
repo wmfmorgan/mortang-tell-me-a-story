@@ -11,7 +11,6 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
-
 import '../date_precision.dart' as _irl0sv7o;
 
 /// A person in the tree. Birth comes from the linked AppUser (coarsened by birthVisibility) when linked, else from the person row.

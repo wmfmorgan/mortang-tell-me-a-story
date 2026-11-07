@@ -190,7 +190,7 @@ ORDER BY f."createdAt", f."id"
   /// Family, members and pending invites. Live members read a live family;
   /// owners and co-owners also read a soft-deleted one (recovery read, D6b),
   /// whose invites are not readable, so `pendingInvites` is empty.
-  Future<FamilyDetailDto?> detail(Session session, UuidValue familyId) async {
+  Future<FamilyDetailDto> detail(Session session, UuidValue familyId) async {
     final family = await Family.db.findById(session, familyId);
     final role = await Authz(session).roleIn(familyId);
     if (family == null || role == null) throw forbidden('member only');
@@ -372,9 +372,15 @@ ORDER BY f."createdAt", f."id"
   // ── soft delete ──────────────────────────────────────────────────────
 
   /// Owner only. Only sets `deletedAt`; the purge (3f) removes the family
-  /// after the recovery window.
+  /// after the recovery window. Repeating it as the owner of an already
+  /// deleted family is a no-op (business-rules.md §3.5).
   Future<void> softDelete(Session session, UuidValue familyId) async {
-    await Authz(session).requireLiveOwner(familyId);
+    final authz = Authz(session);
+    if (await authz.isOwner(familyId)) {
+      final family = await Family.db.findById(session, familyId);
+      if (family?.deletedAt != null) return;
+    }
+    await authz.requireLiveOwner(familyId);
     await session.db.transaction((t) async {
       final family = await _lockFamily(session, familyId, t);
       await Family.db.updateRow(
@@ -612,7 +618,9 @@ ORDER BY f."createdAt", f."id"
   /// Verifies the upload at [key], checks its size and that its bytes are the
   /// image type its extension names, then makes it the cover. A rejected blob
   /// is queued for deletion; the previous cover key is queued in the same
-  /// transaction that replaces it.
+  /// transaction that replaces it. Finishing the current cover again is a
+  /// no-op; a key already queued for deletion (e.g. a replaced cover) is
+  /// STORAGE_FAILED.
   Future<String> finishCoverUpload(
     Session session,
     UuidValue familyId,
@@ -622,6 +630,7 @@ ORDER BY f."createdAt", f."id"
     final mimeType = _coverKeyMime(familyId, key);
     final current = await Family.db.findById(session, familyId);
     if (current!.coverKey == key) return key;
+    if (await _isQueuedForDeletion(session, key)) throw _uploadGone();
     final uploaded = await session.storage.verifyUpload(
       storageId: blobStorageId,
       path: key,
@@ -647,6 +656,10 @@ ORDER BY f."createdAt", f."id"
           transaction: t,
           lockMode: LockMode.forUpdate,
         ))!;
+        if (family.coverKey == key) return;
+        if (await _isQueuedForDeletion(session, key, transaction: t)) {
+          throw _uploadGone();
+        }
         await queueBlobDeletions(session, [family.coverKey], transaction: t);
         await Family.db.updateRow(
           session,
@@ -655,6 +668,8 @@ ORDER BY f."createdAt", f."id"
           transaction: t,
         );
       });
+    } on AppException {
+      rethrow;
     } catch (_) {
       await queueBlobDeletions(session, [key]);
       rethrow;
@@ -773,6 +788,25 @@ Future<int> _depth(Session session, Family family) async {
   }
   return depth;
 }
+
+/// [key] is already in `blob_deletions` (replaced or rejected), so it must
+/// never become a live reference again.
+Future<bool> _isQueuedForDeletion(
+  Session session,
+  String key, {
+  Transaction? transaction,
+}) async =>
+    await BlobDeletion.db.count(
+      session,
+      where: (b) => b.key.equals(key),
+      transaction: transaction,
+    ) >
+    0;
+
+AppException _uploadGone() => AppException(
+  code: AppErrorCode.storageFailed,
+  message: 'upload not found',
+);
 
 /// The MIME type a cover [key] of [familyId] names by its extension;
 /// VALIDATION for any key the server could not have issued for this family.

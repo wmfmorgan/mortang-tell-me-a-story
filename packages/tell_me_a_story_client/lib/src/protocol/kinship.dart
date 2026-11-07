@@ -11,7 +11,6 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
-
 import 'kinship_kind.dart' as _iq59nsdl;
 
 /// Person-to-person edge inside one tree. Replaces the dropped free-text people.relationship.

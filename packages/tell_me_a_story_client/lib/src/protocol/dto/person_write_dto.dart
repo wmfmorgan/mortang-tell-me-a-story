@@ -11,7 +11,6 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
-
 import '../date_precision.dart' as _irl0sv7o;
 
 /// Person create/update input. Each write* flag says whether its field group is written.

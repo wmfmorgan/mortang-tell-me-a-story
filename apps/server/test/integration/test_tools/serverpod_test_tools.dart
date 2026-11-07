@@ -865,7 +865,7 @@ class _FamilyEndpoint {
     });
   }
 
-  _ida.Future<_i108yj2m.FamilyDetailDto?> detail(
+  _ida.Future<_i108yj2m.FamilyDetailDto> detail(
     _ist.TestSessionBuilder sessionBuilder,
     _is.UuidValue familyId,
   ) async {
@@ -888,7 +888,7 @@ class _FamilyEndpoint {
                   _localUniqueSession,
                   _localCallContext.arguments,
                 )
-                as _ida.Future<_i108yj2m.FamilyDetailDto?>);
+                as _ida.Future<_i108yj2m.FamilyDetailDto>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

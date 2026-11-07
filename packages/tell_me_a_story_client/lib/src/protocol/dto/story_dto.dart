@@ -12,7 +12,6 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:tell_me_a_story_client/src/protocol/protocol.dart' as _ipmlb5v5;
-
 import '../date_precision.dart' as _irl0sv7o;
 import '../dto/photo_ref_dto.dart' as _iqos4nch;
 import '../dto/story_person_dto.dart' as _i34crsqe;

@@ -196,7 +196,7 @@ void main() {
             ),
           );
           final detail = await endpoints.family.detail(by(member), root.id!);
-          expect(detail!.name, root.name);
+          expect(detail.name, root.name);
           expect(detail.myRole, MembershipRole.member);
           expect(detail.members, hasLength(3));
           expect(detail.pendingInvites.map((i) => i.id), [pending.id]);
@@ -220,7 +220,7 @@ void main() {
           }
           for (final user in [owner, coOwner]) {
             final detail = await endpoints.family.detail(by(user), gone.id!);
-            expect(detail!.members, hasLength(3));
+            expect(detail.members, hasLength(3));
             expect(detail.pendingInvites, isEmpty);
           }
         },
@@ -470,6 +470,35 @@ void main() {
         );
       });
 
+      // BR 8 (co-owner cap during transfer)
+      test(
+        'when the family already has two co-owners and one becomes owner with '
+        'former=co_owner then it succeeds with one owner and two co-owners',
+        () async {
+          await endpoints.family.addCoOwner(by(owner), root.id!, member);
+          await endpoints.family.transferOwnership(
+            by(owner),
+            root.id!,
+            member,
+            MembershipRole.coOwner,
+          );
+          final roles = await Membership.db.find(
+            fx.s,
+            where: (t) => t.familyId.equals(root.id!),
+          );
+          expect(
+            {for (final m in roles) m.userId: m.role},
+            {
+              member: MembershipRole.owner,
+              owner: MembershipRole.coOwner,
+              coOwner: MembershipRole.coOwner,
+              member2: MembershipRole.member,
+              member3: MembershipRole.member,
+            },
+          );
+        },
+      );
+
       // BR 9
       test('when a co-owner transfers then FORBIDDEN "owner only"', () async {
         await expectLater(
@@ -641,6 +670,24 @@ void main() {
         },
       );
 
+      // BR 16 (repeat is a no-op, business-rules §3.5)
+      test(
+        'when the owner soft-deletes an already deleted family then nothing '
+        'changes; a co-owner or member is still FORBIDDEN',
+        () async {
+          await endpoints.family.softDelete(by(owner), root.id!);
+          final first = (await fx.reload(root)).deletedAt;
+          await endpoints.family.softDelete(by(owner), root.id!);
+          expect((await fx.reload(root)).deletedAt, first);
+          for (final user in [coOwner, member]) {
+            await expectLater(
+              endpoints.family.softDelete(by(user), root.id!),
+              throwsAppError(AppErrorCode.forbidden, 'owner only'),
+            );
+          }
+        },
+      );
+
       // BR 19
       test(
         'when a co-owner recovers 10 days after delete then deletedAt is '
@@ -679,8 +726,9 @@ void main() {
             endpoints.family.rename(by(owner), root.id!, 'X'),
             throwsAppError(AppErrorCode.forbidden),
           );
+          final stranger = await fx.user();
           await expectLater(
-            endpoints.family.softDelete(by(owner), root.id!),
+            endpoints.family.softDelete(by(stranger), root.id!),
             throwsAppError(AppErrorCode.forbidden),
           );
           await expectLater(
@@ -1458,6 +1506,44 @@ void main() {
         expect((await fx.reload(family)).coverKey, isNull);
         expect(await fx.queuedBlobKeys(), contains(key));
       });
+
+      test(
+        'when a replaced cover key is finished again then STORAGE_FAILED, the '
+        'cover stays and the live key is not queued',
+        () async {
+          final a = await uploadCover(owner);
+          await endpoints.family.finishCoverUpload(by(owner), family.id!, a);
+          final b = await uploadCover(owner);
+          await endpoints.family.finishCoverUpload(by(owner), family.id!, b);
+          expect(await fx.queuedBlobKeys(), contains(a));
+
+          await expectLater(
+            endpoints.family.finishCoverUpload(by(owner), family.id!, a),
+            throwsAppError(AppErrorCode.storageFailed, 'upload not found'),
+          );
+          expect((await fx.reload(family)).coverKey, b);
+          expect(await fx.queuedBlobKeys(), isNot(contains(b)));
+        },
+      );
+
+      test(
+        'when the same key is finished twice then the second call is a no-op '
+        'and the live key is not queued',
+        () async {
+          final key = await uploadCover(owner);
+          await endpoints.family.finishCoverUpload(by(owner), family.id!, key);
+          expect(
+            await endpoints.family.finishCoverUpload(
+              by(coOwner),
+              family.id!,
+              key,
+            ),
+            key,
+          );
+          expect((await fx.reload(family)).coverKey, key);
+          expect(await fx.queuedBlobKeys(), isNot(contains(key)));
+        },
+      );
 
       // BR 22
       test(
