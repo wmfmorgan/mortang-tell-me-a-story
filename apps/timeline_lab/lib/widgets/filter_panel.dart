@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../filter/timeline_filter.dart';
 import '../lab_controller.dart';
+import '../theme/lab_theme.dart';
 
 /// Every control writes through `controller.setFilter(filter.copyWith(...))`.
 class FilterPanel extends StatefulWidget {
@@ -42,7 +43,7 @@ class _FilterPanelState extends State<FilterPanel> {
     );
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(LabSpace.l),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -52,12 +53,10 @@ class _FilterPanelState extends State<FilterPanel> {
             decoration: const InputDecoration(
               labelText: 'Search',
               prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(),
-              isDense: true,
             ),
             onChanged: (q) => controller.setFilter(filter.copyWith(query: q)),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: LabSpace.l),
           Text(
             'Era ${values.start.round()}–${values.end.round()}',
             style: labelStyle,
@@ -84,12 +83,12 @@ class _FilterPanelState extends State<FilterPanel> {
               );
             },
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: LabSpace.s),
           Text('People', style: labelStyle),
-          const SizedBox(height: 4),
+          const SizedBox(height: LabSpace.xs),
           Wrap(
-            spacing: 4,
-            runSpacing: 4,
+            spacing: LabSpace.s,
+            runSpacing: LabSpace.s,
             children: [
               for (final p in d.people.values)
                 FilterChip(
@@ -104,12 +103,12 @@ class _FilterPanelState extends State<FilterPanel> {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: LabSpace.l),
           Text('Places', style: labelStyle),
-          const SizedBox(height: 4),
+          const SizedBox(height: LabSpace.xs),
           Wrap(
-            spacing: 4,
-            runSpacing: 4,
+            spacing: LabSpace.s,
+            runSpacing: LabSpace.s,
             children: [
               for (final p in d.places.values)
                 FilterChip(
@@ -124,12 +123,12 @@ class _FilterPanelState extends State<FilterPanel> {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: LabSpace.l),
           Text('Families', style: labelStyle),
-          const SizedBox(height: 4),
+          const SizedBox(height: LabSpace.xs),
           Wrap(
-            spacing: 4,
-            runSpacing: 4,
+            spacing: LabSpace.s,
+            runSpacing: LabSpace.s,
             children: [
               for (final f in d.families.values)
                 FilterChip(
@@ -146,7 +145,7 @@ class _FilterPanelState extends State<FilterPanel> {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: LabSpace.l),
           TextButton(
             key: const Key('filter-clear'),
             onPressed: () {
