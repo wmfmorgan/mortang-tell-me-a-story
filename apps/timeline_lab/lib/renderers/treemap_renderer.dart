@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import '../filter/timeline_filter.dart';
 import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
+import '../widgets/view_switch.dart';
 import 'renderer_contract.dart';
 import 'treemap_layout.dart';
 
@@ -73,50 +74,47 @@ class _TreemapTimelineState extends State<TreemapTimeline> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-          child: Row(
-            children: [
-              SegmentedButton<TreemapBy>(
-                key: const Key('treemap-by'),
-                segments: const [
-                  ButtonSegment(value: TreemapBy.decade, label: Text('Decade')),
-                  ButtonSegment(value: TreemapBy.family, label: Text('Family')),
-                  ButtonSegment(value: TreemapBy.person, label: Text('Person')),
-                ],
-                selected: {_by},
-                onSelectionChanged: (s) => setState(() {
-                  _by = s.first;
-                  _groupId = null;
-                  _cellId = null;
-                }),
-              ),
-              const SizedBox(width: 16),
+        ViewSwitch<TreemapBy>(
+          switchKey: const Key('treemap-by'),
+          label: 'Group by',
+          values: TreemapBy.values,
+          labelOf: (v) => switch (v) {
+            TreemapBy.decade => 'Decade',
+            TreemapBy.family => 'Family',
+            TreemapBy.person => 'Person',
+          },
+          selected: _by,
+          onChanged: (v) => setState(() {
+            _by = v;
+            _groupId = null;
+            _cellId = null;
+          }),
+          trailing: [
+            const SizedBox(width: 16),
+            TextButton(
+              key: const Key('treemap-crumb-root'),
+              onPressed: () => setState(() {
+                _groupId = null;
+                _cellId = null;
+              }),
+              child: Text('All', style: crumbStyle),
+            ),
+            if (group != null) ...[
+              const Text('›'),
               TextButton(
-                key: const Key('treemap-crumb-root'),
-                onPressed: () => setState(() {
-                  _groupId = null;
-                  _cellId = null;
-                }),
-                child: Text('All', style: crumbStyle),
+                key: const Key('treemap-crumb-group'),
+                onPressed: () => setState(() => _cellId = null),
+                child: Text(group.label, style: crumbStyle),
               ),
-              if (group != null) ...[
-                const Text('›'),
-                TextButton(
-                  key: const Key('treemap-crumb-group'),
-                  onPressed: () => setState(() => _cellId = null),
-                  child: Text(group.label, style: crumbStyle),
-                ),
-              ],
-              if (cell != null) ...[
-                const Text('›'),
-                TextButton(
-                  onPressed: null,
-                  child: Text(cell.label, style: crumbStyle),
-                ),
-              ],
             ],
-          ),
+            if (cell != null) ...[
+              const Text('›'),
+              TextButton(
+                onPressed: null,
+                child: Text(cell.label, style: crumbStyle),
+              ),
+            ],
+          ],
         ),
         Expanded(
           child: Padding(padding: const EdgeInsets.all(8), child: body),

@@ -9,6 +9,7 @@ import '../model/lab_models.dart';
 import '../playback/playback_controller.dart';
 import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
+import '../widgets/view_switch.dart';
 import 'renderer_contract.dart';
 import 'story_marker.dart';
 import 'time_scale.dart';
@@ -147,17 +148,16 @@ class _SwimlanesTimelineState extends State<SwimlanesTimeline> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: SegmentedButton<LaneBy>(
-            key: const Key('lane-by'),
-            segments: const [
-              ButtonSegment(value: LaneBy.person, label: Text('People')),
-              ButtonSegment(value: LaneBy.family, label: Text('Families')),
-            ],
-            selected: {_laneBy},
-            onSelectionChanged: (s) => setState(() => _laneBy = s.first),
-          ),
+        ViewSwitch<LaneBy>(
+          switchKey: const Key('lane-by'),
+          label: 'Lanes',
+          values: LaneBy.values,
+          labelOf: (v) => switch (v) {
+            LaneBy.person => 'Person',
+            LaneBy.family => 'Family',
+          },
+          selected: _laneBy,
+          onChanged: (v) => setState(() => _laneBy = v),
         ),
         Row(
           children: [
