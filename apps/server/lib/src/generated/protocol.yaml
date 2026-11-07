@@ -13,3 +13,8 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+people:
+  - listFamily:
+  - listTree:
+  - forEdit:
+  - profile:

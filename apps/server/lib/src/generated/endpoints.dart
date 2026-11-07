@@ -17,6 +17,7 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../endpoints/people_endpoint.dart' as _iqqt4psm;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
@@ -32,6 +33,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'people': _iqqt4psm.PeopleEndpoint()
+        ..initialize(
+          server,
+          'people',
           null,
         ),
     };
@@ -326,6 +333,88 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['people'] = _is.EndpointConnector(
+      name: 'people',
+      endpoint: endpoints['people']!,
+      methodConnectors: {
+        'listFamily': _is.MethodConnector(
+          name: 'listFamily',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['people'] as _iqqt4psm.PeopleEndpoint).listFamily(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'listTree': _is.MethodConnector(
+          name: 'listTree',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['people'] as _iqqt4psm.PeopleEndpoint).listTree(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'forEdit': _is.MethodConnector(
+          name: 'forEdit',
+          params: {
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['people'] as _iqqt4psm.PeopleEndpoint).forEdit(
+                    session,
+                    params['personId'],
+                  ),
+        ),
+        'profile': _is.MethodConnector(
+          name: 'profile',
+          params: {
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['people'] as _iqqt4psm.PeopleEndpoint).profile(
+                    session,
+                    params['personId'],
+                  ),
         ),
       },
     );

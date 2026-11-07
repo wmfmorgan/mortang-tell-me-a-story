@@ -11,12 +11,18 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
+
 import 'package:http/http.dart' as _i85jenna;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
     as _iacc;
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:tell_me_a_story_client/src/protocol/dto/person_dto.dart'
+    as _ippgtqmg;
+import 'package:tell_me_a_story_client/src/protocol/dto/person_profile_dto.dart'
+    as _i60h803r;
+
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -345,6 +351,54 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// People are tree-scoped: reads and unlinked edits need a live membership
+/// somewhere in the person's tree (`Authz.isTreeMemberOf(person.treeId)`).
+/// Steward-only actions (mark passed away, delete) check the live home family.
+/// {@category Endpoint}
+class EndpointPeople extends _isc.EndpointRef {
+  EndpointPeople(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'people';
+
+  /// People whose home is [familyId], by name. The family must be live and
+  /// in the caller's tree.
+  _ida.Future<List<_ippgtqmg.PersonDto>> listFamily(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<List<_ippgtqmg.PersonDto>>(
+        'people',
+        'listFamily',
+        {'familyId': familyId},
+      );
+
+  /// Every person in [familyId]'s tree, by name, in one call. Linked people
+  /// carry their account birth, coarsened for everyone but themselves.
+  _ida.Future<List<_ippgtqmg.PersonDto>> listTree(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<List<_ippgtqmg.PersonDto>>(
+        'people',
+        'listTree',
+        {'familyId': familyId},
+      );
+
+  /// The person row for the edit dialog, including `userId` and `email`, for
+  /// any tree member; null when missing or outside the caller's trees.
+  _ida.Future<_ippgtqmg.PersonDto?> forEdit(_isc.UuidValue personId) =>
+      caller.callServerEndpoint<_ippgtqmg.PersonDto?>(
+        'people',
+        'forEdit',
+        {'personId': personId},
+      );
+
+  /// The profile dialog (old `person_profile`). Never carries `userId` or
+  /// `email`. A linked account's about and avatar win when set; its birth is
+  /// coarsened by `birthVisibility` for everyone but the linked self.
+  _ida.Future<_i60h803r.PersonProfileDto> profile(_isc.UuidValue personId) =>
+      caller.callServerEndpoint<_i60h803r.PersonProfileDto>(
+        'people',
+        'profile',
+        {'personId': personId},
+      );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -385,6 +439,7 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    people = EndpointPeople(this);
     modules = Modules(this);
   }
 
@@ -392,12 +447,15 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointJwtRefresh jwtRefresh;
 
+  late final EndpointPeople people;
+
   late final Modules modules;
 
   @override
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'people': people,
   };
 
   @override
