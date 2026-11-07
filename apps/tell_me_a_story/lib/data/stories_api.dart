@@ -131,47 +131,6 @@ class Story {
           person.personId.toString(): userId.toString(),
     },
   );
-
-  factory Story.fromJson(Map<String, dynamic> json) {
-    final people = json['story_people'];
-    final photos = json['photos'];
-    return Story(
-      id: json['id'] as String,
-      familyId: json['family_id'] as String,
-      authorId: json['author_id'] as String,
-      title: json['title'] as String?,
-      body: json['body'] as String?,
-      timeframeStart: json['timeframe_start'] == null
-          ? null
-          : _parseDate(json['timeframe_start'] as String),
-      timeframeEnd: json['timeframe_end'] != null
-          ? _parseDate(json['timeframe_end'] as String)
-          : null,
-      datePrecision: storyDatePrecisionFrom(json['date_precision'] as String?),
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
-          : null,
-      placeId: json['place_id'] as String?,
-      status: _storyStatusFrom(json['status'] as String),
-      publishedAt: json['published_at'] != null
-          ? DateTime.parse(json['published_at'] as String)
-          : null,
-      personIds: people is List
-          ? people.map((row) => (row as Map)['person_id'] as String).toList()
-          : const [],
-      photoCount: photos is List ? photos.length : 0,
-      placeLabel: _embedLabel(json['places']),
-      people: _storyPeople(people),
-      personNames: _personNames(people),
-      authorDisplayName: _authorName(json['profiles']),
-      authorAvatarPath: _authorAvatarPath(json['profiles']),
-      commentCount: _rowCount(json['comments']),
-      perspectiveCount: _rowCount(json['perspectives']),
-      photoPaths: _photoPaths(photos),
-      placeAddress: _embedAddress(json['places']),
-      personUserIds: _personUserIds(json['story_people']),
-    );
-  }
 }
 
 /// Trimmed [value]; null when it is null or blank.
@@ -179,101 +138,6 @@ String? _trimmed(String? value) {
   final trimmed = value?.trim();
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
 }
-
-String? _embedLabel(Object? places) {
-  if (places is Map) {
-    final label = places['label'];
-    if (label is String && label.trim().isNotEmpty) return label.trim();
-  }
-  return null;
-}
-
-String? _embedAddress(Object? places) {
-  if (places is Map) {
-    final address = places['address'];
-    if (address is String && address.trim().isNotEmpty) return address.trim();
-  }
-  return null;
-}
-
-Map<String, String> _personUserIds(Object? people) {
-  if (people is! List) return const {};
-  final out = <String, String>{};
-  for (final row in people) {
-    if (row is! Map) continue;
-    final personId = row['person_id'];
-    final nested = row['people'];
-    if (nested is! Map) continue;
-    final userId = nested['user_id'];
-    if (personId is! String || personId.isEmpty) continue;
-    if (userId is! String || userId.trim().isEmpty) continue;
-    out[personId] = userId.trim();
-  }
-  return out;
-}
-
-List<({String id, String name})> _storyPeople(Object? people) {
-  if (people is! List) return const [];
-  final out = <({String id, String name})>[];
-  for (final row in people) {
-    if (row is! Map) continue;
-    final nested = row['people'];
-    String? name;
-    var id = row['person_id'] as String?;
-    if (nested is Map) {
-      final rawName = nested['name'];
-      if (rawName is String && rawName.trim().isNotEmpty) name = rawName.trim();
-      id ??= nested['id'] as String?;
-    }
-    if (id != null && id.isNotEmpty && name != null) {
-      out.add((id: id, name: name));
-    }
-  }
-  return out;
-}
-
-List<String> _personNames(Object? people) {
-  if (people is! List) return const [];
-  final names = <String>[];
-  for (final row in people) {
-    if (row is! Map) continue;
-    final nested = row['people'];
-    if (nested is Map) {
-      final name = nested['name'];
-      if (name is String && name.trim().isNotEmpty) names.add(name.trim());
-    }
-  }
-  return names;
-}
-
-Map<String, dynamic>? _authorProfile(Object? profiles) {
-  if (profiles is Map) {
-    return profiles.map((key, value) => MapEntry(key.toString(), value));
-  }
-  if (profiles is List && profiles.isNotEmpty && profiles.first is Map) {
-    final first = profiles.first as Map;
-    return first.map((key, value) => MapEntry(key.toString(), value));
-  }
-  return null;
-}
-
-String? _authorName(Object? profiles) {
-  final map = _authorProfile(profiles);
-  if (map == null) return null;
-  final name = map['display_name'];
-  if (name is String && name.trim().isNotEmpty) return name.trim();
-  return null;
-}
-
-String? _authorAvatarPath(Object? profiles) {
-  final map = _authorProfile(profiles);
-  if (map == null) return null;
-  final path = map['avatar_path'];
-  if (path is String && path.trim().isNotEmpty) return path.trim();
-  return null;
-}
-
-int _rowCount(Object? rows) => rows is List ? rows.length : 0;
 
 String _profileWhen(Story story) {
   final start = story.timeframeStart;
@@ -303,29 +167,6 @@ String _profileWhen(Story story) {
     case StoryDatePrecision.day:
       return '${months[start.month - 1]} ${start.day}, ${start.year}';
   }
-}
-
-List<String> _photoPaths(Object? photos) {
-  if (photos is! List) return const [];
-  final rows = photos.whereType<Map>().toList();
-  rows.sort(
-    (a, b) => ((a['sort_order'] as int?) ?? 0).compareTo(
-      (b['sort_order'] as int?) ?? 0,
-    ),
-  );
-  return [for (final row in rows) ?_effectivePhotoPath(row)];
-}
-
-String? _effectivePhotoPath(Map row) {
-  final keyed = <String, Object?>{
-    for (final entry in row.entries)
-      if (entry.key != null) entry.key.toString(): entry.value,
-  };
-  final edited = keyed['edited_storage_path'];
-  if (edited is String) return edited;
-  final original = keyed['storage_path'];
-  if (original is String) return original;
-  return null;
 }
 
 /// One published story on a person profile.
@@ -668,8 +509,6 @@ server.StoryWriteDto storyWriteDto({
   personIds: personIds == null ? null : [for (final id in personIds) _uuid(id)],
 );
 
-int decadeStartYear(DateTime start) => (start.year ~/ 10) * 10;
-
 /// Start of the Latest window. A story at this instant is included.
 DateTime latestPublishedCutoff(DateTime now, {int withinDays = 7}) {
   return now.toUtc().subtract(Duration(days: withinDays));
@@ -721,23 +560,6 @@ int compareStories(Story a, Story b) {
   final created = aCreated.compareTo(bCreated);
   if (created != 0) return created;
   return a.id.compareTo(b.id);
-}
-
-DateTime _parseDate(String raw) {
-  final parts = raw.split('T').first.split('-');
-  return DateTime(
-    int.parse(parts[0]),
-    int.parse(parts[1]),
-    int.parse(parts[2]),
-  );
-}
-
-StoryStatus _storyStatusFrom(String raw) {
-  return switch (raw) {
-    'published' => StoryStatus.published,
-    'draft' => StoryStatus.draft,
-    _ => throw ArgumentError.value(raw, 'status'),
-  };
 }
 
 /// First photo of each story, by story id. A missing or empty blob is

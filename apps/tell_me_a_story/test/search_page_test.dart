@@ -11,7 +11,6 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
-import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/search_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/search/search_page.dart';
@@ -61,91 +60,49 @@ class _People extends PeopleGateway {
     throw UnimplementedError();
   }
 
+  /// Chips come from search facets, never from the family's people list.
   @override
-  Future<List<Person>> listPeople(String familyId) async => const [
-    Person(
-      id: 'clara',
-      familyId: _family,
-      name: 'Clara',
-      relationship: 'Aunt',
-      createdBy: 'u',
-    ),
-  ];
-}
-
-class _Places implements PlacesGateway {
-  @override
-  Future<Place> createPlace({
-    required String familyId,
-    required String label,
-    required String address,
-    required double lat,
-    required double lng,
-    String? mapboxPlaceId,
-    bool isFavorite = false,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place?> findByMapboxPlaceId(
-    String familyId,
-    String mapboxPlaceId,
-  ) async => null;
-
-  @override
-  Future<Place?> getPlace(String id) async => null;
-
-  @override
-  Future<List<Place>> listFavorites(String familyId) async => const [];
-
-  @override
-  Future<List<Place>> listPlaces(String familyId) async => const [
-    Place(
-      id: 'porch',
-      familyId: _family,
-      label: 'Back Porch',
-      address: '12 Lane',
-      lat: 1,
-      lng: 2,
-      isFavorite: false,
-    ),
-  ];
-
-  @override
-  Future<List<Place>> listRecents(String familyId, {int limit = 10}) async =>
-      const [];
-
-  @override
-  Future<Place> markUsed(String placeId) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place> setFavorite({
-    required String placeId,
-    required bool isFavorite,
-  }) {
-    throw UnimplementedError();
-  }
+  Future<List<Person>> listPeople(String familyId) async => const [];
 }
 
 class _Search implements SearchGateway {
-  _Search(this.rows, {this.throwOnSearch = false, this.hang = false});
+  _Search(
+    this.rows, {
+    this.decades = const [1980, 1990],
+    this.throwOnSearch = false,
+    this.hang = false,
+  });
 
-  final List<SearchRecord> rows;
+  final List<Story> rows;
+  final List<int> decades;
   final bool throwOnSearch;
   final bool hang;
   SearchRequest? last;
+  final facetLoads = <String>[];
 
   @override
-  Future<List<SearchRecord>> search(SearchRequest request) async {
+  Future<List<Story>> search(SearchRequest request) async {
     last = request;
     if (hang && request.text.trim().isNotEmpty) {
       await Completer<void>().future;
     }
     if (throwOnSearch) throw StateError('search failed');
-    return filterSearchRecords(rows, request);
+    final needle = request.text.trim().toLowerCase();
+    return [
+      for (final story in rows)
+        if ('${story.title} ${story.body}'.toLowerCase().contains(needle))
+          story,
+    ];
+  }
+
+  @override
+  Future<SearchFacets> facets(String familyId) async {
+    facetLoads.add(familyId);
+    return SearchFacets(
+      decades: decades,
+      people: const [(id: 'clara', name: 'Clara')],
+      places: const [(id: 'porch', label: 'Back Porch')],
+    );
   }
 }
 
@@ -185,7 +142,7 @@ class _Photos implements PhotosGateway {
   }
 }
 
-SearchRecord _hit({
+Story _hit({
   String id = 's1',
   String? title = 'Summer Afternoon',
   String? body = 'We spent hours shelling peas on the porch.',
@@ -193,24 +150,22 @@ SearchRecord _hit({
   List<String> photoPaths = const [],
   int year = 1984,
 }) {
-  return SearchRecord(
+  return Story(
+    id: id,
+    familyId: _family,
+    authorId: 'u',
+    title: title,
+    body: body,
+    timeframeStart: DateTime(year, 6, 1),
+    placeId: 'porch',
+    placeLabel: 'Back Porch',
     placeAddress: '12 Lane',
-    story: Story(
-      id: id,
-      familyId: _family,
-      authorId: 'u',
-      title: title,
-      body: body,
-      timeframeStart: DateTime(year, 6, 1),
-      placeId: 'porch',
-      placeLabel: 'Back Porch',
-      personIds: const ['clara'],
-      personNames: const ['Clara'],
-      status: StoryStatus.published,
-      publishedAt: DateTime(2024, 1, 1),
-      authorDisplayName: author,
-      photoPaths: photoPaths,
-    ),
+    personIds: const ['clara'],
+    personNames: const ['Clara'],
+    status: StoryStatus.published,
+    publishedAt: DateTime(2024, 1, 1),
+    authorDisplayName: author,
+    photoPaths: photoPaths,
   );
 }
 
@@ -231,7 +186,6 @@ Widget _app({
         builder: (context, state) => SearchPage(
           inviteApi: _Invite(),
           peopleApi: _People(),
-          placesApi: _Places(),
           searchApi: search,
           photosApi: photos ?? _Photos(null),
           recents: SearchRecents(),
@@ -252,12 +206,14 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  testWidgets('idle keeps recents and suggestions and hides results', (
+  testWidgets('idle keeps recents and suggests the family facets', (
     tester,
   ) async {
-    await tester.pumpWidget(_app(search: _Search([_hit()])));
+    final search = _Search([_hit()], decades: const [1980]);
+    await tester.pumpWidget(_app(search: search));
     await tester.pumpAndSettle();
 
+    expect(search.facetLoads, [_family]);
     expect(find.text('Matching Archive Stories (1 result)'), findsNothing);
     expect(
       find.text('No stories match. Try another person, place, or time.'),
@@ -270,8 +226,29 @@ void main() {
     expect(find.text('Decades'), findsOneWidget);
     expect(find.text('1980s'), findsOneWidget);
     expect(find.text('1990s'), findsNothing);
-    expect(find.text('Clara'), findsWidgets);
+    expect(
+      find.byKey(const Key('search-suggest-person-clara')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('search-suggest-place-porch')), findsOneWidget);
     expect(find.text('Back Porch'), findsOneWidget);
+  });
+
+  testWidgets('the decade picker offers only decades with stories', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(search: _Search([_hit()])));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('search-add-decade')));
+    await tester.pumpAndSettle();
+
+    // The picker's decades are TextButtons; the suggestions are ActionChips.
+    Finder pick(String label) => find.widgetWithText(TextButton, label);
+    expect(pick('1980s'), findsOneWidget);
+    expect(pick('1990s'), findsOneWidget);
+    expect(pick('1900s'), findsNothing);
+    expect(pick('2020s'), findsNothing);
   });
 
   testWidgets('a suggested name filters like a suggested place', (

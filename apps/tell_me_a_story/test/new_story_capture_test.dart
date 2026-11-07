@@ -13,7 +13,6 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/stories/story_date_picker.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
-import 'package:tell_me_a_story/features/stories/timeframe_chips.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -575,31 +574,6 @@ Future<void> _pumpUntil(
 }
 
 void main() {
-  test('1980s decade maps to 1980-01-01..1989-12-31', () {
-    const decade = DecadeRange(1980);
-    expect(decade.label, '1980s');
-    expect(decade.start, DateTime(1980, 1, 1));
-    expect(decade.end, DateTime(1989, 12, 31));
-  });
-
-  test('decadeChips span 1900s through 2020s', () {
-    expect(decadeChips.map((d) => d.startYear).toList(), [
-      1900,
-      1910,
-      1920,
-      1930,
-      1940,
-      1950,
-      1960,
-      1970,
-      1980,
-      1990,
-      2000,
-      2010,
-      2020,
-    ]);
-  });
-
   testWidgets('shows Save draft and Publish', (tester) async {
     await tester.pumpWidget(_captureShell());
     await tester.pumpAndSettle();

@@ -53,12 +53,6 @@ void main() {
     );
   });
 
-  test('decadeStartYear uses the start year for every precision', () {
-    expect(decadeStartYear(DateTime(1987, 3, 14)), 1980);
-    expect(decadeStartYear(DateTime(1980, 1, 1)), 1980);
-    expect(decadeStartYear(DateTime(1990, 6, 1)), 1990);
-  });
-
   test('compareStories orders precision then created_at, and reverses', () {
     Story row(String id, StoryDatePrecision precision, DateTime created) {
       return Story(
