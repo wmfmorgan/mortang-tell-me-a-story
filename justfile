@@ -64,3 +64,45 @@ run:
         set -- "$@" --dart-define=MAPBOX_ACCESS_TOKEN="$MAPBOX_ACCESS_TOKEN"
     fi
     cd apps/tell_me_a_story && exec "$@"
+
+# Install serverpod_cli 4.1.1 and fetch server/client packages; create local passwords if missing
+server-setup:
+    dart pub global activate serverpod_cli 4.1.1
+    cd apps/server && dart pub get
+    cd packages/tell_me_a_story_client && dart pub get
+    just server-passwords
+
+# Write apps/server/config/passwords.yaml with random development/test secrets (no-op if it exists)
+server-passwords:
+    #!/usr/bin/env sh
+    set -eu
+    file=apps/server/config/passwords.yaml
+    if [ -f "$file" ]; then echo "$file exists; leaving it alone."; exit 0; fi
+    r() { openssl rand -hex "$1"; }
+    {
+        for mode in development test; do
+            echo "$mode:"
+            echo "  database: \"$(r 16)\""
+            echo "  serviceSecret: \"$(r 32)\""
+            echo "  emailSecretHashPepper: \"$(r 32)\""
+            echo "  jwtHmacSha512PrivateKey: \"$(r 64)\""
+            echo "  jwtRefreshTokenHashPepper: \"$(r 32)\""
+        done
+    } > "$file"
+    echo "Wrote $file"
+
+# Regenerate server protocol, client package and test tools after model/endpoint changes
+server-generate:
+    cd apps/server && dart pub global run serverpod_cli generate
+
+# Create a migration from model changes: just server-migration <tag>
+server-migration tag:
+    cd apps/server && dart pub global run serverpod_cli create-migration --tag {{tag}}
+
+# Run the API server on :8080 (embedded Postgres, migrations applied, login code 111111)
+server:
+    cd apps/server && dart run bin/main.dart --apply-migrations
+
+# Backend integration tests (embedded Postgres)
+server-test:
+    cd apps/server && dart test
