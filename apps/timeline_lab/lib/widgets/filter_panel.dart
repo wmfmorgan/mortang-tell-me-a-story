@@ -112,7 +112,7 @@ class _FilterPanelState extends State<FilterPanel> {
               for (final p in d.people.values)
                 FilterChip(
                   key: Key('filter-person-${p.id}'),
-                  label: Text(p.name),
+                  label: _ChipLabel(p.name),
                   selected: filter.personIds.contains(p.id),
                   onSelected: (on) => controller.setFilter(
                     filter.copyWith(
@@ -132,7 +132,7 @@ class _FilterPanelState extends State<FilterPanel> {
               for (final p in d.places.values)
                 FilterChip(
                   key: Key('filter-place-${p.id}'),
-                  label: Text(p.label),
+                  label: _ChipLabel(p.label),
                   selected: filter.placeIds.contains(p.id),
                   onSelected: (on) => controller.setFilter(
                     filter.copyWith(
@@ -152,7 +152,7 @@ class _FilterPanelState extends State<FilterPanel> {
               for (final f in d.families.values)
                 FilterChip(
                   key: Key('filter-family-${f.id}'),
-                  label: Text(
+                  label: _ChipLabel(
                     f.isBranch ? '${f.name} (${f.branchYear})' : f.name,
                   ),
                   selected: filter.familyIds.contains(f.id),
@@ -175,4 +175,22 @@ class _FilterPanelState extends State<FilterPanel> {
       ),
     );
   }
+}
+
+/// A chip label that never fades.
+///
+/// `RawChip` lays its label out at the height its dry layout reported and
+/// wraps it in `TextOverflow.fade`. With the web text engine the real layout
+/// can come out a fraction of a pixel taller, which counts as a vertical
+/// overflow, so the whole line gets a top-to-bottom fade. An explicit
+/// single-line ellipsis replaces that fade: a sub-pixel overflow is clipped
+/// invisibly, and a genuinely long label still ends in "…".
+class _ChipLabel extends StatelessWidget {
+  const _ChipLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) =>
+      Text(text, maxLines: 1, overflow: TextOverflow.ellipsis);
 }
