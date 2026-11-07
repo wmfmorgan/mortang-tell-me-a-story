@@ -77,6 +77,16 @@ void main() {
         throwsA(same(state)),
       );
     });
+
+    test('keeps the original stack trace of a translated error', () async {
+      StackTrace? stack;
+      try {
+        await withAppErrors<void>(() async => _throwCatalogError());
+      } on AppException catch (_, s) {
+        stack = s;
+      }
+      expect(stack.toString(), contains('_throwCatalogError'));
+    });
   });
 
   test('appErrorMessage reads only AppException', () {
@@ -126,3 +136,6 @@ void main() {
     });
   });
 }
+
+Never _throwCatalogError() =>
+    throw const PostgrestException(message: 'NOT_FOUND: story');

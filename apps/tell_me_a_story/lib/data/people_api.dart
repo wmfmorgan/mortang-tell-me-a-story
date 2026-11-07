@@ -275,9 +275,12 @@ class PeopleApi implements PeopleGateway {
   Future<PersonProfile?> _treeProfile(String personId) async {
     try {
       return await personProfile(personId);
-    } on AppException catch (error) {
+    } on AppException catch (error, stack) {
       if (error.code != AppErrorCode.notFound) rethrow;
-      throw StateError('person_profile: ${error.message}');
+      Error.throwWithStackTrace(
+        StateError('person_profile: ${error.message}'),
+        stack,
+      );
     }
   }
 

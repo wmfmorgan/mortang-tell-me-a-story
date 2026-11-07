@@ -135,10 +135,13 @@ class InviteApi implements InviteGateway {
         );
       }
       return decoded;
-    } on FunctionException catch (e) {
-      throw appExceptionFromEnvelope(
-        envelopeBody(e.details),
-        fallbackMessage: e.reasonPhrase ?? 'Request failed',
+    } on FunctionException catch (e, stack) {
+      Error.throwWithStackTrace(
+        appExceptionFromEnvelope(
+          envelopeBody(e.details),
+          fallbackMessage: e.reasonPhrase ?? 'Request failed',
+        ),
+        stack,
       );
     }
   }

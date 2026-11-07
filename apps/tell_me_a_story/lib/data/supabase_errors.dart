@@ -29,10 +29,10 @@ AppException? appExceptionFromPostgrest(PostgrestException error) {
 Future<T> withAppErrors<T>(Future<T> Function() call) async {
   try {
     return await call();
-  } on PostgrestException catch (error) {
+  } on PostgrestException catch (error, stack) {
     final mapped = appExceptionFromPostgrest(error);
     if (mapped == null) rethrow;
-    throw mapped;
+    Error.throwWithStackTrace(mapped, stack);
   }
 }
 

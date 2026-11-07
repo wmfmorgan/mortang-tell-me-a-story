@@ -169,10 +169,13 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
         throw appExceptionFromEnvelope(decoded, fallbackMessage: 'Try again');
       }
       return decoded;
-    } on FunctionException catch (e) {
-      throw appExceptionFromEnvelope(
-        envelopeBody(e.details),
-        fallbackMessage: 'Try again',
+    } on FunctionException catch (e, stack) {
+      Error.throwWithStackTrace(
+        appExceptionFromEnvelope(
+          envelopeBody(e.details),
+          fallbackMessage: 'Try again',
+        ),
+        stack,
       );
     }
   }
