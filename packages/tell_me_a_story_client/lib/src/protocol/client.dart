@@ -11,6 +11,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
+import 'dart:typed_data' as _idt;
 
 import 'package:http/http.dart' as _i85jenna;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
@@ -22,6 +23,8 @@ import 'package:tell_me_a_story_client/src/protocol/dto/person_dto.dart'
     as _ippgtqmg;
 import 'package:tell_me_a_story_client/src/protocol/dto/person_profile_dto.dart'
     as _i60h803r;
+import 'package:tell_me_a_story_client/src/protocol/dto/person_write_dto.dart'
+    as _i9fxgjdp;
 
 import 'protocol.dart' as _il2as5qe;
 
@@ -379,6 +382,22 @@ class EndpointPeople extends _isc.EndpointRef {
         {'familyId': familyId},
       );
 
+  /// Adds an unlinked person with [familyId] as home. A [picture] (JPEG,
+  /// ≤ 2 MiB) is stored inline under a fresh `personAvatarKey`.
+  _ida.Future<_ippgtqmg.PersonDto> create(
+    _isc.UuidValue familyId,
+    _i9fxgjdp.PersonWriteDto input,
+    _idt.ByteData? picture,
+  ) => caller.callServerEndpoint<_ippgtqmg.PersonDto>(
+    'people',
+    'create',
+    {
+      'familyId': familyId,
+      'input': input,
+      'picture': picture,
+    },
+  );
+
   /// The person row for the edit dialog, including `userId` and `email`, for
   /// any tree member; null when missing or outside the caller's trees.
   _ida.Future<_ippgtqmg.PersonDto?> forEdit(_isc.UuidValue personId) =>
@@ -397,6 +416,24 @@ class EndpointPeople extends _isc.EndpointRef {
         'profile',
         {'personId': personId},
       );
+
+  /// Edits a person. Unlinked: any tree member. Linked: only the linked self,
+  /// with the name locked to the account, and no passed-away or death change.
+  /// A [picture] replaces the avatar; [PersonWriteDto.clearPicture] removes
+  /// it. The old key is queued for deletion in the same transaction.
+  _ida.Future<_ippgtqmg.PersonDto> update(
+    _isc.UuidValue personId,
+    _i9fxgjdp.PersonWriteDto input,
+    _idt.ByteData? picture,
+  ) => caller.callServerEndpoint<_ippgtqmg.PersonDto>(
+    'people',
+    'update',
+    {
+      'personId': personId,
+      'input': input,
+      'picture': picture,
+    },
+  );
 }
 
 class Modules {

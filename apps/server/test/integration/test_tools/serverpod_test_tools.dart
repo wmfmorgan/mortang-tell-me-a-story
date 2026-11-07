@@ -13,6 +13,7 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
 import 'dart:io' as _idi;
+import 'dart:typed_data' as _idt;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
@@ -23,6 +24,8 @@ import 'package:tell_me_a_story_server/src/generated/dto/person_dto.dart'
     as _ij552cxk;
 import 'package:tell_me_a_story_server/src/generated/dto/person_profile_dto.dart'
     as _iabh2694;
+import 'package:tell_me_a_story_server/src/generated/dto/person_write_dto.dart'
+    as _imyz5bcs;
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
 import 'package:tell_me_a_story_server/src/generated/endpoints.dart';
 export 'package:serverpod_test/serverpod_test_public_exports.dart';
@@ -707,6 +710,43 @@ class _PeopleEndpoint {
     });
   }
 
+  _ida.Future<_ij552cxk.PersonDto> create(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+    _imyz5bcs.PersonWriteDto input,
+    _idt.ByteData? picture,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'people',
+            method: 'create',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'people',
+          methodName: 'create',
+          parameters: _ist.testObjectToJson({
+            'familyId': familyId,
+            'input': input,
+            'picture': picture,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ij552cxk.PersonDto>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
   _ida.Future<_ij552cxk.PersonDto?> forEdit(
     _ist.TestSessionBuilder sessionBuilder,
     _is.UuidValue personId,
@@ -762,6 +802,43 @@ class _PeopleEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<_iabh2694.PersonProfileDto>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ij552cxk.PersonDto> update(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue personId,
+    _imyz5bcs.PersonWriteDto input,
+    _idt.ByteData? picture,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'people',
+            method: 'update',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'people',
+          methodName: 'update',
+          parameters: _ist.testObjectToJson({
+            'personId': personId,
+            'input': input,
+            'picture': picture,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ij552cxk.PersonDto>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

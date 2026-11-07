@@ -16,5 +16,7 @@ jwtRefresh:
 people:
   - listFamily:
   - listTree:
+  - create:
   - forEdit:
   - profile:
+  - update:

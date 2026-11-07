@@ -1,8 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:serverpod/serverpod.dart';
 
 import '../authz/authz.dart';
 import '../errors.dart';
 import '../generated/protocol.dart';
+import '../media/blob_keys.dart';
+import '../media/blob_outbox.dart';
 import '../people/person_rules.dart';
 
 /// People are tree-scoped: reads and unlinked edits need a live membership
@@ -42,6 +46,48 @@ class PeopleEndpoint extends Endpoint {
     return _toDtos(session, authz, people);
   }
 
+  /// Adds an unlinked person with [familyId] as home. A [picture] (JPEG,
+  /// ≤ 2 MiB) is stored inline under a fresh `personAvatarKey`.
+  Future<PersonDto> create(
+    Session session,
+    UuidValue familyId,
+    PersonWriteDto input,
+    ByteData? picture,
+  ) async {
+    final authz = Authz(session);
+    final uid = authz.requireUser();
+    await authz.requireLiveMember(familyId);
+    final family = (await Family.db.findById(session, familyId))!;
+    final person = applyPersonWrite(
+      Person(
+        id: UuidValue.fromString(const Uuid().v7()),
+        treeId: family.treeId,
+        homeFamilyId: familyId,
+        name: '',
+        createdById: uid,
+      ),
+      input,
+    );
+    if (picture != null) _checkPicture(picture);
+    final key = picture == null
+        ? null
+        : await _storePicture(session, person, picture);
+    final Person saved;
+    try {
+      saved = await session.db.transaction(
+        (t) => Person.db.insertRow(
+          session,
+          person.copyWith(avatarKey: key),
+          transaction: t,
+        ),
+      );
+    } catch (_) {
+      await queueBlobDeletions(session, [key]);
+      rethrow;
+    }
+    return (await _toDtos(session, authz, [saved])).single;
+  }
+
   /// The person row for the edit dialog, including `userId` and `email`, for
   /// any tree member; null when missing or outside the caller's trees.
   Future<PersonDto?> forEdit(Session session, UuidValue personId) async {
@@ -73,6 +119,66 @@ class PeopleEndpoint extends Endpoint {
       avatarKey: account?.avatarKey ?? person.avatarKey,
       passedAway: person.passedAway,
     );
+  }
+
+  /// Edits a person. Unlinked: any tree member. Linked: only the linked self,
+  /// with the name locked to the account, and no passed-away or death change.
+  /// A [picture] replaces the avatar; [PersonWriteDto.clearPicture] removes
+  /// it. The old key is queued for deletion in the same transaction.
+  Future<PersonDto> update(
+    Session session,
+    UuidValue personId,
+    PersonWriteDto input,
+    ByteData? picture,
+  ) async {
+    final authz = Authz(session);
+    final uid = authz.requireUser();
+    final person = await _readablePerson(authz, personId);
+    if (person == null) throw forbidden();
+    final linkedId = person.userId;
+    if (linkedId != null) {
+      if (linkedId != uid) throw forbidden();
+      if (input.name.trim() != person.name) {
+        throw forbidden('linked_person_name_locked');
+      }
+      if (input.writePassedAway &&
+          (input.passedAway ?? false) != person.passedAway) {
+        throw forbidden();
+      }
+      if (input.writeDeath) throw forbidden();
+    }
+    applyPersonWrite(person, input);
+    if (picture != null) _checkPicture(picture);
+    final key = picture == null
+        ? null
+        : await _storePicture(session, person, picture);
+    final Person saved;
+    try {
+      saved = await session.db.transaction((t) async {
+        final current = await Person.db.findById(
+          session,
+          personId,
+          transaction: t,
+          lockMode: LockMode.forUpdate,
+        );
+        if (current == null) throw forbidden();
+        var next = applyPersonWrite(
+          current,
+          input,
+        ).copyWith(updatedAt: DateTime.now().toUtc());
+        if (key != null || input.clearPicture) {
+          await queueBlobDeletions(session, [
+            current.avatarKey,
+          ], transaction: t);
+          next = next.copyWith(avatarKey: key);
+        }
+        return Person.db.updateRow(session, next, transaction: t);
+      });
+    } catch (_) {
+      await queueBlobDeletions(session, [key]);
+      rethrow;
+    }
+    return (await _toDtos(session, authz, [saved])).single;
   }
 
   /// [familyId] when it is live and in one of the caller's trees.
@@ -147,4 +253,29 @@ class PeopleEndpoint extends Endpoint {
     deathDate: p.deathDate,
     deathPrecision: p.deathPrecision,
   );
+
+  /// Person avatars are JPEG only, ≤ 2 MiB (schema-design.md §4.2).
+  void _checkPicture(ByteData picture) {
+    if (picture.lengthInBytes > avatarMaxBytes) {
+      throw validation('picture is too large');
+    }
+    if (sniffImageMime(picture) != 'image/jpeg') {
+      throw validation('picture must be a JPEG image');
+    }
+  }
+
+  Future<String> _storePicture(
+    Session session,
+    Person person,
+    ByteData picture,
+  ) async {
+    final key = personAvatarKey(treeId: person.treeId, personId: person.id!);
+    await session.storage.storeFile(
+      storageId: blobStorageId,
+      path: key,
+      byteData: picture,
+      options: const StoreFileOptions(preventOverwrite: true),
+    );
+    return key;
+  }
 }

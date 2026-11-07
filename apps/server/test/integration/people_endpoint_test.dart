@@ -1,6 +1,7 @@
 import 'package:serverpod/serverpod.dart';
 import 'package:tell_me_a_story_server/src/auth/auth_config.dart';
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
+import 'package:tell_me_a_story_server/src/media/blob_keys.dart';
 import 'package:test/test.dart';
 
 import 'support/fixtures.dart';
@@ -334,6 +335,344 @@ void main() {
           await expectLater(
             endpoints.people.listFamily(as(member), gone.id!),
             throwsAppError(AppErrorCode.forbidden),
+          );
+        },
+      );
+    });
+
+    group('writes', () {
+      test(
+        'when a live member creates a person with a picture then the row '
+        'and the blob exist under a person avatar key',
+        () async {
+          final dto = await endpoints.people.create(
+            as(member),
+            parent.id!,
+            personWrite(
+              name: ' Bea ',
+              about: 'hi',
+              writeAbout: true,
+              email: 'Bea@X.com',
+              writeEmail: true,
+            ),
+            jpegBytes(),
+          );
+
+          final row = (await Person.db.findById(fx.s, dto.id))!;
+          expect(row.name, 'Bea');
+          expect(row.treeId, tree.id);
+          expect(row.homeFamilyId, parent.id);
+          expect(row.userId, isNull);
+          expect(row.createdById, member);
+          expect(row.email, 'bea@x.com');
+          expect(dto.avatarKey, row.avatarKey);
+          expect(
+            row.avatarKey,
+            matches(
+              RegExp(
+                '^trees/${tree.id}/people/${dto.id}/avatar/[0-9a-f-]{36}\\.jpg\$',
+              ),
+            ),
+          );
+          expect(
+            await fx.s.storage.fileExists(
+              storageId: blobStorageId,
+              path: row.avatarKey!,
+            ),
+            isTrue,
+          );
+        },
+      );
+
+      test(
+        'when a tree reader of another family or a member of a soft-deleted '
+        'family creates then FORBIDDEN',
+        () async {
+          final gone = await fx.family(
+            await fx.tree(),
+            deletedAt: DateTime.now().toUtc(),
+          );
+          await fx.join(gone, stranger, MembershipRole.owner);
+
+          await expectLater(
+            endpoints.people.create(
+              as(childMember),
+              parent.id!,
+              personWrite(),
+              null,
+            ),
+            throwsAppError(AppErrorCode.forbidden, 'member only'),
+          );
+          await expectLater(
+            endpoints.people.create(
+              as(stranger),
+              gone.id!,
+              personWrite(),
+              null,
+            ),
+            throwsAppError(AppErrorCode.forbidden, 'member only'),
+          );
+        },
+      );
+
+      test(
+        'when the picture is not a JPEG then VALIDATION and no row',
+        () async {
+          final before = await Person.db.count(
+            fx.s,
+            where: (t) => t.homeFamilyId.equals(parent.id),
+          );
+          await expectLater(
+            endpoints.people.create(
+              as(member),
+              parent.id!,
+              personWrite(),
+              pngBytes(),
+            ),
+            throwsAppError(
+              AppErrorCode.validation,
+              'picture must be a JPEG image',
+            ),
+          );
+          expect(
+            await Person.db.count(
+              fx.s,
+              where: (t) => t.homeFamilyId.equals(parent.id),
+            ),
+            before,
+          );
+        },
+      );
+
+      // BR 96
+      test('when about is over 500 chars then VALIDATION', () async {
+        final ada = await fx.person(parent);
+        await expectLater(
+          endpoints.people.update(
+            as(member),
+            ada.id!,
+            personWrite(about: 'x' * 501, writeAbout: true),
+            null,
+          ),
+          throwsAppError(
+            AppErrorCode.validation,
+            'about must be at most 500 characters',
+          ),
+        );
+      });
+
+      // BR 97
+      test(
+        'when a tree member edits an unlinked person then it saves; a linked '
+        'person is refused; the linked user cannot rename; unlinking reopens',
+        () async {
+          final ada = await fx.person(child, name: 'Ada');
+          final linked = await fx.person(parent, userId: coOwner, name: 'Co');
+
+          final saved = await endpoints.people.update(
+            as(member),
+            ada.id!,
+            personWrite(name: 'Ada B'),
+            null,
+          );
+          expect(saved.name, 'Ada B');
+
+          await expectLater(
+            endpoints.people.update(
+              as(member),
+              linked.id!,
+              personWrite(name: 'Co', about: 'x', writeAbout: true),
+              null,
+            ),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          await expectLater(
+            endpoints.people.update(
+              as(coOwner),
+              linked.id!,
+              personWrite(name: 'New name'),
+              null,
+            ),
+            throwsAppError(AppErrorCode.forbidden, 'linked_person_name_locked'),
+          );
+          expect((await fx.reload(linked)).name, 'Co');
+
+          final own = await endpoints.people.update(
+            as(coOwner),
+            linked.id!,
+            personWrite(name: 'Co', about: 'mine', writeAbout: true),
+            null,
+          );
+          expect(own.about, 'mine');
+
+          await Person.db.updateRow(fx.s, linked.copyWith(userId: null));
+          final reopened = await endpoints.people.update(
+            as(member),
+            linked.id!,
+            personWrite(name: 'Renamed'),
+            null,
+          );
+          expect(reopened.name, 'Renamed');
+        },
+      );
+
+      // BR 99
+      test(
+        'when a tree member uploads an unlinked avatar then it saves and the '
+        'old key is queued; an outsider and another member of a linked '
+        'person are refused; the linked user can upload',
+        () async {
+          final ada = await fx.person(child, name: 'Ada');
+          final first = await endpoints.people.update(
+            as(member),
+            ada.id!,
+            personWrite(),
+            jpegBytes(),
+          );
+          final second = await endpoints.people.update(
+            as(childMember),
+            ada.id!,
+            personWrite(),
+            jpegBytes(),
+          );
+          expect(second.avatarKey, isNot(first.avatarKey));
+          expect(await fx.queued(first.avatarKey!), isTrue);
+
+          await expectLater(
+            endpoints.people.update(
+              as(stranger),
+              ada.id!,
+              personWrite(),
+              jpegBytes(),
+            ),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+
+          final linked = await fx.person(parent, userId: coOwner, name: 'Co');
+          await expectLater(
+            endpoints.people.update(
+              as(member),
+              linked.id!,
+              personWrite(name: 'Co'),
+              jpegBytes(),
+            ),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          final own = await endpoints.people.update(
+            as(coOwner),
+            linked.id!,
+            personWrite(name: 'Co'),
+            jpegBytes(),
+          );
+          expect(
+            own.avatarKey,
+            startsWith('trees/${tree.id}/people/${linked.id}/'),
+          );
+        },
+      );
+
+      test('when the picture is cleared then the old key is queued', () async {
+        final ada = await fx.person(parent);
+        final withPicture = await endpoints.people.update(
+          as(member),
+          ada.id!,
+          personWrite(),
+          jpegBytes(),
+        );
+
+        final cleared = await endpoints.people.update(
+          as(member),
+          ada.id!,
+          personWrite(clearPicture: true),
+          null,
+        );
+
+        expect(cleared.avatarKey, isNull);
+        expect(await fx.queued(withPicture.avatarKey!), isTrue);
+      });
+
+      // BR 104
+      test(
+        'when a linked user changes their own passedAway then FORBIDDEN',
+        () async {
+          final me = await fx.person(parent, userId: member, name: 'Me');
+          await expectLater(
+            endpoints.people.update(
+              as(member),
+              me.id!,
+              personWrite(name: 'Me', passedAway: true, writePassedAway: true),
+              null,
+            ),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          expect((await fx.reload(me)).passedAway, isFalse);
+        },
+      );
+
+      // BR 105 (flag part)
+      test(
+        'when a tree member flags and unflags an unlinked person then it toggles',
+        () async {
+          final ada = await fx.person(child);
+
+          final flagged = await endpoints.people.update(
+            as(member),
+            ada.id!,
+            personWrite(passedAway: true, writePassedAway: true),
+            null,
+          );
+          final cleared = await endpoints.people.update(
+            as(member),
+            ada.id!,
+            personWrite(passedAway: false, writePassedAway: true),
+            null,
+          );
+
+          expect(flagged.passedAway, isTrue);
+          expect(cleared.passedAway, isFalse);
+        },
+      );
+
+      test(
+        'when life dates are written then they are aligned to precision; '
+        'birth on a linked person is VALIDATION',
+        () async {
+          final ada = await fx.person(parent);
+          final saved = await endpoints.people.update(
+            as(member),
+            ada.id!,
+            personWrite(
+              passedAway: true,
+              writePassedAway: true,
+              birthDate: DateTime.utc(1900, 5, 20),
+              birthPrecision: DatePrecision.month,
+              writeBirth: true,
+              deathDate: DateTime.utc(1980, 7, 4),
+              deathPrecision: DatePrecision.year,
+              writeDeath: true,
+            ),
+            null,
+          );
+          expect(saved.birthDate, DateTime.utc(1900, 5));
+          expect(saved.deathDate, DateTime.utc(1980));
+
+          final me = await fx.person(parent, userId: member, name: 'Me');
+          await expectLater(
+            endpoints.people.update(
+              as(member),
+              me.id!,
+              personWrite(
+                name: 'Me',
+                birthDate: DateTime.utc(1950),
+                birthPrecision: DatePrecision.year,
+                writeBirth: true,
+              ),
+              null,
+            ),
+            throwsAppError(
+              AppErrorCode.validation,
+              'birth date comes from the account',
+            ),
           );
         },
       );
