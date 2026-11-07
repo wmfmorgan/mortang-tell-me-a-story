@@ -97,7 +97,7 @@ Each slice plan is written by its executor at slice start, following superpowers
   - Delete `auth_callback_test`, `magic_link_redirect_test`.
   - Rewrite `env_test`, `app_session_test`, the `family_selection`/`profile_session` listener tests (`ValueNotifier<AuthSuccess?>`), `m13_fit_finish_test` (`_Otp implements OtpSignIn`, plus code-entry tests), `router_test` (`MagicLinkPage` finders still work if the class name stays), and the `m14_3` tearDown.
   - Add a live test: `ServerOtpSignIn` signs in with `111111` and `AppSession.currentUserId` is the user.
-- **Copy: proposed, needs approval before 4a starts.**
+- **Copy (approved by the product owner, 2026-11-07):**
   - Note under the landing headline: "We'll email you a 6-digit code. No password needed."
   - Send button: "Email me a sign-in code" / "Sending…"
   - Code step:
