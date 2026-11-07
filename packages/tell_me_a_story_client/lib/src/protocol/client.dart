@@ -19,6 +19,8 @@ import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:tell_me_a_story_client/src/protocol/dto/created_invite_dto.dart'
     as _iq9lh22z;
+import 'package:tell_me_a_story_client/src/protocol/dto/invite_preview_dto.dart'
+    as _i9tmm7fr;
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -373,6 +375,25 @@ class EndpointInvite extends _isc.EndpointRef {
   );
 }
 
+/// The anonymous invite landing (business-rules.md §3.4, validate).
+/// {@category Endpoint}
+class EndpointInvitePublic extends _isc.EndpointRef {
+  EndpointInvitePublic(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'invitePublic';
+
+  /// Anyone, signed in or not. An unknown token, a soft-deleted family (D6a),
+  /// an accepted, revoked or expired invite all give `valid: false` with no
+  /// family or inviter.
+  _ida.Future<_i9tmm7fr.InvitePreviewDto> preview(String token) =>
+      caller.callServerEndpoint<_i9tmm7fr.InvitePreviewDto>(
+        'invitePublic',
+        'preview',
+        {'token': token},
+      );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -414,6 +435,7 @@ class Client extends _isc.ServerpodClientShared {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
     invite = EndpointInvite(this);
+    invitePublic = EndpointInvitePublic(this);
     modules = Modules(this);
   }
 
@@ -423,6 +445,8 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointInvite invite;
 
+  late final EndpointInvitePublic invitePublic;
+
   late final Modules modules;
 
   @override
@@ -430,6 +454,7 @@ class Client extends _isc.ServerpodClientShared {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
     'invite': invite,
+    'invitePublic': invitePublic,
   };
 
   @override

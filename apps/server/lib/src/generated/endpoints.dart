@@ -18,6 +18,7 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../endpoints/invite_endpoint.dart' as _ip80nve4;
+import '../endpoints/invite_public_endpoint.dart' as _ip1i0qvr;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
@@ -39,6 +40,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'invite',
+          null,
+        ),
+      'invitePublic': _ip1i0qvr.InvitePublicEndpoint()
+        ..initialize(
+          server,
+          'invitePublic',
           null,
         ),
     };
@@ -370,6 +377,32 @@ class Endpoints extends _is.EndpointDispatch {
                     email: params['email'],
                     personId: params['personId'],
                   ),
+        ),
+      },
+    );
+    connectors['invitePublic'] = _is.EndpointConnector(
+      name: 'invitePublic',
+      endpoint: endpoints['invitePublic']!,
+      methodConnectors: {
+        'preview': _is.MethodConnector(
+          name: 'preview',
+          params: {
+            'token': _is.ParameterDescription(
+              name: 'token',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['invitePublic'] as _ip1i0qvr.InvitePublicEndpoint)
+                      .preview(
+                        session,
+                        params['token'],
+                      ),
         ),
       },
     );

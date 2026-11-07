@@ -21,6 +21,8 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
 import 'package:serverpod_test/serverpod_test.dart' as _ist;
 import 'package:tell_me_a_story_server/src/generated/dto/created_invite_dto.dart'
     as _ic4u7rm6;
+import 'package:tell_me_a_story_server/src/generated/dto/invite_preview_dto.dart'
+    as _insgb6h2;
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
 import 'package:tell_me_a_story_server/src/generated/endpoints.dart';
 export 'package:serverpod_test/serverpod_test_public_exports.dart';
@@ -159,6 +161,8 @@ class TestEndpoints {
   late final _JwtRefreshEndpoint jwtRefresh;
 
   late final _InviteEndpoint invite;
+
+  late final _InvitePublicEndpoint invitePublic;
 }
 
 class _InternalTestEndpoints extends TestEndpoints
@@ -177,6 +181,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     invite = _InviteEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    invitePublic = _InvitePublicEndpoint(
       endpoints,
       serializationManager,
     );
@@ -673,6 +681,48 @@ class _InviteEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<_ic4u7rm6.CreatedInviteDto>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _InvitePublicEndpoint {
+  _InvitePublicEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_insgb6h2.InvitePreviewDto> preview(
+    _ist.TestSessionBuilder sessionBuilder,
+    String token,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'invitePublic',
+            method: 'preview',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'invitePublic',
+          methodName: 'preview',
+          parameters: _ist.testObjectToJson({'token': token}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_insgb6h2.InvitePreviewDto>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

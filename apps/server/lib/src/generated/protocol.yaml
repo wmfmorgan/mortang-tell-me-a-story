@@ -15,3 +15,5 @@ jwtRefresh:
   - refreshAccessToken:
 invite:
   - create:
+invitePublic:
+  - preview:
