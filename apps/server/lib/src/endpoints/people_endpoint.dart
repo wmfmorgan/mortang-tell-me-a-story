@@ -135,18 +135,7 @@ class PeopleEndpoint extends Endpoint {
     final uid = authz.requireUser();
     final person = await _readablePerson(authz, personId);
     if (person == null) throw forbidden();
-    final linkedId = person.userId;
-    if (linkedId != null) {
-      if (linkedId != uid) throw forbidden();
-      if (input.name.trim() != person.name) {
-        throw forbidden('linked_person_name_locked');
-      }
-      if (input.writePassedAway &&
-          (input.passedAway ?? false) != person.passedAway) {
-        throw forbidden();
-      }
-      if (input.writeDeath) throw forbidden();
-    }
+    _checkLinkedWrite(person, uid, input);
     applyPersonWrite(person, input);
     if (picture != null) _checkPicture(picture);
     final key = picture == null
@@ -162,6 +151,7 @@ class PeopleEndpoint extends Endpoint {
           lockMode: LockMode.forUpdate,
         );
         if (current == null) throw forbidden();
+        _checkLinkedWrite(current, uid, input);
         var next = applyPersonWrite(
           current,
           input,
@@ -179,6 +169,28 @@ class PeopleEndpoint extends Endpoint {
       rethrow;
     }
     return (await _toDtos(session, authz, [saved])).single;
+  }
+
+  /// A linked row is written only by its linked self, keeping the account's
+  /// name and leaving passed-away and death to stewards. Run on the read row
+  /// (so a refused write stores no picture) and again on the locked row, so
+  /// a person linked meanwhile is not edited by someone else.
+  void _checkLinkedWrite(
+    Person person,
+    UuidValue caller,
+    PersonWriteDto input,
+  ) {
+    final linkedId = person.userId;
+    if (linkedId == null) return;
+    if (linkedId != caller) throw forbidden();
+    if (input.name.trim() != person.name) {
+      throw forbidden('linked_person_name_locked');
+    }
+    if (input.writePassedAway &&
+        (input.passedAway ?? false) != person.passedAway) {
+      throw forbidden();
+    }
+    if (input.writeDeath) throw forbidden();
   }
 
   /// The invite picker: people in [familyId]'s tree who are unlinked, not

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:serverpod/serverpod.dart';
 import 'package:tell_me_a_story_server/src/auth/auth_config.dart';
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
@@ -283,6 +285,33 @@ void main() {
         expect(other.birthPrecision, isNull);
       });
 
+      // BR 100
+      test(
+        'when a linked person has a birth on its own row and the account is '
+        'hidden then other tree members see no birth',
+        () async {
+          final linked = await fx.person(
+            parent,
+            userId: member,
+            name: 'Me',
+            birthDate: DateTime.utc(1900),
+            birthPrecision: DatePrecision.year,
+          );
+          await fx.account(member);
+
+          final other = await endpoints.people.profile(as(owner), linked.id!);
+          final listed = (await endpoints.people.listTree(
+            as(owner),
+            parent.id!,
+          )).singleWhere((p) => p.id == linked.id);
+
+          expect(other.birthDate, isNull);
+          expect(other.birthPrecision, isNull);
+          expect(listed.birthDate, isNull);
+          expect(listed.birthPrecision, isNull);
+        },
+      );
+
       test(
         'when the person is unlinked then its own life dates show',
         () async {
@@ -513,6 +542,51 @@ void main() {
             null,
           );
           expect(reopened.name, 'Renamed');
+        },
+      );
+
+      test(
+        'when the person is linked to someone else while an edit waits for '
+        'the row lock then the edit is refused and nothing changes',
+        () async {
+          final ada = await fx.person(parent, name: 'Ada');
+          final locked = Completer<void>();
+          final release = Completer<void>();
+          final linker = fx.s.db.transaction((t) async {
+            await Person.db.findById(
+              fx.s,
+              ada.id!,
+              transaction: t,
+              lockMode: LockMode.forUpdate,
+            );
+            locked.complete();
+            await release.future;
+            await Person.db.updateRow(
+              fx.s,
+              ada.copyWith(userId: coOwner),
+              transaction: t,
+            );
+          });
+          await locked.future;
+
+          final outcome = endpoints.people
+              .update(as(member), ada.id!, personWrite(name: 'Renamed'), null)
+              .then<Object?>((_) => null, onError: (Object e) => e);
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          release.complete();
+          await linker;
+
+          expect(
+            await outcome,
+            isA<AppException>().having(
+              (e) => e.code,
+              'code',
+              AppErrorCode.forbidden,
+            ),
+          );
+          final row = await fx.reload(ada);
+          expect(row.name, 'Ada');
+          expect(row.userId, coOwner);
         },
       );
 
@@ -920,6 +994,21 @@ void main() {
             ),
           );
           expect(await Person.db.findById(fx.s, linked.id!), isNotNull);
+        },
+      );
+
+      test(
+        'when a person with an invite is deleted then the invite stays with '
+        'no person',
+        () async {
+          final ada = await fx.person(parent);
+          final invite = await fx.invite(parent, personId: ada.id);
+
+          await endpoints.people.delete(as(owner), ada.id!);
+
+          final row = await Invite.db.findById(fx.s, invite.id!);
+          expect(row, isNotNull);
+          expect(row!.personId, isNull);
         },
       );
 
