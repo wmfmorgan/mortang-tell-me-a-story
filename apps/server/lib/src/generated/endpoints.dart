@@ -438,6 +438,31 @@ class Endpoints extends _is.EndpointDispatch {
                 params['photoId'],
               ),
         ),
+        'setHero': _is.MethodConnector(
+          name: 'setHero',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'photoId': _is.ParameterDescription(
+              name: 'photoId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['photo'] as _ihuw68ce.PhotoEndpoint).setHero(
+                    session,
+                    params['storyId'],
+                    params['photoId'],
+                  ),
+        ),
       },
     );
     modules['serverpod_auth_idp'] = _iais.Endpoints()

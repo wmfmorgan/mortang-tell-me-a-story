@@ -780,4 +780,39 @@ class _PhotoEndpoint {
       }
     });
   }
+
+  _ida.Future<void> setHero(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue storyId,
+    _is.UuidValue photoId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'photo',
+            method: 'setHero',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'photo',
+          methodName: 'setHero',
+          parameters: _ist.testObjectToJson({
+            'storyId': storyId,
+            'photoId': photoId,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
 }

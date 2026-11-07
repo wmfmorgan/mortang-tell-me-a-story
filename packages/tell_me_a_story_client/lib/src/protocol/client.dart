@@ -409,6 +409,20 @@ class EndpointPhoto extends _isc.EndpointRef {
         'delete',
         {'photoId': photoId},
       );
+
+  /// Makes [photoId] the hero: one transaction rewrites the story's
+  /// `sortOrder` to 0..n-1 with it first, keeping the others' order.
+  _ida.Future<void> setHero(
+    _isc.UuidValue storyId,
+    _isc.UuidValue photoId,
+  ) => caller.callServerEndpoint<void>(
+    'photo',
+    'setHero',
+    {
+      'storyId': storyId,
+      'photoId': photoId,
+    },
+  );
 }
 
 class Modules {

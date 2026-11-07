@@ -560,5 +560,100 @@ void main() {
         expect(events.single.deleted, isTrue);
       },
     );
+
+    // BR 81
+    test(
+      'Given photos, when the uploader makes one the hero, then sortOrder '
+      'becomes 0..n-1 with it first and no other field changes',
+      () async {
+        final member = await fx.user();
+        final (family, story) = await familyStory(member);
+        final p1 = await fx.photo(story, uploaderId: member, sortOrder: 0);
+        final p2 = await fx.photo(story, uploaderId: member, sortOrder: 5);
+        final p3 = await fx.photo(
+          story,
+          uploaderId: member,
+          sortOrder: 9,
+          edited: true,
+        );
+
+        final events = await fx.eventsDuring(
+          family,
+          () => endpoints.photo.setHero(
+            asUser(sessionBuilder, member),
+            story.id!,
+            p3.id!,
+          ),
+        );
+
+        final rows = await Photo.db.find(
+          fx.s,
+          where: (t) => t.storyId.equals(story.id!),
+          orderBy: (t) => t.sortOrder,
+        );
+        expect(rows.map((p) => p.id), [p3.id, p1.id, p2.id]);
+        expect(rows.map((p) => p.sortOrder), [0, 1, 2]);
+        expect(rows.first.originalKey, p3.originalKey);
+        expect(rows.first.editedKey, p3.editedKey);
+        expect(rows.first.editVersion, 1);
+        expect(rows.first.uploaderId, member);
+        expect(events.single.kind, LiveKind.photo);
+      },
+    );
+
+    // BR 81
+    test(
+      "Given published story, when an owner makes another member's photo "
+      'the hero, then allowed; a plain member who did not upload it, or a '
+      'photo of another story, then FORBIDDEN',
+      () async {
+        final owner = await fx.user();
+        final uploader = await fx.user();
+        final bystander = await fx.user();
+        final (family, story) = await familyStory(
+          owner,
+          authorRole: MembershipRole.owner,
+          members: [uploader, bystander],
+        );
+        final first = await fx.photo(story, uploaderId: owner);
+        final theirs = await fx.photo(
+          story,
+          uploaderId: uploader,
+          sortOrder: 1,
+        );
+        final elsewhere = await fx.photo(
+          await fx.story(family, authorId: owner),
+          uploaderId: owner,
+        );
+
+        await expectLater(
+          endpoints.photo.setHero(
+            asUser(sessionBuilder, bystander),
+            story.id!,
+            theirs.id!,
+          ),
+          throwsAppError(AppErrorCode.forbidden),
+        );
+        await expectLater(
+          endpoints.photo.setHero(
+            asUser(sessionBuilder, owner),
+            story.id!,
+            elsewhere.id!,
+          ),
+          throwsAppError(AppErrorCode.forbidden),
+        );
+
+        await endpoints.photo.setHero(
+          asUser(sessionBuilder, owner),
+          story.id!,
+          theirs.id!,
+        );
+        final photos = await endpoints.photo.list(
+          asUser(sessionBuilder, owner),
+          story.id!,
+        );
+        expect(photos.map((p) => p.id), [theirs.id, first.id]);
+      },
+    );
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

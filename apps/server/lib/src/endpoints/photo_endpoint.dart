@@ -260,6 +260,53 @@ class PhotoEndpoint extends Endpoint {
     return mayTouch && await authz.canContribute(story);
   }
 
+  /// Makes [photoId] the hero: one transaction rewrites the story's
+  /// `sortOrder` to 0..n-1 with it first, keeping the others' order.
+  Future<void> setHero(
+    Session session,
+    UuidValue storyId,
+    UuidValue photoId,
+  ) async {
+    final photo = await Photo.db.findById(session, photoId);
+    final story = await Story.db.findById(session, storyId);
+    if (photo == null ||
+        story == null ||
+        photo.storyId != storyId ||
+        !await _canChange(session, story, photo)) {
+      throw forbidden();
+    }
+    await session.db.transaction((t) async {
+      await Story.db.findById(
+        session,
+        storyId,
+        transaction: t,
+        lockMode: LockMode.forNoKeyUpdate,
+      );
+      final rows = await Photo.db.find(
+        session,
+        where: (p) => p.storyId.equals(storyId),
+        orderByList: _order,
+        transaction: t,
+      );
+      final ordered = [
+        ...rows.where((p) => p.id == photoId),
+        ...rows.where((p) => p.id != photoId),
+      ];
+      final changed = [
+        for (final (i, p) in ordered.indexed)
+          if (p.sortOrder != i) p.copyWith(sortOrder: i),
+      ];
+      if (changed.isEmpty) return;
+      await Photo.db.update(
+        session,
+        changed,
+        columns: (p) => [p.sortOrder],
+        transaction: t,
+      );
+    });
+    await _postIfPublished(session, story, deleted: false);
+  }
+
   static List<Order> _order(PhotoTable t) => [
     t.sortOrder.asc(),
     t.createdAt.asc(),
