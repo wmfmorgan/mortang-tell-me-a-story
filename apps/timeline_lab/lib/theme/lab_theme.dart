@@ -36,12 +36,38 @@ abstract final class LabSpace {
   static const xl = 24.0;
 }
 
+/// Corner radii. Two shape families:
+/// * Pills ([StadiumBorder]) for every small tappable control: segmented
+///   buttons, filter chips, tags, badges.
+/// * Containers use these radii with continuous (superellipse) corners via
+///   [labContainerShape]. A container nested inside another uses the
+///   outer radius minus the inset between them, rounded to this scale.
 abstract final class LabRadius {
+  /// Painted knockouts and treemap cells (inside an 8 px group).
   static const tile = 4.0;
-  static const chip = 8.0;
+
+  /// Treemap groups and story tiles.
+  static const group = 8.0;
+
+  /// Cards and text fields.
   static const card = 12.0;
+
+  /// Menus, popovers and the filters drawer.
+  static const sheet = 16.0;
+
+  /// Painted pills (badges): any radius past half the height is a stadium.
   static const pill = 20.0;
 }
+
+/// Continuous-corner container shape (the iOS "squircle"), so curves blend
+/// into the straight edges instead of meeting them at a visible join.
+OutlinedBorder labContainerShape(
+  double radius, {
+  BorderSide side = BorderSide.none,
+}) => RoundedSuperellipseBorder(
+  borderRadius: BorderRadius.circular(radius),
+  side: side,
+);
 
 abstract final class LabStroke {
   static const hairline = 1.0;
@@ -120,8 +146,10 @@ ThemeData labTheme({required bool useGoogleFonts}) {
     labelMedium: sans(),
     labelSmall: sans(),
   );
+  // InputBorder has no superellipse variant; at 12 px the circular corner is
+  // visually indistinguishable next to the cards.
   final fieldBorder = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(LabRadius.chip),
+    borderRadius: BorderRadius.circular(LabRadius.card),
     borderSide: const BorderSide(color: labSageLine),
   );
 
@@ -175,9 +203,7 @@ ThemeData labTheme({required bool useGoogleFonts}) {
       labelStyle: textTheme.labelLarge,
       secondaryLabelStyle: textTheme.labelLarge,
       side: const BorderSide(color: labSageLine),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(LabRadius.chip),
-      ),
+      shape: const StadiumBorder(),
     ),
     // album_theme.dart:131-139; Rule 5 focus = 2 px terracotta.
     inputDecorationTheme: InputDecorationTheme(
@@ -201,8 +227,24 @@ ThemeData labTheme({required bool useGoogleFonts}) {
     ),
     // Menus use the dialog surface, as the product's family menu does
     // (docs/ux/121-family-menu.md:14).
-    menuTheme: const MenuThemeData(
-      style: MenuStyle(backgroundColor: WidgetStatePropertyAll(labSurface)),
+    menuTheme: MenuThemeData(
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(labSurface),
+        shape: WidgetStatePropertyAll(labContainerShape(LabRadius.sheet)),
+      ),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: labSurface,
+      shape: labContainerShape(LabRadius.sheet),
+    ),
+    // The filters drawer opens from the end edge; only its leading corners
+    // are rounded.
+    drawerTheme: DrawerThemeData(
+      endShape: RoundedSuperellipseBorder(
+        borderRadius: BorderRadius.horizontal(
+          left: Radius.circular(LabRadius.sheet),
+        ),
+      ),
     ),
     // The default inactive track vanishes on parchment; the playback
     // scrubber needs its full length visible.

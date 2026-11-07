@@ -146,6 +146,17 @@ Colours, spacing, radii, strokes, marker sizes and text roles live in
   `kFocusAlignment` (`lib/playback/reveal.dart`).
 - `ViewSwitch` and `EmptyTimeline` (`lib/widgets/`).
 
+Corners come in two families:
+
+- **Pills** (stadium ends) for every small tappable control: segmented
+  switches, filter chips, card tags, `+N` badges.
+- **Containers** use continuous (superellipse) corners via
+  `labContainerShape`, on one scale: 4 treemap cells, 8 treemap groups and
+  story tiles, 12 cards and the search field, 16 menus and the filters drawer.
+  A container inside another uses the outer radius minus the gap between
+  them. The search field is the one circular corner, because Flutter's
+  `InputBorder` has no superellipse variant.
+
 ## Layout
 
 ```
