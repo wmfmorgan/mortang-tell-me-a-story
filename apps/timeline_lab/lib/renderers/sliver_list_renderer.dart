@@ -165,14 +165,11 @@ class _Row extends StatelessWidget {
                 alignment: Alignment.center,
                 children: [
                   Container(width: 2, color: labRule),
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: labTerracotta.withValues(
-                        alpha: entryOpacity(entry),
-                      ),
+                  StoryDot(
+                    spec: MarkerSpec(
+                      matched: entry.matched,
+                      origin: isOrigin(s, data.dataset),
+                      selected: s.id == data.selectedId,
                     ),
                   ),
                 ],

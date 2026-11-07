@@ -19,6 +19,15 @@ void main() {
     }
   });
 
+  group('marker graphics ≥ 3:1 on parchment', () {
+    test('terracotta dot and hollow ring', () {
+      expect(contrast(labTerracotta, labParchment), greaterThanOrEqualTo(3));
+    });
+    test('moss origin ring', () {
+      expect(contrast(labMoss, labParchment), greaterThanOrEqualTo(3));
+    });
+  });
+
   test('selected segment is terracotta with a parchment label', () {
     final style = labTheme(useGoogleFonts: false).segmentedButtonTheme.style!;
     expect(
