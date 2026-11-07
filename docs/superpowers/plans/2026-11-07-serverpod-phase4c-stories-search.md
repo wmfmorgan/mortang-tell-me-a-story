@@ -10,6 +10,15 @@
 
 **Scope contract:** the Phase 4 index, row "4c Stories, search, timeline live". Server behaviour is `apps/server/lib/src/endpoints/story_endpoint.dart`, `stories/story_search.dart`, `endpoints/live_endpoint.dart`.
 
+**Landed** on `feat/p4c-stories-search`, one commit per task:
+- `c314b44` Task 1, `213c316` Task 2, `0dba6a0` Task 3, `3a82bba` Task 4, `b55c31a` Task 5.
+- Gate: format 0 changed; `flutter analyze` 23 issues (the baseline); `flutter test` 727/727 (723 before); `just test-live` 6/6 (2 before) against the shared `just server`.
+- Unit tests per file, before → after: `stories_api_test` 16 → 18, `search_api_test` 7 → 6, `search_page_test` 10 → 11, `gateway_errors_test` 13 → 8, `new_story_capture_test` 46 → 43, `timeline_page_test` 68 → 67, `timeline_live_test` new with 11. `story_date_test`, `all_stories_logic_test` and `drafts_page_test` keep their counts, with cases rewritten.
+- Differences from the steps below:
+  - `story_date_test` also loses its `decadeStartYear` case; that function left `stories_api.dart` in Task 3.
+  - "published decade edit can save without replacing the date" became "a whole-year story opens with its year in the box", so the edit load path keeps a test.
+  - Task 5's test and implementation landed in one step. The tests were written first, and they pass.
+
 All commands run from `apps/tell_me_a_story` unless a step says otherwise. `flutter`/`dart`/`just` run through `mise exec --`.
 
 ---
@@ -198,7 +207,7 @@ factory Story.fromDto(server.StoryDto dto) => Story(
 - [ ] **Step 1: Tests.**
   - `story_date_test`: the decade round-trip and label cases are deleted. `compareStories` orders `year` < `month` < `day` (the decade row goes).
   - U-04 compares a `year` row against a later `day` row.
-  - `new_story_capture_test`: delete "legacy decade opens empty and cannot save" and "published decade edit can save without replacing the date". "edit saves a changed year with month and day" starts from a `year` row.
+  - `new_story_capture_test`: delete "legacy decade opens empty and cannot save". "published decade edit can save without replacing the date" becomes "a whole-year story opens with its year in the box" (year box `1980`, Save changes enabled). "edit saves a changed year with month and day" starts from a `year` row.
 - [ ] **Step 2:** remove the enum value and the analyzer lists every switch and caller.
 - [ ] **Step 3: Implement.**
   - `enum StoryDatePrecision { year, month, day }`.
