@@ -729,5 +729,176 @@ void main() {
         },
       );
     });
+    group('sendEmail', () {
+      test(
+        'when a member sends a pending emailed invite then the invite email '
+        'goes out with the accept link',
+        () async {
+          final member = await fx.user();
+          final family = await familyOf(member, name: 'Mortang');
+          final created = await endpoints.invite.create(
+            asUser(sessionBuilder, member),
+            family.id!,
+            email: 'Kim@Example.com',
+          );
+
+          await endpoints.invite.sendEmail(
+            asUser(sessionBuilder, member),
+            created.inviteId,
+            created.token,
+          );
+
+          final sent = mail.sent.single;
+          expect(sent.to, 'kim@example.com');
+          expect(sent.subject, 'Invite to Mortang');
+          expect(
+            sent.text,
+            "You're invited to join Mortang on Tell Me a Story.\n\n"
+            'Accept the invite: ${created.inviteUrl}\n\n'
+            'This link expires in 7 days and can only be used once.',
+          );
+          expect(sent.html, contains('<strong>Mortang</strong>'));
+        },
+      );
+
+      test(
+        'when the invite is unknown then NOT_FOUND "Invite not found"; a '
+        'non-member gets FORBIDDEN "Not a family member"',
+        () async {
+          final family = await fx.family(await fx.tree());
+          final (:invite, :token) = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+          );
+          final stranger = asUser(sessionBuilder, await fx.user());
+
+          await expectLater(
+            endpoints.invite.sendEmail(
+              stranger,
+              UuidValue.fromString('00000000-0000-4000-8000-000000000000'),
+              token,
+            ),
+            throwsAppError(AppErrorCode.notFound, 'Invite not found'),
+          );
+          await expectLater(
+            endpoints.invite.sendEmail(stranger, invite.id!, token),
+            throwsAppError(AppErrorCode.forbidden, 'Not a family member'),
+          );
+          expect(mail.sent, isEmpty);
+        },
+      );
+
+      test(
+        'when the token is not the invite token then INVITE_INVALID and no '
+        'mail',
+        () async {
+          final member = await fx.user();
+          final family = await familyOf(member);
+          final (invite: invite, token: _) = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+          );
+
+          await expectLater(
+            endpoints.invite.sendEmail(
+              asUser(sessionBuilder, member),
+              invite.id!,
+              newInviteToken(),
+            ),
+            throwsAppError(AppErrorCode.inviteInvalid, 'Invite is not valid'),
+          );
+          expect(mail.sent, isEmpty);
+        },
+      );
+
+      // BR 131
+      test(
+        'when the invite is not pending, expired or has no email then '
+        'INVITE_INVALID / INVITE_EXPIRED / VALIDATION',
+        () async {
+          final member = await fx.user();
+          final family = await familyOf(member);
+          final session = asUser(sessionBuilder, member);
+          final accepted = await fx.tokenInvite(
+            family,
+            acceptedById: await fx.user(),
+          );
+          final revoked = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+            revoked: true,
+          );
+          final expired = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+            expired: true,
+          );
+          final linkOnly = await fx.tokenInvite(family);
+
+          for (final notPending in [accepted, revoked]) {
+            await expectLater(
+              endpoints.invite.sendEmail(
+                session,
+                notPending.invite.id!,
+                notPending.token,
+              ),
+              throwsAppError(
+                AppErrorCode.inviteInvalid,
+                'Invite is not pending',
+              ),
+            );
+          }
+          await expectLater(
+            endpoints.invite.sendEmail(
+              session,
+              expired.invite.id!,
+              expired.token,
+            ),
+            throwsAppError(AppErrorCode.inviteExpired, 'Invite link expired'),
+          );
+          await expectLater(
+            endpoints.invite.sendEmail(
+              session,
+              linkOnly.invite.id!,
+              linkOnly.token,
+            ),
+            throwsAppError(
+              AppErrorCode.validation,
+              'Invite has no email address to send to',
+            ),
+          );
+          expect(mail.sent, isEmpty);
+        },
+      );
+
+      test(
+        'when email is not configured then VALIDATION "Email is not '
+        'configured"; when the provider fails then VALIDATION "Could not '
+        'send invite email"',
+        () async {
+          final member = await fx.user();
+          final family = await familyOf(member);
+          final (:invite, :token) = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+          );
+          final session = asUser(sessionBuilder, member);
+
+          mailTransportOverride = RecordingMailTransport(configured: false);
+          await expectLater(
+            endpoints.invite.sendEmail(session, invite.id!, token),
+            throwsAppError(AppErrorCode.validation, 'Email is not configured'),
+          );
+          mailTransportOverride = RecordingMailTransport(fails: true);
+          await expectLater(
+            endpoints.invite.sendEmail(session, invite.id!, token),
+            throwsAppError(
+              AppErrorCode.validation,
+              'Could not send invite email',
+            ),
+          );
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

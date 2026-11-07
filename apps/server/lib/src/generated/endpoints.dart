@@ -378,6 +378,31 @@ class Endpoints extends _is.EndpointDispatch {
                     personId: params['personId'],
                   ),
         ),
+        'sendEmail': _is.MethodConnector(
+          name: 'sendEmail',
+          params: {
+            'inviteId': _is.ParameterDescription(
+              name: 'inviteId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'token': _is.ParameterDescription(
+              name: 'token',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['invite'] as _ip80nve4.InviteEndpoint).sendEmail(
+                    session,
+                    params['inviteId'],
+                    params['token'],
+                  ),
+        ),
         'accept': _is.MethodConnector(
           name: 'accept',
           params: {

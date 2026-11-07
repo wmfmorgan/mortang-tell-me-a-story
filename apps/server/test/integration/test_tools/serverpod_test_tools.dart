@@ -688,6 +688,41 @@ class _InviteEndpoint {
     });
   }
 
+  _ida.Future<void> sendEmail(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue inviteId,
+    String token,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'invite',
+            method: 'sendEmail',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'invite',
+          methodName: 'sendEmail',
+          parameters: _ist.testObjectToJson({
+            'inviteId': inviteId,
+            'token': token,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
   _ida.Future<_is.UuidValue> accept(
     _ist.TestSessionBuilder sessionBuilder,
     String token,

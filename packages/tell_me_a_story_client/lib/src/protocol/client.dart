@@ -374,8 +374,25 @@ class EndpointInvite extends _isc.EndpointRef {
     },
   );
 
+  /// Any live member emails a pending invite. [token] is the raw token from
+  /// [create]: only its hash is stored, so the link can't be rebuilt without
+  /// it.
+  _ida.Future<void> sendEmail(
+    _isc.UuidValue inviteId,
+    String token,
+  ) => caller.callServerEndpoint<void>(
+    'invite',
+    'sendEmail',
+    {
+      'inviteId': inviteId,
+      'token': token,
+    },
+  );
+
   /// Joins the invite's family and returns its id. Single transaction:
-  /// membership, person link, invite marked accepted.
+  /// membership, person link, invite marked accepted. A double-tapped accept
+  /// that loses the linked-person race reruns once and finds the committed
+  /// person.
   _ida.Future<_isc.UuidValue> accept(String token) =>
       caller.callServerEndpoint<_isc.UuidValue>(
         'invite',

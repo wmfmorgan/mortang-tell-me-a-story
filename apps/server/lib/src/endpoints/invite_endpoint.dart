@@ -79,6 +79,38 @@ class InviteEndpoint extends Endpoint {
     if (person.passedAway) throw validation('person has passed');
   }
 
+  /// Any live member emails a pending invite. [token] is the raw token from
+  /// [create]: only its hash is stored, so the link can't be rebuilt without
+  /// it.
+  Future<void> sendEmail(
+    Session session,
+    UuidValue inviteId,
+    String token,
+  ) async {
+    final invite = await Invite.db.findById(session, inviteId);
+    if (invite == null) throw notFound('Invite not found');
+    await Authz(
+      session,
+    ).requireLiveMember(invite.familyId, message: 'Not a family member');
+    final trimmed = token.trim();
+    if (!inviteTokenMatches(trimmed, invite.tokenHash)) throw inviteInvalid();
+    if (invite.acceptedAt != null || invite.revokedAt != null) {
+      throw inviteInvalid('Invite is not pending');
+    }
+    if (isInviteExpired(invite, DateTime.now().toUtc())) throw inviteExpired();
+    final to = invite.email;
+    if (to == null) throw validation('Invite has no email address to send to');
+    final family = (await Family.db.findById(session, invite.familyId))!;
+    await deliverInviteMail(
+      session,
+      inviteMail(
+        to: to,
+        familyName: family.name,
+        inviteUrl: buildInviteUrl(inviteAppOrigin(session), trimmed),
+      ),
+    );
+  }
+
   /// Joins the invite's family and returns its id. Single transaction:
   /// membership, person link, invite marked accepted. A double-tapped accept
   /// that loses the linked-person race reruns once and finds the committed
