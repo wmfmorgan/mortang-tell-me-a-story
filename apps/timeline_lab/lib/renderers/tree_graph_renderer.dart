@@ -261,8 +261,6 @@ class TreePainter extends CustomPainter {
       if (r == 0) continue;
       final p = pos[n]!;
       final dim = n.matched ? 1.0 : labDimOpacity;
-      final isLeafLike =
-          n.kind == TreeNodeKind.story || n.kind == TreeNodeKind.overflow;
 
       if (n.kind == TreeNodeKind.overflow) {
         final shown = n.hiddenStoryIds.where((id) => _reveal(id) > 0).length;
@@ -286,25 +284,32 @@ class TreePainter extends CustomPainter {
         continue;
       }
 
-      fill.color = _nodeColor(n).withValues(alpha: r * dim);
-      canvas.drawCircle(p, isLeafLike ? 4 : 6, fill);
-      if (n.storyId != null) {
-        final s = _stories[n.storyId]!;
-        if (isOrigin(s, dataset)) {
-          ring.color = labMoss.withValues(alpha: r);
-          canvas.drawCircle(p, 7, ring);
-        }
-        if (n.storyId == selectedId) {
-          ring.color = labTerracotta.withValues(alpha: r);
-          canvas.drawCircle(p, 8, ring);
-        }
+      if (n.kind == TreeNodeKind.story) {
+        paintStoryMarker(
+          canvas,
+          p,
+          MarkerSpec(
+            matched: n.matched,
+            origin: isOrigin(_stories[n.storyId]!, dataset),
+            selected: n.storyId == selectedId,
+            diameter: LabMarker.small,
+          ),
+          reveal: r,
+        );
+      } else {
+        fill.color = _nodeColor(n).withValues(alpha: r * dim);
+        canvas.drawCircle(p, 6, fill);
       }
 
       final label = _label(n);
       // Leaves label to the right. Groups label above-right, inside their
       // own row band, so tightly packed sibling years never collide.
       final at = n.kind == TreeNodeKind.story
-          ? p + Offset(10, -label.size.height / 2)
+          ? p +
+                Offset(
+                  MarkerSpec.extent(LabMarker.small) / 2 + 2,
+                  -label.size.height / 2,
+                )
           : p + Offset(8, -label.size.height - 1);
       if (r < 1) {
         canvas.saveLayer(

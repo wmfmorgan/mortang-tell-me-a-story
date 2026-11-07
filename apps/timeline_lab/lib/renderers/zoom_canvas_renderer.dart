@@ -363,15 +363,11 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
             opacity: _reveal(e.story.id),
             GestureDetector(
               onTap: () => data.onSelect(e.story.id),
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: labTerracotta.withValues(alpha: entryOpacity(e)),
-                  border: e.story.id == data.selectedId
-                      ? Border.all(color: labInk, width: 2)
-                      : null,
+              child: StoryDot(
+                spec: MarkerSpec(
+                  matched: e.matched,
+                  origin: isOrigin(e.story, data.dataset),
+                  selected: e.story.id == data.selectedId,
                 ),
               ),
             ),

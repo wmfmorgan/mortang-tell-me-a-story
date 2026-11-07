@@ -325,7 +325,13 @@ class LaneCell extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Dot(alpha: entryOpacity(e)),
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: StoryDot(
+                spec: MarkerSpec(matched: e.matched, diameter: LabMarker.small),
+                reserveRings: false,
+              ),
+            ),
             const SizedBox(width: 4),
             Expanded(
               child: Text(
@@ -346,7 +352,19 @@ class LaneCell extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           for (final e in shown.take(maxDots))
-            _Dot(alpha: entryOpacity(e) * reveal(e)),
+            Opacity(
+              opacity: reveal(e),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: StoryDot(
+                  spec: MarkerSpec(
+                    matched: e.matched,
+                    diameter: LabMarker.small,
+                  ),
+                  reserveRings: false,
+                ),
+              ),
+            ),
           if (shown.length > maxDots)
             Text(
               '+${shown.length - maxDots}',
@@ -381,23 +399,6 @@ class LaneCell extends StatelessWidget {
       ),
     );
   }
-}
-
-class _Dot extends StatelessWidget {
-  const _Dot({required this.alpha});
-
-  final double alpha;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 8,
-    height: 8,
-    margin: const EdgeInsets.only(top: 3),
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      color: labTerracotta.withValues(alpha: alpha),
-    ),
-  );
 }
 
 class LaneGridView extends TwoDimensionalScrollView {
