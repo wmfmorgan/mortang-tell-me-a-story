@@ -4,12 +4,14 @@ import '../accounts/accounts.dart';
 import '../authz/authz.dart';
 import '../errors.dart';
 import '../generated/protocol.dart';
+import '../families/purge.dart';
 import '../media/blob_keys.dart';
 import '../media/blob_outbox.dart';
 
 /// A soft-deleted family can be recovered for this long (business-rules.md
-/// §3.5); the 3f purge removes it afterwards.
-const recoveryWindow = Duration(days: 60);
+/// §3.5). Same value as the purge cutoff, so recovery closes exactly when the
+/// purge may run.
+const recoveryWindow = purgeAfter;
 
 /// Branch creation refuses a parent this many levels deep (business-rules.md
 /// §3.2 step 7).
