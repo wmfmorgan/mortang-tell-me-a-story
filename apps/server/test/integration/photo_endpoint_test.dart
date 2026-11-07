@@ -456,12 +456,13 @@ void main() {
       'and blobs on the published origin story; child-timeline owner '
       'deletes no parent photos',
       () async {
+        final parentAuthor = await fx.user();
         final parentOwner = await fx.user();
         final childOwner = await fx.user();
-        final (parent, origin) = await familyStory(
-          parentOwner,
-          authorRole: MembershipRole.owner,
-        );
+        // A plain member authors the origin, so the owner's rights come from
+        // the steward branch of canEditStory, not from authorship.
+        final (parent, origin) = await familyStory(parentAuthor);
+        await fx.join(parent, parentOwner, MembershipRole.owner);
         final child = await fx.branch(parent, origin);
         await fx.join(child, childOwner, MembershipRole.owner);
         final contributed = await fx.photo(
@@ -607,14 +608,17 @@ void main() {
       'the hero, then allowed; a plain member who did not upload it, or a '
       'photo of another story, then FORBIDDEN',
       () async {
+        final author = await fx.user();
         final owner = await fx.user();
         final uploader = await fx.user();
         final bystander = await fx.user();
+        // A plain member authors the story, so the owner's rights come from
+        // the steward branch of canEditStory, not from authorship.
         final (family, story) = await familyStory(
-          owner,
-          authorRole: MembershipRole.owner,
+          author,
           members: [uploader, bystander],
         );
+        await fx.join(family, owner, MembershipRole.owner);
         final first = await fx.photo(story, uploaderId: owner);
         final theirs = await fx.photo(
           story,
@@ -622,7 +626,7 @@ void main() {
           sortOrder: 1,
         );
         final elsewhere = await fx.photo(
-          await fx.story(family, authorId: owner),
+          await fx.story(family, authorId: author),
           uploaderId: owner,
         );
 
