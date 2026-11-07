@@ -13,3 +13,9 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+profile:
+  - me:
+  - saveName:
+  - saveAccount:
+  - saveAvatar:
+  - clearAvatar:

@@ -11,12 +11,21 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
+import 'dart:typed_data' as _idt;
+
 import 'package:http/http.dart' as _i85jenna;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
     as _iacc;
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:tell_me_a_story_client/src/protocol/birth_visibility.dart'
+    as _iie7eme0;
+import 'package:tell_me_a_story_client/src/protocol/date_precision.dart'
+    as _i3omm4g5;
+import 'package:tell_me_a_story_client/src/protocol/dto/own_profile_dto.dart'
+    as _il07dlrf;
+
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -345,6 +354,67 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// The caller's own account (business-rules.md §2.10). Email is the login
+/// identity and read-only (D1); account deletion is not offered (D7).
+/// {@category Endpoint}
+class EndpointProfile extends _isc.EndpointRef {
+  EndpointProfile(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'profile';
+
+  _ida.Future<_il07dlrf.OwnProfileDto> me() =>
+      caller.callServerEndpoint<_il07dlrf.OwnProfileDto>(
+        'profile',
+        'me',
+        {},
+      );
+
+  /// Sets the display name (blank clears it) and renames every person linked
+  /// to the caller, in every tree. A blank name leaves linked names alone.
+  _ida.Future<void> saveName(String displayName) =>
+      caller.callServerEndpoint<void>(
+        'profile',
+        'saveName',
+        {'displayName': displayName},
+      );
+
+  /// One Save of the account form: display name, birth and about are written
+  /// as given (null clears); a null [birthVisibility] keeps the current one.
+  _ida.Future<void> saveAccount({
+    required String displayName,
+    DateTime? birthDate,
+    _i3omm4g5.DatePrecision? birthPrecision,
+    _iie7eme0.BirthVisibility? birthVisibility,
+    String? about,
+  }) => caller.callServerEndpoint<void>(
+    'profile',
+    'saveAccount',
+    {
+      'displayName': displayName,
+      'birthDate': birthDate,
+      'birthPrecision': birthPrecision,
+      'birthVisibility': birthVisibility,
+      'about': about,
+    },
+  );
+
+  /// Stores a JPEG (≤ 2 MiB) under a fresh key and points the account at it;
+  /// the previous key is queued for deletion in the same transaction.
+  _ida.Future<String> saveAvatar(_idt.ByteData jpeg) =>
+      caller.callServerEndpoint<String>(
+        'profile',
+        'saveAvatar',
+        {'jpeg': jpeg},
+      );
+
+  _ida.Future<void> clearAvatar() => caller.callServerEndpoint<void>(
+    'profile',
+    'clearAvatar',
+    {},
+  );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -385,6 +455,7 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    profile = EndpointProfile(this);
     modules = Modules(this);
   }
 
@@ -392,12 +463,15 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointJwtRefresh jwtRefresh;
 
+  late final EndpointProfile profile;
+
   late final Modules modules;
 
   @override
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'profile': profile,
   };
 
   @override

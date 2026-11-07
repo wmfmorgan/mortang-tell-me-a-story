@@ -12,6 +12,7 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:tell_me_a_story_client/src/protocol/protocol.dart' as _ipmlb5v5;
+
 import '../dto/search_sort.dart' as _ihboepwu;
 
 /// StoryEndpoint.search input (endpoint-contract.md, search semantics). Pass text '' for no text.

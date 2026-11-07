@@ -10,13 +10,19 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:typed_data' as _idt;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
+import 'package:tell_me_a_story_server/src/generated/birth_visibility.dart'
+    as _i0rpsun5;
+import 'package:tell_me_a_story_server/src/generated/date_precision.dart'
+    as _ig52w51f;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../endpoints/profile_endpoint.dart' as _i2cx2pww;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
@@ -32,6 +38,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'profile': _i2cx2pww.ProfileEndpoint()
+        ..initialize(
+          server,
+          'profile',
           null,
         ),
     };
@@ -326,6 +338,114 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['profile'] = _is.EndpointConnector(
+      name: 'profile',
+      endpoint: endpoints['profile']!,
+      methodConnectors: {
+        'me': _is.MethodConnector(
+          name: 'me',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profile'] as _i2cx2pww.ProfileEndpoint).me(
+                session,
+              ),
+        ),
+        'saveName': _is.MethodConnector(
+          name: 'saveName',
+          params: {
+            'displayName': _is.ParameterDescription(
+              name: 'displayName',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['profile'] as _i2cx2pww.ProfileEndpoint).saveName(
+                    session,
+                    params['displayName'],
+                  ),
+        ),
+        'saveAccount': _is.MethodConnector(
+          name: 'saveAccount',
+          params: {
+            'displayName': _is.ParameterDescription(
+              name: 'displayName',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'birthDate': _is.ParameterDescription(
+              name: 'birthDate',
+              type: _is.getType<DateTime?>(),
+              nullable: true,
+            ),
+            'birthPrecision': _is.ParameterDescription(
+              name: 'birthPrecision',
+              type: _is.getType<_ig52w51f.DatePrecision?>(),
+              nullable: true,
+            ),
+            'birthVisibility': _is.ParameterDescription(
+              name: 'birthVisibility',
+              type: _is.getType<_i0rpsun5.BirthVisibility?>(),
+              nullable: true,
+            ),
+            'about': _is.ParameterDescription(
+              name: 'about',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profile'] as _i2cx2pww.ProfileEndpoint)
+                  .saveAccount(
+                    session,
+                    displayName: params['displayName'],
+                    birthDate: params['birthDate'],
+                    birthPrecision: params['birthPrecision'],
+                    birthVisibility: params['birthVisibility'],
+                    about: params['about'],
+                  ),
+        ),
+        'saveAvatar': _is.MethodConnector(
+          name: 'saveAvatar',
+          params: {
+            'jpeg': _is.ParameterDescription(
+              name: 'jpeg',
+              type: _is.getType<_idt.ByteData>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profile'] as _i2cx2pww.ProfileEndpoint)
+                  .saveAvatar(
+                    session,
+                    params['jpeg'],
+                  ),
+        ),
+        'clearAvatar': _is.MethodConnector(
+          name: 'clearAvatar',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profile'] as _i2cx2pww.ProfileEndpoint)
+                  .clearAvatar(session),
         ),
       },
     );

@@ -11,6 +11,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+
 import 'app_error_code.dart' as _imu8gbx5;
 
 /// Single error envelope for every endpoint. [code] is the typed
