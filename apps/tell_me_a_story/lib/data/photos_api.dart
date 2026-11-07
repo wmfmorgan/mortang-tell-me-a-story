@@ -8,10 +8,6 @@ import 'server/server_errors.dart';
 
 const maxPhotosPerStory = 20;
 
-/// Supabase bucket name still read by `StoriesApi` thumbnails until its own
-/// cutover (4c) replaces them with `media.getMany`.
-const storyPhotosBucket = 'story-photos';
-
 /// A story photo. [storagePath] / [editedStoragePath] are the server's blob
 /// keys, read back through `media.get`.
 class Photo {
