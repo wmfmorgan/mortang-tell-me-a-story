@@ -1,5 +1,6 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timeline_lab/filter/timeline_filter.dart';
 import 'package:timeline_lab/renderers/renderer_contract.dart';
 
 import 'support/ipad.dart';
@@ -63,4 +64,60 @@ void main() {
     expect(panel.height, lessThanOrEqualTo(size.height * 0.3 + 1));
     expect(tester.getSize(rendererRoot).height, greaterThan(300));
   }, variant: ios);
+
+  testWidgets('below the sidebar breakpoint filters open in an end drawer', (
+    tester,
+  ) async {
+    final c = await pumpIpad(tester, ipadSizes['mini_portrait']!);
+    final before = tester.getSize(rendererRoot);
+    expect(find.byType(ExpansionTile), findsNothing);
+    expect(find.byKey(const Key('filter-search')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('filters-open')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('filters-drawer')), findsOneWidget);
+    expect(tester.getSize(rendererRoot), before); // overlay, no reflow
+
+    await tester.tap(find.byKey(const Key('filter-person-p-1')));
+    await tester.pumpAndSettle();
+    expect(c.filter.personIds, {'p-1'});
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('filters-drawer')),
+        matching: find.text(statusLine(c.matchCount, 120, c.filter)),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('filters-close')));
+    await tester.pumpAndSettle();
+    expect(find.text('Filters · 1'), findsOneWidget);
+  }, variant: ios);
+
+  for (final name in [
+    'mini_portrait',
+    'split_half_wide',
+    'split_third',
+    'slide_over',
+  ]) {
+    testWidgets('drawer search works with the keyboard up ($name)', (
+      tester,
+    ) async {
+      final size = ipadSizes[name]!;
+      await pumpIpad(tester, size);
+      final errors = await collectFlutterErrors(() async {
+        await tester.tap(find.byKey(const Key('filters-open')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('filter-search')));
+        showKeyboard(tester, size);
+        await tester.pumpAndSettle();
+      });
+      expect(errors, isEmpty);
+      final field = tester.getRect(find.byKey(const Key('filter-search')));
+      expect(
+        field.bottom,
+        lessThanOrEqualTo(size.height - ipadKeyboardPortrait),
+      );
+    }, variant: ios);
+  }
 }
