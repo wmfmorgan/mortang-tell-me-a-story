@@ -1,5 +1,7 @@
 # Phase 3d: Photos and Media Implementation Plan
 
+> Executed 2026-11-07 on `feat/p3d-photos-media` (`a42f350`..`71c1f4f`), with server tests at 131/131 (100 foundation + 31 here). Code blocks below match what landed; deviations found while executing: `queued` uses a null-aware set element (lint), `_liveFamiliesOf` types its id set as `<UuidValue>{…}` (a bare literal infers `Set<UuidValue?>` and fails at runtime in `inSet`), and `dart format` re-wrapped `finishUpload`. The first `server-generate` also re-wrapped imports in already-committed client DTO files (generator output, no content change). The client package needs `dart pub get` once in a fresh worktree before `dart analyze`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add `PhotoEndpoint` (`list`, `startUpload`, `finishUpload`, `delete`, `setHero`) and `MediaEndpoint` (`get`, `getMany`) on top of the landed Phase 3.0 foundation.
