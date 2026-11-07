@@ -470,11 +470,12 @@ class _SearchPageState extends State<SearchPage> {
                 label: 'Add Person',
                 onTap: _pickPerson,
               ),
-              _AddPill(
-                key: const Key('search-add-decade'),
-                label: 'Decade',
-                onTap: _pickDecade,
-              ),
+              if (_facets.decades.any((year) => !_decades.contains(year)))
+                _AddPill(
+                  key: const Key('search-add-decade'),
+                  label: 'Decade',
+                  onTap: _pickDecade,
+                ),
             ],
           ),
         ),

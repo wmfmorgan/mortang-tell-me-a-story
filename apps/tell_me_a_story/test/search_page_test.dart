@@ -44,7 +44,10 @@ class _Invite implements InviteGateway {
   Future<String?> currentFamilyId() async => _family;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
 
 class _People extends PeopleGateway {
@@ -249,6 +252,35 @@ void main() {
     expect(pick('1990s'), findsOneWidget);
     expect(pick('1900s'), findsNothing);
     expect(pick('2020s'), findsNothing);
+  });
+
+  testWidgets('the Decade pill hides once no decade is left to pick', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(search: _Search([_hit()], decades: const [1980])),
+    );
+    await tester.pumpAndSettle();
+
+    final addDecade = find.byKey(const Key('search-add-decade'));
+    await tester.tap(addDecade);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '1980s'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('search-filter-decade')), findsOneWidget);
+    expect(addDecade, findsNothing);
+
+    await tester.tap(find.byKey(const Key('search-clear')));
+    await tester.pumpAndSettle();
+    expect(addDecade, findsOneWidget);
+  });
+
+  testWidgets('no Decade pill when the family has no decades', (tester) async {
+    await tester.pumpWidget(_app(search: _Search([_hit()], decades: const [])));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('search-add-person')), findsOneWidget);
+    expect(find.byKey(const Key('search-add-decade')), findsNothing);
   });
 
   testWidgets('a suggested name filters like a suggested place', (
