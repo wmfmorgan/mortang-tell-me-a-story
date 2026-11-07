@@ -1108,5 +1108,232 @@ void main() {
         },
       );
     });
+
+    group('search', () {
+      StorySearchDto query(
+        UuidValue familyId, {
+        String text = '',
+        List<UuidValue> personIds = const [],
+        UuidValue? placeId,
+        DateTime? rangeStart,
+        DateTime? rangeEnd,
+        List<int> decades = const [],
+        SearchSort sort = SearchSort.relevant,
+      }) => StorySearchDto(
+        familyId: familyId,
+        text: text,
+        personIds: personIds,
+        placeId: placeId,
+        rangeStart: rangeStart,
+        rangeEnd: rangeEnd,
+        decades: decades,
+        sort: sort,
+      );
+
+      Future<Story> dated(
+        int year, {
+        String? title,
+        String? body,
+        UuidValue? placeId,
+        DateTime? publishedAt,
+        StoryStatus status = StoryStatus.published,
+      }) => Story.db.insertRow(
+        fx.s,
+        Story(
+          familyId: c.family.id!,
+          treeId: c.tree.id!,
+          authorId: c.author,
+          title: title,
+          body: body,
+          status: status,
+          dateStart: DateTime.utc(year),
+          dateEnd: DateTime.utc(year, 12, 31),
+          datePrecision: DatePrecision.year,
+          placeId: placeId,
+          publishedAt: status == StoryStatus.published
+              ? publishedAt ?? DateTime.now().toUtc()
+              : null,
+        ),
+      );
+
+      Future<List<UuidValue?>> ids(StorySearchDto q, [UuidValue? user]) async =>
+          (await endpoints.story.search(
+            by(user ?? c.member),
+            q,
+          )).map((s) => s.id).toList();
+
+      test(
+        'when text matches then title ranks over person and place, which '
+        'rank over body and year',
+        () async {
+          final harbor = await Place.db.insertRow(
+            fx.s,
+            Place(
+              treeId: c.tree.id!,
+              label: 'Harbor House',
+              address: '1 Main St',
+              lat: 0,
+              lng: 0,
+            ),
+          );
+          final byTitle = await dated(1950, title: 'Harbor days');
+          final byPlace = await dated(1960, placeId: harbor.id);
+          final byPerson = await dated(1970);
+          await fx.tag(byPerson, await fx.person(c.family, name: 'Ann HARBOR'));
+          final byBody = await dated(1980, body: 'by the harbor');
+          await dated(1990, title: 'Nothing here');
+          expect(await ids(query(c.family.id!, text: ' harbor ')), [
+            byTitle.id,
+            byPerson.id,
+            byPlace.id,
+            byBody.id,
+          ]);
+        },
+      );
+
+      test(
+        'when text is a year or a decade label then it matches, for any decade',
+        () async {
+          final old = await dated(1855);
+          await dated(1950);
+          for (final text in ['1850s', '1855', '185']) {
+            expect(await ids(query(c.family.id!, text: text)), [old.id]);
+          }
+        },
+      );
+
+      test('when text holds % or _ then they match literally', () async {
+        final percent = await dated(1950, title: '100% true');
+        await dated(1950, title: '100 true');
+        expect(await ids(query(c.family.id!, text: '0%')), [percent.id]);
+        expect(await ids(query(c.family.id!, text: '_')), isEmpty);
+      });
+
+      test(
+        'when people, a place, decades or a range are given then they filter',
+        () async {
+          final a = await fx.person(c.family, name: 'A');
+          final b = await fx.person(c.family, name: 'B');
+          final place = await fx.place(c.tree);
+          final both = await dated(1950, placeId: place.id);
+          final onlyA = await dated(1962);
+          await fx.tag(both, a);
+          await fx.tag(both, b);
+          await fx.tag(onlyA, a);
+          expect(
+            await ids(query(c.family.id!, personIds: [a.id!, b.id!, a.id!])),
+            [both.id],
+          );
+          expect(
+            await ids(query(c.family.id!, personIds: [a.id!])),
+            [onlyA.id, both.id],
+          );
+          expect(await ids(query(c.family.id!, placeId: place.id)), [both.id]);
+          expect(
+            await ids(
+              query(
+                c.family.id!,
+                decades: [1960],
+                rangeStart: DateTime.utc(1950),
+                rangeEnd: DateTime.utc(1950, 12, 31),
+              ),
+            ),
+            [onlyA.id],
+          );
+          expect(
+            await ids(
+              query(
+                c.family.id!,
+                rangeStart: DateTime.utc(1950, 6),
+                rangeEnd: DateTime.utc(1951),
+              ),
+            ),
+            [both.id],
+          );
+          expect(
+            await ids(query(c.family.id!, rangeStart: DateTime.utc(1951))),
+            [onlyA.id, both.id],
+          );
+        },
+      );
+
+      test(
+        'when sorting chronologically then the newest timeframe comes first; '
+        'recentlyAdded orders by publishedAt',
+        () async {
+          final now = DateTime.now().toUtc();
+          final old = await dated(1900, publishedAt: now);
+          final mid = await dated(1950, publishedAt: now.subtract(const Duration(days: 2)));
+          final recent = await dated(2000, publishedAt: now.subtract(const Duration(days: 1)));
+          expect(
+            await ids(query(c.family.id!, sort: SearchSort.chronological)),
+            [recent.id, mid.id, old.id],
+          );
+          expect(
+            await ids(query(c.family.id!, sort: SearchSort.recentlyAdded)),
+            [old.id, recent.id, mid.id],
+          );
+        },
+      );
+
+      test(
+        'when searching then drafts and other families are excluded, tree '
+        'readers may search, and strangers are FORBIDDEN',
+        () async {
+          final story = await dated(1950, title: 'Mine');
+          await dated(1951, title: 'Mine draft', status: StoryStatus.draft);
+          final other = await Clan.of(fx);
+          await fx.story(other.family, authorId: other.author);
+          final branch = await c.branch();
+          expect(await ids(query(c.family.id!, text: 'mine')), [story.id]);
+          expect(
+            await ids(query(c.family.id!), branch.member),
+            [story.id],
+          );
+          await expectLater(
+            endpoints.story.search(by(c.stranger), query(c.family.id!)),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+        },
+      );
+
+      test(
+        'when listing facets then decades ascend and people and places are '
+        'counted over published stories only',
+        () async {
+          final branch = await c.branch();
+          final zed = await fx.person(branch.family, name: 'Zed');
+          final amy = await fx.person(c.family, name: 'Amy');
+          final place = await fx.place(c.tree);
+          final s1950 = await dated(1950, placeId: place.id);
+          final s1955 = await dated(1955);
+          await dated(1880);
+          final draft = await dated(1990, status: StoryStatus.draft);
+          await fx.tag(s1950, zed);
+          await fx.tag(s1955, zed);
+          await fx.tag(s1955, amy);
+          await fx.tag(draft, amy);
+          final facets = await endpoints.story.facets(
+            by(c.member),
+            c.family.id!,
+          );
+          expect(facets.decades.map((d) => (d.decade, d.storyCount)), [
+            (1880, 1),
+            (1950, 2),
+          ]);
+          expect(facets.people.map((p) => (p.personId, p.name, p.storyCount)), [
+            (amy.id, 'Amy', 1),
+            (zed.id, 'Zed', 2),
+          ]);
+          expect(facets.places.map((p) => (p.placeId, p.label, p.storyCount)), [
+            (place.id, 'Home', 1),
+          ]);
+          await expectLater(
+            endpoints.story.facets(by(c.stranger), c.family.id!),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

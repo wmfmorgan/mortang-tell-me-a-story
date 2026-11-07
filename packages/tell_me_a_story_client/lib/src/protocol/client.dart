@@ -20,6 +20,10 @@ import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:tell_me_a_story_client/src/protocol/dto/story_dto.dart'
     as _ilx6iivj;
+import 'package:tell_me_a_story_client/src/protocol/dto/story_facets_dto.dart'
+    as _i29ka0kp;
+import 'package:tell_me_a_story_client/src/protocol/dto/story_search_dto.dart'
+    as _iv05ipkh;
 import 'package:tell_me_a_story_client/src/protocol/dto/story_write_dto.dart'
     as _isb2dxzu;
 
@@ -504,6 +508,23 @@ class EndpointStory extends _isc.EndpointRef {
         'story',
         'discard',
         {'storyId': storyId},
+      );
+
+  /// Published stories of `q.familyId` matching [q] (endpoint-contract §2.2
+  /// search semantics). Live members and tree readers only.
+  _ida.Future<List<_ilx6iivj.StoryDto>> search(_iv05ipkh.StorySearchDto q) =>
+      caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+        'story',
+        'search',
+        {'q': q},
+      );
+
+  /// Decade, person and place facets over [familyId]'s published stories.
+  _ida.Future<_i29ka0kp.StoryFacetsDto> facets(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<_i29ka0kp.StoryFacetsDto>(
+        'story',
+        'facets',
+        {'familyId': familyId},
       );
 }
 

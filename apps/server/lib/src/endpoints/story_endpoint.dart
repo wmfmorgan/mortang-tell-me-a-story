@@ -7,6 +7,7 @@ import '../live/live_events.dart';
 import '../stories/story_dates.dart';
 import '../stories/story_dtos.dart';
 import '../media/blob_outbox.dart';
+import '../stories/story_search.dart';
 
 /// Stories, their people tags, and search (endpoint-contract §2.2;
 /// business-rules §2.5, §2.6, §4.4).
@@ -466,6 +467,26 @@ class StoryEndpoint extends Endpoint {
     if (deleted != null) {
       await _postIfPublished(session, deleted, deleted: true);
     }
+  }
+
+  /// Published stories of `q.familyId` matching [q] (endpoint-contract §2.2
+  /// search semantics). Live members and tree readers only.
+  Future<List<StoryDto>> search(Session session, StorySearchDto q) async {
+    await _requireFamilyReader(session, q.familyId);
+    final ids = await searchStoryIds(session, q);
+    if (ids.isEmpty) return [];
+    final rows = await Story.db.find(
+      session,
+      where: (t) => t.id.inSet(ids.toSet()),
+    );
+    final byId = {for (final story in rows) story.id!: story};
+    return storyDtos(session, [for (final id in ids) ?byId[id]]);
+  }
+
+  /// Decade, person and place facets over [familyId]'s published stories.
+  Future<StoryFacetsDto> facets(Session session, UuidValue familyId) async {
+    await _requireFamilyReader(session, familyId);
+    return storyFacets(session, familyId);
   }
 }
 

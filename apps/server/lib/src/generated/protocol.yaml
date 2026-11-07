@@ -26,3 +26,5 @@ story:
   - listLatestPublished:
   - listForPerson:
   - discard:
+  - search:
+  - facets:

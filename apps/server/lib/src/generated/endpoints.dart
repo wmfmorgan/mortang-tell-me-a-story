@@ -15,6 +15,8 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
+import 'package:tell_me_a_story_server/src/generated/dto/story_search_dto.dart'
+    as _ix1z7n33;
 import 'package:tell_me_a_story_server/src/generated/dto/story_write_dto.dart'
     as _iu03akf8;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
@@ -616,6 +618,42 @@ class Endpoints extends _is.EndpointDispatch {
                     session,
                     params['storyId'],
                   ),
+        ),
+        'search': _is.MethodConnector(
+          name: 'search',
+          params: {
+            'q': _is.ParameterDescription(
+              name: 'q',
+              type: _is.getType<_ix1z7n33.StorySearchDto>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['story'] as _iiu4mi32.StoryEndpoint).search(
+                session,
+                params['q'],
+              ),
+        ),
+        'facets': _is.MethodConnector(
+          name: 'facets',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['story'] as _iiu4mi32.StoryEndpoint).facets(
+                session,
+                params['familyId'],
+              ),
         ),
       },
     );

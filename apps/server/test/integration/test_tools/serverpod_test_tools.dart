@@ -21,6 +21,10 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
 import 'package:serverpod_test/serverpod_test.dart' as _ist;
 import 'package:tell_me_a_story_server/src/generated/dto/story_dto.dart'
     as _i5ckn2f1;
+import 'package:tell_me_a_story_server/src/generated/dto/story_facets_dto.dart'
+    as _i5fcuejf;
+import 'package:tell_me_a_story_server/src/generated/dto/story_search_dto.dart'
+    as _ix1z7n33;
 import 'package:tell_me_a_story_server/src/generated/dto/story_write_dto.dart'
     as _iu03akf8;
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
@@ -1036,6 +1040,68 @@ class _StoryEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<List<_i5ckn2f1.StoryDto>> search(
+    _ist.TestSessionBuilder sessionBuilder,
+    _ix1z7n33.StorySearchDto q,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'story',
+            method: 'search',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'story',
+          methodName: 'search',
+          parameters: _ist.testObjectToJson({'q': q}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_i5ckn2f1.StoryDto>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i5fcuejf.StoryFacetsDto> facets(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'story',
+            method: 'facets',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'story',
+          methodName: 'facets',
+          parameters: _ist.testObjectToJson({'familyId': familyId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i5fcuejf.StoryFacetsDto>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
