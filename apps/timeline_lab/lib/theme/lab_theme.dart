@@ -73,6 +73,24 @@ abstract final class LabText {
   static TextStyle group(TextTheme t) => t.titleSmall!;
 }
 
+/// Touch targets (Apple HIG: 44 pt minimum).
+abstract final class LabTarget {
+  /// Smallest tappable extent for a finger.
+  static const min = 44.0;
+
+  /// Hit radius a finger tap gets around a painted point.
+  static const fingerRadius = min / 2;
+}
+
+/// Window widths where the shell changes layout.
+abstract final class LabBreakpoint {
+  /// At or above: persistent filter sidebar. Below: filters in an end drawer.
+  static const sidebar = 900.0;
+
+  /// Below: stacked playback bar and selected-story panel.
+  static const compact = 600.0;
+}
+
 ThemeData labTheme({required bool useGoogleFonts}) {
   TextStyle serifHeading() => useGoogleFonts
       ? GoogleFonts.newsreader(color: labInk, fontWeight: FontWeight.w600)
