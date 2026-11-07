@@ -1,4 +1,5 @@
 import 'src/auth/auth_config.dart';
+import 'src/db/constraints.dart';
 import 'src/generated/serverpod.dart';
 
 /// The starting point of the Serverpod server.
@@ -13,4 +14,5 @@ void run(List<String> args) async {
   pod.addCloudStorage(DatabaseCloudStorage('private'));
 
   await pod.start();
+  await applyConstraints(pod);
 }
