@@ -1,6 +1,37 @@
 import 'package:flutter/widgets.dart';
 
+import '../theme/lab_theme.dart';
 import 'playback_controller.dart';
+
+/// Viewport fraction where camera follow keeps the playback cursor
+/// (horizontal renderers).
+const kFollowAt = 0.65;
+
+/// Viewport fraction where vertical renderers put a focused story.
+const kFocusAlignment = 0.4;
+
+/// Scroll offset that puts content position [contentPx] at [fraction] of
+/// the viewport, clamped to the scroll range.
+double scrollOffsetToPlace(
+  double contentPx,
+  ScrollMetrics m,
+  double fraction,
+) => (contentPx - m.viewportDimension * fraction).clamp(0.0, m.maxScrollExtent);
+
+/// The playback cursor line, the same in every renderer. [zoom] is the
+/// canvas scale, so the stroke stays 2 screen px in a scaled canvas.
+void paintPlaybackCursor(
+  Canvas canvas,
+  Offset from,
+  Offset to, {
+  double zoom = 1,
+}) => canvas.drawLine(
+  from,
+  to,
+  Paint()
+    ..color = labTerracotta
+    ..strokeWidth = 2 / zoom,
+);
 
 /// Fades [child] in as [playback] reveals [storyId]. Rebuilds only when this
 /// story's own visibility changes, so thousands of cards cost one cheap
@@ -156,7 +187,7 @@ class FollowCurrentStory {
     if (ctx != null && ctx.mounted) {
       Scrollable.ensureVisible(
         ctx,
-        alignment: 0.4,
+        alignment: kFocusAlignment,
         duration: playback.reducedMotion
             ? Duration.zero
             : const Duration(milliseconds: 250),
