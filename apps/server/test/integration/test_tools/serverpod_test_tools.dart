@@ -32,6 +32,8 @@ import 'package:tell_me_a_story_server/src/generated/dto/family_member_dto.dart'
     as _iaubiddc;
 import 'package:tell_me_a_story_server/src/generated/dto/member_family_dto.dart'
     as _ikh01baz;
+import 'package:tell_me_a_story_server/src/generated/dto/origin_dependent_dto.dart'
+    as _i0qdi0y3;
 import 'package:tell_me_a_story_server/src/generated/dto/own_profile_dto.dart'
     as _i34cgfsq;
 import 'package:tell_me_a_story_server/src/generated/dto/place_dto.dart'
@@ -1124,6 +1126,72 @@ class _FamilyEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> setOrigin(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+    _is.UuidValue storyId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'family',
+            method: 'setOrigin',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'family',
+          methodName: 'setOrigin',
+          parameters: _ist.testObjectToJson({
+            'familyId': familyId,
+            'storyId': storyId,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<List<_i0qdi0y3.OriginDependentDto>> listOriginDependents(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue storyId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'family',
+            method: 'listOriginDependents',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'family',
+          methodName: 'listOriginDependents',
+          parameters: _ist.testObjectToJson({'storyId': storyId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_i0qdi0y3.OriginDependentDto>>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

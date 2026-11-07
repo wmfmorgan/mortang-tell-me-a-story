@@ -31,6 +31,8 @@ import 'package:tell_me_a_story_client/src/protocol/dto/family_member_dto.dart'
     as _ie59njid;
 import 'package:tell_me_a_story_client/src/protocol/dto/member_family_dto.dart'
     as _ii9mmjc2;
+import 'package:tell_me_a_story_client/src/protocol/dto/origin_dependent_dto.dart'
+    as _i6upf1dr;
 import 'package:tell_me_a_story_client/src/protocol/dto/own_profile_dto.dart'
     as _il07dlrf;
 import 'package:tell_me_a_story_client/src/protocol/dto/place_dto.dart'
@@ -534,6 +536,31 @@ class EndpointFamily extends _isc.EndpointRef {
         'recover',
         {'familyId': familyId},
       );
+
+  /// Business-rules.md §3.3: bare FORBIDDEN first, then a deleted parent,
+  /// then a story that is missing, unpublished or not in
+  /// `coalesce(parent, family)`.
+  _ida.Future<void> setOrigin(
+    _isc.UuidValue familyId,
+    _isc.UuidValue storyId,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'setOrigin',
+    {
+      'familyId': familyId,
+      'storyId': storyId,
+    },
+  );
+
+  /// Families whose effective origin is [storyId]. Empty unless the caller is
+  /// a live member of the story's family.
+  _ida.Future<List<_i6upf1dr.OriginDependentDto>> listOriginDependents(
+    _isc.UuidValue storyId,
+  ) => caller.callServerEndpoint<List<_i6upf1dr.OriginDependentDto>>(
+    'family',
+    'listOriginDependents',
+    {'storyId': storyId},
+  );
 }
 
 /// Places are shared by every family in a tree (business-rules.md §2.4, §8

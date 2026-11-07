@@ -21,6 +21,8 @@ import 'package:tell_me_a_story_server/src/generated/dto/family_member_dto.dart'
     as _iaubiddc;
 import 'package:tell_me_a_story_server/src/generated/dto/member_family_dto.dart'
     as _ikh01baz;
+import 'package:tell_me_a_story_server/src/generated/dto/origin_dependent_dto.dart'
+    as _i0qdi0y3;
 import 'package:tell_me_a_story_server/src/generated/dto/place_dto.dart'
     as _i3xh6672;
 import 'package:tell_me_a_story_server/src/generated/dto/steward_family_dto.dart'
@@ -276,6 +278,7 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<List<_inqlo9cu.StewardFamilyDto>>,
           _is.getType<List<_i585khmk.TreeFamilyDto>>,
           _is.getType<List<_iaubiddc.FamilyMemberDto>>,
+          _is.getType<List<_i0qdi0y3.OriginDependentDto>>,
           _is.getType<List<_i3xh6672.PlaceDto>>,
         ],
         modules: const [
@@ -2500,6 +2503,12 @@ class Protocol extends _is.DatabaseSerializationManager
     if (t == List<_iaubiddc.FamilyMemberDto>) {
       return (data as List)
               .map((e) => deserialize<_iaubiddc.FamilyMemberDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i0qdi0y3.OriginDependentDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i0qdi0y3.OriginDependentDto>(e))
               .toList()
           as T;
     }

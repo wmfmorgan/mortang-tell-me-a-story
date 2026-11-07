@@ -396,6 +396,72 @@ ORDER BY f."createdAt", f."id"
       );
     });
   }
+
+  // ── origin ───────────────────────────────────────────────────────────
+
+  /// Business-rules.md §3.3: bare FORBIDDEN first, then a deleted parent,
+  /// then a story that is missing, unpublished or not in
+  /// `coalesce(parent, family)`.
+  Future<void> setOrigin(
+    Session session,
+    UuidValue familyId,
+    UuidValue storyId,
+  ) async {
+    final authz = Authz(session);
+    authz.ensure(await authz.isLiveSteward(familyId));
+    await session.db.transaction((t) async {
+      final family = (await Family.db.findById(
+        session,
+        familyId,
+        transaction: t,
+        lockMode: LockMode.forUpdate,
+      ))!;
+      final parentId = family.parentId;
+      if (parentId != null) {
+        final parent = await Family.db.findById(
+          session,
+          parentId,
+          transaction: t,
+        );
+        if (parent == null || parent.deletedAt != null) {
+          throw validation('parent family is deleted');
+        }
+      }
+      final story = await Story.db.findById(session, storyId, transaction: t);
+      if (story == null ||
+          story.status != StoryStatus.published ||
+          story.familyId != (parentId ?? familyId)) {
+        throw notFound('story');
+      }
+      await Family.db.updateRow(
+        session,
+        family.copyWith(originStoryId: storyId),
+        columns: (c) => [c.originStoryId],
+        transaction: t,
+      );
+    });
+  }
+
+  /// Families whose effective origin is [storyId]. Empty unless the caller is
+  /// a live member of the story's family.
+  Future<List<OriginDependentDto>> listOriginDependents(
+    Session session,
+    UuidValue storyId,
+  ) async {
+    final authz = Authz(session);
+    final story = await Story.db.findById(session, storyId);
+    if (story == null || !await authz.isLiveMember(story.familyId)) return [];
+    final families = await Family.db.find(
+      session,
+      where: (t) => t.originStoryId.equals(storyId) & t.deletedAt.equals(null),
+      orderByList: (t) => [t.createdAt.asc(), t.id.asc()],
+    );
+    return [
+      for (final f in families)
+        if (await authz.effectiveOrigin(f) == storyId)
+          OriginDependentDto(familyId: f.id!, name: f.name),
+    ];
+  }
 }
 
 /// The caller's role per family id, optionally owners and co-owners only.

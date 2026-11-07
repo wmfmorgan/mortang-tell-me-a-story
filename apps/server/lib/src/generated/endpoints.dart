@@ -638,6 +638,50 @@ class Endpoints extends _is.EndpointDispatch {
                     params['familyId'],
                   ),
         ),
+        'setOrigin': _is.MethodConnector(
+          name: 'setOrigin',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).setOrigin(
+                    session,
+                    params['familyId'],
+                    params['storyId'],
+                  ),
+        ),
+        'listOriginDependents': _is.MethodConnector(
+          name: 'listOriginDependents',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .listOriginDependents(
+                    session,
+                    params['storyId'],
+                  ),
+        ),
       },
     );
     connectors['place'] = _is.EndpointConnector(

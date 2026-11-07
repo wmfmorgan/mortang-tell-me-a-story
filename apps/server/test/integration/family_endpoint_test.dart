@@ -690,5 +690,216 @@ void main() {
         },
       );
     });
+
+    group('origin', () {
+      late UuidValue parentOwner, childOwner, childCo, childMember, outsider;
+      late Family parent, child;
+      late Story published;
+
+      setUp(() async {
+        parentOwner = await fx.user();
+        childOwner = await fx.user();
+        childCo = await fx.user();
+        childMember = await fx.user();
+        outsider = await fx.user();
+        parent = await fx.rootOwnedBy(parentOwner, name: 'Parent');
+        child = await fx.childOf(parent, owner: childOwner);
+        await fx.join(child, childCo, MembershipRole.coOwner);
+        await fx.join(child, childMember);
+        await fx.rootOwnedBy(outsider);
+        published = await fx.story(parent);
+      });
+
+      Future<UuidValue?> effectiveOrigin(
+        UuidValue reader,
+        Family family,
+      ) async {
+        final tree = await endpoints.family.listTree(by(reader), family.id!);
+        return tree
+            .singleWhere((f) => f.id == family.id)
+            .effectiveOriginStoryId;
+      }
+
+      // BR 34
+      test(
+        'when the child owner sets a published parent story then the effective '
+        'origin returns it; the child co-owner can change it',
+        () async {
+          await endpoints.family.setOrigin(
+            by(childOwner),
+            child.id!,
+            published.id!,
+          );
+          expect(await effectiveOrigin(childMember, child), published.id);
+          final another = await fx.story(parent);
+          await endpoints.family.setOrigin(by(childCo), child.id!, another.id!);
+          expect(await effectiveOrigin(childMember, child), another.id);
+        },
+      );
+
+      // BR 35
+      test(
+        'when a child plain member or a non-member sets origin then bare '
+        'FORBIDDEN, before NOT_FOUND for a missing or draft story',
+        () async {
+          final draft = await fx.story(parent, status: StoryStatus.draft);
+          for (final user in [childMember, outsider]) {
+            for (final storyId in [
+              published.id!,
+              draft.id!,
+              const Uuid().v7obj(),
+            ]) {
+              await expectLater(
+                endpoints.family.setOrigin(by(user), child.id!, storyId),
+                throwsAppError(
+                  AppErrorCode.forbidden,
+                  "You don't have access to that.",
+                ),
+              );
+            }
+          }
+        },
+      );
+
+      // BR 36
+      test(
+        'when the owner sets a draft, missing or wrong-family story then '
+        'NOT_FOUND; a root must use its own story',
+        () async {
+          final draft = await fx.story(parent, status: StoryStatus.draft);
+          final own = await fx.story(child);
+          for (final storyId in [draft.id!, const Uuid().v7obj(), own.id!]) {
+            await expectLater(
+              endpoints.family.setOrigin(by(childOwner), child.id!, storyId),
+              throwsAppError(AppErrorCode.notFound),
+            );
+          }
+          await expectLater(
+            endpoints.family.setOrigin(by(parentOwner), parent.id!, own.id!),
+            throwsAppError(AppErrorCode.notFound),
+          );
+          await endpoints.family.setOrigin(
+            by(parentOwner),
+            parent.id!,
+            published.id!,
+          );
+          expect(await effectiveOrigin(parentOwner, parent), published.id);
+        },
+      );
+
+      // BR 37
+      test(
+        'when the parent is soft-deleted then setOrigin is VALIDATION '
+        '"parent family is deleted"',
+        () async {
+          await fx.setDeletedAt(parent, DateTime.now().toUtc());
+          await expectLater(
+            endpoints.family.setOrigin(
+              by(childOwner),
+              child.id!,
+              published.id!,
+            ),
+            throwsAppError(AppErrorCode.validation, 'parent family is deleted'),
+          );
+        },
+      );
+
+      // BR 38
+      test('when two children set the same origin then both have it', () async {
+        final sibling = await fx.childOf(parent, owner: childOwner);
+        await endpoints.family.setOrigin(
+          by(childOwner),
+          child.id!,
+          published.id!,
+        );
+        await endpoints.family.setOrigin(
+          by(childOwner),
+          sibling.id!,
+          published.id!,
+        );
+        expect(await effectiveOrigin(childOwner, child), published.id);
+        expect(await effectiveOrigin(childOwner, sibling), published.id);
+      });
+
+      // BR 39
+      test(
+        'when the origin is drafted or the parent deleted then no endpoint '
+        'clears originStoryId; the stored value stays',
+        () async {
+          await fx.setOriginRow(child, published);
+          await fx.setStatus(published, StoryStatus.draft);
+          await fx.setDeletedAt(parent, DateTime.now().toUtc());
+          await expectLater(
+            endpoints.family.setOrigin(
+              by(childOwner),
+              child.id!,
+              published.id!,
+            ),
+            throwsAppError(AppErrorCode.validation, 'parent family is deleted'),
+          );
+          expect((await fx.reload(child)).originStoryId, published.id);
+        },
+      );
+
+      // BR 40
+      test(
+        'when the parent is soft-deleted then the child effective origin is '
+        'null; after recovery it returns',
+        () async {
+          await fx.setOriginRow(child, published);
+          await endpoints.family.softDelete(by(parentOwner), parent.id!);
+          expect(await effectiveOrigin(childMember, child), isNull);
+          await endpoints.family.recover(by(parentOwner), parent.id!);
+          expect(await effectiveOrigin(childMember, child), published.id);
+        },
+      );
+
+      // BR 41
+      test(
+        'when the origin is unpublished then the effective origin is null; '
+        'after republish it is restored',
+        () async {
+          await fx.setOriginRow(child, published);
+          await fx.setStatus(published, StoryStatus.draft);
+          expect(await effectiveOrigin(childMember, child), isNull);
+          await fx.setStatus(published, StoryStatus.published);
+          expect(await effectiveOrigin(childMember, child), published.id);
+        },
+      );
+
+      // BR 42
+      test(
+        'when the origin story is deleted then originStoryId is null',
+        () async {
+          await fx.setOriginRow(child, published);
+          await Story.db.deleteRow(fx.s, published);
+          expect((await fx.reload(child)).originStoryId, isNull);
+        },
+      );
+
+      // BR 48
+      test(
+        'when a parent member lists origin dependents then it sees the child; '
+        'an outsider sees none',
+        () async {
+          await fx.setOriginRow(child, published);
+          final dependents = await endpoints.family.listOriginDependents(
+            by(parentOwner),
+            published.id!,
+          );
+          expect(dependents.map((d) => (d.familyId, d.name)), [
+            (child.id, child.name),
+          ]);
+          final stranger = await fx.user();
+          expect(
+            await endpoints.family.listOriginDependents(
+              by(stranger),
+              published.id!,
+            ),
+            isEmpty,
+          );
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

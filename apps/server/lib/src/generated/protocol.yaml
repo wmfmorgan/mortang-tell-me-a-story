@@ -28,6 +28,8 @@ family:
   - removeMember:
   - softDelete:
   - recover:
+  - setOrigin:
+  - listOriginDependents:
 place:
   - list:
   - favorites:
