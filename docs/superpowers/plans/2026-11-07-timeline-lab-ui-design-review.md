@@ -98,6 +98,8 @@ The findings are ranked by user impact. Evidence uses `file:line` in `apps/timel
 
 ## Decisions for the user
 
+**Decided 2026-11-07:** D1 drop the rail · D2 all-terracotta dots · D3 consolidate · D4 segmented switch · D6 hollow rings. D5 was not raised; the recommendation (keep the treemap) stands. Every task below runs as written.
+
 Each decision has a recommendation. **The tasks implement the recommended option**, and each task says what changes if you pick otherwise.
 
 | # | Decision | Recommendation | If you choose otherwise |
