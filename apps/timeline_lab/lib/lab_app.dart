@@ -8,6 +8,7 @@ import 'model/lab_models.dart';
 import 'model/seed.dart';
 import 'playback/playback_controller.dart';
 import 'renderers/renderer_contract.dart';
+import 'shell/lab_shortcuts.dart';
 import 'theme/lab_theme.dart';
 import 'widgets/filter_panel.dart';
 import 'widgets/playback_bar.dart';
@@ -52,7 +53,7 @@ class _LabAppState extends State<LabApp> with SingleTickerProviderStateMixin {
   );
 }
 
-class LabHome extends StatelessWidget {
+class LabHome extends StatefulWidget {
   const LabHome({
     super.key,
     required this.controller,
@@ -67,20 +68,82 @@ class LabHome extends StatelessWidget {
   final VoidCallback? onTogglePerf;
 
   @override
+  State<LabHome> createState() => _LabHomeState();
+}
+
+class _LabHomeState extends State<LabHome> {
+  final _rootFocus = FocusNode(debugLabel: 'lab-root');
+  final _searchFocus = FocusNode(debugLabel: 'filter-search');
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void dispose() {
+    _rootFocus.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  /// Space and the arrows act only when no control has focus.
+  bool get _shellFocused => _rootFocus.hasPrimaryFocus;
+
+  void _focusSearch() {
+    final scaffold = _scaffoldKey.currentState!;
+    if (scaffold.hasEndDrawer && !scaffold.isEndDrawerOpen) {
+      scaffold.openEndDrawer();
+      // The drawer's FilterPanel attaches the node on the next frame.
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _searchFocus.requestFocus(),
+      );
+    } else {
+      _searchFocus.requestFocus();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final playback = widget.playback;
     // Reduced motion → instant reveals. iOS reports Reduce Motion separately
     // from disableAnimations, so check both.
     playback.reducedMotion =
         MediaQuery.disableAnimationsOf(context) ||
         View.of(context).platformDispatcher.accessibilityFeatures.reduceMotion;
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) => _build(context),
+    return Shortcuts(
+      shortcuts: labShortcuts,
+      child: Actions(
+        actions: {
+          PlayPauseIntent: GuardedAction<PlayPauseIntent>(
+            enabled: () => _shellFocused && playback.total > 0,
+            onInvoke: (_) =>
+                playback.playing ? playback.pause() : playback.play(),
+          ),
+          StepIntent: GuardedAction<StepIntent>(
+            enabled: () => _shellFocused && playback.total > 0,
+            onInvoke: (i) => playback.step(i.delta),
+          ),
+          FocusSearchIntent: GuardedAction<FocusSearchIntent>(
+            enabled: () => true,
+            onInvoke: (_) => _focusSearch(),
+          ),
+          ClearSelectionIntent: GuardedAction<ClearSelectionIntent>(
+            enabled: () => widget.controller.selectedStoryId != null,
+            onInvoke: (_) => widget.controller.select(null),
+          ),
+        },
+        child: Focus(
+          focusNode: _rootFocus,
+          autofocus: true,
+          child: ListenableBuilder(
+            listenable: widget.controller,
+            builder: (context, _) => _build(context),
+          ),
+        ),
+      ),
     );
   }
 
   Widget _build(BuildContext context) {
-    final c = controller;
+    final c = widget.controller;
+    final playback = widget.playback;
     final renderer = KeyedSubtree(
       key: ValueKey((c.renderer, c.datasetSize)),
       child: buildRenderer(
@@ -100,6 +163,7 @@ class LabHome extends StatelessWidget {
     final wide = window.width >= LabBreakpoint.sidebar;
 
     return Scaffold(
+      key: _scaffoldKey,
       // The keyboard covers the playback and status bars rather than
       // shrinking the renderer (F4). Scroll views below pad themselves.
       resizeToAvoidBottomInset: false,
@@ -108,8 +172,8 @@ class LabHome extends StatelessWidget {
         actions: [
           _BenchMenu(
             controller: c,
-            showPerf: showPerf,
-            onTogglePerf: onTogglePerf,
+            showPerf: widget.showPerf,
+            onTogglePerf: widget.onTogglePerf,
           ),
           const SizedBox(width: 8),
         ],
@@ -156,7 +220,10 @@ class LabHome extends StatelessWidget {
                         padding: EdgeInsets.only(
                           bottom: MediaQuery.viewInsetsOf(context).bottom,
                         ),
-                        child: FilterPanel(controller: c),
+                        child: FilterPanel(
+                          controller: c,
+                          searchFocusNode: _searchFocus,
+                        ),
                       ),
                     ),
                   ],
@@ -179,7 +246,10 @@ class LabHome extends StatelessWidget {
                       padding: EdgeInsets.only(
                         bottom: MediaQuery.viewInsetsOf(context).bottom,
                       ),
-                      child: FilterPanel(controller: c),
+                      child: FilterPanel(
+                        controller: c,
+                        searchFocusNode: _searchFocus,
+                      ),
                     ),
                   )
                 else
@@ -189,12 +259,17 @@ class LabHome extends StatelessWidget {
                 else
                   const Divider(height: 1),
                 Expanded(
-                  child: Stack(
-                    children: [
-                      // Behind the renderer: tiles and cards cover it.
-                      PlaybackWatermark(playback: playback),
-                      Positioned.fill(child: renderer),
-                    ],
+                  // Touching the timeline takes focus back from the search
+                  // field (and dismisses the keyboard).
+                  child: Listener(
+                    onPointerDown: (_) => _rootFocus.requestFocus(),
+                    child: Stack(
+                      children: [
+                        // Behind the renderer: tiles and cards cover it.
+                        PlaybackWatermark(playback: playback),
+                        Positioned.fill(child: renderer),
+                      ],
+                    ),
                   ),
                 ),
               ],
