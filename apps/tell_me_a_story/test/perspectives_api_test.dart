@@ -1,6 +1,24 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
+
+const _noteId = '0190d7a0-0000-7000-8000-0000000000c2';
+const _storyId = '0190d7a0-0000-7000-8000-0000000000a1';
+const _familyId = '0190d7a0-0000-7000-8000-0000000000f1';
+const _authorId = '0190d7a0-0000-7000-8000-0000000000b1';
+
+server.NoteDto _note({String? authorId = _authorId, String? authorName}) =>
+    server.NoteDto(
+      id: server.UuidValue.fromString(_noteId),
+      storyId: server.UuidValue.fromString(_storyId),
+      familyId: server.UuidValue.fromString(_familyId),
+      kind: server.NoteKind.perspective,
+      authorId: authorId == null ? null : server.UuidValue.fromString(authorId),
+      authorName: authorName,
+      body: 'hi',
+      createdAt: DateTime.utc(2026, 9, 27),
+      canDelete: true,
+    );
 
 void main() {
   group('displayNameOrMember', () {
@@ -16,78 +34,40 @@ void main() {
     });
   });
 
-  group('Perspective.fromJson', () {
-    test('parses nested author.display_name', () {
-      final perspective = Perspective.fromJson({
-        'id': 'c1',
-        'story_id': 's1',
-        'family_id': 'f1',
-        'author_id': 'u1',
-        'body': 'hi',
-        'created_at': '2026-09-27T00:00:00Z',
-        'author': {'display_name': 'Aunt Clara'},
-      });
-      expect(perspective.id, 'c1');
-      expect(perspective.storyId, 's1');
-      expect(perspective.familyId, 'f1');
-      expect(perspective.authorId, 'u1');
+  group('Perspective.fromNote', () {
+    test('maps ids, body, author name and canDelete', () {
+      final perspective = Perspective.fromNote(_note(authorName: 'Aunt Clara'));
+      expect(perspective.id, _noteId);
+      expect(perspective.storyId, _storyId);
+      expect(perspective.familyId, _familyId);
+      expect(perspective.authorId, _authorId);
       expect(perspective.body, 'hi');
-      expect(perspective.createdAt, DateTime.parse('2026-09-27T00:00:00Z'));
+      expect(perspective.createdAt, DateTime.utc(2026, 9, 27));
       expect(perspective.authorDisplayName, 'Aunt Clara');
       expect(perspective.authorLabel, 'Aunt Clara');
+      expect(perspective.canDelete, isTrue);
     });
 
-    test('authorLabel is Member when author embed is missing', () {
-      final perspective = Perspective.fromJson({
-        'id': 'c1',
-        'story_id': 's1',
-        'family_id': 'f1',
-        'author_id': 'u1',
-        'body': 'hi',
-        'created_at': '2026-09-27T00:00:00Z',
-      });
-      expect(perspective.authorDisplayName, isNull);
-      expect(perspective.authorLabel, 'Member');
+    test('authorLabel is Member when the author is gone or unnamed', () {
+      final gone = Perspective.fromNote(_note(authorId: null));
+      expect(gone.authorId, isNull);
+      expect(gone.authorLabel, 'Member');
+      expect(
+        Perspective.fromNote(_note(authorName: '  ')).authorLabel,
+        'Member',
+      );
     });
 
-    test('authorLabel is Member when author is null', () {
-      final perspective = Perspective.fromJson({
-        'id': 'c1',
-        'story_id': 's1',
-        'family_id': 'f1',
-        'author_id': 'u1',
-        'body': 'hi',
-        'created_at': '2026-09-27T00:00:00Z',
-        'author': null,
-      });
-      expect(perspective.authorLabel, 'Member');
-    });
-
-    test('authorLabel is Member when display_name is null', () {
-      final perspective = Perspective.fromJson({
-        'id': 'c1',
-        'story_id': 's1',
-        'family_id': 'f1',
-        'author_id': 'u1',
-        'body': 'hi',
-        'created_at': '2026-09-27T00:00:00Z',
-        'author': {'display_name': null},
-      });
-      expect(perspective.authorDisplayName, isNull);
-      expect(perspective.authorLabel, 'Member');
-    });
-
-    test('authorLabel is Member when display_name is blank', () {
-      final perspective = Perspective.fromJson({
-        'id': 'c1',
-        'story_id': 's1',
-        'family_id': 'f1',
-        'author_id': 'u1',
-        'body': 'hi',
-        'created_at': '2026-09-27T00:00:00Z',
-        'author': {'display_name': '  '},
-      });
-      expect(perspective.authorLabel, 'Member');
+    test('canDelete defaults to false', () {
+      final perspective = Perspective(
+        id: 'p1',
+        storyId: 's1',
+        familyId: 'f1',
+        authorId: 'u1',
+        body: 'hi',
+        createdAt: DateTime.utc(2026, 9, 27),
+      );
+      expect(perspective.canDelete, isFalse);
     });
   });
 
@@ -115,7 +95,7 @@ void main() {
   group('PerspectivesApi.create', () {
     test('rejects empty body before network', () {
       final api = PerspectivesApi(
-        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
+        client: server.Client('http://127.0.0.1:1/'),
       );
       expect(
         () => api.create(storyId: 's1', familyId: 'f1', body: ''),
@@ -125,7 +105,7 @@ void main() {
 
     test('rejects whitespace-only body before network', () {
       final api = PerspectivesApi(
-        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
+        client: server.Client('http://127.0.0.1:1/'),
       );
       expect(
         () => api.create(storyId: 's1', familyId: 'f1', body: '  \n'),
@@ -222,6 +202,7 @@ class FakePerspectivesGateway implements PerspectivesGateway {
       authorId: authorId,
       body: body.trim(),
       createdAt: DateTime.utc(2026, 9, 27),
+      canDelete: true,
     );
     rows.add(perspective);
     return perspective;
@@ -241,6 +222,7 @@ class FakePerspectivesGateway implements PerspectivesGateway {
       body: body.trim(),
       createdAt: current.createdAt,
       authorDisplayName: current.authorDisplayName,
+      canDelete: current.canDelete,
     );
   }
 
