@@ -27,13 +27,13 @@ If the server and a gateway disagree, the server's endpoint and its tests win. R
 | Part | Plan | Status |
 |---|---|---|
 | 4.0 Shared foundation | `2026-11-07-serverpod-phase4-0-foundation.md` | landed (`f92a1d6`..`5858d75`; app 723 + live 2) |
-| 4a Shell and auth | `2026-11-07-serverpod-phase4a-shell-auth.md` | plan written at slice start |
-| 4b Families, directory, covers, invites | `2026-11-07-serverpod-phase4b-families-invites.md` | plan written at slice start |
-| 4c Stories, search, timeline live | `2026-11-07-serverpod-phase4c-stories-search.md` | plan written at slice start |
-| 4d People, places, profile | `2026-11-07-serverpod-phase4d-people-places-profile.md` | plan written at slice start |
-| 4e Photos, notes, reader | `2026-11-07-serverpod-phase4e-photos-notes.md` | plan written at slice start |
-| 4f e2e and CI | `2026-11-07-serverpod-phase4f-e2e-ci.md` | plan written at slice start |
-| 4z Integration and switch | this index, §4z | after all slices |
+| 4a Shell and auth | `2026-11-07-serverpod-phase4a-shell-auth.md` | landed (merge `7cbd522`) |
+| 4b Families, directory, covers, invites | `2026-11-07-serverpod-phase4b-families-invites.md` | landed |
+| 4c Stories, search, timeline live | `2026-11-07-serverpod-phase4c-stories-search.md` | landed (merge `f4fd012`) |
+| 4d People, places, profile | `2026-11-07-serverpod-phase4d-people-places-profile.md` | landed (merge `5508cd7`) |
+| 4e Photos, notes, reader | `2026-11-07-serverpod-phase4e-photos-notes.md` | landed (merge `14a253d`) |
+| 4f e2e and CI | `2026-11-07-serverpod-phase4f-e2e-ci.md` | landed (merge `d276e3a`) |
+| 4z Integration and switch | this index, §4z | done (`bf406ea`..`319e0ed`); see §Exit criteria |
 
 Each slice plan is written by its executor at slice start, following superpowers:writing-plans. Its code blocks are verified in a scratch worktree, as 3.0 and 4.0 were. The slice rows below are the scope contract.
 
