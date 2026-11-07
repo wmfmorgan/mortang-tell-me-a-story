@@ -1,0 +1,17 @@
+### Person create/update input. Each write* flag says whether its field group is written.
+class: PersonWriteDto
+fields:
+  name: String
+  about: String?
+  writeAbout: bool
+  email: String?
+  writeEmail: bool
+  passedAway: bool?
+  writePassedAway: bool
+  clearPicture: bool
+  birthDate: DateTime?
+  birthPrecision: DatePrecision?
+  writeBirth: bool
+  deathDate: DateTime?
+  deathPrecision: DatePrecision?
+  writeDeath: bool

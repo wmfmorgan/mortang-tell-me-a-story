@@ -1,0 +1,12 @@
+### A place, shared by every family in the tree.
+class: PlaceDto
+fields:
+  id: UuidValue
+  treeId: UuidValue
+  label: String
+  address: String
+  lat: double
+  lng: double
+  mapboxPlaceId: String?
+  isFavorite: bool
+  lastUsedAt: DateTime?

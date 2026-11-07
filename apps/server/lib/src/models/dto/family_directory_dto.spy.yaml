@@ -1,0 +1,5 @@
+### The caller's families, split into active and recoverable (FamilyEndpoint.directory).
+class: FamilyDirectoryDto
+fields:
+  active: List<FamilyRosterDto>
+  recoverable: List<FamilyRosterDto>

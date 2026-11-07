@@ -1,0 +1,11 @@
+### The caller's own account (ProfileEndpoint.me). email is read-only (D1).
+class: OwnProfileDto
+fields:
+  authUserId: UuidValue
+  displayName: String?
+  email: String?
+  avatarKey: String?
+  birthDate: DateTime?
+  birthPrecision: DatePrecision?
+  birthVisibility: BirthVisibility
+  about: String?

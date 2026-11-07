@@ -1,0 +1,11 @@
+### Draft input. personIds null = leave story_people alone.
+class: StoryWriteDto
+fields:
+  dateStart: DateTime?
+  dateEnd: DateTime?
+  datePrecision: DatePrecision?
+  title: String?
+  body: String?
+  placeId: UuidValue?
+  clearPlace: bool
+  personIds: List<UuidValue>?

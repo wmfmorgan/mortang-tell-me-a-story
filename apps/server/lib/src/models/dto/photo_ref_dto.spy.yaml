@@ -1,0 +1,6 @@
+### A story photo as the story card needs it. key = editedKey ?? originalKey.
+class: PhotoRefDto
+fields:
+  id: UuidValue
+  key: String
+  sortOrder: int

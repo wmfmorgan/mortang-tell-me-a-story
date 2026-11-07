@@ -1,0 +1,7 @@
+### Anonymous invite preview. Invalid previews carry no family or inviter.
+class: InvitePreviewDto
+fields:
+  valid: bool
+  familyId: UuidValue?
+  familyName: String?
+  inviterName: String?

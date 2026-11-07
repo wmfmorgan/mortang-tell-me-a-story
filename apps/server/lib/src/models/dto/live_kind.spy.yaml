@@ -1,0 +1,7 @@
+### What changed in a LiveEventDto.
+enum: LiveKind
+serialized: byName
+values:
+  - story
+  - photo
+  - note

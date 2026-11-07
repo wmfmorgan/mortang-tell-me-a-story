@@ -1,0 +1,6 @@
+### Returned by PhotoEndpoint.startUpload; uploadDescription feeds the client FileUploader.
+class: PhotoUploadTicketDto
+fields:
+  photoId: UuidValue
+  key: String
+  uploadDescription: String

@@ -1,0 +1,5 @@
+### A family whose effective origin is a given story.
+class: OriginDependentDto
+fields:
+  familyId: UuidValue
+  name: String

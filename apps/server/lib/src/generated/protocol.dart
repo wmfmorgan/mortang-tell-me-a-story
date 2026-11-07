@@ -23,6 +23,40 @@ import 'app_user.dart' as _i2j2xfrn;
 import 'birth_visibility.dart' as _i2x3tia5;
 import 'blob_deletion.dart' as _ig8q6jh0;
 import 'date_precision.dart' as _ilvyd2nu;
+import 'dto/cover_upload_ticket_dto.dart' as _ieh1xhhu;
+import 'dto/created_invite_dto.dart' as _i5tlcydc;
+import 'dto/decade_facet_dto.dart' as _i3bc4i2z;
+import 'dto/family_detail_dto.dart' as _i454qtto;
+import 'dto/family_directory_dto.dart' as _ibjtxzev;
+import 'dto/family_member_dto.dart' as _i6t2z5gc;
+import 'dto/family_roster_dto.dart' as _ihq257tz;
+import 'dto/invite_preview_dto.dart' as _in2wbmsu;
+import 'dto/kinship_dto.dart' as _ia1fjje5;
+import 'dto/live_event_dto.dart' as _ipyvbztq;
+import 'dto/live_kind.dart' as _i67kei86;
+import 'dto/member_family_dto.dart' as _ir8o3gjk;
+import 'dto/note_dto.dart' as _i6e6avtv;
+import 'dto/origin_dependent_dto.dart' as _i9h96nn2;
+import 'dto/own_profile_dto.dart' as _is5ywasv;
+import 'dto/pending_invite_dto.dart' as _i5vdpx0m;
+import 'dto/person_dto.dart' as _ig7qj6yo;
+import 'dto/person_facet_dto.dart' as _ikbgxdng;
+import 'dto/person_profile_dto.dart' as _i38icd77;
+import 'dto/person_write_dto.dart' as _imob66rg;
+import 'dto/photo_dto.dart' as _i3tneuol;
+import 'dto/photo_ref_dto.dart' as _i91pkskm;
+import 'dto/photo_upload_ticket_dto.dart' as _i5l4kjca;
+import 'dto/place_dto.dart' as _ijvrvfy5;
+import 'dto/place_facet_dto.dart' as _ioxclq7u;
+import 'dto/place_input_dto.dart' as _i85hzch5;
+import 'dto/search_sort.dart' as _ikw9cscj;
+import 'dto/steward_family_dto.dart' as _imtvyjr9;
+import 'dto/story_dto.dart' as _ipnasz46;
+import 'dto/story_facets_dto.dart' as _i57prwgh;
+import 'dto/story_person_dto.dart' as _ipq9eknh;
+import 'dto/story_search_dto.dart' as _i93osgfq;
+import 'dto/story_write_dto.dart' as _i70jvi55;
+import 'dto/tree_family_dto.dart' as _i91d5kcr;
 import 'family.dart' as _igf5ho4a;
 import 'invite.dart' as _ibtb2p99;
 import 'kinship.dart' as _itzlol5n;
@@ -44,6 +78,40 @@ export 'app_user.dart';
 export 'birth_visibility.dart';
 export 'blob_deletion.dart';
 export 'date_precision.dart';
+export 'dto/cover_upload_ticket_dto.dart';
+export 'dto/created_invite_dto.dart';
+export 'dto/decade_facet_dto.dart';
+export 'dto/family_detail_dto.dart';
+export 'dto/family_directory_dto.dart';
+export 'dto/family_member_dto.dart';
+export 'dto/family_roster_dto.dart';
+export 'dto/invite_preview_dto.dart';
+export 'dto/kinship_dto.dart';
+export 'dto/live_event_dto.dart';
+export 'dto/live_kind.dart';
+export 'dto/member_family_dto.dart';
+export 'dto/note_dto.dart';
+export 'dto/origin_dependent_dto.dart';
+export 'dto/own_profile_dto.dart';
+export 'dto/pending_invite_dto.dart';
+export 'dto/person_dto.dart';
+export 'dto/person_facet_dto.dart';
+export 'dto/person_profile_dto.dart';
+export 'dto/person_write_dto.dart';
+export 'dto/photo_dto.dart';
+export 'dto/photo_ref_dto.dart';
+export 'dto/photo_upload_ticket_dto.dart';
+export 'dto/place_dto.dart';
+export 'dto/place_facet_dto.dart';
+export 'dto/place_input_dto.dart';
+export 'dto/search_sort.dart';
+export 'dto/steward_family_dto.dart';
+export 'dto/story_dto.dart';
+export 'dto/story_facets_dto.dart';
+export 'dto/story_person_dto.dart';
+export 'dto/story_search_dto.dart';
+export 'dto/story_write_dto.dart';
+export 'dto/tree_family_dto.dart';
 export 'family.dart';
 export 'invite.dart';
 export 'kinship.dart';
@@ -79,6 +147,40 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<_i2x3tia5.BirthVisibility>,
           _is.getType<_ig8q6jh0.BlobDeletion>,
           _is.getType<_ilvyd2nu.DatePrecision>,
+          _is.getType<_ieh1xhhu.CoverUploadTicketDto>,
+          _is.getType<_i5tlcydc.CreatedInviteDto>,
+          _is.getType<_i3bc4i2z.DecadeFacetDto>,
+          _is.getType<_i454qtto.FamilyDetailDto>,
+          _is.getType<_ibjtxzev.FamilyDirectoryDto>,
+          _is.getType<_i6t2z5gc.FamilyMemberDto>,
+          _is.getType<_ihq257tz.FamilyRosterDto>,
+          _is.getType<_in2wbmsu.InvitePreviewDto>,
+          _is.getType<_ia1fjje5.KinshipDto>,
+          _is.getType<_ipyvbztq.LiveEventDto>,
+          _is.getType<_i67kei86.LiveKind>,
+          _is.getType<_ir8o3gjk.MemberFamilyDto>,
+          _is.getType<_i6e6avtv.NoteDto>,
+          _is.getType<_i9h96nn2.OriginDependentDto>,
+          _is.getType<_is5ywasv.OwnProfileDto>,
+          _is.getType<_i5vdpx0m.PendingInviteDto>,
+          _is.getType<_ig7qj6yo.PersonDto>,
+          _is.getType<_ikbgxdng.PersonFacetDto>,
+          _is.getType<_i38icd77.PersonProfileDto>,
+          _is.getType<_imob66rg.PersonWriteDto>,
+          _is.getType<_i3tneuol.PhotoDto>,
+          _is.getType<_i91pkskm.PhotoRefDto>,
+          _is.getType<_i5l4kjca.PhotoUploadTicketDto>,
+          _is.getType<_ijvrvfy5.PlaceDto>,
+          _is.getType<_ioxclq7u.PlaceFacetDto>,
+          _is.getType<_i85hzch5.PlaceInputDto>,
+          _is.getType<_ikw9cscj.SearchSort>,
+          _is.getType<_imtvyjr9.StewardFamilyDto>,
+          _is.getType<_ipnasz46.StoryDto>,
+          _is.getType<_i57prwgh.StoryFacetsDto>,
+          _is.getType<_ipq9eknh.StoryPersonDto>,
+          _is.getType<_i93osgfq.StorySearchDto>,
+          _is.getType<_i70jvi55.StoryWriteDto>,
+          _is.getType<_i91d5kcr.TreeFamilyDto>,
           _is.getType<_igf5ho4a.Family>,
           _is.getType<_ibtb2p99.Invite>,
           _is.getType<_itzlol5n.Kinship>,
@@ -100,6 +202,40 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<_i2x3tia5.BirthVisibility?>,
           _is.getType<_ig8q6jh0.BlobDeletion?>,
           _is.getType<_ilvyd2nu.DatePrecision?>,
+          _is.getType<_ieh1xhhu.CoverUploadTicketDto?>,
+          _is.getType<_i5tlcydc.CreatedInviteDto?>,
+          _is.getType<_i3bc4i2z.DecadeFacetDto?>,
+          _is.getType<_i454qtto.FamilyDetailDto?>,
+          _is.getType<_ibjtxzev.FamilyDirectoryDto?>,
+          _is.getType<_i6t2z5gc.FamilyMemberDto?>,
+          _is.getType<_ihq257tz.FamilyRosterDto?>,
+          _is.getType<_in2wbmsu.InvitePreviewDto?>,
+          _is.getType<_ia1fjje5.KinshipDto?>,
+          _is.getType<_ipyvbztq.LiveEventDto?>,
+          _is.getType<_i67kei86.LiveKind?>,
+          _is.getType<_ir8o3gjk.MemberFamilyDto?>,
+          _is.getType<_i6e6avtv.NoteDto?>,
+          _is.getType<_i9h96nn2.OriginDependentDto?>,
+          _is.getType<_is5ywasv.OwnProfileDto?>,
+          _is.getType<_i5vdpx0m.PendingInviteDto?>,
+          _is.getType<_ig7qj6yo.PersonDto?>,
+          _is.getType<_ikbgxdng.PersonFacetDto?>,
+          _is.getType<_i38icd77.PersonProfileDto?>,
+          _is.getType<_imob66rg.PersonWriteDto?>,
+          _is.getType<_i3tneuol.PhotoDto?>,
+          _is.getType<_i91pkskm.PhotoRefDto?>,
+          _is.getType<_i5l4kjca.PhotoUploadTicketDto?>,
+          _is.getType<_ijvrvfy5.PlaceDto?>,
+          _is.getType<_ioxclq7u.PlaceFacetDto?>,
+          _is.getType<_i85hzch5.PlaceInputDto?>,
+          _is.getType<_ikw9cscj.SearchSort?>,
+          _is.getType<_imtvyjr9.StewardFamilyDto?>,
+          _is.getType<_ipnasz46.StoryDto?>,
+          _is.getType<_i57prwgh.StoryFacetsDto?>,
+          _is.getType<_ipq9eknh.StoryPersonDto?>,
+          _is.getType<_i93osgfq.StorySearchDto?>,
+          _is.getType<_i70jvi55.StoryWriteDto?>,
+          _is.getType<_i91d5kcr.TreeFamilyDto?>,
           _is.getType<_igf5ho4a.Family?>,
           _is.getType<_ibtb2p99.Invite?>,
           _is.getType<_itzlol5n.Kinship?>,
@@ -115,6 +251,17 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<_i0053fvj.StoryPerson?>,
           _is.getType<_ixc1exsr.StoryStatus?>,
           _is.getType<_i5e6tmks.Tree?>,
+          _is.getType<List<_i6t2z5gc.FamilyMemberDto>>,
+          _is.getType<List<_i5vdpx0m.PendingInviteDto>>,
+          _is.getType<List<_ihq257tz.FamilyRosterDto>>,
+          _is.getType<List<_ipq9eknh.StoryPersonDto>>,
+          _is.getType<List<_i91pkskm.PhotoRefDto>>,
+          _is.getType<List<_i3bc4i2z.DecadeFacetDto>>,
+          _is.getType<List<_ikbgxdng.PersonFacetDto>>,
+          _is.getType<List<_ioxclq7u.PlaceFacetDto>>,
+          _is.getType<List<_is.UuidValue>>,
+          _is.getType<List<int>>,
+          _is.getType<List<_is.UuidValue>?>,
         ],
         modules: const [
           _iais.Protocol.new,
@@ -128,6 +275,40 @@ class Protocol extends _is.DatabaseSerializationManager
           'BirthVisibility',
           'BlobDeletion',
           'DatePrecision',
+          'CoverUploadTicketDto',
+          'CreatedInviteDto',
+          'DecadeFacetDto',
+          'FamilyDetailDto',
+          'FamilyDirectoryDto',
+          'FamilyMemberDto',
+          'FamilyRosterDto',
+          'InvitePreviewDto',
+          'KinshipDto',
+          'LiveEventDto',
+          'LiveKind',
+          'MemberFamilyDto',
+          'NoteDto',
+          'OriginDependentDto',
+          'OwnProfileDto',
+          'PendingInviteDto',
+          'PersonDto',
+          'PersonFacetDto',
+          'PersonProfileDto',
+          'PersonWriteDto',
+          'PhotoDto',
+          'PhotoRefDto',
+          'PhotoUploadTicketDto',
+          'PlaceDto',
+          'PlaceFacetDto',
+          'PlaceInputDto',
+          'SearchSort',
+          'StewardFamilyDto',
+          'StoryDto',
+          'StoryFacetsDto',
+          'StoryPersonDto',
+          'StorySearchDto',
+          'StoryWriteDto',
+          'TreeFamilyDto',
           'Family',
           'Invite',
           'Kinship',
@@ -1877,6 +2058,108 @@ class Protocol extends _is.DatabaseSerializationManager
     if (t == _ilvyd2nu.DatePrecision) {
       return _ilvyd2nu.DatePrecision.fromJson(data) as T;
     }
+    if (t == _ieh1xhhu.CoverUploadTicketDto) {
+      return _ieh1xhhu.CoverUploadTicketDto.fromJson(data) as T;
+    }
+    if (t == _i5tlcydc.CreatedInviteDto) {
+      return _i5tlcydc.CreatedInviteDto.fromJson(data) as T;
+    }
+    if (t == _i3bc4i2z.DecadeFacetDto) {
+      return _i3bc4i2z.DecadeFacetDto.fromJson(data) as T;
+    }
+    if (t == _i454qtto.FamilyDetailDto) {
+      return _i454qtto.FamilyDetailDto.fromJson(data) as T;
+    }
+    if (t == _ibjtxzev.FamilyDirectoryDto) {
+      return _ibjtxzev.FamilyDirectoryDto.fromJson(data) as T;
+    }
+    if (t == _i6t2z5gc.FamilyMemberDto) {
+      return _i6t2z5gc.FamilyMemberDto.fromJson(data) as T;
+    }
+    if (t == _ihq257tz.FamilyRosterDto) {
+      return _ihq257tz.FamilyRosterDto.fromJson(data) as T;
+    }
+    if (t == _in2wbmsu.InvitePreviewDto) {
+      return _in2wbmsu.InvitePreviewDto.fromJson(data) as T;
+    }
+    if (t == _ia1fjje5.KinshipDto) {
+      return _ia1fjje5.KinshipDto.fromJson(data) as T;
+    }
+    if (t == _ipyvbztq.LiveEventDto) {
+      return _ipyvbztq.LiveEventDto.fromJson(data) as T;
+    }
+    if (t == _i67kei86.LiveKind) {
+      return _i67kei86.LiveKind.fromJson(data) as T;
+    }
+    if (t == _ir8o3gjk.MemberFamilyDto) {
+      return _ir8o3gjk.MemberFamilyDto.fromJson(data) as T;
+    }
+    if (t == _i6e6avtv.NoteDto) {
+      return _i6e6avtv.NoteDto.fromJson(data) as T;
+    }
+    if (t == _i9h96nn2.OriginDependentDto) {
+      return _i9h96nn2.OriginDependentDto.fromJson(data) as T;
+    }
+    if (t == _is5ywasv.OwnProfileDto) {
+      return _is5ywasv.OwnProfileDto.fromJson(data) as T;
+    }
+    if (t == _i5vdpx0m.PendingInviteDto) {
+      return _i5vdpx0m.PendingInviteDto.fromJson(data) as T;
+    }
+    if (t == _ig7qj6yo.PersonDto) {
+      return _ig7qj6yo.PersonDto.fromJson(data) as T;
+    }
+    if (t == _ikbgxdng.PersonFacetDto) {
+      return _ikbgxdng.PersonFacetDto.fromJson(data) as T;
+    }
+    if (t == _i38icd77.PersonProfileDto) {
+      return _i38icd77.PersonProfileDto.fromJson(data) as T;
+    }
+    if (t == _imob66rg.PersonWriteDto) {
+      return _imob66rg.PersonWriteDto.fromJson(data) as T;
+    }
+    if (t == _i3tneuol.PhotoDto) {
+      return _i3tneuol.PhotoDto.fromJson(data) as T;
+    }
+    if (t == _i91pkskm.PhotoRefDto) {
+      return _i91pkskm.PhotoRefDto.fromJson(data) as T;
+    }
+    if (t == _i5l4kjca.PhotoUploadTicketDto) {
+      return _i5l4kjca.PhotoUploadTicketDto.fromJson(data) as T;
+    }
+    if (t == _ijvrvfy5.PlaceDto) {
+      return _ijvrvfy5.PlaceDto.fromJson(data) as T;
+    }
+    if (t == _ioxclq7u.PlaceFacetDto) {
+      return _ioxclq7u.PlaceFacetDto.fromJson(data) as T;
+    }
+    if (t == _i85hzch5.PlaceInputDto) {
+      return _i85hzch5.PlaceInputDto.fromJson(data) as T;
+    }
+    if (t == _ikw9cscj.SearchSort) {
+      return _ikw9cscj.SearchSort.fromJson(data) as T;
+    }
+    if (t == _imtvyjr9.StewardFamilyDto) {
+      return _imtvyjr9.StewardFamilyDto.fromJson(data) as T;
+    }
+    if (t == _ipnasz46.StoryDto) {
+      return _ipnasz46.StoryDto.fromJson(data) as T;
+    }
+    if (t == _i57prwgh.StoryFacetsDto) {
+      return _i57prwgh.StoryFacetsDto.fromJson(data) as T;
+    }
+    if (t == _ipq9eknh.StoryPersonDto) {
+      return _ipq9eknh.StoryPersonDto.fromJson(data) as T;
+    }
+    if (t == _i93osgfq.StorySearchDto) {
+      return _i93osgfq.StorySearchDto.fromJson(data) as T;
+    }
+    if (t == _i70jvi55.StoryWriteDto) {
+      return _i70jvi55.StoryWriteDto.fromJson(data) as T;
+    }
+    if (t == _i91d5kcr.TreeFamilyDto) {
+      return _i91d5kcr.TreeFamilyDto.fromJson(data) as T;
+    }
     if (t == _igf5ho4a.Family) {
       return _igf5ho4a.Family.fromJson(data) as T;
     }
@@ -1942,6 +2225,136 @@ class Protocol extends _is.DatabaseSerializationManager
       return (data != null ? _ilvyd2nu.DatePrecision.fromJson(data) : null)
           as T;
     }
+    if (t == _is.getType<_ieh1xhhu.CoverUploadTicketDto?>()) {
+      return (data != null
+              ? _ieh1xhhu.CoverUploadTicketDto.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _is.getType<_i5tlcydc.CreatedInviteDto?>()) {
+      return (data != null ? _i5tlcydc.CreatedInviteDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i3bc4i2z.DecadeFacetDto?>()) {
+      return (data != null ? _i3bc4i2z.DecadeFacetDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i454qtto.FamilyDetailDto?>()) {
+      return (data != null ? _i454qtto.FamilyDetailDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ibjtxzev.FamilyDirectoryDto?>()) {
+      return (data != null ? _ibjtxzev.FamilyDirectoryDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i6t2z5gc.FamilyMemberDto?>()) {
+      return (data != null ? _i6t2z5gc.FamilyMemberDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ihq257tz.FamilyRosterDto?>()) {
+      return (data != null ? _ihq257tz.FamilyRosterDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_in2wbmsu.InvitePreviewDto?>()) {
+      return (data != null ? _in2wbmsu.InvitePreviewDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ia1fjje5.KinshipDto?>()) {
+      return (data != null ? _ia1fjje5.KinshipDto.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ipyvbztq.LiveEventDto?>()) {
+      return (data != null ? _ipyvbztq.LiveEventDto.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_i67kei86.LiveKind?>()) {
+      return (data != null ? _i67kei86.LiveKind.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ir8o3gjk.MemberFamilyDto?>()) {
+      return (data != null ? _ir8o3gjk.MemberFamilyDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i6e6avtv.NoteDto?>()) {
+      return (data != null ? _i6e6avtv.NoteDto.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_i9h96nn2.OriginDependentDto?>()) {
+      return (data != null ? _i9h96nn2.OriginDependentDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_is5ywasv.OwnProfileDto?>()) {
+      return (data != null ? _is5ywasv.OwnProfileDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i5vdpx0m.PendingInviteDto?>()) {
+      return (data != null ? _i5vdpx0m.PendingInviteDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ig7qj6yo.PersonDto?>()) {
+      return (data != null ? _ig7qj6yo.PersonDto.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ikbgxdng.PersonFacetDto?>()) {
+      return (data != null ? _ikbgxdng.PersonFacetDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i38icd77.PersonProfileDto?>()) {
+      return (data != null ? _i38icd77.PersonProfileDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_imob66rg.PersonWriteDto?>()) {
+      return (data != null ? _imob66rg.PersonWriteDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i3tneuol.PhotoDto?>()) {
+      return (data != null ? _i3tneuol.PhotoDto.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_i91pkskm.PhotoRefDto?>()) {
+      return (data != null ? _i91pkskm.PhotoRefDto.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_i5l4kjca.PhotoUploadTicketDto?>()) {
+      return (data != null
+              ? _i5l4kjca.PhotoUploadTicketDto.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _is.getType<_ijvrvfy5.PlaceDto?>()) {
+      return (data != null ? _ijvrvfy5.PlaceDto.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ioxclq7u.PlaceFacetDto?>()) {
+      return (data != null ? _ioxclq7u.PlaceFacetDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i85hzch5.PlaceInputDto?>()) {
+      return (data != null ? _i85hzch5.PlaceInputDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ikw9cscj.SearchSort?>()) {
+      return (data != null ? _ikw9cscj.SearchSort.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_imtvyjr9.StewardFamilyDto?>()) {
+      return (data != null ? _imtvyjr9.StewardFamilyDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ipnasz46.StoryDto?>()) {
+      return (data != null ? _ipnasz46.StoryDto.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_i57prwgh.StoryFacetsDto?>()) {
+      return (data != null ? _i57prwgh.StoryFacetsDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ipq9eknh.StoryPersonDto?>()) {
+      return (data != null ? _ipq9eknh.StoryPersonDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i93osgfq.StorySearchDto?>()) {
+      return (data != null ? _i93osgfq.StorySearchDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i70jvi55.StoryWriteDto?>()) {
+      return (data != null ? _i70jvi55.StoryWriteDto.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i91d5kcr.TreeFamilyDto?>()) {
+      return (data != null ? _i91d5kcr.TreeFamilyDto.fromJson(data) : null)
+          as T;
+    }
     if (t == _is.getType<_igf5ho4a.Family?>()) {
       return (data != null ? _igf5ho4a.Family.fromJson(data) : null) as T;
     }
@@ -1988,6 +2401,69 @@ class Protocol extends _is.DatabaseSerializationManager
     if (t == _is.getType<_i5e6tmks.Tree?>()) {
       return (data != null ? _i5e6tmks.Tree.fromJson(data) : null) as T;
     }
+    if (t == List<_i6t2z5gc.FamilyMemberDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i6t2z5gc.FamilyMemberDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i5vdpx0m.PendingInviteDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i5vdpx0m.PendingInviteDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_ihq257tz.FamilyRosterDto>) {
+      return (data as List)
+              .map((e) => deserialize<_ihq257tz.FamilyRosterDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_ipq9eknh.StoryPersonDto>) {
+      return (data as List)
+              .map((e) => deserialize<_ipq9eknh.StoryPersonDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i91pkskm.PhotoRefDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i91pkskm.PhotoRefDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i3bc4i2z.DecadeFacetDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i3bc4i2z.DecadeFacetDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_ikbgxdng.PersonFacetDto>) {
+      return (data as List)
+              .map((e) => deserialize<_ikbgxdng.PersonFacetDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_ioxclq7u.PlaceFacetDto>) {
+      return (data as List)
+              .map((e) => deserialize<_ioxclq7u.PlaceFacetDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_is.UuidValue>) {
+      return (data as List).map((e) => deserialize<_is.UuidValue>(e)).toList()
+          as T;
+    }
+    if (t == List<int>) {
+      return (data as List).map((e) => deserialize<int>(e)).toList() as T;
+    }
+    if (t == _is.getType<List<_is.UuidValue>?>()) {
+      return (data != null
+              ? (data as List)
+                    .map((e) => deserialize<_is.UuidValue>(e))
+                    .toList()
+              : null)
+          as T;
+    }
     final modules = deserializationMetadata.modulesForDeserialization(
       t,
       className: rawDataClassName,
@@ -2009,6 +2485,40 @@ class Protocol extends _is.DatabaseSerializationManager
       _i2x3tia5.BirthVisibility => 'BirthVisibility',
       _ig8q6jh0.BlobDeletion => 'BlobDeletion',
       _ilvyd2nu.DatePrecision => 'DatePrecision',
+      _ieh1xhhu.CoverUploadTicketDto => 'CoverUploadTicketDto',
+      _i5tlcydc.CreatedInviteDto => 'CreatedInviteDto',
+      _i3bc4i2z.DecadeFacetDto => 'DecadeFacetDto',
+      _i454qtto.FamilyDetailDto => 'FamilyDetailDto',
+      _ibjtxzev.FamilyDirectoryDto => 'FamilyDirectoryDto',
+      _i6t2z5gc.FamilyMemberDto => 'FamilyMemberDto',
+      _ihq257tz.FamilyRosterDto => 'FamilyRosterDto',
+      _in2wbmsu.InvitePreviewDto => 'InvitePreviewDto',
+      _ia1fjje5.KinshipDto => 'KinshipDto',
+      _ipyvbztq.LiveEventDto => 'LiveEventDto',
+      _i67kei86.LiveKind => 'LiveKind',
+      _ir8o3gjk.MemberFamilyDto => 'MemberFamilyDto',
+      _i6e6avtv.NoteDto => 'NoteDto',
+      _i9h96nn2.OriginDependentDto => 'OriginDependentDto',
+      _is5ywasv.OwnProfileDto => 'OwnProfileDto',
+      _i5vdpx0m.PendingInviteDto => 'PendingInviteDto',
+      _ig7qj6yo.PersonDto => 'PersonDto',
+      _ikbgxdng.PersonFacetDto => 'PersonFacetDto',
+      _i38icd77.PersonProfileDto => 'PersonProfileDto',
+      _imob66rg.PersonWriteDto => 'PersonWriteDto',
+      _i3tneuol.PhotoDto => 'PhotoDto',
+      _i91pkskm.PhotoRefDto => 'PhotoRefDto',
+      _i5l4kjca.PhotoUploadTicketDto => 'PhotoUploadTicketDto',
+      _ijvrvfy5.PlaceDto => 'PlaceDto',
+      _ioxclq7u.PlaceFacetDto => 'PlaceFacetDto',
+      _i85hzch5.PlaceInputDto => 'PlaceInputDto',
+      _ikw9cscj.SearchSort => 'SearchSort',
+      _imtvyjr9.StewardFamilyDto => 'StewardFamilyDto',
+      _ipnasz46.StoryDto => 'StoryDto',
+      _i57prwgh.StoryFacetsDto => 'StoryFacetsDto',
+      _ipq9eknh.StoryPersonDto => 'StoryPersonDto',
+      _i93osgfq.StorySearchDto => 'StorySearchDto',
+      _i70jvi55.StoryWriteDto => 'StoryWriteDto',
+      _i91d5kcr.TreeFamilyDto => 'TreeFamilyDto',
       _igf5ho4a.Family => 'Family',
       _ibtb2p99.Invite => 'Invite',
       _itzlol5n.Kinship => 'Kinship',
@@ -2053,6 +2563,74 @@ class Protocol extends _is.DatabaseSerializationManager
         return 'BlobDeletion';
       case _ilvyd2nu.DatePrecision():
         return 'DatePrecision';
+      case _ieh1xhhu.CoverUploadTicketDto():
+        return 'CoverUploadTicketDto';
+      case _i5tlcydc.CreatedInviteDto():
+        return 'CreatedInviteDto';
+      case _i3bc4i2z.DecadeFacetDto():
+        return 'DecadeFacetDto';
+      case _i454qtto.FamilyDetailDto():
+        return 'FamilyDetailDto';
+      case _ibjtxzev.FamilyDirectoryDto():
+        return 'FamilyDirectoryDto';
+      case _i6t2z5gc.FamilyMemberDto():
+        return 'FamilyMemberDto';
+      case _ihq257tz.FamilyRosterDto():
+        return 'FamilyRosterDto';
+      case _in2wbmsu.InvitePreviewDto():
+        return 'InvitePreviewDto';
+      case _ia1fjje5.KinshipDto():
+        return 'KinshipDto';
+      case _ipyvbztq.LiveEventDto():
+        return 'LiveEventDto';
+      case _i67kei86.LiveKind():
+        return 'LiveKind';
+      case _ir8o3gjk.MemberFamilyDto():
+        return 'MemberFamilyDto';
+      case _i6e6avtv.NoteDto():
+        return 'NoteDto';
+      case _i9h96nn2.OriginDependentDto():
+        return 'OriginDependentDto';
+      case _is5ywasv.OwnProfileDto():
+        return 'OwnProfileDto';
+      case _i5vdpx0m.PendingInviteDto():
+        return 'PendingInviteDto';
+      case _ig7qj6yo.PersonDto():
+        return 'PersonDto';
+      case _ikbgxdng.PersonFacetDto():
+        return 'PersonFacetDto';
+      case _i38icd77.PersonProfileDto():
+        return 'PersonProfileDto';
+      case _imob66rg.PersonWriteDto():
+        return 'PersonWriteDto';
+      case _i3tneuol.PhotoDto():
+        return 'PhotoDto';
+      case _i91pkskm.PhotoRefDto():
+        return 'PhotoRefDto';
+      case _i5l4kjca.PhotoUploadTicketDto():
+        return 'PhotoUploadTicketDto';
+      case _ijvrvfy5.PlaceDto():
+        return 'PlaceDto';
+      case _ioxclq7u.PlaceFacetDto():
+        return 'PlaceFacetDto';
+      case _i85hzch5.PlaceInputDto():
+        return 'PlaceInputDto';
+      case _ikw9cscj.SearchSort():
+        return 'SearchSort';
+      case _imtvyjr9.StewardFamilyDto():
+        return 'StewardFamilyDto';
+      case _ipnasz46.StoryDto():
+        return 'StoryDto';
+      case _i57prwgh.StoryFacetsDto():
+        return 'StoryFacetsDto';
+      case _ipq9eknh.StoryPersonDto():
+        return 'StoryPersonDto';
+      case _i93osgfq.StorySearchDto():
+        return 'StorySearchDto';
+      case _i70jvi55.StoryWriteDto():
+        return 'StoryWriteDto';
+      case _i91d5kcr.TreeFamilyDto():
+        return 'TreeFamilyDto';
       case _igf5ho4a.Family():
         return 'Family';
       case _ibtb2p99.Invite():
@@ -2126,6 +2704,108 @@ class Protocol extends _is.DatabaseSerializationManager
     }
     if (dataClassName == 'DatePrecision') {
       return deserialize<_ilvyd2nu.DatePrecision>(data['data']);
+    }
+    if (dataClassName == 'CoverUploadTicketDto') {
+      return deserialize<_ieh1xhhu.CoverUploadTicketDto>(data['data']);
+    }
+    if (dataClassName == 'CreatedInviteDto') {
+      return deserialize<_i5tlcydc.CreatedInviteDto>(data['data']);
+    }
+    if (dataClassName == 'DecadeFacetDto') {
+      return deserialize<_i3bc4i2z.DecadeFacetDto>(data['data']);
+    }
+    if (dataClassName == 'FamilyDetailDto') {
+      return deserialize<_i454qtto.FamilyDetailDto>(data['data']);
+    }
+    if (dataClassName == 'FamilyDirectoryDto') {
+      return deserialize<_ibjtxzev.FamilyDirectoryDto>(data['data']);
+    }
+    if (dataClassName == 'FamilyMemberDto') {
+      return deserialize<_i6t2z5gc.FamilyMemberDto>(data['data']);
+    }
+    if (dataClassName == 'FamilyRosterDto') {
+      return deserialize<_ihq257tz.FamilyRosterDto>(data['data']);
+    }
+    if (dataClassName == 'InvitePreviewDto') {
+      return deserialize<_in2wbmsu.InvitePreviewDto>(data['data']);
+    }
+    if (dataClassName == 'KinshipDto') {
+      return deserialize<_ia1fjje5.KinshipDto>(data['data']);
+    }
+    if (dataClassName == 'LiveEventDto') {
+      return deserialize<_ipyvbztq.LiveEventDto>(data['data']);
+    }
+    if (dataClassName == 'LiveKind') {
+      return deserialize<_i67kei86.LiveKind>(data['data']);
+    }
+    if (dataClassName == 'MemberFamilyDto') {
+      return deserialize<_ir8o3gjk.MemberFamilyDto>(data['data']);
+    }
+    if (dataClassName == 'NoteDto') {
+      return deserialize<_i6e6avtv.NoteDto>(data['data']);
+    }
+    if (dataClassName == 'OriginDependentDto') {
+      return deserialize<_i9h96nn2.OriginDependentDto>(data['data']);
+    }
+    if (dataClassName == 'OwnProfileDto') {
+      return deserialize<_is5ywasv.OwnProfileDto>(data['data']);
+    }
+    if (dataClassName == 'PendingInviteDto') {
+      return deserialize<_i5vdpx0m.PendingInviteDto>(data['data']);
+    }
+    if (dataClassName == 'PersonDto') {
+      return deserialize<_ig7qj6yo.PersonDto>(data['data']);
+    }
+    if (dataClassName == 'PersonFacetDto') {
+      return deserialize<_ikbgxdng.PersonFacetDto>(data['data']);
+    }
+    if (dataClassName == 'PersonProfileDto') {
+      return deserialize<_i38icd77.PersonProfileDto>(data['data']);
+    }
+    if (dataClassName == 'PersonWriteDto') {
+      return deserialize<_imob66rg.PersonWriteDto>(data['data']);
+    }
+    if (dataClassName == 'PhotoDto') {
+      return deserialize<_i3tneuol.PhotoDto>(data['data']);
+    }
+    if (dataClassName == 'PhotoRefDto') {
+      return deserialize<_i91pkskm.PhotoRefDto>(data['data']);
+    }
+    if (dataClassName == 'PhotoUploadTicketDto') {
+      return deserialize<_i5l4kjca.PhotoUploadTicketDto>(data['data']);
+    }
+    if (dataClassName == 'PlaceDto') {
+      return deserialize<_ijvrvfy5.PlaceDto>(data['data']);
+    }
+    if (dataClassName == 'PlaceFacetDto') {
+      return deserialize<_ioxclq7u.PlaceFacetDto>(data['data']);
+    }
+    if (dataClassName == 'PlaceInputDto') {
+      return deserialize<_i85hzch5.PlaceInputDto>(data['data']);
+    }
+    if (dataClassName == 'SearchSort') {
+      return deserialize<_ikw9cscj.SearchSort>(data['data']);
+    }
+    if (dataClassName == 'StewardFamilyDto') {
+      return deserialize<_imtvyjr9.StewardFamilyDto>(data['data']);
+    }
+    if (dataClassName == 'StoryDto') {
+      return deserialize<_ipnasz46.StoryDto>(data['data']);
+    }
+    if (dataClassName == 'StoryFacetsDto') {
+      return deserialize<_i57prwgh.StoryFacetsDto>(data['data']);
+    }
+    if (dataClassName == 'StoryPersonDto') {
+      return deserialize<_ipq9eknh.StoryPersonDto>(data['data']);
+    }
+    if (dataClassName == 'StorySearchDto') {
+      return deserialize<_i93osgfq.StorySearchDto>(data['data']);
+    }
+    if (dataClassName == 'StoryWriteDto') {
+      return deserialize<_i70jvi55.StoryWriteDto>(data['data']);
+    }
+    if (dataClassName == 'TreeFamilyDto') {
+      return deserialize<_i91d5kcr.TreeFamilyDto>(data['data']);
     }
     if (dataClassName == 'Family') {
       return deserialize<_igf5ho4a.Family>(data['data']);
