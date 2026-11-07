@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timeline_lab/filter/timeline_filter.dart';
@@ -5,6 +6,7 @@ import 'package:timeline_lab/lab_controller.dart';
 import 'package:timeline_lab/renderers/renderer_contract.dart';
 import 'package:timeline_lab/renderers/swimlanes_renderer.dart';
 import 'package:timeline_lab/renderers/tree_graph_renderer.dart';
+import 'package:timeline_lab/renderers/treemap_renderer.dart';
 import 'package:timeline_lab/renderers/zoom_canvas_renderer.dart';
 import 'package:timeline_lab/theme/lab_theme.dart';
 
@@ -122,6 +124,47 @@ void main() {
       await tester.tap(find.byKey(Key('chooser-$second')));
       await tester.pumpAndSettle();
       expect(c.selectedStoryId, second);
+    }, variant: ios);
+  });
+  group('treemap', () {
+    Future<TreemapCellTile> smallCell(WidgetTester tester) async {
+      final c = await pumpIpad(
+        tester,
+        ipadSizes['split_half']!,
+        kind: RendererKind.treemap,
+        dpr: 1,
+      );
+      c.setDatasetSize(1000);
+      await tester.pumpAndSettle();
+      return find.byType(TreemapCellTile).evaluate().firstWhere((e) {
+            final s = (e.renderObject! as RenderBox).size;
+            return s.width < LabTarget.min || s.height < LabTarget.min;
+          }).widget
+          as TreemapCellTile;
+    }
+
+    testWidgets('finger on a tiny cell opens its group', (tester) async {
+      final tile = await smallCell(tester);
+      await tester.tapAt(tester.getCenter(find.byWidget(tile)));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('treemap-crumb-group')), findsOneWidget);
+      expect(
+        find.byKey(Key('treemap-story-${tile.cell.entries.first.story.id}')),
+        findsNothing,
+      );
+    }, variant: ios);
+
+    testWidgets('mouse on a tiny cell opens the cell', (tester) async {
+      final tile = await smallCell(tester);
+      await tester.tapAt(
+        tester.getCenter(find.byWidget(tile)),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(Key('treemap-story-${tile.cell.entries.first.story.id}')),
+        findsOneWidget,
+      );
     }, variant: ios);
   });
 }
