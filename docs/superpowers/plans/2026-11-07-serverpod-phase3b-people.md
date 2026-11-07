@@ -874,6 +874,33 @@ void main() {
         expect(other.birthPrecision, isNull);
       });
 
+      // BR 100
+      test(
+        'when a linked person has a birth on its own row and the account is '
+        'hidden then other tree members see no birth',
+        () async {
+          final linked = await fx.person(
+            parent,
+            userId: member,
+            name: 'Me',
+            birthDate: DateTime.utc(1900),
+            birthPrecision: DatePrecision.year,
+          );
+          await fx.account(member);
+
+          final other = await endpoints.people.profile(as(owner), linked.id!);
+          final listed = (await endpoints.people.listTree(
+            as(owner),
+            parent.id!,
+          )).singleWhere((p) => p.id == linked.id);
+
+          expect(other.birthDate, isNull);
+          expect(other.birthPrecision, isNull);
+          expect(listed.birthDate, isNull);
+          expect(listed.birthPrecision, isNull);
+        },
+      );
+
       test(
         'when the person is unlinked then its own life dates show',
         () async {
@@ -1120,7 +1147,7 @@ git commit -m "feat(server): people reads with tree scope and birth coarsening"
 - Modify: `apps/server/lib/src/endpoints/people_endpoint.dart`
 - Test: `apps/server/test/integration/people_endpoint_test.dart`
 
-- [ ] **Step 1: Write the failing test** — add `import 'package:tell_me_a_story_server/src/media/blob_keys.dart';` and this group after `reads`:
+- [ ] **Step 1: Write the failing test** — add `import 'dart:async';` and `import 'package:tell_me_a_story_server/src/media/blob_keys.dart';`, and this group after `reads`:
 
 ```dart
     group('writes', () {
@@ -1299,6 +1326,51 @@ git commit -m "feat(server): people reads with tree scope and birth coarsening"
         },
       );
 
+      test(
+        'when the person is linked to someone else while an edit waits for '
+        'the row lock then the edit is refused and nothing changes',
+        () async {
+          final ada = await fx.person(parent, name: 'Ada');
+          final locked = Completer<void>();
+          final release = Completer<void>();
+          final linker = fx.s.db.transaction((t) async {
+            await Person.db.findById(
+              fx.s,
+              ada.id!,
+              transaction: t,
+              lockMode: LockMode.forUpdate,
+            );
+            locked.complete();
+            await release.future;
+            await Person.db.updateRow(
+              fx.s,
+              ada.copyWith(userId: coOwner),
+              transaction: t,
+            );
+          });
+          await locked.future;
+
+          final outcome = endpoints.people
+              .update(as(member), ada.id!, personWrite(name: 'Renamed'), null)
+              .then<Object?>((_) => null, onError: (Object e) => e);
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          release.complete();
+          await linker;
+
+          expect(
+            await outcome,
+            isA<AppException>().having(
+              (e) => e.code,
+              'code',
+              AppErrorCode.forbidden,
+            ),
+          );
+          final row = await fx.reload(ada);
+          expect(row.name, 'Ada');
+          expect(row.userId, coOwner);
+        },
+      );
+
       // BR 99
       test(
         'when a tree member uploads an unlinked avatar then it saves and the '
@@ -1467,7 +1539,7 @@ git commit -m "feat(server): people reads with tree scope and birth coarsening"
 Run: `cd apps/server && mise exec -- dart test test/integration/people_endpoint_test.dart`
 Expected: compile error, `create`/`update` don't exist.
 
-- [ ] **Step 3: Implement** — add `import 'dart:typed_data';`, `import '../media/blob_keys.dart';`, `import '../media/blob_outbox.dart';`, `create` after `listTree`, `update` after `profile`, and the picture helpers at the end of the class:
+- [ ] **Step 3: Implement** — add `import 'dart:typed_data';`, `import '../media/blob_keys.dart';`, `import '../media/blob_outbox.dart';`, `create` after `listTree`, `update` and its `_checkLinkedWrite` helper after `profile`, and the picture helpers at the end of the class:
 
 ```dart
   /// Adds an unlinked person with [familyId] as home. A [picture] (JPEG,
@@ -1526,18 +1598,7 @@ Expected: compile error, `create`/`update` don't exist.
     final uid = authz.requireUser();
     final person = await _readablePerson(authz, personId);
     if (person == null) throw forbidden();
-    final linkedId = person.userId;
-    if (linkedId != null) {
-      if (linkedId != uid) throw forbidden();
-      if (input.name.trim() != person.name) {
-        throw forbidden('linked_person_name_locked');
-      }
-      if (input.writePassedAway &&
-          (input.passedAway ?? false) != person.passedAway) {
-        throw forbidden();
-      }
-      if (input.writeDeath) throw forbidden();
-    }
+    _checkLinkedWrite(person, uid, input);
     applyPersonWrite(person, input);
     if (picture != null) _checkPicture(picture);
     final key = picture == null
@@ -1553,6 +1614,7 @@ Expected: compile error, `create`/`update` don't exist.
           lockMode: LockMode.forUpdate,
         );
         if (current == null) throw forbidden();
+        _checkLinkedWrite(current, uid, input);
         var next = applyPersonWrite(
           current,
           input,
@@ -1570,6 +1632,28 @@ Expected: compile error, `create`/`update` don't exist.
       rethrow;
     }
     return (await _toDtos(session, authz, [saved])).single;
+  }
+
+  /// A linked row is written only by its linked self, keeping the account's
+  /// name and leaving passed-away and death to stewards. Run on the read row
+  /// (so a refused write stores no picture) and again on the locked row, so
+  /// a person linked meanwhile is not edited by someone else.
+  void _checkLinkedWrite(
+    Person person,
+    UuidValue caller,
+    PersonWriteDto input,
+  ) {
+    final linkedId = person.userId;
+    if (linkedId == null) return;
+    if (linkedId != caller) throw forbidden();
+    if (input.name.trim() != person.name) {
+      throw forbidden('linked_person_name_locked');
+    }
+    if (input.writePassedAway &&
+        (input.passedAway ?? false) != person.passedAway) {
+      throw forbidden();
+    }
+    if (input.writeDeath) throw forbidden();
   }
 
   /// Person avatars are JPEG only, ≤ 2 MiB (schema-design.md §4.2).
@@ -2007,6 +2091,21 @@ git commit -m "feat(server): unlinked person picker and home steward check"
       );
 
       test(
+        'when a person with an invite is deleted then the invite stays with '
+        'no person',
+        () async {
+          final ada = await fx.person(parent);
+          final invite = await fx.invite(parent, personId: ada.id);
+
+          await endpoints.people.delete(as(owner), ada.id!);
+
+          final row = await Invite.db.findById(fx.s, invite.id!);
+          expect(row, isNotNull);
+          expect(row!.personId, isNull);
+        },
+      );
+
+      test(
         'when a person with a picture is deleted then the key is queued',
         () async {
           final ada = await fx.person(parent);
@@ -2121,14 +2220,14 @@ git commit -m "feat(server): stewards delete unlinked people"
 | 28 (people part) | reads: "when a stranger reads then no people come back" |
 | 95 | reads: "when a tree member in the child or the parent reads a person …" (+ anonymous test) |
 | 96 | unit: about > 500; writes: about > 500, picture key shape on create |
-| 97 | writes: "when a tree member edits an unlinked person …" |
+| 97 | writes: "when a tree member edits an unlinked person …"; "when the person is linked to someone else while an edit waits for the row lock …" (linked-row rules are rechecked on the locked row) |
 | 98 | reads: two profile tests |
 | 99 | writes: avatar upload test (read part is 3d) |
-| 100 | unit: coarsening table; reads: year-visible and hidden tests |
+| 100 | unit: coarsening table; reads: year-visible, hidden, and own-row birth ignored while linked |
 | 102 | unit: no decade precision; reads: default visibility hidden |
 | 103 | markPassedAway: both BR 103 tests |
 | 104 | writes: linked user changes own passedAway |
 | 105 | writes: flag/unflag; picker: leaves and returns to the unlinked list |
 | 116 | reads: passedAway across families, out-of-tree refused |
 | 120 | picker: whole live tree, exclusions, NOT_FOUND |
-| 136 | delete: three tests |
+| 136 | delete: four tests (incl. an invite keeps a null personId) |
