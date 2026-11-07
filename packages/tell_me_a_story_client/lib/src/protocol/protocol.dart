@@ -17,10 +17,22 @@ import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:tell_me_a_story_client/src/protocol/dto/family_member_dto.dart'
+    as _ie59njid;
+import 'package:tell_me_a_story_client/src/protocol/dto/member_family_dto.dart'
+    as _ii9mmjc2;
+import 'package:tell_me_a_story_client/src/protocol/dto/origin_dependent_dto.dart'
+    as _i6upf1dr;
 import 'package:tell_me_a_story_client/src/protocol/dto/person_dto.dart'
     as _ippgtqmg;
 import 'package:tell_me_a_story_client/src/protocol/dto/photo_dto.dart'
     as _ighpoo1p;
+import 'package:tell_me_a_story_client/src/protocol/dto/place_dto.dart'
+    as _irx46cwk;
+import 'package:tell_me_a_story_client/src/protocol/dto/steward_family_dto.dart'
+    as _iy83v9y2;
+import 'package:tell_me_a_story_client/src/protocol/dto/tree_family_dto.dart'
+    as _iwn4wr2j;
 import 'app_error_code.dart' as _imu8gbx5;
 import 'app_exception.dart' as _it4z223c;
 import 'app_user.dart' as _i2j2xfrn;
@@ -259,10 +271,17 @@ class Protocol extends _isc.SerializationManager
           _isc.getType<List<_isc.UuidValue>>,
           _isc.getType<List<int>>,
           _isc.getType<List<_isc.UuidValue>?>,
+          _isc.getType<List<_ii9mmjc2.MemberFamilyDto>>,
+          _isc.getType<List<_iy83v9y2.StewardFamilyDto>>,
+          _isc.getType<List<_iwn4wr2j.TreeFamilyDto>>,
+          _isc.getType<List<_ie59njid.FamilyMemberDto>>,
+          _isc.getType<List<_i6upf1dr.OriginDependentDto>>,
+          _isc.getType<List<_isc.UuidValue>>,
           _isc.getType<Map<String, _idt.ByteData>>,
           _isc.getType<List<String>>,
           _isc.getType<List<_ippgtqmg.PersonDto>>,
           _isc.getType<List<_ighpoo1p.PhotoDto>>,
+          _isc.getType<List<_irx46cwk.PlaceDto>>,
         ],
         modules: const [
           _iaic.Protocol.new,
@@ -761,6 +780,40 @@ class Protocol extends _isc.SerializationManager
               : null)
           as T;
     }
+    if (t == List<_ii9mmjc2.MemberFamilyDto>) {
+      return (data as List)
+              .map((e) => deserialize<_ii9mmjc2.MemberFamilyDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_iy83v9y2.StewardFamilyDto>) {
+      return (data as List)
+              .map((e) => deserialize<_iy83v9y2.StewardFamilyDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_iwn4wr2j.TreeFamilyDto>) {
+      return (data as List)
+              .map((e) => deserialize<_iwn4wr2j.TreeFamilyDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_ie59njid.FamilyMemberDto>) {
+      return (data as List)
+              .map((e) => deserialize<_ie59njid.FamilyMemberDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i6upf1dr.OriginDependentDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i6upf1dr.OriginDependentDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_isc.UuidValue>) {
+      return (data as List).map((e) => deserialize<_isc.UuidValue>(e)).toList()
+          as T;
+    }
     if (t == Map<String, _idt.ByteData>) {
       return (data as Map).map(
             (k, v) =>
@@ -780,6 +833,12 @@ class Protocol extends _isc.SerializationManager
     if (t == List<_ighpoo1p.PhotoDto>) {
       return (data as List)
               .map((e) => deserialize<_ighpoo1p.PhotoDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_irx46cwk.PlaceDto>) {
+      return (data as List)
+              .map((e) => deserialize<_irx46cwk.PlaceDto>(e))
               .toList()
           as T;
     }

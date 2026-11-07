@@ -16,18 +16,29 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
+import 'package:tell_me_a_story_server/src/generated/birth_visibility.dart'
+    as _i0rpsun5;
+import 'package:tell_me_a_story_server/src/generated/date_precision.dart'
+    as _ig52w51f;
 import 'package:tell_me_a_story_server/src/generated/dto/person_write_dto.dart'
     as _imyz5bcs;
+import 'package:tell_me_a_story_server/src/generated/dto/place_input_dto.dart'
+    as _iqvasz3a;
 import 'package:tell_me_a_story_server/src/generated/future_calls.dart'
     as _iggapxvt;
+import 'package:tell_me_a_story_server/src/generated/membership_role.dart'
+    as _ic4z8goi;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../endpoints/family_endpoint.dart' as _ibe5smjw;
 import '../endpoints/invite_endpoint.dart' as _ip80nve4;
 import '../endpoints/invite_public_endpoint.dart' as _ip1i0qvr;
 import '../endpoints/live_endpoint.dart' as _ixgr9pqx;
 import '../endpoints/media_endpoint.dart' as _iaymoujt;
 import '../endpoints/people_endpoint.dart' as _iqqt4psm;
 import '../endpoints/photo_endpoint.dart' as _ihuw68ce;
+import '../endpoints/place_endpoint.dart' as _ilyqdzjc;
+import '../endpoints/profile_endpoint.dart' as _i2cx2pww;
 export 'future_calls.dart' show ServerpodFutureCallsGetter;
 
 class Endpoints extends _is.EndpointDispatch {
@@ -44,6 +55,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'family': _ibe5smjw.FamilyEndpoint()
+        ..initialize(
+          server,
+          'family',
           null,
         ),
       'invite': _ip80nve4.InviteEndpoint()
@@ -80,6 +97,18 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'photo',
+          null,
+        ),
+      'place': _ilyqdzjc.PlaceEndpoint()
+        ..initialize(
+          server,
+          'place',
+          null,
+        ),
+      'profile': _i2cx2pww.ProfileEndpoint()
+        ..initialize(
+          server,
+          'profile',
           null,
         ),
     };
@@ -374,6 +403,455 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['family'] = _is.EndpointConnector(
+      name: 'family',
+      endpoint: endpoints['family']!,
+      methodConnectors: {
+        'createRoot': _is.MethodConnector(
+          name: 'createRoot',
+          params: {
+            'name': _is.ParameterDescription(
+              name: 'name',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).createRoot(
+                    session,
+                    params['name'],
+                  ),
+        ),
+        'listMine': _is.MethodConnector(
+          name: 'listMine',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .listMine(session),
+        ),
+        'listStewarded': _is.MethodConnector(
+          name: 'listStewarded',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .listStewarded(session),
+        ),
+        'listTree': _is.MethodConnector(
+          name: 'listTree',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).listTree(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'listMembers': _is.MethodConnector(
+          name: 'listMembers',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).listMembers(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'directory': _is.MethodConnector(
+          name: 'directory',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .directory(session),
+        ),
+        'detail': _is.MethodConnector(
+          name: 'detail',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).detail(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'rename': _is.MethodConnector(
+          name: 'rename',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'name': _is.ParameterDescription(
+              name: 'name',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).rename(
+                    session,
+                    params['familyId'],
+                    params['name'],
+                  ),
+        ),
+        'addCoOwner': _is.MethodConnector(
+          name: 'addCoOwner',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).addCoOwner(
+                    session,
+                    params['familyId'],
+                    params['userId'],
+                  ),
+        ),
+        'removeCoOwner': _is.MethodConnector(
+          name: 'removeCoOwner',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .removeCoOwner(
+                    session,
+                    params['familyId'],
+                    params['userId'],
+                  ),
+        ),
+        'transferOwnership': _is.MethodConnector(
+          name: 'transferOwnership',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'newOwnerUserId': _is.ParameterDescription(
+              name: 'newOwnerUserId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'formerOwnerBecomes': _is.ParameterDescription(
+              name: 'formerOwnerBecomes',
+              type: _is.getType<_ic4z8goi.MembershipRole>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .transferOwnership(
+                    session,
+                    params['familyId'],
+                    params['newOwnerUserId'],
+                    params['formerOwnerBecomes'],
+                  ),
+        ),
+        'removeMember': _is.MethodConnector(
+          name: 'removeMember',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .removeMember(
+                    session,
+                    params['familyId'],
+                    params['userId'],
+                  ),
+        ),
+        'softDelete': _is.MethodConnector(
+          name: 'softDelete',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).softDelete(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'recover': _is.MethodConnector(
+          name: 'recover',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).recover(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'setOrigin': _is.MethodConnector(
+          name: 'setOrigin',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).setOrigin(
+                    session,
+                    params['familyId'],
+                    params['storyId'],
+                  ),
+        ),
+        'listOriginDependents': _is.MethodConnector(
+          name: 'listOriginDependents',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .listOriginDependents(
+                    session,
+                    params['storyId'],
+                  ),
+        ),
+        'createBranch': _is.MethodConnector(
+          name: 'createBranch',
+          params: {
+            'parentFamilyId': _is.ParameterDescription(
+              name: 'parentFamilyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'originStoryId': _is.ParameterDescription(
+              name: 'originStoryId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'name': _is.ParameterDescription(
+              name: 'name',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'branchYear': _is.ParameterDescription(
+              name: 'branchYear',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'ownerUserId': _is.ParameterDescription(
+              name: 'ownerUserId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'personIds': _is.ParameterDescription(
+              name: 'personIds',
+              type: _is.getType<List<_is.UuidValue>>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .createBranch(
+                    session,
+                    parentFamilyId: params['parentFamilyId'],
+                    originStoryId: params['originStoryId'],
+                    name: params['name'],
+                    branchYear: params['branchYear'],
+                    ownerUserId: params['ownerUserId'],
+                    personIds: params['personIds'],
+                  ),
+        ),
+        'startCoverUpload': _is.MethodConnector(
+          name: 'startCoverUpload',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'mimeType': _is.ParameterDescription(
+              name: 'mimeType',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'byteLength': _is.ParameterDescription(
+              name: 'byteLength',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .startCoverUpload(
+                    session,
+                    params['familyId'],
+                    params['mimeType'],
+                    params['byteLength'],
+                  ),
+        ),
+        'finishCoverUpload': _is.MethodConnector(
+          name: 'finishCoverUpload',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'key': _is.ParameterDescription(
+              name: 'key',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .finishCoverUpload(
+                    session,
+                    params['familyId'],
+                    params['key'],
+                  ),
+        ),
+        'clearCover': _is.MethodConnector(
+          name: 'clearCover',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).clearCover(
+                    session,
+                    params['familyId'],
+                  ),
         ),
       },
     );
@@ -965,6 +1443,293 @@ class Endpoints extends _is.EndpointDispatch {
                     params['storyId'],
                     params['photoId'],
                   ),
+        ),
+      },
+    );
+    connectors['place'] = _is.EndpointConnector(
+      name: 'place',
+      endpoint: endpoints['place']!,
+      methodConnectors: {
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).list(
+                session,
+                params['familyId'],
+              ),
+        ),
+        'favorites': _is.MethodConnector(
+          name: 'favorites',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).favorites(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'recents': _is.MethodConnector(
+          name: 'recents',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).recents(
+                    session,
+                    params['familyId'],
+                    limit: params['limit'],
+                  ),
+        ),
+        'create': _is.MethodConnector(
+          name: 'create',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'input': _is.ParameterDescription(
+              name: 'input',
+              type: _is.getType<_iqvasz3a.PlaceInputDto>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).create(
+                session,
+                params['familyId'],
+                params['input'],
+              ),
+        ),
+        'markUsed': _is.MethodConnector(
+          name: 'markUsed',
+          params: {
+            'placeId': _is.ParameterDescription(
+              name: 'placeId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).markUsed(
+                    session,
+                    params['placeId'],
+                  ),
+        ),
+        'setFavorite': _is.MethodConnector(
+          name: 'setFavorite',
+          params: {
+            'placeId': _is.ParameterDescription(
+              name: 'placeId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'isFavorite': _is.ParameterDescription(
+              name: 'isFavorite',
+              type: _is.getType<bool>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).setFavorite(
+                    session,
+                    params['placeId'],
+                    params['isFavorite'],
+                  ),
+        ),
+        'findByMapboxId': _is.MethodConnector(
+          name: 'findByMapboxId',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'mapboxPlaceId': _is.ParameterDescription(
+              name: 'mapboxPlaceId',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['place'] as _ilyqdzjc.PlaceEndpoint)
+                  .findByMapboxId(
+                    session,
+                    params['familyId'],
+                    params['mapboxPlaceId'],
+                  ),
+        ),
+        'get': _is.MethodConnector(
+          name: 'get',
+          params: {
+            'placeId': _is.ParameterDescription(
+              name: 'placeId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).get(
+                session,
+                params['placeId'],
+              ),
+        ),
+      },
+    );
+    connectors['profile'] = _is.EndpointConnector(
+      name: 'profile',
+      endpoint: endpoints['profile']!,
+      methodConnectors: {
+        'me': _is.MethodConnector(
+          name: 'me',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profile'] as _i2cx2pww.ProfileEndpoint).me(
+                session,
+              ),
+        ),
+        'saveName': _is.MethodConnector(
+          name: 'saveName',
+          params: {
+            'displayName': _is.ParameterDescription(
+              name: 'displayName',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['profile'] as _i2cx2pww.ProfileEndpoint).saveName(
+                    session,
+                    params['displayName'],
+                  ),
+        ),
+        'saveAccount': _is.MethodConnector(
+          name: 'saveAccount',
+          params: {
+            'displayName': _is.ParameterDescription(
+              name: 'displayName',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'birthDate': _is.ParameterDescription(
+              name: 'birthDate',
+              type: _is.getType<DateTime?>(),
+              nullable: true,
+            ),
+            'birthPrecision': _is.ParameterDescription(
+              name: 'birthPrecision',
+              type: _is.getType<_ig52w51f.DatePrecision?>(),
+              nullable: true,
+            ),
+            'birthVisibility': _is.ParameterDescription(
+              name: 'birthVisibility',
+              type: _is.getType<_i0rpsun5.BirthVisibility?>(),
+              nullable: true,
+            ),
+            'about': _is.ParameterDescription(
+              name: 'about',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profile'] as _i2cx2pww.ProfileEndpoint)
+                  .saveAccount(
+                    session,
+                    displayName: params['displayName'],
+                    birthDate: params['birthDate'],
+                    birthPrecision: params['birthPrecision'],
+                    birthVisibility: params['birthVisibility'],
+                    about: params['about'],
+                  ),
+        ),
+        'saveAvatar': _is.MethodConnector(
+          name: 'saveAvatar',
+          params: {
+            'jpeg': _is.ParameterDescription(
+              name: 'jpeg',
+              type: _is.getType<_idt.ByteData>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profile'] as _i2cx2pww.ProfileEndpoint)
+                  .saveAvatar(
+                    session,
+                    params['jpeg'],
+                  ),
+        ),
+        'clearAvatar': _is.MethodConnector(
+          name: 'clearAvatar',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profile'] as _i2cx2pww.ProfileEndpoint)
+                  .clearAvatar(session),
         ),
       },
     );

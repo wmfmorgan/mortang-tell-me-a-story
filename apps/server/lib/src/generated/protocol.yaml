@@ -13,6 +13,27 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+family:
+  - createRoot:
+  - listMine:
+  - listStewarded:
+  - listTree:
+  - listMembers:
+  - directory:
+  - detail:
+  - rename:
+  - addCoOwner:
+  - removeCoOwner:
+  - transferOwnership:
+  - removeMember:
+  - softDelete:
+  - recover:
+  - setOrigin:
+  - listOriginDependents:
+  - createBranch:
+  - startCoverUpload:
+  - finishCoverUpload:
+  - clearCover:
 invite:
   - create:
   - sendEmail:
@@ -44,3 +65,18 @@ photo:
   - finishUpload:
   - delete:
   - setHero:
+place:
+  - list:
+  - favorites:
+  - recents:
+  - create:
+  - markUsed:
+  - setFavorite:
+  - findByMapboxId:
+  - get:
+profile:
+  - me:
+  - saveName:
+  - saveAccount:
+  - saveAvatar:
+  - clearAvatar:

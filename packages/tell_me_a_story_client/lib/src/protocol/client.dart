@@ -18,12 +18,30 @@ import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:tell_me_a_story_client/src/protocol/birth_visibility.dart'
+    as _iie7eme0;
+import 'package:tell_me_a_story_client/src/protocol/date_precision.dart'
+    as _i3omm4g5;
+import 'package:tell_me_a_story_client/src/protocol/dto/cover_upload_ticket_dto.dart'
+    as _imc738lc;
 import 'package:tell_me_a_story_client/src/protocol/dto/created_invite_dto.dart'
     as _iq9lh22z;
+import 'package:tell_me_a_story_client/src/protocol/dto/family_detail_dto.dart'
+    as _is49z41e;
+import 'package:tell_me_a_story_client/src/protocol/dto/family_directory_dto.dart'
+    as _itkjk2qa;
+import 'package:tell_me_a_story_client/src/protocol/dto/family_member_dto.dart'
+    as _ie59njid;
 import 'package:tell_me_a_story_client/src/protocol/dto/invite_preview_dto.dart'
     as _i9tmm7fr;
 import 'package:tell_me_a_story_client/src/protocol/dto/live_event_dto.dart'
     as _iliy4w0g;
+import 'package:tell_me_a_story_client/src/protocol/dto/member_family_dto.dart'
+    as _ii9mmjc2;
+import 'package:tell_me_a_story_client/src/protocol/dto/origin_dependent_dto.dart'
+    as _i6upf1dr;
+import 'package:tell_me_a_story_client/src/protocol/dto/own_profile_dto.dart'
+    as _il07dlrf;
 import 'package:tell_me_a_story_client/src/protocol/dto/person_dto.dart'
     as _ippgtqmg;
 import 'package:tell_me_a_story_client/src/protocol/dto/person_profile_dto.dart'
@@ -34,6 +52,16 @@ import 'package:tell_me_a_story_client/src/protocol/dto/photo_dto.dart'
     as _ighpoo1p;
 import 'package:tell_me_a_story_client/src/protocol/dto/photo_upload_ticket_dto.dart'
     as _izmc1ptl;
+import 'package:tell_me_a_story_client/src/protocol/dto/place_dto.dart'
+    as _irx46cwk;
+import 'package:tell_me_a_story_client/src/protocol/dto/place_input_dto.dart'
+    as _iyhrnw9c;
+import 'package:tell_me_a_story_client/src/protocol/dto/steward_family_dto.dart'
+    as _iy83v9y2;
+import 'package:tell_me_a_story_client/src/protocol/dto/tree_family_dto.dart'
+    as _iwn4wr2j;
+import 'package:tell_me_a_story_client/src/protocol/membership_role.dart'
+    as _ivz934fu;
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -359,6 +387,260 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
         'refreshAccessToken',
         {'refreshToken': refreshToken},
         authenticated: false,
+      );
+}
+
+/// Families, memberships and covers (business-rules.md §2.1, §2.2, §3.1–§3.3,
+/// §3.5, §3.6; schema-design.md §3.2). Every write and member read needs a
+/// live family (D6b); only `recover` and the steward reads `listStewarded`,
+/// `directory` and `detail` reach a soft-deleted family.
+/// {@category Endpoint}
+class EndpointFamily extends _isc.EndpointRef {
+  EndpointFamily(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'family';
+
+  /// A new tree with one family; the caller is its owner and gets a linked
+  /// person (business-rules.md §3.1).
+  _ida.Future<_isc.UuidValue> createRoot(String name) =>
+      caller.callServerEndpoint<_isc.UuidValue>(
+        'family',
+        'createRoot',
+        {'name': name},
+      );
+
+  /// The caller's live families, any role.
+  _ida.Future<List<_ii9mmjc2.MemberFamilyDto>> listMine() =>
+      caller.callServerEndpoint<List<_ii9mmjc2.MemberFamilyDto>>(
+        'family',
+        'listMine',
+        {},
+      );
+
+  /// Families the caller owns or co-owns: live ones and soft-deleted ones
+  /// still inside the recovery window (recovery read, D6b).
+  _ida.Future<List<_iy83v9y2.StewardFamilyDto>> listStewarded() =>
+      caller.callServerEndpoint<List<_iy83v9y2.StewardFamilyDto>>(
+        'family',
+        'listStewarded',
+        {},
+      );
+
+  /// Live families sharing [familyId]'s tree (D8), with their effective
+  /// origin. Empty unless the caller reads that tree.
+  _ida.Future<List<_iwn4wr2j.TreeFamilyDto>> listTree(
+    _isc.UuidValue familyId,
+  ) => caller.callServerEndpoint<List<_iwn4wr2j.TreeFamilyDto>>(
+    'family',
+    'listTree',
+    {'familyId': familyId},
+  );
+
+  _ida.Future<List<_ie59njid.FamilyMemberDto>> listMembers(
+    _isc.UuidValue familyId,
+  ) => caller.callServerEndpoint<List<_ie59njid.FamilyMemberDto>>(
+    'family',
+    'listMembers',
+    {'familyId': familyId},
+  );
+
+  /// The caller's stewarded families with member and published-story counts,
+  /// in one query: live ones are `active`; soft-deleted ones inside the
+  /// recovery window are `recoverable` (recovery read, D6b).
+  _ida.Future<_itkjk2qa.FamilyDirectoryDto> directory() =>
+      caller.callServerEndpoint<_itkjk2qa.FamilyDirectoryDto>(
+        'family',
+        'directory',
+        {},
+      );
+
+  /// Family, members and pending invites. Live members read a live family;
+  /// owners and co-owners also read a soft-deleted one (recovery read, D6b),
+  /// whose invites are not readable, so `pendingInvites` is empty.
+  _ida.Future<_is49z41e.FamilyDetailDto> detail(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<_is49z41e.FamilyDetailDto>(
+        'family',
+        'detail',
+        {'familyId': familyId},
+      );
+
+  _ida.Future<void> rename(
+    _isc.UuidValue familyId,
+    String name,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'rename',
+    {
+      'familyId': familyId,
+      'name': name,
+    },
+  );
+
+  /// Owner or co-owner promotes a plain member; at most two co-owners, counted
+  /// under the family row lock.
+  _ida.Future<void> addCoOwner(
+    _isc.UuidValue familyId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'addCoOwner',
+    {
+      'familyId': familyId,
+      'userId': userId,
+    },
+  );
+
+  _ida.Future<void> removeCoOwner(
+    _isc.UuidValue familyId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'removeCoOwner',
+    {
+      'familyId': familyId,
+      'userId': userId,
+    },
+  );
+
+  /// Business-rules.md §3.6. Writes demote the caller, promote the target,
+  /// then make the caller co-owner if asked, so the one-owner index and the
+  /// co-owner cap hold at every step.
+  _ida.Future<void> transferOwnership(
+    _isc.UuidValue familyId,
+    _isc.UuidValue newOwnerUserId,
+    _ivz934fu.MembershipRole formerOwnerBecomes,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'transferOwnership',
+    {
+      'familyId': familyId,
+      'newOwnerUserId': newOwnerUserId,
+      'formerOwnerBecomes': formerOwnerBecomes,
+    },
+  );
+
+  /// Removes [userId] from every family in the tree, soft-deleted ones
+  /// included (so recovery can't restore them), and unlinks their person in
+  /// the tree; story tags stay (business-rules.md §2.2).
+  _ida.Future<void> removeMember(
+    _isc.UuidValue familyId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'removeMember',
+    {
+      'familyId': familyId,
+      'userId': userId,
+    },
+  );
+
+  /// Owner only. Only sets `deletedAt`; the purge (3f) removes the family
+  /// after the recovery window. Repeating it as the owner of an already
+  /// deleted family is a no-op (business-rules.md §3.5).
+  _ida.Future<void> softDelete(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<void>(
+        'family',
+        'softDelete',
+        {'familyId': familyId},
+      );
+
+  /// Owner or co-owner of the soft-deleted family, inside the recovery
+  /// window (recovery exception, D6b).
+  _ida.Future<void> recover(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<void>(
+        'family',
+        'recover',
+        {'familyId': familyId},
+      );
+
+  /// Business-rules.md §3.3: bare FORBIDDEN first, then a deleted parent,
+  /// then a story that is missing, unpublished or not in
+  /// `coalesce(parent, family)`.
+  _ida.Future<void> setOrigin(
+    _isc.UuidValue familyId,
+    _isc.UuidValue storyId,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'setOrigin',
+    {
+      'familyId': familyId,
+      'storyId': storyId,
+    },
+  );
+
+  /// Families whose effective origin is [storyId]. Empty unless the caller is
+  /// a live member of the story's family.
+  _ida.Future<List<_i6upf1dr.OriginDependentDto>> listOriginDependents(
+    _isc.UuidValue storyId,
+  ) => caller.callServerEndpoint<List<_i6upf1dr.OriginDependentDto>>(
+    'family',
+    'listOriginDependents',
+    {'storyId': storyId},
+  );
+
+  /// "Start a new timeline" (business-rules.md §3.2, in that check order).
+  /// The owner and each picked linked member get a linked person in the tree
+  /// (D6d). A lost race on `people_tree_user_uidx` reruns the write once.
+  _ida.Future<_isc.UuidValue> createBranch({
+    required _isc.UuidValue parentFamilyId,
+    required _isc.UuidValue originStoryId,
+    required String name,
+    required int branchYear,
+    required _isc.UuidValue ownerUserId,
+    required List<_isc.UuidValue> personIds,
+  }) => caller.callServerEndpoint<_isc.UuidValue>(
+    'family',
+    'createBranch',
+    {
+      'parentFamilyId': parentFamilyId,
+      'originStoryId': originStoryId,
+      'name': name,
+      'branchYear': branchYear,
+      'ownerUserId': ownerUserId,
+      'personIds': personIds,
+    },
+  );
+
+  /// Steward of the live family. [mimeType] (jpeg, png or webp) picks the key
+  /// extension; [byteLength] is pinned in the upload, at most 5 MiB.
+  _ida.Future<_imc738lc.CoverUploadTicketDto> startCoverUpload(
+    _isc.UuidValue familyId,
+    String mimeType,
+    int byteLength,
+  ) => caller.callServerEndpoint<_imc738lc.CoverUploadTicketDto>(
+    'family',
+    'startCoverUpload',
+    {
+      'familyId': familyId,
+      'mimeType': mimeType,
+      'byteLength': byteLength,
+    },
+  );
+
+  /// Verifies the upload at [key], checks its size and that its bytes are the
+  /// image type its extension names, then makes it the cover. A rejected blob
+  /// is queued for deletion; the previous cover key is queued in the same
+  /// transaction that replaces it. Finishing the current cover again is a
+  /// no-op; a key already queued for deletion (e.g. a replaced cover) is
+  /// STORAGE_FAILED.
+  _ida.Future<String> finishCoverUpload(
+    _isc.UuidValue familyId,
+    String key,
+  ) => caller.callServerEndpoint<String>(
+    'family',
+    'finishCoverUpload',
+    {
+      'familyId': familyId,
+      'key': key,
+    },
+  );
+
+  _ida.Future<void> clearCover(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<void>(
+        'family',
+        'clearCover',
+        {'familyId': familyId},
       );
 }
 
@@ -711,6 +993,159 @@ class EndpointPhoto extends _isc.EndpointRef {
   );
 }
 
+/// Places are shared by every family in a tree (business-rules.md §2.4, §8
+/// item 1). `familyId` parameters resolve the family's tree; the caller must
+/// be a live member of a live family in that tree, and the family itself must
+/// be live (D6b). Place rows are checked by their `treeId` (D8).
+/// {@category Endpoint}
+class EndpointPlace extends _isc.EndpointRef {
+  EndpointPlace(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'place';
+
+  _ida.Future<List<_irx46cwk.PlaceDto>> list(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<List<_irx46cwk.PlaceDto>>(
+        'place',
+        'list',
+        {'familyId': familyId},
+      );
+
+  _ida.Future<List<_irx46cwk.PlaceDto>> favorites(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<List<_irx46cwk.PlaceDto>>(
+        'place',
+        'favorites',
+        {'familyId': familyId},
+      );
+
+  _ida.Future<List<_irx46cwk.PlaceDto>> recents(
+    _isc.UuidValue familyId, {
+    required int limit,
+  }) => caller.callServerEndpoint<List<_irx46cwk.PlaceDto>>(
+    'place',
+    'recents',
+    {
+      'familyId': familyId,
+      'limit': limit,
+    },
+  );
+
+  /// Creates a place in the family's tree, marked used now. A place with the
+  /// same Mapbox id already in the tree is returned instead (schema-design.md
+  /// §3.2, places).
+  _ida.Future<_irx46cwk.PlaceDto> create(
+    _isc.UuidValue familyId,
+    _iyhrnw9c.PlaceInputDto input,
+  ) => caller.callServerEndpoint<_irx46cwk.PlaceDto>(
+    'place',
+    'create',
+    {
+      'familyId': familyId,
+      'input': input,
+    },
+  );
+
+  _ida.Future<_irx46cwk.PlaceDto> markUsed(_isc.UuidValue placeId) =>
+      caller.callServerEndpoint<_irx46cwk.PlaceDto>(
+        'place',
+        'markUsed',
+        {'placeId': placeId},
+      );
+
+  _ida.Future<_irx46cwk.PlaceDto> setFavorite(
+    _isc.UuidValue placeId,
+    bool isFavorite,
+  ) => caller.callServerEndpoint<_irx46cwk.PlaceDto>(
+    'place',
+    'setFavorite',
+    {
+      'placeId': placeId,
+      'isFavorite': isFavorite,
+    },
+  );
+
+  _ida.Future<_irx46cwk.PlaceDto?> findByMapboxId(
+    _isc.UuidValue familyId,
+    String mapboxPlaceId,
+  ) => caller.callServerEndpoint<_irx46cwk.PlaceDto?>(
+    'place',
+    'findByMapboxId',
+    {
+      'familyId': familyId,
+      'mapboxPlaceId': mapboxPlaceId,
+    },
+  );
+
+  /// Null when the place doesn't exist or the caller can't read its tree.
+  _ida.Future<_irx46cwk.PlaceDto?> get(_isc.UuidValue placeId) =>
+      caller.callServerEndpoint<_irx46cwk.PlaceDto?>(
+        'place',
+        'get',
+        {'placeId': placeId},
+      );
+}
+
+/// The caller's own account (business-rules.md §2.10). Email is the login
+/// identity and read-only (D1); account deletion is not offered (D7).
+/// {@category Endpoint}
+class EndpointProfile extends _isc.EndpointRef {
+  EndpointProfile(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'profile';
+
+  _ida.Future<_il07dlrf.OwnProfileDto> me() =>
+      caller.callServerEndpoint<_il07dlrf.OwnProfileDto>(
+        'profile',
+        'me',
+        {},
+      );
+
+  /// Sets the display name (blank clears it) and renames every person linked
+  /// to the caller, in every tree. A blank name leaves linked names alone.
+  _ida.Future<void> saveName(String displayName) =>
+      caller.callServerEndpoint<void>(
+        'profile',
+        'saveName',
+        {'displayName': displayName},
+      );
+
+  /// One Save of the account form: display name, birth and about are written
+  /// as given (null clears); a null [birthVisibility] keeps the current one.
+  _ida.Future<void> saveAccount({
+    required String displayName,
+    DateTime? birthDate,
+    _i3omm4g5.DatePrecision? birthPrecision,
+    _iie7eme0.BirthVisibility? birthVisibility,
+    String? about,
+  }) => caller.callServerEndpoint<void>(
+    'profile',
+    'saveAccount',
+    {
+      'displayName': displayName,
+      'birthDate': birthDate,
+      'birthPrecision': birthPrecision,
+      'birthVisibility': birthVisibility,
+      'about': about,
+    },
+  );
+
+  /// Stores a JPEG (≤ 2 MiB) under a fresh key and points the account at it;
+  /// the previous key is queued for deletion in the same transaction.
+  _ida.Future<String> saveAvatar(_idt.ByteData jpeg) =>
+      caller.callServerEndpoint<String>(
+        'profile',
+        'saveAvatar',
+        {'jpeg': jpeg},
+      );
+
+  _ida.Future<void> clearAvatar() => caller.callServerEndpoint<void>(
+    'profile',
+    'clearAvatar',
+    {},
+  );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -751,18 +1186,23 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    family = EndpointFamily(this);
     invite = EndpointInvite(this);
     invitePublic = EndpointInvitePublic(this);
     live = EndpointLive(this);
     media = EndpointMedia(this);
     people = EndpointPeople(this);
     photo = EndpointPhoto(this);
+    place = EndpointPlace(this);
+    profile = EndpointProfile(this);
     modules = Modules(this);
   }
 
   late final EndpointEmailIdp emailIdp;
 
   late final EndpointJwtRefresh jwtRefresh;
+
+  late final EndpointFamily family;
 
   late final EndpointInvite invite;
 
@@ -776,18 +1216,25 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointPhoto photo;
 
+  late final EndpointPlace place;
+
+  late final EndpointProfile profile;
+
   late final Modules modules;
 
   @override
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'family': family,
     'invite': invite,
     'invitePublic': invitePublic,
     'live': live,
     'media': media,
     'people': people,
     'photo': photo,
+    'place': place,
+    'profile': profile,
   };
 
   @override
