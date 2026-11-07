@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../model/lab_models.dart';
 
-/// Lets a finger pick one of several stories that share a tap target, such
-/// as a stacked rail cluster or a multi-story swimlane cell. Resolves to the
-/// chosen id, or null when dismissed.
+/// Lets the user pick one of several stories that share a tap target (a
+/// multi-story swimlane cell). Resolves to the chosen id, or null when
+/// dismissed.
 Future<String?> showStoryChooser(
   BuildContext context, {
   required Offset globalPosition,
