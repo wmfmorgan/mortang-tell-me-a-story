@@ -72,5 +72,24 @@ void main() {
         expect(rows.single.attempts, 1);
       },
     );
+
+    test(
+      'when one blob delete fails then the rest of the batch still drains',
+      () async {
+        final failing = uniqueKey();
+        final good = uniqueKey();
+        await queueBlobDeletions(session, [failing, good]);
+
+        await drainBlobDeletions(
+          session,
+          delete: (k) async {
+            if (k == failing) throw StateError('storage down');
+          },
+        );
+
+        expect(await rowsFor(good), isEmpty);
+        expect((await rowsFor(failing)).single.attempts, 1);
+      },
+    );
   }, rollbackDatabase: RollbackDatabase.disabled);
 }
