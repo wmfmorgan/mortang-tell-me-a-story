@@ -2,11 +2,12 @@ import 'package:flutter/material.dart' show TextField, FilledButton;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
-import 'package:tell_me_a_story/core/supabase/supabase_init.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
@@ -43,7 +44,7 @@ void main() {
       await _untilLinkSent(tester);
     });
 
-    final location = await _c1Step('magic-link', () async {
+    await _c1Step('magic-link', () async {
       final location = await magicLinkLocation(email);
       expect(
         _handOff(location),
@@ -53,9 +54,6 @@ void main() {
       return location;
     });
 
-    await _c1Step('recover-session', () async {
-      await recoverSessionFromAuthCallback(location);
-    });
     await _c1Step('avatar', () async {
       await pumpUntilFound(
         tester,
@@ -283,7 +281,7 @@ void main() {
       await tester.tap(send);
       await pumpUntilFound(tester, find.byKey(const Key('invite-sent')));
     });
-    final callback = await _step('C6', 'magic-link', () async {
+    await _step('C6', 'magic-link', () async {
       final callback = await magicLinkLocation(guest);
       expect(
         _handOff(callback),
@@ -291,9 +289,6 @@ void main() {
         reason: 'magic-link callback hand-off',
       );
       return callback;
-    });
-    await _step('C6', 'recover-session', () async {
-      await recoverSessionFromAuthCallback(callback);
     });
     await _step('C6', 'joined-timeline', () async {
       await pumpUntilFound(
@@ -444,8 +439,7 @@ Future<void> _mountApp(WidgetTester tester) async {
   ProfileSession.loadOwn = profileApi.loadOwn;
   ProfileSession.downloadAvatar = profileApi.downloadAvatar;
   final authRefresh = AuthRefresh(
-    authStateChanges: Supabase.instance.client.auth.onAuthStateChange,
-    initiallySignedIn: Supabase.instance.client.auth.currentSession != null,
+    authInfo: serverClient.auth.authInfoListenable,
   );
   await tester.pumpWidget(
     TellMeAStoryApp(
@@ -475,13 +469,10 @@ Future<void> _signIn(WidgetTester tester, String flow, String email) async {
     await tester.tap(send);
     await _untilLinkSent(tester);
   });
-  final location = await _step(flow, 'magic-link', () async {
+  await _step(flow, 'magic-link', () async {
     final location = await magicLinkLocation(email);
     expect(_handOff(location), 'pkce', reason: 'magic-link callback hand-off');
     return location;
-  });
-  await _step(flow, 'recover-session', () async {
-    await recoverSessionFromAuthCallback(location);
   });
   await _step(flow, 'timeline', () async {
     await pumpUntilFound(
