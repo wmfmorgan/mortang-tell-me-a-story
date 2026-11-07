@@ -2,22 +2,32 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
+
+const _photoId = '0190d7a0-0000-7000-8000-0000000000d1';
+const _storyId = '0190d7a0-0000-7000-8000-0000000000a1';
+const _familyId = '0190d7a0-0000-7000-8000-0000000000f1';
+const _uploaderId = '0190d7a0-0000-7000-8000-0000000000b1';
+
+server.PhotoDto _dto({
+  String? uploaderId = _uploaderId,
+  String? editedKey,
+  int editVersion = 0,
+}) => server.PhotoDto(
+  id: server.UuidValue.fromString(_photoId),
+  storyId: server.UuidValue.fromString(_storyId),
+  familyId: server.UuidValue.fromString(_familyId),
+  uploaderId: uploaderId == null
+      ? null
+      : server.UuidValue.fromString(uploaderId),
+  originalKey: 'photos/ph1.jpg',
+  editedKey: editedKey,
+  editVersion: editVersion,
+  sortOrder: 2,
+);
 
 void main() {
-  test('storyPhotoStoragePath uses family/story/photo.ext', () {
-    expect(
-      storyPhotoStoragePath(
-        familyId: 'f',
-        storyId: 's',
-        photoId: 'p',
-        ext: 'JPG',
-      ),
-      'f/s/p.jpg',
-    );
-  });
-
   test('photosWithHeroFirst moves the chosen photo to sort order 0', () {
     Photo photo(String id, int sortOrder) {
       return Photo(
@@ -40,18 +50,6 @@ void main() {
     expect(ordered.map((photo) => photo.sortOrder).toList(), [0, 1, 2]);
   });
 
-  test('storyPhotoStoragePath rejects gif', () {
-    expect(
-      () => storyPhotoStoragePath(
-        familyId: 'f',
-        storyId: 's',
-        photoId: 'p',
-        ext: 'gif',
-      ),
-      throwsArgumentError,
-    );
-  });
-
   test('compressStoryPhoto emits jpeg under max edge', () {
     final src = _solidPng(2000, 1000); // test helper
     final out = compressStoryPhoto(src);
@@ -62,35 +60,32 @@ void main() {
     expect(decoded.height <= 1920, isTrue);
   });
 
-  test('uploadPhoto refuses a 21st image', () async {
-    final fake = SupabaseClient('http://127.0.0.1', 'anon-key');
-    final api = PhotosApi(client: fake, maxCountLoader: () async => 20);
-    expect(
-      () => api.uploadPhoto(
-        familyId: 'f',
-        storyId: 's',
-        bytes: Uint8List(0),
-        sortOrder: 20,
-      ),
-      throwsA(isA<StateError>()),
-    );
+  test('Photo.fromDto maps ids, keys and order', () {
+    final photo = Photo.fromDto(_dto());
+    expect(photo.id, _photoId);
+    expect(photo.storyId, _storyId);
+    expect(photo.familyId, _familyId);
+    expect(photo.uploaderId, _uploaderId);
+    expect(photo.storagePath, 'photos/ph1.jpg');
+    expect(photo.editedStoragePath, isNull);
+    expect(photo.editVersion, 0);
+    expect(photo.effectiveStoragePath, 'photos/ph1.jpg');
+    expect(photo.sortOrder, 2);
   });
 
-  test('Photo.fromJson maps DDL columns', () {
-    final photo = Photo.fromJson({
-      'id': 'ph1',
-      'story_id': 's1',
-      'family_id': 'f1',
-      'uploader_id': 'u1',
-      'storage_path': 'f1/s1/ph1.jpg',
-      'sort_order': 2,
-    });
-    expect(photo.id, 'ph1');
-    expect(photo.storyId, 's1');
-    expect(photo.familyId, 'f1');
-    expect(photo.uploaderId, 'u1');
-    expect(photo.storagePath, 'f1/s1/ph1.jpg');
-    expect(photo.sortOrder, 2);
+  test('Photo.fromDto prefers the edited key and keeps a gone uploader', () {
+    final photo = Photo.fromDto(
+      _dto(
+        uploaderId: null,
+        editedKey: 'photos/ph1.edited.3.jpg',
+        editVersion: 3,
+      ),
+    );
+    expect(photo.uploaderId, isNull);
+    expect(photo.editedStoragePath, 'photos/ph1.edited.3.jpg');
+    expect(photo.editVersion, 3);
+    expect(photo.effectiveStoragePath, 'photos/ph1.edited.3.jpg');
+    expect(photo.storagePath, 'photos/ph1.jpg');
   });
 
   test('ensurePhotoCap throws PHOTO_CAP at 20', () {
@@ -101,138 +96,6 @@ void main() {
         isA<StateError>().having((e) => e.message, 'message', 'PHOTO_CAP'),
       ),
     );
-  });
-
-  test(
-    'uploadPhoto maps storage throw to STORAGE_FAILED without insert',
-    () async {
-      var inserted = false;
-      final api = PhotosApi(
-        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-        maxCountLoader: () async => 0,
-        photoIdFactory: () => 'photo-1',
-        uploaderId: 'u1',
-        uploadBinary:
-            ({
-              required String path,
-              required Uint8List bytes,
-              required String contentType,
-            }) async {
-              throw Exception('network');
-            },
-        insertPhoto: (row) async {
-          inserted = true;
-          return row;
-        },
-      );
-
-      await expectLater(
-        () => api.uploadPhoto(
-          familyId: 'f',
-          storyId: 's',
-          bytes: _solidPng(8, 8),
-          sortOrder: 0,
-        ),
-        throwsA(
-          isA<StorageFailedException>().having(
-            (e) => e.code,
-            'code',
-            'STORAGE_FAILED',
-          ),
-        ),
-      );
-      expect(inserted, isFalse);
-    },
-  );
-
-  test('uploadPhoto removes storage object when photos insert fails', () async {
-    final removed = <List<String>>[];
-    final api = PhotosApi(
-      client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-      maxCountLoader: () async => 1,
-      photoIdFactory: () => 'photo-1',
-      uploaderId: 'u1',
-      uploadBinary: ({
-        required String path,
-        required Uint8List bytes,
-        required String contentType,
-      }) async {},
-      insertPhoto: (row) async {
-        throw Exception('rls');
-      },
-      removeObjects: (paths) async {
-        removed.add(paths);
-      },
-    );
-
-    await expectLater(
-      () => api.uploadPhoto(
-        familyId: 'f',
-        storyId: 's',
-        bytes: _solidPng(8, 8),
-        sortOrder: 1,
-      ),
-      throwsA(isA<Exception>()),
-    );
-    expect(removed, [
-      ['f/s/photo-1.jpg'],
-    ]);
-  });
-
-  test('Photo.fromJson keeps the original when the edit is absent', () {
-    final photo = Photo.fromJson({
-      'id': 'ph1',
-      'story_id': 's1',
-      'family_id': 'f1',
-      'uploader_id': 'u1',
-      'storage_path': 'f1/s1/ph1.jpg',
-      'edited_storage_path': null,
-      'edit_version': null,
-      'sort_order': 0,
-    });
-    expect(photo.editedStoragePath, isNull);
-    expect(photo.editVersion, 0);
-    expect(photo.effectiveStoragePath, 'f1/s1/ph1.jpg');
-
-    final absent = Photo.fromJson({
-      'id': 'ph1',
-      'story_id': 's1',
-      'family_id': 'f1',
-      'uploader_id': 'u1',
-      'storage_path': 'f1/s1/ph1.jpg',
-      'sort_order': 0,
-    });
-    expect(absent.editVersion, 0);
-
-    expect(
-      () => Photo.fromJson({
-        'id': 'ph1',
-        'story_id': 's1',
-        'family_id': 'f1',
-        'uploader_id': 'u1',
-        'storage_path': 'f1/s1/ph1.jpg',
-        'edit_version': '3',
-        'sort_order': 0,
-      }),
-      throwsFormatException,
-    );
-  });
-
-  test('Photo.fromJson prefers the edited object and reads the version', () {
-    final photo = Photo.fromJson({
-      'id': 'ph1',
-      'story_id': 's1',
-      'family_id': 'f1',
-      'uploader_id': 'u1',
-      'storage_path': 'f1/s1/ph1.jpg',
-      'edited_storage_path': 'f1/s1/ph1.edited.3.jpg',
-      'edit_version': 3,
-      'sort_order': 1,
-    });
-    expect(photo.editedStoragePath, 'f1/s1/ph1.edited.3.jpg');
-    expect(photo.editVersion, 3);
-    expect(photo.effectiveStoragePath, 'f1/s1/ph1.edited.3.jpg');
-    expect(photo.storagePath, 'f1/s1/ph1.jpg');
   });
 
   test('photosWithHeroFirst keeps edited metadata and the same order', () {
@@ -289,166 +152,6 @@ void main() {
     expect(reset.editVersion, 3);
     expect(reset.effectiveStoragePath, photo.storagePath);
   });
-
-  test(
-    'deletePhoto removes original and edited objects before the row',
-    () async {
-      final removed = <List<String>>[];
-      final deletedIds = <String>[];
-      final api = PhotosApi(
-        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-        removeObjects: (paths) async {
-          removed.add(paths);
-        },
-        deletePhotoRow: (photoId) async {
-          deletedIds.add(photoId);
-        },
-      );
-      const photo = Photo(
-        id: 'ph1',
-        storyId: 's',
-        familyId: 'f',
-        uploaderId: 'u',
-        storagePath: 'f/s/ph1.jpg',
-        editedStoragePath: 'f/s/ph1.edited.2.jpg',
-        editVersion: 2,
-        sortOrder: 0,
-      );
-
-      await api.deletePhoto(photo);
-
-      expect(removed, [
-        ['f/s/ph1.jpg', 'f/s/ph1.edited.2.jpg'],
-      ]);
-      expect(deletedIds, ['ph1']);
-    },
-  );
-
-  test('deletePhoto leaves the row when storage removal fails', () async {
-    final deletedIds = <String>[];
-    final api = PhotosApi(
-      client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-      removeObjects: (paths) async {
-        throw Exception('storage');
-      },
-      deletePhotoRow: (photoId) async {
-        deletedIds.add(photoId);
-      },
-    );
-    const photo = Photo(
-      id: 'ph1',
-      storyId: 's',
-      familyId: 'f',
-      uploaderId: 'u',
-      storagePath: 'f/s/ph1.jpg',
-      editedStoragePath: 'f/s/ph1.edited.1.jpg',
-      editVersion: 1,
-      sortOrder: 0,
-    );
-
-    await expectLater(api.deletePhoto(photo), throwsA(isA<Exception>()));
-    expect(deletedIds, isEmpty);
-  });
-
-  test(
-    'deletePhoto removes only the original when the photo is unedited',
-    () async {
-      final removed = <List<String>>[];
-      final api = PhotosApi(
-        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-        removeObjects: (paths) async {
-          removed.add(paths);
-        },
-        deletePhotoRow: (photoId) async {},
-      );
-      const photo = Photo(
-        id: 'ph1',
-        storyId: 's',
-        familyId: 'f',
-        uploaderId: 'u',
-        storagePath: 'f/s/ph1.jpg',
-        sortOrder: 0,
-      );
-
-      await api.deletePhoto(photo);
-
-      expect(removed, [
-        ['f/s/ph1.jpg'],
-      ]);
-    },
-  );
-
-  test('deletePhoto skips an edited path that repeats the original', () async {
-    final removed = <List<String>>[];
-    final api = PhotosApi(
-      client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-      removeObjects: (paths) async {
-        removed.add(paths);
-      },
-      deletePhotoRow: (photoId) async {},
-    );
-    const photo = Photo(
-      id: 'ph1',
-      storyId: 's',
-      familyId: 'f',
-      uploaderId: 'u',
-      storagePath: 'f/s/ph1.jpg',
-      editedStoragePath: 'f/s/ph1.jpg',
-      editVersion: 1,
-      sortOrder: 0,
-    );
-
-    await api.deletePhoto(photo);
-
-    expect(removed, [
-      ['f/s/ph1.jpg'],
-    ]);
-  });
-
-  test(
-    'deleteAllForStory removes original and edited names under the prefix',
-    () async {
-      final removed = <List<String>>[];
-      final api = PhotosApi(
-        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-        listStoryObjects: (prefix) async {
-          expect(prefix, 'f/s');
-          return ['ph1.jpg', 'ph1.edited.2.jpg', 'ph2.png'];
-        },
-        removeObjects: (paths) async {
-          removed.add(paths);
-        },
-      );
-
-      await api.deleteAllForStory(familyId: 'f', storyId: 's');
-
-      expect(removed, [
-        ['f/s/ph1.jpg', 'f/s/ph1.edited.2.jpg', 'f/s/ph2.png'],
-      ]);
-    },
-  );
-
-  test(
-    'deleteAllForStory does not remove objects when listing fails',
-    () async {
-      final removed = <List<String>>[];
-      final api = PhotosApi(
-        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-        listStoryObjects: (prefix) async {
-          throw Exception('storage');
-        },
-        removeObjects: (paths) async {
-          removed.add(paths);
-        },
-      );
-
-      await expectLater(
-        api.deleteAllForStory(familyId: 'f', storyId: 's'),
-        throwsA(isA<Exception>()),
-      );
-      expect(removed, isEmpty);
-    },
-  );
 }
 
 Uint8List _solidPng(int width, int height) {

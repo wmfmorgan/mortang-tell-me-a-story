@@ -182,6 +182,7 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
           body: body,
           createdAt: existing.createdAt,
           authorDisplayName: existing.authorDisplayName,
+          canDelete: existing.canDelete,
         );
       } else {
         final familyId =

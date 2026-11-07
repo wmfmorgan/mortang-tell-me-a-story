@@ -1,16 +1,19 @@
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
+
+import '../core/server/server_client.dart';
+import 'server/server_errors.dart';
 
 const maxPhotosPerStory = 20;
+
+/// Supabase bucket name still read by `StoriesApi` thumbnails until its own
+/// cutover (4c) replaces them with `media.getMany`.
 const storyPhotosBucket = 'story-photos';
 
-const _photoSelect =
-    'id, story_id, family_id, uploader_id, storage_path, edited_storage_path, edit_version, sort_order';
-
-/// Family-scoped story photo row (private `story-photos` object + `photos` table).
+/// A story photo. [storagePath] / [editedStoragePath] are the server's blob
+/// keys, read back through `media.get`.
 class Photo {
   const Photo({
     required this.id,
@@ -26,7 +29,9 @@ class Photo {
   final String id;
   final String storyId;
   final String familyId;
-  final String uploaderId;
+
+  /// Null once the uploader's account is gone.
+  final String? uploaderId;
   final String storagePath;
   final String? editedStoragePath;
   final int editVersion;
@@ -34,16 +39,16 @@ class Photo {
 
   String get effectiveStoragePath => editedStoragePath ?? storagePath;
 
-  factory Photo.fromJson(Map<String, dynamic> json) {
+  factory Photo.fromDto(server.PhotoDto dto) {
     return Photo(
-      id: json['id'] as String,
-      storyId: json['story_id'] as String,
-      familyId: json['family_id'] as String,
-      uploaderId: json['uploader_id'] as String,
-      storagePath: json['storage_path'] as String,
-      editedStoragePath: json['edited_storage_path'] as String?,
-      editVersion: _editVersion(json['edit_version']),
-      sortOrder: json['sort_order'] as int,
+      id: dto.id.toString(),
+      storyId: dto.storyId.toString(),
+      familyId: dto.familyId.toString(),
+      uploaderId: dto.uploaderId?.toString(),
+      storagePath: dto.originalKey,
+      editedStoragePath: dto.editedKey,
+      editVersion: dto.editVersion,
+      sortOrder: dto.sortOrder,
     );
   }
 
@@ -65,12 +70,6 @@ class Photo {
   }
 }
 
-int _editVersion(Object? raw) {
-  if (raw == null) return 0;
-  if (raw is int) return raw;
-  throw FormatException('invalid edit_version');
-}
-
 class CompressedPhoto {
   const CompressedPhoto({
     required this.bytes,
@@ -89,19 +88,6 @@ class StorageFailedException implements Exception {
 
   @override
   String toString() => 'StorageFailedException($code)';
-}
-
-String storyPhotoStoragePath({
-  required String familyId,
-  required String storyId,
-  required String photoId,
-  required String ext,
-}) {
-  final e = ext.toLowerCase();
-  if (e != 'jpg' && e != 'jpeg' && e != 'png' && e != 'webp') {
-    throw ArgumentError.value(ext, 'ext');
-  }
-  return '$familyId/$storyId/$photoId.$e';
 }
 
 /// Lowest [Photo.sortOrder] first, then id.
@@ -176,59 +162,39 @@ abstract class PhotosGateway {
   Future<Uint8List> downloadBytes(String storagePath);
 }
 
-typedef PhotoUploadBinary = Future<void> Function({
-  required String path,
-  required Uint8List bytes,
-  required String contentType,
-});
+/// Sends [bytes] to the upload [uploadDescription] from `photo.startUpload`;
+/// false means the store refused it.
+typedef PhotoUploadBinary = Future<bool> Function(
+  String uploadDescription,
+  Uint8List bytes,
+);
 
-/// Storage + PostgREST gateway for story photos (compress, cap, private bucket).
+Future<bool> _uploadWithFileUploader(String description, Uint8List bytes) =>
+    server.FileUploader(description)
+        .uploadByteData(ByteData.sublistView(bytes));
+
+/// Story photos on the `photo` endpoint; bytes through `media.get`.
 class PhotosApi implements PhotosGateway {
-  PhotosApi({
-    SupabaseClient? client,
-    Future<int> Function()? maxCountLoader,
-    String Function()? photoIdFactory,
-    String? uploaderId,
-    PhotoUploadBinary? uploadBinary,
-    Future<void> Function(List<String> paths)? removeObjects,
-    Future<Map<String, dynamic>> Function(Map<String, dynamic> row)?
-    insertPhoto,
-    Future<Uint8List> Function(String path)? downloadBytes,
-    Future<void> Function(String photoId)? deletePhotoRow,
-    Future<List<String>> Function(String prefix)? listStoryObjects,
-  }) : _client = client ?? Supabase.instance.client,
-       _maxCountLoader = maxCountLoader,
-       _photoIdFactory = photoIdFactory,
-       _uploaderId = uploaderId,
-       _uploadBinary = uploadBinary,
-       _removeObjects = removeObjects,
-       _insertPhoto = insertPhoto,
-       _downloadBytes = downloadBytes,
-       _deletePhotoRow = deletePhotoRow,
-       _listStoryObjects = listStoryObjects;
+  PhotosApi({server.Client? client, PhotoUploadBinary? uploadBinary})
+    : _injected = client,
+      _uploadBinary = uploadBinary ?? _uploadWithFileUploader;
 
-  final SupabaseClient _client;
-  final Future<int> Function()? _maxCountLoader;
-  final String Function()? _photoIdFactory;
-  final String? _uploaderId;
-  final PhotoUploadBinary? _uploadBinary;
-  final Future<void> Function(List<String> paths)? _removeObjects;
-  final Future<Map<String, dynamic>> Function(Map<String, dynamic> row)?
-  _insertPhoto;
-  final Future<Uint8List> Function(String path)? _downloadBytes;
-  final Future<void> Function(String photoId)? _deletePhotoRow;
-  final Future<List<String>> Function(String prefix)? _listStoryObjects;
+  final server.Client? _injected;
+  final PhotoUploadBinary _uploadBinary;
+  server.Client get _client => _injected ?? serverClient;
 
   @override
   Future<List<Photo>> listPhotos(String storyId) async {
-    final rows = await _client
-        .from('photos')
-        .select(_photoSelect)
-        .eq('story_id', storyId)
-        .order('sort_order');
-    return rows.map(Photo.fromJson).toList();
+    final rows = await withServerErrors(
+      () => _client.photo.list(server.UuidValue.fromString(storyId)),
+    );
+    return rows.map(Photo.fromDto).toList();
   }
 
+  /// Compresses to JPEG, then start → upload → finish. The server enforces
+  /// the cap (`StateError('PHOTO_CAP')`); a refused upload is
+  /// [StorageFailedException]. [familyId] is the story's; the server derives
+  /// it.
   @override
   Future<Photo> uploadPhoto({
     required String familyId,
@@ -236,140 +202,59 @@ class PhotosApi implements PhotosGateway {
     required Uint8List bytes,
     required int sortOrder,
   }) async {
-    ensurePhotoCap(await _countPhotos(storyId));
-    final photoId = _photoIdFactory?.call() ?? const Uuid().v4();
     final compressed = compressStoryPhoto(bytes);
-    final path = storyPhotoStoragePath(
-      familyId: familyId,
-      storyId: storyId,
-      photoId: photoId,
-      ext: compressed.extension,
+    final story = server.UuidValue.fromString(storyId);
+    final ticket = await withServerErrors(
+      () => _client.photo.startUpload(
+        story,
+        compressed.mimeType,
+        compressed.bytes.length,
+      ),
     );
+    final bool uploaded;
     try {
-      await _upload(path, compressed);
+      uploaded = await _uploadBinary(
+        ticket.uploadDescription,
+        compressed.bytes,
+      );
     } catch (e) {
-      throw StorageFailedException(code: 'STORAGE_FAILED', cause: e);
+      throw StorageFailedException(cause: e);
     }
-    final payload = <String, dynamic>{
-      'id': photoId,
-      'story_id': storyId,
-      'family_id': familyId,
-      'uploader_id': _uid(),
-      'storage_path': path,
-      'sort_order': sortOrder,
-    };
-    try {
-      final row = await _insert(payload);
-      return Photo.fromJson(row);
-    } catch (e) {
-      await _remove([path]);
-      rethrow;
-    }
+    if (!uploaded) throw const StorageFailedException();
+    final dto = await withServerErrors(
+      () => _client.photo.finishUpload(story, ticket.photoId, sortOrder),
+    );
+    return Photo.fromDto(dto);
   }
 
+  /// One server transaction rewrites the story's order with [photoId] first.
   @override
   Future<void> setHeroPhoto({
     required String storyId,
     required String photoId,
   }) async {
-    final current = await listPhotos(storyId);
-    final previousById = {
-      for (final photo in current) photo.id: photo.sortOrder,
-    };
-    final ordered = photosWithHeroFirst(current, photoId);
-    for (final photo in ordered) {
-      if (previousById[photo.id] == photo.sortOrder) continue;
-      await _client
-          .from('photos')
-          .update({'sort_order': photo.sortOrder})
-          .eq('id', photo.id)
-          .eq('story_id', storyId);
-    }
+    await withServerErrors(
+      () => _client.photo.setHero(
+        server.UuidValue.fromString(storyId),
+        server.UuidValue.fromString(photoId),
+      ),
+    );
   }
 
+  /// Deletes the row; the server queues its original and edited blobs.
   @override
   Future<void> deletePhoto(Photo photo) async {
-    final paths = <String>[photo.storagePath];
-    final edited = photo.editedStoragePath;
-    if (edited != null && edited != photo.storagePath) paths.add(edited);
-    await _remove(paths);
-    final deleteRow = _deletePhotoRow;
-    if (deleteRow != null) {
-      await deleteRow(photo.id);
-      return;
-    }
-    await _client.from('photos').delete().eq('id', photo.id);
+    await withServerErrors(
+      () => _client.photo.delete(server.UuidValue.fromString(photo.id)),
+    );
   }
 
-  /// Removes every object under `{familyId}/{storyId}`. Called by
-  /// `StoriesApi.discard`.
-  Future<void> deleteAllForStory({
-    required String familyId,
-    required String storyId,
-  }) async {
-    final prefix = '$familyId/$storyId';
-    final listNames = _listStoryObjects;
-    final List<String> names;
-    if (listNames != null) {
-      names = await listNames(prefix);
-    } else {
-      final objects = await _client.storage
-          .from(storyPhotosBucket)
-          .list(path: prefix);
-      names = [for (final object in objects) object.name];
-    }
-    if (names.isEmpty) return;
-    await _remove([for (final name in names) '$prefix/$name']);
-  }
-
+  /// The blob at [storagePath]. Missing or unreadable is
+  /// [StorageFailedException] with code `NOT_FOUND`.
   @override
   Future<Uint8List> downloadBytes(String storagePath) async {
-    if (_downloadBytes != null) return _downloadBytes(storagePath);
-    return _client.storage.from(storyPhotosBucket).download(storagePath);
-  }
-
-  Future<int> _countPhotos(String storyId) async {
-    if (_maxCountLoader != null) return _maxCountLoader();
-    final rows = await _client
-        .from('photos')
-        .select('id')
-        .eq('story_id', storyId);
-    return rows.length;
-  }
-
-  String _uid() => _uploaderId ?? _client.auth.currentUser!.id;
-
-  Future<void> _upload(String path, CompressedPhoto compressed) async {
-    if (_uploadBinary != null) {
-      await _uploadBinary(
-        path: path,
-        bytes: compressed.bytes,
-        contentType: compressed.mimeType,
-      );
-      return;
-    }
-    await _client.storage
-        .from(storyPhotosBucket)
-        .uploadBinary(
-          path,
-          compressed.bytes,
-          fileOptions: FileOptions(
-            contentType: compressed.mimeType,
-            upsert: false,
-          ),
-        );
-  }
-
-  Future<Map<String, dynamic>> _insert(Map<String, dynamic> payload) {
-    if (_insertPhoto != null) return _insertPhoto(payload);
-    return _client.from('photos').insert(payload).select(_photoSelect).single();
-  }
-
-  Future<void> _remove(List<String> paths) async {
-    if (_removeObjects != null) {
-      await _removeObjects(paths);
-      return;
-    }
-    await _client.storage.from(storyPhotosBucket).remove(paths);
+    final data = await withServerErrors(() => _client.media.get(storagePath));
+    if (data == null) throw const StorageFailedException(code: 'NOT_FOUND');
+    return Uint8List.sublistView(data);
   }
 }

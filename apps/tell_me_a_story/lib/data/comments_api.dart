@@ -1,4 +1,7 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
+
+import '../core/server/server_client.dart';
+import 'server/server_errors.dart';
 
 String displayNameOrMember(String? name) {
   final t = name?.trim() ?? '';
@@ -21,21 +24,30 @@ class Comment {
     required this.body,
     required this.createdAt,
     this.authorDisplayName,
+    this.canDelete = false,
   });
-  final String id, storyId, familyId, authorId, body;
+  final String id, storyId, familyId, body;
+
+  /// Null once the author's account is gone.
+  final String? authorId;
   final DateTime createdAt;
   final String? authorDisplayName;
+
+  /// Server-computed for the caller: the author, or a steward of the story's
+  /// family on a published story (D4).
+  final bool canDelete;
   String get authorLabel => displayNameOrMember(authorDisplayName);
 
-  factory Comment.fromJson(Map<String, dynamic> json) {
+  factory Comment.fromNote(server.NoteDto note) {
     return Comment(
-      id: json['id'] as String,
-      storyId: json['story_id'] as String,
-      familyId: json['family_id'] as String,
-      authorId: json['author_id'] as String,
-      body: json['body'] as String,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      authorDisplayName: _authorDisplayName(json),
+      id: note.id.toString(),
+      storyId: note.storyId.toString(),
+      familyId: note.familyId.toString(),
+      authorId: note.authorId?.toString(),
+      body: note.body,
+      createdAt: note.createdAt,
+      authorDisplayName: note.authorName,
+      canDelete: note.canDelete,
     );
   }
 }
@@ -51,25 +63,25 @@ abstract class CommentsGateway {
   Future<void> delete(String id);
 }
 
-/// PostgREST CRUD gateway for family-scoped `comments` rows.
+/// Comments are `note` rows of kind [server.NoteKind.comment].
 class CommentsApi implements CommentsGateway {
-  CommentsApi({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+  CommentsApi({server.Client? client}) : _injected = client;
 
-  final SupabaseClient _client;
-
-  static const _select = '*, author:profiles!author_id(display_name)';
+  final server.Client? _injected;
+  server.Client get _client => _injected ?? serverClient;
 
   @override
   Future<List<Comment>> listForStory(String storyId) async {
-    final rows = await _client
-        .from('comments')
-        .select(_select)
-        .eq('story_id', storyId)
-        .order('created_at');
-    return rows.map(Comment.fromJson).toList();
+    final notes = await withServerErrors(
+      () => _client.note.listForStory(
+        server.UuidValue.fromString(storyId),
+        kind: server.NoteKind.comment,
+      ),
+    );
+    return notes.map(Comment.fromNote).toList();
   }
 
+  /// [familyId] is the story's; the server derives it.
   @override
   Future<Comment> create({
     required String storyId,
@@ -77,36 +89,28 @@ class CommentsApi implements CommentsGateway {
     required String body,
   }) async {
     ensureValidCommentBody(body);
-    final uid = _client.auth.currentUser!.id;
-    final row = await _client
-        .from('comments')
-        .insert({
-          'story_id': storyId,
-          'family_id': familyId,
-          'author_id': uid,
-          'body': body.trim(),
-        })
-        .select(_select)
-        .single();
-    return Comment.fromJson(row);
+    final note = await withServerErrors(
+      () => _client.note.create(
+        server.UuidValue.fromString(storyId),
+        server.NoteKind.comment,
+        body.trim(),
+      ),
+    );
+    return Comment.fromNote(note);
   }
 
   @override
   Future<void> update({required String id, required String body}) async {
     ensureValidCommentBody(body);
-    await _client.from('comments').update({'body': body.trim()}).eq('id', id);
+    await withServerErrors(
+      () => _client.note.update(server.UuidValue.fromString(id), body.trim()),
+    );
   }
 
   @override
   Future<void> delete(String id) async {
-    await _client.from('comments').delete().eq('id', id);
+    await withServerErrors(
+      () => _client.note.delete(server.UuidValue.fromString(id)),
+    );
   }
-}
-
-String? _authorDisplayName(Map<String, dynamic> json) {
-  final author = json['author'];
-  if (author is Map) {
-    return author['display_name'] as String?;
-  }
-  return null;
 }

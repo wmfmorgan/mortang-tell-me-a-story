@@ -300,11 +300,12 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     await _reloadPerspectives();
   }
 
-  bool _canManagePerspective(Perspective row) {
-    return _canWrite &&
-        _currentUserId != null &&
-        row.authorId == _currentUserId;
+  /// The caller wrote this note and can still contribute: they may edit it.
+  bool _ownsNote(String? authorId) {
+    return _canWrite && _currentUserId != null && authorId == _currentUserId;
   }
+
+  bool _canManagePerspective(Perspective row) => _ownsNote(row.authorId);
 
   Future<void> _openEditPerspective(Perspective row) async {
     final updated = await AddPerspectivePage.show(
@@ -867,6 +868,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                 body: body.trim(),
                 createdAt: item.createdAt,
                 authorDisplayName: item.authorDisplayName,
+                canDelete: item.canDelete,
               )
             else
               item,
@@ -1103,12 +1105,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             for (final row in _comments)
               CommentTile(
                 comment: row,
-                canDelete:
-                    _canWrite &&
-                    _currentUserId != null &&
-                    row.authorId == _currentUserId,
+                canDelete: row.canDelete,
                 editing: _editingCommentId == row.id,
-                onEdit: () => _startEditComment(row),
+                onEdit: _ownsNote(row.authorId)
+                    ? () => _startEditComment(row)
+                    : null,
                 onDelete: () => _deleteComment(row),
                 onSave: (body) => _saveComment(row, body),
                 onCancelEdit: () => setState(() => _editingCommentId = null),
@@ -1360,14 +1361,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
               _initialsAvatar(person.name, size: 22),
               const SizedBox(width: 6),
               Text(person.name, style: Theme.of(context).textTheme.labelMedium),
-              if ((person.relationship ?? '').trim().isNotEmpty) ...[
-                const SizedBox(width: 4),
-                Text(
-                  person.relationship!,
-                  style: Theme.of(context).textTheme.labelSmall
-                      ?.copyWith(color: const Color(0xFF6B5E55)),
-                ),
-              ],
             ],
           ),
         ),
@@ -1377,7 +1370,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   Widget _perspectiveCard(Perspective row) {
     final theme = Theme.of(context);
-    final canManage = _canManagePerspective(row);
+    final canEdit = _canManagePerspective(row);
+    final canDelete = row.canDelete;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFFF6F1EB),
@@ -1413,7 +1407,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                     ],
                   ),
                 ),
-                if (canManage)
+                if (canEdit || canDelete)
                   PopupMenuButton<String>(
                     key: Key('perspective-menu-${row.id}'),
                     tooltip: 'Perspective actions',
@@ -1427,16 +1421,18 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                       }
                     },
                     itemBuilder: (context) => [
-                      PopupMenuItem<String>(
-                        key: Key('perspective-edit-${row.id}'),
-                        value: 'edit',
-                        child: const Text('Edit'),
-                      ),
-                      PopupMenuItem<String>(
-                        key: Key('perspective-delete-${row.id}'),
-                        value: 'delete',
-                        child: const Text('Delete'),
-                      ),
+                      if (canEdit)
+                        PopupMenuItem<String>(
+                          key: Key('perspective-edit-${row.id}'),
+                          value: 'edit',
+                          child: const Text('Edit'),
+                        ),
+                      if (canDelete)
+                        PopupMenuItem<String>(
+                          key: Key('perspective-delete-${row.id}'),
+                          value: 'delete',
+                          child: const Text('Delete'),
+                        ),
                     ],
                   ),
               ],
