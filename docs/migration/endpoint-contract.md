@@ -14,7 +14,7 @@ Paths are relative to `apps/tell_me_a_story/` unless they say otherwise. "ids" m
 | Client session | `client.auth` is a `FlutterAuthSessionManager`. It exposes `authInfoListenable: ValueListenable<AuthSuccess?>`, `authInfo`, `isAuthenticated`, `initialize()`, `updateSignedInUser(AuthSuccess?)`, `signOutDevice()` | `serverpod_auth_core_flutter-4.1.1/lib/src/session_manager.dart:68,93`; `serverpod_auth_core_client-4.1.1/lib/src/session_manager.dart:65-272` |
 | Blobs | Large images (story photos, family covers) use `session.storage.createUploadDescription(...)`, then the client's `FileUploader(desc).upload(...)`, then `session.storage.verifyUpload(...)`. Small images (512 px avatars) go inline as a `ByteData` argument, which stays under the 512 KiB `maxRequestSize` default. Reads go through an authorized endpoint that returns `ByteData` (`session.storage.retrieveFile`) | https://docs.serverpod.dev/concepts/file-uploads |
 | Errors | One serializable exception `AppException{code: AppErrorCode, message: String}`, with `AppErrorCode` = `notFound, forbidden, validation, inviteInvalid, conflict, photoCap, storageFailed`. Unauthenticated calls are rejected by Serverpod itself (`requireLogin = true` on every app endpoint except `InviteEndpoint.preview`) | https://docs.serverpod.dev/concepts/endpoints-and-apis/error-handling-and-exceptions |
-| Schema | Per SchemaDesign (IRC, `local://schema-design.md`). UUID PKs. `app_user` holds displayName, avatarKey, about, birthDate, birthPrecision and birthVisibility. People have **no** birth columns: a person's birth comes from the linked `app_user`, coarsened by birthVisibility. Email is read from `serverpod_auth_core_profile.email` | SchemaDesign IRC message |
+| Schema | Per `docs/migration/schema-design.md` (§1 models, §3 constraints). UUID PKs. The `AppUser` model (table `users`) holds displayName, avatarKey, about, birthDate, birthPrecision and birthVisibility. People carry their own life dates (birthDate/birthPrecision, deathDate/deathPrecision); while a person is linked to a user, the account birth wins, coarsened by birthVisibility. Email is read from `serverpod_auth_idp_email_account.email` | `docs/migration/schema-design.md` |
 
 ### Why the client keeps its domain models
 Features read `Story`, `Person`, `Place` and the other domain classes in hundreds of places. For example, `.id` appears 402 times and `.familyId` 78 times in feature/core code, counted outside `lib/data`. They also depend on the `abstract class *Gateway` seams that tests fake. So the gateway **interfaces stay**, the **`*Api` classes keep their names**, and only their bodies change. Each body calls the generated `Client` and maps the protocol DTO to the domain class: `String` ↔ `UuidValue`, and date-only `DateTime` ↔ UTC midnight. The `fromJson` factories and the PostgREST embed parsers (`_embedLabel`, `_storyPeople`, …) are deleted.
@@ -150,13 +150,9 @@ Each method is one F call; errors map to `ManageFamiliesException{code,message}`
 - The caller id is `session.authenticated!.authUserId` (`UuidValue`) [UNVERIFIED exact accessor name in 4.1.1; ServerpodResearch to confirm].
 - Every mutating method calls `Authz.*` (RulesInventory owns the rules), runs inside `session.db.transaction`, and after commit posts `LiveEvent`s to `family:<familyId>` and, where relevant, `story:<storyId>`.
 - DTO names end in `Dto` so they don't collide with the client domain classes. They are `.spy.yaml` classes without `table:` unless SchemaDesign says otherwise.
-- Blob keys are produced by the server only:
-  - `photos/{familyId}/{storyId}/{photoId}.jpg` (edited copies: `….v{editVersion}.jpg`)
-  - `covers/{familyId}/cover.jpg`
-  - `avatars/users/{authUserId}.jpg`
-  - `avatars/people/{personId}.jpg`
-
-  These are stored in the `private` storage. `MediaEndpoint` parses the prefix to authorize reads.
+- Blob keys are produced by the server only. Keys per schema-design.md §4.2. They are stored in the `private` storage.
+- `MediaEndpoint` authorizes a read by finding the row holding the key (`photos.originalKey`/`editedKey`, `families.coverKey`, `people.avatarKey`, `users.avatarKey`) and checking tree/family access. Nobody parses keys.
+- Methods that replace or remove a blob never delete it inline: old keys go to `blob_deletions` in the same transaction.
 
 ### 2.1 Shared DTOs (protocol)
 ```yaml
@@ -165,46 +161,59 @@ exception: AppException
 fields: { code: AppErrorCode, message: String }
 enum: AppErrorCode  # notFound, forbidden, validation, inviteInvalid, conflict, photoCap, storageFailed
 
-class: MemberFamilyDto      # id, name, parentId?, branchYear?, createdAt, role: MemberRole, coverKey?
+class: MemberFamilyDto      # id, name, parentId?, branchYear?, createdAt, role: MembershipRole, coverKey?
 class: StewardFamilyDto     # id, name, role, deletedAt?
-class: TreeFamilyDto        # id, name, parentId?, branchYear?, originStoryId?   (effective origin)
+class: TreeFamilyDto        # id, name, parentId?, branchYear?, effectiveOriginStoryId?
 class: OriginDependentDto   # familyId, name
 class: FamilyRosterDto      # id, name, role, memberCount: int, publishedCount: int, deletedAt?
 class: FamilyDirectoryDto   # active: List<FamilyRosterDto>, recoverable: List<FamilyRosterDto>
 class: FamilyMemberDto      # userId, role, displayName?, avatarKey?
-class: PendingInviteDto     # id, email?, expiresAt, createdAt
+class: PendingInviteDto     # id, email?, personId?, sentAt, expiresAt, createdAt
 class: FamilyDetailDto      # id, name, myRole, members: List<FamilyMemberDto>, pendingInvites: List<PendingInviteDto>
-enum:  MemberRole           # owner, coOwner, member
+enum:  MembershipRole       # owner, coOwner, member
 
 class: StoryPersonDto       # personId, name, userId?
 class: PhotoRefDto          # id, key (effective = edited ?? original), sortOrder
-class: StoryDto             # id, familyId, authorId?, title?, body?, dateStart?, dateEnd?, datePrecision: DatePrecision,
+class: StoryDto             # id, familyId, authorId?, title?, body?, dateStart?, dateEnd?, datePrecision: DatePrecision?,
                             # createdAt, placeId?, placeLabel?, placeAddress?, status: StoryStatus, publishedAt?,
                             # people: List<StoryPersonDto>, photos: List<PhotoRefDto>,
                             # authorName?, authorAvatarKey?, commentCount: int, perspectiveCount: int
 class: StoryWriteDto        # dateStart?, dateEnd?, datePrecision?, title?, body?, placeId?, clearPlace: bool,
                             # personIds: List<UuidValue>?   (null = leave story_people alone)
 enum:  StoryStatus          # draft, published
-enum:  DatePrecision        # decade, year, month, day
+enum:  DatePrecision        # year, month, day (byIndex, append-only)
 
-class: PersonDto            # id, familyId, name, relationship?, email?, about?, avatarKey?, userId?, passedAway,
-                            # birthDate?, birthPrecision?    (birth = linked app_user, coarsened by visibility)
-class: PersonProfileDto     # id, familyId, name, isLinked, birthDate?, birthPrecision?, about?, avatarKey?, passedAway
-class: PersonWriteDto       # name, about?, writeAbout, email?, writeEmail, passedAway?, writePassedAway, clearPicture
-class: PhotoDto             # id, storyId, uploaderId?, originalKey, editedKey?, editVersion, sortOrder
+class: PersonDto            # id, treeId, homeFamilyId, name, email?, about?, avatarKey?, userId?, passedAway,
+                            # birthDate?, birthPrecision?, deathDate?, deathPrecision?
+                            # (birth = linked AppUser, coarsened by visibility, when linked; else the person row)
+class: PersonProfileDto     # id, homeFamilyId, name, isLinked, birthDate?, birthPrecision?, deathDate?, deathPrecision?,
+                            # about?, avatarKey?, passedAway
+class: PersonWriteDto       # name, about?, writeAbout, email?, writeEmail, passedAway?, writePassedAway, clearPicture,
+                            # birthDate?, birthPrecision?, writeBirth, deathDate?, deathPrecision?, writeDeath
+enum:  KinshipKind          # parentOf, partnerOf
+class: KinshipDto           # id, kind: KinshipKind, fromPersonId, toPersonId
+class: PhotoDto             # id, storyId, familyId (derived), uploaderId?, originalKey, editedKey?, editVersion, sortOrder
 class: PhotoUploadTicketDto # photoId, key, uploadDescription: String
 class: CoverUploadTicketDto # key, uploadDescription: String
 enum:  NoteKind             # comment, perspective
 class: NoteDto              # id, storyId, familyId, kind, authorId?, authorName?, body, createdAt
-class: PlaceDto             # id, familyId, label, address, lat: double, lng: double, mapboxPlaceId?, isFavorite, lastUsedAt?
+class: PlaceDto             # id, treeId, label, address, lat: double, lng: double, mapboxPlaceId?, isFavorite, lastUsedAt?
 class: PlaceInputDto        # label, address, lat, lng, mapboxPlaceId?, isFavorite
 class: OwnProfileDto        # authUserId, displayName?, email?, avatarKey?, birthDate?, birthPrecision?, birthVisibility, about?
 enum:  BirthVisibility      # hidden, year, yearMonth, full
 class: CreatedInviteDto     # inviteId, token, expiresAt, inviteUrl
 class: InvitePreviewDto     # valid, familyId?, familyName?, inviterName?
 class: LiveEventDto         # familyId, storyId?, kind: LiveKind (story|photo|note), storyStatus: StoryStatus?, deleted: bool
+
+enum:  SearchSort           # relevant, chronological, recentlyAdded
+class: StorySearchDto       # familyId, text: String (default ''), personIds: List<UuidValue>, placeId?,
+                            # rangeStart?, rangeEnd?, decades: List<int>, sort: SearchSort
+class: DecadeFacetDto       # decade: int, storyCount: int
+class: PersonFacetDto       # personId, name, storyCount: int
+class: PlaceFacetDto        # placeId, label, storyCount: int
+class: StoryFacetsDto       # decades: List<DecadeFacetDto>, people: List<PersonFacetDto>, places: List<PlaceFacetDto>
 ```
-`familyId` on `NoteDto` and `LiveEventDto` is derived on the server from the story join, so the client contract is unchanged. Whether the `story_notes` table also stores it is SchemaDesign's call.
+`familyId` on `NoteDto`, `PhotoDto` and `LiveEventDto` is derived on the server from the story and is not stored.
 
 ### 2.2 Endpoint signatures (server, Dart)
 ```dart
@@ -216,12 +225,12 @@ class EmailIdpEndpoint extends EmailOtpIdpBaseEndpoint {}   // startOtpLogin / v
 class FamilyEndpoint extends Endpoint {
   Future<List<MemberFamilyDto>> listMine(Session s);                                   // FamiliesGateway.listMine; InviteGateway.currentFamilyId uses it too
   Future<List<StewardFamilyDto>> listStewarded(Session s);                             // incl. soft-deleted inside 60 days (server filters)
-  Future<List<TreeFamilyDto>> listTree(Session s, UuidValue familyId);                 // list_family_tree: one query on families.tree_id
+  Future<List<TreeFamilyDto>> listTree(Session s, UuidValue familyId);                 // list_family_tree: one query on families.treeId
   Future<void> setOrigin(Session s, UuidValue familyId, UuidValue storyId);            // set_family_origin
   Future<List<OriginDependentDto>> listOriginDependents(Session s, UuidValue storyId);
-  Future<CoverUploadTicketDto> startCoverUpload(Session s, UuidValue familyId, int byteLength);   // steward; maxFileSize 5 MiB, contentType image/jpeg
-  Future<String> finishCoverUpload(Session s, UuidValue familyId, String key);         // verifyUpload, set cover_key, delete old key → returns key
-  Future<void> clearCover(Session s, UuidValue familyId);                              // delete blob + null cover_key
+  Future<CoverUploadTicketDto> startCoverUpload(Session s, UuidValue familyId, int byteLength);   // steward; maxFileSize 5 MiB, contentType image/jpeg, image/png or image/webp
+  Future<String> finishCoverUpload(Session s, UuidValue familyId, String key);         // verifyUpload, set coverKey; old key goes to blob_deletions in the same transaction → returns key
+  Future<void> clearCover(Session s, UuidValue familyId);                              // null coverKey; old key goes to blob_deletions in the same transaction
   Future<List<FamilyMemberDto>> listMembers(Session s, UuidValue familyId);
   Future<FamilyDirectoryDto> directory(Session s);                                     // ONE query with counts (was 4 round trips)
   Future<FamilyDetailDto?> detail(Session s, UuidValue familyId);                      // family + members + pending invites in one call
@@ -232,7 +241,7 @@ class FamilyEndpoint extends Endpoint {
   Future<void> addCoOwner(Session s, UuidValue familyId, UuidValue userId);
   Future<void> removeCoOwner(Session s, UuidValue familyId, UuidValue userId);
   Future<void> removeMember(Session s, UuidValue familyId, UuidValue userId);
-  Future<void> transferOwnership(Session s, UuidValue familyId, UuidValue newOwnerUserId, MemberRole formerOwnerBecomes);
+  Future<void> transferOwnership(Session s, UuidValue familyId, UuidValue newOwnerUserId, MembershipRole formerOwnerBecomes);
   Future<void> softDelete(Session s, UuidValue familyId);                              // sets deleted_at; purge future call scheduled +60d
   Future<void> recover(Session s, UuidValue familyId);
 }
@@ -260,6 +269,10 @@ class PeopleEndpoint extends Endpoint {
   Future<List<PersonDto>> listUnlinked(Session s, UuidValue familyId);
   Future<bool> isHomeFamilySteward(Session s, UuidValue familyId);
   Future<void> markPassedAway(Session s, UuidValue personId, bool value);
+  // Kinship (contract only; not implemented yet). No client UI yet; a UX spec must precede a gateway method.
+  Future<List<KinshipDto>> listKinships(Session s, UuidValue familyId);    // whole tree; tree reader
+  Future<KinshipDto> addKinship(Session s, UuidValue familyId, KinshipKind kind, UuidValue fromPersonId, UuidValue toPersonId);
+  Future<void> removeKinship(Session s, UuidValue kinshipId);
 }
 
 // ── stories ─────────────────────────────────────────────────────────────
@@ -275,8 +288,11 @@ class StoryEndpoint extends Endpoint {
   Future<List<StoryDto>> listPublished(Session s, UuidValue familyId);
   Future<List<StoryDto>> listLatestPublished(Session s, UuidValue familyId, {int withinDays = 7, int limit = 3});
   Future<List<StoryDto>> listForPerson(Session s, UuidValue personId);   // published, oldest first
-  Future<void> discard(Session s, UuidValue storyId);       // deletes photo blobs + rows in one call
+  Future<void> discard(Session s, UuidValue storyId);       // deletes photo rows; their keys go to blob_deletions in the same transaction
   Future<void> linkPerson(Session s, UuidValue storyId, UuidValue personId);   // ON CONFLICT DO NOTHING
+  // Search and facets (contract only; not implemented yet). Semantics below the code block.
+  Future<List<StoryDto>> search(Session s, StorySearchDto q);
+  Future<StoryFacetsDto> facets(Session s, UuidValue familyId);
 }
 
 // ── photos ──────────────────────────────────────────────────────────────
@@ -284,7 +300,7 @@ class PhotoEndpoint extends Endpoint {
   Future<List<PhotoDto>> list(Session s, UuidValue storyId);
   Future<PhotoUploadTicketDto> startUpload(Session s, UuidValue storyId, int byteLength);   // cap 20 → AppException(photoCap)
   Future<PhotoDto> finishUpload(Session s, UuidValue storyId, UuidValue photoId, int sortOrder); // verifyUpload, insert row; deletes blob on failure
-  Future<void> delete(Session s, UuidValue photoId);         // blobs (original + edited) + row
+  Future<void> delete(Session s, UuidValue photoId);         // row; original + edited keys go to blob_deletions in the same transaction
   Future<void> setHero(Session s, UuidValue storyId, UuidValue photoId);   // one transaction rewriting sort_order 0..n-1
 }
 
@@ -297,7 +313,7 @@ class NoteEndpoint extends Endpoint {
 }
 
 // ── places ──────────────────────────────────────────────────────────────
-class PlaceEndpoint extends Endpoint {
+class PlaceEndpoint extends Endpoint {   // familyId params resolve the family's tree; results are tree-wide
   Future<List<PlaceDto>> list(Session s, UuidValue familyId);
   Future<List<PlaceDto>> favorites(Session s, UuidValue familyId);
   Future<List<PlaceDto>> recents(Session s, UuidValue familyId, {int limit = 10});
@@ -310,19 +326,19 @@ class PlaceEndpoint extends Endpoint {
 
 // ── own profile ─────────────────────────────────────────────────────────
 class ProfileEndpoint extends Endpoint {
-  Future<OwnProfileDto> me(Session s);                       // app_user row (created lazily on first call) + auth profile email
+  Future<OwnProfileDto> me(Session s);                       // AppUser created in onAfterAuthUserCreated; ensureAppUser fallback. Email from serverpod_auth_idp_email_account
   Future<void> saveName(Session s, String displayName);
-  Future<void> saveAccount(Session s, {required String displayName, DateTime? birthDate, String? birthPrecision,
+  Future<void> saveAccount(Session s, {required String displayName, DateTime? birthDate, DatePrecision? birthPrecision,
       BirthVisibility? birthVisibility, String? about});
-  Future<String> saveAvatar(Session s, ByteData jpeg);       // ≤512px, inline; returns key
-  Future<void> clearAvatar(Session s);
+  Future<String> saveAvatar(Session s, ByteData jpeg);       // ≤512px, inline; returns key; old key goes to blob_deletions in the same transaction
+  Future<void> clearAvatar(Session s);                       // old key goes to blob_deletions in the same transaction
   Future<UuidValue> startEmailChange(Session s, String newEmail);                   // see §2.4 caveat
   Future<void> finishEmailChange(Session s, UuidValue requestId, String code);
 }
 
 // ── media (authorized reads) ───────────────────────────────────────────
 class MediaEndpoint extends Endpoint {
-  Future<ByteData?> get(Session s, String key);                          // authorize by key prefix, retrieveFile from 'private'
+  Future<ByteData?> get(Session s, String key);                          // find the row holding the key, check tree/family access, retrieveFile from 'private'
   Future<Map<String, ByteData>> getMany(Session s, List<String> keys);   // collapses thumb/avatar N+1; caller-visible keys only
 }
 
@@ -336,7 +352,17 @@ class LiveEndpoint extends Endpoint {
   }
 }
 ```
-There is **no SearchEndpoint**. `SearchApi.search` calls `StoryEndpoint.listPublished(familyId)`, which carries place label, place address and people names, and keeps the existing pure, already-tested `filterSearchRecords` on the client (`search_api.dart:123-178`).
+**Search semantics** (`StoryEndpoint.search` / `facets`; contract only, not implemented yet):
+- `StorySearchDto{familyId, text = '', personIds: List<UuidValue>, placeId?, rangeStart?, rangeEnd?, decades: List<int>, sort: SearchSort}`, with `SearchSort { relevant, chronological, recentlyAdded }`.
+- Scope: published stories with `familyId` = the request's family.
+- `personIds` use AND semantics. `placeId` matches exactly. When `decades` is non-empty, it filters on `floor(year(dateStart)/10)*10 ∈ decades`. Otherwise, if both range bounds are set, it filters on overlap (`dateStart <= rangeEnd AND rangeStart <= dateEnd`).
+- Text: a case-insensitive substring match (`ILIKE` with `%`/`_`/`\` escaped) over title, body, place label, place address, tagged person names, the start year as text, and the decade label `'<decade>s'` for **any** decade (the 1900–2020 bound is dropped).
+- Relevance tiers: 3 = title; 2 = a person name or place label/address; 1 = body, year or decade.
+- Sorts (`timelineOrder` = dateStart, datePrecision, createdAt, id ascending; see schema-design.md §0.5):
+  - `relevant`: tier desc, then reverse `timelineOrder`;
+  - `chronological`: reverse `timelineOrder`;
+  - `recentlyAdded`: `publishedAt` desc nulls last, then reverse `timelineOrder`.
+- `facets(familyId)` covers the same story scope. Decades ascend; people are the people tagged on those stories (any home family), ordered by name; places are ordered by label. This replaces the second boot search and the family-only people chips.
 
 ### 2.3 Gateway method → endpoint map (1:1)
 | Gateway method | Endpoint call | Collapsed |
@@ -363,6 +389,7 @@ There is **no SearchEndpoint**. `SearchApi.search` calls `StoryEndpoint.listPubl
 | People.listPeople / listTreePeople | `people.listFamily` / `people.listTree` | 2+N → 1 |
 | People.createPerson / updatePerson | `people.create` / `people.update` (picture inline) | 3 → 1 |
 | People.personForEdit / personProfile / listUnlinkedPeople / isHomeFamilySteward / markPassedAway | same names | |
+| *(none yet)* | `people.listKinships` / `addKinship` / `removeKinship` | contract only; a UX spec must precede a gateway method |
 | People.signedPictureUrl | **becomes** `pictureBytes({personId, key}) → Uint8List?` via `media.get` | URL → bytes (see §3) |
 | Photos.listPhotos | `photo.list` | |
 | Photos.uploadPhoto | compress → `photo.startUpload` → upload → `photo.finishUpload` | |
@@ -371,6 +398,8 @@ There is **no SearchEndpoint**. `SearchApi.search` calls `StoryEndpoint.listPubl
 | Photos.downloadBytes | `media.get` | |
 | Comments.* / Perspectives.* | `note.*` with `NoteKind.comment` / `NoteKind.perspective` | |
 | Places.* | `place.*` | |
+| Search.search | `story.search` | client filtering and ranking move to the server |
+| search page boot | `story.facets` | replaces the second boot search and the family-only people chips |
 | Invite.currentFamilyId | `family.listMine` + the existing client selection logic | 2 → 1 |
 | Invite.createFamily | `family.createRoot` | merged with ManageFamilies.createRootFamily |
 | Invite.createInvite / sendInviteEmail / acceptInvite | `invite.create` / `invite.sendEmail` / `invite.accept` | |
@@ -427,17 +456,25 @@ LOC = lines changed (added + removed), estimated.
 | `lib/data/families_api.dart` (712) | impl body → `serverClient.family.*`; delete `familiesCoverColumnMissing`, the `fromJson` factories, `_membershipRows`/`_rosters`/`_counts`/`_publishedCounts`; `originRpcException` reads `AppException` | −350 / +120 |
 | `lib/data/family_covers.dart` (110) | keep compression and the 5 MB check; `save` = ticket+`FileUploader`+finish; `download` = `media.get`; `clear` = `family.clearCover`; delete the path regex (the server owns keys) | 60 |
 | `lib/data/stories_api.dart` (866) | impl → `serverClient.story.*`; delete `_storySelect`/`_publishedSelect`, the embed parsers (`:129-275`), `isDuplicateStoryKey`, `_replacePeople`, `_date`/`_parseDate`; `storiesForPerson` → `listForPerson` + `media.getMany`; `downloadFirstThumbs` → `getMany`. `publishReadiness` stays client-side for UI gating | −330 / +140 |
-| `lib/data/people_api.dart` (490) | impl → `people.*`; delete `fromJson`, `personProfileFromRpc`, `_treeFamilyIds`, `_uploadPersonPicture`; `signedPictureUrl` → `pictureBytes` on the interface | −200 / +90 |
+| `lib/data/people_api.dart` (490) | impl → `people.*`; delete `fromJson`, `personProfileFromRpc`, `_treeFamilyIds`, `_uploadPersonPicture`; `signedPictureUrl` → `pictureBytes` on the interface. `Person.relationship` is removed (dead: written only as null at `:324`; `story_reader_page.dart:1363-1366` reads it); `Person` gains `deathDate`/`deathPrecision`, and `familyId` maps from `homeFamilyId` | −200 / +90 |
 | `lib/data/photos_api.dart` (378) | keep `compressStoryPhoto`, `ensurePhotoCap`, `photosWithHeroFirst`, `comparePhotoOrder`. Delete `storyPhotoStoragePath` (moves to the server), `deleteAllForStory` and most test injectables (`uploadBinary`/`removeObjects`/`insertPhoto`/`deletePhotoRow`/`listStoryObjects`). Keep one `PhotoUploadBinary` seam for tests | −150 / +70 |
 | `lib/data/comments_api.dart`, `perspectives_api.dart` | impl → `note.*` with a kind; delete `fromJson` | 40 each |
-| `lib/data/places_api.dart` (221) | impl → `place.*`; `buildPlaceInsert` → `PlaceInputDto` builder | −80 / +50 |
+| `lib/data/places_api.dart` (221) | impl → `place.*`; `buildPlaceInsert` → `PlaceInputDto` builder; remove `Place.familyId` (read by no feature, `places_api.dart:7,18,30`) | −80 / +50 |
 | `lib/data/invite_api.dart` (231) | `_invoke` / `FunctionException` → endpoint calls + `AppException` mapping; `createFamily` → `family.createRoot`; `currentFamilyId` uses `family.listMine` | −90 / +50 |
 | `lib/data/manage_families_api.dart` (197) | each method is one endpoint call; `_invoke` → `AppException` → `ManageFamiliesException` | −80 / +45 |
 | `lib/data/profile_api.dart` (249) | `loadOwn` → `profile.me`; `saveAvatar` inline `ByteData`; `downloadAvatar` → `media.get` (drops the `http` signed-URL fetch); `updateEmail` per §2.4 | −80 / +50 |
-| `lib/data/search_api.dart` | `search` → `story.listPublished` + `Story.fromDto` + `filterSearchRecords`; delete `searchRecordFromRow` | 20 |
+| `lib/data/search_api.dart` | `search` → `story.search(StorySearchDto)` + `Story.fromDto`; at cutover delete `filterSearchRecords`, `searchRecordFromRow` and the fixed 1900–2020 decade constants (`:37-38,123-185,197-207`) | −150 / +30 |
+| `lib/features/search/search_page.dart` | person, place and decade chips read from `story.facets` instead of a second boot search and the family people list (`:113,136-145`); `timeframe_chips.dart:31-32` drops its fixed decades | 30 |
 | `lib/data/timeline_live.dart` (146) | `SupabaseTimelineLive` → `ServerTimelineLive`, which subscribes to `live.watchFamily` / `live.watchStory` and keeps the 200 ms debounce. `timelineEventMatters` takes a `LiveEventDto` (or keeps its named params, mapped from the DTO) | −80 / +60 |
 | `lib/data/rpc_error.dart` | `PostgrestException` prefix parsing → `if (error is AppException && error.code in {notFound, forbidden, validation, inviteInvalid, conflict}) return error.message` | 15 |
 | `lib/data/profile_session.dart`, `family_selection.dart` | no change (comment-only "after Supabase starts" `:13`) | 1 |
+
+### Phase 4 client items (F16, no schema change)
+- Three different story sort orders: `stories_api.dart:852-876`, `all_stories_logic.dart:105-108`, `search_api.dart:153-185`. Align them to the named orders in schema-design.md §0.5 (`timelineOrder`, `allStoriesOrder`, `latestOrder`).
+- `relatedMarks` puts null years first (`timeline_zoom.dart:169-187`); undated stories should sort last.
+- Client `authorId`/`uploaderId` are non-null (`stories_api.dart:24,49,94`, `comments_api.dart:20,35`, `perspectives_api.dart:20,35`, `photos_api.dart:19,29,42`) while the server FKs are SetNull; make them nullable.
+- `Place.familyId` is read by no feature (`places_api.dart:7,18,30`); removed (see table above).
+- `co_owner` string literals at 14 code sites in 7 files; replace with `MembershipRole.coOwner`.
 
 Total: about **−1 900 / +1 400** lines in `lib/`. The largest single items are the two auth pages (~270) and `stories_api.dart`.
 

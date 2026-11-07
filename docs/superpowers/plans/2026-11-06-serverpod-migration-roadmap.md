@@ -23,6 +23,7 @@
 - `docs/migration/audit.md`: current-state audit
 - `docs/migration/business-rules.md`: authorization matrix, invariants and workflows to port
 - `docs/migration/schema-design.md`: new schema as Serverpod models
+- `docs/migration/data-model-review.md`: data-model review (2026-11-07) applied to the schema
 - `docs/migration/endpoint-contract.md`: gateway → endpoint map and client change list
 - `docs/migration/serverpod-notes.md`: Serverpod 4.1 APIs used by these plans
 

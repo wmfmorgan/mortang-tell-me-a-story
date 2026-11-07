@@ -226,6 +226,14 @@ Actor vocabulary used below:
 | invite create/send | – | – | – | – | ✓ | ✓ | ✓ | – |
 | invite resend/revoke | – | – | – | – | – | ✓ | ✓ | – |
 
+### 2.12 Kinship (new in the Serverpod rewrite; `kinships`, kinds `parentOf` and `partnerOf`)
+
+| Op | Allowed | Cite |
+|---|---|---|
+| read (`people.listKinships`, whole tree) | tree reader | schema-design.md §3.2 |
+| add (`people.addKinship`) | live member of a live family in the tree. `partnerOf` is stored with the smaller id as `fromPersonId`. `parentOf` is refused with `VALIDATION: kinship would create a cycle` when `toPersonId` is `fromPersonId` or one of its ancestors (recursive walk over `parentOf` edges in the tree, under a `trees` row lock). A duplicate returns the existing edge. | schema-design.md §3.2 |
+| remove (`people.removeKinship`) | live member of a live family in the tree; no cycle check | schema-design.md §3.2 |
+
 ## 3. Workflows
 
 ### 3.1 Create root family — `create_family` (mpr:180-209), Edge `fn/create-root-family`
@@ -315,7 +323,7 @@ Owner only → `FORBIDDEN: owner only`. `former_becomes ∉ {co_owner, member}` 
 - Invariants: `edit_version >= 0`; `edited_path != null ⇒ edit_version > 0`; edited path shape fixed; version can only advance by exactly 1; client cannot write edit fields directly.
 
 ### 3.8 Linked person / member person rows
-- One linked person per user per tree: `ensure_member_person` skips if user already linked anywhere in the live tree; `link_accepted_person` same; DB unique `(family_id, user_id)` (mpr:153-155).
+- One linked person per user per tree: `ensure_member_person` skips if user already linked anywhere in the live tree; `link_accepted_person` same; DB unique per tree (`people_tree_user_uidx`); people are tree-scoped with a home family (mpr:153-155).
 - Linked name sync (lnb:3-63): on link/insert the name becomes `trim(profile.display_name)` (blank/null → keep existing name); profile rename propagates to all linked rows across trees; direct rename of a linked row raises `FORBIDDEN: linked_person_name_locked`; unlinking (remove member sets `user_id = null`) reopens edits.
 - `person_profile` overlay: if linked and account has about/avatar set, those win over the person row's (dob:204-213).
 
@@ -323,7 +331,7 @@ Owner only → `FORBIDDEN: owner only`. `former_becomes ∉ {co_owner, member}` 
 
 ### 4.1 Families
 - `name` required, trimmed, non-blank — create, rename, branch (mf:53-55, 287-289; cov:65-68; pp:450-452).
-- `branch_year`: DB check `null or 1..9999` (ftr:6-7); branch creation requires **1000–9999** (pp:454-458). Root families have null.
+- `branch_year`: DB check `null or 1..9999` (ftr:6-7); branch creation requires **1000–9999** (pp:454-458). Root families have null. In the Serverpod rewrite the DB CHECK is now 1000–9999 (`families_branch_year_1000_9999`).
 - `parent_id <> id` (st:4-6). Max ancestry depth 63 (branch refused at ≥63; tree walks cap at 64) (pp:503-505).
 - Locked columns: `id`, `created_by`, `parent_id`; `origin_story_id` only via set-origin/branch-create or FK null-out (cov:33-49).
 - `deleted_at` transitions: set ⇒ owner; clear ⇒ owner/co_owner; any other change (e.g. move timestamp) ⇒ `FORBIDDEN: owner only` (cov:51-63).
@@ -338,8 +346,9 @@ Owner only → `FORBIDDEN: owner only`. `former_becomes ∉ {co_owner, member}` 
 
 ### 4.3 People
 - `name` not null; `relationship` nullable (pp:13-14); `about` ≤ **500** chars (pp:29-31); `avatar_path` null or `{id}/avatar.jpg` (pp:32-34); `passed_away` boolean default false (dob:19-20).
-- `user_id` unique per family (mf:14-16); client inserts must have `user_id = null` (pin:3-10); client can't update `user_id`, `family_id`, `created_by` (column grants dob:67-77).
+- `user_id` unique per tree (`people_tree_user_uidx`); people are tree-scoped with a home family (as-is: unique per family, mf:14-16); client inserts must have `user_id = null` (pin:3-10); client can't update `user_id`, `family_id`, `created_by` (column grants dob:67-77).
 - Linked-name lock (§3.8). passed_away guard (pas:10-32): linked self can't change own; linked row only by owner/co_owner of that family; error `FORBIDDEN:`.
+- Life dates (new in the Serverpod rewrite): `birthDate`/`birthPrecision` and `deathDate`/`deathPrecision` are each both null or both set (`people_birth_pair`, `people_death_pair`); dates are UTC midnight aligned to precision, year 1000–9999, precision year/month/day only (`people_birth_shape`, `people_death_shape`); a death date requires `passedAway` (`people_death_needs_passed_away`); death year ≥ birth year (`people_death_after_birth`). The server normalizes input; writing birth fields on a linked person → `VALIDATION: birth date comes from the account` (the account birth wins on read); death fields follow the passedAway rights; setting `passedAway = false` clears the death fields.
 - `mark_passed_away` (dob:248-290): order → no uid/null id `NOT_FOUND:`; missing / not tree member `NOT_FOUND:`; unlinked → `VALIDATION: person has not signed in`; self → `VALIDATION: cannot mark yourself`; not owner/co_owner of person's family (owner of another tree family is refused) → `FORBIDDEN:`. Sets flag (true/false, i.e., undo supported) and `updated_at`; does not change name/about.
 - Person avatars bucket `person-avatars`: private, **2 MiB (2097152)**, `image/jpeg` only, path `{person_id}/avatar.jpg` (pp:206-213).
 - Unlinked list excludes: linked, passed_away, people with pending unexpired invite, people in deleted families; ordered by name, id (dob:295-331).
@@ -365,7 +374,7 @@ Owner only → `FORBIDDEN: owner only`. `former_becomes ∉ {co_owner, member}` 
 - Created on signup: `display_name = coalesce(nonblank metadata.display_name, email local-part)`, `email` from auth (ptrg:10-18). Email change in auth syncs to profile (av:60-79).
 - `about` ≤ **500**; `birth_date`/`birth_precision` both null or both set; precision ≠ `decade` (pp:41-50); `birth_visibility ∈ {hidden, year, year_month, full}` default `hidden` (dob:9-17).
 - Avatar `avatar_path` null or `{uid}/avatar.jpg` (av:8-13); bucket `avatars` private **2 MiB**, `image/jpeg` only (av:15-22).
-- DOB shown to others (dob:163-195): rank visibility hidden0/year1/year_month2/full3, precision decade0/year1/month2/day3; `coarse = min`; 0 or no date ⇒ null; 1 ⇒ Jan 1 of year, precision `year`; 2 ⇒ 1st of month, `month`; 3 ⇒ full date, `day`. Self (own linked person) sees raw. Unlinked people have no DOB at all (people.birth_* dropped, dob:45-49). `my_profile` returns own raw birth date/precision/visibility; fails `NOT_FOUND:` without session.
+- DOB shown to others (dob:163-195): rank visibility hidden0/year1/year_month2/full3, precision year1/month2/day3; `coarse = min`; 0 or no date ⇒ null; 1 ⇒ Jan 1 of year, precision `year`; 2 ⇒ 1st of month, `month`; 3 ⇒ full date, `day`. Self (own linked person) sees raw. Unlinked people have no DOB at all (people.birth_* dropped, dob:45-49). `my_profile` returns own raw birth date/precision/visibility; fails `NOT_FOUND:` without session.
 
 ### 4.7 Invites
 - Token unique, 64 hex chars; expires **7 days** after create/resend (ddl:114-116; irr:33-35).
@@ -599,3 +608,14 @@ Invites
 131. Given send-invite-email on non-pending/expired/no-email invite, then INVITE_INVALID / INVITE_EXPIRED / VALIDATION respectively.
 Error mapping
 132. Given server error "PREFIX: detail" with prefix at start among NOT_FOUND/FORBIDDEN/VALIDATION/INVITE_INVALID, then code+status 404/403/400/400 and message=detail; prefix mid-message or unknown prefix → 400 VALIDATION "Try again".
+
+## 8. Deliberate changes in the Serverpod rewrite (data-model review)
+
+See `docs/migration/data-model-review.md` and `docs/migration/schema-design.md`.
+
+1. Places are visible tree-wide (`places.treeId`), not per family.
+2. People survive a home-family purge: when a non-last family is purged, its people are reassigned to another family in the tree (`homeFamilyId`) instead of being deleted.
+3. Search decade labels apply to any decade (no 1900–2020 bound), and server facets drive the chips (people chips list only people tagged on the family's published stories).
+4. Kinships (`parentOf`, `partnerOf`; §2.12) and person life dates (§4.3) are new.
+5. `branchYear` is checked in the DB (`families_branch_year_1000_9999`, 1000–9999).
+6. Invites carry `lastSentAt`, set on create and on every resend.

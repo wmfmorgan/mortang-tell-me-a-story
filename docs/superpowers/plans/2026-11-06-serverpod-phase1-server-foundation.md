@@ -1,5 +1,7 @@
 # Phase 1: Server Foundation Implementation Plan
 
+> Executed (Tasks 1-5 landed on feat/serverpod-migration). The schema has since changed: models and constraintsSql are specified by docs/migration/schema-design.md §1 and §3.3; see docs/migration/data-model-review.md.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a Serverpod 4.1.1 backend at `apps/server`, plus its generated client at `packages/tell_me_a_story_client`. It covers the full new schema, passwordless email-code login, an `AppException` error envelope and family-level authorization, and it runs and tests locally with no Docker and no Supabase.

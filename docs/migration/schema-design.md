@@ -1,6 +1,6 @@
 # Schema design — Serverpod 4.1.1 + Postgres 16/17
 
-Target: Serverpod **4.1.1** (verified `SERVERPOD_VERSION` = 4.1.1 in a clone of github.com/serverpod/serverpod at commit `7cfc979`, 2026-11-05). Dev/test DB is Serverpod's embedded Postgres 16; prod is managed PG 16/17. All raw SQL below uses only PG ≥ 15 features. It was **executed and behaviour-tested on PostgreSQL 17.11** (local mise install) against a hand-emulated version of the DDL Serverpod would generate (see §3.4). It was not run on PG 16. The one feature newer than PG 14 is `ON DELETE SET NULL (column)`, which arrived in PG 15.
+Target: Serverpod **4.1.1** (verified `SERVERPOD_VERSION` = 4.1.1 in a clone of github.com/serverpod/serverpod at commit `7cfc979`, 2026-11-05). Dev/test DB is Serverpod's embedded Postgres 16; prod is managed PG 16/17. All raw SQL below uses only PG ≥ 15 features. It is **executed and behaviour-tested on Serverpod 4.1.1's embedded Postgres 16** against the real DDL that `serverpod generate` / `create-migration` produce from the §1 YAML, by `apps/server/test/integration/constraints_test.dart` (run with `just server-test`, see §3.4). It has not been run on PG 17. The one feature newer than PG 14 is `ON DELETE SET NULL (column)`, which arrived in PG 15.
 
 Sources: repo migrations `supabase/migrations/*.sql`, `docs/design-doc/data-model.md`, Serverpod docs (latest = 4.x), and Serverpod 4.1.1 source. Doc URLs are cited inline.
 
@@ -36,7 +36,7 @@ Every table uses `id: UuidValue?, defaultPersist=random_v7`.
 - **When the `AppUser` row is created.** Create it in `AuthUsersConfig.onAfterAuthUserCreated` and pass the provided `transaction` (https://docs.serverpod.dev/concepts/authentication/working-with-users#reacting-to-the-user-created-event). Also add an idempotent `ensureAppUser(session)` on first authenticated call, as a fallback.
 - **Account deletion.** Call `AuthServices.instance.authUsers.delete(session, authUserId:)` (same doc page). The cascades are:
   - `users` and `memberships` rows are deleted (Cascade).
-  - Authored or uploaded content stays: `stories.authorId`, `photos.uploaderId`, `story_notes.authorId`, `families.createdById`, `people.createdById` and `invites.invitedById/acceptedById` are set to null (SetNull).
+  - Authored or uploaded content stays: `stories.authorId`, `photos.uploaderId`, `story_notes.authorId`, `families.createdById`, `people.createdById`, `kinships.createdById` and `invites.invitedById/acceptedById` are set to null (SetNull).
   - The linked person is unlinked: `people.userId` is set to null (SetNull).
 
   This settles OPEN item 2 in `docs/design-doc/data-model.md` (NO ACTION FKs blocked account deletion). The deletion endpoint must first, in the app layer:
@@ -48,7 +48,7 @@ Every table uses `id: UuidValue?, defaultPersist=random_v7`.
 ### 0.3 Naming and types
 
 - **Column names.** Fields are camelCase, and Serverpod emits them as quoted camelCase columns (`"familyId"`). The docs' generated SQL shows this (`"addressId" bigint NOT NULL`): https://docs.serverpod.dev/concepts/data-and-the-database/database/relations/one-to-one#generated-sql. The raw SQL in §3 quotes them. Table names follow the decided design: plural snake_case.
-- **No date-only type.** `DateTime` maps to `timestamp without time zone` and is always UTC (https://docs.serverpod.dev/concepts/data-and-the-database/models/field-types#datetime). Calendar dates (`dateStart`, `dateEnd`, `birthDate`) are stored as **UTC midnight**, and a CHECK enforces midnight.
+- **No date-only type.** `DateTime` maps to `timestamp without time zone` and is always UTC (https://docs.serverpod.dev/concepts/data-and-the-database/models/field-types#datetime). Calendar dates (`dateStart`, `dateEnd`, `birthDate`) are stored as **UTC midnight**, and a CHECK enforces midnight. Person life dates (`people.birthDate`, `people.deathDate`) and the account birth (`users.birthDate`) use the same convention, aligned to their precision: a month-precision date is the 1st of the month, a year-precision date is 1 January (CHECKs `people_birth_shape`, `people_death_shape`, `users_birth_shape`).
 - **`int` is `bigint`** (same page).
 - **Enums.**
   - `serialized: byName` enums are stored as `text`. There is no PG enum type, so value CHECKs are added in §3.
@@ -61,15 +61,67 @@ On a **fresh** database, Serverpod applies only the latest migration's `definiti
 
 Also, `create-repair-migration` diffs the live DB against the target and drops indexes it doesn't know about (CLI `tools/serverpod_cli/lib/src/database/migration.dart:320-326`). Normal `create-migration` diffs project definitions only, so it leaves raw objects alone.
 
-**Decision:** keep all raw SQL in one idempotent file, `apps/server/lib/src/db/constraints.sql` (§3.3). Run it right after `await pod.start()`, which is where migrations are applied (`serverpod.dart:831-834`):
+**Decision:** keep all raw SQL in one idempotent Dart const, `constraintsSql` in `apps/server/lib/src/db/constraints.dart` (§3.3). `applyConstraints(pod)` in the same file runs it right after `await pod.start()`, which is where migrations are applied (`serverpod.dart:831-834`). `apps/server/lib/server.dart`:
 
 ```dart
-final s = await pod.createSession();            // serverpod.dart:1207
-try { await s.db.unsafeSimpleExecute(await File('lib/src/db/constraints.sql').readAsString()); }
-finally { await s.close(); }
+await pod.start();
+await applyConstraints(pod);
 ```
 
-`unsafeSimpleExecute` (https://docs.serverpod.dev/concepts/data-and-the-database/database/raw-access, `serverpod_database/lib/src/database.dart:622`) uses the simple protocol, so the multi-statement `DO` block works. The same call belongs in the test harness setup.
+`applyConstraints` opens a session (`pod.createSession()`, `serverpod.dart:1207`), calls `session.db.unsafeSimpleExecute(constraintsSql)` and closes the session. `unsafeSimpleExecute` (https://docs.serverpod.dev/concepts/data-and-the-database/database/raw-access, `serverpod_database/lib/src/database.dart:622`) uses the simple protocol, so the multi-statement `DO` block works. The integration tests run the same const in their setup. A Dart const ships inside the compiled server, so no file path has to resolve at runtime.
+
+**Definitions are immutable by name.** Each index and constraint is created only if no object with its name exists, so editing a definition in place has no effect on a database that already has it. To change one, add it under a **new name** and drop the old name in the same SQL. The "Retired names" step at the top of `constraintsSql` does this with `ALTER TABLE … DROP CONSTRAINT IF EXISTS …` before the create loop. Retired so far: `families_branch_year_range` (replaced by `families_branch_year_1000_9999`) and `users_birth_midnight` (replaced by `users_birth_shape`). `people_family_tree_fk` went away with the dropped `people.familyId` column and needs no drop.
+
+### 0.5 Dimensions
+
+The schema is the source of truth for relationships. Timeline, filters and search are server queries over these dimensions.
+
+```mermaid
+erDiagram
+  serverpod_auth_core_user ||--o| users : "authUserId (Cascade)"
+  serverpod_auth_core_user ||--o{ memberships : "userId (Cascade)"
+  serverpod_auth_core_user |o--o{ families : "createdById (SetNull)"
+  serverpod_auth_core_user |o--o{ people : "userId, createdById (SetNull)"
+  serverpod_auth_core_user |o--o{ stories : "authorId (SetNull)"
+  serverpod_auth_core_user |o--o{ photos : "uploaderId (SetNull)"
+  serverpod_auth_core_user |o--o{ story_notes : "authorId (SetNull)"
+  serverpod_auth_core_user |o--o{ invites : "invitedById, acceptedById (SetNull)"
+  serverpod_auth_core_user |o--o{ kinships : "createdById (SetNull)"
+  trees ||--|{ families : "treeId (Restrict)"
+  trees ||--o{ people : "treeId (Cascade)"
+  trees ||--o{ places : "treeId (Cascade)"
+  trees ||--o{ kinships : "treeId (Cascade)"
+  families |o--o{ families : "parentId (SetNull)"
+  families ||--o{ memberships : "familyId (Cascade)"
+  families ||--o{ people : "homeFamilyId (Restrict)"
+  families ||--o{ stories : "familyId (Cascade)"
+  families ||--o{ invites : "familyId (Cascade)"
+  stories |o--o{ families : "originStoryId (SetNull)"
+  places |o--o{ stories : "placeId (SetNull)"
+  stories ||--o{ story_people : "storyId (Cascade)"
+  people ||--o{ story_people : "personId (Cascade)"
+  stories ||--o{ photos : "storyId (Cascade)"
+  stories ||--o{ story_notes : "storyId (Cascade)"
+  people |o--o{ invites : "personId (SetNull)"
+  people ||--o{ kinships : "fromPersonId (Cascade)"
+  people ||--o{ kinships : "toPersonId (Cascade)"
+  blob_deletions
+```
+
+Composite FKs in `constraintsSql` (§3.3) keep every cross-entity link inside one tree: `families_parent_same_tree_fk`, `families_origin_tree_fk`, `people_home_family_tree_fk`, `stories_family_tree_fk`, `stories_place_tree_fk`, `story_people_story_tree_fk`, `story_people_person_tree_fk`, `invites_family_tree_fk`, `invites_person_tree_fk`, `kinships_from_tree_fk`, `kinships_to_tree_fk`. `blob_deletions` has no FKs.
+
+| Dimension | Key / scope | Attributes | Join path |
+|---|---|---|---|
+| Family / branch | `families.id`, grouped by `treeId` | name, parentId, branchYear, effective origin, deletedAt | stories.familyId; tenancy = family, reading = tree |
+| Time | derived from the story | `dateStart`, `dateEnd` (stored, server-derived from start + precision, for range overlap), `datePrecision`; decade = `floor(year/10)*10`, computed in queries, never stored; documented time = `publishedAt`; life dates on people; `branchYear` = attach year | stories columns |
+| Place | `places.id`, tree-scoped | label, address, lat/lng, mapboxPlaceId | stories.placeId (same tree by FK) |
+| People | `people.id`, tree-scoped | name, life dates, passedAway, linked user | story_people (tags), kinships (parentOf/partnerOf; siblings share a parent) |
+| Authorship | `serverpod_auth_core_user.id` | AppUser displayName/avatar | the author's person = `people` where `userId = authorId AND treeId = story.treeId` |
+
+The facts are `stories` (one row per story), `photos` and `story_notes`. Named orders:
+- `timelineOrder`: dateStart, datePrecision, createdAt, id (ascending);
+- `allStoriesOrder`: dateStart desc, publishedAt desc, id;
+- `latestOrder`: publishedAt desc, id desc.
 
 ---
 
@@ -147,6 +199,17 @@ values:
   - perspective
 ```
 
+`apps/server/lib/src/models/kinship_kind.spy.yaml`
+```yaml
+### parentOf: fromPerson is a parent of toPerson. partnerOf: symmetric, stored with fromPersonId < toPersonId.
+### Siblings, grandparents and cousins are derived, never stored.
+enum: KinshipKind
+serialized: byName
+values:
+  - parentOf
+  - partnerOf
+```
+
 ### AppUser (decided-design "users")
 
 `apps/server/lib/src/models/app_user.spy.yaml`
@@ -203,9 +266,9 @@ fields:
   ### Branch parent; same tree enforced by raw FK families_parent_same_tree_fk.
   parentId: UuidValue?, relation(parent=families, onDelete=SetNull)
   name: String
-  ### 1..9999 (CHECK).
+  ### Attach year, 1000..9999 (CHECK families_branch_year_1000_9999). Null for roots.
   branchYear: int?
-  ### Story in the parent family this branch started from.
+  ### Origin story: published, in the parent family (branch) or this family (root). Set at branch creation, changeable by stewards (setOrigin). Same tree enforced by families_origin_tree_fk; the effective origin is derived (§3.5).
   originStoryId: UuidValue?, relation(parent=stories, onDelete=SetNull)
   ### Blob key, see §4. families/{familyId}/cover/{blobId}.{jpg|png|webp}
   coverKey: String?
@@ -216,7 +279,7 @@ fields:
 indexes:
   families_tree_idx:
     fields: treeId
-  ### Target of the composite FKs (people + parent) in constraints.sql.
+  ### Target of the composite FKs (stories, people, invites, parent) in constraintsSql.
   families_id_tree_uidx:
     fields: id, treeId
     unique: true
@@ -254,25 +317,32 @@ indexes:
 
 `apps/server/lib/src/models/person.spy.yaml`
 ```yaml
+### A human in one tree, shared by every family (timeline) in the tree.
 class: Person
 table: people
 fields:
   id: UuidValue?, defaultPersist=random_v7
-  familyId: UuidValue, relation(parent=families, onDelete=Cascade)
-  ### Copy of families.treeId (immutable); kept equal by raw composite FK
-  ### people_family_tree_fk. Exists so "one linked person per tree" is a plain unique index.
-  treeId: UuidValue
-  ### Linked account. Unique per tree; NULLs are distinct so unlinked people don't collide.
+  ### Owning tree. Deleted with the tree, or explicitly.
+  treeId: UuidValue, relation(parent=trees, onDelete=Cascade)
+  ### Family the person was added in; its stewards hold steward-only rights.
+  ### Same tree enforced by people_home_family_tree_fk. The purge job reassigns it before deleting the family (§4.3).
+  homeFamilyId: UuidValue, relation(parent=families, onDelete=Restrict)
+  ### Linked account. Unique per tree; NULLs are distinct.
   userId: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
   ### For linked people this mirrors AppUser.displayName (app-layer sync, §3.2).
   name: String
-  relationship: String?
   ### Lower-cased, trimmed, non-empty or null (CHECK).
   email: String?
   ### ≤ 500 chars (CHECK).
   about: String?
-  ### Blob key, see §4. families/{familyId}/people/{personId}/avatar/{blobId}.jpg
+  ### Blob key, see §4. trees/{treeId}/people/{personId}/avatar/{blobId}.jpg
   avatarKey: String?
+  ### UTC midnight aligned to precision (CHECK people_birth_shape). While linked, AppUser birth wins on read.
+  birthDate: DateTime?
+  birthPrecision: DatePrecision?
+  ### UTC midnight aligned to precision (CHECK people_death_shape). Requires passedAway.
+  deathDate: DateTime?
+  deathPrecision: DatePrecision?
   passedAway: bool, default=false
   createdById: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
   createdAt: DateTime, default=now
@@ -281,11 +351,16 @@ indexes:
   people_tree_user_uidx:
     fields: treeId, userId
     unique: true
-  people_family_name_idx:
-    fields: familyId, name
-  ### Tree-wide person picker (story tagging across branches).
+  ### Target of the composite FKs (story_people, invites, kinships).
+  people_id_tree_uidx:
+    fields: id, treeId
+    unique: true
+  ### Tree-wide person picker.
   people_tree_name_idx:
     fields: treeId, name
+  ### listFamily(familyId) and the Restrict check on family delete.
+  people_home_family_name_idx:
+    fields: homeFamilyId, name
   people_user_idx:
     fields: userId
 ```
@@ -294,11 +369,12 @@ indexes:
 
 `apps/server/lib/src/models/place.spy.yaml`
 ```yaml
+### A real-world place, shared by every family in the tree.
 class: Place
 table: places
 fields:
   id: UuidValue?, defaultPersist=random_v7
-  familyId: UuidValue, relation(parent=families, onDelete=Cascade)
+  treeId: UuidValue, relation(parent=trees, onDelete=Cascade)
   label: String
   address: String
   lat: double
@@ -306,16 +382,20 @@ fields:
   mapboxPlaceId: String?
   isFavorite: bool, default=false
   lastUsedAt: DateTime?
+  createdAt: DateTime, default=now
 indexes:
-  places_family_label_idx:
-    fields: familyId, label
-  ### Client looks a place up by (family, mapbox id), places_api.dart:204-206.
-  places_family_mapbox_uidx:
-    fields: familyId, mapboxPlaceId
+  ### Target of stories_place_tree_fk.
+  places_id_tree_uidx:
+    fields: id, treeId
     unique: true
-  ### "Recent places", places_api.dart:135-138.
-  places_family_last_used_idx:
-    fields: familyId, lastUsedAt
+  places_tree_label_idx:
+    fields: treeId, label
+  ### One row per Mapbox place per tree; create returns the existing row.
+  places_tree_mapbox_uidx:
+    fields: treeId, mapboxPlaceId
+    unique: true
+  places_tree_last_used_idx:
+    fields: treeId, lastUsedAt
 ```
 
 ### Story
@@ -327,6 +407,8 @@ table: stories
 fields:
   id: UuidValue?, defaultPersist=random_v7
   familyId: UuidValue, relation(parent=families, onDelete=Cascade)
+  ### Copy of families.treeId (immutable), kept equal by stories_family_tree_fk.
+  treeId: UuidValue
   ### Null only after the author's account is deleted.
   authorId: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
   title: String?
@@ -336,6 +418,7 @@ fields:
   dateStart: DateTime?
   dateEnd: DateTime?
   datePrecision: DatePrecision?
+  ### Same tree enforced by stories_place_tree_fk (SET NULL placeId only).
   placeId: UuidValue?, relation(parent=places, onDelete=SetNull)
   publishedAt: DateTime?
   createdAt: DateTime, default=now
@@ -355,6 +438,10 @@ indexes:
     fields: familyId, publishedAt
   stories_place_idx:
     fields: placeId
+  ### Target of story_people_story_tree_fk and families_origin_tree_fk.
+  stories_id_tree_uidx:
+    fields: id, treeId
+    unique: true
 ```
 
 ### StoryPerson
@@ -369,6 +456,8 @@ fields:
   id: UuidValue?, defaultPersist=random_v7
   storyId: UuidValue, relation(parent=stories, onDelete=Cascade)
   personId: UuidValue, relation(parent=people, onDelete=Cascade)
+  ### Copy of the story's treeId; story_people_story_tree_fk and story_people_person_tree_fk make tags same-tree.
+  treeId: UuidValue
 indexes:
   story_people_story_person_uidx:
     fields: storyId, personId
@@ -426,8 +515,8 @@ indexes:
 
 `apps/server/lib/src/models/invite.spy.yaml`
 ```yaml
-### serverOnly: tokenHash must never be serialized to the app; endpoints return an
-### InviteSummary DTO (id, email, personId, status, expiresAt, createdAt).
+### serverOnly: tokenHash must never be serialized to the app; endpoints return a
+### PendingInviteDto (id, email, personId, sentAt, expiresAt, createdAt).
 ### Status is derived: acceptedAt → accepted; revokedAt → revoked;
 ### expiresAt <= now → expired; else pending.
 class: Invite
@@ -436,6 +525,8 @@ serverOnly: true
 fields:
   id: UuidValue?, defaultPersist=random_v7
   familyId: UuidValue, relation(parent=families, onDelete=Cascade)
+  ### Copy of families.treeId, kept equal by invites_family_tree_fk; invites_person_tree_fk keeps personId in the tree.
+  treeId: UuidValue
   personId: UuidValue?, relation(parent=people, onDelete=SetNull)
   ### Null = open link invite. Lower-cased/trimmed (CHECK).
   email: String?
@@ -445,6 +536,8 @@ fields:
   acceptedById: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
   acceptedAt: DateTime?
   revokedAt: DateTime?
+  ### Set on create and on every resend.
+  lastSentAt: DateTime, default=now
   ### Set by the app: now + 7 days (create and resend). No YAML default can express it.
   expiresAt: DateTime
   createdAt: DateTime, default=now
@@ -456,6 +549,31 @@ indexes:
     fields: familyId, createdAt
   invites_person_idx:
     fields: personId
+```
+
+### Kinship
+
+`apps/server/lib/src/models/kinship.spy.yaml`
+```yaml
+### Person-to-person edge inside one tree. Replaces the dropped free-text people.relationship.
+class: Kinship
+table: kinships
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  treeId: UuidValue, relation(parent=trees, onDelete=Cascade)
+  kind: KinshipKind
+  fromPersonId: UuidValue, relation(parent=people, onDelete=Cascade)
+  toPersonId: UuidValue, relation(parent=people, onDelete=Cascade)
+  createdById: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
+  createdAt: DateTime, default=now
+indexes:
+  kinships_from_to_kind_uidx:
+    fields: fromPersonId, toPersonId, kind
+    unique: true
+  kinships_to_idx:
+    fields: toPersonId
+  kinships_tree_idx:
+    fields: treeId
 ```
 
 ### BlobDeletion (outbox needed by §4)
@@ -480,8 +598,9 @@ indexes:
 
 ### Index coverage notes
 
-- **FK columns.** Postgres doesn't index FK columns by itself. The cascade parents are covered by a leading index column: memberships.familyId, people.familyId, places.familyId, stories.familyId, photos.storyId, story_notes.storyId, story_people.storyId, and invites.familyId.
-- **Not indexed on purpose:** the user-FK SetNull columns `photos.uploaderId`, `story_notes.authorId`, `families.createdById`, `people.createdById`, `invites.invitedById` and `invites.acceptedById`. Account deletion is rare and the tables are family-scale. If account deletion ever gets slow, add an index per column (the old repo did this in `20261022000000_advisors_perf.sql:44-60`).
+- **FK columns.** Postgres doesn't index FK columns by itself. The cascade and restrict parents are covered by a leading index column: memberships.familyId, people.treeId, people.homeFamilyId (`people_home_family_name_idx`), places.treeId, stories.familyId, photos.storyId, story_notes.storyId, story_people.storyId, invites.familyId, kinships.treeId, kinships.fromPersonId (`kinships_from_to_kind_uidx`) and kinships.toPersonId (`kinships_to_idx`).
+- **Composite FKs.** The same-tree FKs on stories, story_people and invites lead with the single-column FK (`familyId`, `storyId`, `personId`), so the indexes on those columns cover them.
+- **Not indexed on purpose:** the user-FK SetNull columns `photos.uploaderId`, `story_notes.authorId`, `families.createdById`, `people.createdById`, `kinships.createdById`, `invites.invitedById` and `invites.acceptedById`. Account deletion is rare and the tables are family-scale. If account deletion ever gets slow, add an index per column (the old repo did this in `20261022000000_advisors_perf.sql:44-60`).
 
 ---
 
@@ -529,17 +648,24 @@ Old shapes are the final state after every ALTER in `supabase/migrations/`. Lege
 ### people
 | Old | New | Note |
 |---|---|---|
-| id, family_id, name, relationship (nullable since `20261012100000:13-14`), email | = | email normalized (CHECK). Blank email becomes null, which was the purpose of the `merge_blank_email` fixer. |
+| id, name, email | = | email normalized (CHECK). Blank email becomes null, which was the purpose of the `merge_blank_email` fixer. |
+| family_id | → `homeFamilyId`, `onDelete=Restrict` | The family the person was added in. Same tree enforced by `people_home_family_tree_fk`. The purge job reassigns it to a sibling family before deleting the family (§4.3), so a person tagged across branches survives. |
+| relationship (nullable since `20261012100000:13-14`) | ✗ | Dead: never written, and read only on a path that never selects it. Replaced by `kinships`. |
 | created_by NOT NULL (`ddl:39`) | → `createdById` nullable SetNull | |
 | user_id NO ACTION (`20261007000002:11-12`) | → `userId` SetNull | Fixes OPEN item 2 in data-model.md. |
 | people_family_user_uidx per family (`20261007000002:14-16`, `20261016120000:153-155`) | → `people_tree_user_uidx (treeId, userId)` | Now **per tree**, which fixes OPEN item 3 ("enforced only inside functions"). |
 | about, avatar_path, updated_at (`20261012100000:4-11`) | = `about`, → `avatarKey`, = `updatedAt` | `people_about_len` kept. `people_avatar_path_own` ✗. |
-| birth_date/precision, passing_date/precision | ✗ (already dropped in `20261016130000:45-49`) | A person's birth shown in the UI is the **linked user's** `AppUser.birthDate`, coarsened by `birthVisibility` (old `person_profile`, `20261016130000:104-216`). |
+| birth_date/precision, passing_date/precision (dropped in `20261016130000:45-49`) | **+** `birthDate`, `birthPrecision`, `deathDate`, `deathPrecision` | Re-added for unlinked people, with pair and shape CHECKs (`people_birth_*`, `people_death_*`); decade is not allowed. While a person is linked, the account's `AppUser.birthDate`, coarsened by `birthVisibility`, wins on read (old `person_profile`, `20261016130000:104-216`). |
 | passed_away (`20261016130000:19-20`) | = | Guard is app-layer (§3.2). |
-| — | **+** `treeId`, `createdAt` | |
+| — | **+** `treeId` (owning FK, Cascade), `createdAt` | Person is tree-scoped: one row per human per tree, shared by every family. |
 
 ### places
-All columns kept (`ddl:42-52`): label, address, lat, lng, mapboxPlaceId, isFavorite, lastUsedAt. **+** unique (familyId, mapboxPlaceId). Index (family_id,label) is kept (`20261004000002:10`).
+| Old | New | Note |
+|---|---|---|
+| label, address, lat, lng, mapboxPlaceId, isFavorite, lastUsedAt (`ddl:42-52`) | = | |
+| family_id | → `treeId` (Cascade) | Places are shared by every family in the tree, so the same real place isn't duplicated per branch. |
+| index (family_id,label) (`20261004000002:10`) | → `places_tree_label_idx (treeId, label)` | **+** unique `places_tree_mapbox_uidx (treeId, mapboxPlaceId)`. |
+| — | **+** `createdAt` | |
 
 ### stories
 | Old | New | Note |
@@ -556,9 +682,10 @@ All columns kept (`ddl:42-52`): label, address, lat, lng, mapboxPlaceId, isFavor
 | idx (family_id,status), order idx (`ddl:70`, `20261011210000:133-134`), place idx, author idx | → `stories_family_order_idx` (status added), author+status, family+publishedAt, place | |
 | replica identity full (`20261004000001:5`) | ✗ | Realtime moves to Serverpod streams. |
 | — | **+** `updatedAt` | |
+| — | **+** `treeId` | Copy of the family's tree. `stories_family_tree_fk` keeps it equal; `stories_place_tree_fk` keeps the place in the same tree. |
 
 ### story_people
-Composite PK (`ddl:74-78`) → `id` + unique (storyId, personId). The person_id index is kept (`20261004000002:4`). The same-tree policy (`20261018000000`) becomes app-layer.
+Composite PK (`ddl:74-78`) → `id` + unique (storyId, personId). The person_id index is kept (`20261004000002:4`). **+** `treeId` (copy of the story's tree). The same-tree policy (`20261018000000`) becomes the DB FKs `story_people_story_tree_fk` and `story_people_person_tree_fk`.
 
 ### photos
 | Old | New | Note |
@@ -590,7 +717,14 @@ Composite PK (`ddl:74-78`) → `id` + unique (storyId, personId). The person_id 
 | token text unique (`ddl:115`) | → `tokenHash` (hex SHA-256), unique | A raw token is no longer stored, so a DB read can't hand out working invite links. Generate 32 random bytes (`Random.secure`) and base64url-encode them; old tokens were 2× uuidv4 hex (`supabase/functions/create-invite/index.ts:133-134`). |
 | status invite_status (`ddl:116`, enum `20260923000001:3`) | ✗ | Derived from acceptedAt/revokedAt/expiresAt. `expired` was never written by any code path; it was always computed from expires_at (`20261013140000:37-38`). A stored status could disagree with the timestamps. `revokedAt` replaces `status='revoked'` (`20261010184643:84-86`). |
 | person_id SetNull (`20261012100000:279-280`) | = `personId` | |
-| — | **+** `revokedAt`, `createdAt` | createdAt fills the gap noted at `20261010184643:2`. "Sent" can still be `expiresAt − 7d`, which resend moves forward. |
+| — | **+** `revokedAt`, `createdAt` | createdAt fills the gap noted at `20261010184643:2`. |
+| — | **+** `lastSentAt` | Set on create and on every resend. Replaces the back-computed `expiresAt − 7d`. |
+| — | **+** `treeId` | Copy of the family's tree, kept equal by `invites_family_tree_fk`. `invites_person_tree_fk` keeps `personId` in the tree. |
+
+### kinships (new)
+| Old | New | Note |
+|---|---|---|
+| — (no table; free-text `people.relationship` was dead) | **+** `kinships`: `treeId` (Cascade), `kind` KinshipKind, `fromPersonId`/`toPersonId` (Cascade), `createdById` (SetNull), `createdAt` | Person-to-person edges `parentOf` and `partnerOf`. Siblings, grandparents and cousins are derived. Same tree enforced by `kinships_from_tree_fk` / `kinships_to_tree_fk`; `kinships_not_self`, `kinships_kind_valid`, `kinships_partner_canonical` (partner edges stored with `fromPersonId < toPersonId`); unique `kinships_from_to_kind_uidx`. Cycle check is app-layer (§3.2). |
 
 ### Dropped wholesale
 - **One-shot data fixers.** No data is migrated, so none of these apply:
@@ -614,12 +748,18 @@ Composite PK (`ddl:74-78`) → `id` + unique (storyId, personId). The person_id 
 |---|---|---|
 | One owner per family | A broken invariant breaks authorization; concurrent role changes could race | `memberships_one_owner_uidx` (partial unique) |
 | Branch parent in same tree | Integrity | `families_parent_same_tree_fk` (composite FK → `families_id_tree_uidx`) |
-| `people.treeId` = family's tree | The per-tree unique index depends on it | `people_family_tree_fk` |
-| Parent ≠ self, branchYear 1..9999, names non-blank, about ≤ 500 | Carried over from old CHECKs | various |
+| Origin story in the family's tree | Integrity | `families_origin_tree_fk` (composite FK → `stories_id_tree_uidx`, SET NULL `originStoryId` only) |
+| Person's home family in the person's tree | The per-tree unique index depends on it | `people_home_family_tree_fk` (Restrict). Replaces the removed `people_family_tree_fk`. |
+| Story in its family's tree; story place in the same tree | Tree-scoped places and the tree copy on stories | `stories_family_tree_fk`, `stories_place_tree_fk` (SET NULL `placeId` only) |
+| Tagged person in the story's tree | Was the same-tree policy `20261018000000` | `story_people_story_tree_fk`, `story_people_person_tree_fk` |
+| Invite in its family's tree; invited person in the same tree | Integrity | `invites_family_tree_fk`, `invites_person_tree_fk` (SET NULL `personId` only) |
+| Kinship ends in the same tree, not self, valid kind, partner edge canonical | Integrity; one row per partner pair | `kinships_from_tree_fk`, `kinships_to_tree_fk`, `kinships_not_self`, `kinships_kind_valid`, `kinships_partner_canonical` |
+| Parent ≠ self, branchYear 1000..9999, names non-blank, about ≤ 500 | Carried over from old CHECKs; branch year range tightened | `families_parent_not_self`, `families_branch_year_1000_9999`, `*_name_not_blank`, `*_about_len` |
 | Story date shape, published ⇒ dated and publishedAt set | Timeline ordering correctness | `stories_date_shape`, `stories_published_needs_date` |
-| Birth date/precision pair, midnight | Carried over | `users_birth_pair`, `users_birth_midnight` |
+| Account birth date/precision pair, precision-aligned UTC midnight | Carried over, shape tightened | `users_birth_pair`, `users_birth_shape` |
+| Person life dates: pairs, precision-aligned shape, death needs passedAway, death year ≥ birth year | Timeline and profile correctness | `people_birth_pair`, `people_birth_shape`, `people_death_pair`, `people_death_shape`, `people_death_needs_passed_away`, `people_death_after_birth` |
 | Photo editVersion ≥ 0, edited ⇒ version > 0 | Carried over | `photos_edit_*` |
-| text-enum values valid | `byName` enums are plain `text`, and the partial index depends on the exact `'owner'` value | `*_valid` |
+| text-enum values valid | `byName` enums are plain `text`, and the partial index depends on the exact `'owner'` value | `*_valid`, including `users_birth_visibility_valid` |
 | Invite: hash shape, email normalized, acceptedBy ⇒ acceptedAt, not accepted and revoked, expiry after creation | Integrity. The acceptedBy pair is one-directional so SetNull on account deletion still passes. | `invites_*` |
 
 ### 3.2 App layer (endpoint code, inside `session.db.transaction`)
@@ -629,24 +769,37 @@ These need cross-row or cross-table logic, and the old repo already did them in 
 |---|---|---|
 | ≤ 2 co-owners per family | `memberships_co_owner_cap` | Lock the family row `forUpdate`, count `role=coOwner` excluding the target, reject at ≥ 2 |
 | ≤ 20 photos per story | `photos_cap_insert` | Lock the story row `forNoKeyUpdate`, count photos, reject at ≥ 20 |
-| story_people person in the same tree as the story | `20261018000000` | `person.treeId == (family of story).treeId` |
-| Origin story belongs to the parent family; parentId/treeId/createdBy/originStoryId immutable after create | `families_guard_update` | Endpoints never expose those updates. A branch is created with an existing parent, so cycles are impossible. |
+| Origin (setOrigin, steward of the family): the family is live, and the parent (if any) is live; the story is published and `story.familyId == coalesce(family.parentId, family.id)` | `families_guard_update`, `20261011190823:72-151` | Parent deleted ⇒ `VALIDATION: parent family is deleted`; story check fails ⇒ `NOT_FOUND`. Same tree is the DB FK `families_origin_tree_fk`. |
+| `parentId`, `treeId` and `createdById` are immutable; `originStoryId` changes only through setOrigin or branch creation | `families_guard_update` | Endpoints never expose those updates. A branch is created with an existing parent, so cycles are impossible. |
 | Soft delete owner-only; recover owner or co-owner; rename and cover owner or co-owner | `families_guard_update` | Role check |
 | Story: author/family/createdAt locked; only the author changes status/publishedAt; editors are the author (live member) or owner/co-owner on published | `stories_edit_guard`, `can_edit_story` | Role check plus field whitelist |
 | Notes: only body editable | `*_guard_update` | Field whitelist |
 | Photos: clients change sortOrder only; edits use optimistic `editVersion` | `photos_guard_update`, `save_photo_edit` | `updateWhere … editVersion = expected`; 0 rows updated ⇒ conflict |
 | passedAway: a linked person can't set their own flag; changing it on a linked person needs owner or co-owner | `people_guard_passed_away` (`20261016140000:10-31`) | Role check |
+| Life dates: input normalized to precision-aligned UTC midnight; birth fields on a linked person refused; death fields follow passedAway rights; `passedAway = false` clears the death fields | new | Birth write on a linked person ⇒ `VALIDATION: birth date comes from the account`. Death fields on a linked person: steward of the home family only, never self. |
 | Linked person name = AppUser.displayName (blank keeps the existing name); linked name locked | `profiles_sync_linked_person_name`, `people_guard_linked_name` (`20261016235900`) | In the displayName update transaction: `UPDATE people SET name=… WHERE userId=…` |
-| Tagging a person auto-adds their account as member (by userId, or by email matching exactly one account) | `ensure_story_person_membership`, `resolve_person_user`, `upsert_story_member` | Email lookup on `serverpod_auth_idp_email_account.email` (unique, lower-case) |
+| Tagging a person has **no** membership side effect | BR §2 (M14 Lock 1); the old `ensure_story_person_membership` trigger is not carried over | Same tree is enforced by the DB (§3.1). |
+| Person delete: a member of the home family | BR §6 #5 | Role check on `homeFamilyId`; the old avatar key goes to `blob_deletions` |
+| Kinship add (`people.addKinship`): caller is a live member of a live family in the tree | new | Lock the `trees` row `forUpdate`. For `partnerOf`, store the smaller id as `fromPersonId`. For `parentOf`, reject with `VALIDATION: kinship would create a cycle` when `toPersonId` is `fromPersonId` or an ancestor of it (recursive walk over `parentOf` edges in the tree). A duplicate returns the existing edge. |
+| Kinship remove: same caller rule | new | No cycle check needed |
+| Places: read = any live member of a live family in the tree; create/markUsed/setFavorite = live member of a live family in the tree | new (places were per family) | Create with an existing `(treeId, mapboxPlaceId)` returns that row. No delete endpoint exists, which matches the client. |
+| createRoot | — | One transaction: insert the tree, the family, the owner membership, and a linked person (`homeFamilyId` = new family, name = display name, else email local-part, else `Member`). |
+| createBranch: caller and new owner are live members of the parent; depth ≤ 63; `branchYear` 1000–9999; each picked person has `homeFamilyId == parentId` | BR (branch creation) | Walk `parentId` and refuse at depth ≥ 63. The year range is the DB CHECK. Picked linked people's accounts become members; no person rows are copied. |
+| removeMember applies to every family with the same `treeId` | BR (member removal) | Delete those memberships and unlink the user's person in the tree. Refused if the target owns any family in the tree. |
+| Invite create: if `personId` is set, the person is in the tree (DB), unlinked and not passedAway | `create-invite` | Else `VALIDATION`. Create and resend set `lastSentAt = now` and `expiresAt = now + 7 days`. |
+| Unlinked picker (`people.listUnlinked`): people in the tree with `userId` null and `passedAway` false, excluding any person with a pending invite | — | Pending = `acceptedAt IS NULL AND revokedAt IS NULL AND expiresAt > now()` |
 | Invite accept: insert member if absent (keep existing role), link person if still unlinked and caller has no linked person in the tree, otherwise ensure a member person row | `accept-invite`, `link_accepted_person`, `ensure_member_person` | Mostly the same logic. The tree uniqueness is now also a DB index. |
 | Resend only while pending; revoke not after accept | `20261010184643` | Derived status |
 | Purge after 60 days | `purge_expired_families` | Recurring future call (§4.3). Children's parentId is cleared by the FK. |
 
-### 3.3 `apps/server/lib/src/db/constraints.sql` (idempotent, PG 15+; tested on PG 17.11)
+### 3.3 `apps/server/lib/src/db/constraints.dart` (`constraintsSql`; idempotent, PG 15+; tested on embedded PG 16)
 
 ```sql
 -- Invariants Serverpod model YAML cannot express. Idempotent: safe to run on
 -- every server start after Serverpod has applied its migrations.
+-- Definitions are immutable by name: each is created only if absent by name,
+-- so editing one in place never reaches existing databases. To change one,
+-- add it under a new name and drop the old name in this same SQL.
 -- Column names are Serverpod's quoted camelCase field names.
 -- DatePrecision is serialized byIndex: 0 = year, 1 = month, 2 = day.
 
@@ -654,6 +807,11 @@ These need cross-row or cross-table logic, and the old repo already did them in 
 CREATE UNIQUE INDEX IF NOT EXISTS memberships_one_owner_uidx
   ON memberships ("familyId")
   WHERE "role" = 'owner';
+
+-- Retired names. A changed definition gets a new name below; its old name is
+-- dropped here so databases created before the change converge.
+ALTER TABLE families DROP CONSTRAINT IF EXISTS families_branch_year_range;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_birth_midnight;
 
 DO $constraints$
 DECLARE
@@ -666,34 +824,77 @@ BEGIN
         $$CHECK ("parentId" IS NULL OR "parentId" <> "id")$$),
       ('families', 'families_name_not_blank',
         $$CHECK (btrim("name") <> '')$$),
-      ('families', 'families_branch_year_range',
-        $$CHECK ("branchYear" IS NULL OR "branchYear" BETWEEN 1 AND 9999)$$),
+      ('families', 'families_branch_year_1000_9999',
+        $$CHECK ("branchYear" IS NULL OR "branchYear" BETWEEN 1000 AND 9999)$$),
       -- A branch's parent must be in the same tree (needs families_id_tree_uidx).
       ('families', 'families_parent_same_tree_fk',
         $$FOREIGN KEY ("parentId", "treeId") REFERENCES families ("id", "treeId")
           ON DELETE SET NULL ("parentId")$$),
+      -- The origin story must be in the same tree (needs stories_id_tree_uidx).
+      ('families', 'families_origin_tree_fk',
+        $$FOREIGN KEY ("originStoryId", "treeId") REFERENCES stories ("id", "treeId")
+          ON DELETE SET NULL ("originStoryId")$$),
       -- memberships --------------------------------------------------------
       ('memberships', 'memberships_role_valid',
         $$CHECK ("role" IN ('owner', 'coOwner', 'member'))$$),
       -- people -------------------------------------------------------------
-      -- people.treeId must equal the family's treeId.
-      ('people', 'people_family_tree_fk',
-        $$FOREIGN KEY ("familyId", "treeId") REFERENCES families ("id", "treeId")
-          ON DELETE CASCADE$$),
+      -- The home family must be in the person's tree (needs families_id_tree_uidx).
+      ('people', 'people_home_family_tree_fk',
+        $$FOREIGN KEY ("homeFamilyId", "treeId") REFERENCES families ("id", "treeId")
+          ON DELETE RESTRICT$$),
       ('people', 'people_name_not_blank',
         $$CHECK (btrim("name") <> '')$$),
       ('people', 'people_about_len',
         $$CHECK ("about" IS NULL OR char_length("about") <= 500)$$),
       ('people', 'people_email_normalized',
         $$CHECK ("email" IS NULL OR ("email" <> '' AND "email" = lower(btrim("email"))))$$),
+      -- Life dates: UTC midnight aligned to precision, years 1000..9999.
+      ('people', 'people_birth_pair',
+        $$CHECK (("birthDate" IS NULL) = ("birthPrecision" IS NULL))$$),
+      ('people', 'people_birth_shape',
+        $$CHECK ("birthDate" IS NULL OR (
+          "birthDate" = date_trunc('day', "birthDate")
+          AND extract(year FROM "birthDate") BETWEEN 1000 AND 9999
+          AND ("birthPrecision" = 2
+            OR ("birthPrecision" = 1 AND "birthDate" = date_trunc('month', "birthDate"))
+            OR ("birthPrecision" = 0 AND "birthDate" = date_trunc('year', "birthDate")))))$$),
+      ('people', 'people_death_pair',
+        $$CHECK (("deathDate" IS NULL) = ("deathPrecision" IS NULL))$$),
+      ('people', 'people_death_shape',
+        $$CHECK ("deathDate" IS NULL OR (
+          "deathDate" = date_trunc('day', "deathDate")
+          AND extract(year FROM "deathDate") BETWEEN 1000 AND 9999
+          AND ("deathPrecision" = 2
+            OR ("deathPrecision" = 1 AND "deathDate" = date_trunc('month', "deathDate"))
+            OR ("deathPrecision" = 0 AND "deathDate" = date_trunc('year', "deathDate")))))$$),
+      ('people', 'people_death_needs_passed_away',
+        $$CHECK ("deathDate" IS NULL OR "passedAway")$$),
+      -- Years only, so a coarse birth can't reject a finer death in the same year.
+      ('people', 'people_death_after_birth',
+        $$CHECK ("deathDate" IS NULL OR "birthDate" IS NULL
+          OR extract(year FROM "deathDate") >= extract(year FROM "birthDate"))$$),
       -- users --------------------------------------------------------------
       ('users', 'users_about_len',
         $$CHECK ("about" IS NULL OR char_length("about") <= 500)$$),
       ('users', 'users_birth_pair',
         $$CHECK (("birthDate" IS NULL) = ("birthPrecision" IS NULL))$$),
-      ('users', 'users_birth_midnight',
-        $$CHECK ("birthDate" IS NULL OR "birthDate" = date_trunc('day', "birthDate"))$$),
+      ('users', 'users_birth_shape',
+        $$CHECK ("birthDate" IS NULL OR (
+          "birthDate" = date_trunc('day', "birthDate")
+          AND extract(year FROM "birthDate") BETWEEN 1000 AND 9999
+          AND ("birthPrecision" = 2
+            OR ("birthPrecision" = 1 AND "birthDate" = date_trunc('month', "birthDate"))
+            OR ("birthPrecision" = 0 AND "birthDate" = date_trunc('year', "birthDate")))))$$),
+      ('users', 'users_birth_visibility_valid',
+        $$CHECK ("birthVisibility" IN ('hidden', 'year', 'yearMonth', 'full'))$$),
       -- stories ------------------------------------------------------------
+      -- treeId copies the family's tree; the place must be in that tree.
+      ('stories', 'stories_family_tree_fk',
+        $$FOREIGN KEY ("familyId", "treeId") REFERENCES families ("id", "treeId")
+          ON DELETE CASCADE$$),
+      ('stories', 'stories_place_tree_fk',
+        $$FOREIGN KEY ("placeId", "treeId") REFERENCES places ("id", "treeId")
+          ON DELETE SET NULL ("placeId")$$),
       -- Dates are all-null (undated draft) or a well-formed year/month/day span.
       ('stories', 'stories_date_shape',
         $$CHECK (
@@ -717,6 +918,14 @@ BEGIN
         $$CHECK ("status" <> 'published' OR ("dateStart" IS NOT NULL AND "publishedAt" IS NOT NULL))$$),
       ('stories', 'stories_status_valid',
         $$CHECK ("status" IN ('draft', 'published'))$$),
+      -- story_people ---------------------------------------------------------
+      -- A tag's story and person share the tag's treeId.
+      ('story_people', 'story_people_story_tree_fk',
+        $$FOREIGN KEY ("storyId", "treeId") REFERENCES stories ("id", "treeId")
+          ON DELETE CASCADE$$),
+      ('story_people', 'story_people_person_tree_fk',
+        $$FOREIGN KEY ("personId", "treeId") REFERENCES people ("id", "treeId")
+          ON DELETE CASCADE$$),
       -- photos -------------------------------------------------------------
       ('photos', 'photos_edit_version_nonnegative',
         $$CHECK ("editVersion" >= 0)$$),
@@ -728,6 +937,13 @@ BEGIN
       ('story_notes', 'story_notes_kind_valid',
         $$CHECK ("kind" IN ('comment', 'perspective'))$$),
       -- invites ------------------------------------------------------------
+      -- treeId copies the family's tree; the invited person must be in it.
+      ('invites', 'invites_family_tree_fk',
+        $$FOREIGN KEY ("familyId", "treeId") REFERENCES families ("id", "treeId")
+          ON DELETE CASCADE$$),
+      ('invites', 'invites_person_tree_fk',
+        $$FOREIGN KEY ("personId", "treeId") REFERENCES people ("id", "treeId")
+          ON DELETE SET NULL ("personId")$$),
       ('invites', 'invites_token_hash_shape',
         $$CHECK ("tokenHash" ~ '^[0-9a-f]{64}$')$$),
       ('invites', 'invites_email_normalized',
@@ -738,7 +954,21 @@ BEGIN
       ('invites', 'invites_not_accepted_and_revoked',
         $$CHECK ("acceptedAt" IS NULL OR "revokedAt" IS NULL)$$),
       ('invites', 'invites_expiry_after_create',
-        $$CHECK ("expiresAt" > "createdAt")$$)
+        $$CHECK ("expiresAt" > "createdAt")$$),
+      -- kinships ---------------------------------------------------------------
+      -- Both ends in the edge's tree; no self edges; partnerOf stored once.
+      ('kinships', 'kinships_from_tree_fk',
+        $$FOREIGN KEY ("fromPersonId", "treeId") REFERENCES people ("id", "treeId")
+          ON DELETE CASCADE$$),
+      ('kinships', 'kinships_to_tree_fk',
+        $$FOREIGN KEY ("toPersonId", "treeId") REFERENCES people ("id", "treeId")
+          ON DELETE CASCADE$$),
+      ('kinships', 'kinships_not_self',
+        $$CHECK ("fromPersonId" <> "toPersonId")$$),
+      ('kinships', 'kinships_kind_valid',
+        $$CHECK ("kind" IN ('parentOf', 'partnerOf'))$$),
+      ('kinships', 'kinships_partner_canonical',
+        $$CHECK ("kind" <> 'partnerOf' OR "fromPersonId" < "toPersonId")$$)
     ) AS t(tbl, name, def)
   LOOP
     IF NOT EXISTS (
@@ -753,30 +983,41 @@ $constraints$;
 ```
 
 Caveats:
-- **Changing a constrained definition.** The idempotency check is by **name**. To change a definition, give it a new name, and in the same file `ALTER TABLE … DROP CONSTRAINT IF EXISTS <old>`.
+- **Changing a constrained definition.** Definitions are immutable by name: the idempotency check is by **name**, so an in-place edit never reaches a database that already has the old one. To change a definition, give it a new name, and in the same SQL add the old name to the "Retired names" step (`ALTER TABLE … DROP CONSTRAINT IF EXISTS <old>`).
 - **Destructive Serverpod migrations.** If a migration drops and recreates a column or table (it warns `destructive`, `migration.dart:294-305`), the CHECKs on it are dropped with it. They come back on the next start.
 - **Repair migrations.** Don't apply `create-repair-migration` output without first removing its `DROP INDEX memberships_one_owner_uidx`.
 
 ### 3.4 What was verified
-- **Environment.** `/tmp/schema_test` on PG 17.11 (outside the repo). I hand-wrote an emulated Serverpod DDL: quoted camelCase columns, `text` and `bigint` enums, `timestamp`, and FKs added with `ALTER TABLE ONLY … <table>_fk_N` as in the docs' generated SQL. Then I ran the file above, ran it again (idempotent), and ran these cases:
-- **Rejected as expected:**
-  - cross-tree parent (`families_parent_same_tree_fk`)
-  - blank name
-  - second owner (`memberships_one_owner_uidx`)
-  - the same user linked twice in one tree (`people_tree_user_uidx`)
-  - person with the wrong treeId (`people_family_tree_fk`)
-  - unnormalized email
-  - month span with the wrong end, partial-null dates, undated published story, year 999, and a time-of-day date (`stories_date_shape` / `stories_published_needs_date`)
-  - raw token stored (`invites_token_hash_shape`)
+- **Environment.** `apps/server/test/integration/constraints_test.dart`, run by `just server-test` on Serverpod 4.1.1's embedded Postgres 16, against the real DDL from `serverpod generate` and the init migration. The test setup runs `constraintsSql` before each test. All 58 server tests pass, on a fresh database and again on a reused one (idempotency).
+- **Idempotency and retired names.** Running `constraintsSql` a second time succeeds. A database that still has `users_birth_midnight` / `families_branch_year_range` loses them on the next run.
+- **Rejected as expected** (SQLSTATE `23503` foreign key, `23514` check, `23505` unique; Postgres reports `ON DELETE RESTRICT` as `23503`):
+  - Same-tree composite FKs (23503): a story whose place is in another tree; a story whose treeId isn't its family's tree; tagging a person from another tree; an invite for a person in another tree; an origin story from another tree; a kinship across trees; a person whose home family is in another tree; a branch whose parent is in another tree; an invite whose treeId isn't its family's tree.
+  - Kinships: a kinship to oneself (23514); `partnerOf` stored with the larger id first (23514); a duplicate kinship (23505); an unknown kind (23514).
+  - Life dates (23514): a death date without passedAway; a death year before the birth year; a month-precision birth on the 15th; a birth date with a time of day; a birth date without a precision; a death precision without a date; a year-precision death not on 1 January; an account birth on the 15th at month precision (`users_birth_shape`); an unknown `birthVisibility`.
+  - Families: `branchYear` 999 (23514); a blank family name (23514); deleting a family that is a person's home (23503, Restrict).
+  - Places: a duplicate Mapbox place in one tree (23505).
+  - Carried over: a second owner (`memberships_one_owner_uidx`, 23505); a blank person name; the same account linked twice in one tree (`people_tree_user_uidx`); an unnormalized person email; story date shapes (month span with the wrong end, partial-null dates, year 999, time-of-day date, undated published story); a raw invite token instead of a hash (`invites_token_hash_shape`).
 - **Accepted as expected:**
-  - co-owner
-  - two unlinked people in one tree
-  - undated draft, and valid day, month (including 1984-02-29) and year spans
-  - deleting the accepting account (acceptedById → NULL, CHECKs still pass)
-  - deleting a root family: the branch survives with `parentId` NULL and `originStoryId` NULL, and keeps its `treeId`
-- **Not verified:**
-  - Running real `serverpod generate` / `create-migration` on these YAML files [UNVERIFIED]. Run `serverpod generate` and `serverpod create-migration` in `apps/server`.
-  - That `relation(parent=serverpod_auth_core_user)` resolves when `serverpod_auth_core` arrives only transitively through `serverpod_auth_idp` [UNVERIFIED]. The docs show this exact form (relations/modules page). If the generator complains, add `serverpod_auth_core` to `config/generator.yaml` modules.
+  - carried over: a co-owner next to the owner, two unlinked people in one tree, an undated draft, and valid day, month (including 1984-02-29) and year spans; deleting the accepting account nulls `acceptedById` and the CHECKs still pass;
+  - one place serves stories in two families of one tree, and a person from a sibling family can be tagged;
+  - `parentOf` plus canonical `partnerOf` on one pair;
+  - a day-precision death in a year-precision birth year;
+  - the same Mapbox place in two trees;
+  - deleting a place nulls the story's `placeId` and keeps `familyId` and `treeId`;
+  - deleting a person removes their tags and kinships and nulls `invites.personId`;
+  - purging a non-last family: reassign `homeFamilyId` to a sibling, delete the family; the person remains, its stories are gone, and the sibling's `originStoryId` and `parentId` become NULL;
+  - purging the last family: delete the tree's people, the family and the tree; the places and stories are gone;
+  - deleting an account nulls `people.userId`, `stories.authorId` and `kinships.createdById`, and every CHECK still passes.
+- **Generator.** `serverpod generate` and `create-migration` accept every YAML file in §1, including the two relations from `kinships` to `people` and `relation(parent=serverpod_auth_core_user)` through `serverpod_auth_idp`.
+
+### 3.5 Effective origin
+`effectiveOrigin(f)` = `f.originStoryId` when all of these hold, else null:
+- `f` is live;
+- the story is published;
+- the story's family is live;
+- `story.familyId == coalesce(f.parentId, f.id)`.
+
+`TreeFamilyDto.effectiveOriginStoryId` carries it. A child of a soft-deleted parent stays in the tree (`treeId`), and its effective origin is null while the parent is deleted (roadmap open decision 3).
 
 ---
 
@@ -798,13 +1039,13 @@ Keys have no leading slash and use only `[a-z0-9-/.]`, as https://docs.serverpod
 | Story photo original | `families/{familyId}/stories/{storyId}/photos/{photoId}/original.{ext}` | image/jpeg (jpg), image/png (png), image/webp (webp) | 52428800 |
 | Story photo edited | `families/{familyId}/stories/{storyId}/photos/{photoId}/edited-{editVersion}.jpg` | image/jpeg | 52428800 |
 | Family cover | `families/{familyId}/cover/{blobId}.{ext}` | jpeg/png/webp | 5242880 |
-| Person avatar | `families/{familyId}/people/{personId}/avatar/{blobId}.jpg` | image/jpeg | 2097152 |
+| Person avatar | `trees/{treeId}/people/{personId}/avatar/{blobId}.jpg` | image/jpeg | 2097152 |
 | User avatar | `users/{authUserId}/avatar/{blobId}.jpg` | image/jpeg | 2097152 |
 
 Rules:
-- **Keys are server-generated and stored in full** in `photos.originalKey/editedKey`, `families.coverKey`, `people.avatarKey` and `users.avatarKey`. The extension comes from the MIME type the server verified. Nobody parses keys for authorization: reads go through an endpoint that checks family or tree membership on the row and then returns `session.storage.temporaryDownloadUrl` (CloudStorage API, `packages/serverpod/lib/src/cloud_storage/cloud_storage.dart:96`).
+- **Keys are server-generated and stored in full** in `photos.originalKey/editedKey`, `families.coverKey`, `people.avatarKey` and `users.avatarKey`. The extension comes from the MIME type the server verified. Nobody parses keys for authorization: reads go through `MediaEndpoint`, which finds the row holding the key, checks access, and returns bytes from `retrieveFile`.
 - **Immutable objects.** Every replacement (avatar, cover, edit save) writes a **new key**, with `preventOverwrite: true` per the file-uploads doc. Old fixed keys like `avatar.jpg` were overwritten in place (`upsert: true` in `profile_api.dart:207`), which left caches stale and let concurrent uploads race. Edited photos are versioned by `editVersion`, as before.
-- **Prefixes follow ownership** (family → story → photo). The key itself shows what a purge or story delete must remove. People and stories never change family (field locks, §3.2), so prefixes stay valid.
+- **Prefixes follow ownership** (tree → person, family → story → photo). The key itself shows what a purge or story delete must remove. People never change tree and stories never change family (field locks, §3.2), so prefixes stay valid.
 - **Upload flow.**
   1. The endpoint authorizes and creates the key.
   2. It calls `createDirectFileUploadDescription` with `UploadOptions(maxFileSize: <limit above>, contentLength: <client-declared size>, preventOverwrite: true)` (file-uploads doc).
@@ -816,10 +1057,18 @@ Rules:
 
 ### 4.3 Deletion
 Serverpod's `CloudStorage` has `storeFile`, `retrieveFile`, `statFile`, `fileExists`, `deleteFile`, `publicDownloadUrl`, `temporaryDownloadUrl`, `createUploadDescription` and `verifyUpload`. It has **no list and no prefix delete** (`cloud_storage.dart:36-119`). So:
-- **Writing deletions.** Every transaction that removes or replaces a key reference inserts the old key(s) into `blob_deletions`. That covers: photo delete, story delete, edit save or reset (previous `editedKey`), avatar or cover replacement, person delete, and family purge. For a purge, collect the keys from photos, people.avatarKey and families.coverKey **before** deleting the family row.
+- **Writing deletions.** Every transaction that removes or replaces a key reference inserts the old key(s) into `blob_deletions`. That covers: photo delete, story delete, edit save or reset (previous `editedKey`), avatar or cover replacement, person delete, and family purge. For a purge, collect the keys as listed below **before** deleting any row.
 - **Draining.** A recurring future call (https://docs.serverpod.dev/concepts/scheduling/recurring-tasks) drains `blob_deletions`: `deleteFile`, then delete the row, with `attempts` incremented on failure.
-- **Family purge.** The 60-day purge runs as a recurring future call:
-  1. In one transaction: select families with `deletedAt < now() - 60 days`, write their blob keys to `blob_deletions`, and delete the family. FKs cascade to memberships, people, places, stories, photos, notes, story_people and invites. Children's `parentId` and `originStoryId` are set to NULL by FK.
-  2. Delete the `trees` row if no family references it.
+- **Family purge.** The 60-day purge runs as a recurring future call. For each family with `deletedAt < now() - 60 days`, in one transaction:
+  1. If it is the **last family in its tree**:
+     - write every photo key (original and edited) for its stories, its `coverKey`, and every `people.avatarKey` in the tree to `blob_deletions`;
+     - delete the tree's `people` (this cascades kinships, story_people and the invite personId);
+     - delete the family (this cascades stories, photos, notes, memberships and invites);
+     - delete the `trees` row (this cascades places).
+  2. Otherwise:
+     - pick the successor family: the same tree, not this family, ordered by (`deletedAt IS NOT NULL`, `createdAt`, `id`);
+     - set `homeFamilyId = successor` on people whose home is this family;
+     - write the photo keys and `coverKey` to `blob_deletions`;
+     - delete the family. The FKs null children's `parentId` and other families' `originStoryId`.
 
   This replaces `purge_expired_families` (`20261007000002:484-506`) and the Storage-API purge mentioned in `20261028180000:2`.
