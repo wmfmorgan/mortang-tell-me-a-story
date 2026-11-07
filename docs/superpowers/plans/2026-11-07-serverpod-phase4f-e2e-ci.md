@@ -292,7 +292,7 @@ Run: `bash e2e/check_flows.sh` → `9 flows match`.
   5. `just server (background)`: `just server > "$RUNNER_TEMP/server.log" 2>&1 &` and save the pid;
   6. `flutter pub get --enforce-lockfile` in the app;
   7. ChromeDriver step unchanged;
-  8. `await just server`: poll `http://127.0.0.1:8080/` up to 300 s with `curl -s -o /dev/null` (any HTTP answer counts; connection refused does not), fail early if the server pid exits;
+  8. `await just server`: poll `http://127.0.0.1:8080/` up to 300 s with `curl -s --max-time 5 -o /dev/null` (any HTTP answer counts; connection refused does not; `--max-time` keeps a hung probe inside the 300 s limit), fail early if the server pid exits;
   9. `flutter drive … --dart-define=SERVER_URL=http://127.0.0.1:8080`;
   10. `e2e logs (server, chromedriver)` with `if: always()`.
 - [ ] **Step 2: Verify** — `ruby -ryaml -e 'puts YAML.load_file(".github/workflows/ci.yml")["jobs"]["e2e"]["steps"].map{|s| s["name"]||s["uses"]}'` parses and lists the steps above; `rg -n "supabase|deno|relay" .github/workflows/ci.yml` hits only the other jobs (lines before `e2e:`).

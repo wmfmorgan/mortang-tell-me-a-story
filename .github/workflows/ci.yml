@@ -225,7 +225,7 @@ jobs:
         run: |
           pid="$(cat "$RUNNER_TEMP/server.pid")"
           deadline=$((SECONDS + 300))
-          until [ "$(curl -s -o /dev/null -w '%{http_code}' "$SERVER_URL/")" != 000 ]; do
+          until [ "$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "$SERVER_URL/")" != 000 ]; do
             if ! kill -0 "$pid" 2>/dev/null; then
               echo "e2e: just server exited before listening on $SERVER_URL" >&2
               exit 1
