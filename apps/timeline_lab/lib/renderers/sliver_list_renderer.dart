@@ -137,7 +137,10 @@ class _DecadeHeader extends StatelessWidget {
         children: [
           Text('${decade}s', style: theme.headlineSmall),
           const SizedBox(width: 12),
-          Text('$matched of $count', style: theme.labelMedium),
+          Text(
+            matched == count ? '$count stories' : '$matched of $count',
+            style: LabText.count(theme),
+          ),
         ],
       ),
     );

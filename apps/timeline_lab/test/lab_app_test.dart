@@ -340,4 +340,16 @@ void main() {
       expect(pb.follow, isFalse);
     });
   });
+
+  testWidgets('decade header count reads as quiet copy', (tester) async {
+    final c = await _pump(tester);
+    final n = c.entries.where((e) => e.story.decade == 2020).length;
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('decade-header-2020')),
+        matching: find.text('$n stories'),
+      ),
+      findsOneWidget,
+    );
+  });
 }
