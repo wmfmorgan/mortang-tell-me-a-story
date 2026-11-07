@@ -468,6 +468,16 @@ class EndpointPeople extends _isc.EndpointRef {
       'value': value,
     },
   );
+
+  /// Deletes an unlinked person (D5): owner or co-owner of the live home
+  /// family only. Tags and kinships cascade; invites keep a null person. The
+  /// avatar key is queued for deletion in the same transaction.
+  _ida.Future<void> delete(_isc.UuidValue personId) =>
+      caller.callServerEndpoint<void>(
+        'people',
+        'delete',
+        {'personId': personId},
+      );
 }
 
 class Modules {

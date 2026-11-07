@@ -255,6 +255,33 @@ class PeopleEndpoint extends Endpoint {
     });
   }
 
+  /// Deletes an unlinked person (D5): owner or co-owner of the live home
+  /// family only. Tags and kinships cascade; invites keep a null person. The
+  /// avatar key is queued for deletion in the same transaction.
+  Future<void> delete(Session session, UuidValue personId) async {
+    final authz = Authz(session);
+    final person = await Person.db.findById(session, personId);
+    if (person == null) throw forbidden('owner or co-owner only');
+    await authz.requireLiveSteward(person.homeFamilyId);
+    if (person.userId != null) {
+      throw validation('person is linked to an account');
+    }
+    await session.db.transaction((t) async {
+      final current = await Person.db.findById(
+        session,
+        personId,
+        transaction: t,
+        lockMode: LockMode.forUpdate,
+      );
+      if (current == null) return;
+      if (current.userId != null) {
+        throw validation('person is linked to an account');
+      }
+      await queueBlobDeletions(session, [current.avatarKey], transaction: t);
+      await Person.db.deleteRow(session, current, transaction: t);
+    });
+  }
+
   /// [familyId] when it is live and in one of the caller's trees.
   Future<Family?> _readableFamily(Authz authz, UuidValue familyId) async {
     final family = await Family.db.findById(authz.session, familyId);

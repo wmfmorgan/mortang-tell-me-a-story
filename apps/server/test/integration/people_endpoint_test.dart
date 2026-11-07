@@ -884,5 +884,93 @@ void main() {
         },
       );
     });
+
+    group('delete', () {
+      // BR 136
+      test(
+        'when a plain member deletes an unlinked person then FORBIDDEN; the '
+        'owner deletes it; a linked person is VALIDATION',
+        () async {
+          final ada = await fx.person(parent, name: 'Ada');
+          final story = await fx.story(parent);
+          await fx.tag(story, ada);
+          final linked = await fx.person(parent, userId: member, name: 'Me');
+
+          await expectLater(
+            endpoints.people.delete(as(member), ada.id!),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+          expect(await Person.db.findById(fx.s, ada.id!), isNotNull);
+
+          await endpoints.people.delete(as(owner), ada.id!);
+          expect(await Person.db.findById(fx.s, ada.id!), isNull);
+          expect(
+            await StoryPerson.db.count(
+              fx.s,
+              where: (t) => t.personId.equals(ada.id),
+            ),
+            0,
+          );
+
+          await expectLater(
+            endpoints.people.delete(as(owner), linked.id!),
+            throwsAppError(
+              AppErrorCode.validation,
+              'person is linked to an account',
+            ),
+          );
+          expect(await Person.db.findById(fx.s, linked.id!), isNotNull);
+        },
+      );
+
+      test(
+        'when a person with a picture is deleted then the key is queued',
+        () async {
+          final ada = await fx.person(parent);
+          final withPicture = await endpoints.people.update(
+            as(member),
+            ada.id!,
+            personWrite(),
+            jpegBytes(),
+          );
+
+          await endpoints.people.delete(as(coOwner), ada.id!);
+
+          expect(await fx.queued(withPicture.avatarKey!), isTrue);
+        },
+      );
+
+      test(
+        'when the home family is soft-deleted, the caller is an owner of '
+        'another tree family, or the person is missing then FORBIDDEN',
+        () async {
+          final gone = await fx.family(
+            tree,
+            parentId: parent.id,
+            branchYear: 1995,
+            deletedAt: DateTime.now().toUtc(),
+          );
+          await fx.join(gone, owner, MembershipRole.owner);
+          final inGone = await fx.person(gone);
+          final inParent = await fx.person(parent);
+
+          await expectLater(
+            endpoints.people.delete(as(owner), inGone.id!),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+          await expectLater(
+            endpoints.people.delete(as(childMember), inParent.id!),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+          await expectLater(
+            endpoints.people.delete(
+              as(owner),
+              UuidValue.fromString(const Uuid().v7()),
+            ),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }
