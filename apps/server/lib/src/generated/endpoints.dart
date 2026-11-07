@@ -731,6 +731,81 @@ class Endpoints extends _is.EndpointDispatch {
                     personIds: params['personIds'],
                   ),
         ),
+        'startCoverUpload': _is.MethodConnector(
+          name: 'startCoverUpload',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'mimeType': _is.ParameterDescription(
+              name: 'mimeType',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'byteLength': _is.ParameterDescription(
+              name: 'byteLength',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .startCoverUpload(
+                    session,
+                    params['familyId'],
+                    params['mimeType'],
+                    params['byteLength'],
+                  ),
+        ),
+        'finishCoverUpload': _is.MethodConnector(
+          name: 'finishCoverUpload',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'key': _is.ParameterDescription(
+              name: 'key',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .finishCoverUpload(
+                    session,
+                    params['familyId'],
+                    params['key'],
+                  ),
+        ),
+        'clearCover': _is.MethodConnector(
+          name: 'clearCover',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).clearCover(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
       },
     );
     connectors['place'] = _is.EndpointConnector(

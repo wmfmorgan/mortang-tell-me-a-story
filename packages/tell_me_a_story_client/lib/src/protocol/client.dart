@@ -23,6 +23,8 @@ import 'package:tell_me_a_story_client/src/protocol/birth_visibility.dart'
     as _iie7eme0;
 import 'package:tell_me_a_story_client/src/protocol/date_precision.dart'
     as _i3omm4g5;
+import 'package:tell_me_a_story_client/src/protocol/dto/cover_upload_ticket_dto.dart'
+    as _imc738lc;
 import 'package:tell_me_a_story_client/src/protocol/dto/family_detail_dto.dart'
     as _is49z41e;
 import 'package:tell_me_a_story_client/src/protocol/dto/family_directory_dto.dart'
@@ -584,6 +586,45 @@ class EndpointFamily extends _isc.EndpointRef {
       'personIds': personIds,
     },
   );
+
+  /// Steward of the live family. [mimeType] (jpeg, png or webp) picks the key
+  /// extension; [byteLength] is pinned in the upload, at most 5 MiB.
+  _ida.Future<_imc738lc.CoverUploadTicketDto> startCoverUpload(
+    _isc.UuidValue familyId,
+    String mimeType,
+    int byteLength,
+  ) => caller.callServerEndpoint<_imc738lc.CoverUploadTicketDto>(
+    'family',
+    'startCoverUpload',
+    {
+      'familyId': familyId,
+      'mimeType': mimeType,
+      'byteLength': byteLength,
+    },
+  );
+
+  /// Verifies the upload at [key], checks its size and that its bytes are the
+  /// image type its extension names, then makes it the cover. A rejected blob
+  /// is queued for deletion; the previous cover key is queued in the same
+  /// transaction that replaces it.
+  _ida.Future<String> finishCoverUpload(
+    _isc.UuidValue familyId,
+    String key,
+  ) => caller.callServerEndpoint<String>(
+    'family',
+    'finishCoverUpload',
+    {
+      'familyId': familyId,
+      'key': key,
+    },
+  );
+
+  _ida.Future<void> clearCover(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<void>(
+        'family',
+        'clearCover',
+        {'familyId': familyId},
+      );
 }
 
 /// Places are shared by every family in a tree (business-rules.md §2.4, §8

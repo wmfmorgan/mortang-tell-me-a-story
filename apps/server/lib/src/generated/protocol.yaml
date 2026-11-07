@@ -31,6 +31,9 @@ family:
   - setOrigin:
   - listOriginDependents:
   - createBranch:
+  - startCoverUpload:
+  - finishCoverUpload:
+  - clearCover:
 place:
   - list:
   - favorites:

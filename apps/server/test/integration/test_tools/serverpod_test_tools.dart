@@ -24,6 +24,8 @@ import 'package:tell_me_a_story_server/src/generated/birth_visibility.dart'
     as _i0rpsun5;
 import 'package:tell_me_a_story_server/src/generated/date_precision.dart'
     as _ig52w51f;
+import 'package:tell_me_a_story_server/src/generated/dto/cover_upload_ticket_dto.dart'
+    as _isp8vsqy;
 import 'package:tell_me_a_story_server/src/generated/dto/family_detail_dto.dart'
     as _i108yj2m;
 import 'package:tell_me_a_story_server/src/generated/dto/family_directory_dto.dart'
@@ -1235,6 +1237,109 @@ class _FamilyEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<_is.UuidValue>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_isp8vsqy.CoverUploadTicketDto> startCoverUpload(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+    String mimeType,
+    int byteLength,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'family',
+            method: 'startCoverUpload',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'family',
+          methodName: 'startCoverUpload',
+          parameters: _ist.testObjectToJson({
+            'familyId': familyId,
+            'mimeType': mimeType,
+            'byteLength': byteLength,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_isp8vsqy.CoverUploadTicketDto>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<String> finishCoverUpload(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+    String key,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'family',
+            method: 'finishCoverUpload',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'family',
+          methodName: 'finishCoverUpload',
+          parameters: _ist.testObjectToJson({
+            'familyId': familyId,
+            'key': key,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<String>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> clearCover(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'family',
+            method: 'clearCover',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'family',
+          methodName: 'clearCover',
+          parameters: _ist.testObjectToJson({'familyId': familyId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

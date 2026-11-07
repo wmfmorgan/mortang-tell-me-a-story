@@ -4,6 +4,8 @@ import '../accounts/accounts.dart';
 import '../authz/authz.dart';
 import '../errors.dart';
 import '../generated/protocol.dart';
+import '../media/blob_keys.dart';
+import '../media/blob_outbox.dart';
 
 /// A soft-deleted family can be recovered for this long (business-rules.md
 /// §3.5); the 3f purge removes it afterwards.
@@ -12,6 +14,12 @@ const recoveryWindow = Duration(days: 60);
 /// Branch creation refuses a parent this many levels deep (business-rules.md
 /// §3.2 step 7).
 const maxBranchDepth = 63;
+
+const _mimeByExt = {
+  'jpg': 'image/jpeg',
+  'png': 'image/png',
+  'webp': 'image/webp',
+};
 
 /// Families, memberships and covers (business-rules.md §2.1, §2.2, §3.1–§3.3,
 /// §3.5, §3.6; schema-design.md §3.2). Every write and member read needs a
@@ -573,6 +581,106 @@ ORDER BY f."createdAt", f."id"
       return write();
     }
   }
+
+  // ── cover ────────────────────────────────────────────────────────────
+
+  /// Steward of the live family. [mimeType] (jpeg, png or webp) picks the key
+  /// extension; [byteLength] is pinned in the upload, at most 5 MiB.
+  Future<CoverUploadTicketDto> startCoverUpload(
+    Session session,
+    UuidValue familyId,
+    String mimeType,
+    int byteLength,
+  ) async {
+    await Authz(session).requireLiveSteward(familyId);
+    final key = familyCoverKey(familyId: familyId, mimeType: mimeType);
+    if (byteLength < 1) throw validation('file is empty');
+    if (byteLength > coverMaxBytes) throw validation('file is too large');
+    final description = await session.storage.createUploadDescription(
+      storageId: blobStorageId,
+      path: key,
+      options: UploadOptions(
+        maxFileSize: coverMaxBytes,
+        contentLength: byteLength,
+        preventOverwrite: true,
+        metadata: FileMetadata(contentType: mimeType),
+      ),
+    );
+    return CoverUploadTicketDto(key: key, uploadDescription: description);
+  }
+
+  /// Verifies the upload at [key], checks its size and that its bytes are the
+  /// image type its extension names, then makes it the cover. A rejected blob
+  /// is queued for deletion; the previous cover key is queued in the same
+  /// transaction that replaces it.
+  Future<String> finishCoverUpload(
+    Session session,
+    UuidValue familyId,
+    String key,
+  ) async {
+    await Authz(session).requireLiveSteward(familyId);
+    final mimeType = _coverKeyMime(familyId, key);
+    final current = await Family.db.findById(session, familyId);
+    if (current!.coverKey == key) return key;
+    final uploaded = await session.storage.verifyUpload(
+      storageId: blobStorageId,
+      path: key,
+    );
+    if (!uploaded) throw validation('upload not found');
+    final bytes = await session.storage.retrieveFile(
+      storageId: blobStorageId,
+      path: key,
+    );
+    if (bytes.lengthInBytes > coverMaxBytes) {
+      await queueBlobDeletions(session, [key]);
+      throw validation('file is too large');
+    }
+    if (sniffImageMime(bytes) != mimeType) {
+      await queueBlobDeletions(session, [key]);
+      throw validation('unsupported image type');
+    }
+    try {
+      await session.db.transaction((t) async {
+        final family = (await Family.db.findById(
+          session,
+          familyId,
+          transaction: t,
+          lockMode: LockMode.forUpdate,
+        ))!;
+        await queueBlobDeletions(session, [family.coverKey], transaction: t);
+        await Family.db.updateRow(
+          session,
+          family.copyWith(coverKey: key),
+          columns: (c) => [c.coverKey],
+          transaction: t,
+        );
+      });
+    } catch (_) {
+      await queueBlobDeletions(session, [key]);
+      rethrow;
+    }
+    return key;
+  }
+
+  Future<void> clearCover(Session session, UuidValue familyId) async {
+    await Authz(session).requireLiveSteward(familyId);
+    await session.db.transaction((t) async {
+      final family = (await Family.db.findById(
+        session,
+        familyId,
+        transaction: t,
+        lockMode: LockMode.forUpdate,
+      ))!;
+      if (family.coverKey == null) return;
+      await queueBlobDeletions(session, [family.coverKey], transaction: t);
+      await Family.db.updateRow(
+        session,
+        family.copyWith(coverKey: null),
+        columns: (c) => [c.coverKey],
+        transaction: t,
+      );
+    });
+  }
 }
 
 /// The caller's role per family id, optionally owners and co-owners only.
@@ -664,4 +772,15 @@ Future<int> _depth(Session session, Family family) async {
     cursor = up;
   }
   return depth;
+}
+
+/// The MIME type a cover [key] of [familyId] names by its extension;
+/// VALIDATION for any key the server could not have issued for this family.
+String _coverKeyMime(UuidValue familyId, String key) {
+  final prefix = 'families/$familyId/cover/';
+  final match = RegExp(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$',
+  ).firstMatch(key.startsWith(prefix) ? key.substring(prefix.length) : '');
+  if (match == null) throw validation('invalid cover key');
+  return _mimeByExt[match.group(1)]!;
 }

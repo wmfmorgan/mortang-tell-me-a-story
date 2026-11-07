@@ -1273,5 +1273,210 @@ void main() {
         },
       );
     });
+
+    group('cover', () {
+      late UuidValue owner, coOwner, member;
+      late Family family;
+
+      setUp(() async {
+        owner = await fx.user();
+        coOwner = await fx.user();
+        member = await fx.user();
+        family = await fx.rootOwnedBy(owner);
+        await fx.join(family, coOwner, MembershipRole.coOwner);
+        await fx.join(family, member);
+      });
+
+      Future<String> uploadCover(
+        UuidValue steward, {
+        String mimeType = 'image/jpeg',
+        List<int>? bytes,
+      }) async {
+        final body = bytes ?? jpegBytes;
+        final ticket = await endpoints.family.startCoverUpload(
+          by(steward),
+          family.id!,
+          mimeType,
+          body.length,
+        );
+        await fx.upload(ticket.key, body);
+        return ticket.key;
+      }
+
+      // BR 23
+      test(
+        'when the owner or co-owner uploads a cover then it is stored and the '
+        'previous key is queued; a plain member is FORBIDDEN',
+        () async {
+          final first = await uploadCover(owner);
+          expect(
+            first,
+            matches(
+              RegExp(
+                '^families/${family.id!.uuid}/cover/[0-9a-f-]{36}\\.jpg\$',
+              ),
+            ),
+          );
+          expect(
+            await endpoints.family.finishCoverUpload(
+              by(owner),
+              family.id!,
+              first,
+            ),
+            first,
+          );
+          expect((await fx.reload(family)).coverKey, first);
+
+          final second = await uploadCover(
+            coOwner,
+            mimeType: 'image/png',
+            bytes: pngBytes,
+          );
+          expect(second, endsWith('.png'));
+          await endpoints.family.finishCoverUpload(
+            by(coOwner),
+            family.id!,
+            second,
+          );
+          expect((await fx.reload(family)).coverKey, second);
+          expect(await fx.queuedBlobKeys(), contains(first));
+
+          await expectLater(
+            endpoints.family.startCoverUpload(
+              by(member),
+              family.id!,
+              'image/jpeg',
+              10,
+            ),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+          await expectLater(
+            endpoints.family.finishCoverUpload(by(member), family.id!, second),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+        },
+      );
+
+      // BR 24
+      test(
+        'when the type is unsupported or the declared size is over 5 MiB then '
+        'startCoverUpload is VALIDATION',
+        () async {
+          await expectLater(
+            endpoints.family.startCoverUpload(
+              by(owner),
+              family.id!,
+              'image/svg+xml',
+              10,
+            ),
+            throwsAppError(AppErrorCode.validation, 'unsupported image type'),
+          );
+          await expectLater(
+            endpoints.family.startCoverUpload(
+              by(owner),
+              family.id!,
+              'image/jpeg',
+              5242881,
+            ),
+            throwsAppError(AppErrorCode.validation, 'file is too large'),
+          );
+        },
+      );
+
+      // BR 24
+      test(
+        'when the bytes are not an image, not the declared type, or over '
+        '5 MiB then VALIDATION, the blob is queued and the cover unchanged',
+        () async {
+          final svg = await uploadCover(owner, bytes: svgBytes);
+          final mismatch = await uploadCover(owner, mimeType: 'image/png');
+          final ticket = await endpoints.family.startCoverUpload(
+            by(owner),
+            family.id!,
+            'image/jpeg',
+            10,
+          );
+          await fx.upload(ticket.key, [
+            ...jpegBytes,
+            ...List.filled(5242880, 0),
+          ]);
+          for (final (key, message) in [
+            (svg, 'unsupported image type'),
+            (mismatch, 'unsupported image type'),
+            (ticket.key, 'file is too large'),
+          ]) {
+            await expectLater(
+              endpoints.family.finishCoverUpload(by(owner), family.id!, key),
+              throwsAppError(AppErrorCode.validation, message),
+            );
+          }
+          expect(
+            await fx.queuedBlobKeys(),
+            containsAll([svg, mismatch, ticket.key]),
+          );
+          expect((await fx.reload(family)).coverKey, isNull);
+        },
+      );
+
+      // BR 24
+      test(
+        'when the key is not one the server issues for this family, or was '
+        'never uploaded, then VALIDATION',
+        () async {
+          final other = await fx.rootOwnedBy(owner);
+          for (final key in [
+            'https://example.com/cover.jpg',
+            'families/${other.id}/cover/${const Uuid().v7()}.jpg',
+            'families/${family.id}/cover/../../x.jpg',
+            'families/${family.id}/avatar/${const Uuid().v7()}.jpg',
+            'families/${family.id}/cover/${const Uuid().v7()}.gif',
+          ]) {
+            await expectLater(
+              endpoints.family.finishCoverUpload(by(owner), family.id!, key),
+              throwsAppError(AppErrorCode.validation, 'invalid cover key'),
+            );
+          }
+          await expectLater(
+            endpoints.family.finishCoverUpload(
+              by(owner),
+              family.id!,
+              'families/${family.id}/cover/${const Uuid().v7()}.jpg',
+            ),
+            throwsAppError(AppErrorCode.validation, 'upload not found'),
+          );
+        },
+      );
+
+      test('when a steward clears the cover then the key is queued', () async {
+        final key = await uploadCover(owner);
+        await endpoints.family.finishCoverUpload(by(owner), family.id!, key);
+        await expectLater(
+          endpoints.family.clearCover(by(member), family.id!),
+          throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+        );
+        await endpoints.family.clearCover(by(coOwner), family.id!);
+        expect((await fx.reload(family)).coverKey, isNull);
+        expect(await fx.queuedBlobKeys(), contains(key));
+      });
+
+      // BR 22
+      test(
+        'when stewards write through the API then id, createdById, parentId '
+        'and treeId never change (no endpoint writes them)',
+        () async {
+          final child = await fx.childOf(family, owner: owner);
+          final before = await fx.reload(child);
+          await endpoints.family.rename(by(owner), child.id!, 'Renamed');
+          await endpoints.family.clearCover(by(owner), child.id!);
+          await endpoints.family.softDelete(by(owner), child.id!);
+          await endpoints.family.recover(by(owner), child.id!);
+          final after = await fx.reload(child);
+          expect(after.id, before.id);
+          expect(after.createdById, before.createdById);
+          expect(after.parentId, before.parentId);
+          expect(after.treeId, before.treeId);
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }
