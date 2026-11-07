@@ -17,6 +17,7 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../endpoints/live_endpoint.dart' as _ixgr9pqx;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
@@ -32,6 +33,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'live': _ixgr9pqx.LiveEndpoint()
+        ..initialize(
+          server,
+          'live',
           null,
         ),
     };
@@ -326,6 +333,54 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['live'] = _is.EndpointConnector(
+      name: 'live',
+      endpoint: endpoints['live']!,
+      methodConnectors: {
+        'watchFamily': _is.MethodStreamConnector(
+          name: 'watchFamily',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          streamParams: {},
+          returnType: _is.MethodStreamReturnType.streamType,
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+                Map<String, Stream> streamParams,
+              ) => (endpoints['live'] as _ixgr9pqx.LiveEndpoint).watchFamily(
+                session,
+                params['familyId'],
+              ),
+        ),
+        'watchStory': _is.MethodStreamConnector(
+          name: 'watchStory',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          streamParams: {},
+          returnType: _is.MethodStreamReturnType.streamType,
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+                Map<String, Stream> streamParams,
+              ) => (endpoints['live'] as _ixgr9pqx.LiveEndpoint).watchStory(
+                session,
+                params['storyId'],
+              ),
         ),
       },
     );
