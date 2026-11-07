@@ -48,7 +48,7 @@ class StoryCard extends StatelessWidget {
       child: Material(
         color: labSurface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(labCardRadius),
+          borderRadius: BorderRadius.circular(LabRadius.card),
           side: BorderSide(
             color: borderColor.withValues(alpha: decorationAlpha),
             width: borderWidth,

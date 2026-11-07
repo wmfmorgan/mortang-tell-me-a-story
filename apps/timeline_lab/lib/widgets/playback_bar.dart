@@ -185,7 +185,7 @@ class PlaybackWatermark extends StatelessWidget {
             '${year.floor()}',
             key: const Key('playback-watermark'),
             style: Theme.of(context).textTheme.headlineLarge
-                ?.copyWith(fontSize: 72, color: labInk.withValues(alpha: 0.12)),
+                ?.copyWith(fontSize: 72, color: labWatermark),
           );
         },
       ),

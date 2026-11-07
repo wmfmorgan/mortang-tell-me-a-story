@@ -164,7 +164,7 @@ class _Row extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Container(width: 2, color: labInk.withValues(alpha: 0.2)),
+                  Container(width: 2, color: labRule),
                   Container(
                     width: 12,
                     height: 12,

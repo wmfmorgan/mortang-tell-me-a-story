@@ -341,7 +341,7 @@ class _StoryTiles extends StatelessWidget {
                           : labPillBorder,
                       width: e.story.id == data.selectedId ? 2 : 1,
                     ),
-                    borderRadius: BorderRadius.circular(labCardRadius / 2),
+                    borderRadius: BorderRadius.circular(LabRadius.tile),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(6),

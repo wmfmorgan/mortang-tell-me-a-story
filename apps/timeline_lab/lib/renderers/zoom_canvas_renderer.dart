@@ -475,7 +475,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: labInk,
-                borderRadius: BorderRadius.circular(labCardRadius),
+                borderRadius: BorderRadius.circular(LabRadius.card),
               ),
               child: Text('+${shown.length}', style: chipStyle),
             ),
