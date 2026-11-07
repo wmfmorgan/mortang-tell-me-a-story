@@ -1,29 +1,12 @@
 import 'dart:typed_data';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
+import '../core/server/server_client.dart';
 import 'photos_api.dart';
-
-const familyCoversBucket = 'family-covers';
+import 'server/server_errors.dart';
 
 const familyCoverMaxBytes = 5242880;
-
-const familyCoverExtensions = ['jpg', 'jpeg', 'png', 'webp'];
-
-final _familyIdPattern = RegExp(
-  r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-  caseSensitive: false,
-);
-
-/// Object key `{familyId}/cover.{ext}` in [familyCoversBucket].
-String familyCoverObjectPath(String familyId, String extension) {
-  final id = familyId.trim().toLowerCase();
-  final ext = extension.trim().toLowerCase();
-  if (!_familyIdPattern.hasMatch(id) || !familyCoverExtensions.contains(ext)) {
-    throw CoverPhotoException('Couldn’t save the family photo. Try again.');
-  }
-  return '$id/cover.$ext';
-}
 
 class CoverPhotoException implements Exception {
   CoverPhotoException(this.message);
@@ -31,7 +14,7 @@ class CoverPhotoException implements Exception {
   final String message;
 }
 
-/// Upload, download, and delete for `family-covers`.
+/// Download, upload, and clear for family covers.
 abstract class FamilyCoverClient {
   Future<Uint8List?> download(String? path);
 
@@ -41,21 +24,22 @@ abstract class FamilyCoverClient {
 }
 
 class FamilyCoversApi implements FamilyCoverClient {
-  FamilyCoversApi({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+  FamilyCoversApi({server.Client? client}) : _injected = client;
 
-  final SupabaseClient _client;
+  final server.Client? _injected;
 
+  server.Client get _client => _injected ?? serverClient;
+
+  /// The cover bytes at [path], or null when there is none.
   @override
   Future<Uint8List?> download(String? path) async {
     if (path == null || path.isEmpty) return null;
-    try {
-      return await _client.storage.from(familyCoversBucket).download(path);
-    } on StorageException {
-      return null;
-    }
+    final data = await withServerErrors(() => _client.media.get(path));
+    return data == null ? null : Uint8List.sublistView(data);
   }
 
+  /// Compresses [bytes] to JPEG, uploads it and makes it the cover.
+  /// Returns the new cover key.
   @override
   Future<String> save({
     required String familyId,
@@ -73,38 +57,26 @@ class FamilyCoversApi implements FamilyCoverClient {
     if (compressed.bytes.length > familyCoverMaxBytes) {
       throw CoverPhotoException('Couldn’t save the family photo. Try again.');
     }
-    final path = familyCoverObjectPath(familyId, compressed.extension);
-    await _client.storage
-        .from(familyCoversBucket)
-        .uploadBinary(
-          path,
-          compressed.bytes,
-          fileOptions: FileOptions(
-            contentType: compressed.mimeType,
-            upsert: true,
-          ),
-        );
-    return path;
+    final id = server.UuidValue.fromString(familyId);
+    return withServerErrors(() async {
+      final ticket = await _client.family.startCoverUpload(
+        id,
+        'image/jpeg',
+        compressed.bytes.length,
+      );
+      final uploaded = await server.FileUploader(
+        ticket.uploadDescription,
+      ).uploadByteData(ByteData.sublistView(compressed.bytes));
+      if (!uploaded) throw const StorageFailedException();
+      return _client.family.finishCoverUpload(id, ticket.key);
+    });
   }
 
+  /// Clears the cover; the server deletes its object. [path] is not used.
   @override
-  Future<void> clear({required String familyId, required String? path}) async {
-    final prefix = familyId.trim().toLowerCase();
-    if (!_familyIdPattern.hasMatch(prefix)) {
-      throw CoverPhotoException('Couldn’t save the family photo. Try again.');
-    }
-    final listed = await _client.storage
-        .from(familyCoversBucket)
-        .list(path: prefix);
-    final names = <String>[
-      for (final object in listed)
-        if (object.name.isNotEmpty) '$prefix/${object.name}',
-    ];
-    if (path != null && path.isNotEmpty && !names.contains(path)) {
-      names.add(path);
-    }
-    if (names.isNotEmpty) {
-      await _client.storage.from(familyCoversBucket).remove(names);
-    }
+  Future<void> clear({required String familyId, required String? path}) {
+    return withServerErrors(
+      () => _client.family.clearCover(server.UuidValue.fromString(familyId)),
+    );
   }
 }
