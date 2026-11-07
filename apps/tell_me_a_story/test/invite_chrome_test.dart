@@ -26,6 +26,7 @@ class _MemberOf extends FamiliesGateway {
 class _StubInviteApi implements InviteGateway {
   int creates = 0;
   final emails = <String>[];
+  final tokens = <String>[];
   final personIds = <String?>[];
   String? lastEmail;
   String? lastPersonId;
@@ -33,7 +34,7 @@ class _StubInviteApi implements InviteGateway {
   Object? sendError;
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'f');
   }
 
   @override
@@ -53,8 +54,8 @@ class _StubInviteApi implements InviteGateway {
     if (error != null) throw error;
     return CreateInviteResult(
       inviteId: 'i',
-      token: 't',
-      expiresAt: '2099-01-01T00:00:00Z',
+      token: 't$creates',
+      expiresAt: DateTime.utc(2099),
       inviteUrl: 'http://127.0.0.1:3000/timeline?invite=t$creates',
     );
   }
@@ -63,10 +64,14 @@ class _StubInviteApi implements InviteGateway {
   Future<String?> currentFamilyId() async => 'family-1';
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {
     final error = sendError;
     if (error != null) throw error;
     emails.add(inviteId);
+    tokens.add(token);
   }
 }
 
@@ -418,6 +423,7 @@ void main() {
     await tester.pump();
     expect(api.creates, 1);
     expect(api.emails, ['i']);
+    expect(api.tokens, ['t1']);
     expect(find.byKey(const Key('not-invited-row-p-baby')), findsNothing);
   });
 }

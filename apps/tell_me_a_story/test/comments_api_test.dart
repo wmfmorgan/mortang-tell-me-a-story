@@ -1,6 +1,24 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
+
+const _noteId = '0190d7a0-0000-7000-8000-0000000000c1';
+const _storyId = '0190d7a0-0000-7000-8000-0000000000a1';
+const _familyId = '0190d7a0-0000-7000-8000-0000000000f1';
+const _authorId = '0190d7a0-0000-7000-8000-0000000000b1';
+
+server.NoteDto _note({String? authorId = _authorId, String? authorName}) =>
+    server.NoteDto(
+      id: server.UuidValue.fromString(_noteId),
+      storyId: server.UuidValue.fromString(_storyId),
+      familyId: server.UuidValue.fromString(_familyId),
+      kind: server.NoteKind.comment,
+      authorId: authorId == null ? null : server.UuidValue.fromString(authorId),
+      authorName: authorName,
+      body: 'hi',
+      createdAt: DateTime.utc(2026, 9, 27),
+      canDelete: true,
+    );
 
 void main() {
   group('displayNameOrMember', () {
@@ -16,78 +34,37 @@ void main() {
     });
   });
 
-  group('Comment.fromJson', () {
-    test('parses nested author.display_name', () {
-      final comment = Comment.fromJson({
-        'id': 'c1',
-        'story_id': 's1',
-        'family_id': 'f1',
-        'author_id': 'u1',
-        'body': 'hi',
-        'created_at': '2026-09-27T00:00:00Z',
-        'author': {'display_name': 'Aunt Clara'},
-      });
-      expect(comment.id, 'c1');
-      expect(comment.storyId, 's1');
-      expect(comment.familyId, 'f1');
-      expect(comment.authorId, 'u1');
+  group('Comment.fromNote', () {
+    test('maps ids, body, author name and canDelete', () {
+      final comment = Comment.fromNote(_note(authorName: 'Aunt Clara'));
+      expect(comment.id, _noteId);
+      expect(comment.storyId, _storyId);
+      expect(comment.familyId, _familyId);
+      expect(comment.authorId, _authorId);
       expect(comment.body, 'hi');
-      expect(comment.createdAt, DateTime.parse('2026-09-27T00:00:00Z'));
+      expect(comment.createdAt, DateTime.utc(2026, 9, 27));
       expect(comment.authorDisplayName, 'Aunt Clara');
       expect(comment.authorLabel, 'Aunt Clara');
+      expect(comment.canDelete, isTrue);
     });
 
-    test('authorLabel is Member when author embed is missing', () {
-      final comment = Comment.fromJson({
-        'id': 'c1',
-        'story_id': 's1',
-        'family_id': 'f1',
-        'author_id': 'u1',
-        'body': 'hi',
-        'created_at': '2026-09-27T00:00:00Z',
-      });
-      expect(comment.authorDisplayName, isNull);
-      expect(comment.authorLabel, 'Member');
+    test('authorLabel is Member when the author is gone or unnamed', () {
+      final gone = Comment.fromNote(_note(authorId: null));
+      expect(gone.authorId, isNull);
+      expect(gone.authorLabel, 'Member');
+      expect(Comment.fromNote(_note(authorName: '  ')).authorLabel, 'Member');
     });
 
-    test('authorLabel is Member when author is null', () {
-      final comment = Comment.fromJson({
-        'id': 'c1',
-        'story_id': 's1',
-        'family_id': 'f1',
-        'author_id': 'u1',
-        'body': 'hi',
-        'created_at': '2026-09-27T00:00:00Z',
-        'author': null,
-      });
-      expect(comment.authorLabel, 'Member');
-    });
-
-    test('authorLabel is Member when display_name is null', () {
-      final comment = Comment.fromJson({
-        'id': 'c1',
-        'story_id': 's1',
-        'family_id': 'f1',
-        'author_id': 'u1',
-        'body': 'hi',
-        'created_at': '2026-09-27T00:00:00Z',
-        'author': {'display_name': null},
-      });
-      expect(comment.authorDisplayName, isNull);
-      expect(comment.authorLabel, 'Member');
-    });
-
-    test('authorLabel is Member when display_name is blank', () {
-      final comment = Comment.fromJson({
-        'id': 'c1',
-        'story_id': 's1',
-        'family_id': 'f1',
-        'author_id': 'u1',
-        'body': 'hi',
-        'created_at': '2026-09-27T00:00:00Z',
-        'author': {'display_name': '  '},
-      });
-      expect(comment.authorLabel, 'Member');
+    test('canDelete defaults to false', () {
+      final comment = Comment(
+        id: 'c1',
+        storyId: 's1',
+        familyId: 'f1',
+        authorId: 'u1',
+        body: 'hi',
+        createdAt: DateTime.utc(2026, 9, 27),
+      );
+      expect(comment.canDelete, isFalse);
     });
   });
 
@@ -111,9 +88,7 @@ void main() {
 
   group('CommentsApi.create', () {
     test('rejects empty body before network', () {
-      final api = CommentsApi(
-        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-      );
+      final api = CommentsApi(client: server.Client('http://127.0.0.1:1/'));
       expect(
         () => api.create(storyId: 's1', familyId: 'f1', body: ''),
         throwsA(isA<ArgumentError>()),
@@ -121,9 +96,7 @@ void main() {
     });
 
     test('rejects whitespace-only body before network', () {
-      final api = CommentsApi(
-        client: SupabaseClient('http://127.0.0.1', 'anon-key'),
-      );
+      final api = CommentsApi(client: server.Client('http://127.0.0.1:1/'));
       expect(
         () => api.create(storyId: 's1', familyId: 'f1', body: '  \n'),
         throwsA(isA<ArgumentError>()),
@@ -219,6 +192,7 @@ class FakeCommentsGateway implements CommentsGateway {
       authorId: authorId,
       body: body.trim(),
       createdAt: DateTime.utc(2026, 9, 27),
+      canDelete: true,
     );
     rows.add(comment);
     return comment;
@@ -238,6 +212,7 @@ class FakeCommentsGateway implements CommentsGateway {
       body: body.trim(),
       createdAt: current.createdAt,
       authorDisplayName: current.authorDisplayName,
+      canDelete: current.canDelete,
     );
   }
 

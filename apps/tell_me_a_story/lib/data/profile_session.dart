@@ -10,7 +10,7 @@ class ProfileSession extends ChangeNotifier {
 
   static final ProfileSession instance = ProfileSession._();
 
-  /// Set from `main` after Supabase starts. Tests leave this null.
+  /// Set from `main` after the server client starts. Tests leave this null.
   static Future<OwnProfile?> Function()? loadOwn;
 
   /// Set from `main`. Downloads `{uid}/avatar.jpg` when a path is stored.

@@ -1,10 +1,10 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import '../core/config/env.dart';
-import 'app_exception.dart';
+import '../core/server/server_client.dart';
 import 'family_selection.dart';
-import 'profile_session.dart';
-import 'supabase_errors.dart';
+import 'server/server_errors.dart';
 
 /// Shareable invite path. Old `?invite=` links still rewrite in the router.
 String buildInviteUrl(String token, {String? origin}) {
@@ -21,61 +21,39 @@ abstract class InviteGateway {
     String? email,
     String? personId,
   });
-  Future<void> sendInviteEmail({required String inviteId});
+
+  /// Emails the invite. [token] is the one [createInvite] returned; the
+  /// server keeps only its hash.
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  });
   Future<AcceptInviteResult> acceptInvite({required String token});
 }
 
-/// Thin Edge client for Design Doc invite contracts.
 class InviteApi implements InviteGateway {
-  InviteApi({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+  InviteApi({server.Client? client}) : _injected = client;
 
-  final SupabaseClient _client;
+  final server.Client? _injected;
 
+  server.Client get _client => _injected ?? serverClient;
+
+  /// The remembered family when the caller is still a member of it,
+  /// otherwise the caller's first live family. Null when signed out.
   @override
   Future<String?> currentFamilyId() async {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) {
-      FamilySelection.clear();
-      ProfileSession.instance.clear();
-      return resolveCurrentFamilyId(userId: null, remembered: null);
-    }
-    ProfileSession.instance.bindUser(uid);
-    final remembered = FamilySelection.bindUser(uid);
-    if (remembered != null) {
-      final membershipIds = await _membershipFamilyIds(uid);
-      if (membershipIds.contains(remembered)) return remembered;
-    }
-    final row = await _client
-        .from('memberships')
-        .select('family_id, families!inner(deleted_at)')
-        .eq('user_id', uid)
-        .isFilter('families.deleted_at', null)
-        .limit(1)
-        .maybeSingle();
-    return row?['family_id'] as String?;
+    if (!_client.auth.isAuthenticated) return null;
+    final rows = await withServerErrors(() => _client.family.listMine());
+    final ids = [for (final row in rows) row.id.toString()];
+    final remembered = FamilySelection.id;
+    if (remembered != null && ids.contains(remembered)) return remembered;
+    return ids.isEmpty ? null : ids.first;
   }
 
-  Future<List<String>> _membershipFamilyIds(String uid) async {
-    final rows = await _client
-        .from('memberships')
-        .select('family_id, families!inner(deleted_at)')
-        .eq('user_id', uid)
-        .isFilter('families.deleted_at', null);
-    final ids = <String>[];
-    for (final row in rows) {
-      final id = row['family_id'];
-      if (id is String) ids.add(id);
-    }
-    return ids;
-  }
-
-  /// Data/API create family (US-1). No dedicated Create Family screen in M2.
   @override
   Future<String> createFamily(String name) async {
-    final res = await _client.rpc('create_family', params: {'p_name': name});
-    if (res is Map && res['id'] != null) return res['id'] as String;
-    throw StateError('create_family returned unexpected payload');
+    final id = await withServerErrors(() => _client.family.createRoot(name));
+    return id.toString();
   }
 
   @override
@@ -84,66 +62,41 @@ class InviteApi implements InviteGateway {
     String? email,
     String? personId,
   }) async {
-    final body = <String, dynamic>{'family_id': familyId};
-    if (email != null && email.trim().isNotEmpty) {
-      body['email'] = email.trim();
-    }
-    if (personId != null && personId.isNotEmpty) {
-      body['person_id'] = personId;
-    }
-    final json = await _invoke('create-invite', body, expectStatus: 201);
+    final trimmed = email?.trim();
+    final dto = await withServerErrors(
+      () => _client.invite.create(
+        server.UuidValue.fromString(familyId),
+        email: trimmed == null || trimmed.isEmpty ? null : trimmed,
+        personId: personId == null || personId.isEmpty
+            ? null
+            : server.UuidValue.fromString(personId),
+      ),
+    );
     return CreateInviteResult(
-      inviteId: json['invite_id'] as String,
-      token: json['token'] as String,
-      expiresAt: json['expires_at'] as String,
-      inviteUrl: json['invite_url'] as String,
+      inviteId: dto.inviteId.toString(),
+      token: dto.token,
+      expiresAt: dto.expiresAt,
+      inviteUrl: dto.inviteUrl,
     );
   }
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {
-    await _invoke('send-invite-email', {'invite_id': inviteId});
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) {
+    return withServerErrors(
+      () => _client.invite.sendEmail(
+        server.UuidValue.fromString(inviteId),
+        token,
+      ),
+    );
   }
 
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    final json = await _invoke('accept-invite', {'token': token});
-    return AcceptInviteResult(
-      familyId: json['family_id'] as String,
-      membershipId: json['membership_id'] as String,
-    );
-  }
-
-  Future<Map<String, dynamic>> _invoke(
-    String functionName,
-    Map<String, dynamic> body, {
-    int expectStatus = 200,
-  }) async {
-    if (_client.auth.currentSession == null) {
-      throw const AppException(
-        code: AppErrorCode.unauthenticated,
-        message: 'Sign-in required',
-      );
-    }
-    try {
-      final res = await _client.functions.invoke(functionName, body: body);
-      final decoded = envelopeBody(res.data);
-      if (res.status != expectStatus) {
-        throw appExceptionFromEnvelope(
-          decoded,
-          fallbackMessage: 'Request failed',
-        );
-      }
-      return decoded;
-    } on FunctionException catch (e, stack) {
-      Error.throwWithStackTrace(
-        appExceptionFromEnvelope(
-          envelopeBody(e.details),
-          fallbackMessage: e.reasonPhrase ?? 'Request failed',
-        ),
-        stack,
-      );
-    }
+    final familyId = await withServerErrors(() => _client.invite.accept(token));
+    return AcceptInviteResult(familyId: familyId.toString());
   }
 }
 
@@ -157,18 +110,14 @@ class CreateInviteResult {
 
   final String inviteId;
   final String token;
-  final String expiresAt;
+  final DateTime expiresAt;
   final String inviteUrl;
 }
 
 class AcceptInviteResult {
-  const AcceptInviteResult({
-    required this.familyId,
-    required this.membershipId,
-  });
+  const AcceptInviteResult({required this.familyId});
 
   final String familyId;
-  final String membershipId;
 }
 
 class InvitePreview {
@@ -185,32 +134,28 @@ class InvitePreview {
   final String? inviterName;
 }
 
-/// Unauthenticated GET of validate-invite-token. Not part of [InviteGateway].
+/// Unauthenticated `invitePublic.preview`. Not part of [InviteGateway].
 abstract class InviteLinkGateway {
   Future<InvitePreview> validateInviteToken(String token);
 }
 
 class InviteLinkApi implements InviteLinkGateway {
-  InviteLinkApi({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+  InviteLinkApi({server.Client? client}) : _injected = client;
 
-  final SupabaseClient _client;
+  final server.Client? _injected;
+
+  server.Client get _client => _injected ?? serverClient;
 
   @override
   Future<InvitePreview> validateInviteToken(String token) async {
-    final res = await _client.functions.invoke(
-      'validate-invite-token',
-      method: HttpMethod.get,
-      queryParameters: {'token': token},
+    final dto = await withServerErrors(
+      () => _client.invitePublic.preview(token),
     );
-    final data = res.data;
-    if (data is! Map) return const InvitePreview(valid: false);
-    final map = Map<String, dynamic>.from(data);
     return InvitePreview(
-      valid: map['valid'] == true,
-      familyId: map['family_id'] as String?,
-      familyName: map['family_name'] as String?,
-      inviterName: map['inviter_name'] as String?,
+      valid: dto.valid,
+      familyId: dto.familyId?.toString(),
+      familyName: dto.familyName,
+      inviterName: dto.inviterName,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
@@ -16,6 +17,7 @@ import 'package:tell_me_a_story/data/perspectives_api.dart'
     hide displayNameOrMember;
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
+import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
@@ -26,7 +28,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 class _StubInviteApi implements InviteGateway {
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'f');
   }
 
   @override
@@ -38,10 +40,10 @@ class _StubInviteApi implements InviteGateway {
     String? email,
     String? personId,
   }) async {
-    return const CreateInviteResult(
+    return CreateInviteResult(
       inviteId: 'i',
       token: 't',
-      expiresAt: '2099-01-01T00:00:00Z',
+      expiresAt: DateTime.utc(2099),
       inviteUrl: 'http://127.0.0.1:3000/timeline?invite=t',
     );
   }
@@ -50,7 +52,10 @@ class _StubInviteApi implements InviteGateway {
   Future<String?> currentFamilyId() async => 'family-1';
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
 
 class _StubPeopleApi extends PeopleGateway {
@@ -344,7 +349,8 @@ void main() {
   testWidgets(
     'auth refresh moves signed-out user to Family Landing after sign-in',
     (tester) async {
-      final auth = AuthRefresh(initiallySignedIn: false);
+      final info = ValueNotifier<AuthSuccess?>(null);
+      final auth = AuthRefresh(authInfo: info);
       final router = createAppRouter(
         authRefresh: auth,
         inviteApi: _StubInviteApi(),
@@ -354,7 +360,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(MagicLinkPage), findsOneWidget);
 
-      auth.setSignedIn(true);
+      info.value = AuthSuccess(
+        authStrategy: 'session',
+        token: 'token',
+        authUserId: UuidValue.fromString(
+          '00000000-0000-4000-8000-00000000000a',
+        ),
+        scopeNames: const {},
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(FamilyLandingPage), findsOneWidget);
@@ -364,6 +377,8 @@ void main() {
       );
 
       auth.dispose();
+      FamilySelection.clear();
+      ProfileSession.instance.clear();
     },
   );
 

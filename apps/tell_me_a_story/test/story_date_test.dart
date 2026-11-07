@@ -24,39 +24,23 @@ void main() {
     final yearRange = year.toRange();
     expect(year.precision, StoryDatePrecision.year);
     expect(yearRange.end, DateTime(1987, 12, 31));
+  });
 
-    final decade = const StoryDate(year: 1980, legacyDecade: true);
-    final decadeRange = decade.toRange();
-    expect(decade.precision, StoryDatePrecision.decade);
-    expect(decadeRange.start, DateTime(1980, 1, 1));
-    expect(decadeRange.end, DateTime(1989, 12, 31));
-    expect(
-      StoryDate.fromRow(
-        decadeRange.start,
-        decadeRange.end,
-        StoryDatePrecision.decade,
-      ).legacyDecade,
-      isTrue,
-    );
+  test('precision has year, month and day only (D9)', () {
+    expect(StoryDatePrecision.values, [
+      StoryDatePrecision.year,
+      StoryDatePrecision.month,
+      StoryDatePrecision.day,
+    ]);
   });
 
   test('storyDateLabel uses the precision', () {
-    expect(
-      storyDateLabel(const StoryDate(year: 1980, legacyDecade: true)),
-      '1980s',
-    );
     expect(storyDateLabel(const StoryDate(year: 1987)), '1987');
     expect(storyDateLabel(const StoryDate(year: 1987, month: 3)), 'March 1987');
     expect(
       storyDateLabel(const StoryDate(year: 1987, month: 3, day: 14)),
       'March 14, 1987',
     );
-  });
-
-  test('decadeStartYear uses the start year for every precision', () {
-    expect(decadeStartYear(DateTime(1987, 3, 14)), 1980);
-    expect(decadeStartYear(DateTime(1980, 1, 1)), 1980);
-    expect(decadeStartYear(DateTime(1990, 6, 1)), 1990);
   });
 
   test('compareStories orders precision then created_at, and reverses', () {
@@ -75,13 +59,11 @@ void main() {
     final rows = [
       row('day', StoryDatePrecision.day, DateTime(2020)),
       row('year-late', StoryDatePrecision.year, DateTime(2020, 1, 2)),
-      row('decade', StoryDatePrecision.decade, DateTime(2020)),
       row('month', StoryDatePrecision.month, DateTime(2020)),
       row('year-early', StoryDatePrecision.year, DateTime(2020, 1, 1)),
     ];
     rows.sort(compareStories);
     expect(rows.map((story) => story.id).toList(), [
-      'decade',
       'year-early',
       'year-late',
       'month',
@@ -89,6 +71,6 @@ void main() {
     ]);
     final newest = [...rows]..sort((a, b) => compareStories(b, a));
     expect(newest.first.id, 'day');
-    expect(newest.last.id, 'decade');
+    expect(newest.last.id, 'year-early');
   });
 }

@@ -2,66 +2,33 @@ import 'package:flutter/material.dart' show TextField, FilledButton;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/app.dart';
-import 'package:tell_me_a_story/core/router/app_router.dart';
-import 'package:tell_me_a_story/core/router/auth_refresh.dart';
-import 'package:tell_me_a_story/core/supabase/supabase_init.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/data/profile_api.dart';
-import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/main.dart' as app;
 
 import 'support/preconditions.dart';
 import 'support/prod_guard.dart';
-import 'support/relay_client.dart';
 import 'support/test_users.dart';
 import 'support/waits.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(assertLocalSupabase);
+  setUpAll(assertLocalServer);
 
-  testWidgets('C1 magic-link sign-in lands on timeline', (tester) async {
+  testWidgets('C1 email-code sign-in lands on timeline', (tester) async {
     final email = e2eEmail(flow: 1, n: 1);
     final name = 'Ada $e2eRunId';
 
     await _c1Step('boot', () async {
-      await app.main();
+      await _mountApp(tester);
       await pumpUntilFound(tester, find.byKey(const Key('magic-link-email')));
     });
-    await _c1Step('send-link', () async {
-      await tester.enterText(find.byKey(const Key('magic-link-email')), email);
-      await tester.pump();
-      final send = find.text('Email me a sign-in link');
-      await tester.ensureVisible(send);
-      await tester.tap(send);
-      await _untilLinkSent(tester);
+    await _c1Step('send-code', () async {
+      await _requestCode(tester, const Key('magic-link-email'), email);
     });
-
-    final location = await _c1Step('magic-link', () async {
-      final location = await magicLinkLocation(email);
-      expect(
-        _handOff(location),
-        'pkce',
-        reason: 'magic-link callback hand-off',
-      );
-      return location;
-    });
-
-    await _c1Step('recover-session', () async {
-      await recoverSessionFromAuthCallback(location);
-    });
-    await _c1Step('avatar', () async {
-      await pumpUntilFound(
-        tester,
-        find.byKey(const Key('header-avatar')),
-        timeout: const Duration(seconds: 45),
-      );
+    await _c1Step('enter-code', () async {
+      await _enterCode(tester, find.byKey(const Key('header-avatar')));
     });
     await _c1Step('menu-settings', () async {
       await tester.tap(find.byKey(const Key('header-avatar')));
@@ -275,32 +242,14 @@ void main() {
       _go(tester, location);
       await pumpUntilFound(tester, find.byKey(const Key('invite-email')));
     });
-    await _step('C6', 'send-link', () async {
-      await tester.enterText(find.byKey(const Key('invite-email')), guest);
-      await tester.pump();
-      final send = find.text('Email me a sign-in link');
-      await tester.ensureVisible(send);
-      await tester.tap(send);
+    await _step('C6', 'send-code', () async {
+      await _requestCode(tester, const Key('invite-email'), guest);
       await pumpUntilFound(tester, find.byKey(const Key('invite-sent')));
     });
-    final callback = await _step('C6', 'magic-link', () async {
-      final callback = await magicLinkLocation(guest);
-      expect(
-        _handOff(callback),
-        'pkce',
-        reason: 'magic-link callback hand-off',
-      );
-      return callback;
-    });
-    await _step('C6', 'recover-session', () async {
-      await recoverSessionFromAuthCallback(callback);
+    await _step('C6', 'enter-code', () async {
+      await _enterCode(tester, find.byKey(const Key('family-landing')));
     });
     await _step('C6', 'joined-timeline', () async {
-      await pumpUntilFound(
-        tester,
-        find.byKey(const Key('family-landing')),
-        timeout: const Duration(seconds: 45),
-      );
       await pumpUntilFound(tester, find.text(family));
       await tester.tap(find.byKey(const Key('header-nav-timeline')));
       await pumpUntilFound(
@@ -397,25 +346,6 @@ Future<T> _c1Step<T>(String label, Future<T> Function() body) async {
   }
 }
 
-String _handOff(Uri location) {
-  if (location.queryParameters.containsKey('code')) return 'pkce';
-  final fragment = Uri.splitQueryString(location.fragment);
-  if (fragment.containsKey('access_token')) return 'implicit';
-  return 'other';
-}
-
-Future<void> _untilLinkSent(WidgetTester tester) async {
-  final deadline = DateTime.now().add(const Duration(seconds: 30));
-  while (DateTime.now().isBefore(deadline)) {
-    await tester.pump(const Duration(milliseconds: 100));
-    if (find.text('Check your email').evaluate().isNotEmpty) return;
-    if (find.textContaining('rate limit').evaluate().isNotEmpty) {
-      fail('email rate limit');
-    }
-  }
-  throw TestFailure('sign-in link was not confirmed before the deadline');
-}
-
 Future<T> _step<T>(String flow, String label, Future<T> Function() body) async {
   try {
     return await body();
@@ -424,71 +354,86 @@ Future<T> _step<T>(String flow, String label, Future<T> Function() body) async {
   }
 }
 
-bool _supabaseReady() {
-  try {
-    return Supabase.instance.isInitialized;
-  } catch (e) {
-    if (e is! AssertionError) rethrow;
-    return false;
+TellMeAStoryApp? _mounted;
+
+// app.main() sets the URL strategy and starts the server client, so it runs
+// once. The test binding replaces the tree between flows; later flows sign
+// the carried-over session out and remount the widget main() built.
+Future<void> _mountApp(WidgetTester tester) async {
+  final mounted = _mounted;
+  if (mounted == null) {
+    await app.main();
+    await pumpUntilFound(tester, find.byType(TellMeAStoryApp));
+    _mounted = _app(tester);
+    return;
+  }
+  await resetAppState();
+  await tester.pumpWidget(mounted);
+}
+
+/// The fixed code a local `just server` accepts (apps/server auth_config.dart).
+const _devLoginCode = '111111';
+
+/// Fragments of the copy the sign-in pages show when a code request or
+/// check fails (apostrophes left out on purpose).
+const _signInErrors = [
+  'Check it and try again.',
+  'That code has expired.',
+  'Too many tries.',
+  'Request failed',
+];
+
+void _failOnSignInError() {
+  for (final error in _signInErrors) {
+    if (find.textContaining(error).evaluate().isNotEmpty) {
+      fail('sign-in error: $error');
+    }
   }
 }
 
-// The test binding replaces the tree between tests. app.main sets the URL
-// strategy once, so a later flow remounts the same client.
-Future<void> _mountApp(WidgetTester tester) async {
-  if (!_supabaseReady()) {
-    await app.main();
-    return;
+/// Types [email] into [field], asks for a code and waits for the code step.
+Future<void> _requestCode(WidgetTester tester, Key field, String email) async {
+  await tester.enterText(find.byKey(field), email);
+  await tester.pump();
+  final send = find.text('Email me a sign-in code');
+  await tester.ensureVisible(send);
+  await tester.tap(send);
+  final code = find.byKey(const Key('sign-in-code'));
+  final deadline = DateTime.now().add(const Duration(seconds: 30));
+  while (DateTime.now().isBefore(deadline)) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (code.evaluate().isNotEmpty) return;
+    _failOnSignInError();
   }
-  final profileApi = ProfileApi();
-  ProfileSession.loadOwn = profileApi.loadOwn;
-  ProfileSession.downloadAvatar = profileApi.downloadAvatar;
-  final authRefresh = AuthRefresh(
-    authStateChanges: Supabase.instance.client.auth.onAuthStateChange,
-    initiallySignedIn: Supabase.instance.client.auth.currentSession != null,
-  );
-  await tester.pumpWidget(
-    TellMeAStoryApp(
-      router: createAppRouter(
-        authRefresh: authRefresh,
-        familiesApi: FamiliesApi(),
-        inviteApi: InviteApi(),
-        peopleApi: PeopleApi(),
-      ),
-    ),
-  );
+  throw TestFailure('$code not found within 30s (url: ${Uri.base})');
+}
+
+/// Enters the dev code and waits until [landed] shows.
+Future<void> _enterCode(WidgetTester tester, Finder landed) async {
+  await tester.enterText(find.byKey(const Key('sign-in-code')), _devLoginCode);
+  await tester.pump();
+  final submit = find.byKey(const Key('sign-in-code-submit'));
+  await tester.ensureVisible(submit);
+  await tester.tap(submit);
+  final deadline = DateTime.now().add(const Duration(seconds: 45));
+  while (DateTime.now().isBefore(deadline)) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (landed.evaluate().isNotEmpty) return;
+    _failOnSignInError();
+  }
+  throw TestFailure('$landed not found within 45s (url: ${Uri.base})');
 }
 
 Future<void> _signIn(WidgetTester tester, String flow, String email) async {
   await _step(flow, 'boot', () async {
-    if (_supabaseReady()) {
-      await resetAppState();
-    }
     await _mountApp(tester);
     await pumpUntilFound(tester, find.byKey(const Key('magic-link-email')));
   });
-  await _step(flow, 'send-link', () async {
-    await tester.enterText(find.byKey(const Key('magic-link-email')), email);
-    await tester.pump();
-    final send = find.text('Email me a sign-in link');
-    await tester.ensureVisible(send);
-    await tester.tap(send);
-    await _untilLinkSent(tester);
+  await _step(flow, 'send-code', () async {
+    await _requestCode(tester, const Key('magic-link-email'), email);
   });
-  final location = await _step(flow, 'magic-link', () async {
-    final location = await magicLinkLocation(email);
-    expect(_handOff(location), 'pkce', reason: 'magic-link callback hand-off');
-    return location;
-  });
-  await _step(flow, 'recover-session', () async {
-    await recoverSessionFromAuthCallback(location);
-  });
-  await _step(flow, 'timeline', () async {
-    await pumpUntilFound(
-      tester,
-      find.byKey(const Key('family-menu')),
-      timeout: const Duration(seconds: 45),
-    );
+  await _step(flow, 'enter-code', () async {
+    await _enterCode(tester, find.byKey(const Key('family-menu')));
   });
 }
 

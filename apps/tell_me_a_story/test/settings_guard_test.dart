@@ -85,18 +85,12 @@ void main() {
     expect(logout.state.uri.path, AppRoutes.settings);
   });
 
-  testWidgets('clean after a saved email change', (tester) async {
+  testWidgets('the read-only email never makes the page dirty', (tester) async {
     await _surface(tester);
-    final profile = _Profile();
-    final router = await _mount(tester, profile: profile);
-    await tester.enterText(
-      find.byKey(const Key('settings-email')),
-      'new@example.com',
-    );
-    await tester.ensureVisible(find.byKey(const Key('settings-save')));
-    await tester.tap(find.byKey(const Key('settings-save')));
+    final router = await _mount(tester, profile: _Profile());
+    await tester.ensureVisible(find.byKey(const Key('settings-email')));
+    await tester.tap(find.byKey(const Key('settings-email')));
     await tester.pumpAndSettle();
-    expect(profile.emails, ['new@example.com']);
     expect(_field(tester, 'settings-email'), 'ada@example.com');
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
@@ -165,8 +159,6 @@ Future<GoRouter> _mount(
 }
 
 class _Profile implements ProfileGateway {
-  final emails = <String>[];
-
   @override
   Future<OwnProfile?> loadOwn() async =>
       const OwnProfile(id: 'u1', displayName: 'Ada', email: 'ada@example.com');
@@ -191,11 +183,6 @@ class _Profile implements ProfileGateway {
     BirthVisibility? birthVisibility,
     String? about,
   }) async {}
-
-  @override
-  Future<void> updateEmail(String email) async {
-    emails.add(email);
-  }
 }
 
 class _Families extends FamiliesGateway {
@@ -214,7 +201,7 @@ class _Families extends FamiliesGateway {
 class _Invite implements InviteGateway {
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: _ada, membershipId: 'm');
+    return const AcceptInviteResult(familyId: _ada);
   }
 
   @override
@@ -233,5 +220,8 @@ class _Invite implements InviteGateway {
   Future<String?> currentFamilyId() async => _ada;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
