@@ -21,6 +21,8 @@
 | `test/families_api_test.dart` (new) | `fromDto` tests. |
 | `test/family_landing_latest_test.dart` | drop the cover-column and object-path cases. |
 | `test/family_menu_tree_test.dart` | `MemberFamily.fromJson` test → `fromDto`. |
+| `test/gateway_errors_test.dart` | delete the Supabase-only `InviteApi`/`ManageFamiliesApi` no-session and `setFamilyOrigin` RPC-error cases (server errors are covered by `withServerErrors`). |
+| `test/invite_chrome_test.dart` | fake records tokens; the retry case asserts the same token is resent. |
 | every `InviteGateway` fake (19 files) | `sendInviteEmail({inviteId, token})`, `AcceptInviteResult(familyId:)`, `CreateInviteResult(expiresAt: DateTime)`. |
 | `test/live/families_live_test.dart` (new) | listMine, listStewarded, createRoot, rename, tree, members, directory, detail, cover round trip, manage ops. |
 | `test/live/invite_live_test.dart` (new) | create → preview → accept (second user, own `client:`) → resend → revoke; currentFamilyId. |
@@ -46,6 +48,12 @@ Rewrite `FamiliesApi`, `FamilyCoversApi`, `ManageFamiliesApi`, `InviteApi`, `Inv
 
 ### Task 5 — gate
 `dart format --set-exit-if-changed`, `flutter analyze` ≤ 23, `flutter test`, `just test-live`.
+
+## As landed
+- Commits: `feat(client): families and covers on Serverpod with fromDto mapping` (Tasks 1 + 4 for families/covers), `feat(client): invites and family management on Serverpod; sendInviteEmail carries the token` (Task 2 + 4 for invites/manage), `test(client): families and invite live tests` (Task 3).
+- Live setup for origin/branch/directory publishes a story through the raw client (`people.create` + `place.create` + `story.createDraft` + `publish`), since publish needs a person and a place.
+- `FamilyInvite` gains `lastSentAt` (server `sentAt`); `sentAt` falls back to `createdAt`, then expiry − 7 days, so existing widget fixtures stay valid.
+- `listMembers`/`loadDetail` fetch member avatars with one `media.getMany`; a failed fetch leaves initials.
 
 ## Notes
 - `setCoverPhoto.previousPath` / `clearCoverPhoto.path` stay in the interface (feature code outside 4b passes them) but the server replaces/queues the old blob itself.
