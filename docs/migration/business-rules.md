@@ -79,7 +79,7 @@ Actor vocabulary used below:
 | Create branch ("start a new timeline") | Live member (any role) of the parent. See §3.2. | pp:409-547 |
 | Rename | owner or co_owner. Name trimmed, non-blank. | mf:277-297; guard cov:65-74 |
 | Set/clear cover | owner or co_owner. | cov:76-88 |
-| Read cover object | `isMember(f)` (also works while family soft-deleted — test "soft-deleted member can still select the cover"). | cov:136-143 |
+| Read cover object | `isLiveMember(f)`. Not readable while `f` is soft-deleted (D6b). | cov:136-143 |
 | Upload/replace/delete cover object | owner or co_owner. | cov:145-187 |
 | Set origin story | owner or co_owner of the family, family live. See §3.3. | osh:72-123 |
 | Clear origin directly | Nobody (field locked). Only cleared automatically when the story row is deleted (FK `on delete set null`). | cov:39-49; os:5-7 |
@@ -93,7 +93,7 @@ Actor vocabulary used below:
 
 | Op | Allowed | Cite |
 |---|---|---|
-| Read memberships of family | `isMember(f)` (incl. soft-deleted). | rls:95-98 |
+| Read memberships of family | `isLiveMember(f)`; owner/co_owner of `f` also while soft-deleted (recovery screen) (D6b). | rls:95-98 |
 | Insert/update/delete directly | Nobody from client; only via server ops (create family, create branch, accept invite, role ops, remove member). Test "authenticated client cannot insert memberships". | rls:94 |
 | Promote member→co_owner (`add_co_owner`) | owner **or co_owner**. Target must currently be role `member` in this family. Cap 2 co-owners. | mf:299-319, 108-135 |
 | Demote co_owner→member (`remove_co_owner`) | owner only. Target must be `co_owner`. | mf:321-341 |
@@ -113,7 +113,7 @@ Actor vocabulary used below:
 | Rename linked row | Nobody directly (incl. linked self and owner): "FORBIDDEN: linked_person_name_locked". Name follows `profiles.display_name`. | lnb:20-63 |
 | Toggle passed_away, unlinked row | Any tree member (normal update). | pas:21-28 |
 | Toggle passed_away, linked row | owner/co_owner of the person's family via `mark_passed_away` (also needs tree member; target ≠ self). Linked self can never flip own flag. | dob:248-290; pas:10-32 |
-| Delete | `isMember(person.family)` (any role, linked or not, even family soft-deleted). | rls:117-120 |
+| Delete | owner or co_owner of `person.family`, family live; refused when `person.userId` is set — `AppException(AppErrorCode.validation, 'person is linked to an account')` (D5). | rls:117-120 |
 | List unlinked (invite picker) | Tree member of live family. | dob:295-331 |
 | Upload person avatar | Unlinked: any tree member. Linked: only linked self. Path `{person_id}/avatar.jpg`. No delete policy. | pp:229-274 |
 | Read person avatar | Tree member. | pp:215-227 |
@@ -124,7 +124,7 @@ Actor vocabulary used below:
 |---|---|---|
 | Read | Live member of place's family; OR tree reader if the place is attached to a **published** story of that family. | os:577-593 |
 | Create / update | Live member. | trg:156-167 |
-| Delete | `isMember` (any role). | rls:139-142 |
+| Delete | `isLiveMember(place.family)` (D6b). | rls:139-142 |
 
 ### 2.5 Story
 
@@ -136,7 +136,7 @@ Actor vocabulary used below:
 | Update content (title, body, dates, place) | `canEditStory`: author (draft or published) OR owner/co_owner if published. Child-family owner cannot edit parent's origin story. | ff:209-213 |
 | Publish / unpublish (status, published_at) | Author only ("FORBIDDEN: field is locked" for non-author editor). | ff:178-204 |
 | Change author_id / family_id / created_at | Nobody. | ff:185-189 |
-| Delete | Author with `isMember(family)` (not live-checked). Owners cannot delete others' stories. | perf:30-34 |
+| Delete | Author with `isLiveMember(family)` (D6b). Owners cannot delete others' stories (D4). | perf:30-34 |
 | List origin dependents (families whose effective origin is story) | Live member of the story's family. | osh:153-170 |
 
 ### 2.6 story_people (tags)
@@ -166,18 +166,18 @@ Actor vocabulary used below:
 | Read | Live member if story published or caller is story author; tree reader if published. | dao:11-55 |
 | Create | `canContribute(family, story)` AND `author_id = uid` AND note.family == story.family. Origin contributors may post on the origin story only. Non-author members cannot post on drafts; owner cannot post on someone else's draft. | os:253-266, 299-312 |
 | Edit | Author AND `canContribute`. Only `body` (and updated_at) may change. | os:268-285, 314-331; osh:5-33 |
-| Delete | Author AND `canContribute`. **No moderator delete** (owner cannot delete others' comments). | dwp:4-8 |
+| Delete | Author AND `canContribute`; OR owner/co_owner of the story's family (family live, story published) for any note (D4). A child-family steward cannot delete notes on the parent's origin story. | dwp:4-8 |
 | Child contributor after origin moves/unpublished | Loses insert/edit/delete. | osh tests 492-585 |
 
 ### 2.9 Invite
 
 | Op | Allowed | Cite |
 |---|---|---|
-| Read invites of family | `isMember(f)`. | rls:348-351 |
-| Create | Any member (`isMember`, any role). Optional `person_id` must pass `assert_invite_person`. | fn/create-invite:123-131; dob:336-378 |
-| Send email | Any member; invite must be pending, unexpired, have email. | fn/send-invite-email:38-79 |
+| Read invites of family | `isLiveMember(f)` (D6b). | rls:348-351 |
+| Create | Any live member (`isLiveMember`) (D3, D6b). Optional `person_id` must pass `assert_invite_person`. | fn/create-invite:123-131; dob:336-378 |
+| Send email | Any live member; invite must be pending, unexpired, have email. | fn/send-invite-email:38-79 |
 | Validate token (preview) | Anyone incl. anon. | fn/validate-invite-token |
-| Accept | Any signed-in user holding the token (not bound to invite email). | fn/accept-invite:112-209 |
+| Accept | Signed-in user holding the token, family live (D6a); if `invite.email` is set, caller's account email must equal it (trimmed, case-insensitive) (D2). | fn/accept-invite:112-209 |
 | Resend (rotate token+expiry, email) | owner or co_owner. | irr:4-56 |
 | Revoke | owner or co_owner. | irr:58-88 |
 | Update/delete row directly | Nobody. | rls:347 |
@@ -186,10 +186,10 @@ Actor vocabulary used below:
 
 | Op | Allowed | Cite |
 |---|---|---|
-| Read | Self, or any user sharing ≥1 family membership (any family, even soft-deleted; tree readers NOT included). Readable columns: id, display_name, email, created_at, updated_at, avatar_path, about. `birth_date`, `birth_precision`, `birth_visibility` never readable by others (only via `my_profile` for self, `person_profile` filtered). | perf:16-27; dob:51-65 |
+| Read | Self, or any user sharing ≥1 family membership (live families only (D6b); tree readers NOT included). Readable columns: id, display_name, created_at, updated_at, avatar_path, about (other users' emails are not exposed). `birth_date`, `birth_precision`, `birth_visibility` never readable by others (only via `my_profile` for self, `person_profile` filtered). | perf:16-27; dob:51-65 |
 | Create | Server only, on signup. | ptrg:3-25 |
-| Update | Self only. `email` is synced from auth, not client-written. | perf:9-11; av:60-79 |
-| Delete | Self (policy exists). | perf:13-14 |
+| Update | Self only. Email is the login identity and cannot be changed (D1). | perf:9-11; av:60-79 |
+| Delete | Not offered (D7). | perf:13-14 |
 | Avatar object read | Self or co-member. | avcm:6-22 |
 | Avatar object write/delete | Self only, path `{uid}/avatar.jpg`. | av:32-58 |
 
@@ -209,7 +209,7 @@ Actor vocabulary used below:
 | person create | – | – | – | – | ✓ | ✓ | ✓ | – |
 | person edit (unlinked) | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | – |
 | mark linked passed away | – | – | – | – | – | ✓ (own family) | ✓ (own family) | – |
-| person delete | – | – | – | – | ✓ | ✓ | ✓ | – |
+| person delete | – | – | – | – | – | ✓ (unlinked) | ✓ (unlinked) | – |
 | place read | – | – | P | P | ✓ | ✓ | ✓ | – |
 | place create/update/delete | – | – | – | – | ✓ | ✓ | ✓ | – |
 | story read | – | – | P | P | P | P | P | D |
@@ -222,7 +222,8 @@ Actor vocabulary used below:
 | photo delete others' | – | – | – | – | – | P | P | D |
 | photo edit save/reset | – | – | – | – | – | P | P | D |
 | comment/perspective create | – | – | – | P (origin only) | P | P | P | D |
-| comment/perspective edit/delete | own only, subject to `canContribute` |
+| comment/perspective edit | own only, subject to `canContribute` |
+| comment/perspective delete | – | – | – | own | own | P (any) | P (any) | own |
 | invite create/send | – | – | – | – | ✓ | ✓ | ✓ | – |
 | invite resend/revoke | – | – | – | – | – | ✓ | ✓ | – |
 
@@ -249,8 +250,9 @@ RPC order (order matters; tests assert it):
 8. Insert family (name trimmed, parent, `created_by = caller`, branch_year), set origin (server-privileged), verify `familyOrigin(new) == origin` else `NOT_FOUND: story`.
 9. Insert membership `owner` for `owner_user_id` (may be someone other than caller; a co-owner of the parent can be the new owner).
 10. For each distinct picked person: if person has a linked account (`user_id`, email ignored) → insert membership `member` if none (no demotion: picking the owner keeps owner). People without an account get nothing. **No people rows are copied** into the branch (people live once per tree).
-11. Caller is NOT auto-added (unless they are the owner or a picked linked person).
-12. All-or-nothing: any error writes no family/membership/origin.
+11. Ensure a linked person in the tree for the branch owner and each picked member (reuse an existing linked person anywhere in the tree; otherwise create one in the branch with name = profile display name) (D6d).
+12. Caller is NOT auto-added (unless they are the owner or a picked linked person).
+13. All-or-nothing: any error writes no family/membership/origin/person.
 
 ### 3.3 Set origin story — `set_family_origin` (osh:72-123)
 1. No uid, family missing/soft-deleted, or caller not owner/co_owner of family → `FORBIDDEN` (bare, no detail) — FORBIDDEN is returned before any NOT_FOUND.
@@ -263,7 +265,7 @@ Read side: effective origin hides (returns null) when the story is unpublished, 
 **Create** (`fn/create-invite:87-156`):
 1. POST only; bearer required → else 401 AUTH_REQUIRED "Sign-in required".
 2. Body JSON; `family_id` required → "family_id is required". `email` optional (trimmed, empty → null = link-only invite). `person_id` optional.
-3. Caller must be `isMember(family)` (any role) → else 403 FORBIDDEN "Not a family member".
+3. Caller must be `isLiveMember(family)` (any role) → else 403 FORBIDDEN "Not a family member" (D3, D6b).
 4. If `person_id`: `assert_invite_person` (dob:336-378): caller tree member of live family else `NOT_FOUND:`; person missing or in another tree → `NOT_FOUND:` (same body for unknown and out-of-tree); linked → `VALIDATION: person is already linked`; passed_away → `VALIDATION: person has passed`.
 5. Token: 64 hex chars (two random UUIDs without dashes). Status pending, `expires_at = now + 7 days` (ddl:116).
 6. Insert failure → 400 VALIDATION "Could not create invite" (raw DB text hidden).
@@ -283,6 +285,7 @@ Note: people with a pending unexpired invite are excluded from `list_unlinked_pe
 
 **Accept** (`fn/accept-invite:112-209`):
 1. Bearer required → 401 AUTH_REQUIRED. Body `token` required → "token is required". Unknown → 400 INVITE_INVALID "Invite is not valid".
+1a. Family soft-deleted → 400 INVITE_INVALID "Invite is not valid" (D6a). `invite.email` set and ≠ caller's account email (trim, lowercase) → 400 INVITE_INVALID "Invite was sent to a different email" (D2). Both checks run before the accepted/re-entry check.
 2. If status accepted: same user as `accepted_by` → idempotent success returning existing `{family_id, membership_id}` (re-entry after magic link); if their membership is gone → 400 VALIDATION "Could not check membership". Different user → 400 INVITE_ACCEPTED "Invite already used".
 3. status ≠ pending (revoked) → INVITE_INVALID. `expires_at <= now` → 400 INVITE_EXPIRED "Invite link expired".
 4. Existing membership in family kept as-is (**no demotion** — owner opening own invite stays owner); else insert `member`. Failures → "Could not check membership" / "Could not create membership" (raw text hidden).
@@ -290,7 +293,7 @@ Note: people with a pending unexpired invite are excluded from `list_unlinked_pe
 6. Mark invite `accepted`, `accepted_by`, `accepted_at` (guarded `status = pending`).
 7. Trigger (mpr:157-178): if invite had **no** person_id → `ensure_member_person(family, user, link_email=false)` → creates one linked person row unless user already linked in the tree.
 8. Response `{family_id, membership_id}`. Client then lands on Family Landing.
-Not checked at accept: family soft-deleted, invite email matching the signed-in email (see §6).
+Both are checked at step 1a (D2, D6a).
 
 **Resend** (irr:4-56; `fn/resend-invite`): `invite_id` required; email provider configured else 503 before RPC. Lock row. Missing → `NOT_FOUND: invite not found`; not owner/co_owner → `FORBIDDEN: owner or co-owner only`; status ≠ pending → `INVITE_INVALID: invite is not pending` (accepted, revoked); no/blank email → `VALIDATION: invite has no email address` (link-only invites can't be resent). Rotate token (new 64-hex), `expires_at = now + 7 days`. Send email; if send fails token stays rotated (retry safe). Response `{sent:true, expires_at}`. Note: an expired-but-pending invite CAN be resent (revives it).
 
@@ -299,10 +302,10 @@ Not checked at accept: family soft-deleted, invite email matching the signed-in 
 UI: "Sent" date shown = `expires_at − 7 days` (irr:2 comment; new schema has `created_at`). Pending list shows "Expired"/"Pending" computed from `expires_at` (apps/tell_me_a_story/lib/features/family/manage_family_page.dart:1026-1027). Status value `expired` exists in the enum but is never written (only time-derived).
 
 ### 3.5 Soft delete / recover / purge
-- Soft delete (mf:440-456): owner only; sets `deleted_at = now` if not already (repeat is no-op). Children keep their `parent_id` link but the tree splits at the deleted node (child becomes its own root for read purposes; grandparent members no longer see below; child members no longer see above).
-- While deleted: plain members can't see the family; owner/co_owner can (to recover); members see 0 stories/people/photos; `isLiveMember` false so no writes; invites to it validate as INVITE_INVALID; cover still readable by members.
+- Soft delete (mf:440-456): owner only; sets `deleted_at = now` if not already (repeat is no-op). Children keep their `parent_id` link and the tree is not split: "same tree" means equal `treeId` among live families, so the deleted family drops out but its parent and children still read each other (D8).
+- While deleted: plain members can't see the family; owner/co_owner can read the family row and memberships (to recover); members see 0 stories/people/photos; `isLiveMember` false so no writes; invites to it validate and accept as INVITE_INVALID; cover not readable (D6b).
 - Recover (mf:458-482): owner or co_owner; not deleted → `VALIDATION: family is not deleted`; `deleted_at < now − 60 days` → `FORBIDDEN: recovery window closed`; else clear `deleted_at`. Child origins reappear.
-- Purge (cov:321-344): daily job (cron `15 3 * * *`, mf:645-658) for families with `deleted_at < now − 60 days`: delete cover objects first (fail closed — if storage delete fails the family row stays: "VALIDATION: cover purge failed" / "service role key is not configured…"), set children's `parent_id = null` (they become roots), hard-delete family (cascade: memberships, people, places, stories → photos/notes/tags, invites). Story-photo blobs are not cleaned by purge [as-is gap].
+- Purge (cov:321-344): daily job (cron `15 3 * * *`, mf:645-658) for families with `deleted_at < now − 60 days`: queue every blob key in the family (cover, all photo originalKey/editedKey, avatarKey of the family's people) and delete them first; if any blob deletion fails the family row stays (fail closed); then null children's parentId and hard-delete the family (D6c). Cascade: memberships, people, places, stories → photos/notes/tags, invites.
 
 ### 3.6 Transfer ownership (mf:389-438)
 Owner only → `FORBIDDEN: owner only`. `former_becomes ∉ {co_owner, member}` → `VALIDATION: former role must be co_owner or member` (Edge pre-check message: "family_id, new_owner_user_id, and former_owner_becomes are required"). Target not a co_owner → `FORBIDDEN: target must be a co-owner`. Order of writes: demote caller to member, promote target to owner, then if requested promote caller to co_owner (keeps one-owner index and co-owner cap valid; target's co-owner slot is freed first). Effective immediately.
@@ -362,7 +365,7 @@ Owner only → `FORBIDDEN: owner only`. `former_becomes ∉ {co_owner, member}` 
 - Delete of a story-photo object whose story row no longer exists is allowed for family members (orphan cleanup) (dwp:120-125 / pe:445-450).
 
 ### 4.6 Profiles & DOB visibility
-- Created on signup: `display_name = coalesce(nonblank metadata.display_name, email local-part)`, `email` from auth (ptrg:10-18). Email change in auth syncs to profile (av:60-79).
+- Created on signup: `display_name = coalesce(nonblank metadata.display_name, email local-part)`, `email` from auth (ptrg:10-18).
 - `about` ≤ **500**; `birth_date`/`birth_precision` both null or both set; precision ≠ `decade` (pp:41-50); `birth_visibility ∈ {hidden, year, year_month, full}` default `hidden` (dob:9-17).
 - Avatar `avatar_path` null or `{uid}/avatar.jpg` (av:8-13); bucket `avatars` private **2 MiB**, `image/jpeg` only (av:15-22).
 - DOB shown to others (dob:163-195): rank visibility hidden0/year1/year_month2/full3, precision decade0/year1/month2/day3; `coarse = min`; 0 or no date ⇒ null; 1 ⇒ Jan 1 of year, precision `year`; 2 ⇒ 1st of month, `month`; 3 ⇒ full date, `day`. Self (own linked person) sees raw. Unlinked people have no DOB at all (people.birth_* dropped, dob:45-49). `my_profile` returns own raw birth date/precision/visibility; fails `NOT_FOUND:` without session.
@@ -414,6 +417,7 @@ Owner only → `FORBIDDEN: owner only`. `former_becomes ∉ {co_owner, member}` 
 | VALIDATION | too many levels | branch |
 | VALIDATION | parent family is deleted | set origin |
 | VALIDATION | person is already linked / person has passed | assert_invite_person |
+| VALIDATION | person is linked to an account (D5) | person delete |
 | VALIDATION | person has not signed in / cannot mark yourself | mark_passed_away |
 | VALIDATION | date required / year required | stories date guard |
 | VALIDATION | photo limit reached | photo cap |
@@ -427,6 +431,7 @@ Owner only → `FORBIDDEN: owner only`. `former_becomes ∉ {co_owner, member}` 
 | VALIDATION | cover purge failed / service role key is not configured for cover purge | purge (system) |
 | INVITE_INVALID | invite is not pending | resend/revoke |
 | INVITE_INVALID | Invite is not valid / Invite is not pending | accept, validate / send-invite-email |
+| INVITE_INVALID | Invite was sent to a different email (D2) | accept |
 | INVITE_ACCEPTED | Invite already used | accept, validate |
 | INVITE_EXPIRED | Invite link expired | accept, validate, send-invite-email |
 | CONFLICT | photo edit version | save/reset |
@@ -439,17 +444,22 @@ Owner only → `FORBIDDEN: owner only`. `former_becomes ∉ {co_owner, member}` 
 - Generic fallbacks: "Couldn't create the family. Try again.", "Couldn't send invite. Try again." (or `InviteApiException.message`), "Couldn't save person. Try again.", "Couldn't save the family photo. Try again.", "Couldn't save your profile. Try again.", "Couldn't save draft. Try again.", "Couldn't publish story. Try again.", "Couldn't upload the photo. Check your connection and try again.", plain "Try again" (various `lib/features/**`). Many screens show `mapRpcError(error)` detail verbatim (e.g. "co-owner cap is 2", "person has passed").
 
 ## 6. Gaps / as-is oddities (decide explicitly in the rewrite)
-1. Accept does not check the family is soft-deleted (validate does) — accept into a deleted family succeeds.
-2. Invites are bearer tokens: not bound to the invited email.
-3. Any member (not just stewards) can create and send invites; only stewards can resend/revoke.
-4. `isMember` (not live) still gates: story delete by author, person delete, place delete, invite read/create, membership read, cover read, profile co-member visibility.
-5. Person delete is allowed for any member, even for linked people.
-6. No moderation: owners can't delete others' comments/perspectives/stories.
-7. Purge does not delete story-photo/person-avatar blobs; only cover objects.
-8. Resend revives an expired-but-pending invite; enum `expired` unused.
-9. `remove_member` uses `familyTreeIds` which ignores soft-deletion (removes from deleted families in the tree too).
-10. Branch owner gets no `ensure_member_person` call (relies on already being linked in the parent tree).
-11. Profile `delete own` policy exists though account deletion flow is not defined.
+Resolved 2026-11-07 — see the Decision column; §2, §3 and §7 already reflect the decisions.
+
+| # | Old behaviour | Decision |
+|---|---|---|
+| 1 | Accept does not check the family is soft-deleted (validate does) — accept into a deleted family succeeds. | D6a: refused with `AppErrorCode.inviteInvalid`, same as preview. |
+| 2 | Invites are bearer tokens: not bound to the invited email. | D2: an invite with an email can only be accepted while signed in as that email (trimmed, lowercased); a link-only invite (email null) works for anyone holding it. |
+| 3 | Any member (not just stewards) can create and send invites; only stewards can resend/revoke. | D3: keep — any live member creates/sends; only owner/co_owner resend/revoke. |
+| 4 | `isMember` (not live) still gates: story delete by author, person delete, place delete, invite read/create, membership read, cover read, profile co-member visibility. | D6b: every write and every member read requires a live family; owner/co_owner keep read access to a soft-deleted family's row and memberships (recovery screen); nothing else, including the cover. |
+| 5 | Person delete is allowed for any member, even for linked people. | D5: only owner/co_owner of the person's live family; a linked person (`userId != null`) can never be deleted. |
+| 6 | No moderation: owners can't delete others' comments/perspectives/stories. | D4: owner/co_owner of the story's family can delete anyone's comments and perspectives on published stories in that family; not other people's stories. |
+| 7 | Purge does not delete story-photo/person-avatar blobs; only cover objects. | D6c: purge deletes every blob in the family (cover, photo original + edited, avatars of the family's people); fails closed — if blob deletion fails the family row stays. |
+| 8 | Resend revives an expired-but-pending invite; enum `expired` unused. | Keep: resend rotates the token and sets expiresAt = now+7d even if it had expired; the new schema has no `expired` status. |
+| 9 | `remove_member` uses `familyTreeIds` which ignores soft-deletion (removes from deleted families in the tree too). | Keep: removes from every tree family including deleted ones (so recovery can't restore a removed member). |
+| 10 | Branch owner gets no `ensure_member_person` call (relies on already being linked in the parent tree). | D6d: branch creation ensures the owner and each picked member has a linked person in the tree (reuse existing, else create in the branch). |
+| 11 | Profile `delete own` policy exists though account deletion flow is not defined. | D7: not offered now; schema supports it, no endpoint or UI. |
+| 12 | Email change syncs profile email. | D1: dropped — no change-email flow; Settings shows the email read-only. |
 
 ## 7. Test port list (behaviour-level; given / when / then)
 
@@ -464,7 +474,7 @@ Families & roles
 8. Given owner + co_owner, when transferring with former=member, then target is owner and caller member immediately; with former=co_owner, caller is co_owner.
 9. Given co_owner, when calling transfer, then FORBIDDEN "owner only".
 10. Given owner, when demoting a co_owner, then role member; given co_owner caller, then FORBIDDEN "owner only"; given target not co_owner, then VALIDATION "target must be a co-owner".
-11. Given owner, when removing a member, then the member loses every membership in the tree, their linked person rows in the tree are unlinked, and their story tags remain.
+11. Given owner, when removing a member, then the member loses every membership in the tree, their linked person rows in the tree are unlinked, and their story tags remain, including from soft-deleted families in the tree.
 12. Given co_owner, when removing the owner → FORBIDDEN "cannot remove an owner"; removing another co_owner → FORBIDDEN "cannot remove a co-owner"; removing self → FORBIDDEN "cannot remove yourself".
 13. Given owner, when removing self, then FORBIDDEN "cannot remove yourself".
 14. Given client, when inserting a membership directly, then refused.
@@ -473,20 +483,20 @@ Families & roles
 17. Given soft-deleted family, then plain member and stranger cannot read it; co_owner and owner can.
 18. Given soft-deleted family, then its members read 0 stories (incl. their drafts), 0 people, 0 photos.
 19. Given co_owner and family deleted 10 days ago, when recovering, then deleted_at cleared; given 61 days ago, then FORBIDDEN "recovery window closed"; given not deleted, then VALIDATION "family is not deleted".
-20. Given family deleted 61 days ago with a child, when purge runs, then family hard-deleted and child's parent_id null.
+20. Given family deleted 61 days ago with a child, when purge runs, then family hard-deleted, child's parent_id null, and its cover, photo (original + edited) and person-avatar blobs are deleted.
 21. Given purge and cover blob deletion fails, then the family row remains (fail closed).
 22. Given client update of id/created_by/parent_id, then FORBIDDEN "field is locked".
 Covers
 23. Given owner or co_owner, when setting cover path `{id}/cover.jpg|jpeg|png|webp`, then saved; plain member → FORBIDDEN.
 24. Given cover path that is a URL / other family prefix / traversal / non-cover basename, then VALIDATION; null accepted.
-25. Given cover upload of svg, nested path, or >5 MiB, then rejected; member can read cover; non-member cannot; member of soft-deleted family can still read cover.
+25. Given cover upload of svg, nested path, or >5 MiB, then rejected; member can read cover; non-member cannot; member of soft-deleted family cannot read cover.
 Tree reading
 26. Given parent and child families, when parent member reads, then sees child's published story, its photos, comments, perspectives, story_people, place, and child people; does not see child's drafts.
 27. Given parent member (tree reader), when inserting comment or photo on child story, then refused.
 28. Given stranger or anon, then 0 people rows and cannot read child published story.
 29. Given list_family_tree from parent member, then returns parent and child (with branch_year and effective origin); a family with no parent/children lists itself.
 30. Given soft-deleted child, then absent from tree list for parent member and for its own owner; membership only in a soft-deleted family reads no tree.
-31. Given grandparent→parent(deleted)→child, then child is its own root; grandparent member doesn't see child; child member doesn't see grandparent.
+31. Given grandparent→parent(deleted)→child in one tree, then grandparent member and child member still read each other's live families (tree is not split by a deleted middle family) (D8).
 32. Given a parent cycle in data, then tree walk terminates and lists each id once.
 33. Given branch_year 0 or 10000 at storage level, then rejected; null accepted (root).
 Origin stories
@@ -509,7 +519,7 @@ Origin stories
 Branch creation
 50. Given parent member, when creating branch " The Morgan-Reyes " with year 1987 and owner X, then name trimmed, parent set, branch_year stored, created_by caller, origin set, exactly one owner = X.
 51. Given caller not picked and not owner, then caller is not a member of the branch; caller stays owner of parent.
-52. Given picked persons, then linked ones become members, unlinked/email-only ones get nothing, no people rows are copied, picking the owner keeps owner role.
+52. Given picked persons, then linked ones become members, unlinked/email-only ones get nothing, no people rows are copied, picking the owner keeps owner role; the branch owner and each picked linked member end up with exactly one linked person in the tree (D6d).
 53. Given co_owner of parent, when creating with themselves as owner, then OK; new owner can change origin; starter (non-owner) cannot.
 54. Given random/draft/sibling/grandparent/null origin, then NOT_FOUND "story" and no family written.
 55. Given stranger, tree reader non-member, null session, or null parent, then FORBIDDEN "member only" (before story/name checks).
@@ -555,7 +565,7 @@ Photo editing
 91. Given edited blob key for unknown photo, then upload denied; editor can upload original and edited keys.
 92. Constraints: edit_version ≥ 0; edited path non-null requires version > 0; edited path shape exact; version cannot jump by more than 1.
 Comments / perspectives
-93. Given member B, then can create, edit, delete own comment/perspective; member A cannot edit or delete B's; stranger cannot create.
+93. Given member B, then can create, edit, delete own comment/perspective; member A cannot edit or delete B's; owner/co_owner can delete (not edit) B's on a published story; child-family owner cannot delete notes on the parent origin story (D4); stranger cannot create.
 94. Given comment/perspective, when changing id, story, family, author, created_at, then FORBIDDEN "field is locked" (also for server/admin writes).
 People & profiles
 95. Given tree member (child or parent family), then reads the person row; outsider and null session do not.
@@ -572,7 +582,7 @@ People & profiles
 106. Given profile display_name change, then all linked person rows (in any tree) take the new name; unlinked rows untouched; a later direct rename still raises.
 107. Given null or whitespace display_name, then sync raises no error and linked names keep previous value; linking such a user keeps the existing person name; invite accept with null display name succeeds and new person uses email fallback.
 108. Given linking an existing person, then its name becomes the profile name even if caller can't read that profile.
-109. Given signup with metadata display_name, then profile display_name = it, email = auth email; without, display_name = email local-part; auth email change syncs profile email.
+109. Given signup with metadata display_name, then profile display_name = it, email = auth email; without, display_name = email local-part.
 110. Given co-members, then each can read the other's profile and avatar; stranger cannot; co-member cannot write another's avatar.
 111. Given own avatar path `{uid}/avatar.jpg`, then stored; any other path rejected.
 Member person rows
@@ -582,7 +592,7 @@ Member person rows
 115. Given user member of parent and child, then exactly one linked person in the tree.
 116. Given tree member, then reads passed_away of a person in another family of the tree; cannot read out-of-tree family people.
 Invites
-117. Given any member, when creating invite without person, then 201 with token, expires_at (+7d), invite_url; non-member → 403 "Not a family member".
+117. Given any live member, when creating invite without person, then 201 with token, expires_at (+7d), invite_url; non-member → 403 "Not a family member"; member of a soft-deleted family → FORBIDDEN.
 118. Given invite with person: unknown and out-of-tree → identical NOT_FOUND body; linked → VALIDATION "person is already linked"; passed → VALIDATION "person has passed"; unlinked living tree person → OK.
 119. Given insert DB error, then VALIDATION "Could not create invite" (no raw text).
 120. Given list_unlinked_people, then covers the whole live tree, omits linked, passed, and people with an open unexpired invite; outsider/missing family/null uid → NOT_FOUND.
@@ -599,3 +609,9 @@ Invites
 131. Given send-invite-email on non-pending/expired/no-email invite, then INVITE_INVALID / INVITE_EXPIRED / VALIDATION respectively.
 Error mapping
 132. Given server error "PREFIX: detail" with prefix at start among NOT_FOUND/FORBIDDEN/VALIDATION/INVITE_INVALID, then code+status 404/403/400/400 and message=detail; prefix mid-message or unknown prefix → 400 VALIDATION "Try again".
+Decisions (2026-11-07)
+133. Given invite emailed to a@x.com, when b@x.com accepts, then INVITE_INVALID "Invite was sent to a different email" and no membership; when " A@X.com " account accepts, then success (D2).
+134. Given link-only invite (no email), when any signed-in user accepts, then success (D2).
+135. Given invite to a soft-deleted family, when accepting, then INVITE_INVALID and no membership (D6a).
+136. Given plain member, when deleting an unlinked person, then FORBIDDEN; given owner, when deleting an unlinked person, then deleted; when deleting a linked person, then VALIDATION "person is linked to an account" (D5).
+137. Given soft-deleted family, when its author deletes a story, a member deletes a place, or a member reads invites, then FORBIDDEN/NOT_FOUND and nothing changes (D6b).

@@ -128,7 +128,7 @@ Each method is one F call; errors map to `ManageFamiliesException{code,message}`
 | `saveAvatar(bytes)` | compress 512 → S `avatars/{uid}/avatar.jpg` upsert → T update (`:193-213`) | `String` path |
 | `clearAvatar()` | T update avatar_path=null | void |
 | `downloadAvatar(path)` | S signed URL + `http.get` (`:220-231`) | `Uint8List?` |
-| `updateEmail(email)` | `auth.updateUser(email)` (GoTrue email-change flow) (`:233-240`) | void |
+| `updateEmail(email)` | `auth.updateUser(email)` (GoTrue email-change flow) (`:233-240`) | void — **dropped (D1)**: no server equivalent. |
 
 ### 1.12 `SearchGateway` (`search_api.dart:180-209`)
 `search(SearchRequest)` → T stories (published, family) + `places(label,address)` + `story_people(person_id, people(name))` + `profiles!author_id(display_name)` + photos. Then a **pure client** `filterSearchRecords` does the filtering and ranking (`:123-178`).
@@ -201,7 +201,7 @@ class: PhotoDto             # id, storyId, uploaderId?, originalKey, editedKey?,
 class: PhotoUploadTicketDto # photoId, key, uploadDescription: String
 class: CoverUploadTicketDto # key, uploadDescription: String
 enum:  NoteKind             # comment, perspective
-class: NoteDto              # id, storyId, familyId, kind, authorId?, authorName?, body, createdAt
+class: NoteDto              # id, storyId, familyId, kind, authorId?, authorName?, body, createdAt, canDelete: bool (computed server-side for the caller; reader shows the delete action from it)
 class: PlaceDto             # id, familyId, label, address, lat: double, lng: double, mapboxPlaceId?, isFavorite, lastUsedAt?
 class: PlaceInputDto        # label, address, lat, lng, mapboxPlaceId?, isFavorite
 class: OwnProfileDto        # authUserId, displayName?, email?, avatarKey?, birthDate?, birthPrecision?, birthVisibility, about?
@@ -247,7 +247,7 @@ class FamilyEndpoint extends Endpoint {
 class InviteEndpoint extends Endpoint {
   Future<CreatedInviteDto> create(Session s, UuidValue familyId, {String? email, UuidValue? personId});
   Future<void> sendEmail(Session s, UuidValue inviteId);
-  Future<UuidValue> accept(Session s, String token);       // returns familyId; single transaction (membership + person link)
+  Future<UuidValue> accept(Session s, String token);       // returns familyId; single transaction (membership + person link); refuses deleted family and email mismatch with AppErrorCode.inviteInvalid
   Future<DateTime> resend(Session s, UuidValue inviteId);  // new expires_at
   Future<void> revoke(Session s, UuidValue inviteId);
 }
@@ -266,6 +266,7 @@ class PeopleEndpoint extends Endpoint {
   Future<List<PersonDto>> listUnlinked(Session s, UuidValue familyId);
   Future<bool> isHomeFamilySteward(Session s, UuidValue familyId);
   Future<void> markPassedAway(Session s, UuidValue personId, bool value);
+  Future<void> delete(Session s, UuidValue personId);      // stewards of live family; linked → AppErrorCode.validation 'person is linked to an account'. Server-only for now (no client delete-person UI); covered by business-rules §7 case 136
 }
 
 // ── stories ─────────────────────────────────────────────────────────────
@@ -299,7 +300,7 @@ class NoteEndpoint extends Endpoint {
   Future<List<NoteDto>> listForStory(Session s, UuidValue storyId, {NoteKind? kind});   // null = both, ordered created_at
   Future<NoteDto> create(Session s, UuidValue storyId, NoteKind kind, String body);
   Future<void> update(Session s, UuidValue noteId, String body);
-  Future<void> delete(Session s, UuidValue noteId);
+  Future<void> delete(Session s, UuidValue noteId);        // author, or owner/co_owner of the story's live family on a published story
 }
 
 // ── places ──────────────────────────────────────────────────────────────
@@ -322,8 +323,6 @@ class ProfileEndpoint extends Endpoint {
       BirthVisibility? birthVisibility, String? about});
   Future<String> saveAvatar(Session s, ByteData jpeg);       // ≤512px, inline; returns key
   Future<void> clearAvatar(Session s);
-  Future<UuidValue> startEmailChange(Session s, String newEmail);                   // see §2.4 caveat
-  Future<void> finishEmailChange(Session s, UuidValue requestId, String code);
 }
 
 // ── media (authorized reads) ───────────────────────────────────────────
@@ -385,11 +384,11 @@ There is **no SearchEndpoint**. `SearchApi.search` calls `StoryEndpoint.listPubl
 | Profile.loadOwn | `profile.me` | 2 → 1 |
 | Profile.saveName / saveAccount / saveAvatar / clearAvatar | same names | avatar: 2 → 1 |
 | Profile.downloadAvatar | `media.get` | signed URL + http → 1 |
-| Profile.updateEmail | `profile.startEmailChange` + `finishEmailChange` (interface grows a code step) | |
+| Profile.updateEmail | — removed (D1) | |
 | TimelineLive.watch / watchStory | `live.watchFamily` / `live.watchStory` | |
 
 ### 2.4 Open items with how to resolve them
-- **Email change.** `EmailIdpBaseEndpoint` 4.1.1 has no change-email method. Its public methods are `startRegistration, verifyRegistrationCode, finishRegistration, login, hasAccount, startPasswordReset, verifyPasswordResetCode, finishPasswordReset` (grep of `email_idp_base_endpoint.dart`). `ProfileEndpoint.start/finishEmailChange` therefore has to be custom. It would send a code to the new address and then update the IDP's email-account row. [UNVERIFIED] that updating `serverpod_auth_idp` `EmailAccount` rows directly is supported; to check, read `serverpod_auth_idp_server-4.1.1/lib/src/providers/email/business/` for an admin/update API. The other option is for Main to drop email change from Settings (`settings_page.dart:359`).
+- **Email change — dropped (D1).** No endpoint; Settings shows the email read-only.
 - **The caller id accessor** and **refresh token endpoint** names are owned by ServerpodResearch.
 - Whether `retrieveFile` on the S3 provider streams large responses efficiently is [UNVERIFIED]. Photos are capped at 1920 px JPEG q80, so they are typically well under 1 MB.
 
@@ -426,7 +425,7 @@ LOC = lines changed (added + removed), estimated.
 | `lib/features/people/person_profile_dialog.dart` | `:81` → `AppSession`; `signedPictureUrl` → `pictureBytes` and `Image.network` → `Image.memory` (`:145,558`); `PersonStoryCard.thumbUrl` → `thumbBytes` (`:480-493`) | 25 |
 | `lib/features/people/edit_person_dialog.dart` | `:82,434` URL → bytes, `Image.memory` | 12 |
 | `lib/features/perspectives/add_perspective_page.dart` | `:147-163` direct `profiles` query → `ProfileSession.instance.displayName` (already loaded) or `ProfileGateway.loadOwn()` | 12 |
-| `lib/features/settings/settings_page.dart` | `:201` → `AppSession`; `:359` `updateEmail` gains a code-entry step, or the feature is removed (§2.4) | 10–60 |
+| `lib/features/settings/settings_page.dart` | `:201` → `AppSession`; email field becomes read-only and `updateEmail` call removed (D1) | 10 |
 | `lib/features/stories/new_story_page.dart` | drop the supabase import; `_linkIgnoringDuplicate` (`:468-480`) → plain `linkPerson` (idempotent on the server); `_writeDraft` catch (`:726-729`) removed, because `createDraft` is idempotent on id | 20 |
 | `lib/features/stories/story_reader_page.dart` | `:202` → `AppSession`; `:231` `SupabaseTimelineLive()` → `ServerTimelineLive()` | 6 |
 | `lib/features/timeline/timeline_page.dart` | `:226` → `AppSession`; `:85` → `ServerTimelineLive()` | 6 |
@@ -435,11 +434,11 @@ LOC = lines changed (added + removed), estimated.
 | `lib/data/stories_api.dart` (866) | impl → `serverClient.story.*`; delete `_storySelect`/`_publishedSelect`, the embed parsers (`:129-275`), `isDuplicateStoryKey`, `_replacePeople`, `_date`/`_parseDate`; `storiesForPerson` → `listForPerson` + `media.getMany`; `downloadFirstThumbs` → `getMany`. `publishReadiness` stays client-side for UI gating | −330 / +140 |
 | `lib/data/people_api.dart` (490) | impl → `people.*`; delete `fromJson`, `personProfileFromRpc`, `_treeFamilyIds`, `_uploadPersonPicture`; `signedPictureUrl` → `pictureBytes` on the interface | −200 / +90 |
 | `lib/data/photos_api.dart` (378) | keep `compressStoryPhoto`, `ensurePhotoCap`, `photosWithHeroFirst`, `comparePhotoOrder`. Delete `storyPhotoStoragePath` (moves to the server), `deleteAllForStory` and most test injectables (`uploadBinary`/`removeObjects`/`insertPhoto`/`deletePhotoRow`/`listStoryObjects`). Keep one `PhotoUploadBinary` seam for tests | −150 / +70 |
-| `lib/data/comments_api.dart`, `perspectives_api.dart` | impl → `note.*` with a kind; delete `fromJson` | 40 each |
+| `lib/data/comments_api.dart`, `perspectives_api.dart` | impl → `note.*` with a kind; delete `fromJson`; reader shows delete on others' notes when `NoteDto.canDelete` (D4) | 40 each |
 | `lib/data/places_api.dart` (221) | impl → `place.*`; `buildPlaceInsert` → `PlaceInputDto` builder | −80 / +50 |
 | `lib/data/invite_api.dart` (231) | `_invoke` / `FunctionException` → endpoint calls + `AppException` mapping; `createFamily` → `family.createRoot`; `currentFamilyId` uses `family.listMine` | −90 / +50 |
 | `lib/data/manage_families_api.dart` (197) | each method is one endpoint call; server `AppException` → client `AppException` via `dto_mapping.dart` | −80 / +45 |
-| `lib/data/profile_api.dart` (249) | `loadOwn` → `profile.me`; `saveAvatar` inline `ByteData`; `downloadAvatar` → `media.get` (drops the `http` signed-URL fetch); `updateEmail` per §2.4 | −80 / +50 |
+| `lib/data/profile_api.dart` (249) | `loadOwn` → `profile.me`; `saveAvatar` inline `ByteData`; `downloadAvatar` → `media.get` (drops the `http` signed-URL fetch); delete `updateEmail` and `EmailUpdate` from `ProfileGateway`/`ProfileApi` (D1) | −80 / +50 |
 | `lib/data/search_api.dart` | `search` → `story.listPublished` + `Story.fromDto` + `filterSearchRecords`; delete `searchRecordFromRow` | 20 |
 | `lib/data/timeline_live.dart` (146) | `SupabaseTimelineLive` → `ServerTimelineLive`, which subscribes to `live.watchFamily` / `live.watchStory` and keeps the 200 ms debounce. `timelineEventMatters` takes a `LiveEventDto` (or keeps its named params, mapped from the DTO) | −80 / +60 |
 | `lib/data/supabase_errors.dart` | **delete** at cutover: Phase 2 already routes every Supabase error into the client `AppException`; after Phase 4 the only source is server `AppErrorCode` mapped in `dto_mapping.dart` (`mapRpcError` reads `AppException.message`) | −40 |

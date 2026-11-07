@@ -36,13 +36,27 @@ Every phase ends green on `just test` (client) and `just server-test` (backend, 
 |---|---|---|
 | 1. Server foundation | `apps/server` + `packages/tell_me_a_story_client` scaffolded at 4.1.1; just recipes; embedded PG; full new schema + first migration; email-OTP login with a fixed dev code; `AppException`; `Authz` core with ported invariant tests | `2026-11-06-serverpod-phase1-server-foundation.md` |
 | 2. Client seams (still on Supabase) | One `AppSession` replaces direct `Supabase.instance` reads; one `AppException` client error; duplicate-key handling and story discard moved into gateways; image URLs become bytes; direct query removed from `add_perspective_page` | `2026-11-06-serverpod-phase2-client-seams.md` |
-| 3. Server endpoints (parallel slices) | 3a families/memberships/tree/origin/manage + places + profile; 3b people; 3c stories/drafts/story_people + search + notes; 3d photos/avatars/covers + `MediaEndpoint`; 3e invites; 3f live streams + purge future call. Each slice ports its business-rules test cases | written at Phase 1 close |
-| 4. Client cutover | Every `*Api` body switched to the Serverpod client; 6-digit code login pages; `supabase_flutter` removed; tests updated | written at Phase 3 close |
+| 3. Server endpoints (parallel slices) | 3a families/memberships/tree/origin/manage + places + profile; 3b people; 3c stories/drafts/story_people + search + notes; 3d photos/avatars/covers + `MediaEndpoint`; 3e invites; 3f live streams + purge future call. Each slice ports its business-rules test cases. Decisions D2–D6 apply (invite email binding, live-family checks, moderation, person delete, full purge, branch person rows). | written at Phase 1 close |
+| 4. Client cutover | Every `*Api` body switched to the Serverpod client; 6-digit code login pages; `supabase_flutter` removed; tests updated. Settings email becomes read-only (D1); reader shows delete on others' comments/perspectives for stewards via `NoteDto.canDelete` (D4). | written at Phase 3 close |
 | 5. Cleanup | Delete `supabase/`, `scripts/advisors/`, `e2e/`, the Supabase CLI from mise; CI on mise + just (`flutter test`, `server-test`); `AGENTS.md`, README and `netlify.toml` (or Serverpod web hosting) rewritten; e2e reads the dev OTP code | written at Phase 4 close |
 
-## Open product decisions
-These need an answer before the phase that touches them.
-1. **Email change in Settings.** The 4.1.1 email IDP has no change-email flow. Either build a custom code-confirmed flow or drop the feature (Phase 4).
-2. **The behaviours listed in `business-rules.md` §6**: accept on a soft-deleted family, invites not bound to an email, moderation, purge leaving photo blobs behind, decade precision unusable, and so on. Keep each as-is or fix it while porting (Phase 3).
-3. **Tree semantics.** Tree reads are now `treeId` equality among live families. The old recursive walk split a tree at a soft-deleted middle family; the new one doesn't. Phase 1 adopts the simpler rule; reverse it only if the split mattered.
-4. **`decade` date precision is dropped** (`schema-design.md` §0.3). It was already impossible to create; the client's `legacyDecade` paths are removed at cutover.
+## Product decisions (2026-11-07)
+
+| # | Topic | Decision |
+|---|---|---|
+| D1 | Email change in Settings | **Dropped.** There is no change-email flow. In Phase 4, Settings shows the email read-only. |
+| D2 | Invite binding | An invite **with an email** can only be accepted while signed in as that email. Compare after trimming and lowercasing. A link-only invite (email null) works for anyone holding it. |
+| D3 | Who invites | Unchanged: any **live** member can create and send invites. Only owners and co-owners can resend or revoke. |
+| D4 | Moderation | Owners and co-owners of the story's family can delete **anyone's comments and perspectives** on published stories in that family. They cannot delete other people's stories. |
+| D5 | Person delete | Only owners and co-owners of the person's (live) family may delete a person, and a person linked to an account (`userId != null`) can never be deleted. |
+| D6a | Accept into deleted family | Refused, with `AppErrorCode.inviteInvalid`, the same as preview. |
+| D6b | Access to deleted families | Every write and every member read requires a **live** family. Owners and co-owners keep read access to a soft-deleted family's row and memberships, so the recovery screen can work. Nothing else stays readable while deleted, including the cover. |
+| D6c | Purge | Deletes **every** blob in the family: covers, story photos (original and edited), and the person avatars of the family's people. It fails closed: if blob deletion fails, the family row stays. |
+| D6d | Branch owner person row | Creating a branch makes sure the branch owner and each picked member has a linked person in the tree. They reuse their existing linked person if they already have one; otherwise one is created in the branch. |
+| D7 | Account deletion | Not offered now. The schema supports it; no endpoint or UI. |
+| D8 | Tree semantics | Kept. "Same tree" means equal `treeId` among live families; a deleted middle family no longer splits a tree. |
+| D9 | `decade` precision | Kept dropped. |
+
+Remove member (business-rules §6 item 9) still removes the member from **every** family in the tree, including soft-deleted ones. Otherwise recovering a deleted family would bring the removed member back. "Closed" (D6b) limits access; it does not narrow removal.
+
+Phase 3 slices implement business-rules.md §2/§3/§7 as amended; nothing remains open.
