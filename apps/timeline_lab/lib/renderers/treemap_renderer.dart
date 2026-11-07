@@ -148,10 +148,14 @@ class _GroupTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.labelMedium
         ?.copyWith(fontWeight: FontWeight.w600);
+    // Cells sit 2 px inside the group's 1 px border, so their tile radius
+    // (4) follows the group's 8 px curve.
     return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border.all(color: labBorder),
-        borderRadius: BorderRadius.circular(4),
+      decoration: ShapeDecoration(
+        shape: labContainerShape(
+          LabRadius.group,
+          side: const BorderSide(color: labBorder),
+        ),
       ),
       child: LayoutBuilder(
         builder: (context, box) {
@@ -277,6 +281,8 @@ class TreemapCellTile extends StatelessWidget {
       alpha: treemapShade(share, dimming: dimming),
     );
     final theme = Theme.of(context).textTheme;
+    // Drill-down cells stand alone; overview cells sit inside a group.
+    final radius = large ? LabRadius.group : LabRadius.tile;
     final selected = cell.entries.any((e) => e.story.id == data.selectedId);
     return Semantics(
       button: true,
@@ -296,52 +302,64 @@ class TreemapCellTile extends StatelessWidget {
                         ? onSmallTap!
                         : onTap)
                     .call(),
+            // Border on top so the reveal fill never covers it; the fill is
+            // clipped to the same continuous corner.
             child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: labParchment,
-                border: Border.all(
-                  color: selected ? labTerracotta : labBorder,
-                  width: selected ? LabStroke.mark : LabStroke.hairline,
+              position: DecorationPosition.foreground,
+              decoration: ShapeDecoration(
+                shape: labContainerShape(
+                  radius,
+                  side: BorderSide(
+                    color: selected ? labTerracotta : labBorder,
+                    width: selected ? LabStroke.mark : LabStroke.hairline,
+                  ),
                 ),
               ),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: FractionallySizedBox(
-                      heightFactor: revealed.clamp(0, 1),
-                      widthFactor: 1,
-                      child: ColoredBox(color: fill),
-                    ),
-                  ),
-                  LayoutBuilder(
-                    builder: (context, box) {
-                      if (box.maxWidth < 34 || box.maxHeight < 18) {
-                        return const SizedBox.shrink();
-                      }
-                      return Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Text(
-                          large || box.maxHeight >= 34
-                              ? '${cell.label}\n${_countLabel(cell.count, cell.matchedCount, data.mode)}'
-                              : cell.label,
-                          maxLines: 2,
-                          overflow: TextOverflow.clip,
-                          // Label and count are separate lines; never break
-                          // "1920s" mid-word in a narrow cell.
-                          softWrap: false,
-                          style: (large ? theme.titleSmall : theme.labelSmall)
-                              ?.copyWith(
-                                color: share > 0 || !dimming
-                                    ? labInk
-                                    : labDimmedInk,
-                              ),
+              child: ClipRSuperellipse(
+                borderRadius: BorderRadius.circular(radius),
+                child: ColoredBox(
+                  color: labParchment,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Align(
+                        alignment: Alignment.bottomCenter,
+                        child: FractionallySizedBox(
+                          heightFactor: revealed.clamp(0, 1),
+                          widthFactor: 1,
+                          child: ColoredBox(color: fill),
                         ),
-                      );
-                    },
+                      ),
+                      LayoutBuilder(
+                        builder: (context, box) {
+                          if (box.maxWidth < 34 || box.maxHeight < 18) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Text(
+                              large || box.maxHeight >= 34
+                                  ? '${cell.label}\n${_countLabel(cell.count, cell.matchedCount, data.mode)}'
+                                  : cell.label,
+                              maxLines: 2,
+                              overflow: TextOverflow.clip,
+                              // Label and count are separate lines; never break
+                              // "1920s" mid-word in a narrow cell.
+                              softWrap: false,
+                              style:
+                                  (large ? theme.titleSmall : theme.labelSmall)
+                                      ?.copyWith(
+                                        color: share > 0 || !dimming
+                                            ? labInk
+                                            : labDimmedInk,
+                                      ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           );
@@ -374,17 +392,19 @@ class _StoryTiles extends StatelessWidget {
                 key: Key('treemap-story-${e.story.id}'),
                 onTap: () => data.onSelect(e.story.id),
                 child: DecoratedBox(
-                  decoration: BoxDecoration(
+                  decoration: ShapeDecoration(
                     color: labTerracotta.withValues(
                       alpha: e.matched ? 0.18 : 0.06,
                     ),
-                    border: Border.all(
-                      color: e.story.id == data.selectedId
-                          ? labTerracotta
-                          : labPillBorder,
-                      width: e.story.id == data.selectedId ? 2 : 1,
+                    shape: labContainerShape(
+                      LabRadius.group,
+                      side: BorderSide(
+                        color: e.story.id == data.selectedId
+                            ? labTerracotta
+                            : labPillBorder,
+                        width: e.story.id == data.selectedId ? 2 : 1,
+                      ),
                     ),
-                    borderRadius: BorderRadius.circular(LabRadius.tile),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(6),
