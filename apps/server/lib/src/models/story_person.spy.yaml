@@ -6,6 +6,8 @@ fields:
   id: UuidValue?, defaultPersist=random_v7
   storyId: UuidValue, relation(parent=stories, onDelete=Cascade)
   personId: UuidValue, relation(parent=people, onDelete=Cascade)
+  ### Copy of the story's treeId; story_people_story_tree_fk and story_people_person_tree_fk make tags same-tree.
+  treeId: UuidValue
 indexes:
   story_people_story_person_uidx:
     fields: storyId, personId

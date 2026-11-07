@@ -102,45 +102,9 @@ dart run bin/main.dart --apply-migrations    # plain run (CI/prod)
 
 ## 4. Models (`.spy.yaml`, anywhere under server `lib/`)
 Plain `.yaml`/`.yml` model files are rejected in 4.x. Ids are `int` serial by default; use `UuidValue` for public-facing ids (docs …/database/tables).
-```yaml
-# family.spy.yaml
-class: Family
-table: families
-fields:
-  id: UuidValue?, defaultPersist=random          # uuid PK (v4); random_v7 also allowed
-  tree: Tree?, relation(name=tree_families, onDelete=Cascade)    # generates treeId
-  parent: Family?, relation(name=family_children, optional, onDelete=SetNull)  # self 1:n -> parentId nullable
-  children: List<Family>?, relation(name=family_children)
-  name: String
-  branchYear: int?
-  originStoryId: UuidValue?                       # plain FK-less column; or relation(parent=stories)
-  coverKey: String?
-  createdById: UuidValue                          # auth user id (UuidValue in idp module)
-  createdAt: DateTime, defaultPersist=now         # or default=now (model+db)
-  deletedAt: DateTime?
-indexes:
-  families_tree_idx: { fields: treeId }
-```
-```yaml
-# membership.spy.yaml  (join table, unique composite)
-class: Membership
-table: memberships
-fields:
-  family: Family?, relation(name=family_memberships, onDelete=Cascade)
-  userId: UuidValue
-  role: MembershipRole
-  createdAt: DateTime, default=now
-indexes:
-  memberships_family_user_uniq: { fields: familyId, userId, unique: true }
-```
-```yaml
-# membership_role.spy.yaml
-enum: MembershipRole
-serialized: byName        # default; stored as text
-values: [owner, coOwner, member]
-```
+Model files are specified in `schema-design.md` §1; this section only covers syntax.
 - Many-to-many (story_people): a junction model whose two relations each name a matching `List<StoryPerson>?, relation(name=...)` on the parent side, plus a unique index on `storyId, personId` (docs …/relations/many-to-many).
-- Plain FK without an object field: `familyId: UuidValue, relation(parent=families, onDelete=Cascade)`. This is the parent= shorthand from the one-to-many docs; exact syntax for uuid ids is [UNVERIFIED], so check …/relations/one-to-many.md.
+- Plain FK without an object field: `familyId: UuidValue, relation(parent=families, onDelete=Cascade)`. This is the parent= shorthand from the one-to-many docs; it works with uuid ids (the committed models in `apps/server/lib/src/models` use it).
 - Nullable = `Type?`. Partial/unique per tree: `people_tree_user_uniq: {fields: treeId, userId, unique: true}`. Postgres treats NULLs as distinct, so nullable userId works.
 - `serverOnly: true` keeps a class off the client; `scope=serverOnly` does the same per field (nullable fields only). Use this for `invites.tokenHash`.
 - Server-side CRUD: `Family.db.insertRow/find/findById/updateRow/deleteWhere(session, where: (t) => t.treeId.equals(id))`, `session.db.transaction((tx) async {...})`.

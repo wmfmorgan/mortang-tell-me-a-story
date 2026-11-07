@@ -21,12 +21,14 @@ abstract class StoryPerson
     this.id,
     required this.storyId,
     required this.personId,
+    required this.treeId,
   });
 
   factory StoryPerson({
     _is.UuidValue? id,
     required _is.UuidValue storyId,
     required _is.UuidValue personId,
+    required _is.UuidValue treeId,
   }) = _StoryPersonImpl;
 
   factory StoryPerson.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -40,6 +42,7 @@ abstract class StoryPerson
       personId: _is.UuidValueJsonExtension.fromJson(
         jsonSerialization['personId'],
       ),
+      treeId: _is.UuidValueJsonExtension.fromJson(jsonSerialization['treeId']),
     );
   }
 
@@ -54,6 +57,9 @@ abstract class StoryPerson
 
   _is.UuidValue personId;
 
+  /// Copy of the story's treeId; story_people_story_tree_fk and story_people_person_tree_fk make tags same-tree.
+  _is.UuidValue treeId;
+
   @override
   _is.Table<_is.UuidValue?> get table => t;
 
@@ -64,6 +70,7 @@ abstract class StoryPerson
     _is.UuidValue? id = const _is.$UndefinedUuidValue(),
     _is.UuidValue? storyId,
     _is.UuidValue? personId,
+    _is.UuidValue? treeId,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -72,6 +79,7 @@ abstract class StoryPerson
       if (id != null) 'id': id?.toJson(),
       'storyId': storyId.toJson(),
       'personId': personId.toJson(),
+      'treeId': treeId.toJson(),
     };
   }
 
@@ -82,6 +90,7 @@ abstract class StoryPerson
       if (id != null) 'id': id?.toJson(),
       'storyId': storyId.toJson(),
       'personId': personId.toJson(),
+      'treeId': treeId.toJson(),
     };
   }
 
@@ -118,10 +127,12 @@ class _StoryPersonImpl extends StoryPerson {
     _is.UuidValue? id,
     required _is.UuidValue storyId,
     required _is.UuidValue personId,
+    required _is.UuidValue treeId,
   }) : super._(
          id: id,
          storyId: storyId,
          personId: personId,
+         treeId: treeId,
        );
 
   /// Returns a shallow copy of this [StoryPerson]
@@ -132,11 +143,13 @@ class _StoryPersonImpl extends StoryPerson {
     _is.UuidValue? id = const _is.$UndefinedUuidValue(),
     _is.UuidValue? storyId,
     _is.UuidValue? personId,
+    _is.UuidValue? treeId,
   }) {
     return StoryPerson(
       id: id is _is.UndefinedSentinel ? this.id : id,
       storyId: storyId ?? this.storyId,
       personId: personId ?? this.personId,
+      treeId: treeId ?? this.treeId,
     );
   }
 }
@@ -155,6 +168,12 @@ class StoryPersonUpdateTable extends _is.UpdateTable<StoryPersonTable> {
         table.personId,
         value,
       );
+
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> treeId(_is.UuidValue value) =>
+      _is.ColumnValue(
+        table.treeId,
+        value,
+      );
 }
 
 class StoryPersonTable extends _is.Table<_is.UuidValue?> {
@@ -168,6 +187,10 @@ class StoryPersonTable extends _is.Table<_is.UuidValue?> {
       'personId',
       this,
     );
+    treeId = _is.ColumnUuid(
+      'treeId',
+      this,
+    );
   }
 
   late final StoryPersonUpdateTable updateTable;
@@ -176,11 +199,15 @@ class StoryPersonTable extends _is.Table<_is.UuidValue?> {
 
   late final _is.ColumnUuid personId;
 
+  /// Copy of the story's treeId; story_people_story_tree_fk and story_people_person_tree_fk make tags same-tree.
+  late final _is.ColumnUuid treeId;
+
   @override
   List<_is.Column> get columns => [
     id,
     storyId,
     personId,
+    treeId,
   ];
 }
 

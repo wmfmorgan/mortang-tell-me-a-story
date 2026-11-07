@@ -23,6 +23,7 @@
 - `docs/migration/audit.md`: current-state audit
 - `docs/migration/business-rules.md`: authorization matrix, invariants and workflows to port
 - `docs/migration/schema-design.md`: new schema as Serverpod models
+- `docs/migration/data-model-review.md`: data-model review (2026-11-07) applied to the schema
 - `docs/migration/endpoint-contract.md`: gateway → endpoint map and client change list
 - `docs/migration/serverpod-notes.md`: Serverpod 4.1 APIs used by these plans
 
@@ -58,5 +59,7 @@ Every phase ends green on `just test` (client) and `just server-test` (backend, 
 | D9 | `decade` precision | Kept dropped. |
 
 Remove member (business-rules §6 item 9) still removes the member from **every** family in the tree, including soft-deleted ones. Otherwise recovering a deleted family would bring the removed member back. "Closed" (D6b) limits access; it does not narrow removal.
+
+With the data-model review, people are tree-scoped. D5's "person's family" is the person's `homeFamilyId`. Under D6c, a purge of a family that is not the last in its tree reassigns that family's people to a sibling family, so they keep their avatars; a person's avatar is deleted when the person is. "Fails closed" is met by the `blob_deletions` outbox: the keys are queued in the purge transaction, a failed transaction leaves the family row, and the drain retries failed blob deletes (schema-design.md §4.3).
 
 Phase 3 slices implement business-rules.md §2/§3/§7 as amended; nothing remains open.

@@ -1,22 +1,29 @@
+### A human in one tree, shared by every family (timeline) in the tree.
 class: Person
 table: people
 fields:
   id: UuidValue?, defaultPersist=random_v7
-  familyId: UuidValue, relation(parent=families, onDelete=Cascade)
-  ### Copy of families.treeId (immutable); kept equal by raw composite FK
-  ### people_family_tree_fk. Exists so "one linked person per tree" is a plain unique index.
-  treeId: UuidValue
-  ### Linked account. Unique per tree; NULLs are distinct so unlinked people don't collide.
+  ### Owning tree. Deleted with the tree, or explicitly.
+  treeId: UuidValue, relation(parent=trees, onDelete=Cascade)
+  ### Family the person was added in; its stewards hold steward-only rights.
+  ### Same tree enforced by people_home_family_tree_fk. The purge job reassigns it before deleting the family (§4.3).
+  homeFamilyId: UuidValue, relation(parent=families, onDelete=Restrict)
+  ### Linked account. Unique per tree; NULLs are distinct.
   userId: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
   ### For linked people this mirrors AppUser.displayName (app-layer sync, §3.2).
   name: String
-  relationship: String?
   ### Lower-cased, trimmed, non-empty or null (CHECK).
   email: String?
   ### ≤ 500 chars (CHECK).
   about: String?
-  ### Blob key, see §4. families/{familyId}/people/{personId}/avatar/{blobId}.jpg
+  ### Blob key, see §4. trees/{treeId}/people/{personId}/avatar/{blobId}.jpg
   avatarKey: String?
+  ### UTC midnight aligned to precision (CHECK people_birth_shape). While linked, AppUser birth wins on read.
+  birthDate: DateTime?
+  birthPrecision: DatePrecision?
+  ### UTC midnight aligned to precision (CHECK people_death_shape). Requires passedAway.
+  deathDate: DateTime?
+  deathPrecision: DatePrecision?
   passedAway: bool, default=false
   createdById: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
   createdAt: DateTime, default=now
@@ -25,10 +32,15 @@ indexes:
   people_tree_user_uidx:
     fields: treeId, userId
     unique: true
-  people_family_name_idx:
-    fields: familyId, name
-  ### Tree-wide person picker (story tagging across branches).
+  ### Target of the composite FKs (story_people, invites, kinships).
+  people_id_tree_uidx:
+    fields: id, treeId
+    unique: true
+  ### Tree-wide person picker.
   people_tree_name_idx:
     fields: treeId, name
+  ### listFamily(familyId) and the Restrict check on family delete.
+  people_home_family_name_idx:
+    fields: homeFamilyId, name
   people_user_idx:
     fields: userId

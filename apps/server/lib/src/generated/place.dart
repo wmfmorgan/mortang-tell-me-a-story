@@ -13,11 +13,12 @@
 import 'dart:async' as _ida;
 import 'package:serverpod/serverpod.dart' as _is;
 
+/// A real-world place, shared by every family in the tree.
 abstract class Place
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   Place._({
     this.id,
-    required this.familyId,
+    required this.treeId,
     required this.label,
     required this.address,
     required this.lat,
@@ -25,11 +26,13 @@ abstract class Place
     this.mapboxPlaceId,
     bool? isFavorite,
     this.lastUsedAt,
-  }) : isFavorite = isFavorite ?? false;
+    DateTime? createdAt,
+  }) : isFavorite = isFavorite ?? false,
+       createdAt = createdAt ?? DateTime.now();
 
   factory Place({
     _is.UuidValue? id,
-    required _is.UuidValue familyId,
+    required _is.UuidValue treeId,
     required String label,
     required String address,
     required double lat,
@@ -37,6 +40,7 @@ abstract class Place
     String? mapboxPlaceId,
     bool? isFavorite,
     DateTime? lastUsedAt,
+    DateTime? createdAt,
   }) = _PlaceImpl;
 
   factory Place.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -44,9 +48,7 @@ abstract class Place
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      familyId: _is.UuidValueJsonExtension.fromJson(
-        jsonSerialization['familyId'],
-      ),
+      treeId: _is.UuidValueJsonExtension.fromJson(jsonSerialization['treeId']),
       label: jsonSerialization['label'] as String,
       address: jsonSerialization['address'] as String,
       lat: (jsonSerialization['lat'] as num).toDouble(),
@@ -58,6 +60,9 @@ abstract class Place
       lastUsedAt: jsonSerialization['lastUsedAt'] == null
           ? null
           : _is.DateTimeJsonExtension.fromJson(jsonSerialization['lastUsedAt']),
+      createdAt: jsonSerialization['createdAt'] == null
+          ? null
+          : _is.DateTimeJsonExtension.fromJson(jsonSerialization['createdAt']),
     );
   }
 
@@ -68,7 +73,7 @@ abstract class Place
   @override
   _is.UuidValue? id;
 
-  _is.UuidValue familyId;
+  _is.UuidValue treeId;
 
   String label;
 
@@ -84,6 +89,8 @@ abstract class Place
 
   DateTime? lastUsedAt;
 
+  DateTime createdAt;
+
   @override
   _is.Table<_is.UuidValue?> get table => t;
 
@@ -92,7 +99,7 @@ abstract class Place
   @_is.useResult
   Place copyWith({
     _is.UuidValue? id = const _is.$UndefinedUuidValue(),
-    _is.UuidValue? familyId,
+    _is.UuidValue? treeId,
     String? label,
     String? address,
     double? lat,
@@ -100,13 +107,14 @@ abstract class Place
     String? mapboxPlaceId,
     bool? isFavorite,
     DateTime? lastUsedAt = const _is.$UndefinedDateTime(),
+    DateTime? createdAt,
   });
   @override
   Map<String, dynamic> toJson() {
     return {
       '__className__': 'Place',
       if (id != null) 'id': id?.toJson(),
-      'familyId': familyId.toJson(),
+      'treeId': treeId.toJson(),
       'label': label,
       'address': address,
       'lat': lat,
@@ -114,6 +122,7 @@ abstract class Place
       if (mapboxPlaceId != null) 'mapboxPlaceId': mapboxPlaceId,
       'isFavorite': isFavorite,
       if (lastUsedAt != null) 'lastUsedAt': lastUsedAt?.toJson(),
+      'createdAt': createdAt.toJson(),
     };
   }
 
@@ -122,7 +131,7 @@ abstract class Place
     return {
       '__className__': 'Place',
       if (id != null) 'id': id?.toJson(),
-      'familyId': familyId.toJson(),
+      'treeId': treeId.toJson(),
       'label': label,
       'address': address,
       'lat': lat,
@@ -130,6 +139,7 @@ abstract class Place
       if (mapboxPlaceId != null) 'mapboxPlaceId': mapboxPlaceId,
       'isFavorite': isFavorite,
       if (lastUsedAt != null) 'lastUsedAt': lastUsedAt?.toJson(),
+      'createdAt': createdAt.toJson(),
     };
   }
 
@@ -166,7 +176,7 @@ class _Undefined {}
 class _PlaceImpl extends Place {
   _PlaceImpl({
     _is.UuidValue? id,
-    required _is.UuidValue familyId,
+    required _is.UuidValue treeId,
     required String label,
     required String address,
     required double lat,
@@ -174,9 +184,10 @@ class _PlaceImpl extends Place {
     String? mapboxPlaceId,
     bool? isFavorite,
     DateTime? lastUsedAt,
+    DateTime? createdAt,
   }) : super._(
          id: id,
-         familyId: familyId,
+         treeId: treeId,
          label: label,
          address: address,
          lat: lat,
@@ -184,6 +195,7 @@ class _PlaceImpl extends Place {
          mapboxPlaceId: mapboxPlaceId,
          isFavorite: isFavorite,
          lastUsedAt: lastUsedAt,
+         createdAt: createdAt,
        );
 
   /// Returns a shallow copy of this [Place]
@@ -192,7 +204,7 @@ class _PlaceImpl extends Place {
   @override
   Place copyWith({
     _is.UuidValue? id = const _is.$UndefinedUuidValue(),
-    _is.UuidValue? familyId,
+    _is.UuidValue? treeId,
     String? label,
     String? address,
     double? lat,
@@ -200,10 +212,11 @@ class _PlaceImpl extends Place {
     Object? mapboxPlaceId = _Undefined,
     bool? isFavorite,
     DateTime? lastUsedAt = const _is.$UndefinedDateTime(),
+    DateTime? createdAt,
   }) {
     return Place(
       id: id is _is.UndefinedSentinel ? this.id : id,
-      familyId: familyId ?? this.familyId,
+      treeId: treeId ?? this.treeId,
       label: label ?? this.label,
       address: address ?? this.address,
       lat: lat ?? this.lat,
@@ -215,6 +228,7 @@ class _PlaceImpl extends Place {
       lastUsedAt: lastUsedAt is _is.UndefinedSentinel
           ? this.lastUsedAt
           : lastUsedAt,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }
@@ -222,9 +236,9 @@ class _PlaceImpl extends Place {
 class PlaceUpdateTable extends _is.UpdateTable<PlaceTable> {
   PlaceUpdateTable(super.table);
 
-  _is.ColumnValue<_is.UuidValue, _is.UuidValue> familyId(_is.UuidValue value) =>
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> treeId(_is.UuidValue value) =>
       _is.ColumnValue(
-        table.familyId,
+        table.treeId,
         value,
       );
 
@@ -264,13 +278,19 @@ class PlaceUpdateTable extends _is.UpdateTable<PlaceTable> {
         table.lastUsedAt,
         value,
       );
+
+  _is.ColumnValue<DateTime, DateTime> createdAt(DateTime value) =>
+      _is.ColumnValue(
+        table.createdAt,
+        value,
+      );
 }
 
 class PlaceTable extends _is.Table<_is.UuidValue?> {
   PlaceTable({super.tableRelation}) : super(tableName: 'places') {
     updateTable = PlaceUpdateTable(this);
-    familyId = _is.ColumnUuid(
-      'familyId',
+    treeId = _is.ColumnUuid(
+      'treeId',
       this,
     );
     label = _is.ColumnString(
@@ -302,11 +322,16 @@ class PlaceTable extends _is.Table<_is.UuidValue?> {
       'lastUsedAt',
       this,
     );
+    createdAt = _is.ColumnDateTime(
+      'createdAt',
+      this,
+      hasDefault: true,
+    );
   }
 
   late final PlaceUpdateTable updateTable;
 
-  late final _is.ColumnUuid familyId;
+  late final _is.ColumnUuid treeId;
 
   late final _is.ColumnString label;
 
@@ -322,10 +347,12 @@ class PlaceTable extends _is.Table<_is.UuidValue?> {
 
   late final _is.ColumnDateTime lastUsedAt;
 
+  late final _is.ColumnDateTime createdAt;
+
   @override
   List<_is.Column> get columns => [
     id,
-    familyId,
+    treeId,
     label,
     address,
     lat,
@@ -333,6 +360,7 @@ class PlaceTable extends _is.Table<_is.UuidValue?> {
     mapboxPlaceId,
     isFavorite,
     lastUsedAt,
+    createdAt,
   ];
 }
 

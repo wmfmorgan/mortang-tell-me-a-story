@@ -71,6 +71,7 @@ CREATE INDEX "families_deleted_at_idx" ON "families" USING btree ("deletedAt");
 CREATE TABLE "invites" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid_v7(),
     "familyId" uuid NOT NULL,
+    "treeId" uuid NOT NULL,
     "personId" uuid,
     "email" text,
     "tokenHash" text NOT NULL,
@@ -78,6 +79,7 @@ CREATE TABLE "invites" (
     "acceptedById" uuid,
     "acceptedAt" timestamp without time zone,
     "revokedAt" timestamp without time zone,
+    "lastSentAt" timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" timestamp without time zone NOT NULL,
     "createdAt" timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -86,6 +88,24 @@ CREATE TABLE "invites" (
 CREATE UNIQUE INDEX "invites_token_hash_uidx" ON "invites" USING btree ("tokenHash");
 CREATE INDEX "invites_family_created_idx" ON "invites" USING btree ("familyId", "createdAt");
 CREATE INDEX "invites_person_idx" ON "invites" USING btree ("personId");
+
+--
+-- Class Kinship as table kinships
+--
+CREATE TABLE "kinships" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid_v7(),
+    "treeId" uuid NOT NULL,
+    "kind" text NOT NULL,
+    "fromPersonId" uuid NOT NULL,
+    "toPersonId" uuid NOT NULL,
+    "createdById" uuid,
+    "createdAt" timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes
+CREATE UNIQUE INDEX "kinships_from_to_kind_uidx" ON "kinships" USING btree ("fromPersonId", "toPersonId", "kind");
+CREATE INDEX "kinships_to_idx" ON "kinships" USING btree ("toPersonId");
+CREATE INDEX "kinships_tree_idx" ON "kinships" USING btree ("treeId");
 
 --
 -- Class Membership as table memberships
@@ -107,14 +127,17 @@ CREATE INDEX "memberships_user_idx" ON "memberships" USING btree ("userId");
 --
 CREATE TABLE "people" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid_v7(),
-    "familyId" uuid NOT NULL,
     "treeId" uuid NOT NULL,
+    "homeFamilyId" uuid NOT NULL,
     "userId" uuid,
     "name" text NOT NULL,
-    "relationship" text,
     "email" text,
     "about" text,
     "avatarKey" text,
+    "birthDate" timestamp without time zone,
+    "birthPrecision" bigint,
+    "deathDate" timestamp without time zone,
+    "deathPrecision" bigint,
     "passedAway" boolean NOT NULL DEFAULT false,
     "createdById" uuid,
     "createdAt" timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -123,8 +146,9 @@ CREATE TABLE "people" (
 
 -- Indexes
 CREATE UNIQUE INDEX "people_tree_user_uidx" ON "people" USING btree ("treeId", "userId");
-CREATE INDEX "people_family_name_idx" ON "people" USING btree ("familyId", "name");
+CREATE UNIQUE INDEX "people_id_tree_uidx" ON "people" USING btree ("id", "treeId");
 CREATE INDEX "people_tree_name_idx" ON "people" USING btree ("treeId", "name");
+CREATE INDEX "people_home_family_name_idx" ON "people" USING btree ("homeFamilyId", "name");
 CREATE INDEX "people_user_idx" ON "people" USING btree ("userId");
 
 --
@@ -149,20 +173,22 @@ CREATE INDEX "photos_story_sort_idx" ON "photos" USING btree ("storyId", "sortOr
 --
 CREATE TABLE "places" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid_v7(),
-    "familyId" uuid NOT NULL,
+    "treeId" uuid NOT NULL,
     "label" text NOT NULL,
     "address" text NOT NULL,
     "lat" double precision NOT NULL,
     "lng" double precision NOT NULL,
     "mapboxPlaceId" text,
     "isFavorite" boolean NOT NULL DEFAULT false,
-    "lastUsedAt" timestamp without time zone
+    "lastUsedAt" timestamp without time zone,
+    "createdAt" timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Indexes
-CREATE INDEX "places_family_label_idx" ON "places" USING btree ("familyId", "label");
-CREATE UNIQUE INDEX "places_family_mapbox_uidx" ON "places" USING btree ("familyId", "mapboxPlaceId");
-CREATE INDEX "places_family_last_used_idx" ON "places" USING btree ("familyId", "lastUsedAt");
+CREATE UNIQUE INDEX "places_id_tree_uidx" ON "places" USING btree ("id", "treeId");
+CREATE INDEX "places_tree_label_idx" ON "places" USING btree ("treeId", "label");
+CREATE UNIQUE INDEX "places_tree_mapbox_uidx" ON "places" USING btree ("treeId", "mapboxPlaceId");
+CREATE INDEX "places_tree_last_used_idx" ON "places" USING btree ("treeId", "lastUsedAt");
 
 --
 -- Class Story as table stories
@@ -170,6 +196,7 @@ CREATE INDEX "places_family_last_used_idx" ON "places" USING btree ("familyId", 
 CREATE TABLE "stories" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid_v7(),
     "familyId" uuid NOT NULL,
+    "treeId" uuid NOT NULL,
     "authorId" uuid,
     "title" text,
     "body" text,
@@ -188,6 +215,7 @@ CREATE INDEX "stories_family_order_idx" ON "stories" USING btree ("familyId", "s
 CREATE INDEX "stories_author_status_idx" ON "stories" USING btree ("authorId", "status");
 CREATE INDEX "stories_family_published_at_idx" ON "stories" USING btree ("familyId", "publishedAt");
 CREATE INDEX "stories_place_idx" ON "stories" USING btree ("placeId");
+CREATE UNIQUE INDEX "stories_id_tree_uidx" ON "stories" USING btree ("id", "treeId");
 
 --
 -- Class StoryNote as table story_notes
@@ -211,7 +239,8 @@ CREATE INDEX "story_notes_story_kind_created_idx" ON "story_notes" USING btree (
 CREATE TABLE "story_people" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid_v7(),
     "storyId" uuid NOT NULL,
-    "personId" uuid NOT NULL
+    "personId" uuid NOT NULL,
+    "treeId" uuid NOT NULL
 );
 
 -- Indexes
@@ -835,6 +864,34 @@ ALTER TABLE ONLY "invites"
     ON UPDATE NO ACTION;
 
 --
+-- Foreign relations for "kinships" table
+--
+ALTER TABLE ONLY "kinships"
+    ADD CONSTRAINT "kinships_fk_0"
+    FOREIGN KEY("treeId")
+    REFERENCES "trees"("id")
+    ON DELETE CASCADE
+    ON UPDATE NO ACTION;
+ALTER TABLE ONLY "kinships"
+    ADD CONSTRAINT "kinships_fk_1"
+    FOREIGN KEY("fromPersonId")
+    REFERENCES "people"("id")
+    ON DELETE CASCADE
+    ON UPDATE NO ACTION;
+ALTER TABLE ONLY "kinships"
+    ADD CONSTRAINT "kinships_fk_2"
+    FOREIGN KEY("toPersonId")
+    REFERENCES "people"("id")
+    ON DELETE CASCADE
+    ON UPDATE NO ACTION;
+ALTER TABLE ONLY "kinships"
+    ADD CONSTRAINT "kinships_fk_3"
+    FOREIGN KEY("createdById")
+    REFERENCES "serverpod_auth_core_user"("id")
+    ON DELETE SET NULL
+    ON UPDATE NO ACTION;
+
+--
 -- Foreign relations for "memberships" table
 --
 ALTER TABLE ONLY "memberships"
@@ -855,18 +912,24 @@ ALTER TABLE ONLY "memberships"
 --
 ALTER TABLE ONLY "people"
     ADD CONSTRAINT "people_fk_0"
-    FOREIGN KEY("familyId")
-    REFERENCES "families"("id")
+    FOREIGN KEY("treeId")
+    REFERENCES "trees"("id")
     ON DELETE CASCADE
     ON UPDATE NO ACTION;
 ALTER TABLE ONLY "people"
     ADD CONSTRAINT "people_fk_1"
+    FOREIGN KEY("homeFamilyId")
+    REFERENCES "families"("id")
+    ON DELETE RESTRICT
+    ON UPDATE NO ACTION;
+ALTER TABLE ONLY "people"
+    ADD CONSTRAINT "people_fk_2"
     FOREIGN KEY("userId")
     REFERENCES "serverpod_auth_core_user"("id")
     ON DELETE SET NULL
     ON UPDATE NO ACTION;
 ALTER TABLE ONLY "people"
-    ADD CONSTRAINT "people_fk_2"
+    ADD CONSTRAINT "people_fk_3"
     FOREIGN KEY("createdById")
     REFERENCES "serverpod_auth_core_user"("id")
     ON DELETE SET NULL
@@ -893,8 +956,8 @@ ALTER TABLE ONLY "photos"
 --
 ALTER TABLE ONLY "places"
     ADD CONSTRAINT "places_fk_0"
-    FOREIGN KEY("familyId")
-    REFERENCES "families"("id")
+    FOREIGN KEY("treeId")
+    REFERENCES "trees"("id")
     ON DELETE CASCADE
     ON UPDATE NO ACTION;
 
@@ -1198,9 +1261,9 @@ ALTER TABLE ONLY "serverpod_auth_core_session"
 -- MIGRATION VERSION FOR tell_me_a_story
 --
 INSERT INTO "serverpod_migrations" ("module", "version", "timestamp")
-    VALUES ('tell_me_a_story', '20261107130018947-init', now())
+    VALUES ('tell_me_a_story', '20261107133050788-init', now())
     ON CONFLICT ("module")
-    DO UPDATE SET "version" = '20261107130018947-init', "timestamp" = now();
+    DO UPDATE SET "version" = '20261107133050788-init', "timestamp" = now();
 
 --
 -- MIGRATION VERSION FOR serverpod

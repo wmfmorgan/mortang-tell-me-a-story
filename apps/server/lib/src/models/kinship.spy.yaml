@@ -1,0 +1,19 @@
+### Person-to-person edge inside one tree. Replaces the dropped free-text people.relationship.
+class: Kinship
+table: kinships
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  treeId: UuidValue, relation(parent=trees, onDelete=Cascade)
+  kind: KinshipKind
+  fromPersonId: UuidValue, relation(parent=people, onDelete=Cascade)
+  toPersonId: UuidValue, relation(parent=people, onDelete=Cascade)
+  createdById: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
+  createdAt: DateTime, default=now
+indexes:
+  kinships_from_to_kind_uidx:
+    fields: fromPersonId, toPersonId, kind
+    unique: true
+  kinships_to_idx:
+    fields: toPersonId
+  kinships_tree_idx:
+    fields: treeId

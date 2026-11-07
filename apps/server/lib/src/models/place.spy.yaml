@@ -1,8 +1,9 @@
+### A real-world place, shared by every family in the tree.
 class: Place
 table: places
 fields:
   id: UuidValue?, defaultPersist=random_v7
-  familyId: UuidValue, relation(parent=families, onDelete=Cascade)
+  treeId: UuidValue, relation(parent=trees, onDelete=Cascade)
   label: String
   address: String
   lat: double
@@ -10,13 +11,17 @@ fields:
   mapboxPlaceId: String?
   isFavorite: bool, default=false
   lastUsedAt: DateTime?
+  createdAt: DateTime, default=now
 indexes:
-  places_family_label_idx:
-    fields: familyId, label
-  ### Client looks a place up by (family, mapbox id), places_api.dart:204-206.
-  places_family_mapbox_uidx:
-    fields: familyId, mapboxPlaceId
+  ### Target of stories_place_tree_fk.
+  places_id_tree_uidx:
+    fields: id, treeId
     unique: true
-  ### "Recent places", places_api.dart:135-138.
-  places_family_last_used_idx:
-    fields: familyId, lastUsedAt
+  places_tree_label_idx:
+    fields: treeId, label
+  ### One row per Mapbox place per tree; create returns the existing row.
+  places_tree_mapbox_uidx:
+    fields: treeId, mapboxPlaceId
+    unique: true
+  places_tree_last_used_idx:
+    fields: treeId, lastUsedAt

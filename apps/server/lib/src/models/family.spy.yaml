@@ -7,9 +7,9 @@ fields:
   ### Branch parent; same tree enforced by raw FK families_parent_same_tree_fk.
   parentId: UuidValue?, relation(parent=families, onDelete=SetNull)
   name: String
-  ### 1..9999 (CHECK).
+  ### Attach year, 1000..9999 (CHECK families_branch_year_1000_9999). Null for roots.
   branchYear: int?
-  ### Story in the parent family this branch started from.
+  ### Origin story: published, in the parent family (branch) or this family (root). Set at branch creation, changeable by stewards (setOrigin). Same tree enforced by families_origin_tree_fk; the effective origin is derived (§3.5).
   originStoryId: UuidValue?, relation(parent=stories, onDelete=SetNull)
   ### Blob key, see §4. families/{familyId}/cover/{blobId}.{jpg|png|webp}
   coverKey: String?
@@ -20,7 +20,7 @@ fields:
 indexes:
   families_tree_idx:
     fields: treeId
-  ### Target of the composite FKs (people + parent) in constraintsSql.
+  ### Target of the composite FKs (stories, people, invites, parent) in constraintsSql.
   families_id_tree_uidx:
     fields: id, treeId
     unique: true

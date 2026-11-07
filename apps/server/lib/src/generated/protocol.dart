@@ -25,6 +25,8 @@ import 'blob_deletion.dart' as _ig8q6jh0;
 import 'date_precision.dart' as _ilvyd2nu;
 import 'family.dart' as _igf5ho4a;
 import 'invite.dart' as _ibtb2p99;
+import 'kinship.dart' as _itzlol5n;
+import 'kinship_kind.dart' as _iq59nsdl;
 import 'membership.dart' as _iu35fd1a;
 import 'membership_role.dart' as _iur1rrwm;
 import 'note_kind.dart' as _ixhn57mr;
@@ -44,6 +46,8 @@ export 'blob_deletion.dart';
 export 'date_precision.dart';
 export 'family.dart';
 export 'invite.dart';
+export 'kinship.dart';
+export 'kinship_kind.dart';
 export 'membership.dart';
 export 'membership_role.dart';
 export 'note_kind.dart';
@@ -77,6 +81,8 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<_ilvyd2nu.DatePrecision>,
           _is.getType<_igf5ho4a.Family>,
           _is.getType<_ibtb2p99.Invite>,
+          _is.getType<_itzlol5n.Kinship>,
+          _is.getType<_iq59nsdl.KinshipKind>,
           _is.getType<_iu35fd1a.Membership>,
           _is.getType<_iur1rrwm.MembershipRole>,
           _is.getType<_ixhn57mr.NoteKind>,
@@ -96,6 +102,8 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<_ilvyd2nu.DatePrecision?>,
           _is.getType<_igf5ho4a.Family?>,
           _is.getType<_ibtb2p99.Invite?>,
+          _is.getType<_itzlol5n.Kinship?>,
+          _is.getType<_iq59nsdl.KinshipKind?>,
           _is.getType<_iu35fd1a.Membership?>,
           _is.getType<_iur1rrwm.MembershipRole?>,
           _is.getType<_ixhn57mr.NoteKind?>,
@@ -122,6 +130,8 @@ class Protocol extends _is.DatabaseSerializationManager
           'DatePrecision',
           'Family',
           'Invite',
+          'Kinship',
+          'KinshipKind',
           'Membership',
           'MembershipRole',
           'NoteKind',
@@ -393,6 +403,12 @@ class Protocol extends _is.DatabaseSerializationManager
           dartType: 'UuidValue',
         ),
         _isp.ColumnDefinition(
+          name: 'treeId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
           name: 'personId',
           columnType: _isp.ColumnType.uuid,
           isNullable: true,
@@ -433,6 +449,13 @@ class Protocol extends _is.DatabaseSerializationManager
           columnType: _isp.ColumnType.timestampWithoutTimeZone,
           isNullable: true,
           dartType: 'DateTime?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'lastSentAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
         ),
         _isp.ColumnDefinition(
           name: 'expiresAt',
@@ -528,6 +551,150 @@ class Protocol extends _is.DatabaseSerializationManager
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
               definition: 'personId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'kinships',
+      dartName: 'Kinship',
+      schema: 'public',
+      module: 'tell_me_a_story',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue?',
+          columnDefault: 'random_v7',
+        ),
+        _isp.ColumnDefinition(
+          name: 'treeId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'kind',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'protocol:KinshipKind',
+        ),
+        _isp.ColumnDefinition(
+          name: 'fromPersonId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'toPersonId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdById',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: true,
+          dartType: 'UuidValue?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'kinships_fk_0',
+          columns: ['treeId'],
+          referenceTable: 'trees',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+        _isp.ForeignKeyDefinition(
+          constraintName: 'kinships_fk_1',
+          columns: ['fromPersonId'],
+          referenceTable: 'people',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+        _isp.ForeignKeyDefinition(
+          constraintName: 'kinships_fk_2',
+          columns: ['toPersonId'],
+          referenceTable: 'people',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+        _isp.ForeignKeyDefinition(
+          constraintName: 'kinships_fk_3',
+          columns: ['createdById'],
+          referenceTable: 'serverpod_auth_core_user',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.setNull,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'kinships_from_to_kind_uidx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'fromPersonId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'toPersonId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'kind',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'kinships_to_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'toPersonId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'kinships_tree_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'treeId',
             ),
           ],
           type: 'btree',
@@ -647,13 +814,13 @@ class Protocol extends _is.DatabaseSerializationManager
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'familyId',
+          name: 'treeId',
           columnType: _isp.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
         ),
         _isp.ColumnDefinition(
-          name: 'treeId',
+          name: 'homeFamilyId',
           columnType: _isp.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
@@ -669,12 +836,6 @@ class Protocol extends _is.DatabaseSerializationManager
           columnType: _isp.ColumnType.text,
           isNullable: false,
           dartType: 'String',
-        ),
-        _isp.ColumnDefinition(
-          name: 'relationship',
-          columnType: _isp.ColumnType.text,
-          isNullable: true,
-          dartType: 'String?',
         ),
         _isp.ColumnDefinition(
           name: 'email',
@@ -693,6 +854,30 @@ class Protocol extends _is.DatabaseSerializationManager
           columnType: _isp.ColumnType.text,
           isNullable: true,
           dartType: 'String?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'birthDate',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: true,
+          dartType: 'DateTime?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'birthPrecision',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'protocol:DatePrecision?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'deathDate',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: true,
+          dartType: 'DateTime?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'deathPrecision',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'protocol:DatePrecision?',
         ),
         _isp.ColumnDefinition(
           name: 'passedAway',
@@ -725,8 +910,8 @@ class Protocol extends _is.DatabaseSerializationManager
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'people_fk_0',
-          columns: ['familyId'],
-          referenceTable: 'families',
+          columns: ['treeId'],
+          referenceTable: 'trees',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -735,6 +920,16 @@ class Protocol extends _is.DatabaseSerializationManager
         ),
         _isp.ForeignKeyDefinition(
           constraintName: 'people_fk_1',
+          columns: ['homeFamilyId'],
+          referenceTable: 'families',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.restrict,
+          matchType: null,
+        ),
+        _isp.ForeignKeyDefinition(
+          constraintName: 'people_fk_2',
           columns: ['userId'],
           referenceTable: 'serverpod_auth_core_user',
           referenceTableSchema: 'public',
@@ -744,7 +939,7 @@ class Protocol extends _is.DatabaseSerializationManager
           matchType: null,
         ),
         _isp.ForeignKeyDefinition(
-          constraintName: 'people_fk_2',
+          constraintName: 'people_fk_3',
           columns: ['createdById'],
           referenceTable: 'serverpod_auth_core_user',
           referenceTableSchema: 'public',
@@ -773,12 +968,29 @@ class Protocol extends _is.DatabaseSerializationManager
           isPrimary: false,
         ),
         _isp.IndexDefinition(
-          indexName: 'people_family_name_idx',
+          indexName: 'people_id_tree_uidx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'familyId',
+              definition: 'id',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'treeId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'people_tree_name_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'treeId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -790,12 +1002,12 @@ class Protocol extends _is.DatabaseSerializationManager
           isPrimary: false,
         ),
         _isp.IndexDefinition(
-          indexName: 'people_tree_name_idx',
+          indexName: 'people_home_family_name_idx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'treeId',
+              definition: 'homeFamilyId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -938,7 +1150,7 @@ class Protocol extends _is.DatabaseSerializationManager
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'familyId',
+          name: 'treeId',
           columnType: _isp.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
@@ -986,12 +1198,19 @@ class Protocol extends _is.DatabaseSerializationManager
           isNullable: true,
           dartType: 'DateTime?',
         ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
       ],
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'places_fk_0',
-          columns: ['familyId'],
-          referenceTable: 'families',
+          columns: ['treeId'],
+          referenceTable: 'trees',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1001,12 +1220,29 @@ class Protocol extends _is.DatabaseSerializationManager
       ],
       indexes: [
         _isp.IndexDefinition(
-          indexName: 'places_family_label_idx',
+          indexName: 'places_id_tree_uidx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'familyId',
+              definition: 'id',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'treeId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'places_tree_label_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'treeId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -1018,12 +1254,12 @@ class Protocol extends _is.DatabaseSerializationManager
           isPrimary: false,
         ),
         _isp.IndexDefinition(
-          indexName: 'places_family_mapbox_uidx',
+          indexName: 'places_tree_mapbox_uidx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'familyId',
+              definition: 'treeId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -1035,12 +1271,12 @@ class Protocol extends _is.DatabaseSerializationManager
           isPrimary: false,
         ),
         _isp.IndexDefinition(
-          indexName: 'places_family_last_used_idx',
+          indexName: 'places_tree_last_used_idx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'familyId',
+              definition: 'treeId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -1069,6 +1305,12 @@ class Protocol extends _is.DatabaseSerializationManager
         ),
         _isp.ColumnDefinition(
           name: 'familyId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'treeId',
           columnType: _isp.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
@@ -1256,6 +1498,23 @@ class Protocol extends _is.DatabaseSerializationManager
           isUnique: false,
           isPrimary: false,
         ),
+        _isp.IndexDefinition(
+          indexName: 'stories_id_tree_uidx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'id',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'treeId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
       ],
       managed: true,
     ),
@@ -1379,6 +1638,12 @@ class Protocol extends _is.DatabaseSerializationManager
         ),
         _isp.ColumnDefinition(
           name: 'personId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'treeId',
           columnType: _isp.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
@@ -1618,6 +1883,12 @@ class Protocol extends _is.DatabaseSerializationManager
     if (t == _ibtb2p99.Invite) {
       return _ibtb2p99.Invite.fromJson(data) as T;
     }
+    if (t == _itzlol5n.Kinship) {
+      return _itzlol5n.Kinship.fromJson(data) as T;
+    }
+    if (t == _iq59nsdl.KinshipKind) {
+      return _iq59nsdl.KinshipKind.fromJson(data) as T;
+    }
     if (t == _iu35fd1a.Membership) {
       return _iu35fd1a.Membership.fromJson(data) as T;
     }
@@ -1677,6 +1948,12 @@ class Protocol extends _is.DatabaseSerializationManager
     if (t == _is.getType<_ibtb2p99.Invite?>()) {
       return (data != null ? _ibtb2p99.Invite.fromJson(data) : null) as T;
     }
+    if (t == _is.getType<_itzlol5n.Kinship?>()) {
+      return (data != null ? _itzlol5n.Kinship.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_iq59nsdl.KinshipKind?>()) {
+      return (data != null ? _iq59nsdl.KinshipKind.fromJson(data) : null) as T;
+    }
     if (t == _is.getType<_iu35fd1a.Membership?>()) {
       return (data != null ? _iu35fd1a.Membership.fromJson(data) : null) as T;
     }
@@ -1734,6 +2011,8 @@ class Protocol extends _is.DatabaseSerializationManager
       _ilvyd2nu.DatePrecision => 'DatePrecision',
       _igf5ho4a.Family => 'Family',
       _ibtb2p99.Invite => 'Invite',
+      _itzlol5n.Kinship => 'Kinship',
+      _iq59nsdl.KinshipKind => 'KinshipKind',
       _iu35fd1a.Membership => 'Membership',
       _iur1rrwm.MembershipRole => 'MembershipRole',
       _ixhn57mr.NoteKind => 'NoteKind',
@@ -1778,6 +2057,10 @@ class Protocol extends _is.DatabaseSerializationManager
         return 'Family';
       case _ibtb2p99.Invite():
         return 'Invite';
+      case _itzlol5n.Kinship():
+        return 'Kinship';
+      case _iq59nsdl.KinshipKind():
+        return 'KinshipKind';
       case _iu35fd1a.Membership():
         return 'Membership';
       case _iur1rrwm.MembershipRole():
@@ -1849,6 +2132,12 @@ class Protocol extends _is.DatabaseSerializationManager
     }
     if (dataClassName == 'Invite') {
       return deserialize<_ibtb2p99.Invite>(data['data']);
+    }
+    if (dataClassName == 'Kinship') {
+      return deserialize<_itzlol5n.Kinship>(data['data']);
+    }
+    if (dataClassName == 'KinshipKind') {
+      return deserialize<_iq59nsdl.KinshipKind>(data['data']);
     }
     if (dataClassName == 'Membership') {
       return deserialize<_iu35fd1a.Membership>(data['data']);
@@ -1938,6 +2227,8 @@ class Protocol extends _is.DatabaseSerializationManager
         return _igf5ho4a.Family.t;
       case _ibtb2p99.Invite:
         return _ibtb2p99.Invite.t;
+      case _itzlol5n.Kinship:
+        return _itzlol5n.Kinship.t;
       case _iu35fd1a.Membership:
         return _iu35fd1a.Membership.t;
       case _iensfz4m.Person:
