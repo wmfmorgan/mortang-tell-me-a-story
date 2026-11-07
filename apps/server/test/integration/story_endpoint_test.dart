@@ -1072,6 +1072,55 @@ void main() {
           isNull,
         );
       });
+
+      // D6b
+      test(
+        'when the story\'s family is soft-deleted then its former members '
+        'read nothing: stories, drafts, search, facets and notes',
+        () async {
+          final published = await c.published();
+          final draft = await c.draft();
+          await fx.note(published, c.member);
+          await fx.softDelete(c.family);
+          for (final user in [c.author, c.member, c.owner]) {
+            for (final story in [published, draft]) {
+              await expectLater(
+                endpoints.story.get(by(user), story.id!),
+                throwsAppError(AppErrorCode.notFound, 'story'),
+              );
+            }
+            await expectLater(
+              endpoints.story.listPublished(by(user), c.family.id!),
+              throwsAppError(AppErrorCode.forbidden),
+            );
+            await expectLater(
+              endpoints.story.listMyDrafts(by(user), c.family.id!),
+              throwsAppError(AppErrorCode.forbidden, 'member only'),
+            );
+            await expectLater(
+              endpoints.story.search(
+                by(user),
+                StorySearchDto(
+                  familyId: c.family.id!,
+                  text: '',
+                  personIds: [],
+                  decades: [],
+                  sort: SearchSort.relevant,
+                ),
+              ),
+              throwsAppError(AppErrorCode.forbidden),
+            );
+            await expectLater(
+              endpoints.story.facets(by(user), c.family.id!),
+              throwsAppError(AppErrorCode.forbidden),
+            );
+            await expectLater(
+              endpoints.note.listForStory(by(user), published.id!),
+              throwsAppError(AppErrorCode.notFound, 'story'),
+            );
+          }
+        },
+      );
     });
 
     group('discard', () {

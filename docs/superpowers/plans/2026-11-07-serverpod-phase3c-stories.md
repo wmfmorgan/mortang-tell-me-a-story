@@ -2133,6 +2133,22 @@ git commit -m "feat(server): StoryEndpoint drafting, editing and tags"
           isNull,
         );
       });
+
+      // D6b
+      test(
+        'when the story\'s family is soft-deleted then its former members '
+        'read nothing: stories, drafts, search, facets and notes',
+        () async {
+          final published = await c.published();
+          final draft = await c.draft();
+          await fx.note(published, c.member);
+          await fx.softDelete(c.family);
+          for (final user in [c.author, c.member, c.owner]) {
+            for (final story in [published, draft]) {
+              await expectLater(
+                endpoints.story.get(by(user), story.id!),
+                throwsAppError(AppErrorCode.notFound, 'story'),
+              );
     });
 ```
 
@@ -2318,7 +2334,7 @@ void _requireReady(Story story, int tagCount) {
 - [ ] **Step 4: Generate and run the tests**
 
 Run: `mise exec -- just server-generate && cd apps/server && mise exec -- dart test test/integration/story_endpoint_test.dart`
-Expected: PASS (41 tests).
+Expected: PASS (42 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -2495,7 +2511,7 @@ import '../media/blob_outbox.dart';
 - [ ] **Step 4: Generate and run the tests**
 
 Run: `mise exec -- just server-generate && cd apps/server && mise exec -- dart test test/integration/story_endpoint_test.dart`
-Expected: PASS (45 tests).
+Expected: PASS (46 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -2934,7 +2950,7 @@ import '../stories/story_search.dart';
 - [ ] **Step 5: Generate and run the tests**
 
 Run: `mise exec -- just server-generate && cd apps/server && mise exec -- dart test test/integration/story_endpoint_test.dart`
-Expected: PASS (52 tests).
+Expected: PASS (53 tests).
 
 - [ ] **Step 6: Commit**
 
@@ -3638,7 +3654,7 @@ Expected: `No issues found!` twice.
 - [ ] **Step 3: Test**
 
 Run: `mise exec -- just server-test`
-Expected: `All tests passed!` (180 tests: 100 from 3.0, 6 unit, 1 DTO, 52 story, 21 note).
+Expected: `All tests passed!` (181 tests: 100 from 3.0, 6 unit, 1 DTO, 53 story, 21 note).
 
 - [ ] **Step 4: Commit any formatting changes**
 
@@ -3669,3 +3685,4 @@ git commit -m "style(server): format Phase 3c"
 | 93 | `note_endpoint_test` own notes and moderation |
 | 94 | `note_endpoint_test` "only its body changes" |
 | 137 (story part) | `story_endpoint_test` discard "soft-deleted family" |
+| D6b reads | `story_endpoint_test` reading "family is soft-deleted then its former members read nothing" |
