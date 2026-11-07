@@ -102,11 +102,30 @@ RenderBox layout opens with that story's card at the top.
 
 The mid-playback goldens seek to 50% of the default design's duration.
 
-There are three extra sets of goldens:
+There are four extra sets of goldens:
 
 - **Zoom canvas levels of detail:** [decades (1×)](test/goldens/zoomCanvas_lod_decades.png), [years (3×)](test/goldens/zoomCanvas_lod_years.png), [cards (10×)](test/goldens/zoomCanvas_lod_cards.png).
-- **Narrow layout** (700 px, filters collapsed): [sliverList_narrow](test/goldens/sliverList_narrow.png).
+- **Narrow layout** (700 px, filters in a drawer): [sliverList_narrow](test/goldens/sliverList_narrow.png).
 - **Empty state** (a search with no matches, hide mode): [sliverList_empty](test/goldens/sliverList_empty.png).
+- **iPad** (iOS density, insets): [portrait sliver list](test/goldens/ipad_portrait_sliverList.png), [portrait swimlanes](test/goldens/ipad_portrait_swimlanes.png), [portrait tree](test/goldens/ipad_portrait_treeGraph.png), [portrait zoom](test/goldens/ipad_portrait_zoomCanvas.png), [portrait filters drawer](test/goldens/ipad_portrait_filters.png), [landscape with selection](test/goldens/ipad_landscape_selected.png), [Slide Over](test/goldens/ipad_slideover_sliverList.png).
+
+## iPad
+
+The lab is tuned for iPad windows from Slide Over (320 pt) to a 12.9" screen.
+
+- **Layout.**
+  - At 900 pt and wider the filters are a sidebar. Below that, a **Filters** button opens them in an end drawer, whose header shows the live match count.
+  - Below 600 pt, the scrubber gets its own row and the selected story stacks over a 3-line body. That panel never takes more than 30% of the window height.
+  - The bottom bars clear the home indicator, and the software keyboard covers them rather than squeezing the timeline.
+- **Touch.**
+  - A finger gets a 22 pt hit radius on painted dots and nodes (`LabTarget`); mouse, trackpad and Pencil keep the precise radius.
+  - Tree leaves are tappable on their whole row.
+  - A tap that covers several stories (a swimlane cell) opens a chooser.
+  - A finger tap on a treemap cell smaller than 44 pt opens its group.
+- **Pointer.** The mouse wheel and trackpad scroll; a mouse drag does not pan (decided against). Painted tree nodes show a hand cursor on hover; nothing depends on hover.
+- **Keyboard.** Space plays/pauses, ←/→ step, ⌘F (Ctrl+F) focuses search, and Esc closes the selected story. Keys only act when no control has focus.
+
+Tests: `flutter test test/ipad_layout_test.dart test/ipad_input_test.dart test/keyboard_test.dart`. They pump the app at 11 iPad sizes with the iOS platform, DPR 2, 24/20 pt insets and a 313/398 pt keyboard.
 
 ## Visual system
 
@@ -134,13 +153,16 @@ lib/
   model/        lab_models.dart (LabStory, DatePrecision, canonical sort), seed.dart
   filter/       timeline_filter.dart (TimelineFilter, applyFilter, statusLine)
   lab_controller.dart   single ChangeNotifier state owner
+  input/        pointer_input.dart (finger radius)
+  shell/        lab_shortcuts.dart
   playback/     playback_schedule.dart (pure reveal schedule),
                 playback_controller.dart (clock, speed, follow),
                 reveal.dart (RevealOpacity, follow helpers)
   renderers/    renderer_contract.dart + one file per renderer;
                 tree_graph_layout.dart and treemap_layout.dart hold the pure
                 hierarchy/layout code those two renderers test against
-  widgets/      story_card.dart, filter_panel.dart, playback_bar.dart
+  widgets/      story_card.dart, filter_panel.dart, playback_bar.dart,
+                story_chooser.dart
   theme/        lab_theme.dart (token copies of album_theme.dart)
 ```
 
