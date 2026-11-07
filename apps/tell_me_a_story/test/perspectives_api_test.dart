@@ -94,9 +94,7 @@ void main() {
 
   group('PerspectivesApi.create', () {
     test('rejects empty body before network', () {
-      final api = PerspectivesApi(
-        client: server.Client('http://127.0.0.1:1/'),
-      );
+      final api = PerspectivesApi(client: server.Client('http://127.0.0.1:1/'));
       expect(
         () => api.create(storyId: 's1', familyId: 'f1', body: ''),
         throwsA(isA<ArgumentError>()),
@@ -104,9 +102,7 @@ void main() {
     });
 
     test('rejects whitespace-only body before network', () {
-      final api = PerspectivesApi(
-        client: server.Client('http://127.0.0.1:1/'),
-      );
+      final api = PerspectivesApi(client: server.Client('http://127.0.0.1:1/'));
       expect(
         () => api.create(storyId: 's1', familyId: 'f1', body: '  \n'),
         throwsA(isA<ArgumentError>()),

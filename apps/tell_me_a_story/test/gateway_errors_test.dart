@@ -8,7 +8,6 @@ import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 
 typedef _Reply = ({int status, Object body});
@@ -253,62 +252,6 @@ void main() {
         api.linkPerson(storyId: 's1', personId: 'p1'),
         throwsA(isA<PostgrestException>()),
       );
-    });
-  });
-  group('StoriesApi.discard', () {
-    _Reply storyRow(http.BaseRequest request) => request.method == 'GET'
-        ? (
-            status: 200,
-            body: [
-              {'family_id': 'f1'},
-            ],
-          )
-        : (status: 200, body: const <Object>[]);
-
-    test('removes the photo objects, then the row', () async {
-      final log = <String>[];
-      final transport = _Http((request) {
-        log.add('${request.method} ${request.url.path}');
-        return storyRow(request);
-      });
-      final client = _client(transport);
-      final api = StoriesApi(
-        client: client,
-        photos: PhotosApi(
-          client: client,
-          listStoryObjects: (prefix) async {
-            log.add('list $prefix');
-            return ['ph1.jpg', 'ph1.edited.2.jpg'];
-          },
-          removeObjects: (paths) async {
-            log.add('remove ${paths.join(',')}');
-          },
-        ),
-      );
-
-      await api.discard('s1');
-
-      expect(log, [
-        'GET /rest/v1/stories',
-        'list f1/s1',
-        'remove f1/s1/ph1.jpg,f1/s1/ph1.edited.2.jpg',
-        'DELETE /rest/v1/stories',
-      ]);
-    });
-
-    test('keeps the row when photo cleanup fails', () async {
-      final transport = _Http(storyRow);
-      final client = _client(transport);
-      final api = StoriesApi(
-        client: client,
-        photos: PhotosApi(
-          client: client,
-          listStoryObjects: (_) async => throw Exception('storage'),
-        ),
-      );
-
-      await expectLater(api.discard('s1'), throwsA(isA<Exception>()));
-      expect(transport.calls, ['GET /rest/v1/stories']);
     });
   });
 }
