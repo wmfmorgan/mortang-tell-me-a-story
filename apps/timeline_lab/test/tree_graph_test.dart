@@ -246,4 +246,28 @@ void main() {
     expect(layout.hitTest(r), isNull);
     expect(layout.hitTest(r, radius: LabTarget.fingerRadius), same(year));
   });
+
+  test('edges into matches are strong only while something is dimmed', () {
+    expect(treeEdgeColor(childMatched: true, dimming: true), labRuleStrong);
+    expect(treeEdgeColor(childMatched: false, dimming: true), labRule);
+    expect(treeEdgeColor(childMatched: true, dimming: false), labRule);
+  });
+
+  test('anyDimmed is true only when some entry is unmatched', () {
+    final d = generateDataset();
+    TimelineViewData view(TimelineFilter f) => TimelineViewData(
+      dataset: d,
+      entries: applyFilter(d, f),
+      mode: f.mode,
+      selectedId: null,
+      onSelect: (_) {},
+    );
+    expect(view(const TimelineFilter()).anyDimmed, isFalse);
+    expect(view(const TimelineFilter(fromYear: 1990)).anyDimmed, isTrue);
+    expect(
+      view(const TimelineFilter(fromYear: 1990, mode: FilterMode.hide))
+          .anyDimmed,
+      isFalse,
+    );
+  });
 }

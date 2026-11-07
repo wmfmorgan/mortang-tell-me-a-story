@@ -190,9 +190,9 @@ class _TreeGraphTimelineState extends State<TreeGraphTimeline> {
                                   selectedId: widget.data.selectedId,
                                   playback: _playback,
                                   labelStyle: theme.labelSmall!,
-                                  headingStyle: theme.labelLarge!.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  headingStyle: LabText.group(theme),
+                                  badgeStyle: LabText.badge(theme),
+                                  dimming: widget.data.anyDimmed,
                                   onTapNode: _onTap,
                                 ),
                               ),
@@ -209,6 +209,11 @@ class _TreeGraphTimelineState extends State<TreeGraphTimeline> {
   }
 }
 
+/// Edges into matched nodes read as the path only while something is
+/// dimmed; otherwise every edge recedes.
+Color treeEdgeColor({required bool childMatched, required bool dimming}) =>
+    dimming && childMatched ? labRuleStrong : labRule;
+
 class TreePainter extends CustomPainter {
   TreePainter({
     required this.layout,
@@ -217,6 +222,8 @@ class TreePainter extends CustomPainter {
     required this.playback,
     required this.labelStyle,
     required this.headingStyle,
+    required this.badgeStyle,
+    required this.dimming,
     required this.onTapNode,
   }) : super(repaint: playback);
 
@@ -226,6 +233,8 @@ class TreePainter extends CustomPainter {
   final PlaybackController? playback;
   final TextStyle labelStyle;
   final TextStyle headingStyle;
+  final TextStyle badgeStyle;
+  final bool dimming;
   final ValueChanged<TreeNode> onTapNode;
 
   /// Text is laid out once per painter, not per playback tick.
@@ -253,15 +262,12 @@ class TreePainter extends CustomPainter {
 
   static String _overflowText(int count) => '+$count more';
 
-  Color _nodeColor(TreeNode n) =>
-      n.kind == TreeNodeKind.story ? labTerracotta : labInk;
-
   @override
   void paint(Canvas canvas, Size size) {
     final pos = layout.positions;
     final edge = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
+      ..strokeWidth = LabStroke.rule;
     for (final n in layout.nodes) {
       final from = pos[n]!;
       for (final c in n.children) {
@@ -269,9 +275,8 @@ class TreePainter extends CustomPainter {
         if (r == 0) continue;
         final to = pos[c]!;
         final midX = (from.dx + to.dx) / 2;
-        edge.color = labInk.withValues(
-          alpha: 0.35 * r * (c.matched ? 1 : labDimOpacity),
-        );
+        final base = treeEdgeColor(childMatched: c.matched, dimming: dimming);
+        edge.color = base.withValues(alpha: base.a * r);
         canvas.drawPath(
           Path()
             ..moveTo(from.dx, from.dy)
@@ -281,39 +286,17 @@ class TreePainter extends CustomPainter {
       }
     }
 
-    final fill = Paint();
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+    final knockout = Paint()..color = labParchment;
     for (final n in layout.nodes) {
       final r = _reveal(n.revealId);
       if (r == 0) continue;
       final p = pos[n]!;
-      final dim = n.matched ? 1.0 : labDimOpacity;
-
       if (n.kind == TreeNodeKind.overflow) {
-        final shown = n.hiddenStoryIds.where((id) => _reveal(id) > 0).length;
-        final rect = RRect.fromRectAndRadius(
-          Rect.fromCenter(center: p, width: 16, height: 12),
-          const Radius.circular(6),
-        );
-        fill.color = labInk.withValues(alpha: r);
-        canvas.drawRRect(rect, fill);
-        paintLabel(
-          canvas,
-          _overflowText(shown),
-          labelStyle.copyWith(color: labInk.withValues(alpha: r)),
-          p + const Offset(12, 0),
-          anchor: Alignment.centerLeft,
-        );
-        if (n.hiddenStoryIds.contains(selectedId)) {
-          ring.color = labTerracotta;
-          canvas.drawRRect(rect.inflate(2), ring);
-        }
+        _paintOverflow(canvas, n, p, r);
         continue;
       }
-
-      if (n.kind == TreeNodeKind.story) {
+      final story = n.kind == TreeNodeKind.story;
+      if (story) {
         paintStoryMarker(
           canvas,
           p,
@@ -326,25 +309,33 @@ class TreePainter extends CustomPainter {
           reveal: r,
         );
       } else {
-        fill.color = _nodeColor(n).withValues(alpha: r * dim);
-        canvas.drawCircle(p, 6, fill);
+        // Groups: filled ink when anything under them matches, hollow
+        // dimmed ink when nothing does (Decision D6).
+        final group = Paint()
+          ..color = (n.matched ? labInk : labDimmedInk).withValues(alpha: r);
+        if (!n.matched) {
+          group
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = LabMarker.hollow;
+        }
+        canvas.drawCircle(p, LabMarker.small / 2, group);
       }
 
       final label = _label(n);
       // Leaves label to the right. Groups label above-right, inside their
       // own row band, so tightly packed sibling years never collide.
-      final at = n.kind == TreeNodeKind.story
+      final at = story
           ? p +
                 Offset(
                   MarkerSpec.extent(LabMarker.small) / 2 + 2,
                   -label.size.height / 2,
                 )
           : p + Offset(8, -label.size.height - 1);
+      final box = at & label.size;
+      // Group labels sit where incoming edges run; knock the edges out.
+      if (!story) canvas.drawRect(box.inflate(2), knockout);
       if (r < 1) {
-        canvas.saveLayer(
-          at & label.size,
-          Paint()..color = labInk.withValues(alpha: r),
-        );
+        canvas.saveLayer(box, Paint()..color = labInk.withValues(alpha: r));
         label.paint(canvas, at);
         canvas.restore();
       } else {
@@ -353,11 +344,46 @@ class TreePainter extends CustomPainter {
     }
   }
 
+  /// `+N more` as one ink pill holding its own text.
+  void _paintOverflow(Canvas canvas, TreeNode n, Offset p, double r) {
+    final shown = n.hiddenStoryIds.where((id) => _reveal(id) > 0).length;
+    final label = CanvasLabel(
+      _overflowText(shown),
+      badgeStyle.copyWith(color: labParchment.withValues(alpha: r)),
+    );
+    final pill = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        p.dx - LabSpace.xs,
+        p.dy - label.size.height / 2 - 2,
+        label.size.width + 2 * LabSpace.s,
+        label.size.height + 4,
+      ),
+      const Radius.circular(LabRadius.pill),
+    );
+    canvas.drawRRect(pill, Paint()..color = labInk.withValues(alpha: r));
+    label.paint(
+      canvas,
+      Offset(pill.left + LabSpace.s, p.dy),
+      anchor: Alignment.centerLeft,
+    );
+    label.dispose();
+    if (n.hiddenStoryIds.contains(selectedId)) {
+      canvas.drawRRect(
+        pill.inflate(2),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = LabMarker.ring
+          ..color = labTerracotta,
+      );
+    }
+  }
+
   @override
   bool shouldRepaint(TreePainter old) =>
       !identical(old.layout, layout) ||
       old.selectedId != selectedId ||
       old.playback != playback ||
+      old.dimming != dimming ||
       old.labelStyle != labelStyle;
 
   @override

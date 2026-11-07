@@ -54,6 +54,10 @@ class TimelineViewData {
   /// null or idle, everything is shown.
   final PlaybackController? playback;
 
+  /// Dim mode with at least one unmatched entry: the only state where
+  /// renderers should emphasise matches.
+  bool get anyDimmed => entries.any((e) => !e.matched);
+
   /// Newest matched story, or the newest story when nothing matched. Used
   /// by horizontal renderers to pick their initial scroll position.
   LabStory? get newestMatched {
