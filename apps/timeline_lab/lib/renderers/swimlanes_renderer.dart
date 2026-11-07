@@ -9,6 +9,7 @@ import '../model/lab_models.dart';
 import '../playback/playback_controller.dart';
 import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
+import '../widgets/story_chooser.dart';
 import '../widgets/view_switch.dart';
 import 'renderer_contract.dart';
 import 'story_marker.dart';
@@ -375,14 +376,9 @@ class LaneCell extends StatelessWidget {
     }
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: shown.isEmpty
+      onTapUp: shown.isEmpty
           ? null
-          : () => data.onSelect(
-              shown
-                  .firstWhere((e) => e.matched, orElse: () => shown.first)
-                  .story
-                  .id,
-            ),
+          : (details) => _onTapUp(context, details, shown),
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
@@ -398,6 +394,26 @@ class LaneCell extends StatelessWidget {
         child: content,
       ),
     );
+  }
+
+  /// One story selects directly. Several open the chooser, so no story in
+  /// the cell is unreachable (F6).
+  Future<void> _onTapUp(
+    BuildContext context,
+    TapUpDetails details,
+    List<TimelineEntry> shown,
+  ) async {
+    if (shown.length == 1) {
+      data.onSelect(shown.single.story.id);
+      return;
+    }
+    final id = await showStoryChooser(
+      context,
+      globalPosition: details.globalPosition,
+      stories: [for (final e in shown) e.story],
+      dataset: data.dataset,
+    );
+    if (id != null) data.onSelect(id);
   }
 }
 

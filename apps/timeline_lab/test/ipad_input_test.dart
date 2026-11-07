@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:timeline_lab/filter/timeline_filter.dart';
 import 'package:timeline_lab/lab_controller.dart';
 import 'package:timeline_lab/renderers/renderer_contract.dart';
+import 'package:timeline_lab/renderers/swimlanes_renderer.dart';
 import 'package:timeline_lab/renderers/tree_graph_renderer.dart';
 import 'package:timeline_lab/renderers/zoom_canvas_renderer.dart';
 import 'package:timeline_lab/theme/lab_theme.dart';
@@ -98,5 +99,29 @@ void main() {
       await tester.pump();
       expect(selected, id);
     });
+  });
+  group('swimlanes', () {
+    testWidgets('a multi-story cell opens the chooser', (tester) async {
+      final c = await pumpIpad(
+        tester,
+        ipadSizes['mini_portrait']!,
+        kind: RendererKind.swimlanes,
+      );
+      final multi = find
+          .byWidgetPredicate((w) => w is LaneCell && w.entries.length > 1)
+          .hitTestable()
+          .first;
+      final cell = tester.widget<LaneCell>(multi);
+      await tester.tap(multi);
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(PopupMenuItem<String>),
+        findsNWidgets(cell.entries.length),
+      );
+      final second = cell.entries[1].story.id;
+      await tester.tap(find.byKey(Key('chooser-$second')));
+      await tester.pumpAndSettle();
+      expect(c.selectedStoryId, second);
+    }, variant: ios);
   });
 }
