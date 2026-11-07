@@ -63,6 +63,7 @@ void main() {
       await fx.join(family, user, role);
       return family;
     }
+
     group('create', () {
       // BR 117
       test(
@@ -250,6 +251,7 @@ void main() {
         },
       );
     });
+
     group('accept', () {
       // BR 122
       test(
@@ -542,6 +544,7 @@ void main() {
         },
       );
     });
+
     group('accept: person rows', () {
       // BR 112
       test(
@@ -729,6 +732,7 @@ void main() {
         },
       );
     });
+
     group('sendEmail', () {
       test(
         'when a member sends a pending emailed invite then the invite email '
@@ -900,6 +904,7 @@ void main() {
         },
       );
     });
+
     group('resend', () {
       // BR 127
       test(
@@ -1066,6 +1071,7 @@ void main() {
         },
       );
     });
+
     group('revoke', () {
       // BR 127
       test(
