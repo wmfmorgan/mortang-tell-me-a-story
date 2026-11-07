@@ -542,5 +542,192 @@ void main() {
         },
       );
     });
+    group('accept: person rows', () {
+      // BR 112
+      test(
+        'when the invite person is already linked to someone then no '
+        'duplicate row is made and accept succeeds',
+        () async {
+          final family = await fx.family(await fx.tree());
+          final other = await fx.user();
+          final person = await fx.person(family, userId: other, name: 'Ada');
+          final (invite: _, :token) = await fx.tokenInvite(
+            family,
+            personId: person.id,
+          );
+          final joiner = await fx.user();
+
+          expect(
+            await endpoints.invite.accept(
+              asUser(sessionBuilder, joiner),
+              token,
+            ),
+            family.id,
+          );
+
+          final reread = (await Person.db.findById(fx.s, person.id!))!;
+          expect(reread.userId, other);
+          expect(reread.name, 'Ada');
+          expect(await fx.linkedPeople(family.treeId, other), hasLength(1));
+          expect(await fx.linkedPeople(family.treeId, joiner), hasLength(1));
+        },
+      );
+
+      // BR 113
+      test(
+        'when the invite person is unlinked then it is linked to the '
+        'acceptor and takes their display name',
+        () async {
+          final family = await fx.family(await fx.tree());
+          final person = await fx.person(family, name: 'Ada', passedAway: true);
+          final (invite: _, :token) = await fx.tokenInvite(
+            family,
+            personId: person.id,
+          );
+          final joiner = await fx.userWithEmail(
+            uniqueEmail('kim'),
+            displayName: ' Kim ',
+          );
+
+          await endpoints.invite.accept(asUser(sessionBuilder, joiner), token);
+
+          final reread = (await Person.db.findById(fx.s, person.id!))!;
+          expect(reread.userId, joiner);
+          expect(reread.name, 'Kim');
+          expect(await fx.linkedPeople(family.treeId, joiner), hasLength(1));
+        },
+      );
+
+      // BR 113
+      test(
+        'when the acceptor has no display name then the linked person keeps '
+        'its name',
+        () async {
+          final family = await fx.family(await fx.tree());
+          final person = await fx.person(family, name: 'Ada');
+          final (invite: _, :token) = await fx.tokenInvite(
+            family,
+            personId: person.id,
+          );
+          final joiner = await fx.userWithEmail(
+            uniqueEmail('blank'),
+            displayName: '   ',
+          );
+
+          await endpoints.invite.accept(asUser(sessionBuilder, joiner), token);
+
+          final reread = (await Person.db.findById(fx.s, person.id!))!;
+          expect(reread.userId, joiner);
+          expect(reread.name, 'Ada');
+        },
+      );
+
+      // BR 113
+      test(
+        'when the acceptor is already linked in the tree then the invite '
+        'person stays unlinked',
+        () async {
+          final tree = await fx.tree();
+          final family = await fx.family(tree);
+          final joiner = await fx.user();
+          final own = await fx.person(family, userId: joiner, name: 'Me');
+          final person = await fx.person(family, name: 'Ada');
+          final (invite: _, :token) = await fx.tokenInvite(
+            family,
+            personId: person.id,
+          );
+
+          await endpoints.invite.accept(asUser(sessionBuilder, joiner), token);
+
+          expect((await Person.db.findById(fx.s, person.id!))!.userId, isNull);
+          expect(
+            (await fx.linkedPeople(tree.id!, joiner)).single.id,
+            own.id,
+          );
+        },
+      );
+
+      // BR 114
+      test(
+        'when the invite has no person then exactly one linked row is '
+        'created for the acceptor',
+        () async {
+          final family = await fx.family(await fx.tree());
+          final (invite: _, :token) = await fx.tokenInvite(family);
+          final joiner = await fx.userWithEmail(
+            uniqueEmail('lee'),
+            displayName: 'Lee',
+          );
+
+          await endpoints.invite.accept(asUser(sessionBuilder, joiner), token);
+          await endpoints.invite.accept(asUser(sessionBuilder, joiner), token);
+
+          final linked = await fx.linkedPeople(family.treeId, joiner);
+          expect(linked, hasLength(1));
+          expect(linked.single.name, 'Lee');
+          expect(linked.single.homeFamilyId, family.id);
+        },
+      );
+
+      // BR 114
+      test(
+        'when the acceptor is already linked elsewhere in the tree then no '
+        'row is added',
+        () async {
+          final tree = await fx.tree();
+          final parent = await fx.family(tree);
+          final branch = await fx.family(
+            tree,
+            parentId: parent.id,
+            branchYear: 1990,
+          );
+          final joiner = await fx.user();
+          final own = await fx.person(parent, userId: joiner);
+          final (invite: _, :token) = await fx.tokenInvite(branch);
+
+          await endpoints.invite.accept(asUser(sessionBuilder, joiner), token);
+
+          expect((await fx.linkedPeople(tree.id!, joiner)).single.id, own.id);
+        },
+      );
+
+      test(
+        'when a linked person for the acceptor commits mid-accept then the '
+        'accept reruns once and reuses it',
+        () async {
+          final tree = await fx.tree();
+          final family = await fx.family(tree);
+          final (:invite, :token) = await fx.tokenInvite(family);
+          final joiner = await fx.user();
+          final release = await holdOpen(
+            fx.s,
+            (t) => Person.db.insertRow(
+              fx.s,
+              Person(
+                treeId: tree.id!,
+                homeFamilyId: family.id!,
+                userId: joiner,
+                name: 'Racer',
+              ),
+              transaction: t,
+            ),
+          );
+          final accepting = endpoints.invite.accept(
+            asUser(sessionBuilder, joiner),
+            token,
+          );
+          await Future<void>.delayed(raceDelay);
+          release();
+
+          expect(await accepting, family.id);
+          expect(
+            (await fx.linkedPeople(tree.id!, joiner)).single.name,
+            'Racer',
+          );
+          expect((await fx.reload(invite)).acceptedById, joiner);
+          expect(await fx.membershipOf(family, joiner), isNotNull);
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

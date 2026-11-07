@@ -80,13 +80,22 @@ class InviteEndpoint extends Endpoint {
   }
 
   /// Joins the invite's family and returns its id. Single transaction:
-  /// membership, person link, invite marked accepted.
+  /// membership, person link, invite marked accepted. A double-tapped accept
+  /// that loses the linked-person race reruns once and finds the committed
+  /// person.
   Future<UuidValue> accept(Session session, String token) async {
     final uid = Authz(session).requireUser();
     final trimmed = token.trim();
     if (trimmed.isEmpty) throw validation('token is required');
     final tokenHash = hashInviteToken(trimmed);
-    return _accept(session, uid, tokenHash);
+    try {
+      return await _accept(session, uid, tokenHash);
+    } on DatabaseQueryException catch (e) {
+      if (e.code != '23505' || e.constraintName != 'people_tree_user_uidx') {
+        rethrow;
+      }
+      return _accept(session, uid, tokenHash);
+    }
   }
 
   Future<UuidValue> _accept(
@@ -145,13 +154,7 @@ class InviteEndpoint extends Endpoint {
       }
     }
 
-    await ensureLinkedPerson(
-      session,
-      treeId: family.treeId,
-      homeFamilyId: family.id!,
-      userId: uid,
-      transaction: t,
-    );
+    await _linkPerson(session, invite, family, uid, now, t);
 
     await Invite.db.updateRow(
       session,
@@ -160,4 +163,55 @@ class InviteEndpoint extends Endpoint {
     );
     return family.id!;
   });
+
+  /// Links the invited person when it is still unlinked and the caller has
+  /// no linked person in the tree; otherwise makes sure the caller has one.
+  Future<void> _linkPerson(
+    Session session,
+    Invite invite,
+    Family family,
+    UuidValue uid,
+    DateTime now,
+    Transaction t,
+  ) async {
+    final personId = invite.personId;
+    final target = personId == null
+        ? null
+        : await Person.db.findById(
+            session,
+            personId,
+            transaction: t,
+            lockMode: LockMode.forUpdate,
+          );
+    final alreadyLinked = await Person.db.findFirstRow(
+      session,
+      where: (p) => p.treeId.equals(family.treeId) & p.userId.equals(uid),
+      transaction: t,
+    );
+    if (target != null && target.userId == null && alreadyLinked == null) {
+      final appUser = await AppUser.db.findFirstRow(
+        session,
+        where: (u) => u.authUserId.equals(uid),
+        transaction: t,
+      );
+      final displayName = appUser?.displayName?.trim() ?? '';
+      await Person.db.updateRow(
+        session,
+        target.copyWith(
+          userId: uid,
+          name: displayName.isEmpty ? target.name : displayName,
+          updatedAt: now,
+        ),
+        transaction: t,
+      );
+      return;
+    }
+    await ensureLinkedPerson(
+      session,
+      treeId: family.treeId,
+      homeFamilyId: family.id!,
+      userId: uid,
+      transaction: t,
+    );
+  }
 }
