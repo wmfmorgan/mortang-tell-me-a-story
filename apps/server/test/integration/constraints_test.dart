@@ -702,6 +702,90 @@ void main() {
         );
       });
 
+      test(
+        'a co-owner, two unlinked people in one tree, an undated draft and '
+        'valid day, month and year spans are accepted',
+        () async {
+          final owner = await AuthServices.instance.authUsers.create(session);
+          final coOwner = await AuthServices.instance.authUsers.create(session);
+          final family = await fx.family(await fx.tree());
+          for (final (user, role) in [
+            (owner, MembershipRole.owner),
+            (coOwner, MembershipRole.coOwner),
+          ]) {
+            await Membership.db.insertRow(
+              session,
+              Membership(familyId: family.id!, userId: user.id, role: role),
+            );
+          }
+          await fx.person(family, name: 'Unlinked one');
+          await fx.person(family, name: 'Unlinked two');
+
+          for (final (start, end, precision) in [
+            (null, null, null),
+            (
+              DateTime.utc(1984, 2, 29),
+              DateTime.utc(1984, 2, 29),
+              DatePrecision.day,
+            ),
+            (
+              DateTime.utc(1984, 2),
+              DateTime.utc(1984, 2, 29),
+              DatePrecision.month,
+            ),
+            (
+              DateTime.utc(1984),
+              DateTime.utc(1984, 12, 31),
+              DatePrecision.year,
+            ),
+          ]) {
+            await Story.db.insertRow(
+              session,
+              Story(
+                familyId: family.id!,
+                treeId: family.treeId,
+                dateStart: start,
+                dateEnd: end,
+                datePrecision: precision,
+              ),
+            );
+          }
+
+          expect(
+            await Story.db.count(
+              session,
+              where: (t) => t.familyId.equals(family.id),
+            ),
+            4,
+          );
+        },
+      );
+
+      test(
+        'deleting the accepting account nulls acceptedById and keeps the invite',
+        () async {
+          final user = await AuthServices.instance.authUsers.create(session);
+          final family = await fx.family(await fx.tree());
+          final invite = await fx.invite(family);
+          await Invite.db.updateRow(
+            session,
+            invite.copyWith(
+              acceptedById: user.id,
+              acceptedAt: DateTime.now().toUtc(),
+            ),
+          );
+
+          await AuthServices.instance.authUsers.delete(
+            session,
+            authUserId: user.id,
+          );
+
+          final after = await Invite.db.findById(session, invite.id!);
+          expect(after!.acceptedById, isNull);
+          expect(after.acceptedAt, isNotNull);
+        },
+      );
+
       test('a raw invite token instead of a hash is rejected', () async {
         final family = await fx.family(await fx.tree());
 
