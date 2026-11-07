@@ -137,4 +137,14 @@ void main() {
     expect(errors, isEmpty);
     expect(tester.getSize(rendererRoot).height, before);
   }, variant: ios);
+
+  for (final MapEntry(key: name, value: size) in ipadSizes.entries) {
+    testWidgets('status bar clears the home indicator ($name)', (tester) async {
+      await pumpIpad(tester, size);
+      expect(
+        tester.getRect(find.byKey(const Key('status-bar'))).bottom,
+        lessThanOrEqualTo(size.height - ipadBottomInset),
+      );
+    }, variant: ios);
+  }
 }
