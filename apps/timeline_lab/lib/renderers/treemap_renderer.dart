@@ -408,10 +408,9 @@ class _StoryTiles extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Text(
+                    child: _FitText(
                       '${data.dataset.dateLabel(e.story)}\n${e.story.title}',
-                      overflow: TextOverflow.fade,
-                      style: theme.labelMedium?.copyWith(
+                      style: theme.labelMedium!.copyWith(
                         color: e.matched ? labInk : labDimmedInk,
                       ),
                     ),
@@ -423,6 +422,36 @@ class _StoryTiles extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Multi-line text that shows as many whole lines as fit and ends the last
+/// one in "…", instead of fading out at the bottom.
+class _FitText extends StatelessWidget {
+  const _FitText(this.text, {required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final probe = TextPainter(
+        text: TextSpan(text: 'Ag', style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      final lineHeight = probe.height;
+      probe.dispose();
+      final lines = (box.maxHeight / lineHeight).floor();
+      if (lines < 1) return const SizedBox.shrink();
+      return Text(
+        text,
+        maxLines: lines,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    },
+  );
 }
 
 class TreemapParentData extends ContainerBoxParentData<RenderBox> {

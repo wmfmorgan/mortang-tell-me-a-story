@@ -1,3 +1,5 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -68,6 +70,83 @@ OutlinedBorder labContainerShape(
   borderRadius: BorderRadius.circular(radius),
   side: side,
 );
+
+/// Text-field outline with the same continuous corners as the cards.
+///
+/// Flutter's `OutlineInputBorder` only draws circular corners and cuts a
+/// notch for a floating label. Fields in the lab use hint text instead of a
+/// floating label, so this border never needs a gap.
+class LabFieldBorder extends InputBorder {
+  const LabFieldBorder({super.borderSide, this.radius = LabRadius.card});
+
+  final double radius;
+
+  RSuperellipse _shape(Rect rect) =>
+      BorderRadius.circular(radius).toRSuperellipse(rect);
+
+  @override
+  bool get isOutline => true;
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.all(borderSide.width);
+
+  @override
+  LabFieldBorder copyWith({BorderSide? borderSide}) =>
+      LabFieldBorder(borderSide: borderSide ?? this.borderSide, radius: radius);
+
+  @override
+  ShapeBorder scale(double t) =>
+      LabFieldBorder(borderSide: borderSide.scale(t), radius: radius * t);
+
+  @override
+  ShapeBorder? lerpFrom(ShapeBorder? a, double t) => a is LabFieldBorder
+      ? LabFieldBorder(
+          borderSide: BorderSide.lerp(a.borderSide, borderSide, t),
+          radius: lerpDouble(a.radius, radius, t)!,
+        )
+      : super.lerpFrom(a, t);
+
+  @override
+  ShapeBorder? lerpTo(ShapeBorder? b, double t) => b is LabFieldBorder
+      ? LabFieldBorder(
+          borderSide: BorderSide.lerp(borderSide, b.borderSide, t),
+          radius: lerpDouble(radius, b.radius, t)!,
+        )
+      : super.lerpTo(b, t);
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
+      Path()..addRSuperellipse(_shape(rect));
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
+      Path()..addRSuperellipse(_shape(rect.deflate(borderSide.width)));
+
+  @override
+  void paint(
+    Canvas canvas,
+    Rect rect, {
+    double? gapStart,
+    double gapExtent = 0.0,
+    double gapPercentage = 0.0,
+    TextDirection? textDirection,
+  }) {
+    if (borderSide.style == BorderStyle.none) return;
+    canvas.drawRSuperellipse(
+      _shape(rect.deflate(borderSide.width / 2)),
+      borderSide.toPaint(),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is LabFieldBorder &&
+      other.borderSide == borderSide &&
+      other.radius == radius;
+
+  @override
+  int get hashCode => Object.hash(borderSide, radius);
+}
 
 abstract final class LabStroke {
   static const hairline = 1.0;
@@ -146,11 +225,8 @@ ThemeData labTheme({required bool useGoogleFonts}) {
     labelMedium: sans(),
     labelSmall: sans(),
   );
-  // InputBorder has no superellipse variant; at 12 px the circular corner is
-  // visually indistinguishable next to the cards.
-  final fieldBorder = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(LabRadius.card),
-    borderSide: const BorderSide(color: labSageLine),
+  const fieldBorder = LabFieldBorder(
+    borderSide: BorderSide(color: labSageLine),
   );
 
   return ThemeData(

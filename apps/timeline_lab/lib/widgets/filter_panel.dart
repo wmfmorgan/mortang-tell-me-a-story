@@ -69,8 +69,9 @@ class _FilterPanelState extends State<FilterPanel> {
             key: const Key('filter-search'),
             controller: _search,
             focusNode: widget.searchFocusNode,
+            // Hint, not a floating label: LabFieldBorder has no label notch.
             decoration: const InputDecoration(
-              labelText: 'Search',
+              hintText: 'Search',
               prefixIcon: Icon(Icons.search),
             ),
             onChanged: (q) => controller.setFilter(filter.copyWith(query: q)),
