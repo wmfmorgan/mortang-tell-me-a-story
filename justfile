@@ -63,6 +63,7 @@ run:
     set -- flutter run -d web-server --web-hostname=127.0.0.1 --web-port=3000 \
         --dart-define=SUPABASE_URL="$api_url" \
         --dart-define=SUPABASE_ANON_KEY="$anon_key" \
+        --dart-define=SERVER_URL=http://127.0.0.1:8080 \
         --dart-define=INVITE_APP_ORIGIN=http://127.0.0.1:3000
     if [ -n "$MAPBOX_ACCESS_TOKEN" ]; then
         set -- "$@" --dart-define=MAPBOX_ACCESS_TOKEN="$MAPBOX_ACCESS_TOKEN"
