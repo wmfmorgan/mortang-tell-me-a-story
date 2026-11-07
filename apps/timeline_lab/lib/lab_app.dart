@@ -112,7 +112,7 @@ class LabHome extends StatelessWidget {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 900;
+                final wide = constraints.maxWidth >= LabBreakpoint.sidebar;
                 // One Flex in both layouts so the renderer keeps its element
                 // (scroll, zoom, lane mode) across the breakpoint.
                 return Flex(
