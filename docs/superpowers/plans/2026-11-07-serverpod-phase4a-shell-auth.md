@@ -396,6 +396,12 @@ mise exec -- flutter test
 cd ../.. && mise exec -- just test-live
 ```
 
+## As landed (2026-11-07)
+- Commits: `f8de0b0` Env, `48e45ad` AppSession + recovery, `da698e0` AuthRefresh, `6a968a6` OtpSignIn, `52a2717` both login pages (Tasks 5 and 6 share `m13_fit_finish_test.dart`, so they landed as one commit), `def253f` main + Supabase shell deleted, `0354261` integration_test compile fix, then a `dart format` commit.
+- Recovery is a storage wrapper (`SessionRecoveringStorage`), not a retry around `initServer()`: it clears only an unreadable entry, so a server that is down at startup never wipes a valid session.
+- The live test calls `AppSession.instance` (the default `ServerAppSession`) after `initServer`, and adds a wrong-code case. The sign-in error text has key `sign-in-error`; `magic-link-error` is gone (no references existed).
+- Gate: format 0 changed; analyze 23 issues; `flutter test` +725 ~2; `just test-live` +4.
+
 ## Hand-offs
 - **4b:** `invite_api.currentFamilyId` still calls `ProfileSession.bindUser` / `FamilySelection.bindUser`; `AuthRefresh` now binds on sign-in, so 4b drops those calls.
 - **4f:** keys `magic-link-email`, `invite-email`, `sign-in-code`, `sign-in-code-submit`; send text "Email me a sign-in code"; landing code step heading "Check your email" (the invite page has no heading, it shows `invite-sent`); main mounts as in Task 7.
