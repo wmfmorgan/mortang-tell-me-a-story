@@ -26,6 +26,10 @@ import 'package:tell_me_a_story_server/src/generated/date_precision.dart'
     as _ig52w51f;
 import 'package:tell_me_a_story_server/src/generated/dto/own_profile_dto.dart'
     as _i34cgfsq;
+import 'package:tell_me_a_story_server/src/generated/dto/place_dto.dart'
+    as _i3xh6672;
+import 'package:tell_me_a_story_server/src/generated/dto/place_input_dto.dart'
+    as _iqvasz3a;
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
 import 'package:tell_me_a_story_server/src/generated/endpoints.dart';
 export 'package:serverpod_test/serverpod_test_public_exports.dart';
@@ -163,6 +167,8 @@ class TestEndpoints {
 
   late final _JwtRefreshEndpoint jwtRefresh;
 
+  late final _PlaceEndpoint place;
+
   late final _ProfileEndpoint profile;
 }
 
@@ -178,6 +184,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     jwtRefresh = _JwtRefreshEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    place = _PlaceEndpoint(
       endpoints,
       serializationManager,
     );
@@ -630,6 +640,281 @@ class _JwtRefreshEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<_iacs.AuthSuccess>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _PlaceEndpoint {
+  _PlaceEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<List<_i3xh6672.PlaceDto>> list(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'place',
+            method: 'list',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'place',
+          methodName: 'list',
+          parameters: _ist.testObjectToJson({'familyId': familyId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_i3xh6672.PlaceDto>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<List<_i3xh6672.PlaceDto>> favorites(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'place',
+            method: 'favorites',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'place',
+          methodName: 'favorites',
+          parameters: _ist.testObjectToJson({'familyId': familyId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_i3xh6672.PlaceDto>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<List<_i3xh6672.PlaceDto>> recents(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId, {
+    required int limit,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'place',
+            method: 'recents',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'place',
+          methodName: 'recents',
+          parameters: _ist.testObjectToJson({
+            'familyId': familyId,
+            'limit': limit,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_i3xh6672.PlaceDto>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i3xh6672.PlaceDto> create(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+    _iqvasz3a.PlaceInputDto input,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'place',
+            method: 'create',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'place',
+          methodName: 'create',
+          parameters: _ist.testObjectToJson({
+            'familyId': familyId,
+            'input': input,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i3xh6672.PlaceDto>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i3xh6672.PlaceDto> markUsed(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue placeId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'place',
+            method: 'markUsed',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'place',
+          methodName: 'markUsed',
+          parameters: _ist.testObjectToJson({'placeId': placeId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i3xh6672.PlaceDto>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i3xh6672.PlaceDto> setFavorite(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue placeId,
+    bool isFavorite,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'place',
+            method: 'setFavorite',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'place',
+          methodName: 'setFavorite',
+          parameters: _ist.testObjectToJson({
+            'placeId': placeId,
+            'isFavorite': isFavorite,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i3xh6672.PlaceDto>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i3xh6672.PlaceDto?> findByMapboxId(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+    String mapboxPlaceId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'place',
+            method: 'findByMapboxId',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'place',
+          methodName: 'findByMapboxId',
+          parameters: _ist.testObjectToJson({
+            'familyId': familyId,
+            'mapboxPlaceId': mapboxPlaceId,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i3xh6672.PlaceDto?>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i3xh6672.PlaceDto?> get(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue placeId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'place',
+            method: 'get',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'place',
+          methodName: 'get',
+          parameters: _ist.testObjectToJson({'placeId': placeId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i3xh6672.PlaceDto?>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

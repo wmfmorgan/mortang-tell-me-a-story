@@ -20,8 +20,11 @@ import 'package:tell_me_a_story_server/src/generated/birth_visibility.dart'
     as _i0rpsun5;
 import 'package:tell_me_a_story_server/src/generated/date_precision.dart'
     as _ig52w51f;
+import 'package:tell_me_a_story_server/src/generated/dto/place_input_dto.dart'
+    as _iqvasz3a;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../endpoints/place_endpoint.dart' as _ilyqdzjc;
 import '../endpoints/profile_endpoint.dart' as _i2cx2pww;
 
 class Endpoints extends _is.EndpointDispatch {
@@ -38,6 +41,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'place': _ilyqdzjc.PlaceEndpoint()
+        ..initialize(
+          server,
+          'place',
           null,
         ),
       'profile': _i2cx2pww.ProfileEndpoint()
@@ -338,6 +347,185 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['place'] = _is.EndpointConnector(
+      name: 'place',
+      endpoint: endpoints['place']!,
+      methodConnectors: {
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).list(
+                session,
+                params['familyId'],
+              ),
+        ),
+        'favorites': _is.MethodConnector(
+          name: 'favorites',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).favorites(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'recents': _is.MethodConnector(
+          name: 'recents',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).recents(
+                    session,
+                    params['familyId'],
+                    limit: params['limit'],
+                  ),
+        ),
+        'create': _is.MethodConnector(
+          name: 'create',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'input': _is.ParameterDescription(
+              name: 'input',
+              type: _is.getType<_iqvasz3a.PlaceInputDto>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).create(
+                session,
+                params['familyId'],
+                params['input'],
+              ),
+        ),
+        'markUsed': _is.MethodConnector(
+          name: 'markUsed',
+          params: {
+            'placeId': _is.ParameterDescription(
+              name: 'placeId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).markUsed(
+                    session,
+                    params['placeId'],
+                  ),
+        ),
+        'setFavorite': _is.MethodConnector(
+          name: 'setFavorite',
+          params: {
+            'placeId': _is.ParameterDescription(
+              name: 'placeId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'isFavorite': _is.ParameterDescription(
+              name: 'isFavorite',
+              type: _is.getType<bool>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).setFavorite(
+                    session,
+                    params['placeId'],
+                    params['isFavorite'],
+                  ),
+        ),
+        'findByMapboxId': _is.MethodConnector(
+          name: 'findByMapboxId',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'mapboxPlaceId': _is.ParameterDescription(
+              name: 'mapboxPlaceId',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['place'] as _ilyqdzjc.PlaceEndpoint)
+                  .findByMapboxId(
+                    session,
+                    params['familyId'],
+                    params['mapboxPlaceId'],
+                  ),
+        ),
+        'get': _is.MethodConnector(
+          name: 'get',
+          params: {
+            'placeId': _is.ParameterDescription(
+              name: 'placeId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['place'] as _ilyqdzjc.PlaceEndpoint).get(
+                session,
+                params['placeId'],
+              ),
         ),
       },
     );

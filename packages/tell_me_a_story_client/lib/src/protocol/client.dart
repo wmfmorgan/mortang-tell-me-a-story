@@ -25,6 +25,10 @@ import 'package:tell_me_a_story_client/src/protocol/date_precision.dart'
     as _i3omm4g5;
 import 'package:tell_me_a_story_client/src/protocol/dto/own_profile_dto.dart'
     as _il07dlrf;
+import 'package:tell_me_a_story_client/src/protocol/dto/place_dto.dart'
+    as _irx46cwk;
+import 'package:tell_me_a_story_client/src/protocol/dto/place_input_dto.dart'
+    as _iyhrnw9c;
 
 import 'protocol.dart' as _il2as5qe;
 
@@ -354,6 +358,98 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// Places are shared by every family in a tree (business-rules.md §2.4, §8
+/// item 1). `familyId` parameters resolve the family's tree; the caller must
+/// be a live member of a live family in that tree, and the family itself must
+/// be live (D6b). Place rows are checked by their `treeId` (D8).
+/// {@category Endpoint}
+class EndpointPlace extends _isc.EndpointRef {
+  EndpointPlace(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'place';
+
+  _ida.Future<List<_irx46cwk.PlaceDto>> list(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<List<_irx46cwk.PlaceDto>>(
+        'place',
+        'list',
+        {'familyId': familyId},
+      );
+
+  _ida.Future<List<_irx46cwk.PlaceDto>> favorites(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<List<_irx46cwk.PlaceDto>>(
+        'place',
+        'favorites',
+        {'familyId': familyId},
+      );
+
+  _ida.Future<List<_irx46cwk.PlaceDto>> recents(
+    _isc.UuidValue familyId, {
+    required int limit,
+  }) => caller.callServerEndpoint<List<_irx46cwk.PlaceDto>>(
+    'place',
+    'recents',
+    {
+      'familyId': familyId,
+      'limit': limit,
+    },
+  );
+
+  /// Creates a place in the family's tree, marked used now. A place with the
+  /// same Mapbox id already in the tree is returned instead (schema-design.md
+  /// §3.2, places).
+  _ida.Future<_irx46cwk.PlaceDto> create(
+    _isc.UuidValue familyId,
+    _iyhrnw9c.PlaceInputDto input,
+  ) => caller.callServerEndpoint<_irx46cwk.PlaceDto>(
+    'place',
+    'create',
+    {
+      'familyId': familyId,
+      'input': input,
+    },
+  );
+
+  _ida.Future<_irx46cwk.PlaceDto> markUsed(_isc.UuidValue placeId) =>
+      caller.callServerEndpoint<_irx46cwk.PlaceDto>(
+        'place',
+        'markUsed',
+        {'placeId': placeId},
+      );
+
+  _ida.Future<_irx46cwk.PlaceDto> setFavorite(
+    _isc.UuidValue placeId,
+    bool isFavorite,
+  ) => caller.callServerEndpoint<_irx46cwk.PlaceDto>(
+    'place',
+    'setFavorite',
+    {
+      'placeId': placeId,
+      'isFavorite': isFavorite,
+    },
+  );
+
+  _ida.Future<_irx46cwk.PlaceDto?> findByMapboxId(
+    _isc.UuidValue familyId,
+    String mapboxPlaceId,
+  ) => caller.callServerEndpoint<_irx46cwk.PlaceDto?>(
+    'place',
+    'findByMapboxId',
+    {
+      'familyId': familyId,
+      'mapboxPlaceId': mapboxPlaceId,
+    },
+  );
+
+  /// Null when the place doesn't exist or the caller can't read its tree.
+  _ida.Future<_irx46cwk.PlaceDto?> get(_isc.UuidValue placeId) =>
+      caller.callServerEndpoint<_irx46cwk.PlaceDto?>(
+        'place',
+        'get',
+        {'placeId': placeId},
+      );
+}
+
 /// The caller's own account (business-rules.md §2.10). Email is the login
 /// identity and read-only (D1); account deletion is not offered (D7).
 /// {@category Endpoint}
@@ -455,6 +551,7 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    place = EndpointPlace(this);
     profile = EndpointProfile(this);
     modules = Modules(this);
   }
@@ -462,6 +559,8 @@ class Client extends _isc.ServerpodClientShared {
   late final EndpointEmailIdp emailIdp;
 
   late final EndpointJwtRefresh jwtRefresh;
+
+  late final EndpointPlace place;
 
   late final EndpointProfile profile;
 
@@ -471,6 +570,7 @@ class Client extends _isc.ServerpodClientShared {
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'place': place,
     'profile': profile,
   };
 

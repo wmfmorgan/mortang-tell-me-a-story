@@ -13,6 +13,15 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+place:
+  - list:
+  - favorites:
+  - recents:
+  - create:
+  - markUsed:
+  - setFavorite:
+  - findByMapboxId:
+  - get:
 profile:
   - me:
   - saveName:

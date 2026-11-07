@@ -17,6 +17,8 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
+import 'package:tell_me_a_story_server/src/generated/dto/place_dto.dart'
+    as _i3xh6672;
 import 'app_error_code.dart' as _imu8gbx5;
 import 'app_exception.dart' as _it4z223c;
 import 'app_user.dart' as _i2j2xfrn;
@@ -262,6 +264,7 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<List<_is.UuidValue>>,
           _is.getType<List<int>>,
           _is.getType<List<_is.UuidValue>?>,
+          _is.getType<List<_i3xh6672.PlaceDto>>,
         ],
         modules: const [
           _iais.Protocol.new,
@@ -2462,6 +2465,12 @@ class Protocol extends _is.DatabaseSerializationManager
                     .map((e) => deserialize<_is.UuidValue>(e))
                     .toList()
               : null)
+          as T;
+    }
+    if (t == List<_i3xh6672.PlaceDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i3xh6672.PlaceDto>(e))
+              .toList()
           as T;
     }
     final modules = deserializationMetadata.modulesForDeserialization(
