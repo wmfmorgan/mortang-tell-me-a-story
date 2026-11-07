@@ -11,6 +11,7 @@ import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
 import 'renderer_contract.dart';
 import 'story_marker.dart';
+import 'time_scale.dart';
 
 enum LaneBy { person, family }
 
@@ -96,8 +97,7 @@ class _SwimlanesTimelineState extends State<SwimlanesTimeline> {
       final newest = widget.data.newestMatched;
       if (!mounted || !_hCtl.hasClients || newest == null) return;
       final p = _hCtl.position;
-      final right =
-          (newest.start.year - widget.data.dataset.minYear + 1) * _colWidth;
+      final right = _scale.toPx(newest.start.year + 1.0);
       _hCtl.jumpTo((right - p.viewportDimension).clamp(0, p.maxScrollExtent));
     });
   }
@@ -111,8 +111,11 @@ class _SwimlanesTimelineState extends State<SwimlanesTimeline> {
     }
   }
 
-  double _cursorX(double year) =>
-      (year - widget.data.dataset.minYear) * _colWidth;
+  TimeScale get _scale => TimeScale(
+    minYear: widget.data.dataset.minYear,
+    maxYear: widget.data.dataset.maxYear,
+    pxPerYear: _colWidth,
+  );
 
   /// Camera follow: keep the cursor column at 65% of the grid width.
   void _follow() {
@@ -121,7 +124,10 @@ class _SwimlanesTimelineState extends State<SwimlanesTimeline> {
     if (!pb.follow || year == null || !_hCtl.hasClients) return;
     final p = _hCtl.position;
     _hCtl.jumpTo(
-      (_cursorX(year) - p.viewportDimension * 0.65).clamp(0, p.maxScrollExtent),
+      (_scale.toPx(year) - p.viewportDimension * 0.65).clamp(
+        0,
+        p.maxScrollExtent,
+      ),
     );
   }
 
@@ -239,7 +245,7 @@ class _SwimlanesTimelineState extends State<SwimlanesTimeline> {
                               painter: _CursorPainter(
                                 playback: _playback!,
                                 scroll: _hCtl,
-                                xForYear: _cursorX,
+                                xForYear: (y) => _scale.toPx(y),
                               ),
                             ),
                           ),

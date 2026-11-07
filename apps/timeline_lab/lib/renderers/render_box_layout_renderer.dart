@@ -8,6 +8,7 @@ import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
 import '../widgets/story_card.dart';
 import 'renderer_contract.dart';
+import 'time_scale.dart';
 
 enum AxisSide { left, right }
 
@@ -304,7 +305,12 @@ class RenderTimeAxisLayout extends RenderBox
     super.detach();
   }
 
-  double _yFor(double yearFraction) => (maxYear + 1 - yearFraction) * pxPerYear;
+  TimeScale get _scale => TimeScale(
+    minYear: minYear,
+    maxYear: maxYear,
+    pxPerYear: pxPerYear,
+    newestFirst: true,
+  );
 
   @override
   void setupParentData(RenderBox child) {
@@ -337,7 +343,7 @@ class RenderTimeAxisLayout extends RenderBox
       final pd = child.parentData! as TimeAxisParentData;
       child.layout(childConstraints, parentUsesSize: true);
       final h = child.size.height;
-      pd.idealY = _yFor(pd.yearFraction);
+      pd.idealY = _scale.toPx(pd.yearFraction);
       final y = math.max(pd.idealY - h / 2, lastBottom[pd.side]! + gap);
       final x = pd.side == AxisSide.left
           ? _axisX - 16 - child.size.width
@@ -349,10 +355,7 @@ class RenderTimeAxisLayout extends RenderBox
     }
 
     size = constraints.constrain(
-      Size(
-        width,
-        math.max((maxYear - minYear + 1) * pxPerYear, maxBottom) + 24,
-      ),
+      Size(width, math.max(_scale.span, maxBottom) + 24),
     );
   }
 
@@ -363,19 +366,17 @@ class RenderTimeAxisLayout extends RenderBox
       ..color = axisColor
       ..strokeWidth = 2;
     final axisTop = offset + Offset(_axisX, 0);
-    final axisBottom = offset + Offset(_axisX, _yFor(minYear.toDouble()));
+    final axisBottom = offset + Offset(_axisX, _scale.toPx(minYear.toDouble()));
     canvas.drawLine(axisTop, axisBottom, axis);
 
     final tick = Paint()
       ..color = axisColor
       ..strokeWidth = 1;
-    for (var y = minYear; y <= maxYear + 1; y++) {
-      final ty = _yFor(y.toDouble());
-      final decade = y % 10 == 0;
-      final half = decade ? 8.0 : 3.0;
+    for (final t in _scale.yearTicks()) {
+      final half = t.kind == TickKind.decade ? 8.0 : 3.0;
       canvas.drawLine(
-        offset + Offset(_axisX - half, ty),
-        offset + Offset(_axisX + half, ty),
+        offset + Offset(_axisX - half, t.px),
+        offset + Offset(_axisX + half, t.px),
         tick,
       );
     }
@@ -403,7 +404,7 @@ class RenderTimeAxisLayout extends RenderBox
 
     final cursor = _playback?.cursorYear;
     if (cursor != null) {
-      final cy = _yFor(cursor);
+      final cy = _scale.toPx(cursor);
       canvas.drawLine(
         offset + Offset(0, cy),
         offset + Offset(size.width, cy),
@@ -419,15 +420,14 @@ class RenderTimeAxisLayout extends RenderBox
     // Children may have pushed layers, so re-read the canvas.
     final top = context.canvas;
     final pill = Paint()..color = labParchment;
-    final firstDecade = (minYear + 9) ~/ 10 * 10;
-    for (var y = firstDecade; y <= maxYear + 1; y += 10) {
-      final ty = _yFor(y.toDouble());
+    for (final t in _scale.yearTicks()) {
+      if (t.kind != TickKind.decade) continue;
       final tp = TextPainter(
-        text: TextSpan(text: '$y', style: labelStyle),
+        text: TextSpan(text: '${t.year}', style: labelStyle),
         textDirection: TextDirection.ltr,
       )..layout();
       final rect = Rect.fromCenter(
-        center: offset + Offset(_axisX, ty),
+        center: offset + Offset(_axisX, t.px),
         width: tp.width + 8,
         height: tp.height + 2,
       );

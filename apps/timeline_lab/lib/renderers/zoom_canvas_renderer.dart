@@ -8,6 +8,7 @@ import '../theme/lab_theme.dart';
 import '../widgets/story_card.dart';
 import 'renderer_contract.dart';
 import 'story_marker.dart';
+import 'time_scale.dart';
 
 enum ZoomLod { decades, years, cards }
 
@@ -74,10 +75,9 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
   PlaybackController? get _playback => data.playback;
   int get minYear => data.dataset.minYear;
   int get maxYear => data.dataset.maxYear;
-  double get worldWidth => (maxYear - minYear + 1) * _pxPerYear;
-
-  double _xFor(double fractionalYear) =>
-      (fractionalYear - minYear) * _pxPerYear;
+  TimeScale get _scale =>
+      TimeScale(minYear: minYear, maxYear: maxYear, pxPerYear: _pxPerYear);
+  double get worldWidth => _scale.span;
 
   double _reveal(String id) => _playback?.reveal(id) ?? 1;
 
@@ -114,7 +114,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
     final newest = data.newestMatched;
     final focusX = newest == null
         ? worldWidth / 2
-        : _xFor(newest.fractionalYear);
+        : _scale.toPx(newest.fractionalYear);
     // Newest matched story at three quarters across, lane 0 in the upper
     // third, at every initial scale.
     return TransformationController(
@@ -134,7 +134,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
   }
 
   void _zoomToDecade(int decade) {
-    final cx = _xFor(decade + 5);
+    final cx = _scale.toPx(decade + 5);
     _tween = Matrix4Tween(
       begin: _tc!.value.clone(),
       // Middle lane slightly below centre so lane 0 clears the pinned axis.
@@ -157,7 +157,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
     }
     final m = tc.value;
     final s = m.getMaxScaleOnAxis();
-    final tx = _viewport.width * 0.65 - s * _xFor(year);
+    final tx = _viewport.width * 0.65 - s * _scale.toPx(year);
     if ((m.getTranslation().x - tx).abs() < 0.5) return;
     tc.value = m.clone()..setTranslationRaw(tx, m.getTranslation().y, 0);
   }
@@ -208,13 +208,12 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
                         scale: scale,
                         axisY: visible.top + 28 / scale,
                         bottomY: visible.bottom,
-                        minYear: minYear,
-                        maxYear: maxYear,
+                        timeScale: _scale,
                         lod: lod,
                         labelStyle: Theme.of(context).textTheme.labelSmall!,
                         cursorX: _playback?.cursorYear == null
                             ? null
-                            : _xFor(_playback!.cursorYear!),
+                            : _scale.toPx(_playback!.cursorYear!),
                       ),
                     ),
                   ),
@@ -291,7 +290,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
       for (final MapEntry(key: decade, value: c) in counts.entries)
         _pin(
           key: ValueKey('decade-$decade'),
-          Offset(_xFor(decade + 5), _bubbleY),
+          Offset(_scale.toPx(decade + 5), _bubbleY),
           scale,
           anchor: const Offset(-0.5, -0.5),
           GestureDetector(
@@ -339,14 +338,12 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
     return entries.getRange(lowerBound(fromYear), lowerBound(toYear));
   }
 
-  double _yearAt(double worldX) => worldX / _pxPerYear + minYear;
-
   List<Widget> _yearDots(double scale, Rect visible) {
     final lanes = familyLaneOrder(data.dataset);
     return [
       for (final e in _entriesBetween(
-        _yearAt(visible.left) - 1,
-        _yearAt(visible.right) + 1,
+        _scale.toYear(visible.left) - 1,
+        _scale.toYear(visible.right) + 1,
       ))
         if (_laneVisible(
               math.max(0, lanes.indexOf(e.story.familyId)),
@@ -356,7 +353,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
           _pin(
             key: ValueKey(e.story.id),
             Offset(
-              _xFor(e.story.fractionalYear),
+              _scale.toPx(e.story.fractionalYear),
               zoomLaneY(math.max(0, lanes.indexOf(e.story.familyId))),
             ),
             scale,
@@ -397,7 +394,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
     final overflow = <_Overflow>[];
     for (final e in data.entries) {
       final lane = math.max(0, lanes.indexOf(e.story.familyId));
-      final x = _xFor(e.story.fractionalYear);
+      final x = _scale.toPx(e.story.fractionalYear);
       final ends = rowEnds[lane] ??= [];
       var row = ends.indexWhere((end) => end <= x);
       if (row < 0 && ends.length < cardRows) row = ends.length;
@@ -496,8 +493,7 @@ class _ZoomAxisPainter extends CustomPainter {
     required this.scale,
     required this.axisY,
     required this.bottomY,
-    required this.minYear,
-    required this.maxYear,
+    required this.timeScale,
     required this.lod,
     required this.labelStyle,
     required this.cursorX,
@@ -511,8 +507,7 @@ class _ZoomAxisPainter extends CustomPainter {
 
   /// World y of the viewport bottom (cursor line end).
   final double bottomY;
-  final int minYear;
-  final int maxYear;
+  final TimeScale timeScale;
   final ZoomLod lod;
   final TextStyle labelStyle;
 
@@ -539,28 +534,33 @@ class _ZoomAxisPainter extends CustomPainter {
       ..color = labInk.withValues(alpha: 0.6)
       ..strokeWidth = 1 / scale;
     canvas.drawLine(Offset(0, axisY), Offset(size.width, axisY), paint);
-    for (var y = minYear; y <= maxYear + 1; y++) {
-      final x = (y - minYear) * _pxPerYear;
-      final decade = y % 10 == 0;
-      if (decade) {
-        canvas.drawLine(Offset(x, axisY), Offset(x, axisY + 12 / scale), paint);
-        _label(canvas, '$y', Offset(x, axisY));
+    for (final t in timeScale.yearTicks()) {
+      if (t.kind == TickKind.decade) {
+        canvas.drawLine(
+          Offset(t.px, axisY),
+          Offset(t.px, axisY + 12 / scale),
+          paint,
+        );
+        _label(canvas, '${t.year}', Offset(t.px, axisY));
         continue;
       }
       if (lod == ZoomLod.decades) continue;
-      canvas.drawLine(Offset(x, axisY), Offset(x, axisY + 6 / scale), paint);
-      if (_pxPerYear * scale >= 48) _label(canvas, '$y', Offset(x, axisY));
+      canvas.drawLine(
+        Offset(t.px, axisY),
+        Offset(t.px, axisY + 6 / scale),
+        paint,
+      );
+      if (timeScale.pxPerYear * scale >= 48) {
+        _label(canvas, '${t.year}', Offset(t.px, axisY));
+      }
     }
     if (lod == ZoomLod.cards) {
-      for (var y = minYear; y <= maxYear; y++) {
-        for (var m = 1; m < 12; m++) {
-          final x = (y - minYear + m / 12) * _pxPerYear;
-          canvas.drawLine(
-            Offset(x, axisY),
-            Offset(x, axisY + 3 / scale),
-            paint,
-          );
-        }
+      for (final t in timeScale.monthTicks()) {
+        canvas.drawLine(
+          Offset(t.px, axisY),
+          Offset(t.px, axisY + 3 / scale),
+          paint,
+        );
       }
     }
     final cx = cursorX;
@@ -580,8 +580,7 @@ class _ZoomAxisPainter extends CustomPainter {
       old.scale != scale ||
       old.axisY != axisY ||
       old.bottomY != bottomY ||
-      old.minYear != minYear ||
-      old.maxYear != maxYear ||
+      old.timeScale != timeScale ||
       old.lod != lod ||
       old.labelStyle != labelStyle ||
       old.cursorX != cursorX;
