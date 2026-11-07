@@ -358,6 +358,27 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// Families, memberships and covers (business-rules.md §2.1, §2.2, §3.1–§3.3,
+/// §3.5, §3.6; schema-design.md §3.2). Every write and member read needs a
+/// live family (D6b); only `recover` and the steward reads `listStewarded`,
+/// `directory` and `detail` reach a soft-deleted family.
+/// {@category Endpoint}
+class EndpointFamily extends _isc.EndpointRef {
+  EndpointFamily(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'family';
+
+  /// A new tree with one family; the caller is its owner and gets a linked
+  /// person (business-rules.md §3.1).
+  _ida.Future<_isc.UuidValue> createRoot(String name) =>
+      caller.callServerEndpoint<_isc.UuidValue>(
+        'family',
+        'createRoot',
+        {'name': name},
+      );
+}
+
 /// Places are shared by every family in a tree (business-rules.md §2.4, §8
 /// item 1). `familyId` parameters resolve the family's tree; the caller must
 /// be a live member of a live family in that tree, and the family itself must
@@ -551,6 +572,7 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    family = EndpointFamily(this);
     place = EndpointPlace(this);
     profile = EndpointProfile(this);
     modules = Modules(this);
@@ -559,6 +581,8 @@ class Client extends _isc.ServerpodClientShared {
   late final EndpointEmailIdp emailIdp;
 
   late final EndpointJwtRefresh jwtRefresh;
+
+  late final EndpointFamily family;
 
   late final EndpointPlace place;
 
@@ -570,6 +594,7 @@ class Client extends _isc.ServerpodClientShared {
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'family': family,
     'place': place,
     'profile': profile,
   };

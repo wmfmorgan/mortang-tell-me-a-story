@@ -167,6 +167,8 @@ class TestEndpoints {
 
   late final _JwtRefreshEndpoint jwtRefresh;
 
+  late final _FamilyEndpoint family;
+
   late final _PlaceEndpoint place;
 
   late final _ProfileEndpoint profile;
@@ -184,6 +186,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     jwtRefresh = _JwtRefreshEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    family = _FamilyEndpoint(
       endpoints,
       serializationManager,
     );
@@ -640,6 +646,48 @@ class _JwtRefreshEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<_iacs.AuthSuccess>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _FamilyEndpoint {
+  _FamilyEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_is.UuidValue> createRoot(
+    _ist.TestSessionBuilder sessionBuilder,
+    String name,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'family',
+            method: 'createRoot',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'family',
+          methodName: 'createRoot',
+          parameters: _ist.testObjectToJson({'name': name}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_is.UuidValue>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

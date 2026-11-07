@@ -24,6 +24,7 @@ import 'package:tell_me_a_story_server/src/generated/dto/place_input_dto.dart'
     as _iqvasz3a;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../endpoints/family_endpoint.dart' as _ibe5smjw;
 import '../endpoints/place_endpoint.dart' as _ilyqdzjc;
 import '../endpoints/profile_endpoint.dart' as _i2cx2pww;
 
@@ -41,6 +42,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'family': _ibe5smjw.FamilyEndpoint()
+        ..initialize(
+          server,
+          'family',
           null,
         ),
       'place': _ilyqdzjc.PlaceEndpoint()
@@ -347,6 +354,31 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['family'] = _is.EndpointConnector(
+      name: 'family',
+      endpoint: endpoints['family']!,
+      methodConnectors: {
+        'createRoot': _is.MethodConnector(
+          name: 'createRoot',
+          params: {
+            'name': _is.ParameterDescription(
+              name: 'name',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).createRoot(
+                    session,
+                    params['name'],
+                  ),
         ),
       },
     );

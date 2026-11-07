@@ -13,6 +13,8 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+family:
+  - createRoot:
 place:
   - list:
   - favorites:
