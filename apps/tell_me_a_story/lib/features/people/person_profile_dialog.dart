@@ -119,8 +119,6 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     try {
       profile = await widget.people.personProfile(widget.personId);
       if (profile == null) missing = true;
-    } on PersonProfileNotFound {
-      missing = true;
     } catch (_) {
       missing = true;
     }

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'app_exception.dart';
 import 'family_covers.dart';
 import 'recovery_window.dart';
 import 'supabase_errors.dart';
@@ -131,30 +132,19 @@ class OriginDependent {
   final String name;
 }
 
-/// Mapped from `set_family_origin` and `list_origin_dependents`.
-class OriginRpcException implements Exception {
-  const OriginRpcException(this.code, this.message);
-
-  /// `FORBIDDEN`, `NOT_FOUND`, or `VALIDATION`.
-  final String code;
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
-/// §12 catalog text for an origin RPC failure. Null when [error] is not one.
-OriginRpcException? originRpcException(Object error) {
+/// §12 catalog text for a `set_family_origin` / `list_origin_dependents`
+/// failure. Null when [error] is not one.
+AppException? _originError(Object error) {
   if (error is! PostgrestException) return null;
   final raw = error.message;
   if (raw.contains('FORBIDDEN')) {
-    return const OriginRpcException(
-      'FORBIDDEN',
-      'You do not have permission to do that.',
+    return const AppException(
+      code: AppErrorCode.forbidden,
+      message: 'You do not have permission to do that.',
     );
   }
   if (raw.contains('NOT_FOUND')) {
-    return const OriginRpcException('NOT_FOUND', 'Not found.');
+    return const AppException(code: AppErrorCode.notFound, message: 'Not found.');
   }
   if (raw.contains('VALIDATION')) {
     const marker = 'VALIDATION: ';
@@ -162,7 +152,7 @@ OriginRpcException? originRpcException(Object error) {
     final detail = index >= 0
         ? raw.substring(index + marker.length).trim()
         : raw;
-    return OriginRpcException('VALIDATION', detail);
+    return AppException(code: AppErrorCode.validation, message: detail);
   }
   return null;
 }
@@ -462,7 +452,7 @@ class FamiliesApi
         params: {'p_family_id': familyId, 'p_story_id': storyId},
       );
     } catch (error) {
-      final mapped = originRpcException(error);
+      final mapped = _originError(error);
       if (mapped != null) throw mapped;
       rethrow;
     }
@@ -477,7 +467,7 @@ class FamiliesApi
         params: {'p_story_id': storyId},
       );
     } catch (error) {
-      final mapped = originRpcException(error);
+      final mapped = _originError(error);
       if (mapped != null) throw mapped;
       rethrow;
     }

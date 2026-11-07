@@ -10,6 +10,7 @@ import '../../core/server/app_session.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
+import '../../data/app_exception.dart';
 import '../../data/comments_api.dart';
 import '../../data/families_api.dart';
 import '../../data/manage_families_api.dart';
@@ -674,7 +675,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       }
     } catch (error) {
       if (!mounted) return;
-      final message = error is OriginRpcException ? error.message : 'Try again';
+      final message = error is AppException ? error.message : 'Try again';
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
     }

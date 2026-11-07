@@ -731,7 +731,12 @@ class _People extends PeopleGateway {
 
   @override
   Future<PersonProfile?> personProfile(String personId) async {
-    if (missing) throw const PersonProfileNotFound();
+    if (missing) {
+      throw const AppException(
+        code: AppErrorCode.notFound,
+        message: 'person',
+      );
+    }
     return profile;
   }
 

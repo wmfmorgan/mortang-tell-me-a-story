@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'app_exception.dart';
 import 'families_api.dart';
 import 'photos_api.dart';
 import 'supabase_errors.dart';
@@ -117,10 +118,6 @@ PersonProfile? personProfileFromRpc(Object? res) {
   return PersonProfile.fromJson(
     row.map((key, value) => MapEntry(key.toString(), value)),
   );
-}
-
-class PersonProfileNotFound implements Exception {
-  const PersonProfileNotFound();
 }
 
 const personAvatarsBucket = 'person-avatars';
@@ -260,7 +257,7 @@ class PeopleApi implements PeopleGateway {
     final userId = row['user_id'] as String?;
     final profile = userId == null
         ? null
-        : await personProfile(row['id'] as String);
+        : await _treeProfile(row['id'] as String);
     return Person(
       id: row['id'] as String,
       familyId: row['family_id'] as String,
@@ -270,6 +267,17 @@ class PeopleApi implements PeopleGateway {
       birthDate: profile?.birthDate,
       birthPrecision: profile?.birthPrecision,
     );
+  }
+
+  /// [personProfile] for one tree row. A hidden linked row fails the listing
+  /// with a non-catalog error, so callers keep their generic failure copy.
+  Future<PersonProfile?> _treeProfile(String personId) async {
+    try {
+      return await personProfile(personId);
+    } on AppException catch (error) {
+      if (error.code != AppErrorCode.notFound) rethrow;
+      throw StateError('person_profile: ${error.message}');
+    }
   }
 
   /// Families in [familyId]'s tree. One family when the walk returns none.
@@ -336,19 +344,14 @@ class PeopleApi implements PeopleGateway {
   }
 
   @override
-  Future<PersonProfile?> personProfile(String personId) async {
-    try {
+  Future<PersonProfile?> personProfile(String personId) {
+    return withAppErrors(() async {
       final res = await _client.rpc(
         'person_profile',
         params: {'p_person_id': personId},
       );
       return personProfileFromRpc(res);
-    } on PostgrestException catch (error) {
-      if (error.message.startsWith('NOT_FOUND:')) {
-        throw const PersonProfileNotFound();
-      }
-      rethrow;
-    }
+    });
   }
 
   @override
