@@ -39,3 +39,7 @@ supabase/.temp
 # Logs
 *.log
 /tmp/
+
+# Terraform
+infra/gcp/.terraform/
+infra/gcp/*.tfstate*
