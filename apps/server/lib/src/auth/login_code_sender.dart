@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -29,19 +30,33 @@ Future<void> sendLoginCode(
     throw StateError('resendApiKey and resendFrom must be set in passwords');
   }
 
-  final response = await http.post(
-    Uri.parse('https://api.resend.com/emails'),
-    headers: {
-      'Authorization': 'Bearer $apiKey',
-      'Content-Type': 'application/json',
-    },
-    body: jsonEncode({
-      'from': from,
-      'to': [email],
-      'subject': 'Your Tell Me a Story sign-in code',
-      'text': 'Your sign-in code is $verificationCode. It expires soon.',
-    }),
-  );
+  final http.Response response;
+  try {
+    response = await http
+        .post(
+          Uri.parse('https://api.resend.com/emails'),
+          headers: {
+            'Authorization': 'Bearer $apiKey',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'from': from,
+            'to': [email],
+            'subject': 'Your Tell Me a Story sign-in code',
+            'text': 'Your sign-in code is $verificationCode. It expires soon.',
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+  } on TimeoutException {
+    session.log('Resend login email timed out', level: LogLevel.error);
+    throw StateError('Login email could not be sent');
+  } on http.ClientException catch (e) {
+    session.log(
+      'Resend login email failed: ${e.message}',
+      level: LogLevel.error,
+    );
+    throw StateError('Login email could not be sent');
+  }
   if (response.statusCode >= 300) {
     session.log(
       'Resend rejected login email: ${response.statusCode} ${response.body}',
