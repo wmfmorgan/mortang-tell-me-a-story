@@ -22,9 +22,7 @@ Future<void> main() async {
   installBeforeUnloadGuard();
   Env.validate();
   // An unreadable saved session starts the app signed out.
-  await initServer(
-    storage: SessionRecoveringStorage(SecureClientAuthSuccessStorage()),
-  );
+  await initServer(storage: appAuthStorage());
 
   final profileApi = ProfileApi();
   ProfileSession.loadOwn = profileApi.loadOwn;

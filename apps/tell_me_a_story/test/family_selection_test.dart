@@ -108,4 +108,25 @@ void main() {
     expect(auth.isSignedIn, isTrue);
     expect(FamilySelection.id, isNull);
   });
+
+  test('a same-user token rotation does not refresh the router', () {
+    final info = ValueNotifier<AuthSuccess?>(_auth(_userA));
+    final auth = AuthRefresh(authInfo: info);
+    addTearDown(auth.dispose);
+    var notified = 0;
+    auth.addListener(() => notified++);
+    FamilySelection.remember('fam-a');
+
+    info.value = AuthSuccess(
+      authStrategy: 'jwt',
+      token: 'rotated',
+      refreshToken: 'rotated-refresh',
+      authUserId: UuidValue.fromString(_userA),
+      scopeNames: const {},
+    );
+
+    expect(notified, 0);
+    expect(auth.isSignedIn, isTrue);
+    expect(FamilySelection.id, 'fam-a');
+  });
 }

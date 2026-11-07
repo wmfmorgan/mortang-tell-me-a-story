@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
@@ -47,11 +48,29 @@ class ServerAppSession extends AppSession {
   }
 }
 
+/// The app's saved-session storage: the secure key-value store, recovered
+/// from unreadable entries, behind the library's cache.
+///
+/// The cache must stay outermost. The session manager clears only a
+/// [CachedClientAuthSuccessStorage] before a JWT refresh, so on web it picks
+/// up a refresh token another tab already rotated. [keyValueStorage] defaults
+/// to the secure store with the library's default keychain options; tests
+/// pass an in-memory one.
+ClientAuthSuccessStorage appAuthStorage({KeyValueStorage? keyValueStorage}) =>
+    CachedClientAuthSuccessStorage(
+      delegate: SessionRecoveringStorage(
+        KeyValueClientAuthSuccessStorage(
+          keyValueStorage:
+              keyValueStorage ?? FlutterSecureKeyValueStorage(null),
+        ),
+      ),
+    );
+
 /// Saved-session storage that treats an unreadable entry as signed out.
 ///
 /// A corrupted entry (for example in web secure storage) would otherwise make
-/// `initServer()` throw at startup. The entry is deleted so the next start is
-/// clean, and the app starts signed out.
+/// `initServer()` throw at startup. The failure is reported, the entry is
+/// deleted so the next start is clean, and the app starts signed out.
 class SessionRecoveringStorage implements ClientAuthSuccessStorage {
   SessionRecoveringStorage(this._delegate);
 
@@ -61,11 +80,17 @@ class SessionRecoveringStorage implements ClientAuthSuccessStorage {
   Future<AuthSuccess?> get() async {
     try {
       return await _delegate.get();
-    } catch (_) {
+    } catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(exception: error, stack: stack),
+      );
       try {
         await _delegate.set(null);
-      } catch (_) {
+      } catch (error, stack) {
         // Still start signed out; the next sign-in overwrites the entry.
+        FlutterError.reportError(
+          FlutterErrorDetails(exception: error, stack: stack),
+        );
       }
       return null;
     }

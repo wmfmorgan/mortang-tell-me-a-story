@@ -81,6 +81,10 @@ void main() {
     expect(find.text('Sign-in code'), findsOneWidget);
     expect(find.byKey(const Key('sign-in-code')), findsOneWidget);
     expect(find.text('Sign in'), findsOneWidget);
+    final codeField = tester.widget<TextField>(
+      find.byKey(const Key('sign-in-code')),
+    );
+    expect(codeField.decoration?.hintText, isNull);
     expect(otp.sent, ['a@b.co', 'a@b.co']);
 
     await _tapText(tester, 'Use a different email');

@@ -100,12 +100,6 @@ class _SignInCodeFormState extends State<SignInCodeForm> {
           ),
           cursorColor: albumTerracotta,
           decoration: InputDecoration(
-            hintText: '123456',
-            hintStyle: GoogleFonts.sourceSans3(
-              color: albumSage.withValues(alpha: 0.6),
-              fontSize: 20,
-              letterSpacing: 6,
-            ),
             filled: true,
             fillColor: albumParchment,
             isDense: true,

@@ -35,29 +35,51 @@ void main() {
     expect(ServerAppSession(client: client).currentUserId, _userId);
   });
 
+  test('the app storage keeps the auth cache outermost', () async {
+    final client = await initServer(
+      url: _noServer,
+      storage: appAuthStorage(keyValueStorage: _KeyValues()),
+    );
+
+    // The session manager invalidates only a cached storage before a JWT
+    // refresh, which keeps other web tabs' rotations from revoking us.
+    expect(client.auth.storage, isA<CachedClientAuthSuccessStorage>());
+  });
+
+  test('a readable saved session survives an unreachable server', () async {
+    final values = _KeyValues();
+    await appAuthStorage(keyValueStorage: values).set(_auth(_userId));
+
+    final client = await initServer(
+      url: _noServer,
+      storage: appAuthStorage(keyValueStorage: values),
+    );
+
+    expect(client.auth.authInfo?.authUserId.toString(), _userId);
+    expect(values.entries, isNotEmpty);
+  });
+
   test(
-    'an unreadable saved session starts signed out and is cleared',
+    'an unreadable saved session starts signed out, is cleared and reported',
     () async {
-      final broken = _BrokenStorage();
+      final reported = <FlutterErrorDetails>[];
+      final onError = FlutterError.onError;
+      FlutterError.onError = reported.add;
+      addTearDown(() => FlutterError.onError = onError);
+      final values = _KeyValues()
+        ..entries['serverpod_auth_success_key'] = 'not an auth entry';
+
       final client = await initServer(
         url: _noServer,
-        storage: SessionRecoveringStorage(broken),
+        storage: appAuthStorage(keyValueStorage: values),
       );
 
       expect(client.auth.authInfo, isNull);
       expect(ServerAppSession(client: client).currentUserId, isNull);
-      expect(broken.cleared, isTrue);
+      expect(values.entries, isEmpty);
+      expect(reported, hasLength(1));
     },
   );
-
-  test('a readable saved session is restored as is', () async {
-    final storage = _Storage().._value = _auth(_userId);
-    final recovering = SessionRecoveringStorage(storage);
-
-    expect((await recovering.get())?.authUserId.toString(), _userId);
-    await recovering.set(null);
-    expect(storage._value, isNull);
-  });
 
   testWidgets('header Logout without onLogout signs out through AppSession', (
     tester,
@@ -107,19 +129,20 @@ class _Storage implements ClientAuthSuccessStorage {
   Future<void> set(AuthSuccess? data) async => _value = data;
 }
 
-/// A saved entry that cannot be decoded until it is cleared.
-class _BrokenStorage implements ClientAuthSuccessStorage {
-  var cleared = false;
+/// In-memory stand-in for the secure key-value store.
+class _KeyValues implements KeyValueStorage {
+  final entries = <String, String>{};
 
   @override
-  Future<AuthSuccess?> get() async {
-    if (!cleared) throw const FormatException('corrupted auth entry');
-    return null;
-  }
+  Future<String?> get(String key) async => entries[key];
 
   @override
-  Future<void> set(AuthSuccess? data) async {
-    if (data == null) cleared = true;
+  Future<void> set(String key, String? value) async {
+    if (value == null) {
+      entries.remove(key);
+    } else {
+      entries[key] = value;
+    }
   }
 }
 
