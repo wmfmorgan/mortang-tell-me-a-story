@@ -4,7 +4,9 @@ import '../model/lab_models.dart';
 import '../renderers/story_marker.dart';
 import '../theme/lab_theme.dart';
 
-/// Shared card used by the widget-based renderers and the selection panel.
+/// Album card (album_theme.dart CardTheme): parchment fill, sage border,
+/// Newsreader title. Shared by the widget-based renderers and the selection
+/// panel.
 ///
 /// Unmatched (dimmed) cards draw text in [labDimmedInk], the lightest text
 /// the dim rule allows, and fade only non-text decoration to
@@ -34,23 +36,28 @@ class StoryCard extends StatelessWidget {
     final theme = Theme.of(context).textTheme;
     final ink = matched ? labInk : labDimmedInk;
     final decorationAlpha = matched ? 1.0 : labDimOpacity;
+    final origin = isOrigin(story, dataset);
     final borderColor = selected
         ? labTerracotta
-        : isOrigin(story, dataset)
+        : origin
         ? labMoss
-        : labBorder;
-    final borderWidth = borderColor == labBorder ? 1.0 : 2.0;
+        : labSageLine;
+    final borderWidth = selected || origin
+        ? LabStroke.mark
+        : LabStroke.hairline;
     final names = dataset.personNames(story);
     final place = dataset.placeLabel(story);
 
     return SizedBox(
       width: width,
       child: Material(
-        color: labSurface,
+        color: labParchment,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(LabRadius.card),
           side: BorderSide(
-            color: borderColor.withValues(alpha: decorationAlpha),
+            color: borderColor.withValues(
+              alpha: borderColor.a * decorationAlpha,
+            ),
             width: borderWidth,
           ),
         ),
@@ -58,7 +65,7 @@ class StoryCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: EdgeInsets.all(compact ? 8 : 12),
+            padding: EdgeInsets.all(compact ? LabSpace.s : LabSpace.m),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -75,33 +82,45 @@ class StoryCard extends StatelessWidget {
                   story.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: (compact ? theme.titleSmall : theme.titleMedium)
-                      ?.copyWith(color: ink),
+                  style: theme.titleMedium?.copyWith(color: ink),
                 ),
-                if (!compact && names.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                if (!compact && (origin || names.isNotEmpty)) ...[
+                  const SizedBox(height: LabSpace.s),
                   Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
+                    spacing: LabSpace.xs,
+                    runSpacing: LabSpace.xs,
                     children: [
+                      if (origin)
+                        _Pill(
+                          label: 'Origin',
+                          ink: ink,
+                          alpha: decorationAlpha,
+                          border: labMoss,
+                        ),
                       for (final n in names.take(3))
                         _Pill(label: n, ink: ink, alpha: decorationAlpha),
                     ],
                   ),
                 ],
                 if (!compact && (place != null || story.photoCount > 0)) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: LabSpace.s),
                   Row(
                     children: [
-                      if (place != null)
+                      if (place != null) ...[
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 16,
+                          color: matched ? labSage : labDimmedInk,
+                        ),
+                        const SizedBox(width: 2),
                         Expanded(
                           child: Text(
                             place,
                             overflow: TextOverflow.ellipsis,
                             style: theme.labelMedium?.copyWith(color: ink),
                           ),
-                        )
-                      else
+                        ),
+                      ] else
                         const Spacer(),
                       if (story.photoCount > 0) ...[
                         Icon(Icons.photo_outlined, size: 16, color: ink),
@@ -124,21 +143,27 @@ class StoryCard extends StatelessWidget {
 }
 
 class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.ink, required this.alpha});
+  const _Pill({
+    required this.label,
+    required this.ink,
+    required this.alpha,
+    this.border = labPillBorder,
+  });
 
   final String label;
   final Color ink;
   final double alpha;
+  final Color border;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       color: labPillFill.withValues(alpha: alpha),
-      border: Border.all(color: labPillBorder.withValues(alpha: alpha)),
-      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: border.withValues(alpha: alpha)),
+      borderRadius: BorderRadius.circular(LabRadius.pill),
     ),
     child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: LabSpace.s, vertical: 2),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(color: ink),
