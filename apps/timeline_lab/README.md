@@ -154,8 +154,9 @@ Corners come in two families:
   `labContainerShape`, on one scale: 4 treemap cells, 8 treemap groups and
   story tiles, 12 cards and the search field, 16 menus and the filters drawer.
   A container inside another uses the outer radius minus the gap between
-  them. The search field is the one circular corner, because Flutter's
-  `InputBorder` has no superellipse variant.
+  them. The search field uses `LabFieldBorder`, a superellipse
+  `InputBorder`, with hint text instead of a floating label (the border
+  has no label notch).
 
 ## Layout
 
