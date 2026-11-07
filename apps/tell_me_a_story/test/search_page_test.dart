@@ -66,13 +66,7 @@ class _People extends PeopleGateway {
 
   @override
   Future<List<Person>> listPeople(String familyId) async => const [
-    Person(
-      id: 'clara',
-      familyId: _family,
-      name: 'Clara',
-      relationship: 'Aunt',
-      createdBy: 'u',
-    ),
+    Person(id: 'clara', familyId: _family, name: 'Clara'),
   ];
 }
 
@@ -106,7 +100,6 @@ class _Places implements PlacesGateway {
   Future<List<Place>> listPlaces(String familyId) async => const [
     Place(
       id: 'porch',
-      familyId: _family,
       label: 'Back Porch',
       address: '12 Lane',
       lat: 1,

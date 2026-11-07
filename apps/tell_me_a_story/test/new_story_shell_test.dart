@@ -57,7 +57,7 @@ class _FakePeopleApi extends PeopleGateway {
 
   @override
   Future<List<Person>> listPeople(String familyId) async {
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -75,7 +75,6 @@ class _FakePeopleApi extends PeopleGateway {
       name: name.trim(),
       email: email,
       about: about,
-      createdBy: 'u1',
     );
     rows.add(person);
     return person;
@@ -89,20 +88,17 @@ class _FakePlacesApi implements PlacesGateway {
 
   @override
   Future<List<Place>> listFavorites(String familyId) async {
-    return rows.where((p) => p.familyId == familyId && p.isFavorite).toList();
+    return rows.where((p) => p.isFavorite).toList();
   }
 
   @override
   Future<List<Place>> listRecents(String familyId, {int limit = 10}) async {
-    return rows
-        .where((p) => p.familyId == familyId && p.lastUsedAt != null)
-        .take(limit)
-        .toList();
+    return rows.where((p) => p.lastUsedAt != null).take(limit).toList();
   }
 
   @override
   Future<List<Place>> listPlaces(String familyId) async {
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -134,7 +130,6 @@ class _FakePlacesApi implements PlacesGateway {
     final existing = rows[i];
     final updated = Place(
       id: existing.id,
-      familyId: existing.familyId,
       label: existing.label,
       address: existing.address,
       lat: existing.lat,
@@ -253,15 +248,7 @@ void main() {
 
   testWidgets('Add person opens AddPersonModal', (tester) async {
     final people = _FakePeopleApi(
-      seed: const [
-        Person(
-          id: 'p1',
-          familyId: _familyId,
-          name: 'Ada',
-          relationship: 'Aunt',
-          createdBy: 'u1',
-        ),
-      ],
+      seed: const [Person(id: 'p1', familyId: _familyId, name: 'Ada')],
     );
 
     await tester.pumpWidget(_shell(people: people));
@@ -281,7 +268,6 @@ void main() {
       seed: [
         Place(
           id: 'pl1',
-          familyId: _familyId,
           label: 'Central Park',
           address: 'New York, NY',
           lat: 40.78,
@@ -305,15 +291,7 @@ void main() {
 
   testWidgets('selecting person shows chip in memory only', (tester) async {
     final people = _FakePeopleApi(
-      seed: const [
-        Person(
-          id: 'p1',
-          familyId: _familyId,
-          name: 'Ada',
-          relationship: 'Aunt',
-          createdBy: 'u1',
-        ),
-      ],
+      seed: const [Person(id: 'p1', familyId: _familyId, name: 'Ada')],
     );
 
     await tester.pumpWidget(_shell(people: people));
@@ -334,14 +312,8 @@ void main() {
   testWidgets('picking two people adds both chips', (tester) async {
     final people = _FakePeopleApi(
       seed: const [
-        Person(
-          id: 'p1',
-          familyId: _familyId,
-          name: 'Ada',
-          relationship: 'Aunt',
-          createdBy: 'u1',
-        ),
-        Person(id: 'p2', familyId: _familyId, name: 'Grace', createdBy: 'u1'),
+        Person(id: 'p1', familyId: _familyId, name: 'Ada'),
+        Person(id: 'p2', familyId: _familyId, name: 'Grace'),
       ],
     );
 
@@ -367,7 +339,6 @@ void main() {
       seed: [
         Place(
           id: 'pl1',
-          familyId: _familyId,
           label: 'Central Park',
           address: 'New York, NY',
           lat: 40.78,
@@ -401,7 +372,6 @@ void main() {
         seed: [
           Place(
             id: 'pl1',
-            familyId: _familyId,
             label: 'Central Park',
             address: 'New York, NY',
             lat: 40.78,
@@ -630,21 +600,12 @@ void main() {
         _shell(
           stories: stories,
           people: _FakePeopleApi(
-            seed: const [
-              Person(
-                id: 'p1',
-                familyId: _familyId,
-                name: 'Ada',
-                relationship: 'Aunt',
-                createdBy: 'u1',
-              ),
-            ],
+            seed: const [Person(id: 'p1', familyId: _familyId, name: 'Ada')],
           ),
           places: _FakePlacesApi(
             seed: [
               Place(
                 id: 'pl1',
-                familyId: _familyId,
                 label: 'Central Park',
                 address: 'New York, NY',
                 lat: 40.78,
@@ -802,21 +763,12 @@ void main() {
       _shell(
         stories: stories,
         people: _FakePeopleApi(
-          seed: const [
-            Person(
-              id: 'p1',
-              familyId: _familyId,
-              name: 'Ada',
-              relationship: 'Aunt',
-              createdBy: 'u1',
-            ),
-          ],
+          seed: const [Person(id: 'p1', familyId: _familyId, name: 'Ada')],
         ),
         places: _FakePlacesApi(
           seed: [
             Place(
               id: 'pl1',
-              familyId: _familyId,
               label: 'Central Park',
               address: 'New York, NY',
               lat: 40.78,

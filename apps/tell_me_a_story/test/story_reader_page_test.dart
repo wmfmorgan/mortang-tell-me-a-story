@@ -41,32 +41,18 @@ Uint8List _pngOf(int width, int height) {
   return bytes;
 }
 
-const _ada = Person(
-  id: 'p1',
-  familyId: _familyId,
-  name: 'Ada',
-  relationship: 'Aunt',
-  createdBy: 'u1',
-);
+const _ada = Person(id: 'p1', familyId: _familyId, name: 'Ada');
 
 const _will = Person(
   id: 'w1',
   familyId: '00000000-0000-0000-0000-000000000002',
   name: 'William F Morgan',
-  createdBy: 'u1',
 );
 
-const _bob = Person(
-  id: 'p2',
-  familyId: _familyId,
-  name: 'Bob',
-  relationship: 'Uncle',
-  createdBy: 'u1',
-);
+const _bob = Person(id: 'p2', familyId: _familyId, name: 'Bob');
 
 final _park = Place(
   id: 'pl1',
-  familyId: _familyId,
   label: 'Central Park',
   address: 'New York, NY',
   lat: 40.78,
@@ -215,7 +201,7 @@ class _FakePeopleApi extends PeopleGateway {
 
   @override
   Future<List<Person>> listPeople(String familyId) async {
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -245,7 +231,7 @@ class _FakePlacesApi implements PlacesGateway {
 
   @override
   Future<List<Place>> listPlaces(String familyId) async {
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -1060,7 +1046,6 @@ void main() {
           seed: [
             Place(
               id: 'pl1',
-              familyId: _familyId,
               label: '   ',
               address: 'New York, NY',
               lat: 40.78,

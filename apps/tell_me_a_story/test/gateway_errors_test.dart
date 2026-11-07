@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 
 typedef _Reply = ({int status, Object body});
@@ -37,38 +36,6 @@ _Reply _error(int status, String code, String message) =>
 
 void main() {
   group('catalog RPC errors', () {
-    test(
-      'PeopleApi.markPassedAway reports FORBIDDEN as AppException',
-      () async {
-        final api = PeopleApi(
-          client: _client(
-            _Http((_) => _error(400, 'P0001', 'FORBIDDEN: not a steward')),
-          ),
-        );
-        await expectLater(
-          api.markPassedAway(personId: 'p1', value: true),
-          throwsA(
-            isA<AppException>()
-                .having((e) => e.code, 'code', AppErrorCode.forbidden)
-                .having((e) => e.message, 'message', 'not a steward'),
-          ),
-        );
-      },
-    );
-
-    test(
-      'PeopleApi.markPassedAway leaves an uncatalogued error alone',
-      () async {
-        final api = PeopleApi(
-          client: _client(_Http((_) => _error(500, 'XX000', 'boom'))),
-        );
-        await expectLater(
-          api.markPassedAway(personId: 'p1', value: true),
-          throwsA(isA<PostgrestException>()),
-        );
-      },
-    );
-
     test('StoriesApi.linkPerson reports VALIDATION as AppException', () async {
       final api = StoriesApi(
         client: _client(
@@ -88,63 +55,6 @@ void main() {
     });
   });
 
-  group('profile RPCs', () {
-    test('PeopleApi.personProfile reports NOT_FOUND as AppException', () async {
-      final api = PeopleApi(
-        client: _client(
-          _Http((_) => _error(400, 'P0001', 'NOT_FOUND: person')),
-        ),
-      );
-      await expectLater(
-        api.personProfile('p1'),
-        throwsA(
-          isA<AppException>().having(
-            (e) => e.code,
-            'code',
-            AppErrorCode.notFound,
-          ),
-        ),
-      );
-    });
-  });
-  group('PeopleApi.listTreePeople', () {
-    test('a hidden linked profile fails with a non-catalog error', () async {
-      final api = PeopleApi(
-        client: _client(
-          _Http((request) {
-            final path = request.url.path;
-            if (path.endsWith('/rpc/list_family_tree')) {
-              return (
-                status: 200,
-                body: [
-                  {'id': 'f1'},
-                ],
-              );
-            }
-            if (path.endsWith('/rpc/person_profile')) {
-              return _error(400, 'P0001', 'NOT_FOUND: person');
-            }
-            return (
-              status: 200,
-              body: [
-                {
-                  'id': 'p1',
-                  'family_id': 'f1',
-                  'name': 'Ada',
-                  'user_id': 'u1',
-                  'passed_away': false,
-                },
-              ],
-            );
-          }),
-        ),
-      );
-      await expectLater(
-        api.listTreePeople('f1'),
-        throwsA(allOf(isA<StateError>(), isNot(isA<AppException>()))),
-      );
-    });
-  });
   group('StoriesApi.linkPerson duplicates', () {
     test('an existing story_people row counts as linked', () async {
       final api = StoriesApi(

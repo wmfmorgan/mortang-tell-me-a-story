@@ -60,7 +60,7 @@ class _FakePeopleApi extends PeopleGateway {
   @override
   Future<List<Person>> listPeople(String familyId) async {
     if (throwOnList) throw StateError('people load failed');
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -91,20 +91,17 @@ class _FakePlacesApi implements PlacesGateway {
 
   @override
   Future<List<Place>> listFavorites(String familyId) async {
-    return rows.where((p) => p.familyId == familyId && p.isFavorite).toList();
+    return rows.where((p) => p.isFavorite).toList();
   }
 
   @override
   Future<List<Place>> listRecents(String familyId, {int limit = 10}) async {
-    return rows
-        .where((p) => p.familyId == familyId && p.lastUsedAt != null)
-        .take(limit)
-        .toList();
+    return rows.where((p) => p.lastUsedAt != null).take(limit).toList();
   }
 
   @override
   Future<List<Place>> listPlaces(String familyId) async {
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -446,13 +443,7 @@ class _FakePhotosApi implements PhotosGateway {
   Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }
 
-const _ada = Person(
-  id: 'p1',
-  familyId: _familyId,
-  name: 'Ada',
-  relationship: 'Aunt',
-  createdBy: 'u1',
-);
+const _ada = Person(id: 'p1', familyId: _familyId, name: 'Ada');
 
 const _parentFamilyId = '00000000-0000-0000-0000-000000000002';
 
@@ -460,26 +451,14 @@ const _will = Person(
   id: 'w1',
   familyId: _parentFamilyId,
   name: 'William F Morgan',
-  createdBy: 'u1',
 );
 
-const _tx = Person(
-  id: 'w2',
-  familyId: _parentFamilyId,
-  name: 'txmorgan',
-  createdBy: 'u1',
-);
+const _tx = Person(id: 'w2', familyId: _parentFamilyId, name: 'txmorgan');
 
-const _wren = Person(
-  id: 'w3',
-  familyId: _parentFamilyId,
-  name: 'Wren Morgan',
-  createdBy: 'u1',
-);
+const _wren = Person(id: 'w3', familyId: _parentFamilyId, name: 'Wren Morgan');
 
 final _park = Place(
   id: 'pl1',
-  familyId: _familyId,
   label: 'Central Park',
   address: 'New York, NY',
   lat: 40.78,
@@ -1368,12 +1347,7 @@ void main() {
   testWidgets(
     'Edit story links each picked person once and keeps them on save',
     (tester) async {
-      const grace = Person(
-        id: 'p2',
-        familyId: _familyId,
-        name: 'Grace',
-        createdBy: 'u1',
-      );
+      const grace = Person(id: 'p2', familyId: _familyId, name: 'Grace');
       final stories = _FakeStoriesApi(
         story: Story(
           id: 's1',

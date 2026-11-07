@@ -68,7 +68,6 @@ class _SettingsPageState extends State<SettingsPage> {
   Uint8List? _savedBytes;
   Uint8List? _pending;
   String _loadedName = '';
-  String _loadedEmail = '';
   String _loadedAbout = '';
   StoryDate? _loadedBirth;
   BirthVisibility _loadedVisibility = BirthVisibility.hidden;
@@ -257,7 +256,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _rememberLoaded() {
     _loadedName = _name.text;
-    _loadedEmail = _email.text;
     _loadedAbout = _about.text;
     _loadedBirth = _birth;
     _loadedVisibility = _visibility;
@@ -266,7 +264,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _cancel() {
     _name.text = _loadedName;
-    _email.text = _loadedEmail;
     _about.text = _loadedAbout;
     setState(() {
       _birth = _loadedBirth;
@@ -303,7 +300,6 @@ class _SettingsPageState extends State<SettingsPage> {
         birth?.date != loadedBirth?.date ||
         birth?.precision != loadedBirth?.precision;
     return _name.text != _loadedName ||
-        _email.text != _loadedEmail ||
         _about.text != _loadedAbout ||
         birthDiffers ||
         _visibility != _loadedVisibility ||
@@ -345,14 +341,6 @@ class _SettingsPageState extends State<SettingsPage> {
         _pending = null;
       }
       _savedNotice = true;
-      final typed = _email.text.trim();
-      final stored = _storedEmail ?? '';
-      if (typed.isEmpty) {
-        _email.text = stored;
-      } else if (typed != stored) {
-        await _profile.updateEmail(typed);
-        _email.text = stored;
-      }
       _rememberLoaded();
       if (!mounted) return true;
       setState(() {});
@@ -838,6 +826,7 @@ class _SettingsPageState extends State<SettingsPage> {
         TextField(
           key: const Key('settings-email'),
           controller: _email,
+          readOnly: true,
           keyboardType: TextInputType.emailAddress,
           style: GoogleFonts.sourceSans3(
             color: const Color(0xFF58504D),

@@ -21,19 +21,6 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  test('BirthVisibility converts the four wire values and hides the rest', () {
-    expect(BirthVisibility.hidden.toWire(), 'hidden');
-    expect(BirthVisibility.year.toWire(), 'year');
-    expect(BirthVisibility.yearMonth.toWire(), 'year_month');
-    expect(BirthVisibility.full.toWire(), 'full');
-    expect(BirthVisibility.fromWire('hidden'), BirthVisibility.hidden);
-    expect(BirthVisibility.fromWire('year'), BirthVisibility.year);
-    expect(BirthVisibility.fromWire('year_month'), BirthVisibility.yearMonth);
-    expect(BirthVisibility.fromWire('full'), BirthVisibility.full);
-    expect(BirthVisibility.fromWire(null), BirthVisibility.hidden);
-    expect(BirthVisibility.fromWire('nope'), BirthVisibility.hidden);
-  });
-
   testWidgets('Add person has no date fields and has the Passed away toggle', (
     tester,
   ) async {
@@ -319,7 +306,7 @@ void main() {
 
     expect(profile.births.single.$1, DateTime(1984, 3));
     expect(profile.births.single.$2, 'month');
-    expect(profile.visibilities.single, 'year');
+    expect(profile.visibilities.single, BirthVisibility.year);
   });
 
   testWidgets('picker rows show the birth year and no end year', (
@@ -563,7 +550,7 @@ class _Profile implements ProfileGateway {
     email: 'sarah@example.com',
   );
   final births = <(DateTime?, String?)>[];
-  final visibilities = <String?>[];
+  final visibilities = <BirthVisibility?>[];
 
   @override
   Future<Uint8List?> downloadAvatar(String path) async => null;
@@ -589,11 +576,8 @@ class _Profile implements ProfileGateway {
     String? about,
   }) async {
     births.add((birthDate, birthPrecision));
-    visibilities.add(birthVisibility?.toWire());
+    visibilities.add(birthVisibility);
   }
-
-  @override
-  Future<void> updateEmail(String email) async {}
 }
 
 class _Invites implements InviteGateway {
