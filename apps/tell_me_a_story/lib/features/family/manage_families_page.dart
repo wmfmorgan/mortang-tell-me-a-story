@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/server/app_session.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
@@ -127,13 +127,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
     return id != null && _families.any((family) => family.id == id);
   }
 
-  String? _sessionUserId() {
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
-  }
+  String? _sessionUserId() => AppSession.instance.currentUserId;
 
   Future<void> _startTimeline() async {
     final id = _sessionFamilyId;

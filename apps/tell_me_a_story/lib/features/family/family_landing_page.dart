@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/server/app_session.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
@@ -208,7 +209,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
   Future<void> _startTimeline() async {
     final family = _family;
     if (family == null || !mounted) return;
-    final userId = signedInUserId();
+    final userId = AppSession.instance.currentUserId;
     if (userId == null) return;
     List<Story> stories = const [];
     try {

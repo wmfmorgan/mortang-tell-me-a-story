@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/server/app_session.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
@@ -196,14 +196,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     return false;
   }
 
-  String? get _currentUserId {
-    if (widget.currentUserId != null) return widget.currentUserId;
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
-  }
+  String? get _currentUserId =>
+      widget.currentUserId ?? AppSession.instance.currentUserId;
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/server/app_session.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
@@ -69,19 +69,11 @@ Future<void> showPersonProfile(
       personId: personId,
       fallbackName: name,
       people: people ?? PeopleApi(),
-      signedInUserId: signedInUserId ?? _sessionUserId(),
+      signedInUserId: signedInUserId ?? AppSession.instance.currentUserId,
       invites: invites,
       loadStories: loadStories,
     ),
   );
-}
-
-String? _sessionUserId() {
-  try {
-    return Supabase.instance.client.auth.currentUser?.id;
-  } catch (_) {
-    return null;
-  }
 }
 
 class PersonProfileDialog extends StatefulWidget {

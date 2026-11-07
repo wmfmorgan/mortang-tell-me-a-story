@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/profile_api.dart';
@@ -197,6 +198,31 @@ void main() {
     expect(find.text('not a steward'), findsOneWidget);
     expect(find.text('Mark as passed away'), findsOneWidget);
     expect(people.marks, isEmpty);
+  });
+
+  testWidgets('with no injected id the profile asks AppSession who is signed in', (
+    tester,
+  ) async {
+    AppSession.instance = const _Session('member');
+    addTearDown(() => AppSession.instance = const SupabaseAppSession());
+    final people = _People()
+      ..profile = const PersonProfile(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        isLinked: true,
+      )
+      ..editor = const Person(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        userId: 'member',
+      )
+      ..steward = true;
+    await _openProfile(tester, people);
+
+    // The signed-in user is Ada herself, so the steward check never runs.
+    expect(find.text('Mark as passed away'), findsNothing);
   });
 
   testWidgets('an unmapped mark error says Try again', (tester) async {
@@ -447,7 +473,7 @@ Future<void> _openEdit(
 Future<void> _openProfile(
   WidgetTester tester,
   _People people, {
-  required String signedInUserId,
+  String? signedInUserId,
 }) async {
   await tester.binding.setSurfaceSize(const Size(900, 1400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -591,4 +617,14 @@ class _Invites implements InviteGateway {
 
   @override
   Future<void> sendInviteEmail({required String inviteId}) async {}
+}
+
+class _Session extends AppSession {
+  const _Session(this.currentUserId);
+
+  @override
+  final String? currentUserId;
+
+  @override
+  Future<void> signOut() async {}
 }

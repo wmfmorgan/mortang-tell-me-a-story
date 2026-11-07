@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/server/app_session.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/families_api.dart';
@@ -220,14 +220,8 @@ class _TimelinePageState extends State<TimelinePage> {
     ];
   }
 
-  String? _sessionUserId() {
-    if (widget.currentUserId != null) return widget.currentUserId;
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
-  }
+  String? _sessionUserId() =>
+      widget.currentUserId ?? AppSession.instance.currentUserId;
 
   Future<void> _startTimeline({Story? origin, bool allowChange = true}) async {
     final parent = _currentFamily;
