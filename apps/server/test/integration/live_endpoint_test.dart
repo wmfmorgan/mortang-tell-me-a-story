@@ -116,6 +116,28 @@ void main() {
     );
 
     test(
+      'when a member watches a published story in a soft-deleted family then '
+      'FORBIDDEN at subscribe',
+      () async {
+        final member = await fx.user();
+        final family = await fx.family(await fx.tree());
+        await fx.join(family, member, MembershipRole.owner);
+        final story = await fx.story(family);
+        await Family.db.updateRow(
+          fx.s,
+          family.copyWith(deletedAt: DateTime.now().toUtc()),
+        );
+
+        await expectLater(
+          endpoints.live
+              .watchStory(asUser(sessionBuilder, member), story.id!)
+              .first,
+          throwsAppError(AppErrorCode.forbidden),
+        );
+      },
+    );
+
+    test(
       'when a stranger watches a story then FORBIDDEN at subscribe',
       () async {
         final stranger = await fx.user();

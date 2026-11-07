@@ -168,6 +168,37 @@ void main() {
       expect(await Family.db.findById(s, live.id!), isNotNull);
     });
 
+    // BR 20
+    test('when two expired families share a tree then one run deletes the '
+        'tree, both families and all people and queues every key', () async {
+      final tree = await fx.tree();
+      final a = await setCover(await fx.family(tree, deletedAt: daysAgo(70)));
+      final b = await setCover(await fx.family(tree, deletedAt: daysAgo(61)));
+      final (aOriginal, aEdited) = await photoIn(a);
+      final (bOriginal, bEdited) = await photoIn(b);
+      final pa = await setAvatar(await fx.person(a));
+      final pb = await setAvatar(await fx.person(b, name: 'Bo'));
+
+      await purgeExpiredFamilies(s);
+
+      expect(await Tree.db.findById(s, tree.id!), isNull);
+      expect(await Family.db.findById(s, a.id!), isNull);
+      expect(await Family.db.findById(s, b.id!), isNull);
+      expect(await Person.db.findById(s, pa.id!), isNull);
+      expect(await Person.db.findById(s, pb.id!), isNull);
+      final keys = [
+        a.coverKey!,
+        b.coverKey!,
+        aOriginal,
+        aEdited,
+        bOriginal,
+        bEdited,
+        pa.avatarKey!,
+        pb.avatarKey!,
+      ];
+      expect(await queued(keys), keys.toSet());
+    });
+
     // BR 21
     test('when the purge transaction fails then the family row remains and '
         'nothing is queued', () async {
@@ -215,7 +246,7 @@ void main() {
 }
 ```
 
-- [ ] Implement `lib/src/families/purge.dart`; rerun → 6 passing.
+- [ ] Implement `lib/src/families/purge.dart`; rerun → 7 passing.
 
 ```dart
 import 'package:serverpod/serverpod.dart';
@@ -479,6 +510,28 @@ void main() {
     );
 
     test(
+      'when a member watches a published story in a soft-deleted family then '
+      'FORBIDDEN at subscribe',
+      () async {
+        final member = await fx.user();
+        final family = await fx.family(await fx.tree());
+        await fx.join(family, member, MembershipRole.owner);
+        final story = await fx.story(family);
+        await Family.db.updateRow(
+          fx.s,
+          family.copyWith(deletedAt: DateTime.now().toUtc()),
+        );
+
+        await expectLater(
+          endpoints.live
+              .watchStory(asUser(sessionBuilder, member), story.id!)
+              .first,
+          throwsAppError(AppErrorCode.forbidden),
+        );
+      },
+    );
+
+    test(
       'when a stranger watches a story then FORBIDDEN at subscribe',
       () async {
         final stranger = await fx.user();
@@ -529,7 +582,7 @@ void main() {
 }
 ```
 
-- [ ] Implement, then `mise exec -- just server-generate`; rerun → 8 passing.
+- [ ] Implement, then `mise exec -- just server-generate`; rerun → 9 passing.
 
 ```dart
 import 'package:serverpod/serverpod.dart';
