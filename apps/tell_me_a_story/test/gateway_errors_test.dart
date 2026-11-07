@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
+import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 
@@ -77,6 +79,36 @@ void main() {
           isA<AppException>()
               .having((e) => e.code, 'code', AppErrorCode.validation)
               .having((e) => e.message, 'message', 'Already on this story'),
+        ),
+      );
+    });
+  });
+
+  group('edge functions without a session', () {
+    test('InviteApi reports unauthenticated', () async {
+      final api = InviteApi(
+        client: _client(_Http((_) => (status: 200, body: const <String, Object>{}))),
+      );
+      await expectLater(
+        api.createInvite(familyId: 'f1'),
+        throwsA(
+          isA<AppException>()
+              .having((e) => e.code, 'code', AppErrorCode.unauthenticated)
+              .having((e) => e.message, 'message', 'Sign-in required'),
+        ),
+      );
+    });
+
+    test('ManageFamiliesApi reports unauthenticated', () async {
+      final api = ManageFamiliesApi(
+        client: _client(_Http((_) => (status: 200, body: const <String, Object>{}))),
+      );
+      await expectLater(
+        api.renameFamily(familyId: 'f1', name: 'Morgan'),
+        throwsA(
+          isA<AppException>()
+              .having((e) => e.code, 'code', AppErrorCode.unauthenticated)
+              .having((e) => e.message, 'message', 'Sign-in required'),
         ),
       );
     });

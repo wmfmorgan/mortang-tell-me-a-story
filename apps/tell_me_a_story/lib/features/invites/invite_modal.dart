@@ -168,7 +168,7 @@ class _InviteModalState extends State<InviteModal> {
     });
     try {
       await _createAndSend(person, email);
-    } on InviteApiException catch (error) {
+    } on AppException catch (error) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = error.message);
     } catch (_) {
@@ -237,7 +237,7 @@ class _InviteModalState extends State<InviteModal> {
     }
     try {
       await _createAndSend(saved, email);
-    } on InviteApiException catch (error) {
+    } on AppException catch (error) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = error.message);
     } catch (_) {

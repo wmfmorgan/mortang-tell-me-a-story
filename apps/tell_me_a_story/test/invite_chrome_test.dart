@@ -222,8 +222,8 @@ void main() {
     tester,
   ) async {
     final api = _StubInviteApi()
-      ..createError = InviteApiException(
-        code: 'VALIDATION',
+      ..createError = const AppException(
+        code: AppErrorCode.validation,
         message: 'person is already linked',
       );
     final people = _EmailPeople();
@@ -391,8 +391,8 @@ void main() {
     tester,
   ) async {
     final api = _StubInviteApi()
-      ..sendError = InviteApiException(
-        code: 'VALIDATION',
+      ..sendError = const AppException(
+        code: AppErrorCode.validation,
         message: 'Invite has no email address to send to',
       );
     final people = _EmailPeople()

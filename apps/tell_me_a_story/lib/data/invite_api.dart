@@ -1,8 +1,10 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/env.dart';
+import 'app_exception.dart';
 import 'family_selection.dart';
 import 'profile_session.dart';
+import 'supabase_errors.dart';
 
 /// Shareable invite path. Old `?invite=` links still rewrite in the router.
 String buildInviteUrl(String token, {String? origin}) {
@@ -118,37 +120,27 @@ class InviteApi implements InviteGateway {
     int expectStatus = 200,
   }) async {
     if (_client.auth.currentSession == null) {
-      throw InviteApiException(
-        code: 'AUTH_REQUIRED',
+      throw const AppException(
+        code: AppErrorCode.unauthenticated,
         message: 'Sign-in required',
       );
     }
     try {
       final res = await _client.functions.invoke(functionName, body: body);
-      final decoded = _asMap(res.data);
+      final decoded = envelopeBody(res.data);
       if (res.status != expectStatus) {
-        throw InviteApiException(
-          code: decoded['code'] as String? ?? 'VALIDATION',
-          message: decoded['message'] as String? ?? 'Request failed',
+        throw appExceptionFromEnvelope(
+          decoded,
+          fallbackMessage: 'Request failed',
         );
       }
       return decoded;
     } on FunctionException catch (e) {
-      final decoded = _asMap(e.details);
-      throw InviteApiException(
-        code: decoded['code'] as String? ?? 'VALIDATION',
-        message:
-            decoded['message'] as String? ?? e.reasonPhrase ?? 'Request failed',
+      throw appExceptionFromEnvelope(
+        envelopeBody(e.details),
+        fallbackMessage: e.reasonPhrase ?? 'Request failed',
       );
     }
-  }
-
-  static Map<String, dynamic> _asMap(dynamic data) {
-    return switch (data) {
-      final Map<String, dynamic> m => m,
-      final Map m => Map<String, dynamic>.from(m),
-      _ => <String, dynamic>{},
-    };
   }
 }
 
@@ -218,14 +210,4 @@ class InviteLinkApi implements InviteLinkGateway {
       inviterName: map['inviter_name'] as String?,
     );
   }
-}
-
-class InviteApiException implements Exception {
-  InviteApiException({required this.code, required this.message});
-
-  final String code;
-  final String message;
-
-  @override
-  String toString() => 'InviteApiException($code: $message)';
 }

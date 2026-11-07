@@ -7,6 +7,7 @@ import '../../core/server/app_session.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/app_exception.dart';
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
@@ -182,7 +183,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
     try {
       await _manage.recoverFamily(family.id);
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(e.message)));

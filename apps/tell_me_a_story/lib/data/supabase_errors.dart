@@ -35,3 +35,37 @@ Future<T> withAppErrors<T>(Future<T> Function() call) async {
     throw mapped;
   }
 }
+
+/// Edge-function JSON body as a map. Anything else is empty.
+Map<String, dynamic> envelopeBody(Object? data) {
+  return switch (data) {
+    final Map<String, dynamic> m => m,
+    final Map m => Map<String, dynamic>.from(m),
+    _ => <String, dynamic>{},
+  };
+}
+
+/// Edge-function `code` → [AppErrorCode]. Unknown or missing codes are
+/// [AppErrorCode.validation], as the old envelopes defaulted to `VALIDATION`.
+AppErrorCode envelopeErrorCode(Object? code) {
+  return switch (code) {
+    'NOT_FOUND' => AppErrorCode.notFound,
+    'FORBIDDEN' => AppErrorCode.forbidden,
+    'INVITE_INVALID' ||
+    'INVITE_EXPIRED' ||
+    'INVITE_ACCEPTED' => AppErrorCode.inviteInvalid,
+    'AUTH_REQUIRED' => AppErrorCode.unauthenticated,
+    _ => AppErrorCode.validation,
+  };
+}
+
+/// Edge-function error body `{code, message}` as an [AppException].
+AppException appExceptionFromEnvelope(
+  Map<String, dynamic> body, {
+  required String fallbackMessage,
+}) {
+  return AppException(
+    code: envelopeErrorCode(body['code']),
+    message: body['message'] as String? ?? fallbackMessage,
+  );
+}

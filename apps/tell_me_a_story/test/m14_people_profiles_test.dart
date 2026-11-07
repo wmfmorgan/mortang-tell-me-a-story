@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
@@ -147,6 +148,34 @@ void main() {
     expect(invites.personIds, ['p1']);
     expect(invites.emails, ['ada@example.com']);
     expect(invites.sent, ['i']);
+  });
+
+  testWidgets('a failed invite after saving keeps the save sentence', (
+    tester,
+  ) async {
+    final api = _People();
+    final invites = _Invites()
+      ..createError = const AppException(
+        code: AppErrorCode.validation,
+        message: 'person is already linked',
+      );
+    await _openAdd(tester, api, invites: invites);
+    await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
+    await tester.enterText(
+      find.byKey(const Key('add-person-email')),
+      'ada@example.com',
+    );
+    final save = find.widgetWithText(FilledButton, 'Add person');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('send-invite-confirm-yes')));
+    await tester.pumpAndSettle();
+
+    expect(api.createCalls, 1);
+    expect(find.text('Couldn’t save person. Try again.'), findsOneWidget);
+    expect(find.text('person is already linked'), findsNothing);
+    expect(invites.sent, isEmpty);
   });
 
   testWidgets(
@@ -749,6 +778,7 @@ class _Invites implements InviteGateway {
   final personIds = <String?>[];
   final emails = <String?>[];
   final sent = <String>[];
+  Object? createError;
 
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
@@ -767,6 +797,8 @@ class _Invites implements InviteGateway {
     creates++;
     personIds.add(personId);
     emails.add(email);
+    final error = createError;
+    if (error != null) throw error;
     return const CreateInviteResult(
       inviteId: 'i',
       token: 't',

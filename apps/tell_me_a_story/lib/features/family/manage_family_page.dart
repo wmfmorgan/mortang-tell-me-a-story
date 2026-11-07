@@ -9,6 +9,7 @@ import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
+import '../../data/app_exception.dart';
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
@@ -212,7 +213,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
       await _manage.renameFamily(familyId: detail.id, name: _name.text);
       await _load();
       return true;
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
       return false;
     }
@@ -231,7 +232,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     try {
       await _manage.addCoOwner(familyId: detail.id, userId: picked);
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }
@@ -264,7 +265,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     try {
       await _manage.removeCoOwner(familyId: detail.id, userId: person.userId);
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }
@@ -287,7 +288,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     try {
       await _manage.removeMember(familyId: detail.id, userId: person.userId);
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }
@@ -304,7 +305,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
             'Invite sent again to $email. The old link no longer works.';
       });
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
       if (mounted) await _load();
     } finally {
@@ -334,7 +335,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     try {
       await _manage.revokeInvite(invite.id);
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }
@@ -355,7 +356,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
         formerOwnerBecomes: choice.formerOwnerBecomes,
       );
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }
@@ -373,7 +374,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
       FamilySelection.forget(detail.id);
       if (!mounted) return;
       context.go(AppRoutes.manageFamilies);
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }

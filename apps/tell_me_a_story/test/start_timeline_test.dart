@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/theme/album_header.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
@@ -940,17 +941,14 @@ void main() {
     );
     await tester.pump();
 
-    manage.error = ManageFamiliesException(
-      code: 'VALIDATION',
-      message: 'too many levels',
-    );
+    manage.error = const AppException(code: AppErrorCode.validation, message: 'too many levels');
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text('too many levels'), findsOneWidget);
     expect(find.textContaining('VALIDATION:'), findsNothing);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
-    manage.error = ManageFamiliesException(code: 'NOT_FOUND', message: 'story');
+    manage.error = const AppException(code: AppErrorCode.notFound, message: 'story');
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(
@@ -959,10 +957,7 @@ void main() {
     );
     expect(find.text('story'), findsNothing);
 
-    manage.error = ManageFamiliesException(
-      code: 'FORBIDDEN',
-      message: 'member only',
-    );
+    manage.error = const AppException(code: AppErrorCode.forbidden, message: 'member only');
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text("You're not a member of Parent anymore."), findsOneWidget);
@@ -978,20 +973,14 @@ void main() {
     expect(find.text('Try again'), findsOneWidget);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
-    manage.error = ManageFamiliesException(
-      code: 'VALIDATION',
-      message: 'create_branch_family returned no id',
-    );
+    manage.error = const AppException(code: AppErrorCode.validation, message: 'create_branch_family returned no id');
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text('Try again'), findsOneWidget);
     expect(find.text('create_branch_family returned no id'), findsNothing);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
-    manage.error = ManageFamiliesException(
-      code: 'VALIDATION',
-      message: 'Request failed',
-    );
+    manage.error = const AppException(code: AppErrorCode.validation, message: 'Request failed');
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text('Try again'), findsOneWidget);
@@ -1003,7 +992,7 @@ void main() {
     tester,
   ) async {
     final manage = _Manage()
-      ..error = ManageFamiliesException(code: 'NOT_FOUND', message: 'story');
+      ..error = const AppException(code: AppErrorCode.notFound, message: 'story');
     await _openForm(
       tester,
       origin: _story(),

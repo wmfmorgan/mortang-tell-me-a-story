@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/album_theme.dart';
+import '../../data/app_exception.dart';
 import '../../data/comments_api.dart';
 import '../../data/families_api.dart';
 import '../../data/manage_families_api.dart';
@@ -197,7 +198,7 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
         context,
         StartTimelineResult(familyId: id, name: _name.text.trim()),
       );
-    } on ManageFamiliesException catch (error) {
+    } on AppException catch (error) {
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -212,14 +213,14 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
     }
   }
 
-  String _inlineError(ManageFamiliesException error) {
-    if (error.code == 'NOT_FOUND') {
+  String _inlineError(AppException error) {
+    if (error.code == AppErrorCode.notFound) {
       if (widget.allowChange) {
         return "That story isn't available anymore. Pick another one.";
       }
       return "That story isn't available anymore.";
     }
-    if (error.code == 'FORBIDDEN') {
+    if (error.code == AppErrorCode.forbidden) {
       return "You're not a member of ${widget.parentName} anymore.";
     }
     if (_isInternal(error.message)) return 'Try again';

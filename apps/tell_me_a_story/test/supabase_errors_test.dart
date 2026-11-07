@@ -95,4 +95,34 @@ void main() {
       isNull,
     );
   });
+
+  group('edge-function envelopes', () {
+    test('map codes; unknown or missing codes are validation', () {
+      expect(envelopeErrorCode('NOT_FOUND'), AppErrorCode.notFound);
+      expect(envelopeErrorCode('FORBIDDEN'), AppErrorCode.forbidden);
+      expect(envelopeErrorCode('VALIDATION'), AppErrorCode.validation);
+      expect(envelopeErrorCode('INVITE_INVALID'), AppErrorCode.inviteInvalid);
+      expect(envelopeErrorCode('INVITE_EXPIRED'), AppErrorCode.inviteInvalid);
+      expect(envelopeErrorCode('INVITE_ACCEPTED'), AppErrorCode.inviteInvalid);
+      expect(envelopeErrorCode('AUTH_REQUIRED'), AppErrorCode.unauthenticated);
+      expect(envelopeErrorCode('SOMETHING_NEW'), AppErrorCode.validation);
+      expect(envelopeErrorCode(null), AppErrorCode.validation);
+    });
+
+    test('use the body message, else the fallback', () {
+      final withMessage = appExceptionFromEnvelope(
+        envelopeBody({'code': 'FORBIDDEN', 'message': 'member only'}),
+        fallbackMessage: 'Try again',
+      );
+      expect(withMessage.code, AppErrorCode.forbidden);
+      expect(withMessage.message, 'member only');
+
+      final bare = appExceptionFromEnvelope(
+        envelopeBody('not a map'),
+        fallbackMessage: 'Request failed',
+      );
+      expect(bare.code, AppErrorCode.validation);
+      expect(bare.message, 'Request failed');
+    });
+  });
 }
