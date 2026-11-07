@@ -6,6 +6,9 @@ import 'package:timeline_lab/lab_controller.dart';
 import 'package:timeline_lab/model/seed.dart';
 import 'package:timeline_lab/renderers/renderer_contract.dart';
 import 'package:timeline_lab/renderers/treemap_layout.dart';
+import 'package:timeline_lab/theme/lab_theme.dart';
+
+import 'support/contrast.dart';
 
 void main() {
   group('squarify', () {
@@ -169,5 +172,28 @@ void main() {
       await tester.pump();
       expect(fillOf(), 1);
     });
+  });
+
+  test('shade is quiet and uniform while nothing is dimmed', () {
+    expect(treemapShade(1, dimming: false), treemapShade(0.3, dimming: false));
+  });
+
+  test('dim shading steps up with the matched share', () {
+    expect(
+      [
+        for (final s in [0.0, 0.3, 0.6, 1.0]) treemapShade(s, dimming: true),
+      ],
+      [0.0, 0.16, 0.28, 0.40],
+    );
+  });
+
+  test('ink stays ≥ 4.5:1 on the strongest shade', () {
+    final strongest = labTerracotta.withValues(
+      alpha: treemapShade(1, dimming: true),
+    );
+    expect(
+      contrast(labInk, over(strongest, labParchment)),
+      greaterThanOrEqualTo(4.5),
+    );
   });
 }
