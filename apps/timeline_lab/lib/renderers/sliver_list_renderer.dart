@@ -155,27 +155,35 @@ class _Row extends StatelessWidget {
     final s = entry.story;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              width: 64,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(width: 2, color: labRule),
-                  StoryDot(
-                    spec: MarkerSpec(
-                      matched: entry.matched,
-                      origin: isOrigin(s, data.dataset),
-                      selected: s.id == data.selectedId,
-                    ),
+      // The card sets the row height; the rail fills it. No IntrinsicHeight:
+      // it measures a flexible card at the full spare width, so a wrapped
+      // title would come up short and overflow.
+      child: Stack(
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 64,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(width: 2, color: labRule),
+                StoryDot(
+                  spec: MarkerSpec(
+                    matched: entry.matched,
+                    origin: isOrigin(s, data.dataset),
+                    selected: s.id == data.selectedId,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            Align(
+          ),
+          // StoryCard is 280 pt wide via SizedBox; Align hands it a loose
+          // max, so it shrinks only when the row can't fit.
+          Padding(
+            padding: const EdgeInsets.only(left: 64),
+            child: Align(
               alignment: Alignment.centerLeft,
               child: StoryCard(
                 story: s,
@@ -185,8 +193,8 @@ class _Row extends StatelessWidget {
                 onTap: () => data.onSelect(s.id),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
