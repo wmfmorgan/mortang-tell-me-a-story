@@ -1,3 +1,4 @@
+import 'package:serverpod_auth_idp_server/providers/email.dart';
 import 'package:tell_me_a_story_server/src/auth/auth_config.dart';
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
 import 'package:test/test.dart';
@@ -43,7 +44,13 @@ void main() {
           otpLoginRequestId: requestId,
           verificationCode: '000000',
         ),
-        throwsA(anything),
+        throwsA(
+          isA<EmailAccountRequestException>().having(
+            (e) => e.reason,
+            'reason',
+            EmailAccountRequestExceptionReason.invalid,
+          ),
+        ),
       );
     });
   }, rollbackDatabase: RollbackDatabase.disabled);
