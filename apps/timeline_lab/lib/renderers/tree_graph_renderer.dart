@@ -31,6 +31,7 @@ class _TreeGraphTimelineState extends State<TreeGraphTimeline> {
   final _hCtl = ScrollController();
   TreeLayout? _layout;
   String? _lastFollowed;
+  final _hoverTarget = ValueNotifier(false);
 
   PlaybackController? get _playback => widget.data.playback;
 
@@ -116,6 +117,7 @@ class _TreeGraphTimelineState extends State<TreeGraphTimeline> {
     _playback?.removeListener(_follow);
     _vCtl.dispose();
     _hCtl.dispose();
+    _hoverTarget.dispose();
     super.dispose();
   }
 
@@ -156,29 +158,43 @@ class _TreeGraphTimelineState extends State<TreeGraphTimeline> {
                         child: SingleChildScrollView(
                           controller: _hCtl,
                           scrollDirection: Axis.horizontal,
-                          child: GestureDetector(
-                            onTapUp: (details) {
-                              final hit = layout.hitTest(
-                                details.localPosition,
-                                radius: hitRadiusFor(
-                                  details.kind,
-                                  precise: TreeLayout.hitRadius,
+                          child: ValueListenableBuilder<bool>(
+                            valueListenable: _hoverTarget,
+                            // Only the cursor rebuilds; the painter and its
+                            // laid-out labels are reused.
+                            builder: (context, over, child) => MouseRegion(
+                              cursor: over
+                                  ? SystemMouseCursors.click
+                                  : MouseCursor.defer,
+                              onHover: (e) => _hoverTarget.value =
+                                  layout.hitTest(e.localPosition) != null,
+                              onExit: (_) => _hoverTarget.value = false,
+                              child: child,
+                            ),
+                            child: GestureDetector(
+                              onTapUp: (details) {
+                                final hit = layout.hitTest(
+                                  details.localPosition,
+                                  radius: hitRadiusFor(
+                                    details.kind,
+                                    precise: TreeLayout.hitRadius,
+                                  ),
+                                );
+                                if (hit != null) _onTap(hit);
+                              },
+                              child: CustomPaint(
+                                size: layout.size,
+                                painter: TreePainter(
+                                  layout: layout,
+                                  dataset: widget.data.dataset,
+                                  selectedId: widget.data.selectedId,
+                                  playback: _playback,
+                                  labelStyle: theme.labelSmall!,
+                                  headingStyle: theme.labelLarge!.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  onTapNode: _onTap,
                                 ),
-                              );
-                              if (hit != null) _onTap(hit);
-                            },
-                            child: CustomPaint(
-                              size: layout.size,
-                              painter: TreePainter(
-                                layout: layout,
-                                dataset: widget.data.dataset,
-                                selectedId: widget.data.selectedId,
-                                playback: _playback,
-                                labelStyle: theme.labelSmall!,
-                                headingStyle: theme.labelLarge!.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                onTapNode: _onTap,
                               ),
                             ),
                           ),
