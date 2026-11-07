@@ -76,19 +76,28 @@ server-setup:
 server-passwords:
     #!/usr/bin/env sh
     set -eu
+    umask 077
     file=apps/server/config/passwords.yaml
     if [ -f "$file" ]; then echo "$file exists; leaving it alone."; exit 0; fi
-    r() { openssl rand -hex "$1"; }
-    {
-        for mode in development test; do
+    tmp="$file.tmp"
+    trap 'rm -f "$tmp"' EXIT
+    : > "$tmp"
+    for mode in development test; do
+        database=$(openssl rand -hex 16)
+        service_secret=$(openssl rand -hex 32)
+        email_pepper=$(openssl rand -hex 32)
+        jwt_key=$(openssl rand -hex 64)
+        refresh_pepper=$(openssl rand -hex 32)
+        {
             echo "$mode:"
-            echo "  database: \"$(r 16)\""
-            echo "  serviceSecret: \"$(r 32)\""
-            echo "  emailSecretHashPepper: \"$(r 32)\""
-            echo "  jwtHmacSha512PrivateKey: \"$(r 64)\""
-            echo "  jwtRefreshTokenHashPepper: \"$(r 32)\""
-        done
-    } > "$file"
+            echo "  database: \"$database\""
+            echo "  serviceSecret: \"$service_secret\""
+            echo "  emailSecretHashPepper: \"$email_pepper\""
+            echo "  jwtHmacSha512PrivateKey: \"$jwt_key\""
+            echo "  jwtRefreshTokenHashPepper: \"$refresh_pepper\""
+        } >> "$tmp"
+    done
+    mv "$tmp" "$file"
     echo "Wrote $file"
 
 # Regenerate server protocol, client package and test tools after model/endpoint changes
