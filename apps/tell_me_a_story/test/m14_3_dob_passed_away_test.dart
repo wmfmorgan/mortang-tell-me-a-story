@@ -205,7 +205,7 @@ void main() {
     'with no injected id the profile asks AppSession who is signed in',
     (tester) async {
       AppSession.instance = const _Session('member');
-      addTearDown(() => AppSession.instance = const SupabaseAppSession());
+      addTearDown(() => AppSession.instance = const ServerAppSession());
       final people = _People()
         ..profile = const PersonProfile(
           id: 'p1',
