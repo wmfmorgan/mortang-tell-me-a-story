@@ -210,8 +210,9 @@ abstract class PeopleGateway {
     throw UnimplementedError();
   }
 
-  /// `person-avatars` when [path] is `{personId}/avatar.jpg`, else `avatars`.
-  Future<String?> signedPictureUrl({
+  /// Picture bytes: `person-avatars` when [path] is `{personId}/avatar.jpg`,
+  /// else `avatars`. Null when there is no picture.
+  Future<Uint8List?> pictureBytes({
     required String personId,
     String? path,
   }) async => null;
@@ -448,7 +449,7 @@ class PeopleApi implements PeopleGateway {
   }
 
   @override
-  Future<String?> signedPictureUrl({
+  Future<Uint8List?> pictureBytes({
     required String personId,
     String? path,
   }) async {
@@ -456,7 +457,7 @@ class PeopleApi implements PeopleGateway {
     final bucket = path == personAvatarObjectPath(personId)
         ? personAvatarsBucket
         : avatarsBucketName;
-    return _client.storage.from(bucket).createSignedUrl(path, 3600);
+    return _client.storage.from(bucket).download(path);
   }
 
   Future<Person> _uploadPersonPicture(Person person, List<int> bytes) async {

@@ -58,7 +58,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
   late final TextEditingController _email;
   late bool _passedAway;
   Uint8List? _picture;
-  String? _existingUrl;
+  Uint8List? _existingBytes;
   var _removed = false;
   var _busy = false;
   String? _aboutError;
@@ -79,12 +79,12 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
 
   Future<void> _loadExisting(String path) async {
     try {
-      final url = await widget.people.signedPictureUrl(
+      final bytes = await widget.people.pictureBytes(
         personId: widget.person.id,
         path: path,
       );
       if (!mounted || _removed || _picture != null) return;
-      setState(() => _existingUrl = url);
+      setState(() => _existingBytes = bytes);
     } catch (_) {}
   }
 
@@ -109,7 +109,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
   void _remove() {
     setState(() {
       _picture = null;
-      _existingUrl = null;
+      _existingBytes = null;
       _removed = true;
     });
   }
@@ -429,10 +429,10 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
         ),
       );
     }
-    final url = _existingUrl;
-    if (!_removed && url != null && url.isNotEmpty) {
-      return Image.network(
-        url,
+    final existing = _existingBytes;
+    if (!_removed && existing != null && existing.isNotEmpty) {
+      return Image.memory(
+        existing,
         key: const Key('edit-person-picture-preview'),
         width: 64,
         height: 64,

@@ -283,7 +283,7 @@ class PersonStoryCard {
     required this.whenLabel,
     this.place,
     this.photoCount = 0,
-    this.thumbUrl,
+    this.thumbBytes,
   });
 
   final String id;
@@ -291,7 +291,7 @@ class PersonStoryCard {
   final String whenLabel;
   final String? place;
   final int photoCount;
-  final String? thumbUrl;
+  final Uint8List? thumbBytes;
 }
 
 class PublishReadiness {
@@ -664,13 +664,13 @@ class StoriesApi implements StoriesGateway {
     for (final row in rows) {
       final story = Story.fromJson(row);
       final title = story.title?.trim() ?? '';
-      String? thumb;
+      Uint8List? thumb;
       final path = story.photoPaths.isEmpty ? null : story.photoPaths.first;
       if (path != null && path.isNotEmpty) {
         try {
           thumb = await _client.storage
               .from(storyPhotosBucket)
-              .createSignedUrl(path, 3600);
+              .download(path);
         } catch (_) {
           thumb = null;
         }
@@ -682,7 +682,7 @@ class StoriesApi implements StoriesGateway {
           whenLabel: _profileWhen(story),
           place: story.placeLabel,
           photoCount: story.photoCount,
-          thumbUrl: thumb,
+          thumbBytes: thumb,
         ),
       );
     }

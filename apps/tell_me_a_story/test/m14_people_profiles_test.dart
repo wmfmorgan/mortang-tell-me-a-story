@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image/image.dart' as img;
 import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
@@ -651,6 +652,86 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('person-profile-dialog')), findsNothing);
   });
+  testWidgets('a stored person picture renders from bytes', (tester) async {
+    final people = _People()
+      ..profile = const PersonProfile(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        isLinked: false,
+        avatarPath: 'p1/avatar.jpg',
+      )
+      ..picture = _png();
+    await _openProfileWith(tester, people);
+
+    final image = tester.widget<Image>(
+      find.byKey(const Key('person-avatar-image')),
+    );
+    expect(image.image, isA<MemoryImage>());
+    expect(people.picturePath, 'p1/avatar.jpg');
+  });
+
+  testWidgets('a story card thumbnail renders from bytes', (tester) async {
+    final people = _People()
+      ..profile = const PersonProfile(
+        id: 'p1',
+        familyId: _familyId,
+        name: 'Ada',
+        isLinked: false,
+      );
+    await _openProfileWith(
+      tester,
+      people,
+      stories: [
+        PersonStoryCard(
+          id: 's1',
+          title: 'First notes',
+          whenLabel: 'Summer 1972',
+          photoCount: 1,
+          thumbBytes: _png(),
+        ),
+      ],
+    );
+
+    final thumb = tester.widget<Image>(
+      find.descendant(
+        of: find.byKey(const Key('person-profile-story-s1')),
+        matching: find.byType(Image),
+      ),
+    );
+    expect(thumb.image, isA<MemoryImage>());
+  });
+
+  testWidgets('Edit person shows the stored picture from bytes', (tester) async {
+    final people = _People()..picture = _png();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showEditPersonDialog(
+              context,
+              person: const Person(
+                id: 'p1',
+                familyId: _familyId,
+                name: 'Ada',
+                avatarPath: 'p1/avatar.jpg',
+              ),
+              people: people,
+              signedInUserId: 'me',
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final preview = tester.widget<Image>(
+      find.byKey(const Key('edit-person-picture-preview')),
+    );
+    expect(preview.image, isA<MemoryImage>());
+  });
 }
 
 Future<void> _openAdd(
@@ -695,11 +776,11 @@ class _People extends PeopleGateway {
   bool wroteEmail = false;
   List<int>? updatedPicture;
   bool clearPicture = false;
-  String? signedUrl;
+  Uint8List? picture;
   PersonProfile? profile;
   Person? editor;
   var missing = false;
-  String? signedPath;
+  String? picturePath;
 
   @override
   Future<List<Person>> listPeople(String familyId) async {
@@ -743,13 +824,12 @@ class _People extends PeopleGateway {
   @override
   Future<Person?> personForEdit(String personId) async => editor;
 
-  @override
-  Future<String?> signedPictureUrl({
+  Future<Uint8List?> pictureBytes({
     required String personId,
     String? path,
   }) async {
-    signedPath = path;
-    return signedUrl;
+    picturePath = path;
+    return picture;
   }
 
   @override
@@ -898,4 +978,34 @@ class _Manage implements ManageFamiliesGateway {
   }) {
     throw UnimplementedError();
   }
+}
+
+Uint8List _png() => Uint8List.fromList(img.encodePng(img.Image(width: 2, height: 2)));
+
+Future<void> _openProfileWith(
+  WidgetTester tester,
+  _People people, {
+  List<PersonStoryCard> stories = const [],
+}) async {
+  await tester.binding.setSurfaceSize(const Size(900, 1400));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showPersonProfile(
+            context,
+            personId: 'p1',
+            name: 'Ada',
+            people: people,
+            signedInUserId: 'me',
+            loadStories: (_) async => stories,
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('open'));
+  await tester.pumpAndSettle();
 }
