@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:timeline_lab/filter/timeline_filter.dart';
 import 'package:timeline_lab/lab_app.dart';
 import 'package:timeline_lab/lab_controller.dart';
-import 'package:timeline_lab/renderers/painter_rail_renderer.dart';
 import 'package:timeline_lab/renderers/render_box_layout_renderer.dart';
 import 'package:timeline_lab/renderers/renderer_contract.dart';
 import 'package:timeline_lab/renderers/sliver_list_renderer.dart';
@@ -85,13 +84,13 @@ void main() {
     await _pump(tester);
     const roots = {
       RendererKind.sliverList: SliverListTimeline,
-      RendererKind.painterRail: PainterRailTimeline,
       RendererKind.renderBoxLayout: RenderBoxTimeline,
       RendererKind.zoomCanvas: ZoomCanvasTimeline,
       RendererKind.swimlanes: SwimlanesTimeline,
       RendererKind.treeGraph: TreeGraphTimeline,
       RendererKind.treemap: TreemapTimeline,
     };
+    expect(RendererKind.values, hasLength(roots.length));
     for (final kind in [
       ...RendererKind.values.skip(1),
       RendererKind.values.first,
@@ -190,7 +189,7 @@ void main() {
       tester,
     ) async {
       final c = await _pump(tester);
-      c.setRenderer(RendererKind.painterRail);
+      c.setRenderer(RendererKind.zoomCanvas);
       await tester.pumpAndSettle();
       expect(caption(tester), 'Press play to replay the timeline');
       expect(find.byKey(const Key('playback-watermark')), findsNothing);
