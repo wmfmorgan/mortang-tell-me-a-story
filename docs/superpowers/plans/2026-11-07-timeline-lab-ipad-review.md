@@ -174,6 +174,14 @@ The design plan is `docs/superpowers/plans/2026-11-07-timeline-lab-ui-design-rev
 
 ## Decisions for the user
 
+**Decided 2026-11-07:**
+- D-i1 = (a): goldens at iPad mini portrait, iPad mini landscape and Slide Over.
+- D-i2 = (a): filters in an end drawer below 900 pt.
+- D-i3 = (b): no iOS platform. Profile a release web build in iPad Safari (the D-i3 = b path at the end of Task 22); skip Task 22's iOS steps.
+- D-i4 = (b): mouse drag does **not** pan. Skip Task 19. Task 20 and the Task 22 checklist assume the wheel/trackpad scroll only.
+- D-i5 = finger radius only (neither option in the table): rows stay 26 pt and labels are not targets. Task 15 is written for this.
+- From the design plan: D1 = drop the painter rail, so Task 14 and the rail part of Task 20 are skipped.
+
 | # | Decision | Options | Recommendation |
 |---|---|---|---|
 | D-i1 | Which iPad sizes to gate with goldens | **(a)** mini portrait 744×1133, mini landscape 1133×744, Slide Over 320×1133. **(b)** add 12.9" portrait 1024×1366. **(c)** all 11 sizes. | **(a).** These are the smallest full-screen width (below the sidebar breakpoint), the shortest height (where the selected panel and keyboard squeeze hardest) and the compact layout. The existing 1280×800 goldens already cover the wide layout. All 11 sizes are still gated by the no-overflow behaviour tests (Task 2), which add no PNGs. |
@@ -1658,25 +1666,36 @@ git add apps/timeline_lab/lib/renderers/painter_rail_renderer.dart apps/timeline
 git commit -m "feat(lab): rail finger radius, stack chooser, full-height pan"
 ```
 
-### Task 15: Tree graph — leaf rows as targets, finger radius, full-height pan (decision D-i5)
+### Task 15: Tree graph — finger radius, full-height pan (decision D-i5 = finger radius only)
+
+D-i5 was decided as **finger radius only**: rows stay 26 pt apart, labels are not targets, and a finger tap reaches the nearest node centre within `LabTarget.fingerRadius`.
 
 **Files:**
-- Modify: `lib/renderers/tree_graph_layout.dart` (`hitTest`, `rectOf`, `:334-351` at `bdd128d`)
+- Modify: `lib/renderers/tree_graph_layout.dart` (`hitTest`, `:334-351` at `bdd128d`)
 - Modify: `lib/renderers/tree_graph_renderer.dart` (`build`, `:142-176`)
 - Test: `test/tree_graph_test.dart`, `test/ipad_input_test.dart`
 
 - [ ] **Step 1: Write the failing layout test** (append to `test/tree_graph_test.dart`; `lab_theme.dart` is already imported)
 
 ```dart
-  test('a leaf is hit anywhere on its row; inner nodes need the radius', () {
+  test('a finger radius reaches the nearest dot; labels are not targets', () {
     final layout = TreeLayout(buildTimeTree(entries)!);
     final leaf = layout.nodes.firstWhere(
       (n) => n.kind == TreeNodeKind.story && n.children.isEmpty,
     );
     final p = layout.positions[leaf]!;
-    expect(layout.hitTest(p + const Offset(120, 0)), same(leaf)); // label
-    expect(layout.hitTest(p + Offset(0, layout.leafGap / 2 - 1)), same(leaf));
+    // The label is not a target, even for a finger (D-i5).
+    expect(
+      layout.hitTest(p + const Offset(120, 0), radius: LabTarget.fingerRadius),
+      isNull,
+    );
+    // 12 pt below the dot: outside the precise radius, inside the finger
+    // one, and nearer this dot than the next row (26 pt away).
+    final q = p + const Offset(0, 12);
+    expect(layout.hitTest(q), isNull);
+    expect(layout.hitTest(q, radius: LabTarget.fingerRadius), same(leaf));
 
+    // Inner nodes use the same rule.
     final years = [
       for (final n in layout.nodes)
         if (n.kind == TreeNodeKind.year) n,
@@ -1689,9 +1708,9 @@ git commit -m "feat(lab): rail finger radius, stack chooser, full-height pan"
                 2 * LabTarget.fingerRadius,
       ),
     );
-    final q = layout.positions[year]! + const Offset(0, 18);
-    expect(layout.hitTest(q), isNull);
-    expect(layout.hitTest(q, radius: LabTarget.fingerRadius), same(year));
+    final r = layout.positions[year]! + const Offset(0, 18);
+    expect(layout.hitTest(r), isNull);
+    expect(layout.hitTest(r, radius: LabTarget.fingerRadius), same(year));
   });
 ```
 
@@ -1762,44 +1781,19 @@ Expected: FAIL. `hitTest` has no `radius:` parameter, and the drag below the tre
 
 - [ ] **Step 4: Implement the layout**
 
-Replace `hitTest` and `rectOf` in `TreeLayout`:
+Replace `hitTest` in `TreeLayout` (`rectOf` is unchanged):
 
 ```dart
   static const hitRadius = 10.0;
 
-  bool _isLeafLike(TreeNode n) =>
-      n.kind == TreeNodeKind.story || n.kind == TreeNodeKind.overflow;
-
-  /// Leaves (stories and `+N` nodes) are hit on their whole row: from the
-  /// dot to the end of the label, one [leafGap] tall. Inner nodes are hit on
-  /// a circle of [radius].
-  Rect rectOf(TreeNode n, {double radius = hitRadius}) {
-    final p = positions[n]!;
-    if (!_isLeafLike(n)) return Rect.fromCircle(center: p, radius: radius);
-    // A story that grows a branch has children one level right; stop there.
-    final labelEnd = n.children.isEmpty ? labelWidth : levelGap - 24;
-    return Rect.fromLTRB(
-      p.dx - radius,
-      p.dy - leafGap / 2,
-      p.dx + labelEnd,
-      p.dy + leafGap / 2,
-    );
-  }
-
-  /// The node under [p]: leaves by row, inner nodes within [radius]. The
-  /// nearest centre wins.
+  /// The node whose centre is nearest [p] within [radius]. Labels are not
+  /// targets (D-i5); callers pass `LabTarget.fingerRadius` for finger taps.
   TreeNode? hitTest(Offset p, {double radius = hitRadius}) {
     TreeNode? best;
     var bestDist = double.infinity;
     for (final n in nodes) {
-      final c = positions[n]!;
-      final leaf = _isLeafLike(n);
-      final inside = leaf
-          ? rectOf(n, radius: radius).contains(p)
-          : (c - p).distance <= radius;
-      if (!inside) continue;
-      final dist = leaf ? (c.dy - p.dy).abs() : (c - p).distance;
-      if (dist < bestDist) {
+      final dist = (positions[n]! - p).distance;
+      if (dist <= radius && dist < bestDist) {
         best = n;
         bestDist = dist;
       }
@@ -1808,7 +1802,7 @@ Replace `hitTest` and `rectOf` in `TreeLayout`:
   }
 ```
 
-`TreePainter`'s semantics already call `layout.rectOf(n)`, so VoiceOver now gets row-sized rects for leaves.
+Rows stay 26 pt apart, so a finger radius of 22 pt overlaps the next row's circle; the nearest centre wins, which is the behaviour the test pins.
 
 - [ ] **Step 5: Implement the widget**
 
@@ -1859,7 +1853,7 @@ Expected: PASS. The existing `tapping an overflow node expands it; a leaf select
 
 ```bash
 git add apps/timeline_lab/lib/renderers/tree_graph_layout.dart apps/timeline_lab/lib/renderers/tree_graph_renderer.dart apps/timeline_lab/test/tree_graph_test.dart apps/timeline_lab/test/ipad_input_test.dart
-git commit -m "feat(lab): tree leaf rows are tap targets; finger radius; full-height pan"
+git commit -m "feat(lab): finger hit radius and full-height pan in tree graph"
 ```
 
 ### Task 16: Zoom canvas — 44 pt target around years-level dots
@@ -2201,7 +2195,9 @@ git commit -m "feat(lab): treemap small cells open their group on touch"
 
 ## Phase 3 — Pointer and keyboard
 
-### Task 19: Mouse drag pans scroll views (decision D-i4)
+### Task 19: Mouse drag pans scroll views (SKIPPED: D-i4 = b)
+
+Not run. Kept for reference in case D-i4 is revisited.
 
 **Files:**
 - Modify: `lib/input/pointer_input.dart`, `lib/lab_app.dart` (`_LabAppState.build`)
@@ -2666,7 +2662,7 @@ git commit -m "feat(lab): keyboard shortcuts for playback, search and selection"
 
 ## Phase 4 — Optional: iOS platform and device measurement (decision D-i3)
 
-### Task 22: Add iOS and profile on a device (only if D-i3 = a)
+### Task 22: Profile on iPad (D-i3 = b: skip the iOS steps; run only the Safari release-web path at the end of this task)
 
 **Files:**
 - Create: `ios/` (generated)
