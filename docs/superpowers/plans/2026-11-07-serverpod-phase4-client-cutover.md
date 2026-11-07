@@ -91,7 +91,6 @@ Each slice plan is written by its executor at slice start, following superpowers
   - `lib/features/auth/` (keep `magic_link_page.dart` and `invite_sign_in_page.dart` as file names; delete `magic_link_redirect.dart`).
 - **Change:**
   - **Startup:** `main` calls `initServer()`. `AuthRefresh` listens to `serverClient.auth.authInfoListenable`. On sign-in it binds `ProfileSession` and `FamilySelection` to the user; that work moves out of `invite_api.dart`.
-  - **Session:** `AppSession.instance` becomes `ServerAppSession`: `currentUserId` = `authInfo?.authUserId.toString()`, `signOut` = `signOutDevice()`.
   - **Session:** `AppSession.instance` becomes `ServerAppSession`: `currentUserId` = `authInfo?.authUserId.toString()`, `signOut` = `signOutDevice()`. Startup must survive an unreadable saved session: if `initServer()` throws while restoring (for example a corrupted secure-storage entry on web), clear the stored session and start signed out, with a test.
   - **Login pages:** both pages switch to email → code entry. The invite page keeps its `_onAuth` → `_accept()` flow. `EmailAccountRequestException` reasons map to the copy below.
 - **Tests:**
