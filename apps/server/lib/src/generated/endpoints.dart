@@ -380,6 +380,93 @@ class Endpoints extends _is.EndpointDispatch {
                     params['name'],
                   ),
         ),
+        'listMine': _is.MethodConnector(
+          name: 'listMine',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .listMine(session),
+        ),
+        'listStewarded': _is.MethodConnector(
+          name: 'listStewarded',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .listStewarded(session),
+        ),
+        'listTree': _is.MethodConnector(
+          name: 'listTree',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).listTree(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'listMembers': _is.MethodConnector(
+          name: 'listMembers',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).listMembers(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'directory': _is.MethodConnector(
+          name: 'directory',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .directory(session),
+        ),
+        'detail': _is.MethodConnector(
+          name: 'detail',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).detail(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
       },
     );
     connectors['place'] = _is.EndpointConnector(

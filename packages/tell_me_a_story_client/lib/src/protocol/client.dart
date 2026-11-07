@@ -23,12 +23,24 @@ import 'package:tell_me_a_story_client/src/protocol/birth_visibility.dart'
     as _iie7eme0;
 import 'package:tell_me_a_story_client/src/protocol/date_precision.dart'
     as _i3omm4g5;
+import 'package:tell_me_a_story_client/src/protocol/dto/family_detail_dto.dart'
+    as _is49z41e;
+import 'package:tell_me_a_story_client/src/protocol/dto/family_directory_dto.dart'
+    as _itkjk2qa;
+import 'package:tell_me_a_story_client/src/protocol/dto/family_member_dto.dart'
+    as _ie59njid;
+import 'package:tell_me_a_story_client/src/protocol/dto/member_family_dto.dart'
+    as _ii9mmjc2;
 import 'package:tell_me_a_story_client/src/protocol/dto/own_profile_dto.dart'
     as _il07dlrf;
 import 'package:tell_me_a_story_client/src/protocol/dto/place_dto.dart'
     as _irx46cwk;
 import 'package:tell_me_a_story_client/src/protocol/dto/place_input_dto.dart'
     as _iyhrnw9c;
+import 'package:tell_me_a_story_client/src/protocol/dto/steward_family_dto.dart'
+    as _iy83v9y2;
+import 'package:tell_me_a_story_client/src/protocol/dto/tree_family_dto.dart'
+    as _iwn4wr2j;
 
 import 'protocol.dart' as _il2as5qe;
 
@@ -376,6 +388,61 @@ class EndpointFamily extends _isc.EndpointRef {
         'family',
         'createRoot',
         {'name': name},
+      );
+
+  /// The caller's live families, any role.
+  _ida.Future<List<_ii9mmjc2.MemberFamilyDto>> listMine() =>
+      caller.callServerEndpoint<List<_ii9mmjc2.MemberFamilyDto>>(
+        'family',
+        'listMine',
+        {},
+      );
+
+  /// Families the caller owns or co-owns: live ones and soft-deleted ones
+  /// still inside the recovery window (recovery read, D6b).
+  _ida.Future<List<_iy83v9y2.StewardFamilyDto>> listStewarded() =>
+      caller.callServerEndpoint<List<_iy83v9y2.StewardFamilyDto>>(
+        'family',
+        'listStewarded',
+        {},
+      );
+
+  /// Live families sharing [familyId]'s tree (D8), with their effective
+  /// origin. Empty unless the caller reads that tree.
+  _ida.Future<List<_iwn4wr2j.TreeFamilyDto>> listTree(
+    _isc.UuidValue familyId,
+  ) => caller.callServerEndpoint<List<_iwn4wr2j.TreeFamilyDto>>(
+    'family',
+    'listTree',
+    {'familyId': familyId},
+  );
+
+  _ida.Future<List<_ie59njid.FamilyMemberDto>> listMembers(
+    _isc.UuidValue familyId,
+  ) => caller.callServerEndpoint<List<_ie59njid.FamilyMemberDto>>(
+    'family',
+    'listMembers',
+    {'familyId': familyId},
+  );
+
+  /// The caller's stewarded families with member and published-story counts,
+  /// in one query: live ones are `active`; soft-deleted ones inside the
+  /// recovery window are `recoverable` (recovery read, D6b).
+  _ida.Future<_itkjk2qa.FamilyDirectoryDto> directory() =>
+      caller.callServerEndpoint<_itkjk2qa.FamilyDirectoryDto>(
+        'family',
+        'directory',
+        {},
+      );
+
+  /// Family, members and pending invites. Live members read a live family;
+  /// owners and co-owners also read a soft-deleted one (recovery read, D6b),
+  /// whose invites are not readable, so `pendingInvites` is empty.
+  _ida.Future<_is49z41e.FamilyDetailDto?> detail(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<_is49z41e.FamilyDetailDto?>(
+        'family',
+        'detail',
+        {'familyId': familyId},
       );
 }
 

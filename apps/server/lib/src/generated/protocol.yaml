@@ -15,6 +15,12 @@ jwtRefresh:
   - refreshAccessToken:
 family:
   - createRoot:
+  - listMine:
+  - listStewarded:
+  - listTree:
+  - listMembers:
+  - directory:
+  - detail:
 place:
   - list:
   - favorites:

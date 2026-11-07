@@ -17,8 +17,16 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
+import 'package:tell_me_a_story_server/src/generated/dto/family_member_dto.dart'
+    as _iaubiddc;
+import 'package:tell_me_a_story_server/src/generated/dto/member_family_dto.dart'
+    as _ikh01baz;
 import 'package:tell_me_a_story_server/src/generated/dto/place_dto.dart'
     as _i3xh6672;
+import 'package:tell_me_a_story_server/src/generated/dto/steward_family_dto.dart'
+    as _inqlo9cu;
+import 'package:tell_me_a_story_server/src/generated/dto/tree_family_dto.dart'
+    as _i585khmk;
 import 'app_error_code.dart' as _imu8gbx5;
 import 'app_exception.dart' as _it4z223c;
 import 'app_user.dart' as _i2j2xfrn;
@@ -264,6 +272,10 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<List<_is.UuidValue>>,
           _is.getType<List<int>>,
           _is.getType<List<_is.UuidValue>?>,
+          _is.getType<List<_ikh01baz.MemberFamilyDto>>,
+          _is.getType<List<_inqlo9cu.StewardFamilyDto>>,
+          _is.getType<List<_i585khmk.TreeFamilyDto>>,
+          _is.getType<List<_iaubiddc.FamilyMemberDto>>,
           _is.getType<List<_i3xh6672.PlaceDto>>,
         ],
         modules: const [
@@ -2465,6 +2477,30 @@ class Protocol extends _is.DatabaseSerializationManager
                     .map((e) => deserialize<_is.UuidValue>(e))
                     .toList()
               : null)
+          as T;
+    }
+    if (t == List<_ikh01baz.MemberFamilyDto>) {
+      return (data as List)
+              .map((e) => deserialize<_ikh01baz.MemberFamilyDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_inqlo9cu.StewardFamilyDto>) {
+      return (data as List)
+              .map((e) => deserialize<_inqlo9cu.StewardFamilyDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i585khmk.TreeFamilyDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i585khmk.TreeFamilyDto>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_iaubiddc.FamilyMemberDto>) {
+      return (data as List)
+              .map((e) => deserialize<_iaubiddc.FamilyMemberDto>(e))
+              .toList()
           as T;
     }
     if (t == List<_i3xh6672.PlaceDto>) {
