@@ -146,3 +146,18 @@ class PlacesApi implements PlacesGateway {
 ### Task 7: Gate
 
 Run from the worktree: `dart format --output=none --set-exit-if-changed apps/tell_me_a_story/lib apps/tell_me_a_story/test`, `flutter analyze` (≤ 23), `flutter test`, `just test-live`. Update this plan with what landed and commit `docs: Phase 4d plan as landed`.
+
+---
+
+## As landed (2026-11-07)
+
+Commits on `feat/p4d-people-places-profile`: `e5d9f7f` plan, `f6ef33b` places, `0f64419` places live, `66f7d3c` people, `8d14ba7` people live, `b7366a1` profile + D1, `872d031` profile live.
+
+- **Gateways:** `PlacesApi`, `PeopleApi`, `ProfileApi` call `place.*`, `people.*`, `profile.*` and `media.get` through `withServerErrors`. `Person.avatarPath`, `PersonProfile.avatarPath` and `OwnProfile.avatarPath` keep their names and now hold blob keys. `ProfileApi.loadOwn` returns null when `serverClient.auth.isAuthenticated` is false.
+- **Deleted code:** `Person.relationship`, `Person.createdBy`, `Person.fromJson`, `PersonProfile.fromJson`, `personProfileFromRpc`, `personAvatarsBucket`, `personAvatarObjectPath`, `personDateFromJson`, `personDateIso`, `avatarsBucketName`; `Place.familyId`, `Place.fromJson`, `buildPlaceInsert`; `ProfileGateway.updateEmail`, `EmailUpdate`, `ProfilePatch`, `AvatarUpload`, `avatarsBucket`, `avatarObjectPath`, `BirthVisibility.toWire/fromWire` (now `toServer/fromServer`).
+- **Outside the owned files (minimal, for compilation):**
+  - `lib/features/stories/story_reader_page.dart` (4e): the `if ((person.relationship ?? '').trim().isNotEmpty) ...[ … ]` block in `_personChip` deleted (8 lines).
+  - `integration_test/e2e_test.dart` + `integration_test/support/preconditions.dart` (4f): `place.familyId` (2 uses) replaced by a new `currentE2eFamilyId()` helper in preconditions, which `createFavoritePlace` now also uses.
+  - `test/gateway_errors_test.dart` (deleted in 4z): its four `PeopleApi` Supabase-error tests deleted.
+- **Tests:** unit 723 → 696 (people_api 16→7, places_api 18→7 — the self-testing fake groups went, profile_api 5→4, settings_page 14→13, m14_3 14→13 (wire-string test moved to profile_api round-trip), gateway_errors 13→9). Live +4 (people 2, places 1, profile 1).
+- **Gate:** format 0 changed; analyze 15 issues; `flutter test` +696 ~4; `just test-live` +6.
