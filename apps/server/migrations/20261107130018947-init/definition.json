@@ -5081,7 +5081,7 @@
     {
       "__className__": "serverpod.DatabaseMigrationVersionModel",
       "module": "tell_me_a_story",
-      "version": "20261107125059503-init"
+      "version": "20261107130018947-init"
     },
     {
       "__className__": "serverpod.DatabaseMigrationVersion",

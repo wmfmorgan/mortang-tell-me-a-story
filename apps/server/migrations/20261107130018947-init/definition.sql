@@ -1198,9 +1198,9 @@ ALTER TABLE ONLY "serverpod_auth_core_session"
 -- MIGRATION VERSION FOR tell_me_a_story
 --
 INSERT INTO "serverpod_migrations" ("module", "version", "timestamp")
-    VALUES ('tell_me_a_story', '20261107125059503-init', now())
+    VALUES ('tell_me_a_story', '20261107130018947-init', now())
     ON CONFLICT ("module")
-    DO UPDATE SET "version" = '20261107125059503-init', "timestamp" = now();
+    DO UPDATE SET "version" = '20261107130018947-init', "timestamp" = now();
 
 --
 -- MIGRATION VERSION FOR serverpod
