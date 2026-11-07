@@ -1419,6 +1419,37 @@ class Endpoints extends _is.EndpointDispatch {
                     params['value'],
                   ),
         ),
+        'setDeathDate': _is.MethodConnector(
+          name: 'setDeathDate',
+          params: {
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'deathDate': _is.ParameterDescription(
+              name: 'deathDate',
+              type: _is.getType<DateTime?>(),
+              nullable: true,
+            ),
+            'deathPrecision': _is.ParameterDescription(
+              name: 'deathPrecision',
+              type: _is.getType<_ig52w51f.DatePrecision?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['people'] as _iqqt4psm.PeopleEndpoint)
+                  .setDeathDate(
+                    session,
+                    params['personId'],
+                    params['deathDate'],
+                    params['deathPrecision'],
+                  ),
+        ),
         'delete': _is.MethodConnector(
           name: 'delete',
           params: {

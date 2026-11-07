@@ -959,6 +959,92 @@ void main() {
       );
     });
 
+    group('setDeathDate', () {
+      // BR 138
+      test(
+        'when the home family owner sets a passed linked person\'s death date '
+        'then it is stored aligned to its precision, and clearing removes it',
+        () async {
+          final linked = await fx.person(
+            parent,
+            userId: member,
+            passedAway: true,
+          );
+
+          await endpoints.people.setDeathDate(
+            as(owner),
+            linked.id!,
+            DateTime.utc(1999, 7, 14),
+            DatePrecision.month,
+          );
+          final set = await fx.reload(linked);
+          await endpoints.people.setDeathDate(
+            as(owner),
+            linked.id!,
+            null,
+            null,
+          );
+          final cleared = await fx.reload(linked);
+
+          expect(set.deathDate, DateTime.utc(1999, 7));
+          expect(set.deathPrecision, DatePrecision.month);
+          expect(cleared.deathDate, isNull);
+          expect(cleared.deathPrecision, isNull);
+        },
+      );
+
+      // BR 138
+      test(
+        'when a co-owner, another tree family owner, self, an unlinked target '
+        'or a living person is given a death date then it is refused',
+        () async {
+          final linked = await fx.person(
+            parent,
+            userId: member,
+            passedAway: true,
+          );
+          final living = await fx.person(parent, userId: coOwner);
+          final unlinked = await fx.person(parent, passedAway: true);
+          final date = DateTime.utc(2000);
+          const year = DatePrecision.year;
+
+          await expectLater(
+            endpoints.people.setDeathDate(as(coOwner), linked.id!, date, year),
+            throwsAppError(AppErrorCode.forbidden, 'owner only'),
+          );
+          await expectLater(
+            endpoints.people.setDeathDate(
+              as(childMember),
+              linked.id!,
+              date,
+              year,
+            ),
+            throwsAppError(AppErrorCode.forbidden, 'owner only'),
+          );
+          await expectLater(
+            endpoints.people.setDeathDate(as(member), linked.id!, date, year),
+            throwsAppError(AppErrorCode.validation, 'cannot mark yourself'),
+          );
+          await expectLater(
+            endpoints.people.setDeathDate(as(owner), unlinked.id!, date, year),
+            throwsAppError(AppErrorCode.validation, 'person has not signed in'),
+          );
+          await expectLater(
+            endpoints.people.setDeathDate(as(owner), living.id!, date, year),
+            throwsAppError(
+              AppErrorCode.validation,
+              'death date needs passed away',
+            ),
+          );
+          await expectLater(
+            endpoints.people.setDeathDate(as(stranger), linked.id!, date, year),
+            throwsAppError(AppErrorCode.notFound, 'person not found'),
+          );
+          expect((await fx.reload(linked)).deathDate, isNull);
+        },
+      );
+    });
+
     group('delete', () {
       // BR 136
       test(

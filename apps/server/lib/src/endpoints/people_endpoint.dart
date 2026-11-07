@@ -267,6 +267,56 @@ class PeopleEndpoint extends Endpoint {
     });
   }
 
+  /// Sets or clears a passed linked person's death date. Owner of the live
+  /// home family only, never the person themselves (decision 2026-11-07;
+  /// co-owners may toggle the flag but not the date). Same check order as
+  /// [markPassedAway]. Unlinked people's death dates go through [update].
+  Future<void> setDeathDate(
+    Session session,
+    UuidValue personId,
+    DateTime? deathDate,
+    DatePrecision? deathPrecision,
+  ) async {
+    final authz = Authz(session);
+    final uid = authz.requireUser();
+    final person = await _readablePerson(authz, personId);
+    if (person == null) throw notFound('person not found');
+    if (person.userId == null) throw validation('person has not signed in');
+    if (person.userId == uid) throw validation('cannot mark yourself');
+    await authz.requireLiveOwner(person.homeFamilyId);
+    final death = normalizeLifeDate('death', deathDate, deathPrecision);
+    await session.db.transaction((t) async {
+      final current = await Person.db.findById(
+        session,
+        personId,
+        transaction: t,
+        lockMode: LockMode.forUpdate,
+      );
+      if (current == null) throw notFound('person not found');
+      if (current.userId == null) {
+        throw validation('person has not signed in');
+      }
+      if (death.date != null && !current.passedAway) {
+        throw validation('death date needs passed away');
+      }
+      final birth = current.birthDate;
+      if (birth != null &&
+          death.date != null &&
+          death.date!.year < birth.year) {
+        throw validation('death is before birth');
+      }
+      await Person.db.updateRow(
+        session,
+        current.copyWith(
+          deathDate: death.date,
+          deathPrecision: death.precision,
+          updatedAt: DateTime.now().toUtc(),
+        ),
+        transaction: t,
+      );
+    });
+  }
+
   /// Deletes an unlinked person (D5): owner or co-owner of the live home
   /// family only. Tags and kinships cascade; invites keep a null person. The
   /// avatar key is queued for deletion in the same transaction.

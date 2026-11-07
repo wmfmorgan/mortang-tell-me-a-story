@@ -982,6 +982,24 @@ class EndpointPeople extends _isc.EndpointRef {
     },
   );
 
+  /// Sets or clears a passed linked person's death date. Owner of the live
+  /// home family only, never the person themselves (decision 2026-11-07;
+  /// co-owners may toggle the flag but not the date). Same check order as
+  /// [markPassedAway]. Unlinked people's death dates go through [update].
+  _ida.Future<void> setDeathDate(
+    _isc.UuidValue personId,
+    DateTime? deathDate,
+    _i3omm4g5.DatePrecision? deathPrecision,
+  ) => caller.callServerEndpoint<void>(
+    'people',
+    'setDeathDate',
+    {
+      'personId': personId,
+      'deathDate': deathDate,
+      'deathPrecision': deathPrecision,
+    },
+  );
+
   /// Deletes an unlinked person (D5): owner or co-owner of the live home
   /// family only. Tags and kinships cascade; invites keep a null person. The
   /// avatar key is queued for deletion in the same transaction.

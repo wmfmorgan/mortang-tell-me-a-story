@@ -168,11 +168,13 @@ The test case numbers are business-rules §7. "Port" means rewrite as a Serverpo
 
 **Met on 2026-11-07 at `9e54065`:** format 0 changed; analyze clean for the server and the client; `just server-test` +422; `just test` +708. `just server` booted three times on one dev database: every endpoint route answers 401 without a session, and `serverpod_future_call` holds one row each for `purge-families` and `drain-blobs`. The boot warning about missing foreign keys is expected (schema-design §3.3 caveats).
 
-**Open for the product owner** (left as specified; none blocks Phase 4):
-- Nobody can set a linked person's death date. Only the linked self may update a linked row, but the self is barred from death fields, and `markPassedAway` carries only the flag (schema-design §3.2 says stewards may set it).
-- An upload whose story is deleted *before* `finishUpload` leaves its blob in storage. The key can't be rebuilt without the story, and keys are never parsed.
-- There is no unpublish endpoint (none in the contract), so the "unpublish" live event never fires.
+**Decided by the product owner (2026-11-07, roadmap D10–D13):**
+- D10: only the owner of a linked person's live home family sets their death date, through `people.setDeathDate` (added, BR 138). Co-owners still toggle the passed-away flag.
+- D11: a blob uploaded for a story that is deleted before `finishUpload` stays in storage. Accepted; no sweep.
+- D12: no unpublish endpoint.
+- D13: an email-code sign-up has no display name, and a new linked person falls back to the email local part. Accepted.
+
+**Still open:**
 - `InvitePreviewDto` has no error code, so preview can't tell accepted from expired. The app shows one message for both anyway.
-- An email-code sign-up has no display name (business-rules case 109 assumed one from metadata). A person created for such a user falls back to the email local part.
 - Production needs the `inviteAppOrigin` password set (there is no committed template).
 - Generated client methods turn Dart parameter defaults into required named parameters (`createDraft.allowUndated`, `listLatestPublished.withinDays/limit`, `recents.limit`, `createBranch.personIds`). Phase 4 callers pass them explicitly.

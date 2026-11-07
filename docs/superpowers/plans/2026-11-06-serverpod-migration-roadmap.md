@@ -57,6 +57,10 @@ Every phase ends green on `just test` (client) and `just server-test` (backend, 
 | D7 | Account deletion | Not offered now. The schema supports it; no endpoint or UI. |
 | D8 | Tree semantics | Kept. "Same tree" means equal `treeId` among live families; a deleted middle family no longer splits a tree. |
 | D9 | `decade` precision | Kept dropped. |
+| D10 | Linked person's death date (2026-11-07) | Only the owner of the person's live home family sets it (`people.setDeathDate`), never the person themselves. Co-owners can still toggle the passed-away flag. |
+| D11 | Upload for a story deleted before finish (2026-11-07) | Accepted: the blob stays in storage; no cleanup sweep. |
+| D12 | Unpublish (2026-11-07) | No unpublish endpoint. |
+| D13 | Sign-up display name (2026-11-07) | Email-code sign-up stores none; a new linked person falls back to the email local part. Accepted. |
 
 Remove member (business-rules §6 item 9) still removes the member from **every** family in the tree, including soft-deleted ones. Otherwise recovering a deleted family would bring the removed member back. "Closed" (D6b) limits access; it does not narrow removal.
 

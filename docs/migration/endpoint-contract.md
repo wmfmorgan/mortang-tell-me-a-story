@@ -275,6 +275,7 @@ class PeopleEndpoint extends Endpoint {
   Future<List<PersonDto>> listUnlinked(Session s, UuidValue familyId);
   Future<bool> isHomeFamilySteward(Session s, UuidValue familyId);
   Future<void> markPassedAway(Session s, UuidValue personId, bool value);
+  Future<void> setDeathDate(Session s, UuidValue personId, DateTime? deathDate, DatePrecision? deathPrecision);   // linked + passed person only; owner of the live home family, never self (D10); null/null clears. Unlinked people: update
   Future<void> delete(Session s, UuidValue personId);      // stewards of live family; linked → AppErrorCode.validation 'person is linked to an account'. Server-only for now (no client delete-person UI); covered by business-rules §7 case 136
   // Kinship (contract only; not implemented yet). No client UI yet; a UX spec must precede a gateway method.
   Future<List<KinshipDto>> listKinships(Session s, UuidValue familyId);    // whole tree; tree reader
