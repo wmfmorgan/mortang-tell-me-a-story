@@ -2,45 +2,51 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_logic.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
+
+server.UuidValue _uuid(int n) => server.UuidValue.fromString(
+  '0190d7a0-0000-7000-8000-${n.toString().padLeft(12, '0')}',
+);
 
 void main() {
-  test('U-01 fromJson keeps address and person user ids', () {
-    final story = Story.fromJson({
-      'id': 's1',
-      'family_id': 'F',
-      'author_id': 'author',
-      'title': 'Harbor',
-      'body': 'A day on the water',
-      'timeframe_start': '1987-03-04',
-      'date_precision': 'day',
-      'status': 'published',
-      'place_id': 'p1',
-      'places': {'label': ' Pier ', 'address': '  12 Dock St  '},
-      'story_people': [
-        {
-          'person_id': 'a',
-          'people': {'name': 'Ada', 'user_id': ' user-a '},
-        },
-        {
-          'person_id': 'b',
-          'people': {'name': 'Bea', 'user_id': '   '},
-        },
-        {
-          'person_id': 'c',
-          'people': {'name': 'Cy', 'user_id': null},
-        },
-        {
-          'person_id': '',
-          'people': {'name': 'Blank', 'user_id': 'user-blank'},
-        },
-      ],
-    });
+  test('U-01 fromDto keeps address and person user ids', () {
+    final story = Story.fromDto(
+      server.StoryDto(
+        id: _uuid(1),
+        familyId: _uuid(2),
+        authorId: _uuid(3),
+        title: 'Harbor',
+        body: 'A day on the water',
+        dateStart: DateTime.utc(1987, 3, 4),
+        dateEnd: DateTime.utc(1987, 3, 4),
+        datePrecision: server.DatePrecision.day,
+        createdAt: DateTime.utc(2026),
+        placeId: _uuid(4),
+        placeLabel: ' Pier ',
+        placeAddress: '  12 Dock St  ',
+        status: server.StoryStatus.published,
+        people: [
+          server.StoryPersonDto(
+            personId: _uuid(10),
+            name: 'Ada',
+            userId: _uuid(20),
+          ),
+          server.StoryPersonDto(personId: _uuid(11), name: 'Bea'),
+        ],
+        photos: const [],
+        commentCount: 0,
+        perspectiveCount: 0,
+      ),
+    );
 
     expect(story.placeAddress, '12 Dock St');
     expect(story.placeLabel, 'Pier');
-    expect(story.personUserIds, {'a': 'user-a'});
+    expect(story.personUserIds, {_uuid(10).toString(): _uuid(20).toString()});
     expect(story.title, 'Harbor');
-    expect(story.people.map((person) => person.id), ['a', 'b', 'c']);
+    expect(story.people.map((person) => person.id), [
+      _uuid(10).toString(),
+      _uuid(11).toString(),
+    ]);
   });
 
   test('U-02 decadeOf', () {

@@ -530,28 +530,24 @@ void main() {
   testWidgets('a null date renders as No date yet and sorts last', (
     tester,
   ) async {
-    final undated = Story.fromJson({
-      'id': 'undated',
-      'family_id': _familyId,
-      'author_id': 'u1',
-      'title': 'Undated',
-      'timeframe_start': null,
-      'timeframe_end': null,
-      'date_precision': null,
-      'status': 'draft',
-      'created_at': '2020-01-01T00:00:00Z',
-    });
-    final dated = Story.fromJson({
-      'id': 'dated',
-      'family_id': _familyId,
-      'author_id': 'u1',
-      'title': 'Dated',
-      'timeframe_start': '1980-01-01',
-      'timeframe_end': '1980-01-01',
-      'date_precision': 'day',
-      'status': 'draft',
-      'created_at': '2020-06-01T00:00:00Z',
-    });
+    final undated = Story(
+      id: 'undated',
+      familyId: _familyId,
+      authorId: 'u1',
+      title: 'Undated',
+      status: StoryStatus.draft,
+      createdAt: DateTime.utc(2020),
+    );
+    final dated = Story(
+      id: 'dated',
+      familyId: _familyId,
+      authorId: 'u1',
+      title: 'Dated',
+      timeframeStart: DateTime(1980),
+      timeframeEnd: DateTime(1980),
+      status: StoryStatus.draft,
+      createdAt: DateTime.utc(2020, 6),
+    );
     await tester.pumpWidget(
       _drafts(stories: _FakeStoriesApi(drafts: [undated, dated])),
     );

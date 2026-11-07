@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import 'photos_api.dart';
+import 'server/wire.dart';
 import 'supabase_errors.dart';
 
 enum StoryStatus { draft, published }
@@ -85,6 +87,51 @@ class Story {
   /// `story_people.person_id` to `people.user_id`, only when both are non-empty.
   final Map<String, String> personUserIds;
 
+  /// The server's story. An undated draft keeps the default precision. The
+  /// server orders `photos` and resolves each to its edited key, so
+  /// [photoPaths] keeps that order.
+  factory Story.fromDto(server.StoryDto dto) => Story(
+    id: dto.id.toString(),
+    familyId: dto.familyId.toString(),
+    authorId: dto.authorId?.toString() ?? '',
+    title: dto.title,
+    body: dto.body,
+    timeframeStart: fromWireDate(dto.dateStart),
+    timeframeEnd: fromWireDate(dto.dateEnd),
+    datePrecision: switch (dto.datePrecision) {
+      server.DatePrecision.year => StoryDatePrecision.year,
+      server.DatePrecision.month => StoryDatePrecision.month,
+      server.DatePrecision.day || null => StoryDatePrecision.day,
+    },
+    createdAt: dto.createdAt,
+    placeId: dto.placeId?.toString(),
+    status: switch (dto.status) {
+      server.StoryStatus.draft => StoryStatus.draft,
+      server.StoryStatus.published => StoryStatus.published,
+    },
+    publishedAt: dto.publishedAt,
+    personIds: [for (final person in dto.people) person.personId.toString()],
+    photoCount: dto.photos.length,
+    placeLabel: _trimmed(dto.placeLabel),
+    people: [
+      for (final person in dto.people)
+        if (_trimmed(person.name) case final name?)
+          (id: person.personId.toString(), name: name),
+    ],
+    personNames: [for (final person in dto.people) ?_trimmed(person.name)],
+    authorDisplayName: _trimmed(dto.authorName),
+    authorAvatarPath: _trimmed(dto.authorAvatarKey),
+    commentCount: dto.commentCount,
+    perspectiveCount: dto.perspectiveCount,
+    photoPaths: [for (final photo in dto.photos) photo.key],
+    placeAddress: _trimmed(dto.placeAddress),
+    personUserIds: {
+      for (final person in dto.people)
+        if (person.userId case final userId?)
+          person.personId.toString(): userId.toString(),
+    },
+  );
+
   factory Story.fromJson(Map<String, dynamic> json) {
     final people = json['story_people'];
     final photos = json['photos'];
@@ -125,6 +172,12 @@ class Story {
       personUserIds: _personUserIds(json['story_people']),
     );
   }
+}
+
+/// Trimmed [value]; null when it is null or blank.
+String? _trimmed(String? value) {
+  final trimmed = value?.trim();
+  return trimmed == null || trimmed.isEmpty ? null : trimmed;
 }
 
 String? _embedLabel(Object? places) {

@@ -5,8 +5,169 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
+
+final _storyId = server.UuidValue.fromString(
+  '0190d7a0-0000-7000-8000-000000000001',
+);
+final _familyId = server.UuidValue.fromString(
+  '0190d7a0-0000-7000-8000-000000000002',
+);
+final _authorId = server.UuidValue.fromString(
+  '0190d7a0-0000-7000-8000-000000000003',
+);
+final _placeId = server.UuidValue.fromString(
+  '0190d7a0-0000-7000-8000-000000000004',
+);
+final _personA = server.UuidValue.fromString(
+  '0190d7a0-0000-7000-8000-00000000000a',
+);
+final _personB = server.UuidValue.fromString(
+  '0190d7a0-0000-7000-8000-00000000000b',
+);
+final _userA = server.UuidValue.fromString(
+  '0190d7a0-0000-7000-8000-0000000000aa',
+);
+
+server.StoryDto _dto({
+  DateTime? dateStart,
+  bool undated = false,
+  server.DatePrecision? precision = server.DatePrecision.day,
+  server.StoryStatus status = server.StoryStatus.published,
+  List<server.StoryPersonDto> people = const [],
+  List<server.PhotoRefDto> photos = const [],
+  String? placeLabel,
+  String? placeAddress,
+  String? authorName,
+  String? authorAvatarKey,
+}) {
+  final start = undated ? null : (dateStart ?? DateTime.utc(1987, 3, 4));
+  return server.StoryDto(
+    id: _storyId,
+    familyId: _familyId,
+    authorId: _authorId,
+    title: 'Harbor',
+    body: 'A day on the water',
+    dateStart: start,
+    dateEnd: start,
+    datePrecision: undated ? null : precision,
+    createdAt: DateTime.utc(2026, 1, 2, 3),
+    placeId: _placeId,
+    placeLabel: placeLabel,
+    placeAddress: placeAddress,
+    status: status,
+    publishedAt: status == server.StoryStatus.published
+        ? DateTime.utc(2026, 2, 3)
+        : null,
+    people: people,
+    photos: photos,
+    authorName: authorName,
+    authorAvatarKey: authorAvatarKey,
+    commentCount: 2,
+    perspectiveCount: 1,
+  );
+}
 
 void main() {
+  group('Story.fromDto', () {
+    test('maps ids, wire dates, precision, status and counts', () {
+      final story = Story.fromDto(
+        _dto(
+          precision: server.DatePrecision.month,
+          dateStart: DateTime.utc(1987, 3, 1),
+          authorAvatarKey: 'avatars/u.jpg',
+        ),
+      );
+
+      expect(story.id, _storyId.toString());
+      expect(story.familyId, _familyId.toString());
+      expect(story.authorId, _authorId.toString());
+      expect(story.title, 'Harbor');
+      expect(story.body, 'A day on the water');
+      expect(story.timeframeStart, DateTime(1987, 3, 1));
+      expect(story.timeframeEnd, DateTime(1987, 3, 1));
+      expect(story.datePrecision, StoryDatePrecision.month);
+      expect(story.status, StoryStatus.published);
+      expect(story.publishedAt, DateTime.utc(2026, 2, 3));
+      expect(story.createdAt, DateTime.utc(2026, 1, 2, 3));
+      expect(story.placeId, _placeId.toString());
+      expect(story.authorAvatarPath, 'avatars/u.jpg');
+      expect(story.commentCount, 2);
+      expect(story.perspectiveCount, 1);
+    });
+
+    test('an undated draft keeps null dates and the default precision', () {
+      final story = Story.fromDto(
+        _dto(undated: true, status: server.StoryStatus.draft),
+      );
+
+      expect(story.timeframeStart, isNull);
+      expect(story.timeframeEnd, isNull);
+      expect(story.datePrecision, StoryDatePrecision.day);
+      expect(story.status, StoryStatus.draft);
+      expect(story.publishedAt, isNull);
+    });
+
+    test('maps tagged people and links only accounts', () {
+      final story = Story.fromDto(
+        _dto(
+          people: [
+            server.StoryPersonDto(
+              personId: _personA,
+              name: ' Ada ',
+              userId: _userA,
+            ),
+            server.StoryPersonDto(personId: _personB, name: '  '),
+          ],
+        ),
+      );
+
+      expect(story.personIds, [_personA.toString(), _personB.toString()]);
+      expect(story.people, [(id: _personA.toString(), name: 'Ada')]);
+      expect(story.personNames, ['Ada']);
+      expect(story.personUserIds, {_personA.toString(): _userA.toString()});
+    });
+
+    test('trims place and author text and drops blanks', () {
+      final story = Story.fromDto(
+        _dto(
+          placeLabel: ' Pier ',
+          placeAddress: '  12 Dock St  ',
+          authorName: ' Elena ',
+        ),
+      );
+      expect(story.placeLabel, 'Pier');
+      expect(story.placeAddress, '12 Dock St');
+      expect(story.authorDisplayName, 'Elena');
+
+      final blank = Story.fromDto(
+        _dto(placeLabel: ' ', placeAddress: '', authorName: '  '),
+      );
+      expect(blank.placeLabel, isNull);
+      expect(blank.placeAddress, isNull);
+      expect(blank.authorDisplayName, isNull);
+      expect(blank.authorAvatarPath, isNull);
+    });
+
+    test('photo paths are the server keys in server order', () {
+      final story = Story.fromDto(
+        _dto(
+          photos: [
+            server.PhotoRefDto(
+              id: _personA,
+              key: 'f/s/a.edited.jpg',
+              sortOrder: 0,
+            ),
+            server.PhotoRefDto(id: _personB, key: 'f/s/b.jpg', sortOrder: 1),
+          ],
+        ),
+      );
+
+      expect(story.photoPaths, ['f/s/a.edited.jpg', 'f/s/b.jpg']);
+      expect(story.photoCount, 2);
+    });
+  });
+
   test('storedStoryTitle trims and clears blank titles', () {
     expect(storedStoryTitle(null), isNull);
     expect(storedStoryTitle(''), isNull);
@@ -50,70 +211,24 @@ void main() {
     expect(ready.hasTitle, isTrue);
   });
 
-  test('Story.fromJson maps draft status and nested person ids', () {
-    final s = Story.fromJson({
-      'id': 's1',
-      'family_id': 'f1',
-      'author_id': 'u1',
-      'title': null,
-      'body': 'Jam',
-      'timeframe_start': '1980-01-01',
-      'timeframe_end': '1989-12-31',
-      'place_id': 'p1',
-      'status': 'draft',
-      'published_at': null,
-      'story_people': [
-        {'person_id': 'a'},
-        {'person_id': 'b'},
-      ],
-      'photos': [
-        {'id': 'ph1'},
-      ],
-    });
-    expect(s.status, StoryStatus.draft);
-    expect(s.personIds, ['a', 'b']);
-    expect(s.photoCount, 1);
-    expect(s.timeframeStart, DateTime(1980, 1, 1));
-  });
-
-  test('Story.fromJson tolerates a null timeframe', () {
-    final story = Story.fromJson({
-      'id': 's-null',
-      'family_id': 'f1',
-      'author_id': 'u1',
-      'title': 'Undated',
-      'body': 'Still writing',
-      'timeframe_start': null,
-      'timeframe_end': null,
-      'date_precision': null,
-      'status': 'draft',
-    });
-    expect(story.timeframeStart, isNull);
-    expect(story.timeframeEnd, isNull);
-    expect(story.status, StoryStatus.draft);
-  });
-
   test('compareStories sorts a null date last', () {
-    final undated = Story.fromJson({
-      'id': 'undated',
-      'family_id': 'f1',
-      'author_id': 'u1',
-      'timeframe_start': null,
-      'timeframe_end': null,
-      'date_precision': null,
-      'status': 'draft',
-      'created_at': '2020-01-01T00:00:00Z',
-    });
-    final dated = Story.fromJson({
-      'id': 'dated',
-      'family_id': 'f1',
-      'author_id': 'u1',
-      'timeframe_start': '1980-01-01',
-      'timeframe_end': '1980-12-31',
-      'date_precision': 'year',
-      'status': 'draft',
-      'created_at': '2020-01-02T00:00:00Z',
-    });
+    final undated = Story(
+      id: 'undated',
+      familyId: 'f1',
+      authorId: 'u1',
+      status: StoryStatus.draft,
+      createdAt: DateTime.utc(2020),
+    );
+    final dated = Story(
+      id: 'dated',
+      familyId: 'f1',
+      authorId: 'u1',
+      timeframeStart: DateTime(1980),
+      timeframeEnd: DateTime(1980, 12, 31),
+      datePrecision: StoryDatePrecision.year,
+      status: StoryStatus.draft,
+      createdAt: DateTime.utc(2020, 1, 2),
+    );
     final rows = [undated, dated]..sort(compareStories);
     expect(rows.map((story) => story.id).toList(), ['dated', 'undated']);
   });
@@ -209,123 +324,6 @@ void main() {
         throwsA(same(error)),
       );
     });
-  });
-
-  test('lean story select resolves original, edited, and reset photos', () {
-    final source = File('lib/data/stories_api.dart').readAsStringSync();
-    final select = RegExp(r"static const _storySelect =\s*'([^']+)'")
-        .firstMatch(source)!
-        .group(1)!;
-    final columns = RegExp(r'photos\(([^)]+)\)')
-        .firstMatch(select)!
-        .group(1)!
-        .split(',')
-        .map((column) => column.trim())
-        .toSet();
-
-    Map<String, Object?> photo({
-      required String id,
-      required int sortOrder,
-      required String storagePath,
-      required String? editedStoragePath,
-      required int editVersion,
-    }) {
-      final full = <String, Object?>{
-        'id': id,
-        'storage_path': storagePath,
-        'edited_storage_path': editedStoragePath,
-        'edit_version': editVersion,
-        'sort_order': sortOrder,
-      };
-      return {
-        for (final column in columns)
-          if (full.containsKey(column)) column: full[column],
-      };
-    }
-
-    final story = Story.fromJson({
-      'id': 's1',
-      'family_id': 'f1',
-      'author_id': 'u1',
-      'status': 'draft',
-      'photos': [
-        photo(
-          id: 'orig',
-          sortOrder: 0,
-          storagePath: 'f/s/orig.jpg',
-          editedStoragePath: null,
-          editVersion: 0,
-        ),
-        photo(
-          id: 'edit',
-          sortOrder: 1,
-          storagePath: 'f/s/edit.jpg',
-          editedStoragePath: 'f/s/edit.edited.2.jpg',
-          editVersion: 2,
-        ),
-        photo(
-          id: 'reset',
-          sortOrder: 2,
-          storagePath: 'f/s/reset.jpg',
-          editedStoragePath: null,
-          editVersion: 4,
-        ),
-      ],
-    });
-
-    expect(story.photoPaths, [
-      'f/s/orig.jpg',
-      'f/s/edit.edited.2.jpg',
-      'f/s/reset.jpg',
-    ]);
-  });
-
-  test('Story.photoPaths prefers the edited object and keeps hero order', () {
-    final story = Story.fromJson({
-      'id': 's1',
-      'family_id': 'f1',
-      'author_id': 'u1',
-      'status': 'published',
-      'timeframe_start': '1980-01-01',
-      'photos': [
-        {
-          'id': 'b',
-          'storage_path': 'f1/s1/b.jpg',
-          'edited_storage_path': null,
-          'sort_order': 1,
-        },
-        {
-          'id': 'a',
-          'storage_path': 'f1/s1/a.jpg',
-          'edited_storage_path': 'f1/s1/a.edited.2.jpg',
-          'edit_version': 2,
-          'sort_order': 0,
-        },
-      ],
-    });
-
-    expect(story.photoPaths, ['f1/s1/a.edited.2.jpg', 'f1/s1/b.jpg']);
-    expect(story.id, 's1');
-  });
-
-  test('Story.photoPaths falls back to the original after a reset', () {
-    final story = Story.fromJson({
-      'id': 's1',
-      'family_id': 'f1',
-      'author_id': 'u1',
-      'status': 'published',
-      'photos': [
-        {
-          'id': 'a',
-          'storage_path': 'f1/s1/a.jpg',
-          'edited_storage_path': null,
-          'edit_version': 3,
-          'sort_order': 0,
-        },
-      ],
-    });
-
-    expect(story.photoPaths, ['f1/s1/a.jpg']);
   });
 
   test('downloadFirstThumbs requests each effective path once', () async {
