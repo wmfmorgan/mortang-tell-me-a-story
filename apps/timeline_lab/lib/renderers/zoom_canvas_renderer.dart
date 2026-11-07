@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../filter/timeline_filter.dart';
 import '../playback/playback_controller.dart';
+import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
 import '../widgets/story_card.dart';
 import 'canvas_label.dart';
@@ -158,7 +159,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
     }
     final m = tc.value;
     final s = m.getMaxScaleOnAxis();
-    final tx = _viewport.width * 0.65 - s * _scale.toPx(year);
+    final tx = _viewport.width * kFollowAt - s * _scale.toPx(year);
     if ((m.getTranslation().x - tx).abs() < 0.5) return;
     tc.value = m.clone()..setTranslationRaw(tx, m.getTranslation().y, 0);
   }
@@ -567,12 +568,11 @@ class _ZoomAxisPainter extends CustomPainter {
     }
     final cx = cursorX;
     if (cx != null) {
-      canvas.drawLine(
+      paintPlaybackCursor(
+        canvas,
         Offset(cx, axisY - 4 / scale),
         Offset(cx, bottomY),
-        Paint()
-          ..color = labTerracotta
-          ..strokeWidth = 2 / scale,
+        zoom: scale,
       );
     }
   }

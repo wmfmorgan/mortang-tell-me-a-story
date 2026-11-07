@@ -96,9 +96,8 @@ class _SwimlanesTimelineState extends State<SwimlanesTimeline> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final newest = widget.data.newestMatched;
       if (!mounted || !_hCtl.hasClients || newest == null) return;
-      final p = _hCtl.position;
       final right = _scale.toPx(newest.start.year + 1.0);
-      _hCtl.jumpTo((right - p.viewportDimension).clamp(0, p.maxScrollExtent));
+      _hCtl.jumpTo(scrollOffsetToPlace(right, _hCtl.position, 1));
     });
   }
 
@@ -122,12 +121,8 @@ class _SwimlanesTimelineState extends State<SwimlanesTimeline> {
     final pb = _playback!;
     final year = pb.cursorYear;
     if (!pb.follow || year == null || !_hCtl.hasClients) return;
-    final p = _hCtl.position;
     _hCtl.jumpTo(
-      (_scale.toPx(year) - p.viewportDimension * 0.65).clamp(
-        0,
-        p.maxScrollExtent,
-      ),
+      scrollOffsetToPlace(_scale.toPx(year), _hCtl.position, kFollowAt),
     );
   }
 
@@ -281,13 +276,7 @@ class _CursorPainter extends CustomPainter {
     if (year == null || !scroll.hasClients) return;
     final x = xForYear(year) - scroll.offset;
     if (x < 0 || x > size.width) return;
-    canvas.drawLine(
-      Offset(x, 0),
-      Offset(x, size.height),
-      Paint()
-        ..color = labTerracotta
-        ..strokeWidth = 2,
-    );
+    paintPlaybackCursor(canvas, Offset(x, 0), Offset(x, size.height));
   }
 
   @override

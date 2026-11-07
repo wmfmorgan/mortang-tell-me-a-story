@@ -406,12 +406,10 @@ class RenderTimeAxisLayout extends RenderBox
     final cursor = _playback?.cursorYear;
     if (cursor != null) {
       final cy = _scale.toPx(cursor);
-      canvas.drawLine(
+      paintPlaybackCursor(
+        canvas,
         offset + Offset(0, cy),
         offset + Offset(size.width, cy),
-        Paint()
-          ..color = labTerracotta
-          ..strokeWidth = 2,
       );
     }
 

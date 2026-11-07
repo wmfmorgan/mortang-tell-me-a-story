@@ -73,11 +73,11 @@ class _TreeGraphTimelineState extends State<TreeGraphTimeline> {
     final layout = _layout;
     final node = layout?.storyNodes[storyId];
     if (node == null || !_vCtl.hasClients) return;
-    final p = _vCtl.position;
     _vCtl.jumpTo(
-      (layout!.positions[node]!.dy - p.viewportDimension * 0.4).clamp(
-        0,
-        p.maxScrollExtent,
+      scrollOffsetToPlace(
+        layout!.positions[node]!.dy,
+        _vCtl.position,
+        kFocusAlignment,
       ),
     );
   }
