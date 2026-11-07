@@ -18,36 +18,44 @@ void main() {
       await session.db.unsafeSimpleExecute(constraintsSql);
     });
 
-    test('when a second owner is added to a family then the insert fails',
-        () async {
-      final a = await AuthServices.instance.authUsers.create(session);
-      final b = await AuthServices.instance.authUsers.create(session);
-      final tree = await Tree.db.insertRow(session, Tree());
-      final family = await Family.db.insertRow(
-        session,
-        Family(treeId: tree.id!, name: 'Mortang'),
-      );
-      await Membership.db.insertRow(
-        session,
-        Membership(familyId: family.id!, userId: a.id, role: MembershipRole.owner),
-      );
-
-      await expectLater(
-        Membership.db.insertRow(
+    test(
+      'when a second owner is added to a family then the insert fails',
+      () async {
+        final a = await AuthServices.instance.authUsers.create(session);
+        final b = await AuthServices.instance.authUsers.create(session);
+        final tree = await Tree.db.insertRow(session, Tree());
+        final family = await Family.db.insertRow(
+          session,
+          Family(treeId: tree.id!, name: 'Mortang'),
+        );
+        await Membership.db.insertRow(
           session,
           Membership(
             familyId: family.id!,
-            userId: b.id,
+            userId: a.id,
             role: MembershipRole.owner,
           ),
-        ),
-        throwsA(isA<DatabaseQueryException>()),
-      );
-    });
+        );
 
-    test('when the constraints run twice then the second run succeeds',
-        () async {
-      await session.db.unsafeSimpleExecute(constraintsSql);
-    });
+        await expectLater(
+          Membership.db.insertRow(
+            session,
+            Membership(
+              familyId: family.id!,
+              userId: b.id,
+              role: MembershipRole.owner,
+            ),
+          ),
+          throwsA(isA<DatabaseQueryException>()),
+        );
+      },
+    );
+
+    test(
+      'when the constraints run twice then the second run succeeds',
+      () async {
+        await session.db.unsafeSimpleExecute(constraintsSql);
+      },
+    );
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

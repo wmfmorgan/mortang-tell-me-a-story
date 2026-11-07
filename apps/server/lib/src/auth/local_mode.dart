@@ -17,7 +17,8 @@ bool isLocalConfig(ServerpodConfig config) {
     return false;
   }
   final database = config.database;
-  final dataPath =
-      database is PostgresDatabaseConfig ? database.dataPath?.trim() : null;
+  final dataPath = database is PostgresDatabaseConfig
+      ? database.dataPath?.trim()
+      : null;
   return dataPath != null && dataPath.isNotEmpty;
 }

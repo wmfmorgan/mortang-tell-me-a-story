@@ -19,7 +19,10 @@ class Authz {
   UuidValue requireUser() {
     final id = userId;
     if (id == null) {
-      throw AppException(code: 'auth_required', message: 'Sign in to continue.');
+      throw AppException(
+        code: 'auth_required',
+        message: 'Sign in to continue.',
+      );
     }
     return id;
   }

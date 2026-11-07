@@ -16,16 +16,16 @@ void main() {
     late Family root, branch, deletedBranch;
 
     Authz authzFor(UuidValue? user) => Authz(
-          (user == null
-                  ? sessionBuilder
-                  : sessionBuilder.copyWith(
-                      authentication: AuthenticationOverride.authenticationInfo(
-                        user.uuid,
-                        {},
-                      ),
-                    ))
-              .build(),
-        );
+      (user == null
+              ? sessionBuilder
+              : sessionBuilder.copyWith(
+                  authentication: AuthenticationOverride.authenticationInfo(
+                    user.uuid,
+                    {},
+                  ),
+                ))
+          .build(),
+    );
 
     Future<UuidValue> newUser() async =>
         (await AuthServices.instance.authUsers.create(db)).id;
@@ -97,7 +97,9 @@ void main() {
       expect(await authzFor(null).isMember(root.id!), isFalse);
       expect(
         () => authzFor(null).requireUser(),
-        throwsA(isA<AppException>().having((e) => e.code, 'code', 'auth_required')),
+        throwsA(
+          isA<AppException>().having((e) => e.code, 'code', 'auth_required'),
+        ),
       );
     });
   }, rollbackDatabase: RollbackDatabase.disabled);

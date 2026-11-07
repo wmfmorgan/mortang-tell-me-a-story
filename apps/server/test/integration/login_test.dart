@@ -9,29 +9,31 @@ void main() {
   setUpAll(() => configureAuth(useDevLoginCode: true));
 
   withServerpod('Given email one-time-code login', (sessionBuilder, endpoints) {
-    test('when a new email verifies the dev code then an account is created',
-        () async {
-      final requestId = await endpoints.emailIdp.startOtpLogin(
-        sessionBuilder,
-        email: 'ana@example.com',
-      );
-      final result = await endpoints.emailIdp.verifyOtpLoginCode(
-        sessionBuilder,
-        otpLoginRequestId: requestId,
-        verificationCode: devLoginCode,
-      );
-      expect(result.accountExists, isFalse);
+    test(
+      'when a new email verifies the dev code then an account is created',
+      () async {
+        final requestId = await endpoints.emailIdp.startOtpLogin(
+          sessionBuilder,
+          email: 'ana@example.com',
+        );
+        final result = await endpoints.emailIdp.verifyOtpLoginCode(
+          sessionBuilder,
+          otpLoginRequestId: requestId,
+          verificationCode: devLoginCode,
+        );
+        expect(result.accountExists, isFalse);
 
-      final auth = await endpoints.emailIdp.finishOtpRegistration(
-        sessionBuilder,
-        otpLoginToken: result.token,
-      );
-      final appUser = await AppUser.db.findFirstRow(
-        sessionBuilder.build(),
-        where: (t) => t.authUserId.equals(auth.authUserId),
-      );
-      expect(appUser, isNotNull);
-    });
+        final auth = await endpoints.emailIdp.finishOtpRegistration(
+          sessionBuilder,
+          otpLoginToken: result.token,
+        );
+        final appUser = await AppUser.db.findFirstRow(
+          sessionBuilder.build(),
+          where: (t) => t.authUserId.equals(auth.authUserId),
+        );
+        expect(appUser, isNotNull);
+      },
+    );
 
     test('when the wrong code is entered then verification fails', () async {
       final requestId = await endpoints.emailIdp.startOtpLogin(

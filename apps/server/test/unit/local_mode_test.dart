@@ -31,7 +31,9 @@ void main() {
   group('Given isLocalConfig', () {
     test('when development uses embedded Postgres then it is local', () {
       expect(
-        isLocalConfig(_config(ServerpodRunMode.development, database: _embedded)),
+        isLocalConfig(
+          _config(ServerpodRunMode.development, database: _embedded),
+        ),
         isTrue,
       );
     });
@@ -56,7 +58,9 @@ void main() {
 
     test('when production uses embedded Postgres then it is not local', () {
       expect(
-        isLocalConfig(_config(ServerpodRunMode.production, database: _embedded)),
+        isLocalConfig(
+          _config(ServerpodRunMode.production, database: _embedded),
+        ),
         isFalse,
       );
     });
