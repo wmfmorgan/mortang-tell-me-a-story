@@ -170,10 +170,9 @@ class _Row extends StatelessWidget {
                     height: 12,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: markerColor(
-                        s,
-                        data.dataset,
-                      ).withValues(alpha: entryOpacity(entry)),
+                      color: labTerracotta.withValues(
+                        alpha: entryOpacity(entry),
+                      ),
                     ),
                   ),
                 ],

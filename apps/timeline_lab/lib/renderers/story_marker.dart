@@ -1,15 +1,10 @@
-import 'package:flutter/painting.dart';
-
 import '../filter/timeline_filter.dart';
 import '../model/lab_models.dart';
 import '../theme/lab_theme.dart';
 
-/// Root family → terracotta, Reyes → sage, Okafor → moss.
-Color markerColor(LabStory s, LabDataset d) => switch (s.familyId) {
-  'fam-reyes' => labSage,
-  'fam-okafor' => labMoss,
-  _ => labTerracotta,
-};
+// Story dots are terracotta in every renderer; family shows through lanes
+// and labels, and moss is reserved for origin rings (Decision D2,
+// docs/ux/branch-callout.md Rule 4 "One green").
 
 /// True when some branch family starts at this story.
 bool isOrigin(LabStory s, LabDataset d) =>
