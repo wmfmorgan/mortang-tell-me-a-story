@@ -246,4 +246,49 @@ class InviteEndpoint extends Endpoint {
       transaction: t,
     );
   }
+
+  /// Owner or co-owner: rotates the token, moves `expiresAt` to now + 7 days
+  /// (reviving an expired pending invite) and emails the new link. When the
+  /// email fails the token stays rotated, so a retry is safe.
+  Future<DateTime> resend(Session session, UuidValue inviteId) async {
+    requireInviteMailConfigured(session);
+    final authz = Authz(session);
+    final origin = inviteAppOrigin(session);
+    final (invite, token) = await session.db.transaction((t) async {
+      final row = await Invite.db.findById(
+        session,
+        inviteId,
+        transaction: t,
+        lockMode: LockMode.forUpdate,
+      );
+      if (row == null) throw notFound('invite not found');
+      await authz.requireLiveSteward(row.familyId);
+      if (row.acceptedAt != null || row.revokedAt != null) {
+        throw inviteInvalid('invite is not pending');
+      }
+      if (row.email == null) throw validation('invite has no email address');
+      final token = newInviteToken();
+      final now = DateTime.now().toUtc();
+      final updated = await Invite.db.updateRow(
+        session,
+        row.copyWith(
+          tokenHash: hashInviteToken(token),
+          lastSentAt: now,
+          expiresAt: now.add(inviteLifetime),
+        ),
+        transaction: t,
+      );
+      return (updated, token);
+    });
+    final family = (await Family.db.findById(session, invite.familyId))!;
+    await deliverInviteMail(
+      session,
+      inviteMail(
+        to: invite.email!,
+        familyName: family.name,
+        inviteUrl: buildInviteUrl(origin, token),
+      ),
+    );
+    return invite.expiresAt;
+  }
 }

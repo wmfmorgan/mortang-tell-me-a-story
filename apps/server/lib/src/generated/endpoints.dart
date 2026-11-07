@@ -422,6 +422,25 @@ class Endpoints extends _is.EndpointDispatch {
                     params['token'],
                   ),
         ),
+        'resend': _is.MethodConnector(
+          name: 'resend',
+          params: {
+            'inviteId': _is.ParameterDescription(
+              name: 'inviteId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['invite'] as _ip80nve4.InviteEndpoint).resend(
+                    session,
+                    params['inviteId'],
+                  ),
+        ),
       },
     );
     connectors['invitePublic'] = _is.EndpointConnector(

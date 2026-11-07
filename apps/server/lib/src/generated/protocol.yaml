@@ -17,5 +17,6 @@ invite:
   - create:
   - sendEmail:
   - accept:
+  - resend:
 invitePublic:
   - preview:

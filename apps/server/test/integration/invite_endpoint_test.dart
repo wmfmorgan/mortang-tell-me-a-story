@@ -900,5 +900,171 @@ void main() {
         },
       );
     });
+    group('resend', () {
+      // BR 127
+      test(
+        'when a plain member resends then FORBIDDEN "owner or co-owner only"',
+        () async {
+          final member = await fx.user();
+          final family = await familyOf(member);
+          final (:invite, token: _) = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+          );
+
+          await expectLater(
+            endpoints.invite.resend(asUser(sessionBuilder, member), invite.id!),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+          expect((await fx.reload(invite)).tokenHash, invite.tokenHash);
+          expect(mail.sent, isEmpty);
+        },
+      );
+
+      test(
+        'when the invite is unknown then NOT_FOUND "invite not found"',
+        () async {
+          await expectLater(
+            endpoints.invite.resend(
+              asUser(sessionBuilder, await fx.user()),
+              UuidValue.fromString('00000000-0000-4000-8000-000000000000'),
+            ),
+            throwsAppError(AppErrorCode.notFound, 'invite not found'),
+          );
+        },
+      );
+
+      // BR 128
+      test(
+        'when the invite is accepted or revoked then INVITE_INVALID "invite '
+        'is not pending"; link-only then VALIDATION "invite has no email '
+        'address"',
+        () async {
+          final owner = await fx.user();
+          final family = await familyOf(owner, role: MembershipRole.owner);
+          final session = asUser(sessionBuilder, owner);
+          final accepted = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+            acceptedById: await fx.user(),
+          );
+          final revoked = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+            revoked: true,
+          );
+          final linkOnly = await fx.tokenInvite(family);
+
+          for (final notPending in [accepted.invite, revoked.invite]) {
+            await expectLater(
+              endpoints.invite.resend(session, notPending.id!),
+              throwsAppError(
+                AppErrorCode.inviteInvalid,
+                'invite is not pending',
+              ),
+            );
+          }
+          await expectLater(
+            endpoints.invite.resend(session, linkOnly.invite.id!),
+            throwsAppError(
+              AppErrorCode.validation,
+              'invite has no email address',
+            ),
+          );
+          expect(mail.sent, isEmpty);
+        },
+      );
+
+      // BR 129
+      test(
+        'when a co-owner resends an expired pending invite then the token '
+        'rotates, expiresAt moves to now+7d, it stays pending and the email '
+        'carries the new link',
+        () async {
+          final coOwner = await fx.user();
+          final family = await familyOf(
+            coOwner,
+            role: MembershipRole.coOwner,
+            name: 'Mortang',
+          );
+          final (:invite, :token) = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+            expired: true,
+          );
+          final before = DateTime.now().toUtc();
+
+          final expiresAt = await endpoints.invite.resend(
+            asUser(sessionBuilder, coOwner),
+            invite.id!,
+          );
+
+          final row = await fx.reload(invite);
+          expect(row.tokenHash, isNot(invite.tokenHash));
+          expect(row.expiresAt, expiresAt);
+          expect(
+            expiresAt.difference(before.add(inviteLifetime)).inSeconds.abs(),
+            lessThan(5),
+          );
+          expect(row.lastSentAt.isAfter(invite.lastSentAt), isTrue);
+          expect(row.acceptedAt, isNull);
+          expect(row.revokedAt, isNull);
+
+          final sent = mail.sent.single;
+          expect(sent.to, 'kim@example.com');
+          expect(sent.subject, 'Invite to Mortang');
+          final newToken = RegExp(
+            r'invite=([0-9a-f]{64})',
+          ).firstMatch(sent.text)!.group(1)!;
+          expect(hashInviteToken(newToken), row.tokenHash);
+          expect(newToken, isNot(token));
+        },
+      );
+
+      // BR 129
+      test(
+        'when email is not configured then VALIDATION "Email is not '
+        'configured" before the token rotates',
+        () async {
+          final owner = await fx.user();
+          final family = await familyOf(owner, role: MembershipRole.owner);
+          final (:invite, token: _) = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+          );
+          mailTransportOverride = RecordingMailTransport(configured: false);
+
+          await expectLater(
+            endpoints.invite.resend(asUser(sessionBuilder, owner), invite.id!),
+            throwsAppError(AppErrorCode.validation, 'Email is not configured'),
+          );
+          expect((await fx.reload(invite)).tokenHash, invite.tokenHash);
+        },
+      );
+
+      // BR 129
+      test(
+        'when the provider fails then VALIDATION "Could not send invite '
+        'email" and the token stays rotated',
+        () async {
+          final owner = await fx.user();
+          final family = await familyOf(owner, role: MembershipRole.owner);
+          final (:invite, token: _) = await fx.tokenInvite(
+            family,
+            email: 'kim@example.com',
+          );
+          mailTransportOverride = RecordingMailTransport(fails: true);
+
+          await expectLater(
+            endpoints.invite.resend(asUser(sessionBuilder, owner), invite.id!),
+            throwsAppError(
+              AppErrorCode.validation,
+              'Could not send invite email',
+            ),
+          );
+          expect((await fx.reload(invite)).tokenHash, isNot(invite.tokenHash));
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

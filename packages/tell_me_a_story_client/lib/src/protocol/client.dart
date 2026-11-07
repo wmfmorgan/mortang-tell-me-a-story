@@ -399,6 +399,16 @@ class EndpointInvite extends _isc.EndpointRef {
         'accept',
         {'token': token},
       );
+
+  /// Owner or co-owner: rotates the token, moves `expiresAt` to now + 7 days
+  /// (reviving an expired pending invite) and emails the new link. When the
+  /// email fails the token stays rotated, so a retry is safe.
+  _ida.Future<DateTime> resend(_isc.UuidValue inviteId) =>
+      caller.callServerEndpoint<DateTime>(
+        'invite',
+        'resend',
+        {'inviteId': inviteId},
+      );
 }
 
 /// The anonymous invite landing (business-rules.md §3.4, validate).
