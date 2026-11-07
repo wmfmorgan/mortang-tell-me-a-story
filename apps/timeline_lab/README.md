@@ -26,8 +26,8 @@ The top bar has two controls:
 The filters are people, places and families (each multi-select), an era
 brush and text search. Search covers title, body and person names, but not
 place, which matches All Stories `matchesSearch`. The status row at the
-bottom shows the match count, the playback caption and the per-session
-**Hide / Dim** switch. Playback design and speed share one options menu
+bottom shows the match count, the playback caption (dropped below 600 pt) and
+the per-session **Hide / Dim** switch. Playback design and speed share one options menu
 (tune icon) labelled with the current choice, e.g. `Sweep · 1×`.
 
 ## Playback
@@ -115,15 +115,15 @@ The lab is tuned for iPad windows from Slide Over (320 pt) to a 12.9" screen.
 
 - **Layout.**
   - At 900 pt and wider the filters are a sidebar. Below that, a **Filters** button opens them in an end drawer, whose header shows the live match count.
-  - Below 600 pt, the scrubber gets its own row and the selected story stacks over a 3-line body. That panel never takes more than 30% of the window height.
+  - Below 600 pt, the scrubber gets its own row and the selected story stacks over a 3-line body. That panel never takes more than 30% of the window height. The status row drops the playback caption, and the match count ellipsizes rather than overflow.
   - The bottom bars clear the home indicator, and the software keyboard covers them rather than squeezing the timeline.
 - **Touch.**
-  - A finger gets a 22 pt hit radius on painted dots and nodes (`LabTarget`); mouse, trackpad and Pencil keep the precise radius.
-  - Tree leaves are tappable on their whole row.
+  - A finger gets a 22 pt hit radius on painted dots and nodes (`LabTarget`); mouse, trackpad and Pencil keep the precise radius. Zoom-canvas year dots are the exception: they sit in a 44 pt box for every pointer.
+  - Tree nodes take a finger tap within 22 pt of the dot; labels are not targets (D-i5).
   - A tap that covers several stories (a swimlane cell) opens a chooser.
   - A finger tap on a treemap cell smaller than 44 pt opens its group.
 - **Pointer.** The mouse wheel and trackpad scroll; a mouse drag does not pan (decided against). Painted tree nodes show a hand cursor on hover; nothing depends on hover.
-- **Keyboard.** Space plays/pauses, ←/→ step, ⌘F (Ctrl+F) focuses search, and Esc closes the selected story. Keys only act when no control has focus.
+- **Keyboard.** Space plays/pauses, ←/→ step, ⌘F (Ctrl+F) focuses search, and Esc closes the filters drawer if it is open, otherwise the selected story. Space and the arrows only act when no control has focus.
 
 Tests: `flutter test test/ipad_layout_test.dart test/ipad_input_test.dart test/keyboard_test.dart`. They pump the app at 11 iPad sizes with the iOS platform, DPR 2, 24/20 pt insets and a 313/398 pt keyboard.
 
@@ -150,6 +150,7 @@ Colours, spacing, radii, strokes, marker sizes and text roles live in
 
 ```
 lib/
+  main.dart, lab_app.dart   entry point and shell (LabApp, LabHome)
   model/        lab_models.dart (LabStory, DatePrecision, canonical sort), seed.dart
   filter/       timeline_filter.dart (TimelineFilter, applyFilter, statusLine)
   lab_controller.dart   single ChangeNotifier state owner
@@ -160,9 +161,11 @@ lib/
                 reveal.dart (RevealOpacity, follow helpers)
   renderers/    renderer_contract.dart + one file per renderer;
                 tree_graph_layout.dart and treemap_layout.dart hold the pure
-                hierarchy/layout code those two renderers test against
+                hierarchy/layout code those two renderers test against;
+                shared: time_scale.dart, time_axis_painter.dart,
+                canvas_label.dart, story_marker.dart
   widgets/      story_card.dart, filter_panel.dart, playback_bar.dart,
-                story_chooser.dart
+                story_chooser.dart, view_switch.dart, empty_timeline.dart
   theme/        lab_theme.dart (token copies of album_theme.dart)
 ```
 
@@ -188,7 +191,7 @@ Notes on the measurements:
 | **C. RenderBox layout** (`MultiChildRenderObjectWidget`, cards at time-proportional y, collision push-down) | **Not lazy**: every card is built and laid out. At 5k, switching to it took ~7 s for the first frame (debug web, observed once). | Real widget cards, so full semantics. | Framework (`defaultHitTestChildren`). | Yes at low density. Colliding cards are pushed down exactly one gap below the previous card on their side. At 5k the spacing is no longer faithful. Sides come from the dataset position, so filters never flip a card. | Hide leaves time gaps on the axis. Dim keeps every card with dimmed text. | Steps. The axis, connectors and cursor repaint per tick; cards sit behind repaint boundaries. | 410 | Decades ✓. Years ✓ at ≤ a few hundred stories. Days ✗. |
 | **D. Zoom canvas** (`InteractiveViewer`, semantic zoom, decades → years → cards) | Builds only markers in view, culled on x and on lane y. At the cards level, rows per lane are capped to the lane band and the rest collapse into a `+N` chip. Tests: at 10× on 1k, < 10% of cards are built; at 6× on 1k and 5k every card stays inside its lane band and the world. | Mixed. Decade bubbles and dots are widgets with no labels, and cards are real widgets. | Framework, through the transform. Markers are counter-scaled (`1/scale`) and keyed by story id. | Yes, 40 px per year in world units. | Hide drops markers. Dim fades them, and bubbles show matched counts. | Sweep. Rebuilds the visible markers per tick, the same work as panning. Follow pans x only. | 568 | Decades ✓ (bubbles). Years ✓ (dots). Days ✓ (cards with month ticks). See note 1 below. |
 | **E. Swimlanes** (custom `TwoDimensionalScrollView`, year columns × person or family lanes) | Lazy in **both** axes: only visible cells plus the cache extent on every side are built. Test: at 5k the build count is ≤ the visible cell bound and < ¼ of all cells, and cells just left of the view are pre-built. In the smoke (debug web), it scrolled in both axes at 5k with the headers in sync; frame times were not measured. | `LaneCell` is a real widget. Single-entry cells show the title; denser cells show only dots + `+N`. | Framework, per cell. A single-story cell selects on tap. A cell with more stories opens a chooser. | Year buckets only; there is no within-year position. | Hide empties cells. Dim fades dots and titles. A story with k people appears in k lanes. | Sweep. Visible cells rebuild per tick; the cursor line is a separate painter. | 607 | Decades ✗ (too many columns). Years ✓. Days ✗. |
-| **F. Tree graph** (one `CustomPainter`, tidy layered tree; toggle **Time**: root → decade → year → story, or **Family**: family → decade → story with each branch hanging off its origin story) | Paints every node. Groups over 6 stories show 5 and a `+N` node; tapping it expands the group, tapping the group collapses it, so the node count stays near 6 per year. Text is laid out once per layout, not per tick. | `semanticsBuilder` adds a node per tree node (stories, groups with counts, `+N`). This is the lab's only `CustomPainterSemantics` renderer since the painter rail was removed (it duplicated the zoom canvas's years level). | Manual: nearest node within 10 px. | No: leaves are evenly spaced in date order; depth carries the time hierarchy. | Hide prunes branches (a branch whose origin is filtered out attaches to its parent family). Dim fades nodes, edges and labels; groups with no matches fade too. | Sweep: the tree grows like Obsidian's graph animation. A node appears with its earliest story but never before its parent, so a branch appears with its origin story. Repaint only. | 771 (418 renderer + 353 layout) | Decades ✓. Years ✓ (time tree). Days only as labels. |
+| **F. Tree graph** (one `CustomPainter`, tidy layered tree; toggle **Time**: root → decade → year → story, or **Family**: family → decade → story with each branch hanging off its origin story) | Paints every node. Groups over 6 stories show 5 and a `+N` node; tapping it expands the group, tapping the group collapses it, so the node count stays near 6 per year. Text is laid out once per layout, not per tick. | `semanticsBuilder` adds a node per tree node (stories, groups with counts, `+N`). This is the lab's only `CustomPainterSemantics` renderer since the painter rail was removed (it duplicated the zoom canvas's years level). | Manual: nearest node centre within 10 px (22 pt for a finger). | No: leaves are evenly spaced in date order; depth carries the time hierarchy. | Hide prunes branches (a branch whose origin is filtered out attaches to its parent family). Dim fades nodes, edges and labels; groups with no matches fade too. | Sweep: the tree grows like Obsidian's graph animation. A node appears with its earliest story but never before its parent, so a branch appears with its origin story. Repaint only. | 771 (418 renderer + 353 layout) | Decades ✓. Years ✓ (time tree). Days only as labels. |
 | **G. Treemap** (custom `RenderBox` squarified layout; toggle **Decade** → year, **Family** → decade, or **Person** → decade) | Builds one widget per cell (~100 at the overview), independent of dataset size; drill-down shows a group's cells, then one tile per story. | Real widgets with `Semantics` labels (period, count, matching count). | Framework, per cell. | No: area is story count, not time. | Hide shrinks areas to the matches. Dim keeps full areas and shades each cell by its matched share; headers show `matched/total`. A story with k people counts in k person groups. | Sweep: the layout is fixed and each cell fills bottom-up as its stories reveal. | 685 (497 renderer + 188 layout) | Shows where the archive is dense or thin, not a timeline. |
 
 ### Observations
