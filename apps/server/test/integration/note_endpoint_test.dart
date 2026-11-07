@@ -44,7 +44,12 @@ void main() {
         () async {
           final story = await c.published();
           for (final kind in NoteKind.values) {
-            final note = await comment(c.member, story, kind: kind, body: ' Hi ');
+            final note = await comment(
+              c.member,
+              story,
+              kind: kind,
+              body: ' Hi ',
+            );
             expect(note.body, 'Hi');
             expect(note.kind, kind);
             expect(note.authorId, c.member);
@@ -148,7 +153,11 @@ void main() {
         'when a note is edited then only its body changes',
         () async {
           final story = await c.published();
-          final note = await fx.note(story, c.member, kind: NoteKind.perspective);
+          final note = await fx.note(
+            story,
+            c.member,
+            kind: NoteKind.perspective,
+          );
           await endpoints.note.update(by(c.member), note.id!, 'New body');
           final row = (await StoryNote.db.findById(fx.s, note.id!))!;
           expect(row.body, 'New body');
@@ -159,18 +168,21 @@ void main() {
         },
       );
 
-      test('when the body is blank then VALIDATION "body is required"', () async {
-        final story = await c.published();
-        await expectLater(
-          comment(c.member, story, body: '  '),
-          throwsAppError(AppErrorCode.validation, 'body is required'),
-        );
-        final note = await comment(c.member, story);
-        await expectLater(
-          endpoints.note.update(by(c.member), note.id, ''),
-          throwsAppError(AppErrorCode.validation, 'body is required'),
-        );
-      });
+      test(
+        'when the body is blank then VALIDATION "body is required"',
+        () async {
+          final story = await c.published();
+          await expectLater(
+            comment(c.member, story, body: '  '),
+            throwsAppError(AppErrorCode.validation, 'body is required'),
+          );
+          final note = await comment(c.member, story);
+          await expectLater(
+            endpoints.note.update(by(c.member), note.id, ''),
+            throwsAppError(AppErrorCode.validation, 'body is required'),
+          );
+        },
+      );
 
       test(
         'when listing by kind then only that kind comes back, oldest first',
@@ -431,15 +443,18 @@ void main() {
         },
       );
 
-      test('when the author comments on their draft then nothing is posted', () async {
-        final draft = await c.draft();
-        final family = liveEvents(fx.s, familyChannel(c.family.id!));
-        final note = await comment(c.author, draft);
-        await endpoints.note.update(by(c.author), note.id, 'x');
-        await endpoints.note.delete(by(c.author), note.id);
-        await settle();
-        expect(family, isEmpty);
-      });
+      test(
+        'when the author comments on their draft then nothing is posted',
+        () async {
+          final draft = await c.draft();
+          final family = liveEvents(fx.s, familyChannel(c.family.id!));
+          final note = await comment(c.author, draft);
+          await endpoints.note.update(by(c.author), note.id, 'x');
+          await endpoints.note.delete(by(c.author), note.id);
+          await settle();
+          expect(family, isEmpty);
+        },
+      );
     });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

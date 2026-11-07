@@ -190,5 +190,4 @@ List<LiveEventDto> liveEvents(Session session, String channel) {
 }
 
 /// Gives local message delivery a moment.
-Future<void> settle() =>
-    Future<void>.delayed(const Duration(milliseconds: 50));
+Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 50));

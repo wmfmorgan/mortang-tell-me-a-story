@@ -43,11 +43,14 @@ void main() {
             write(title: ' Undated '),
             allowUndated: true,
           );
-          expect((dto.dateStart, dto.dateEnd, dto.datePrecision), (
-            null,
-            null,
-            null,
-          ));
+          expect(
+            (dto.dateStart, dto.dateEnd, dto.datePrecision),
+            (
+              null,
+              null,
+              null,
+            ),
+          );
           expect(dto.status, StoryStatus.draft);
           expect(dto.authorId, c.member);
           expect(dto.title, 'Undated');
@@ -65,7 +68,8 @@ void main() {
             endpoints.story.createDraft(
               by(c.member),
               c.family.id!,
-              write(title: 'x'), allowUndated: false,
+              write(title: 'x'),
+              allowUndated: false,
             ),
             throwsAppError(AppErrorCode.validation, 'date required'),
           );
@@ -79,7 +83,8 @@ void main() {
           final dto = await endpoints.story.createDraft(
             by(c.member),
             c.family.id!,
-            write(dateStart: DateTime.utc(1950, 6, 3)), allowUndated: false,
+            write(dateStart: DateTime.utc(1950, 6, 3)),
+            allowUndated: false,
           );
           expect(dto.dateEnd, DateTime.utc(1950, 6, 3));
           expect(dto.datePrecision, DatePrecision.day);
@@ -97,7 +102,8 @@ void main() {
               write(
                 dateStart: DateTime.utc(1950, 6, 3),
                 datePrecision: DatePrecision.month,
-              ), allowUndated: false,
+              ),
+              allowUndated: false,
             ),
             throwsAppError(AppErrorCode.validation, invalidDateMessage),
           );
@@ -117,7 +123,8 @@ void main() {
                 dateStart: DateTime.utc(1950),
                 dateEnd: DateTime.utc(1959, 12, 31),
                 datePrecision: DatePrecision.year,
-              ), allowUndated: false,
+              ),
+              allowUndated: false,
             ),
             throwsAppError(AppErrorCode.validation, invalidDateMessage),
           );
@@ -130,12 +137,22 @@ void main() {
         () async {
           final input = write(dateStart: DateTime.utc(1950));
           await expectLater(
-            endpoints.story.createDraft(by(c.stranger), c.family.id!, input, allowUndated: false,),
+            endpoints.story.createDraft(
+              by(c.stranger),
+              c.family.id!,
+              input,
+              allowUndated: false,
+            ),
             throwsAppError(AppErrorCode.forbidden, 'member only'),
           );
           await fx.softDelete(c.family);
           await expectLater(
-            endpoints.story.createDraft(by(c.member), c.family.id!, input, allowUndated: false,),
+            endpoints.story.createDraft(
+              by(c.member),
+              c.family.id!,
+              input,
+              allowUndated: false,
+            ),
             throwsAppError(AppErrorCode.forbidden, 'member only'),
           );
           expect(
@@ -157,13 +174,15 @@ void main() {
             by(c.author),
             c.family.id!,
             write(title: 'First', dateStart: DateTime.utc(1950)),
-            id: id, allowUndated: false,
+            id: id,
+            allowUndated: false,
           );
           final again = await endpoints.story.createDraft(
             by(c.author),
             c.family.id!,
             write(title: 'Second', dateStart: DateTime.utc(1950)),
-            id: id, allowUndated: false,
+            id: id,
+            allowUndated: false,
           );
           expect(again.id, id);
           expect(again.title, 'Second');
@@ -171,16 +190,31 @@ void main() {
         },
       );
 
-      test('when two creates with the same id race then one draft exists', () async {
-        final id = newId();
-        final input = write(title: 'Twice', dateStart: DateTime.utc(1950));
-        final results = await Future.wait([
-          endpoints.story.createDraft(by(c.author), c.family.id!, input, id: id, allowUndated: false,),
-          endpoints.story.createDraft(by(c.author), c.family.id!, input, id: id, allowUndated: false,),
-        ]);
-        expect(results.map((d) => d.id).toSet(), {id});
-        expect(await Story.db.count(fx.s, where: (t) => t.id.equals(id)), 1);
-      });
+      test(
+        'when two creates with the same id race then one draft exists',
+        () async {
+          final id = newId();
+          final input = write(title: 'Twice', dateStart: DateTime.utc(1950));
+          final results = await Future.wait([
+            endpoints.story.createDraft(
+              by(c.author),
+              c.family.id!,
+              input,
+              id: id,
+              allowUndated: false,
+            ),
+            endpoints.story.createDraft(
+              by(c.author),
+              c.family.id!,
+              input,
+              id: id,
+              allowUndated: false,
+            ),
+          ]);
+          expect(results.map((d) => d.id).toSet(), {id});
+          expect(await Story.db.count(fx.s, where: (t) => t.id.equals(id)), 1);
+        },
+      );
 
       test(
         'when another member retries a create with an existing id then '
@@ -192,14 +226,16 @@ void main() {
             by(c.author),
             c.family.id!,
             input,
-            id: id, allowUndated: false,
+            id: id,
+            allowUndated: false,
           );
           await expectLater(
             endpoints.story.createDraft(
               by(c.member),
               c.family.id!,
               write(title: 'Theirs', dateStart: DateTime.utc(1950)),
-              id: id, allowUndated: false,
+              id: id,
+              allowUndated: false,
             ),
             throwsAppError(AppErrorCode.forbidden),
           );
@@ -219,7 +255,8 @@ void main() {
               dateStart: DateTime.utc(1950),
               placeId: place.id,
               personIds: [person.id!, person.id!],
-            ), allowUndated: false,
+            ),
+            allowUndated: false,
           );
           expect(dto.people.map((p) => p.personId), [person.id]);
           expect(dto.placeLabel, 'Home');
@@ -241,7 +278,8 @@ void main() {
               title: 'T',
               body: 'B',
               placeId: place.id,
-            ), allowUndated: false,
+            ),
+            allowUndated: false,
           );
           final dto = await endpoints.story.updateDraft(
             by(c.author),
@@ -320,7 +358,10 @@ void main() {
             endpoints.story.updateDraft(by(c.author), newId(), write()),
             throwsAppError(AppErrorCode.forbidden),
           );
-          expect((await Story.db.findById(fx.s, published.id!))!.title, 'A story');
+          expect(
+            (await Story.db.findById(fx.s, published.id!))!.title,
+            'A story',
+          );
         },
       );
 
@@ -469,19 +510,22 @@ void main() {
         },
       );
 
-      test('when linking the same person twice then there is one tag', () async {
-        final person = await fx.person(c.family);
-        final story = await c.draft();
-        await endpoints.story.linkPerson(by(c.author), story.id!, person.id!);
-        await endpoints.story.linkPerson(by(c.author), story.id!, person.id!);
-        expect(
-          await StoryPerson.db.count(
-            fx.s,
-            where: (t) => t.storyId.equals(story.id!),
-          ),
-          1,
-        );
-      });
+      test(
+        'when linking the same person twice then there is one tag',
+        () async {
+          final person = await fx.person(c.family);
+          final story = await c.draft();
+          await endpoints.story.linkPerson(by(c.author), story.id!, person.id!);
+          await endpoints.story.linkPerson(by(c.author), story.id!, person.id!);
+          expect(
+            await StoryPerson.db.count(
+              fx.s,
+              where: (t) => t.storyId.equals(story.id!),
+            ),
+            1,
+          );
+        },
+      );
 
       // BR 76
       test(
@@ -577,7 +621,8 @@ void main() {
           final draft = await endpoints.story.createDraft(
             by(c.author),
             c.family.id!,
-            write(dateStart: DateTime.utc(1950)), allowUndated: false,
+            write(dateStart: DateTime.utc(1950)),
+            allowUndated: false,
           );
           await endpoints.story.updateDraft(
             by(c.author),
@@ -648,7 +693,10 @@ void main() {
           await endpoints.story.updateDraft(
             by(c.author),
             draft.id,
-            write(dateStart: DateTime.utc(1950), datePrecision: DatePrecision.year),
+            write(
+              dateStart: DateTime.utc(1950),
+              datePrecision: DatePrecision.year,
+            ),
           );
           final dto = await endpoints.story.publish(by(c.author), draft.id);
           expect(dto.status, StoryStatus.published);
@@ -671,7 +719,8 @@ void main() {
             final draft = await endpoints.story.createDraft(
               by(c.author),
               c.family.id!,
-              ready, allowUndated: false,
+              ready,
+              allowUndated: false,
             );
             await endpoints.story.updateDraft(by(c.author), draft.id, gap);
             await expectLater(
@@ -711,7 +760,8 @@ void main() {
           final draft = await endpoints.story.createDraft(
             by(c.author),
             c.family.id!,
-            await c.ready(), allowUndated: false,
+            await c.ready(),
+            allowUndated: false,
           );
           final family = liveEvents(fx.s, familyChannel(c.family.id!));
           final first = await endpoints.story.publish(by(c.author), draft.id);
@@ -774,7 +824,8 @@ void main() {
           final draft = await endpoints.story.createDraft(
             by(c.author),
             c.family.id!,
-            await c.ready(), allowUndated: false,
+            await c.ready(),
+            allowUndated: false,
           );
           await endpoints.story.publish(by(c.author), draft.id);
           final branch = await c.branch();
@@ -867,7 +918,12 @@ void main() {
             throwsAppError(AppErrorCode.forbidden),
           );
           await expectLater(
-            endpoints.story.listLatestPublished(by(c.member), b.family.id!, withinDays: 7, limit: 3,),
+            endpoints.story.listLatestPublished(
+              by(c.member),
+              b.family.id!,
+              withinDays: 7,
+              limit: 3,
+            ),
             throwsAppError(AppErrorCode.forbidden),
           );
           await expectLater(
@@ -950,7 +1006,9 @@ void main() {
           expect(
             (await endpoints.story.listLatestPublished(
               by(c.member),
-              c.family.id!, withinDays: 7, limit: 3,
+              c.family.id!,
+              withinDays: 7,
+              limit: 3,
             )).map((s) => s.id),
             [one.id, two.id, three.id],
           );
@@ -1009,7 +1067,10 @@ void main() {
       );
 
       test('when the story is missing then getPublished is null', () async {
-        expect(await endpoints.story.getPublished(by(c.member), newId()), isNull);
+        expect(
+          await endpoints.story.getPublished(by(c.member), newId()),
+          isNull,
+        );
       });
     });
 
@@ -1030,7 +1091,10 @@ void main() {
           await endpoints.story.discard(by(c.author), story.id!);
           expect(await Story.db.findById(fx.s, story.id!), isNull);
           expect(
-            await Photo.db.count(fx.s, where: (t) => t.storyId.equals(story.id!)),
+            await Photo.db.count(
+              fx.s,
+              where: (t) => t.storyId.equals(story.id!),
+            ),
             0,
           );
           expect(
@@ -1263,8 +1327,14 @@ void main() {
         () async {
           final now = DateTime.now().toUtc();
           final old = await dated(1900, publishedAt: now);
-          final mid = await dated(1950, publishedAt: now.subtract(const Duration(days: 2)));
-          final recent = await dated(2000, publishedAt: now.subtract(const Duration(days: 1)));
+          final mid = await dated(
+            1950,
+            publishedAt: now.subtract(const Duration(days: 2)),
+          );
+          final recent = await dated(
+            2000,
+            publishedAt: now.subtract(const Duration(days: 1)),
+          );
           expect(
             await ids(query(c.family.id!, sort: SearchSort.chronological)),
             [recent.id, mid.id, old.id],

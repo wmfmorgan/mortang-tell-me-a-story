@@ -29,7 +29,11 @@ void main() {
 
     test('Given month and year precision, then the end closes the span', () {
       expect(
-        normalizeStoryDates(DateTime.utc(1952, 2), null, DatePrecision.month).end,
+        normalizeStoryDates(
+          DateTime.utc(1952, 2),
+          null,
+          DatePrecision.month,
+        ).end,
         DateTime.utc(1952, 2, 29),
       );
       expect(
@@ -48,10 +52,18 @@ void main() {
       'year outside 1000–9999 / time of day, then rejected',
       () {
         final bad = <(DateTime, DateTime?, DatePrecision?)>[
-          (DateTime.utc(1950, 6, 3), DateTime.utc(1950, 6, 4), DatePrecision.day),
+          (
+            DateTime.utc(1950, 6, 3),
+            DateTime.utc(1950, 6, 4),
+            DatePrecision.day,
+          ),
           (DateTime.utc(1950, 6, 3), DateTime.utc(1950, 6, 9), null),
           (DateTime.utc(1950, 6, 3), null, DatePrecision.month),
-          (DateTime.utc(1950, 6), DateTime.utc(1950, 7, 31), DatePrecision.month),
+          (
+            DateTime.utc(1950, 6),
+            DateTime.utc(1950, 7, 31),
+            DatePrecision.month,
+          ),
           (DateTime.utc(1950, 6), null, DatePrecision.year),
           (DateTime.utc(1950), DateTime.utc(1950, 6, 30), DatePrecision.year),
           (DateTime.utc(999), null, DatePrecision.year),

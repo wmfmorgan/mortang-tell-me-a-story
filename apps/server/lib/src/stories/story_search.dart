@@ -133,7 +133,5 @@ Future<StoryFacetsDto> storyFacets(Session session, UuidValue familyId) async {
 }
 
 /// [text] with LIKE wildcards and the escape character escaped.
-String _escapeLike(String text) => text
-    .replaceAll(r'\', r'\\')
-    .replaceAll('%', r'\%')
-    .replaceAll('_', r'\_');
+String _escapeLike(String text) =>
+    text.replaceAll(r'\', r'\\').replaceAll('%', r'\%').replaceAll('_', r'\_');
