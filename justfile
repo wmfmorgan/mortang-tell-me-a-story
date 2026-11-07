@@ -28,6 +28,14 @@ db-test:
 test:
     cd apps/tell_me_a_story && flutter test
 
+# Timeline lab in Chrome
+lab:
+    cd apps/timeline_lab && flutter run -d chrome
+
+# Timeline lab tests (pass --update-goldens to regenerate PNGs)
+lab-test *args:
+    cd apps/timeline_lab && flutter test {{args}}
+
 # supabase functions serve --env-file supabase/.env.local
 functions-serve:
     supabase functions serve --env-file supabase/.env.local
