@@ -72,19 +72,19 @@ void main() {
     expect(sorted.map((story) => story.id), ['c', 'd', 'b', 'a', 'z']);
   });
 
-  test('U-04 decade precision sorts after a later year in the same decade', () {
-    final decade = _story(
-      'decade',
-      start: DateTime(1980, 1, 1),
-      precision: StoryDatePrecision.decade,
-    );
+  test('U-04 a whole-year story sorts after a later day in its decade', () {
     final year = _story(
       'year',
-      start: DateTime(1987),
+      start: DateTime(1980, 1, 1),
       precision: StoryDatePrecision.year,
     );
-    final sorted = [decade, year]..sort(compareAllStories);
-    expect(sorted.map((story) => story.id), ['year', 'decade']);
+    final day = _story(
+      'day',
+      start: DateTime(1987, 3, 4),
+      precision: StoryDatePrecision.day,
+    );
+    final sorted = [year, day]..sort(compareAllStories);
+    expect(sorted.map((story) => story.id), ['day', 'year']);
   });
 
   test('U-05 a null date is a last No date yet group', () {

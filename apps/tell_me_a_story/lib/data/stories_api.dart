@@ -9,8 +9,9 @@ import 'server/wire.dart';
 
 enum StoryStatus { draft, published }
 
-/// Declaration order matches Postgres `story_date_precision`.
-enum StoryDatePrecision { decade, year, month, day }
+/// Coarse to fine, like the server's `DatePrecision`; timeline order sorts
+/// on it. `decade` was dropped (D9).
+enum StoryDatePrecision { year, month, day }
 
 StoryDatePrecision storyDatePrecisionFrom(String? raw) {
   for (final value in StoryDatePrecision.values) {
@@ -157,9 +158,6 @@ String _profileWhen(Story story) {
     'December',
   ];
   switch (story.datePrecision) {
-    case StoryDatePrecision.decade:
-      final year = start.year - (start.year % 10);
-      return '${year}s';
     case StoryDatePrecision.year:
       return '${start.year}';
     case StoryDatePrecision.month:
