@@ -104,7 +104,7 @@ void main() {
   ) async {
     final (lab, pb) = _make(tester);
     expect(pb.design, PlaybackDesign.steps); // sliver list
-    lab.setRenderer(RendererKind.painterRail);
+    lab.setRenderer(RendererKind.zoomCanvas);
     expect(pb.design, PlaybackDesign.sweep);
     pb.seek(1);
     lab.setRenderer(RendererKind.renderBoxLayout);

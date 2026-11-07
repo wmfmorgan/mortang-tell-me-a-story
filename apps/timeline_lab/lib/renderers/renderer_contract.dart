@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 import '../filter/timeline_filter.dart';
 import '../model/lab_models.dart';
 import '../playback/playback_controller.dart';
-import 'painter_rail_renderer.dart';
 import 'render_box_layout_renderer.dart';
 import 'sliver_list_renderer.dart';
 import 'swimlanes_renderer.dart';
@@ -13,7 +12,6 @@ import 'zoom_canvas_renderer.dart';
 
 enum RendererKind {
   sliverList,
-  painterRail,
   renderBoxLayout,
   zoomCanvas,
   swimlanes,
@@ -22,7 +20,6 @@ enum RendererKind {
 
   String get label => switch (this) {
     sliverList => 'Sliver list',
-    painterRail => 'Painter rail',
     renderBoxLayout => 'RenderBox layout',
     zoomCanvas => 'Zoom canvas',
     swimlanes => 'Swimlanes',
@@ -70,7 +67,6 @@ class TimelineViewData {
 Widget buildRenderer(RendererKind kind, TimelineViewData data) =>
     switch (kind) {
       RendererKind.sliverList => SliverListTimeline(data: data),
-      RendererKind.painterRail => PainterRailTimeline(data: data),
       RendererKind.renderBoxLayout => RenderBoxTimeline(data: data),
       RendererKind.zoomCanvas => ZoomCanvasTimeline(data: data),
       RendererKind.swimlanes => SwimlanesTimeline(data: data),

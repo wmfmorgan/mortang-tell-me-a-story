@@ -31,7 +31,6 @@ class PlaybackController extends ChangeNotifier {
 
   /// Time-true renderers sweep; card lists step story by story.
   static PlaybackDesign defaultDesignFor(RendererKind kind) => switch (kind) {
-    RendererKind.painterRail ||
     RendererKind.zoomCanvas ||
     RendererKind.swimlanes ||
     RendererKind.treeGraph ||
