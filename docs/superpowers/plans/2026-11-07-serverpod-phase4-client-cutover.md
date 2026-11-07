@@ -161,12 +161,18 @@ Each slice plan is written by its executor at slice start, following superpowers
 - **Verification:** `bash e2e/check_flows.sh` passes. The full e2e run happens in 4z, because it needs every gateway switched.
 
 ### 4z Integration and switch (sequential, after all slices merge into `feat/p4-cutover`)
-1. **Remove Supabase from the app:**
+1. **Finish the cross-slice swaps:**
+   - `story_reader_page.dart` and `timeline_page.dart` construct `ServerTimelineLive()` (4c's) instead of `SupabaseTimelineLive()`;
+   - `StoriesApi.discard` calls `story.discard` (4e removed client-side photo cleanup; the server queues the blobs);
+   - delete `storyPhotosBucket` once no thumbnail is downloaded from Supabase storage;
+   - `Story.photoPaths` are server blob keys, which `media.get` / `getMany` read;
+   - the e2e calls into `StoriesApi` / `PlacesApi` match the merged signatures.
+2. **Remove Supabase from the app:**
    - remove `supabase_flutter` from `apps/tell_me_a_story/pubspec.yaml`;
    - delete `lib/data/supabase_errors.dart`, `test/supabase_errors_test.dart` (keep its `appErrorMessage` test next to `app_exception`) and `test/gateway_errors_test.dart`;
    - remove the Supabase defines from the `justfile` `run` recipe.
-2. **Check nothing is left:** `rg -n "supabase|Supabase|PostgrestException|GoTrue" apps/tell_me_a_story/lib apps/tell_me_a_story/test apps/tell_me_a_story/integration_test` returns nothing.
-3. **Gates:**
+3. **Check nothing is left:** `rg -n "supabase|Supabase|PostgrestException|GoTrue" apps/tell_me_a_story/lib apps/tell_me_a_story/test apps/tell_me_a_story/integration_test` returns nothing.
+4. **Gates:**
    - format;
    - `flutter analyze` with at most 23 issues;
    - `flutter test`;
@@ -174,11 +180,11 @@ Each slice plan is written by its executor at slice start, following superpowers
    - `bash e2e/check_flows.sh`;
    - the e2e run locally (`flutter drive` against `just server` with ChromeDriver);
    - a manual browser smoke of sign-in → create family → story with photo → comment → invite → accept as a second user.
-4. **Docs:**
+5. **Docs:**
    - endpoint-contract §3/§4 are marked done, with the changes made here;
    - the roadmap Phase 4 row is updated;
    - the Phase 5 plan follows (delete `supabase/`, Deno, pgTAP; rewrite `AGENTS.md`/README).
-5. **Merge:** `git merge --no-ff feat/p4-cutover` into `feat/serverpod-migration`.
+6. **Merge:** `git merge --no-ff feat/p4-cutover` into `feat/serverpod-migration`.
 
 ---
 
