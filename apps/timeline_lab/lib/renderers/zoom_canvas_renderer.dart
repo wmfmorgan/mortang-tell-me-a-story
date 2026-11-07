@@ -6,6 +6,7 @@ import '../filter/timeline_filter.dart';
 import '../playback/playback_controller.dart';
 import '../theme/lab_theme.dart';
 import '../widgets/story_card.dart';
+import 'canvas_label.dart';
 import 'renderer_contract.dart';
 import 'story_marker.dart';
 import 'time_scale.dart';
@@ -515,17 +516,18 @@ class _ZoomAxisPainter extends CustomPainter {
   final double? cursorX;
 
   void _label(Canvas canvas, String text, Offset at) {
-    final tp = TextPainter(
-      text: TextSpan(text: text, style: labelStyle),
-      textDirection: TextDirection.ltr,
-    )..layout();
     canvas
       ..save()
       ..translate(at.dx, at.dy)
       ..scale(1 / scale);
-    tp.paint(canvas, Offset(2, -tp.height - 2));
+    paintLabel(
+      canvas,
+      text,
+      labelStyle,
+      const Offset(2, -2),
+      anchor: Alignment.bottomLeft,
+    );
     canvas.restore();
-    tp.dispose();
   }
 
   @override

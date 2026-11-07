@@ -5,6 +5,7 @@ import '../model/lab_models.dart';
 import '../playback/playback_controller.dart';
 import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
+import 'canvas_label.dart';
 import 'renderer_contract.dart';
 import 'story_marker.dart';
 import 'tree_graph_layout.dart';
@@ -199,7 +200,7 @@ class TreePainter extends CustomPainter {
   final ValueChanged<TreeNode> onTapNode;
 
   /// Text is laid out once per painter, not per playback tick.
-  final Map<TreeNode, TextPainter> _labels = {};
+  final Map<TreeNode, CanvasLabel> _labels = {};
 
   late final Map<String, LabStory> _stories = {
     for (final s in dataset.stories) s.id: s,
@@ -209,17 +210,16 @@ class TreePainter extends CustomPainter {
 
   /// Unmatched labels use [labDimmedInk], the lightest text the dim rule
   /// allows; playback fades are applied on top with a layer.
-  TextPainter _label(TreeNode n) => _labels.putIfAbsent(n, () {
+  CanvasLabel _label(TreeNode n) => _labels.putIfAbsent(n, () {
     final leaf = n.kind == TreeNodeKind.story && n.children.isEmpty;
     final style = (leaf ? labelStyle : headingStyle).copyWith(
       color: n.matched ? labInk : labDimmedInk,
     );
-    return TextPainter(
-      text: TextSpan(text: n.label, style: style),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-      ellipsis: '…',
-    )..layout(maxWidth: leaf ? layout.labelWidth - 16 : layout.levelGap - 24);
+    return CanvasLabel(
+      n.label,
+      style,
+      maxWidth: leaf ? layout.labelWidth - 16 : layout.levelGap - 24,
+    );
   });
 
   static String _overflowText(int count) => '+$count more';
@@ -279,15 +279,13 @@ class TreePainter extends CustomPainter {
         );
         fill.color = labInk.withValues(alpha: r);
         canvas.drawRRect(rect, fill);
-        final tp = TextPainter(
-          text: TextSpan(
-            text: _overflowText(shown),
-            style: labelStyle.copyWith(color: labInk.withValues(alpha: r)),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(canvas, p + Offset(12, -tp.height / 2));
-        tp.dispose();
+        paintLabel(
+          canvas,
+          _overflowText(shown),
+          labelStyle.copyWith(color: labInk.withValues(alpha: r)),
+          p + const Offset(12, 0),
+          anchor: Alignment.centerLeft,
+        );
         if (n.hiddenStoryIds.contains(selectedId)) {
           ring.color = labTerracotta;
           canvas.drawRRect(rect.inflate(2), ring);
@@ -313,8 +311,8 @@ class TreePainter extends CustomPainter {
       // Leaves label to the right. Groups label above-right, inside their
       // own row band, so tightly packed sibling years never collide.
       final at = n.kind == TreeNodeKind.story
-          ? p + Offset(10, -label.height / 2)
-          : p + Offset(8, -label.height - 1);
+          ? p + Offset(10, -label.size.height / 2)
+          : p + Offset(8, -label.size.height - 1);
       if (r < 1) {
         canvas.saveLayer(
           at & label.size,

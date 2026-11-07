@@ -7,6 +7,7 @@ import '../playback/playback_controller.dart';
 import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
 import '../widgets/story_card.dart';
+import 'canvas_label.dart';
 import 'renderer_contract.dart';
 import 'time_scale.dart';
 
@@ -422,21 +423,18 @@ class RenderTimeAxisLayout extends RenderBox
     final pill = Paint()..color = labParchment;
     for (final t in _scale.yearTicks()) {
       if (t.kind != TickKind.decade) continue;
-      final tp = TextPainter(
-        text: TextSpan(text: '${t.year}', style: labelStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
+      final label = CanvasLabel('${t.year}', labelStyle);
       final rect = Rect.fromCenter(
         center: offset + Offset(_axisX, t.px),
-        width: tp.width + 8,
-        height: tp.height + 2,
+        width: label.size.width + 8,
+        height: label.size.height + 2,
       );
       top.drawRRect(
         RRect.fromRectAndRadius(rect, const Radius.circular(4)),
         pill,
       );
-      tp.paint(top, rect.topLeft + const Offset(4, 1));
-      tp.dispose();
+      label.paint(top, rect.topLeft + const Offset(4, 1));
+      label.dispose();
     }
   }
 
