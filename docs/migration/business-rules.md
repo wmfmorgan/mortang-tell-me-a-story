@@ -122,9 +122,9 @@ Actor vocabulary used below:
 
 | Op | Allowed | Cite |
 |---|---|---|
-| Read | Live member of place's family; OR tree reader if the place is attached to a **published** story of that family. | os:577-593 |
-| Create / update | Live member. | trg:156-167 |
-| Delete | `isLiveMember(place.family)` (D6b). | rls:139-142 |
+| Read | Live member of any live family in the place's tree (places are tree-scoped, §8 item 1; schema-design §3.2). | os:577-593 |
+| Create / update (create, markUsed, setFavorite) | Live member of a live family in the tree (D6b). | trg:156-167 |
+| Delete | No endpoint: the client never deletes places (schema-design §3.2). | rls:139-142 |
 
 ### 2.5 Story
 
@@ -210,8 +210,8 @@ Actor vocabulary used below:
 | person edit (unlinked) | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | – |
 | mark linked passed away | – | – | – | – | – | ✓ (own family) | ✓ (own family) | – |
 | person delete | – | – | – | – | – | ✓ (unlinked) | ✓ (unlinked) | – |
-| place read | – | – | P | P | ✓ | ✓ | ✓ | – |
-| place create/update/delete | – | – | – | – | ✓ | ✓ | ✓ | – |
+| place read | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | – |
+| place create/update | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | – |
 | story read | – | – | P | P | P | P | P | D |
 | story create | – | – | – | – | ✓ | ✓ | ✓ | – |
 | story edit content | – | – | – | – | – | P | P | D |
@@ -623,7 +623,7 @@ Decisions (2026-11-07)
 134. Given link-only invite (no email), when any signed-in user accepts, then success (D2).
 135. Given invite to a soft-deleted family, when accepting, then INVITE_INVALID and no membership (D6a).
 136. Given plain member, when deleting an unlinked person, then FORBIDDEN; given owner, when deleting an unlinked person, then deleted; when deleting a linked person, then VALIDATION "person is linked to an account" (D5).
-137. Given soft-deleted family, when its author deletes a story, a member deletes a place, or a member reads invites, then FORBIDDEN/NOT_FOUND and nothing changes (D6b).
+137. Given soft-deleted family, when its author deletes a story, a member creates a place through it, or a member reads its invites, then FORBIDDEN/NOT_FOUND and nothing changes (D6b).
 
 ## 8. Deliberate changes in the Serverpod rewrite (data-model review)
 

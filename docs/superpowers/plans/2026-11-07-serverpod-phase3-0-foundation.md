@@ -1,5 +1,7 @@
 # Phase 3.0: Server Endpoints — Shared Foundation Implementation Plan
 
+> Executed 2026-11-07 on `feat/serverpod-migration` (`bb4e443`..`2122f8c`), with server tests at 100/100.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Land everything the six Phase 3 endpoint slices share, so they can run in parallel without touching the same files: live-family `Authz` checks and story predicates, every protocol DTO, blob keys and the `blob_deletions` queue, account helpers for invite email binding (D2) and branch person rows (D6d), the live-event channel helper, and shared test fixtures.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** Dart 3.13.5, Serverpod 4.1.1 (`serverpod`, `serverpod_auth_idp_server`, `serverpod_test`), embedded Postgres 16, just.
 
-**Verified:** every file below was written and run on 2026-11-07 in a scratch worktree of `feat/serverpod-migration` at `93646e1`. `dart analyze` was clean on the server and the generated client, `dart format` left nothing to change, and `dart test` gave 92/92 (58 before); review fixes during execution added two Authz tests, one drain test and one tree-scoping test, so the landed count is 96. A throwaway probe endpoint also confirmed the endpoint conventions in the Phase 3 index (`2026-11-07-serverpod-phase3-server-endpoints.md` §Conventions) and was then deleted.
+**Verified:** every file below was written and run on 2026-11-07 in a scratch worktree of `feat/serverpod-migration` at `93646e1`. `dart analyze` was clean on the server and the generated client, `dart format` left nothing to change, and `dart test` gave 92/92 (58 before); review fixes during execution (869ab7b, f8229d6, 7f9f339, 2122f8c) added `Authz.isTreeMemberOf`, an optional `message` on the `requireLive*` helpers, and eight tests. The code blocks below are the final landed files, so the landed count is 100. A throwaway probe endpoint also confirmed the endpoint conventions in the Phase 3 index (`2026-11-07-serverpod-phase3-server-endpoints.md` §Conventions) and was then deleted.
 
 **References:** `docs/migration/business-rules.md` §1 (predicates), `docs/migration/schema-design.md` §3.2, §3.5, §4.2, §4.3, `docs/migration/endpoint-contract.md` §2.1, roadmap "Product decisions (2026-11-07)".
 
@@ -22,7 +24,7 @@ All commands run from the repo root unless a step says otherwise.
 |---|---|
 | `apps/server/test/integration/support/fixtures.dart` | Shared row builders (`Fx`), `asUser`/`sessionFor`, `throwsAppError`, `pgError` |
 | `apps/server/lib/src/errors.dart` | `forbidden`/`notFound`/`validation`/`conflict` `AppException` shorthands |
-| `apps/server/lib/src/authz/authz.dart` | Adds live-family require helpers, `effectiveOrigin`, `canReadStory`, `canEditStory`, `canContribute` |
+| `apps/server/lib/src/authz/authz.dart` | Adds live-family require helpers (optional `message`), `isTreeMemberOf`, `effectiveOrigin`, `canReadStory`, `canEditStory`, `canContribute` |
 | `apps/server/lib/src/models/dto/*.spy.yaml` | Every DTO and enum in endpoint-contract §2.1 (32 classes, 2 enums) |
 | `apps/server/lib/src/media/blob_keys.dart` | Key builders per schema-design §4.2, size limits, `sniffImageMime` |
 | `apps/server/lib/src/media/blob_outbox.dart` | `queueBlobDeletions` (same transaction) and `drainBlobDeletions` |
@@ -438,6 +440,43 @@ void main() {
           throwsAppError(AppErrorCode.forbidden, 'owner only'),
         );
       });
+
+      test('a custom message replaces the default forbidden text', () async {
+        await expectLater(
+          authzFor(stranger).requireLiveMember(
+            root.id!,
+            message: 'Not a family member',
+          ),
+          throwsAppError(AppErrorCode.forbidden, 'Not a family member'),
+        );
+      });
+    });
+
+    group('tree membership by tree id', () {
+      test(
+        'branch member is a tree member; stranger and anonymous are not',
+        () async {
+          expect(
+            await authzFor(branchMember).isTreeMemberOf(root.treeId),
+            isTrue,
+          );
+          expect(await authzFor(stranger).isTreeMemberOf(root.treeId), isFalse);
+          expect(await authzFor(null).isTreeMemberOf(root.treeId), isFalse);
+        },
+      );
+
+      test('membership only in a soft-deleted family does not count', () async {
+        final user = await fx.user();
+        await fx.join(deletedBranch, user);
+        expect(await authzFor(user).isTreeMemberOf(root.treeId), isFalse);
+      });
+
+      test('a soft-deleted home family does not hide the tree', () async {
+        expect(
+          await authzFor(member).isTreeMemberOf(deletedBranch.treeId),
+          isTrue,
+        );
+      });
     });
 
     group('effective origin', () {
@@ -711,28 +750,37 @@ class Authz {
   }
 
   /// The caller's role in live [familyId]; otherwise
-  /// `AppException(forbidden, 'member only')`. A missing or soft-deleted
-  /// family is refused the same way, so ids don't leak.
-  Future<MembershipRole> requireLiveMember(UuidValue familyId) async {
+  /// `AppException(forbidden, 'member only')`, or [message] when given (e.g.
+  /// invite create uses `message: 'Not a family member'`). A missing or
+  /// soft-deleted family is refused the same way, so ids don't leak.
+  Future<MembershipRole> requireLiveMember(
+    UuidValue familyId, {
+    String? message,
+  }) async {
     final role = await _liveRole(familyId);
-    if (role == null) throw forbidden('member only');
+    if (role == null) throw forbidden(message ?? 'member only');
     return role;
   }
 
   /// Owner or co-owner of live [familyId]; otherwise
-  /// `AppException(forbidden, 'owner or co-owner only')`.
-  Future<MembershipRole> requireLiveSteward(UuidValue familyId) async {
+  /// `AppException(forbidden, 'owner or co-owner only')`, or [message] when
+  /// given.
+  Future<MembershipRole> requireLiveSteward(
+    UuidValue familyId, {
+    String? message,
+  }) async {
     final role = await _liveRole(familyId);
     if (role != MembershipRole.owner && role != MembershipRole.coOwner) {
-      throw forbidden('owner or co-owner only');
+      throw forbidden(message ?? 'owner or co-owner only');
     }
     return role!;
   }
 
-  /// Owner of live [familyId]; otherwise `AppException(forbidden, 'owner only')`.
-  Future<void> requireLiveOwner(UuidValue familyId) async {
+  /// Owner of live [familyId]; otherwise `AppException(forbidden, 'owner
+  /// only')`, or [message] when given.
+  Future<void> requireLiveOwner(UuidValue familyId, {String? message}) async {
     if (await _liveRole(familyId) != MembershipRole.owner) {
-      throw forbidden('owner only');
+      throw forbidden(message ?? 'owner only');
     }
   }
 
@@ -742,13 +790,14 @@ class Authz {
     return roleIn(familyId);
   }
 
-  /// [familyId] is live and the caller is a member of some live family in the
-  /// same tree.
-  Future<bool> isTreeReadable(UuidValue familyId) async {
+  /// The caller is a member of some live family whose `treeId` is [treeId].
+  ///
+  /// Tree-scoped rows (places, people) are checked by their `treeId`, never
+  /// through a home family that might be soft-deleted (D8: a deleted family
+  /// doesn't split the tree).
+  Future<bool> isTreeMemberOf(UuidValue treeId) async {
     final uid = userId;
     if (uid == null) return false;
-    final family = await Family.db.findById(session, familyId);
-    if (family == null || family.deletedAt != null) return false;
     final memberships = await Membership.db.find(
       session,
       where: (t) => t.userId.equals(uid),
@@ -758,10 +807,18 @@ class Authz {
       session,
       where: (t) =>
           t.id.inSet(memberships.map((m) => m.familyId).toSet()) &
-          t.treeId.equals(family.treeId) &
+          t.treeId.equals(treeId) &
           t.deletedAt.equals(null),
     );
     return count > 0;
+  }
+
+  /// [familyId] is live and the caller is a member of some live family in the
+  /// same tree.
+  Future<bool> isTreeReadable(UuidValue familyId) async {
+    final family = await Family.db.findById(session, familyId);
+    if (family == null || family.deletedAt != null) return false;
+    return isTreeMemberOf(family.treeId);
   }
 
   /// Same as [isTreeReadable]; kept as the business-rules name.
@@ -841,7 +898,7 @@ class Authz {
 - [ ] **Step 5: Run the tests**
 
 Run: `mise exec -- just server-test`
-Expected: `+80: All tests passed!`
+Expected: `+84: All tests passed!`
 
 - [ ] **Step 6: Commit**
 
@@ -2032,7 +2089,7 @@ mise exec -- dart format --output=none --set-exit-if-changed apps/server/lib app
 mise exec -- just server-test
 mise exec -- just test
 ```
-Expected: `0 changed`, `No issues found!`, `+96: All tests passed!`, and the Flutter suite unchanged at `+708: All tests passed!`.
+Expected: `0 changed`, `No issues found!`, `+100: All tests passed!`, and the Flutter suite unchanged at `+708: All tests passed!`.
 
 - [ ] **Step 2: Mark 3.0 done in the Phase 3 index**
 

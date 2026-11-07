@@ -234,8 +234,8 @@ class FamilyEndpoint extends Endpoint {
   Future<List<TreeFamilyDto>> listTree(Session s, UuidValue familyId);                 // list_family_tree: one query on families.treeId
   Future<void> setOrigin(Session s, UuidValue familyId, UuidValue storyId);            // set_family_origin
   Future<List<OriginDependentDto>> listOriginDependents(Session s, UuidValue storyId);
-  Future<CoverUploadTicketDto> startCoverUpload(Session s, UuidValue familyId, int byteLength);   // steward; maxFileSize 5 MiB, contentType image/jpeg, image/png or image/webp
-  Future<String> finishCoverUpload(Session s, UuidValue familyId, String key);         // verifyUpload, set coverKey; old key goes to blob_deletions in the same transaction → returns key
+  Future<CoverUploadTicketDto> startCoverUpload(Session s, UuidValue familyId, String mimeType, int byteLength);   // steward; mimeType image/jpeg, image/png or image/webp (else VALIDATION) picks the key extension; maxFileSize 5 MiB
+  Future<String> finishCoverUpload(Session s, UuidValue familyId, String key);         // verifyUpload; sniffed type must match the key's extension, else the blob is queued for deletion and VALIDATION; set coverKey; old key goes to blob_deletions in the same transaction → returns key
   Future<void> clearCover(Session s, UuidValue familyId);                              // null coverKey; old key goes to blob_deletions in the same transaction
   Future<List<FamilyMemberDto>> listMembers(Session s, UuidValue familyId);
   Future<FamilyDirectoryDto> directory(Session s);                                     // ONE query with counts (was 4 round trips)
@@ -305,8 +305,8 @@ class StoryEndpoint extends Endpoint {
 // ── photos ──────────────────────────────────────────────────────────────
 class PhotoEndpoint extends Endpoint {
   Future<List<PhotoDto>> list(Session s, UuidValue storyId);
-  Future<PhotoUploadTicketDto> startUpload(Session s, UuidValue storyId, int byteLength);   // cap 20 → AppException(AppErrorCode.photoCap)
-  Future<PhotoDto> finishUpload(Session s, UuidValue storyId, UuidValue photoId, int sortOrder); // verifyUpload, insert row; deletes blob on failure
+  Future<PhotoUploadTicketDto> startUpload(Session s, UuidValue storyId, String mimeType, int byteLength);   // mimeType picks the key extension (client sends image/jpeg); cap 20 → AppException(AppErrorCode.photoCap, 'photo limit reached')
+  Future<PhotoDto> finishUpload(Session s, UuidValue storyId, UuidValue photoId, int sortOrder); // verifyUpload; sniffed type must match the key's extension; insert row; on any failure the blob is queued for deletion
   Future<void> delete(Session s, UuidValue photoId);         // row; original + edited keys go to blob_deletions in the same transaction
   Future<void> setHero(Session s, UuidValue storyId, UuidValue photoId);   // one transaction rewriting sort_order 0..n-1
 }

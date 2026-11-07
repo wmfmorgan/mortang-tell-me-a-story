@@ -16,7 +16,7 @@
 
 | Part | Plan | Depends on | Status |
 |---|---|---|---|
-| 3.0 Shared foundation | `2026-11-07-serverpod-phase3-0-foundation.md` | — | landed (server tests 96/96) |
+| 3.0 Shared foundation | `2026-11-07-serverpod-phase3-0-foundation.md` | — | landed (server tests 100/100) |
 | 3a Families, places, profile | `2026-11-07-serverpod-phase3a-families.md` | 3.0 | plan written at slice start |
 | 3b People | `2026-11-07-serverpod-phase3b-people.md` | 3.0 | plan written at slice start |
 | 3c Stories, tags, notes, search | `2026-11-07-serverpod-phase3c-stories.md` | 3.0 | plan written at slice start |
@@ -58,12 +58,14 @@ class FamilyEndpoint extends Endpoint {
 }
 ```
 
-- **Order of checks.** Authorization comes first, then existence, then validation, in the order business-rules §3 states for that operation. A missing or soft-deleted family is refused as `forbidden`, exactly like a stranger (`Authz.requireLive*`), so ids don't leak.
-- **Errors.** Throw only `AppException`, through `lib/src/errors.dart` (`forbidden`, `notFound`, `validation`, `conflict`) or `AppException(code: AppErrorCode.inviteInvalid | inviteAccepted | inviteExpired | photoCap | storageFailed, …)`. Messages are the business-rules §5.2 strings. Never return raw database text. Catch a known constraint violation (`DatabaseQueryException.code`) only to map it to a catalogue message; anything else propagates.
+- **Order of checks.** Authorization comes first, then existence, then validation, in the order business-rules §3 states for that operation. A missing or soft-deleted family is refused as `forbidden`, exactly like a stranger (`Authz.requireLive*`), so ids don't leak. Pass `message:` when the catalogue wants a different text (invite create/send: `'Not a family member'`).
+- **Recovery exception (D6b).** The only checks that ignore soft delete are the recovery ones: `recover`, and the steward reads of a deleted family's row and memberships (`listStewarded`, `directory`, `detail`). Use `isSteward(familyId)` there and throw `forbidden('owner or co-owner only')`. Everything else uses `requireLive*`.
+- **Tree-scoped rows.** Places and people are checked with `Authz.isTreeMemberOf(row.treeId)`, never through `isTreeReadable(person.homeFamilyId)`: a soft-deleted home family must not hide a person from the rest of the tree (D8).
+- **Errors.** Throw only `AppException`, through `lib/src/errors.dart` (`forbidden`, `notFound`, `validation`, `conflict`) or `AppException(code: AppErrorCode.inviteInvalid | inviteAccepted | inviteExpired | photoCap | storageFailed, …)`. Messages are the business-rules §5.2 strings. The photo cap is `AppException(code: AppErrorCode.photoCap, message: 'photo limit reached')`. Never return raw database text. Catch a known constraint violation (`DatabaseQueryException.code`) only to map it to a catalogue message; anything else propagates.
 - **Transactions.** Pass `transaction: t` to every DB call inside `session.db.transaction`. Lock the parent row (`lockMode: LockMode.forUpdate`) wherever schema-design §3.2 asks for a lock (co-owner cap, photo cap, kinship cycle).
 - **Linked-person race.** `ensureLinkedPerson` can lose a race on `people_tree_user_uidx`, for example on a double-tapped invite accept, or when a branch is created while that member accepts an invite. The losing transaction fails with `23505`. `createBranch` (3a) and `InviteEndpoint.accept` (3e) catch a `DatabaseQueryException` with code `23505` and constraint `people_tree_user_uidx` and rerun their transaction once; the rerun finds the committed person. Pin this with a test that inserts the person between the lookup and the insert, or that runs two accepts concurrently.
 - **Blobs.** Never call `deleteFile` from an endpoint. Old keys go through `queueBlobDeletions(session, keys, transaction: t)` inside the write transaction. New keys come from `blob_keys.dart`. Uploaded bytes are checked with `sniffImageMime` before a row is written.
-- **Live events.** Call `postLiveEvent(session, LiveEventDto(...))` after `session.db.transaction` returns, never inside it. Story, photo and note writes post (kinds `story`, `photo`, `note`); family-level writes don't.
+- **Live events.** Call `postLiveEvent(session, LiveEventDto(...))` after `session.db.transaction` returns, never inside it. Story, photo and note writes post (kinds `story`, `photo`, `note`), but only for published stories, plus the publish and unpublish transitions themselves. Draft edits post nothing, so draft ids never reach other members or tree readers on the family channel. Family-level writes don't post.
 - **Anonymous callers** never reach a method body: `requireLogin` makes Serverpod throw `ServerpodUnauthenticatedException`. Don't add per-method anonymous tests. One test per endpoint class is enough.
 
 **Test shape.** One `test/integration/<name>_endpoint_test.dart` per endpoint class:
@@ -92,7 +94,7 @@ void main() {
 - `RollbackDatabase.disabled` everywhere: the endpoints use transactions and streams. Each test builds its own users and trees through `Fx`, so tests stay independent on the shared database.
 - Name tests by the business-rules §7 case they port (`// BR 117`) and keep its given/when/then wording.
 - Streams: subscribe, wait about 50 ms so the listener is registered, then write, then `await first.timeout(...)`. The probe confirmed this works with `postLiveEvent`.
-- Slice-only builders go in `test/integration/support/<slice>_fixtures.dart`. `fixtures.dart` changes only by appending a method, so parallel merges stay trivial.
+- Slice-only builders go in `test/integration/support/<slice>_fixtures.dart`. `fixtures.dart` changes only by appending a method or adding an optional named parameter to an existing builder (for example `email:` on `Fx.invite` for 3e), so parallel merges stay trivial.
 
 ## Shared files and merging
 
@@ -110,8 +112,15 @@ The test case numbers are business-rules §7. "Port" means rewrite as a Serverpo
 ### 3a Families, places, profile
 - **Owns:** `FamilyEndpoint` (all methods in endpoint-contract §2.2, cover upload included), `PlaceEndpoint`, `ProfileEndpoint` (avatar included).
 - **Rules:** business-rules §2.1, §2.2, §2.4, §2.10, §3.1–§3.3, §3.5 (soft delete and recover; purge is 3f), §3.6; schema-design §3.2 rows: co-owner cap, origin, immutables, soft delete/recover, createRoot, createBranch (D6d), removeMember, places, linked person name; §3.5 effective origin (use `Authz.effectiveOrigin`).
-- **Decisions:** D6b (live checks; owner/co-owner may still read a soft-deleted family's row and memberships, through `listStewarded`/`directory`/`detail`), D6d (`ensureLinkedPerson` for the new owner and each picked member), D8 (`listTree` = live families with the same `treeId`), D1 (no email change; `me` returns the email read-only).
-- **Port:** 1–19, 22, 29–32, 34–42, 48, 50–60, 106, 107, 109–111, 115; 137 (place part). Cases 23–24 change shape, because the server now makes the cover key: a steward's upload is stored and a plain member is refused (23); non-image bytes, oversize files and an unsupported type are refused with `VALIDATION` (24). Case 61 (Edge request checks) becomes Dart argument checks: a blank name and year bounds still give `VALIDATION`. Case 49 is superseded, because places are tree-wide (business-rules §8 item 1).
+- **Decisions:**
+  - D6b: live checks everywhere except the recovery exception above. `detail` on a soft-deleted family returns its members but an empty `pendingInvites`, because invites aren't readable while the family is deleted.
+  - D6d: `ensureLinkedPerson` for the new owner and each picked member.
+  - D8: `listTree` = live families with the same `treeId`.
+  - D1: no email change; `me` returns the email read-only.
+- **Port:** 1–19, 22, 29–32, 34–42, 48, 50–60, 106, 107, 109–111, 115; 137 (place part: creating a place through a soft-deleted family is refused).
+  - Cases 23–24 change shape, because the server now makes the cover key: a steward's upload is stored and a plain member is refused (23); non-image bytes, a sniffed type that differs from the declared `mimeType`, oversize files and an unsupported type are refused with `VALIDATION` (24).
+  - Case 61 (Edge request checks) becomes Dart argument checks: a blank name and year bounds still give `VALIDATION`.
+  - Case 49 is superseded, because places are tree-wide (business-rules §8 item 1).
 - **Live events:** none.
 
 ### 3b People
@@ -127,14 +136,14 @@ The test case numbers are business-rules §7. "Port" means rewrite as a Serverpo
 - **Rules:** business-rules §2.5, §2.6, §2.8, §4.4, §4.8; schema-design §3.2 rows: story locks, notes body-only, notes delete (D4); §0.5 named orders.
 - **Decisions:** D4 (`NoteEndpoint.delete` and `NoteDto.canDelete`: the author with `canContribute`, or an owner/co-owner of the story's live family on a published story; never on the parent's origin story from a child family), D6b.
 - **Port:** 26–28 (story, comment and perspective part), 43–45, 62–77, 83 (comment/perspective part), 93, 94; 137 (story part).
-- **Live events:** `story` on create/update/publish/discard, `note` on note create/update/delete.
+- **Live events:** `story` on publish, unpublish, and updates or discard of a published story; `note` on note create/update/delete (notes only exist on stories the caller can contribute to). Draft edits post nothing.
 
 ### 3d Photos and media
 - **Owns:** `PhotoEndpoint` (`list`, `startUpload`, `finishUpload`, `delete`, `setHero`), `MediaEndpoint` (`get`, `getMany`).
 - **Rules:** business-rules §2.7 (rows except save/reset edit), §4.5; schema-design §4.2 (upload flow, sniffing, limits); endpoint-contract §2.0 (media authorizes by finding the row that holds the key).
 - **Port:** 25 (cover read: a member of a soft-deleted family cannot read it, D6b), 27, 46, 47, 78–83 (photo part), 90 (reads only).
 - **Out of scope:** photo edit save/reset (business-rules §2.7, cases 84–89, 91). The client has no caller yet (`photos_api.dart` only reads `editedKey`), and the endpoint contract lists no such method.
-- **Live events:** `photo` on finishUpload/delete/setHero.
+- **Live events:** `photo` on finishUpload/delete/setHero of a published story's photo.
 
 ### 3e Invites
 - **Owns:** `InviteEndpoint`, `InvitePublicEndpoint` (`requireLogin => false`), and invite email delivery. Reuse the Resend transport in `lib/src/auth/login_code_sender.dart` by extracting it, not copying it.
