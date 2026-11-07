@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:serverpod/serverpod.dart';
 import 'package:tell_me_a_story_server/src/auth/auth_config.dart';
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
@@ -29,6 +31,31 @@ void main() {
       }
       final story = await fx.story(family, authorId: author, status: status);
       return (family, story);
+    }
+
+    /// startUpload + client upload of [data] + finishUpload, as [user].
+    Future<PhotoDto> upload(
+      UuidValue user,
+      Story story, {
+      String mimeType = 'image/jpeg',
+      ByteData? data,
+      int sortOrder = 0,
+    }) async {
+      final bytes = data ?? jpegBytes();
+      final as = asUser(sessionBuilder, user);
+      final ticket = await endpoints.photo.startUpload(
+        as,
+        story.id!,
+        mimeType,
+        bytes.lengthInBytes,
+      );
+      await fx.clientUpload(ticket.key, bytes);
+      return endpoints.photo.finishUpload(
+        as,
+        story.id!,
+        ticket.photoId,
+        sortOrder,
+      );
     }
 
     test('when an anonymous caller lists then unauthenticated', () async {
@@ -191,6 +218,207 @@ void main() {
             100,
           ),
           throwsAppError(AppErrorCode.forbidden),
+        );
+      },
+    );
+
+    test(
+      'when a member finishes an upload then the row is written with the '
+      'caller as uploader and the blob is verified',
+      () async {
+        final member = await fx.user();
+        final (family, story) = await familyStory(member);
+
+        final dto = await upload(member, story, sortOrder: 3);
+
+        final row = await Photo.db.findById(fx.s, dto.id);
+        expect(row!.uploaderId, member);
+        expect(row.sortOrder, 3);
+        expect(row.originalKey, dto.originalKey);
+        expect(dto.familyId, family.id);
+        expect(dto.originalKey, endsWith('/${dto.id}/original.jpg'));
+        expect(await fx.blobExists(dto.originalKey), isTrue);
+      },
+    );
+
+    test(
+      'when the bytes are not an image or differ from the declared type '
+      'then VALIDATION, no row, and the blob is queued',
+      () async {
+        final member = await fx.user();
+        final story = (await familyStory(member)).$2;
+        final as = asUser(sessionBuilder, member);
+        for (final (mime, data, message) in [
+          ('image/jpeg', textBytes(), 'unsupported image type'),
+          ('image/png', jpegBytes(), 'image type does not match'),
+        ]) {
+          final ticket = await endpoints.photo.startUpload(
+            as,
+            story.id!,
+            mime,
+            data.lengthInBytes,
+          );
+          await fx.clientUpload(ticket.key, data);
+          await expectLater(
+            endpoints.photo.finishUpload(as, story.id!, ticket.photoId, 0),
+            throwsAppError(AppErrorCode.validation, message),
+          );
+          expect(await Photo.db.findById(fx.s, ticket.photoId), isNull);
+          expect(await fx.queued([ticket.key]), {ticket.key});
+        }
+      },
+    );
+
+    test(
+      'when nothing was uploaded then STORAGE_FAILED and no row',
+      () async {
+        final member = await fx.user();
+        final story = (await familyStory(member)).$2;
+        final as = asUser(sessionBuilder, member);
+        final ticket = await endpoints.photo.startUpload(
+          as,
+          story.id!,
+          'image/jpeg',
+          10,
+        );
+        await expectLater(
+          endpoints.photo.finishUpload(as, story.id!, ticket.photoId, 0),
+          throwsAppError(AppErrorCode.storageFailed, 'upload not found'),
+        );
+        expect(await Photo.db.findById(fx.s, ticket.photoId), isNull);
+      },
+    );
+
+    test(
+      'when the same upload is finished twice then VALIDATION and the '
+      "row's blob is not queued",
+      () async {
+        final member = await fx.user();
+        final story = (await familyStory(member)).$2;
+        final dto = await upload(member, story);
+
+        await expectLater(
+          endpoints.photo.finishUpload(
+            asUser(sessionBuilder, member),
+            story.id!,
+            dto.id,
+            0,
+          ),
+          throwsAppError(AppErrorCode.validation, 'photo already added'),
+        );
+        expect(await fx.queued([dto.originalKey]), isEmpty);
+        expect(await fx.blobExists(dto.originalKey), isTrue);
+      },
+    );
+
+    // BR 78
+    test(
+      'Given story at 19 photos, when another photo lands between start and '
+      'finish, then "photo limit reached" and the blob is queued',
+      () async {
+        final member = await fx.user();
+        final story = (await familyStory(member)).$2;
+        for (var i = 0; i < 19; i++) {
+          await fx.photo(story, sortOrder: i);
+        }
+        final as = asUser(sessionBuilder, member);
+        final ticket = await endpoints.photo.startUpload(
+          as,
+          story.id!,
+          'image/jpeg',
+          jpegBytes().lengthInBytes,
+        );
+        await fx.clientUpload(ticket.key, jpegBytes());
+        await fx.photo(story, sortOrder: 19);
+
+        await expectLater(
+          endpoints.photo.finishUpload(as, story.id!, ticket.photoId, 20),
+          throwsAppError(AppErrorCode.photoCap, 'photo limit reached'),
+        );
+        expect(await Photo.db.findById(fx.s, ticket.photoId), isNull);
+        expect(await fx.queued([ticket.key]), {ticket.key});
+      },
+    );
+
+    // BR 79
+    test(
+      'Given photo uploaded for story A, when finished against story B of '
+      'the same family, then refused and no row',
+      () async {
+        final member = await fx.user();
+        final (family, a) = await familyStory(member);
+        final b = await fx.story(family, authorId: member);
+        final as = asUser(sessionBuilder, member);
+        final ticket = await endpoints.photo.startUpload(
+          as,
+          a.id!,
+          'image/jpeg',
+          jpegBytes().lengthInBytes,
+        );
+        await fx.clientUpload(ticket.key, jpegBytes());
+
+        await expectLater(
+          endpoints.photo.finishUpload(as, b.id!, ticket.photoId, 0),
+          throwsAppError(AppErrorCode.storageFailed, 'upload not found'),
+        );
+        expect(await Photo.db.findById(fx.s, ticket.photoId), isNull);
+      },
+    );
+
+    // BR 46
+    test(
+      'Given child member, when uploading for the origin story, then the key '
+      'is under the parent family (never a child-family path); on any other '
+      'parent story, then refused',
+      () async {
+        final parentAuthor = await fx.user();
+        final childMember = await fx.user();
+        final (parent, origin) = await familyStory(parentAuthor);
+        final other = await fx.story(parent, authorId: parentAuthor);
+        final child = await fx.branch(parent, origin);
+        await fx.join(child, childMember);
+
+        final dto = await upload(childMember, origin);
+
+        expect(dto.familyId, parent.id);
+        expect(dto.originalKey, startsWith('families/${parent.id}/'));
+        expect(dto.originalKey, isNot(contains('${child.id}')));
+        await expectLater(
+          endpoints.photo.startUpload(
+            asUser(sessionBuilder, childMember),
+            other.id!,
+            'image/jpeg',
+            100,
+          ),
+          throwsAppError(AppErrorCode.forbidden),
+        );
+      },
+    );
+
+    test(
+      'when a photo is added to a published story then a photo event posts; '
+      'on a draft nothing posts',
+      () async {
+        final member = await fx.user();
+        final (family, published) = await familyStory(member);
+        final draft = await fx.story(
+          family,
+          authorId: member,
+          status: StoryStatus.draft,
+        );
+
+        final events = await fx.eventsDuring(
+          family,
+          () => upload(member, published),
+        );
+        expect(events, hasLength(1));
+        expect(events.single.kind, LiveKind.photo);
+        expect(events.single.storyId, published.id);
+        expect(events.single.deleted, isFalse);
+
+        expect(
+          await fx.eventsDuring(family, () => upload(member, draft)),
+          isEmpty,
         );
       },
     );

@@ -16,3 +16,4 @@ jwtRefresh:
 photo:
   - list:
   - startUpload:
+  - finishUpload:

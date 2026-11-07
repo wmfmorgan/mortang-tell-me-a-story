@@ -389,6 +389,37 @@ class Endpoints extends _is.EndpointDispatch {
                     params['byteLength'],
                   ),
         ),
+        'finishUpload': _is.MethodConnector(
+          name: 'finishUpload',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'photoId': _is.ParameterDescription(
+              name: 'photoId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'sortOrder': _is.ParameterDescription(
+              name: 'sortOrder',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['photo'] as _ihuw68ce.PhotoEndpoint).finishUpload(
+                    session,
+                    params['storyId'],
+                    params['photoId'],
+                    params['sortOrder'],
+                  ),
+        ),
       },
     );
     modules['serverpod_auth_idp'] = _iais.Endpoints()

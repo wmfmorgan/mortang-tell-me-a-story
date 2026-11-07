@@ -712,4 +712,41 @@ class _PhotoEndpoint {
       }
     });
   }
+
+  _ida.Future<_iav5ek9v.PhotoDto> finishUpload(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue storyId,
+    _is.UuidValue photoId,
+    int sortOrder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'photo',
+            method: 'finishUpload',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'photo',
+          methodName: 'finishUpload',
+          parameters: _ist.testObjectToJson({
+            'storyId': storyId,
+            'photoId': photoId,
+            'sortOrder': sortOrder,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iav5ek9v.PhotoDto>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
 }

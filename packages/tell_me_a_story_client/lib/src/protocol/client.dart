@@ -383,6 +383,23 @@ class EndpointPhoto extends _isc.EndpointRef {
       'byteLength': byteLength,
     },
   );
+
+  /// Verifies the uploaded blob for [photoId], checks its bytes and the cap,
+  /// and writes the row. On any failure the blob is queued for deletion,
+  /// except when the row already exists (the blob is that row's).
+  _ida.Future<_ighpoo1p.PhotoDto> finishUpload(
+    _isc.UuidValue storyId,
+    _isc.UuidValue photoId,
+    int sortOrder,
+  ) => caller.callServerEndpoint<_ighpoo1p.PhotoDto>(
+    'photo',
+    'finishUpload',
+    {
+      'storyId': storyId,
+      'photoId': photoId,
+      'sortOrder': sortOrder,
+    },
+  );
 }
 
 class Modules {

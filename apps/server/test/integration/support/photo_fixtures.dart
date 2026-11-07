@@ -125,10 +125,7 @@ extension PhotoFx on Fx {
 
   /// The keys among [keys] that are queued in `blob_deletions`.
   Future<Set<String>> queued(Iterable<String?> keys) async {
-    final wanted = {
-      for (final key in keys)
-        if (key != null) key,
-    };
+    final wanted = {for (final key in keys) ?key};
     final rows = await BlobDeletion.db.find(
       s,
       where: (t) => t.key.inSet(wanted),
