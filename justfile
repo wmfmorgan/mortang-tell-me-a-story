@@ -28,6 +28,10 @@ db-test:
 test:
     cd apps/tell_me_a_story && flutter test
 
+# Live client tests against a running `just server` (start it first)
+test-live:
+    cd apps/tell_me_a_story && flutter test --tags live --run-skipped test/live
+
 # supabase functions serve --env-file supabase/.env.local
 functions-serve:
     supabase functions serve --env-file supabase/.env.local
