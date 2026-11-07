@@ -453,7 +453,7 @@ class _Profile implements ProfileGateway {
 class _Invite implements InviteGateway {
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'fam', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'fam');
   }
 
   @override
@@ -472,5 +472,8 @@ class _Invite implements InviteGateway {
   Future<String?> currentFamilyId() async => 'fam';
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }

@@ -599,7 +599,7 @@ class _Profile implements ProfileGateway {
 class _Invites implements InviteGateway {
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: _familyId, membershipId: 'm');
+    return const AcceptInviteResult(familyId: _familyId);
   }
 
   @override
@@ -611,10 +611,10 @@ class _Invites implements InviteGateway {
     String? email,
     String? personId,
   }) async {
-    return const CreateInviteResult(
+    return CreateInviteResult(
       inviteId: 'i',
       token: 't',
-      expiresAt: '2099-01-01T00:00:00Z',
+      expiresAt: DateTime.utc(2099),
       inviteUrl: 'http://127.0.0.1:3000/invite/t',
     );
   }
@@ -623,7 +623,10 @@ class _Invites implements InviteGateway {
   Future<String?> currentFamilyId() async => _familyId;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
 
 class _Session extends AppSession {

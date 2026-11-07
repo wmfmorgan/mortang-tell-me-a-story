@@ -22,7 +22,7 @@ class _FakeInviteApi implements InviteGateway {
 
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'f');
   }
 
   @override
@@ -44,7 +44,10 @@ class _FakeInviteApi implements InviteGateway {
   Future<String?> currentFamilyId() async => familyId;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
 
 class _FakePeopleApi extends PeopleGateway {

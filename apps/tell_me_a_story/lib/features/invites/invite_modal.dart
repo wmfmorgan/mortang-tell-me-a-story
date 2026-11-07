@@ -79,7 +79,7 @@ class _InviteModalState extends State<InviteModal> {
   final _emailDrafts = <String, TextEditingController>{};
   final _addingEmail = <String>{};
   final _rowError = <String, String>{};
-  final _pendingSend = <String, String>{};
+  final _pendingSend = <String, CreateInviteResult>{};
   String? _rowBusyId;
 
   @override
@@ -182,17 +182,15 @@ class _InviteModalState extends State<InviteModal> {
   /// Creates the invite once, then sends it. A second tap after a failed
   /// send retries the email and does not create another invite.
   Future<void> _createAndSend(Person person, String email) async {
-    var inviteId = _pendingSend[person.id];
-    if (inviteId == null) {
-      final created = await _api.createInvite(
-        familyId: widget.familyId,
-        personId: person.id,
-        email: email,
-      );
-      inviteId = created.inviteId;
-      _pendingSend[person.id] = inviteId;
-    }
-    await _api.sendInviteEmail(inviteId: inviteId);
+    final created = _pendingSend[person.id] ??= await _api.createInvite(
+      familyId: widget.familyId,
+      personId: person.id,
+      email: email,
+    );
+    await _api.sendInviteEmail(
+      inviteId: created.inviteId,
+      token: created.token,
+    );
     _pendingSend.remove(person.id);
     if (!mounted) return;
     setState(() => _dropNotInvited(person.id));
@@ -261,7 +259,10 @@ class _InviteModalState extends State<InviteModal> {
         familyId: widget.familyId,
         email: email,
       );
-      await _api.sendInviteEmail(inviteId: created.inviteId);
+      await _api.sendInviteEmail(
+        inviteId: created.inviteId,
+        token: created.token,
+      );
       if (!mounted) return;
       _toast('Invite sent');
       Navigator.of(context).pop();

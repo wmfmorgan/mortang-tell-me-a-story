@@ -45,7 +45,7 @@ Uint8List _pngOf(int width, int height) {
 class _FakeInviteApi implements InviteGateway {
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'f');
   }
 
   @override
@@ -64,7 +64,10 @@ class _FakeInviteApi implements InviteGateway {
   Future<String?> currentFamilyId() async => _familyId;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
 
 class _FakeStoriesApi implements StoriesGateway {
@@ -4041,7 +4044,7 @@ class _FamilyInvite implements InviteGateway {
 
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'f');
   }
 
   @override
@@ -4060,7 +4063,10 @@ class _FamilyInvite implements InviteGateway {
   Future<String?> currentFamilyId() async => familyId;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
 
 class _TreeFamilies extends FamiliesGateway {

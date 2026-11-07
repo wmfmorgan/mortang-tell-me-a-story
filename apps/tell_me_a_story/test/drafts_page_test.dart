@@ -23,7 +23,7 @@ const _familyId = '00000000-0000-0000-0000-000000000001';
 class _FakeInviteApi implements InviteGateway {
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'f');
   }
 
   @override
@@ -42,7 +42,10 @@ class _FakeInviteApi implements InviteGateway {
   Future<String?> currentFamilyId() async => _familyId;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
 
 Story _draft({
