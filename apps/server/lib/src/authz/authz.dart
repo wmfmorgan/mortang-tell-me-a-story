@@ -15,12 +15,12 @@ class Authz {
 
   UuidValue? get userId => session.authenticated?.authUserId;
 
-  /// Returns the caller's id or throws `AppException(code: 'auth_required')`.
+  /// Returns the caller's id or throws `AppException(AppErrorCode.authRequired)`.
   UuidValue requireUser() {
     final id = userId;
     if (id == null) {
       throw AppException(
-        code: 'auth_required',
+        code: AppErrorCode.authRequired,
         message: 'Sign in to continue.',
       );
     }
@@ -82,11 +82,11 @@ class Authz {
   /// Same as [isTreeReadable]; kept as the business-rules name.
   Future<bool> isTreeMember(UuidValue familyId) => isTreeReadable(familyId);
 
-  /// Throws `AppException(code: 'forbidden')` unless [allowed].
+  /// Throws `AppException(AppErrorCode.forbidden)` unless [allowed].
   void ensure(bool allowed) {
     if (!allowed) {
       throw AppException(
-        code: 'forbidden',
+        code: AppErrorCode.forbidden,
         message: "You don't have access to that.",
       );
     }

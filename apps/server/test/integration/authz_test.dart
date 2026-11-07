@@ -98,7 +98,11 @@ void main() {
       expect(
         () => authzFor(null).requireUser(),
         throwsA(
-          isA<AppException>().having((e) => e.code, 'code', 'auth_required'),
+          isA<AppException>().having(
+            (e) => e.code,
+            'code',
+            AppErrorCode.authRequired,
+          ),
         ),
       );
     });

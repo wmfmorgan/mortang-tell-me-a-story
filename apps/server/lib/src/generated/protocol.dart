@@ -17,6 +17,7 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
+import 'app_error_code.dart' as _imu8gbx5;
 import 'app_exception.dart' as _it4z223c;
 import 'app_user.dart' as _i2j2xfrn;
 import 'birth_visibility.dart' as _i2x3tia5;
@@ -35,6 +36,7 @@ import 'story_note.dart' as _iugi3tvg;
 import 'story_person.dart' as _i0053fvj;
 import 'story_status.dart' as _ixc1exsr;
 import 'tree.dart' as _i5e6tmks;
+export 'app_error_code.dart';
 export 'app_exception.dart';
 export 'app_user.dart';
 export 'birth_visibility.dart';
@@ -67,6 +69,7 @@ class Protocol extends _is.DatabaseSerializationManager
       _is.ProtocolDeserialization.cached(
         this,
         types: const [
+          _is.getType<_imu8gbx5.AppErrorCode>,
           _is.getType<_it4z223c.AppException>,
           _is.getType<_i2j2xfrn.AppUser>,
           _is.getType<_i2x3tia5.BirthVisibility>,
@@ -85,6 +88,7 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<_i0053fvj.StoryPerson>,
           _is.getType<_ixc1exsr.StoryStatus>,
           _is.getType<_i5e6tmks.Tree>,
+          _is.getType<_imu8gbx5.AppErrorCode?>,
           _is.getType<_it4z223c.AppException?>,
           _is.getType<_i2j2xfrn.AppUser?>,
           _is.getType<_i2x3tia5.BirthVisibility?>,
@@ -110,6 +114,7 @@ class Protocol extends _is.DatabaseSerializationManager
           _isp.Protocol.new,
         ],
         classNames: const [
+          'AppErrorCode',
           'AppException',
           'AppUser',
           'BirthVisibility',
@@ -1589,6 +1594,9 @@ class Protocol extends _is.DatabaseSerializationManager
       }
     }
 
+    if (t == _imu8gbx5.AppErrorCode) {
+      return _imu8gbx5.AppErrorCode.fromJson(data) as T;
+    }
     if (t == _it4z223c.AppException) {
       return _it4z223c.AppException.fromJson(data) as T;
     }
@@ -1642,6 +1650,9 @@ class Protocol extends _is.DatabaseSerializationManager
     }
     if (t == _i5e6tmks.Tree) {
       return _i5e6tmks.Tree.fromJson(data) as T;
+    }
+    if (t == _is.getType<_imu8gbx5.AppErrorCode?>()) {
+      return (data != null ? _imu8gbx5.AppErrorCode.fromJson(data) : null) as T;
     }
     if (t == _is.getType<_it4z223c.AppException?>()) {
       return (data != null ? _it4z223c.AppException.fromJson(data) : null) as T;
@@ -1715,6 +1726,7 @@ class Protocol extends _is.DatabaseSerializationManager
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
+      _imu8gbx5.AppErrorCode => 'AppErrorCode',
       _it4z223c.AppException => 'AppException',
       _i2j2xfrn.AppUser => 'AppUser',
       _i2x3tia5.BirthVisibility => 'BirthVisibility',
@@ -1750,6 +1762,8 @@ class Protocol extends _is.DatabaseSerializationManager
     }
 
     switch (data) {
+      case _imu8gbx5.AppErrorCode():
+        return 'AppErrorCode';
       case _it4z223c.AppException():
         return 'AppException';
       case _i2j2xfrn.AppUser():
@@ -1811,6 +1825,9 @@ class Protocol extends _is.DatabaseSerializationManager
     var dataClassName = data['className'];
     if (dataClassName is! String) {
       return super.deserializeByClassName(data);
+    }
+    if (dataClassName == 'AppErrorCode') {
+      return deserialize<_imu8gbx5.AppErrorCode>(data['data']);
     }
     if (dataClassName == 'AppException') {
       return deserialize<_it4z223c.AppException>(data['data']);

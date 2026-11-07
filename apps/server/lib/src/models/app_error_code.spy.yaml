@@ -1,0 +1,14 @@
+### Machine-readable error code carried by [AppException]. Stored by name.
+enum: AppErrorCode
+serialized: byName
+values:
+  - authRequired
+  - forbidden
+  - notFound
+  - validation
+  - conflict
+  - inviteInvalid
+  - inviteAccepted
+  - inviteExpired
+  - photoCap
+  - storageFailed

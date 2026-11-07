@@ -11,10 +11,10 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod/serverpod.dart' as _is;
+import 'app_error_code.dart' as _imu8gbx5;
 
-/// Single error envelope for every endpoint.
-/// code: auth_required | forbidden | not_found | validation | conflict |
-///       invite_invalid | invite_accepted | invite_expired
+/// Single error envelope for every endpoint. [code] is the typed
+/// [AppErrorCode]; [message] is human-readable.
 abstract class AppException
     implements
         _is.SerializableException,
@@ -26,18 +26,20 @@ abstract class AppException
   });
 
   factory AppException({
-    required String code,
+    required _imu8gbx5.AppErrorCode code,
     required String message,
   }) = _AppExceptionImpl;
 
   factory AppException.fromJson(Map<String, dynamic> jsonSerialization) {
     return AppException(
-      code: jsonSerialization['code'] as String,
+      code: _imu8gbx5.AppErrorCode.fromJson(
+        (jsonSerialization['code'] as String),
+      ),
       message: jsonSerialization['message'] as String,
     );
   }
 
-  String code;
+  _imu8gbx5.AppErrorCode code;
 
   String message;
 
@@ -45,14 +47,14 @@ abstract class AppException
   /// with some or all fields replaced by the given arguments.
   @_is.useResult
   AppException copyWith({
-    String? code,
+    _imu8gbx5.AppErrorCode? code,
     String? message,
   });
   @override
   Map<String, dynamic> toJson() {
     return {
       '__className__': 'AppException',
-      'code': code,
+      'code': code.toJson(),
       'message': message,
     };
   }
@@ -61,7 +63,7 @@ abstract class AppException
   Map<String, dynamic> toJsonForProtocol() {
     return {
       '__className__': 'AppException',
-      'code': code,
+      'code': code.toJson(),
       'message': message,
     };
   }
@@ -74,7 +76,7 @@ abstract class AppException
 
 class _AppExceptionImpl extends AppException {
   _AppExceptionImpl({
-    required String code,
+    required _imu8gbx5.AppErrorCode code,
     required String message,
   }) : super._(
          code: code,
@@ -86,7 +88,7 @@ class _AppExceptionImpl extends AppException {
   @_is.useResult
   @override
   AppException copyWith({
-    String? code,
+    _imu8gbx5.AppErrorCode? code,
     String? message,
   }) {
     return AppException(
