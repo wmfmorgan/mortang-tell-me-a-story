@@ -32,6 +32,7 @@ These fill gaps the spec leaves open. None changes a schema, a DTO or another sl
 | Note body | trimmed; blank → `VALIDATION: body is required` | DB CHECK `story_notes_body_not_blank`; no catalogue string |
 | Tagging a person / using a place outside the story's tree (or missing) | `FORBIDDEN` | business-rules §2.6: same tree is an authorization rule |
 | Unpublish | No endpoint method exists (contract §2.2 has none, the app has no caller). Tests that need an unpublished story set the row directly | contract wins |
+| Defaulted named parameters (`allowUndated = false`, `withinDays = 7`, `limit = 3`) | Server signatures match the contract exactly, but Serverpod 4.1.1 generates them as `required` named parameters in the client and test tools, so tests (and Phase 4 callers) pass them explicitly | generator behaviour, not a contract change |
 | Locked columns (cases 72, 73, 94) | Structural: `StoryWriteDto` and `note.update` carry no author/family/status/createdAt; tests assert they are unchanged after edits | there is no API to send them |
 
 ## File map
@@ -95,7 +96,11 @@ void main() {
 
     test('Given month and year precision, then the end closes the span', () {
       expect(
-        normalizeStoryDates(DateTime.utc(1952, 2), null, DatePrecision.month).end,
+        normalizeStoryDates(
+          DateTime.utc(1952, 2),
+          null,
+          DatePrecision.month,
+        ).end,
         DateTime.utc(1952, 2, 29),
       );
       expect(
@@ -114,10 +119,18 @@ void main() {
       'year outside 1000–9999 / time of day, then rejected',
       () {
         final bad = <(DateTime, DateTime?, DatePrecision?)>[
-          (DateTime.utc(1950, 6, 3), DateTime.utc(1950, 6, 4), DatePrecision.day),
+          (
+            DateTime.utc(1950, 6, 3),
+            DateTime.utc(1950, 6, 4),
+            DatePrecision.day,
+          ),
           (DateTime.utc(1950, 6, 3), DateTime.utc(1950, 6, 9), null),
           (DateTime.utc(1950, 6, 3), null, DatePrecision.month),
-          (DateTime.utc(1950, 6), DateTime.utc(1950, 7, 31), DatePrecision.month),
+          (
+            DateTime.utc(1950, 6),
+            DateTime.utc(1950, 7, 31),
+            DatePrecision.month,
+          ),
           (DateTime.utc(1950, 6), null, DatePrecision.year),
           (DateTime.utc(1950), DateTime.utc(1950, 6, 30), DatePrecision.year),
           (DateTime.utc(999), null, DatePrecision.year),
@@ -456,8 +469,7 @@ List<LiveEventDto> liveEvents(Session session, String channel) {
 }
 
 /// Gives local message delivery a moment.
-Future<void> settle() =>
-    Future<void>.delayed(const Duration(milliseconds: 50));
+Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 50));
 ```
 
 - [ ] **Step 2: Write the failing test**
@@ -755,11 +767,14 @@ void main() {
             write(title: ' Undated '),
             allowUndated: true,
           );
-          expect((dto.dateStart, dto.dateEnd, dto.datePrecision), (
-            null,
-            null,
-            null,
-          ));
+          expect(
+            (dto.dateStart, dto.dateEnd, dto.datePrecision),
+            (
+              null,
+              null,
+              null,
+            ),
+          );
           expect(dto.status, StoryStatus.draft);
           expect(dto.authorId, c.member);
           expect(dto.title, 'Undated');
@@ -778,6 +793,7 @@ void main() {
               by(c.member),
               c.family.id!,
               write(title: 'x'),
+              allowUndated: false,
             ),
             throwsAppError(AppErrorCode.validation, 'date required'),
           );
@@ -792,6 +808,7 @@ void main() {
             by(c.member),
             c.family.id!,
             write(dateStart: DateTime.utc(1950, 6, 3)),
+            allowUndated: false,
           );
           expect(dto.dateEnd, DateTime.utc(1950, 6, 3));
           expect(dto.datePrecision, DatePrecision.day);
@@ -810,6 +827,7 @@ void main() {
                 dateStart: DateTime.utc(1950, 6, 3),
                 datePrecision: DatePrecision.month,
               ),
+              allowUndated: false,
             ),
             throwsAppError(AppErrorCode.validation, invalidDateMessage),
           );
@@ -830,6 +848,7 @@ void main() {
                 dateEnd: DateTime.utc(1959, 12, 31),
                 datePrecision: DatePrecision.year,
               ),
+              allowUndated: false,
             ),
             throwsAppError(AppErrorCode.validation, invalidDateMessage),
           );
@@ -842,12 +861,22 @@ void main() {
         () async {
           final input = write(dateStart: DateTime.utc(1950));
           await expectLater(
-            endpoints.story.createDraft(by(c.stranger), c.family.id!, input),
+            endpoints.story.createDraft(
+              by(c.stranger),
+              c.family.id!,
+              input,
+              allowUndated: false,
+            ),
             throwsAppError(AppErrorCode.forbidden, 'member only'),
           );
           await fx.softDelete(c.family);
           await expectLater(
-            endpoints.story.createDraft(by(c.member), c.family.id!, input),
+            endpoints.story.createDraft(
+              by(c.member),
+              c.family.id!,
+              input,
+              allowUndated: false,
+            ),
             throwsAppError(AppErrorCode.forbidden, 'member only'),
           );
           expect(
@@ -870,12 +899,14 @@ void main() {
             c.family.id!,
             write(title: 'First', dateStart: DateTime.utc(1950)),
             id: id,
+            allowUndated: false,
           );
           final again = await endpoints.story.createDraft(
             by(c.author),
             c.family.id!,
             write(title: 'Second', dateStart: DateTime.utc(1950)),
             id: id,
+            allowUndated: false,
           );
           expect(again.id, id);
           expect(again.title, 'Second');
@@ -883,16 +914,31 @@ void main() {
         },
       );
 
-      test('when two creates with the same id race then one draft exists', () async {
-        final id = newId();
-        final input = write(title: 'Twice', dateStart: DateTime.utc(1950));
-        final results = await Future.wait([
-          endpoints.story.createDraft(by(c.author), c.family.id!, input, id: id),
-          endpoints.story.createDraft(by(c.author), c.family.id!, input, id: id),
-        ]);
-        expect(results.map((d) => d.id).toSet(), {id});
-        expect(await Story.db.count(fx.s, where: (t) => t.id.equals(id)), 1);
-      });
+      test(
+        'when two creates with the same id race then one draft exists',
+        () async {
+          final id = newId();
+          final input = write(title: 'Twice', dateStart: DateTime.utc(1950));
+          final results = await Future.wait([
+            endpoints.story.createDraft(
+              by(c.author),
+              c.family.id!,
+              input,
+              id: id,
+              allowUndated: false,
+            ),
+            endpoints.story.createDraft(
+              by(c.author),
+              c.family.id!,
+              input,
+              id: id,
+              allowUndated: false,
+            ),
+          ]);
+          expect(results.map((d) => d.id).toSet(), {id});
+          expect(await Story.db.count(fx.s, where: (t) => t.id.equals(id)), 1);
+        },
+      );
 
       test(
         'when another member retries a create with an existing id then '
@@ -905,6 +951,7 @@ void main() {
             c.family.id!,
             input,
             id: id,
+            allowUndated: false,
           );
           await expectLater(
             endpoints.story.createDraft(
@@ -912,6 +959,7 @@ void main() {
               c.family.id!,
               write(title: 'Theirs', dateStart: DateTime.utc(1950)),
               id: id,
+              allowUndated: false,
             ),
             throwsAppError(AppErrorCode.forbidden),
           );
@@ -932,6 +980,7 @@ void main() {
               placeId: place.id,
               personIds: [person.id!, person.id!],
             ),
+            allowUndated: false,
           );
           expect(dto.people.map((p) => p.personId), [person.id]);
           expect(dto.placeLabel, 'Home');
@@ -954,6 +1003,7 @@ void main() {
               body: 'B',
               placeId: place.id,
             ),
+            allowUndated: false,
           );
           final dto = await endpoints.story.updateDraft(
             by(c.author),
@@ -1032,7 +1082,10 @@ void main() {
             endpoints.story.updateDraft(by(c.author), newId(), write()),
             throwsAppError(AppErrorCode.forbidden),
           );
-          expect((await Story.db.findById(fx.s, published.id!))!.title, 'A story');
+          expect(
+            (await Story.db.findById(fx.s, published.id!))!.title,
+            'A story',
+          );
         },
       );
 
@@ -1181,19 +1234,22 @@ void main() {
         },
       );
 
-      test('when linking the same person twice then there is one tag', () async {
-        final person = await fx.person(c.family);
-        final story = await c.draft();
-        await endpoints.story.linkPerson(by(c.author), story.id!, person.id!);
-        await endpoints.story.linkPerson(by(c.author), story.id!, person.id!);
-        expect(
-          await StoryPerson.db.count(
-            fx.s,
-            where: (t) => t.storyId.equals(story.id!),
-          ),
-          1,
-        );
-      });
+      test(
+        'when linking the same person twice then there is one tag',
+        () async {
+          final person = await fx.person(c.family);
+          final story = await c.draft();
+          await endpoints.story.linkPerson(by(c.author), story.id!, person.id!);
+          await endpoints.story.linkPerson(by(c.author), story.id!, person.id!);
+          expect(
+            await StoryPerson.db.count(
+              fx.s,
+              where: (t) => t.storyId.equals(story.id!),
+            ),
+            1,
+          );
+        },
+      );
 
       // BR 76
       test(
@@ -1290,6 +1346,7 @@ void main() {
             by(c.author),
             c.family.id!,
             write(dateStart: DateTime.utc(1950)),
+            allowUndated: false,
           );
           await endpoints.story.updateDraft(
             by(c.author),
@@ -1649,7 +1706,7 @@ String? _text(String? value) {
 - [ ] **Step 4: Generate and run the tests**
 
 Run: `mise exec -- just server-generate && cd apps/server && mise exec -- dart test test/integration/story_endpoint_test.dart`
-Expected: PASS (29 tests).
+Expected: PASS (28 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1697,7 +1754,10 @@ git commit -m "feat(server): StoryEndpoint drafting, editing and tags"
           await endpoints.story.updateDraft(
             by(c.author),
             draft.id,
-            write(dateStart: DateTime.utc(1950), datePrecision: DatePrecision.year),
+            write(
+              dateStart: DateTime.utc(1950),
+              datePrecision: DatePrecision.year,
+            ),
           );
           final dto = await endpoints.story.publish(by(c.author), draft.id);
           expect(dto.status, StoryStatus.published);
@@ -1721,6 +1781,7 @@ git commit -m "feat(server): StoryEndpoint drafting, editing and tags"
               by(c.author),
               c.family.id!,
               ready,
+              allowUndated: false,
             );
             await endpoints.story.updateDraft(by(c.author), draft.id, gap);
             await expectLater(
@@ -1761,6 +1822,7 @@ git commit -m "feat(server): StoryEndpoint drafting, editing and tags"
             by(c.author),
             c.family.id!,
             await c.ready(),
+            allowUndated: false,
           );
           final family = liveEvents(fx.s, familyChannel(c.family.id!));
           final first = await endpoints.story.publish(by(c.author), draft.id);
@@ -1824,6 +1886,7 @@ git commit -m "feat(server): StoryEndpoint drafting, editing and tags"
             by(c.author),
             c.family.id!,
             await c.ready(),
+            allowUndated: false,
           );
           await endpoints.story.publish(by(c.author), draft.id);
           final branch = await c.branch();
@@ -1916,7 +1979,12 @@ git commit -m "feat(server): StoryEndpoint drafting, editing and tags"
             throwsAppError(AppErrorCode.forbidden),
           );
           await expectLater(
-            endpoints.story.listLatestPublished(by(c.member), b.family.id!),
+            endpoints.story.listLatestPublished(
+              by(c.member),
+              b.family.id!,
+              withinDays: 7,
+              limit: 3,
+            ),
             throwsAppError(AppErrorCode.forbidden),
           );
           await expectLater(
@@ -2000,6 +2068,8 @@ git commit -m "feat(server): StoryEndpoint drafting, editing and tags"
             (await endpoints.story.listLatestPublished(
               by(c.member),
               c.family.id!,
+              withinDays: 7,
+              limit: 3,
             )).map((s) => s.id),
             [one.id, two.id, three.id],
           );
@@ -2058,7 +2128,10 @@ git commit -m "feat(server): StoryEndpoint drafting, editing and tags"
       );
 
       test('when the story is missing then getPublished is null', () async {
-        expect(await endpoints.story.getPublished(by(c.member), newId()), isNull);
+        expect(
+          await endpoints.story.getPublished(by(c.member), newId()),
+          isNull,
+        );
       });
     });
 ```
@@ -2199,9 +2272,9 @@ Expected: FAIL to load: `publish`, `getPublished`, `listMyDrafts`, `listPublishe
     final stories = await Story.db.find(
       session,
       where: (t) =>
-          t.id.inSet({for (final tag in tags) tag.storyId}) &
+          t.id.inSet(<UuidValue>{for (final tag in tags) tag.storyId}) &
           t.status.equals(StoryStatus.published) &
-          t.familyId.inSet({for (final f in liveFamilies) f.id!}),
+          t.familyId.inSet(<UuidValue>{for (final f in liveFamilies) f.id!}),
       orderByList: _timelineOrder,
     );
     return storyDtos(session, stories);
@@ -2245,7 +2318,7 @@ void _requireReady(Story story, int tagCount) {
 - [ ] **Step 4: Generate and run the tests**
 
 Run: `mise exec -- just server-generate && cd apps/server && mise exec -- dart test test/integration/story_endpoint_test.dart`
-Expected: PASS (42 tests).
+Expected: PASS (41 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -2285,7 +2358,10 @@ Covers the discard path (photo keys queued, D4: owners can't delete others' stor
           await endpoints.story.discard(by(c.author), story.id!);
           expect(await Story.db.findById(fx.s, story.id!), isNull);
           expect(
-            await Photo.db.count(fx.s, where: (t) => t.storyId.equals(story.id!)),
+            await Photo.db.count(
+              fx.s,
+              where: (t) => t.storyId.equals(story.id!),
+            ),
             0,
           );
           expect(
@@ -2419,7 +2495,7 @@ import '../media/blob_outbox.dart';
 - [ ] **Step 4: Generate and run the tests**
 
 Run: `mise exec -- just server-generate && cd apps/server && mise exec -- dart test test/integration/story_endpoint_test.dart`
-Expected: PASS (46 tests).
+Expected: PASS (45 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -2597,8 +2673,14 @@ Endpoint-contract §2.2 search semantics: scope, AND people, exact place, decade
         () async {
           final now = DateTime.now().toUtc();
           final old = await dated(1900, publishedAt: now);
-          final mid = await dated(1950, publishedAt: now.subtract(const Duration(days: 2)));
-          final recent = await dated(2000, publishedAt: now.subtract(const Duration(days: 1)));
+          final mid = await dated(
+            1950,
+            publishedAt: now.subtract(const Duration(days: 2)),
+          );
+          final recent = await dated(
+            2000,
+            publishedAt: now.subtract(const Duration(days: 1)),
+          );
           expect(
             await ids(query(c.family.id!, sort: SearchSort.chronological)),
             [recent.id, mid.id, old.id],
@@ -2815,10 +2897,8 @@ Future<StoryFacetsDto> storyFacets(Session session, UuidValue familyId) async {
 }
 
 /// [text] with LIKE wildcards and the escape character escaped.
-String _escapeLike(String text) => text
-    .replaceAll(r'\', r'\\')
-    .replaceAll('%', r'\%')
-    .replaceAll('_', r'\_');
+String _escapeLike(String text) =>
+    text.replaceAll(r'\', r'\\').replaceAll('%', r'\%').replaceAll('_', r'\_');
 ```
 
 - [ ] **Step 4: Add the endpoint methods**
@@ -2854,7 +2934,7 @@ import '../stories/story_search.dart';
 - [ ] **Step 5: Generate and run the tests**
 
 Run: `mise exec -- just server-generate && cd apps/server && mise exec -- dart test test/integration/story_endpoint_test.dart`
-Expected: PASS (53 tests).
+Expected: PASS (52 tests).
 
 - [ ] **Step 6: Commit**
 
@@ -2924,7 +3004,12 @@ void main() {
         () async {
           final story = await c.published();
           for (final kind in NoteKind.values) {
-            final note = await comment(c.member, story, kind: kind, body: ' Hi ');
+            final note = await comment(
+              c.member,
+              story,
+              kind: kind,
+              body: ' Hi ',
+            );
             expect(note.body, 'Hi');
             expect(note.kind, kind);
             expect(note.authorId, c.member);
@@ -3028,7 +3113,11 @@ void main() {
         'when a note is edited then only its body changes',
         () async {
           final story = await c.published();
-          final note = await fx.note(story, c.member, kind: NoteKind.perspective);
+          final note = await fx.note(
+            story,
+            c.member,
+            kind: NoteKind.perspective,
+          );
           await endpoints.note.update(by(c.member), note.id!, 'New body');
           final row = (await StoryNote.db.findById(fx.s, note.id!))!;
           expect(row.body, 'New body');
@@ -3039,18 +3128,21 @@ void main() {
         },
       );
 
-      test('when the body is blank then VALIDATION "body is required"', () async {
-        final story = await c.published();
-        await expectLater(
-          comment(c.member, story, body: '  '),
-          throwsAppError(AppErrorCode.validation, 'body is required'),
-        );
-        final note = await comment(c.member, story);
-        await expectLater(
-          endpoints.note.update(by(c.member), note.id, ''),
-          throwsAppError(AppErrorCode.validation, 'body is required'),
-        );
-      });
+      test(
+        'when the body is blank then VALIDATION "body is required"',
+        () async {
+          final story = await c.published();
+          await expectLater(
+            comment(c.member, story, body: '  '),
+            throwsAppError(AppErrorCode.validation, 'body is required'),
+          );
+          final note = await comment(c.member, story);
+          await expectLater(
+            endpoints.note.update(by(c.member), note.id, ''),
+            throwsAppError(AppErrorCode.validation, 'body is required'),
+          );
+        },
+      );
 
       test(
         'when listing by kind then only that kind comes back, oldest first',
@@ -3311,15 +3403,18 @@ void main() {
         },
       );
 
-      test('when the author comments on their draft then nothing is posted', () async {
-        final draft = await c.draft();
-        final family = liveEvents(fx.s, familyChannel(c.family.id!));
-        final note = await comment(c.author, draft);
-        await endpoints.note.update(by(c.author), note.id, 'x');
-        await endpoints.note.delete(by(c.author), note.id);
-        await settle();
-        expect(family, isEmpty);
-      });
+      test(
+        'when the author comments on their draft then nothing is posted',
+        () async {
+          final draft = await c.draft();
+          final family = liveEvents(fx.s, familyChannel(c.family.id!));
+          final note = await comment(c.author, draft);
+          await endpoints.note.update(by(c.author), note.id, 'x');
+          await endpoints.note.delete(by(c.author), note.id);
+          await settle();
+          expect(family, isEmpty);
+        },
+      );
     });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }
@@ -3536,13 +3631,14 @@ Expected: `Formatted N files (0 changed)` on the second command.
 
 - [ ] **Step 2: Analyze**
 
-Run: `cd apps/server && mise exec -- dart analyze lib test && cd ../../packages/tell_me_a_story_client && mise exec -- dart analyze`
+Run: `cd apps/server && mise exec -- dart analyze lib test && cd ../../packages/tell_me_a_story_client && mise exec -- dart pub get && mise exec -- dart analyze`
+(A fresh worktree needs the `pub get` in the client package, or analyze reports `uri_does_not_exist` for `serverpod_client`.)
 Expected: `No issues found!` twice.
 
 - [ ] **Step 3: Test**
 
 Run: `mise exec -- just server-test`
-Expected: `All tests passed!`
+Expected: `All tests passed!` (180 tests: 100 from 3.0, 6 unit, 1 DTO, 52 story, 21 note).
 
 - [ ] **Step 4: Commit any formatting changes**
 
