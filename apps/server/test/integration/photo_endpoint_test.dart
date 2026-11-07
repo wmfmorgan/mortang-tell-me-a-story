@@ -422,5 +422,143 @@ void main() {
         );
       },
     );
+
+    // BR 47
+    test(
+      "Given child member, when deleting a parent member's photo, then "
+      'refused and nothing changes; can delete own uploaded photo and blob',
+      () async {
+        final parentMember = await fx.user();
+        final childMember = await fx.user();
+        final (parent, origin) = await familyStory(parentMember);
+        final child = await fx.branch(parent, origin);
+        await fx.join(child, childMember);
+        final theirs = await fx.photo(origin, uploaderId: parentMember);
+        final mine = await fx.photo(origin, uploaderId: childMember);
+        final as = asUser(sessionBuilder, childMember);
+
+        await expectLater(
+          endpoints.photo.delete(as, theirs.id!),
+          throwsAppError(AppErrorCode.forbidden),
+        );
+        expect(await Photo.db.findById(fx.s, theirs.id!), isNotNull);
+        expect(await fx.queued([theirs.originalKey]), isEmpty);
+
+        await endpoints.photo.delete(as, mine.id!);
+        expect(await Photo.db.findById(fx.s, mine.id!), isNull);
+        expect(await fx.queued([mine.originalKey]), {mine.originalKey});
+      },
+    );
+
+    // BR 82
+    test(
+      "Given parent owner, then can delete a child contributor's photo row "
+      'and blobs on the published origin story; child-timeline owner '
+      'deletes no parent photos',
+      () async {
+        final parentOwner = await fx.user();
+        final childOwner = await fx.user();
+        final (parent, origin) = await familyStory(
+          parentOwner,
+          authorRole: MembershipRole.owner,
+        );
+        final child = await fx.branch(parent, origin);
+        await fx.join(child, childOwner, MembershipRole.owner);
+        final contributed = await fx.photo(
+          origin,
+          uploaderId: childOwner,
+          edited: true,
+        );
+        final parentPhoto = await fx.photo(origin, uploaderId: parentOwner);
+
+        await expectLater(
+          endpoints.photo.delete(
+            asUser(sessionBuilder, childOwner),
+            parentPhoto.id!,
+          ),
+          throwsAppError(AppErrorCode.forbidden),
+        );
+        expect(await Photo.db.findById(fx.s, parentPhoto.id!), isNotNull);
+
+        await endpoints.photo.delete(
+          asUser(sessionBuilder, parentOwner),
+          contributed.id!,
+        );
+        expect(await Photo.db.findById(fx.s, contributed.id!), isNull);
+        expect(
+          await fx.queued([contributed.originalKey, contributed.editedKey]),
+          {contributed.originalKey, contributed.editedKey},
+        );
+      },
+    );
+
+    // BR 83
+    test(
+      "Given story D reverted to draft with member B's photo on it, when B "
+      "deletes it, then nothing changes; author A can delete A's own photo "
+      'on D; on published P, B deletes own photo and blob',
+      () async {
+        final a = await fx.user();
+        final b = await fx.user();
+        final (family, published) = await familyStory(a, members: [b]);
+        final draft = await fx.story(
+          family,
+          authorId: a,
+          status: StoryStatus.draft,
+        );
+        final bsOnDraft = await fx.photo(draft, uploaderId: b);
+        final asOnDraft = await fx.photo(draft, uploaderId: a);
+        final bsOnPublished = await fx.photo(published, uploaderId: b);
+
+        await expectLater(
+          endpoints.photo.delete(asUser(sessionBuilder, b), bsOnDraft.id!),
+          throwsAppError(AppErrorCode.forbidden),
+        );
+        expect(await Photo.db.findById(fx.s, bsOnDraft.id!), isNotNull);
+
+        await endpoints.photo.delete(asUser(sessionBuilder, a), asOnDraft.id!);
+        expect(await Photo.db.findById(fx.s, asOnDraft.id!), isNull);
+
+        await endpoints.photo.delete(
+          asUser(sessionBuilder, b),
+          bsOnPublished.id!,
+        );
+        expect(await Photo.db.findById(fx.s, bsOnPublished.id!), isNull);
+        expect(await fx.queued([bsOnPublished.originalKey]), {
+          bsOnPublished.originalKey,
+        });
+      },
+    );
+
+    test('when deleting a missing photo then FORBIDDEN', () async {
+      await expectLater(
+        endpoints.photo.delete(
+          asUser(sessionBuilder, await fx.user()),
+          const Uuid().v7obj(),
+        ),
+        throwsAppError(AppErrorCode.forbidden),
+      );
+    });
+
+    test(
+      'when a photo of a published story is deleted then a deleted photo '
+      'event posts',
+      () async {
+        final member = await fx.user();
+        final (family, story) = await familyStory(member);
+        final photo = await fx.photo(story, uploaderId: member);
+
+        final events = await fx.eventsDuring(
+          family,
+          () => endpoints.photo.delete(
+            asUser(sessionBuilder, member),
+            photo.id!,
+          ),
+        );
+        expect(events, hasLength(1));
+        expect(events.single.kind, LiveKind.photo);
+        expect(events.single.deleted, isTrue);
+      },
+    );
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

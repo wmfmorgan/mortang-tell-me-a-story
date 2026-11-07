@@ -420,6 +420,24 @@ class Endpoints extends _is.EndpointDispatch {
                     params['sortOrder'],
                   ),
         ),
+        'delete': _is.MethodConnector(
+          name: 'delete',
+          params: {
+            'photoId': _is.ParameterDescription(
+              name: 'photoId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['photo'] as _ihuw68ce.PhotoEndpoint).delete(
+                session,
+                params['photoId'],
+              ),
+        ),
       },
     );
     modules['serverpod_auth_idp'] = _iais.Endpoints()

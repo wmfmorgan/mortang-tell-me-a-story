@@ -17,3 +17,4 @@ photo:
   - list:
   - startUpload:
   - finishUpload:
+  - delete:

@@ -400,6 +400,15 @@ class EndpointPhoto extends _isc.EndpointRef {
       'sortOrder': sortOrder,
     },
   );
+
+  /// Deletes the row; its original and edited keys are queued in the same
+  /// transaction.
+  _ida.Future<void> delete(_isc.UuidValue photoId) =>
+      caller.callServerEndpoint<void>(
+        'photo',
+        'delete',
+        {'photoId': photoId},
+      );
 }
 
 class Modules {

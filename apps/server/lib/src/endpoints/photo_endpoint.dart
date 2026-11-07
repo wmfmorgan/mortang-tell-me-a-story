@@ -224,6 +224,42 @@ class PhotoEndpoint extends Endpoint {
     );
   }
 
+  /// Deletes the row; its original and edited keys are queued in the same
+  /// transaction.
+  Future<void> delete(Session session, UuidValue photoId) async {
+    final photo = await Photo.db.findById(session, photoId);
+    final story = photo == null
+        ? null
+        : await Story.db.findById(session, photo.storyId);
+    if (photo == null ||
+        story == null ||
+        !await _canChange(session, story, photo)) {
+      throw forbidden();
+    }
+    await session.db.transaction((t) async {
+      final deleted = await Photo.db.deleteWhere(
+        session,
+        where: (p) => p.id.equals(photoId),
+        transaction: t,
+      );
+      await queueBlobDeletions(session, [
+        for (final row in deleted) ...[row.originalKey, row.editedKey],
+      ], transaction: t);
+    });
+    await _postIfPublished(session, story, deleted: true);
+  }
+
+  /// Delete and reorder: `canContribute` AND (uploader OR `canEditStory`)
+  /// (business-rules.md §2.7).
+  Future<bool> _canChange(Session session, Story story, Photo photo) async {
+    final authz = Authz(session);
+    final uid = authz.userId;
+    final mayTouch =
+        (uid != null && photo.uploaderId == uid) ||
+        await authz.canEditStory(story);
+    return mayTouch && await authz.canContribute(story);
+  }
+
   static List<Order> _order(PhotoTable t) => [
     t.sortOrder.asc(),
     t.createdAt.asc(),
