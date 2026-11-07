@@ -22,6 +22,8 @@ import 'package:tell_me_a_story_server/src/generated/date_precision.dart'
     as _ig52w51f;
 import 'package:tell_me_a_story_server/src/generated/dto/place_input_dto.dart'
     as _iqvasz3a;
+import 'package:tell_me_a_story_server/src/generated/membership_role.dart'
+    as _ic4z8goi;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../endpoints/family_endpoint.dart' as _ibe5smjw;
@@ -465,6 +467,137 @@ class Endpoints extends _is.EndpointDispatch {
                   (endpoints['family'] as _ibe5smjw.FamilyEndpoint).detail(
                     session,
                     params['familyId'],
+                  ),
+        ),
+        'rename': _is.MethodConnector(
+          name: 'rename',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'name': _is.ParameterDescription(
+              name: 'name',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).rename(
+                    session,
+                    params['familyId'],
+                    params['name'],
+                  ),
+        ),
+        'addCoOwner': _is.MethodConnector(
+          name: 'addCoOwner',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).addCoOwner(
+                    session,
+                    params['familyId'],
+                    params['userId'],
+                  ),
+        ),
+        'removeCoOwner': _is.MethodConnector(
+          name: 'removeCoOwner',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .removeCoOwner(
+                    session,
+                    params['familyId'],
+                    params['userId'],
+                  ),
+        ),
+        'transferOwnership': _is.MethodConnector(
+          name: 'transferOwnership',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'newOwnerUserId': _is.ParameterDescription(
+              name: 'newOwnerUserId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'formerOwnerBecomes': _is.ParameterDescription(
+              name: 'formerOwnerBecomes',
+              type: _is.getType<_ic4z8goi.MembershipRole>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .transferOwnership(
+                    session,
+                    params['familyId'],
+                    params['newOwnerUserId'],
+                    params['formerOwnerBecomes'],
+                  ),
+        ),
+        'removeMember': _is.MethodConnector(
+          name: 'removeMember',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['family'] as _ibe5smjw.FamilyEndpoint)
+                  .removeMember(
+                    session,
+                    params['familyId'],
+                    params['userId'],
                   ),
         ),
       },

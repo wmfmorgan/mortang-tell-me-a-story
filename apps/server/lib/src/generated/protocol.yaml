@@ -21,6 +21,11 @@ family:
   - listMembers:
   - directory:
   - detail:
+  - rename:
+  - addCoOwner:
+  - removeCoOwner:
+  - transferOwnership:
+  - removeMember:
 place:
   - list:
   - favorites:

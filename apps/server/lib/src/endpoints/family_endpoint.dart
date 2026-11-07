@@ -214,6 +214,148 @@ ORDER BY f."createdAt", f."id"
       ],
     );
   }
+
+  // ── names and roles ──────────────────────────────────────────────────
+
+  Future<void> rename(Session session, UuidValue familyId, String name) async {
+    final trimmed = name.trim();
+    await Authz(session).requireLiveSteward(familyId);
+    if (trimmed.isEmpty) throw validation('name is required');
+    await session.db.transaction((t) async {
+      final family = (await Family.db.findById(
+        session,
+        familyId,
+        transaction: t,
+        lockMode: LockMode.forUpdate,
+      ))!;
+      await Family.db.updateRow(
+        session,
+        family.copyWith(name: trimmed),
+        columns: (c) => [c.name],
+        transaction: t,
+      );
+    });
+  }
+
+  /// Owner or co-owner promotes a plain member; at most two co-owners, counted
+  /// under the family row lock.
+  Future<void> addCoOwner(
+    Session session,
+    UuidValue familyId,
+    UuidValue userId,
+  ) async {
+    await Authz(session).requireLiveSteward(familyId);
+    await session.db.transaction((t) async {
+      await _lockFamily(session, familyId, t);
+      final target = await _membership(session, familyId, userId, t);
+      if (target == null || target.role != MembershipRole.member) {
+        throw validation('target must be a member');
+      }
+      final coOwners = await Membership.db.count(
+        session,
+        where: (m) =>
+            m.familyId.equals(familyId) & m.role.equals(MembershipRole.coOwner),
+        transaction: t,
+      );
+      if (coOwners >= 2) throw validation('co-owner cap is 2');
+      await _setRole(session, target, MembershipRole.coOwner, t);
+    });
+  }
+
+  Future<void> removeCoOwner(
+    Session session,
+    UuidValue familyId,
+    UuidValue userId,
+  ) async {
+    await Authz(session).requireLiveOwner(familyId);
+    await session.db.transaction((t) async {
+      await _lockFamily(session, familyId, t);
+      final target = await _membership(session, familyId, userId, t);
+      if (target == null || target.role != MembershipRole.coOwner) {
+        throw validation('target must be a co-owner');
+      }
+      await _setRole(session, target, MembershipRole.member, t);
+    });
+  }
+
+  /// Business-rules.md §3.6. Writes demote the caller, promote the target,
+  /// then make the caller co-owner if asked, so the one-owner index and the
+  /// co-owner cap hold at every step.
+  Future<void> transferOwnership(
+    Session session,
+    UuidValue familyId,
+    UuidValue newOwnerUserId,
+    MembershipRole formerOwnerBecomes,
+  ) async {
+    final authz = Authz(session);
+    final uid = authz.requireUser();
+    await authz.requireLiveOwner(familyId);
+    if (formerOwnerBecomes == MembershipRole.owner) {
+      throw validation('former role must be co_owner or member');
+    }
+    await session.db.transaction((t) async {
+      await _lockFamily(session, familyId, t);
+      final target = await _membership(session, familyId, newOwnerUserId, t);
+      if (target == null || target.role != MembershipRole.coOwner) {
+        throw forbidden('target must be a co-owner');
+      }
+      final me = (await _membership(session, familyId, uid, t))!;
+      await _setRole(session, me, MembershipRole.member, t);
+      await _setRole(session, target, MembershipRole.owner, t);
+      if (formerOwnerBecomes == MembershipRole.coOwner) {
+        await _setRole(session, me, MembershipRole.coOwner, t);
+      }
+    });
+  }
+
+  /// Removes [userId] from every family in the tree, soft-deleted ones
+  /// included (so recovery can't restore them), and unlinks their person in
+  /// the tree; story tags stay (business-rules.md §2.2).
+  Future<void> removeMember(
+    Session session,
+    UuidValue familyId,
+    UuidValue userId,
+  ) async {
+    final authz = Authz(session);
+    final uid = authz.requireUser();
+    final role = await authz.requireLiveSteward(familyId);
+    if (userId == uid) throw forbidden('cannot remove yourself');
+    await session.db.transaction((t) async {
+      final family = await _lockFamily(session, familyId, t);
+      final treeFamilies = await Family.db.find(
+        session,
+        where: (f) => f.treeId.equals(family.treeId),
+        transaction: t,
+      );
+      final treeFamilyIds = {for (final f in treeFamilies) f.id!};
+      final targetRoles = await Membership.db.find(
+        session,
+        where: (m) => m.userId.equals(userId) & m.familyId.inSet(treeFamilyIds),
+        transaction: t,
+      );
+      if (targetRoles.any((m) => m.role == MembershipRole.owner)) {
+        throw forbidden('cannot remove an owner');
+      }
+      if (targetRoles.any((m) => m.role == MembershipRole.coOwner) &&
+          role != MembershipRole.owner) {
+        throw forbidden('cannot remove a co-owner');
+      }
+      await Membership.db.deleteWhere(
+        session,
+        where: (m) => m.userId.equals(userId) & m.familyId.inSet(treeFamilyIds),
+        transaction: t,
+      );
+      await Person.db.updateWhere(
+        session,
+        columnValues: (p) => [
+          p.userId(null),
+          p.updatedAt(DateTime.now().toUtc()),
+        ],
+        where: (p) => p.userId.equals(userId) & p.treeId.equals(family.treeId),
+        transaction: t,
+      );
+    });
+  }
 }
 
 /// The caller's role per family id, optionally owners and co-owners only.
@@ -257,3 +399,37 @@ Future<List<FamilyMemberDto>> _members(
       ),
   ];
 }
+
+Future<Family> _lockFamily(
+  Session session,
+  UuidValue familyId,
+  Transaction t,
+) async => (await Family.db.findById(
+  session,
+  familyId,
+  transaction: t,
+  lockMode: LockMode.forUpdate,
+))!;
+
+Future<Membership?> _membership(
+  Session session,
+  UuidValue familyId,
+  UuidValue userId,
+  Transaction t,
+) => Membership.db.findFirstRow(
+  session,
+  where: (m) => m.familyId.equals(familyId) & m.userId.equals(userId),
+  transaction: t,
+);
+
+Future<void> _setRole(
+  Session session,
+  Membership membership,
+  MembershipRole role,
+  Transaction t,
+) => Membership.db.updateRow(
+  session,
+  membership.copyWith(role: role),
+  columns: (m) => [m.role],
+  transaction: t,
+);

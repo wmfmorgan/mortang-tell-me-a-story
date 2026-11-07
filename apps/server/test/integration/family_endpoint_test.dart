@@ -341,5 +341,275 @@ void main() {
         },
       );
     });
+
+    group('roles', () {
+      late UuidValue owner, coOwner, member, member2, member3;
+      late Family root;
+
+      setUp(() async {
+        owner = await fx.user();
+        coOwner = await fx.user();
+        member = await fx.user();
+        member2 = await fx.user();
+        member3 = await fx.user();
+        root = await fx.rootOwnedBy(owner);
+        await fx.join(root, coOwner, MembershipRole.coOwner);
+        for (final m in [member, member2, member3]) {
+          await fx.join(root, m);
+        }
+      });
+
+      // BR 4
+      test(
+        'when the owner promotes two members then both succeed; a third is '
+        'VALIDATION "co-owner cap is 2"',
+        () async {
+          final fresh = await fx.rootOwnedBy(owner);
+          for (final m in [member, member2, member3]) {
+            await fx.join(fresh, m);
+          }
+          await endpoints.family.addCoOwner(by(owner), fresh.id!, member);
+          await endpoints.family.addCoOwner(by(owner), fresh.id!, member2);
+          await expectLater(
+            endpoints.family.addCoOwner(by(owner), fresh.id!, member3),
+            throwsAppError(AppErrorCode.validation, 'co-owner cap is 2'),
+          );
+          expect(await fx.roleOf(fresh, member3), MembershipRole.member);
+        },
+      );
+
+      // BR 5
+      test(
+        'when a co-owner promotes a member then it succeeds; a plain member '
+        'is FORBIDDEN',
+        () async {
+          await endpoints.family.addCoOwner(by(coOwner), root.id!, member);
+          expect(await fx.roleOf(root, member), MembershipRole.coOwner);
+          await expectLater(
+            endpoints.family.addCoOwner(by(member2), root.id!, member3),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+        },
+      );
+
+      // BR 6, BR 14 (no membership is ever written for a non-member)
+      test(
+        'when promoting a non-member or an existing co-owner then VALIDATION '
+        '"target must be a member" and no membership is written',
+        () async {
+          final outsider = await fx.user();
+          await expectLater(
+            endpoints.family.addCoOwner(by(owner), root.id!, outsider),
+            throwsAppError(AppErrorCode.validation, 'target must be a member'),
+          );
+          expect(await fx.roleOf(root, outsider), isNull);
+          await expectLater(
+            endpoints.family.addCoOwner(by(owner), root.id!, coOwner),
+            throwsAppError(AppErrorCode.validation, 'target must be a member'),
+          );
+        },
+      );
+
+      // BR 7
+      test(
+        'when the owner transfers to a member who is not a co-owner then '
+        'FORBIDDEN "target must be a co-owner"',
+        () async {
+          await expectLater(
+            endpoints.family.transferOwnership(
+              by(owner),
+              root.id!,
+              member,
+              MembershipRole.member,
+            ),
+            throwsAppError(AppErrorCode.forbidden, 'target must be a co-owner'),
+          );
+        },
+      );
+
+      // BR 8
+      test(
+        'when transferring with former=member then the target is owner and the '
+        'caller member; with former=co_owner the caller is co-owner',
+        () async {
+          await endpoints.family.transferOwnership(
+            by(owner),
+            root.id!,
+            coOwner,
+            MembershipRole.member,
+          );
+          expect(await fx.roleOf(root, coOwner), MembershipRole.owner);
+          expect(await fx.roleOf(root, owner), MembershipRole.member);
+
+          final other = await fx.rootOwnedBy(owner);
+          await fx.join(other, member, MembershipRole.coOwner);
+          await endpoints.family.transferOwnership(
+            by(owner),
+            other.id!,
+            member,
+            MembershipRole.coOwner,
+          );
+          expect(await fx.roleOf(other, member), MembershipRole.owner);
+          expect(await fx.roleOf(other, owner), MembershipRole.coOwner);
+        },
+      );
+
+      // BR 8 (former role)
+      test('when former=owner then VALIDATION', () async {
+        await expectLater(
+          endpoints.family.transferOwnership(
+            by(owner),
+            root.id!,
+            coOwner,
+            MembershipRole.owner,
+          ),
+          throwsAppError(
+            AppErrorCode.validation,
+            'former role must be co_owner or member',
+          ),
+        );
+      });
+
+      // BR 9
+      test('when a co-owner transfers then FORBIDDEN "owner only"', () async {
+        await expectLater(
+          endpoints.family.transferOwnership(
+            by(coOwner),
+            root.id!,
+            coOwner,
+            MembershipRole.member,
+          ),
+          throwsAppError(AppErrorCode.forbidden, 'owner only'),
+        );
+      });
+
+      // BR 10
+      test(
+        'when the owner demotes a co-owner then member; a co-owner caller is '
+        'FORBIDDEN "owner only"; a non-co-owner target is VALIDATION',
+        () async {
+          await expectLater(
+            endpoints.family.removeCoOwner(by(coOwner), root.id!, coOwner),
+            throwsAppError(AppErrorCode.forbidden, 'owner only'),
+          );
+          await expectLater(
+            endpoints.family.removeCoOwner(by(owner), root.id!, member),
+            throwsAppError(
+              AppErrorCode.validation,
+              'target must be a co-owner',
+            ),
+          );
+          await endpoints.family.removeCoOwner(by(owner), root.id!, coOwner);
+          expect(await fx.roleOf(root, coOwner), MembershipRole.member);
+        },
+      );
+
+      // BR 11
+      test(
+        'when the owner removes a member then every membership in the tree '
+        'goes, soft-deleted families included, linked people are unlinked '
+        'and story tags remain',
+        () async {
+          final child = await fx.childOf(root, owner: owner);
+          final gone = await fx.childOf(
+            root,
+            owner: owner,
+            name: 'Gone',
+            deletedAt: DateTime.now().toUtc(),
+          );
+          await fx.join(child, member);
+          await fx.join(gone, member);
+          final otherTree = await fx.rootOwnedBy(owner);
+          await fx.join(otherTree, member);
+          final linked = await fx.person(root, userId: member);
+          final elsewhere = await fx.person(otherTree, userId: member);
+          final story = await fx.story(root);
+          await fx.tag(story, linked);
+
+          await endpoints.family.removeMember(by(owner), root.id!, member);
+
+          for (final f in [root, child, gone]) {
+            expect(await fx.roleOf(f, member), isNull);
+          }
+          expect(await fx.roleOf(otherTree, member), MembershipRole.member);
+          expect((await Person.db.findById(fx.s, linked.id!))!.userId, isNull);
+          expect(
+            (await Person.db.findById(fx.s, elsewhere.id!))!.userId,
+            member,
+          );
+          expect(
+            await StoryPerson.db.count(
+              fx.s,
+              where: (t) => t.personId.equals(linked.id!),
+            ),
+            1,
+          );
+        },
+      );
+
+      // BR 12
+      test(
+        'when a co-owner removes the owner, another co-owner or self then '
+        'FORBIDDEN with the matching message',
+        () async {
+          final otherCo = member3;
+          await endpoints.family.addCoOwner(by(owner), root.id!, otherCo);
+          await expectLater(
+            endpoints.family.removeMember(by(coOwner), root.id!, owner),
+            throwsAppError(AppErrorCode.forbidden, 'cannot remove an owner'),
+          );
+          await expectLater(
+            endpoints.family.removeMember(by(coOwner), root.id!, otherCo),
+            throwsAppError(AppErrorCode.forbidden, 'cannot remove a co-owner'),
+          );
+          await expectLater(
+            endpoints.family.removeMember(by(coOwner), root.id!, coOwner),
+            throwsAppError(AppErrorCode.forbidden, 'cannot remove yourself'),
+          );
+          expect(await fx.roleOf(root, otherCo), MembershipRole.coOwner);
+        },
+      );
+
+      // BR 12 (owner anywhere in the tree)
+      test(
+        'when the target owns another family in the tree then FORBIDDEN '
+        '"cannot remove an owner"; the owner may remove a co-owner',
+        () async {
+          await fx.childOf(root, owner: member);
+          await expectLater(
+            endpoints.family.removeMember(by(owner), root.id!, member),
+            throwsAppError(AppErrorCode.forbidden, 'cannot remove an owner'),
+          );
+          await endpoints.family.removeMember(by(owner), root.id!, coOwner);
+          expect(await fx.roleOf(root, coOwner), isNull);
+        },
+      );
+
+      // BR 13
+      test('when the owner removes self then FORBIDDEN', () async {
+        await expectLater(
+          endpoints.family.removeMember(by(owner), root.id!, owner),
+          throwsAppError(AppErrorCode.forbidden, 'cannot remove yourself'),
+        );
+      });
+
+      // BR 15
+      test(
+        'when a steward renames with a blank name then VALIDATION; a plain '
+        'member is FORBIDDEN; a steward renames trimmed',
+        () async {
+          await expectLater(
+            endpoints.family.rename(by(coOwner), root.id!, '  '),
+            throwsAppError(AppErrorCode.validation, 'name is required'),
+          );
+          await expectLater(
+            endpoints.family.rename(by(member), root.id!, 'X'),
+            throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+          );
+          await endpoints.family.rename(by(coOwner), root.id!, ' Reyes ');
+          expect((await fx.reload(root)).name, 'Reyes');
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

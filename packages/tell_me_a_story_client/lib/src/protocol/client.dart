@@ -41,6 +41,8 @@ import 'package:tell_me_a_story_client/src/protocol/dto/steward_family_dto.dart'
     as _iy83v9y2;
 import 'package:tell_me_a_story_client/src/protocol/dto/tree_family_dto.dart'
     as _iwn4wr2j;
+import 'package:tell_me_a_story_client/src/protocol/membership_role.dart'
+    as _ivz934fu;
 
 import 'protocol.dart' as _il2as5qe;
 
@@ -444,6 +446,76 @@ class EndpointFamily extends _isc.EndpointRef {
         'detail',
         {'familyId': familyId},
       );
+
+  _ida.Future<void> rename(
+    _isc.UuidValue familyId,
+    String name,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'rename',
+    {
+      'familyId': familyId,
+      'name': name,
+    },
+  );
+
+  /// Owner or co-owner promotes a plain member; at most two co-owners, counted
+  /// under the family row lock.
+  _ida.Future<void> addCoOwner(
+    _isc.UuidValue familyId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'addCoOwner',
+    {
+      'familyId': familyId,
+      'userId': userId,
+    },
+  );
+
+  _ida.Future<void> removeCoOwner(
+    _isc.UuidValue familyId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'removeCoOwner',
+    {
+      'familyId': familyId,
+      'userId': userId,
+    },
+  );
+
+  /// Business-rules.md §3.6. Writes demote the caller, promote the target,
+  /// then make the caller co-owner if asked, so the one-owner index and the
+  /// co-owner cap hold at every step.
+  _ida.Future<void> transferOwnership(
+    _isc.UuidValue familyId,
+    _isc.UuidValue newOwnerUserId,
+    _ivz934fu.MembershipRole formerOwnerBecomes,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'transferOwnership',
+    {
+      'familyId': familyId,
+      'newOwnerUserId': newOwnerUserId,
+      'formerOwnerBecomes': formerOwnerBecomes,
+    },
+  );
+
+  /// Removes [userId] from every family in the tree, soft-deleted ones
+  /// included (so recovery can't restore them), and unlinks their person in
+  /// the tree; story tags stay (business-rules.md §2.2).
+  _ida.Future<void> removeMember(
+    _isc.UuidValue familyId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'family',
+    'removeMember',
+    {
+      'familyId': familyId,
+      'userId': userId,
+    },
+  );
 }
 
 /// Places are shared by every family in a tree (business-rules.md §2.4, §8
