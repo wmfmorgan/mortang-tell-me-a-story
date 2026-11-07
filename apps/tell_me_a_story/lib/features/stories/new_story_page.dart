@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/config/env.dart';
@@ -448,7 +447,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
           for (final person in _selectedPeople) person.id,
           ..._unloadedPersonIds,
         },
-        linkPerson: _linkIgnoringDuplicate,
+        linkPerson: ({required storyId, required personId}) =>
+            _stories.linkPerson(storyId: storyId, personId: personId),
       );
       if (!mounted || added == null) return;
       setState(() {
@@ -462,20 +462,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
       _scheduleAutosave();
     } finally {
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _linkIgnoringDuplicate({
-    required String storyId,
-    required String personId,
-  }) async {
-    try {
-      await _stories.linkPerson(storyId: storyId, personId: personId);
-    } on PostgrestException catch (error) {
-      if (error.code != '23505' ||
-          !error.message.contains('story_people_pkey')) {
-        rethrow;
-      }
     }
   }
 
@@ -707,26 +693,21 @@ class _NewStoryPageState extends State<NewStoryPage> {
   }) async {
     if (!_autosaveInserted) {
       if (!autosave && snapshot.start == null) return null;
-      try {
-        final created = await _stories.createDraft(
-          id: snapshot.id,
-          allowUndated: autosave,
-          familyId: snapshot.familyId,
-          timeframeStart: snapshot.start,
-          timeframeEnd: snapshot.end,
-          datePrecision: snapshot.precision,
-          title: snapshot.title,
-          body: snapshot.body,
-          placeId: snapshot.placeId,
-          personIds: snapshot.personIds ?? const [],
-        );
-        _autosaveInserted = true;
-        _storyId = created.id;
-        return created;
-      } on PostgrestException catch (error) {
-        if (snapshot.id == null || !isDuplicateStoryKey(error)) rethrow;
-        _autosaveInserted = true;
-      }
+      final created = await _stories.createDraft(
+        id: snapshot.id,
+        allowUndated: autosave,
+        familyId: snapshot.familyId,
+        timeframeStart: snapshot.start,
+        timeframeEnd: snapshot.end,
+        datePrecision: snapshot.precision,
+        title: snapshot.title,
+        body: snapshot.body,
+        placeId: snapshot.placeId,
+        personIds: snapshot.personIds ?? const [],
+      );
+      _autosaveInserted = true;
+      _storyId = created.id;
+      return created;
     }
     if (autosave) {
       final wrote = await _stories.autosaveDraft(

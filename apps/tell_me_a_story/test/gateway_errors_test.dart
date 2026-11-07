@@ -201,4 +201,38 @@ void main() {
       );
     });
   });
+  group('StoriesApi.linkPerson duplicates', () {
+    test('an existing story_people row counts as linked', () async {
+      final api = StoriesApi(
+        client: _client(
+          _Http(
+            (_) => _error(
+              409,
+              '23505',
+              'duplicate key value violates unique constraint "story_people_pkey"',
+            ),
+          ),
+        ),
+      );
+      await api.linkPerson(storyId: 's1', personId: 'p1');
+    });
+
+    test('a duplicate on another constraint still fails', () async {
+      final api = StoriesApi(
+        client: _client(
+          _Http(
+            (_) => _error(
+              409,
+              '23505',
+              'duplicate key value violates unique constraint "photos_pkey"',
+            ),
+          ),
+        ),
+      );
+      await expectLater(
+        api.linkPerson(storyId: 's1', personId: 'p1'),
+        throwsA(isA<PostgrestException>()),
+      );
+    });
+  });
 }

@@ -352,6 +352,21 @@ bool isDuplicateStoryKey(Object error) {
   return message.contains('duplicate key');
 }
 
+/// Runs [insert]. When a retried create collides on its client-chosen [id],
+/// runs [update] instead, so creating the same draft twice is one draft.
+Future<T> createOrUpdateExisting<T>({
+  required String? id,
+  required Future<T> Function() insert,
+  required Future<T> Function() update,
+}) async {
+  try {
+    return await insert();
+  } catch (error) {
+    if (id == null || !isDuplicateStoryKey(error)) rethrow;
+    return update();
+  }
+}
+
 abstract class StoriesGateway {
   Future<Story> createDraft({
     String? id,
@@ -442,27 +457,44 @@ class StoriesApi implements StoriesGateway {
     if (!allowUndated) {
       ensureValidDraftSave(timeframeStart: timeframeStart);
     }
-    final uid = _client.auth.currentUser!.id;
-    final payload = <String, dynamic>{
-      'family_id': familyId,
-      'author_id': uid,
-      'title': storedStoryTitle(title),
-      'body': body?.trim(),
-      'timeframe_start': timeframeStart == null ? null : _date(timeframeStart),
-      'timeframe_end': timeframeEnd == null ? null : _date(timeframeEnd),
-      if (datePrecision != null) 'date_precision': datePrecision,
-      'place_id': placeId,
-      'status': 'draft',
-    };
-    if (id != null) payload['id'] = id;
-    final row = await _client
-        .from('stories')
-        .insert(payload)
-        .select(_storySelect)
-        .single();
-    final story = Story.fromJson(row);
-    await _replacePeople(story.id, personIds);
-    return getStory(story.id);
+    return createOrUpdateExisting(
+      id: id,
+      insert: () async {
+        final uid = _client.auth.currentUser!.id;
+        final payload = <String, dynamic>{
+          'family_id': familyId,
+          'author_id': uid,
+          'title': storedStoryTitle(title),
+          'body': body?.trim(),
+          'timeframe_start': timeframeStart == null
+              ? null
+              : _date(timeframeStart),
+          'timeframe_end': timeframeEnd == null ? null : _date(timeframeEnd),
+          if (datePrecision != null) 'date_precision': datePrecision,
+          'place_id': placeId,
+          'status': 'draft',
+        };
+        if (id != null) payload['id'] = id;
+        final row = await _client
+            .from('stories')
+            .insert(payload)
+            .select(_storySelect)
+            .single();
+        final story = Story.fromJson(row);
+        await _replacePeople(story.id, personIds);
+        return getStory(story.id);
+      },
+      update: () => updateDraft(
+        storyId: id!,
+        timeframeStart: timeframeStart,
+        timeframeEnd: timeframeEnd,
+        datePrecision: datePrecision,
+        title: title,
+        body: body,
+        placeId: placeId,
+        personIds: personIds,
+      ),
+    );
   }
 
   @override
@@ -742,10 +774,18 @@ class StoriesApi implements StoriesGateway {
     required String personId,
   }) {
     return withAppErrors(() async {
-      await _client.from('story_people').insert({
-        'story_id': storyId,
-        'person_id': personId,
-      });
+      try {
+        await _client.from('story_people').insert({
+          'story_id': storyId,
+          'person_id': personId,
+        });
+      } on PostgrestException catch (error) {
+        // A retried link: the row this call writes already exists.
+        if (error.code != '23505' ||
+            !error.message.contains('story_people_pkey')) {
+          rethrow;
+        }
+      }
     });
   }
 
