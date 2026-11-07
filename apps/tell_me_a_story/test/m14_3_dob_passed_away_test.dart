@@ -221,6 +221,8 @@ void main() {
       ..steward = true;
     await _openProfile(tester, people);
 
+    expect(find.byType(PersonProfileDialog), findsOneWidget);
+    expect(find.byKey(const Key('person-profile-story-count')), findsOneWidget);
     // The signed-in user is Ada herself, so the steward check never runs.
     expect(find.text('Mark as passed away'), findsNothing);
   });
