@@ -22,70 +22,88 @@ class PlaybackBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: playback,
-    builder: (context, _) {
-      final pb = playback;
-      final steps = pb.design == PlaybackDesign.steps;
-      return Container(
-        key: const Key('playback-bar'),
-        padding: const EdgeInsets.fromLTRB(8, 4, 16, 4),
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: labBorder)),
-        ),
-        child: Row(
-          children: [
+    builder: (context, _) => LayoutBuilder(
+      builder: (context, box) {
+        final pb = playback;
+        final steps = pb.design == PlaybackDesign.steps;
+        final compact = box.maxWidth < LabBreakpoint.compact;
+        final leading = <Widget>[
+          IconButton(
+            key: const Key('playback-play'),
+            tooltip: pb.playing ? 'Pause' : 'Play',
+            icon: Icon(pb.playing ? Icons.pause : Icons.play_arrow),
+            onPressed: pb.total == 0 ? null : (pb.playing ? pb.pause : pb.play),
+          ),
+          IconButton(
+            key: const Key('playback-stop'),
+            tooltip: 'Stop and show all',
+            icon: const Icon(Icons.stop),
+            onPressed: pb.active ? pb.stop : null,
+          ),
+          if (steps) ...[
             IconButton(
-              key: const Key('playback-play'),
-              tooltip: pb.playing ? 'Pause' : 'Play',
-              icon: Icon(pb.playing ? Icons.pause : Icons.play_arrow),
-              onPressed: pb.total == 0
-                  ? null
-                  : (pb.playing ? pb.pause : pb.play),
+              key: const Key('playback-prev'),
+              tooltip: 'Previous',
+              icon: const Icon(Icons.skip_previous),
+              onPressed: pb.total == 0 ? null : () => pb.step(-1),
             ),
             IconButton(
-              key: const Key('playback-stop'),
-              tooltip: 'Stop and show all',
-              icon: const Icon(Icons.stop),
-              onPressed: pb.active ? pb.stop : null,
-            ),
-            if (steps) ...[
-              IconButton(
-                key: const Key('playback-prev'),
-                tooltip: 'Previous',
-                icon: const Icon(Icons.skip_previous),
-                onPressed: pb.total == 0 ? null : () => pb.step(-1),
-              ),
-              IconButton(
-                key: const Key('playback-next'),
-                tooltip: 'Next',
-                icon: const Icon(Icons.skip_next),
-                onPressed: pb.total == 0 ? null : () => pb.step(1),
-              ),
-            ],
-            Expanded(
-              child: Slider(
-                key: const Key('playback-scrubber'),
-                value: pb.progress,
-                onChangeStart: (_) => pb.pause(),
-                onChanged: pb.total == 0
-                    ? null
-                    : (v) => pb.seek(v * pb.duration),
-              ),
-            ),
-            _PlaybackOptions(playback: pb),
-            IconButton(
-              key: const Key('playback-follow'),
-              tooltip: pb.follow
-                  ? 'Camera follows playback'
-                  : 'Camera free (tap to follow)',
-              isSelected: pb.follow,
-              icon: const Icon(Icons.center_focus_weak),
-              selectedIcon: const Icon(Icons.center_focus_strong),
-              onPressed: () => pb.setFollow(!pb.follow),
+              key: const Key('playback-next'),
+              tooltip: 'Next',
+              icon: const Icon(Icons.skip_next),
+              onPressed: pb.total == 0 ? null : () => pb.step(1),
             ),
           ],
-        ),
-      );
-    },
+        ];
+        final scrubber = Slider(
+          key: const Key('playback-scrubber'),
+          value: pb.progress,
+          onChangeStart: (_) => pb.pause(),
+          onChanged: pb.total == 0 ? null : (v) => pb.seek(v * pb.duration),
+        );
+        final trailing = <Widget>[
+          _PlaybackOptions(playback: pb),
+          IconButton(
+            key: const Key('playback-follow'),
+            tooltip: pb.follow
+                ? 'Camera follows playback'
+                : 'Camera free (tap to follow)',
+            isSelected: pb.follow,
+            icon: const Icon(Icons.center_focus_weak),
+            selectedIcon: const Icon(Icons.center_focus_strong),
+            onPressed: () => pb.setFollow(!pb.follow),
+          ),
+        ];
+        return Container(
+          key: const Key('playback-bar'),
+          padding: const EdgeInsets.fromLTRB(8, 4, 16, 4),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: labBorder)),
+          ),
+          child: compact
+              // Compact: the scrubber gets the full width; the controls
+              // wrap instead of overflowing.
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    scrubber,
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [...leading, ...trailing],
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    ...leading,
+                    Expanded(child: scrubber),
+                    ...trailing,
+                  ],
+                ),
+        );
+      },
+    ),
   );
 }
 

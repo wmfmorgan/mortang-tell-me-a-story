@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timeline_lab/renderers/renderer_contract.dart';
 
@@ -6,17 +7,9 @@ import 'support/ipad.dart';
 /// Sweep cases that overflow until the iPad plan task named in the reason
 /// lands. Each fixing task deletes its entries here as its red step.
 const _knownRed = <String, String>{
-  'split_third sliverList': 'playback bar (ipad Task 4)',
-  'split_third renderBoxLayout': 'playback bar (ipad Task 4)',
-  'split_third with a selected story':
-      'playback bar (ipad Task 4), panel (Task 6)',
-  'split_third_wide sliverList': 'playback bar (ipad Task 4)',
-  'split_third_wide renderBoxLayout': 'playback bar (ipad Task 4)',
-  'split_third_wide with a selected story': 'playback bar (ipad Task 4)',
-  'slide_over sliverList': 'playback bar (ipad Task 4)',
-  'slide_over renderBoxLayout': 'playback bar (ipad Task 4)',
-  'slide_over with a selected story':
-      'playback bar (ipad Task 4), panel (Task 6)',
+  'split_third with a selected story': 'panel (ipad Task 6)',
+  'split_third_wide with a selected story': 'panel (ipad Task 6)',
+  'slide_over with a selected story': 'panel (ipad Task 6)',
 };
 
 void main() {
@@ -53,4 +46,13 @@ void main() {
       );
     }
   });
+
+  testWidgets('compact playback bar gives the scrubber its own row', (
+    tester,
+  ) async {
+    await pumpIpad(tester, ipadSizes['slide_over']!);
+    final bar = tester.getRect(find.byKey(const Key('playback-bar')));
+    final scrubber = tester.getRect(find.byKey(const Key('playback-scrubber')));
+    expect(scrubber.width, greaterThan(bar.width - 48));
+  }, variant: ios);
 }
