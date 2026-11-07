@@ -611,5 +611,84 @@ void main() {
         },
       );
     });
+
+    group('soft delete and recover', () {
+      late UuidValue owner, coOwner, member;
+      late Family root;
+
+      setUp(() async {
+        owner = await fx.user();
+        coOwner = await fx.user();
+        member = await fx.user();
+        root = await fx.rootOwnedBy(owner);
+        await fx.join(root, coOwner, MembershipRole.coOwner);
+        await fx.join(root, member);
+      });
+
+      // BR 16
+      test(
+        'when a co-owner soft-deletes then FORBIDDEN "owner only"; the owner '
+        'sets deletedAt and a child keeps its parent link',
+        () async {
+          final child = await fx.childOf(root);
+          await expectLater(
+            endpoints.family.softDelete(by(coOwner), root.id!),
+            throwsAppError(AppErrorCode.forbidden, 'owner only'),
+          );
+          await endpoints.family.softDelete(by(owner), root.id!);
+          expect((await fx.reload(root)).deletedAt, isNotNull);
+          expect((await fx.reload(child)).parentId, root.id);
+        },
+      );
+
+      // BR 19
+      test(
+        'when a co-owner recovers 10 days after delete then deletedAt is '
+        'cleared; 61 days → FORBIDDEN "recovery window closed"; not deleted '
+        '→ VALIDATION "family is not deleted"',
+        () async {
+          await expectLater(
+            endpoints.family.recover(by(coOwner), root.id!),
+            throwsAppError(AppErrorCode.validation, 'family is not deleted'),
+          );
+          final now = DateTime.now().toUtc();
+          await fx.setDeletedAt(root, now.subtract(const Duration(days: 61)));
+          await expectLater(
+            endpoints.family.recover(by(coOwner), root.id!),
+            throwsAppError(AppErrorCode.forbidden, 'recovery window closed'),
+          );
+          await fx.setDeletedAt(root, now.subtract(const Duration(days: 10)));
+          await endpoints.family.recover(by(coOwner), root.id!);
+          expect((await fx.reload(root)).deletedAt, isNull);
+        },
+      );
+
+      test('when a plain member recovers then FORBIDDEN', () async {
+        await fx.setDeletedAt(root, DateTime.now().toUtc());
+        await expectLater(
+          endpoints.family.recover(by(member), root.id!),
+          throwsAppError(AppErrorCode.forbidden, 'owner or co-owner only'),
+        );
+      });
+
+      test(
+        'when the family is soft-deleted then writes are FORBIDDEN',
+        () async {
+          await fx.setDeletedAt(root, DateTime.now().toUtc());
+          await expectLater(
+            endpoints.family.rename(by(owner), root.id!, 'X'),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          await expectLater(
+            endpoints.family.softDelete(by(owner), root.id!),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          await expectLater(
+            endpoints.family.addCoOwner(by(owner), root.id!, member),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

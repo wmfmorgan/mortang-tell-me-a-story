@@ -26,6 +26,8 @@ family:
   - removeCoOwner:
   - transferOwnership:
   - removeMember:
+  - softDelete:
+  - recover:
 place:
   - list:
   - favorites:

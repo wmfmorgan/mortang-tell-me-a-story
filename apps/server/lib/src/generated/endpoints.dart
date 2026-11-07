@@ -600,6 +600,44 @@ class Endpoints extends _is.EndpointDispatch {
                     params['userId'],
                   ),
         ),
+        'softDelete': _is.MethodConnector(
+          name: 'softDelete',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).softDelete(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'recover': _is.MethodConnector(
+          name: 'recover',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['family'] as _ibe5smjw.FamilyEndpoint).recover(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
       },
     );
     connectors['place'] = _is.EndpointConnector(

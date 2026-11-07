@@ -356,6 +356,46 @@ ORDER BY f."createdAt", f."id"
       );
     });
   }
+
+  // ── soft delete ──────────────────────────────────────────────────────
+
+  /// Owner only. Only sets `deletedAt`; the purge (3f) removes the family
+  /// after the recovery window.
+  Future<void> softDelete(Session session, UuidValue familyId) async {
+    await Authz(session).requireLiveOwner(familyId);
+    await session.db.transaction((t) async {
+      final family = await _lockFamily(session, familyId, t);
+      await Family.db.updateRow(
+        session,
+        family.copyWith(deletedAt: DateTime.now().toUtc()),
+        columns: (c) => [c.deletedAt],
+        transaction: t,
+      );
+    });
+  }
+
+  /// Owner or co-owner of the soft-deleted family, inside the recovery
+  /// window (recovery exception, D6b).
+  Future<void> recover(Session session, UuidValue familyId) async {
+    if (!await Authz(session).isSteward(familyId)) {
+      throw forbidden('owner or co-owner only');
+    }
+    await session.db.transaction((t) async {
+      final family = await _lockFamily(session, familyId, t);
+      final deletedAt = family.deletedAt;
+      if (deletedAt == null) throw validation('family is not deleted');
+      final cutoff = DateTime.now().toUtc().subtract(recoveryWindow);
+      if (deletedAt.isBefore(cutoff)) {
+        throw forbidden('recovery window closed');
+      }
+      await Family.db.updateRow(
+        session,
+        family.copyWith(deletedAt: null),
+        columns: (c) => [c.deletedAt],
+        transaction: t,
+      );
+    });
+  }
 }
 
 /// The caller's role per family id, optionally owners and co-owners only.

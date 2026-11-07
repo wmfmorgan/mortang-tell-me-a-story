@@ -516,6 +516,24 @@ class EndpointFamily extends _isc.EndpointRef {
       'userId': userId,
     },
   );
+
+  /// Owner only. Only sets `deletedAt`; the purge (3f) removes the family
+  /// after the recovery window.
+  _ida.Future<void> softDelete(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<void>(
+        'family',
+        'softDelete',
+        {'familyId': familyId},
+      );
+
+  /// Owner or co-owner of the soft-deleted family, inside the recovery
+  /// window (recovery exception, D6b).
+  _ida.Future<void> recover(_isc.UuidValue familyId) =>
+      caller.callServerEndpoint<void>(
+        'family',
+        'recover',
+        {'familyId': familyId},
+      );
 }
 
 /// Places are shared by every family in a tree (business-rules.md §2.4, §8
