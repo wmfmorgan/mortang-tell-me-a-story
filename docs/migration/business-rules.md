@@ -254,7 +254,7 @@ RPC order (order matters; tests assert it):
 4. Year null or <1000 or >9999 → `VALIDATION: attach year must be four digits`.
 5. `owner_user_id` null or not a member (any role) of parent → `VALIDATION: owner must be a member of the parent family`.
 6. Any `person_id` not a people row of the parent family → `VALIDATION: members must come from the parent family`.
-7. Parent ancestry depth (live ancestors) ≥ 63 → `VALIDATION: too many levels` (parent at depth 62 OK).
+7. Parent ancestry depth ≥ 63 → `VALIDATION: too many levels` (parent at depth 62 OK). The Serverpod rewrite counts every ancestor, soft-deleted ones included, because a deleted family no longer splits the tree (D8).
 8. Insert family (name trimmed, parent, `created_by = caller`, branch_year), set origin (server-privileged), verify `familyOrigin(new) == origin` else `NOT_FOUND: story`.
 9. Insert membership `owner` for `owner_user_id` (may be someone other than caller; a co-owner of the parent can be the new owner).
 10. For each distinct picked person: if person has a linked account (`user_id`, email ignored) → insert membership `member` if none (no demotion: picking the owner keeps owner). People without an account get nothing. **No people rows are copied** into the branch (people live once per tree).

@@ -239,7 +239,7 @@ class FamilyEndpoint extends Endpoint {
   Future<void> clearCover(Session s, UuidValue familyId);                              // null coverKey; old key goes to blob_deletions in the same transaction
   Future<List<FamilyMemberDto>> listMembers(Session s, UuidValue familyId);
   Future<FamilyDirectoryDto> directory(Session s);                                     // ONE query with counts (was 4 round trips)
-  Future<FamilyDetailDto?> detail(Session s, UuidValue familyId);                      // family + members + pending invites in one call
+  Future<FamilyDetailDto> detail(Session s, UuidValue familyId);                       // family + members + pending invites in one call; non-member/missing → FORBIDDEN; deleted family (stewards only) → empty pendingInvites
   Future<UuidValue> createRoot(Session s, String name);                                // replaces BOTH create_family RPC and create-root-family fn
   Future<UuidValue> createBranch(Session s, {required UuidValue parentFamilyId, required UuidValue originStoryId,
       required String name, required int branchYear, required UuidValue ownerUserId, List<UuidValue> personIds = const []});
