@@ -16,6 +16,7 @@ import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'app_exception.dart' as _it4z223c;
 import 'app_user.dart' as _i2j2xfrn;
 import 'birth_visibility.dart' as _i2x3tia5;
 import 'date_precision.dart' as _ilvyd2nu;
@@ -31,6 +32,7 @@ import 'story_note.dart' as _iugi3tvg;
 import 'story_person.dart' as _i0053fvj;
 import 'story_status.dart' as _ixc1exsr;
 import 'tree.dart' as _i5e6tmks;
+export 'app_exception.dart';
 export 'app_user.dart';
 export 'birth_visibility.dart';
 export 'date_precision.dart';
@@ -61,6 +63,7 @@ class Protocol extends _isc.SerializationManager
       _isc.ProtocolDeserialization.cached(
         this,
         types: const [
+          _isc.getType<_it4z223c.AppException>,
           _isc.getType<_i2j2xfrn.AppUser>,
           _isc.getType<_i2x3tia5.BirthVisibility>,
           _isc.getType<_ilvyd2nu.DatePrecision>,
@@ -76,6 +79,7 @@ class Protocol extends _isc.SerializationManager
           _isc.getType<_i0053fvj.StoryPerson>,
           _isc.getType<_ixc1exsr.StoryStatus>,
           _isc.getType<_i5e6tmks.Tree>,
+          _isc.getType<_it4z223c.AppException?>,
           _isc.getType<_i2j2xfrn.AppUser?>,
           _isc.getType<_i2x3tia5.BirthVisibility?>,
           _isc.getType<_ilvyd2nu.DatePrecision?>,
@@ -97,6 +101,7 @@ class Protocol extends _isc.SerializationManager
           _iacc.Protocol.new,
         ],
         classNames: const [
+          'AppException',
           'AppUser',
           'BirthVisibility',
           'DatePrecision',
@@ -139,6 +144,9 @@ class Protocol extends _isc.SerializationManager
       }
     }
 
+    if (t == _it4z223c.AppException) {
+      return _it4z223c.AppException.fromJson(data) as T;
+    }
     if (t == _i2j2xfrn.AppUser) {
       return _i2j2xfrn.AppUser.fromJson(data) as T;
     }
@@ -183,6 +191,9 @@ class Protocol extends _isc.SerializationManager
     }
     if (t == _i5e6tmks.Tree) {
       return _i5e6tmks.Tree.fromJson(data) as T;
+    }
+    if (t == _isc.getType<_it4z223c.AppException?>()) {
+      return (data != null ? _it4z223c.AppException.fromJson(data) : null) as T;
     }
     if (t == _isc.getType<_i2j2xfrn.AppUser?>()) {
       return (data != null ? _i2j2xfrn.AppUser.fromJson(data) : null) as T;
@@ -247,6 +258,7 @@ class Protocol extends _isc.SerializationManager
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
+      _it4z223c.AppException => 'AppException',
       _i2j2xfrn.AppUser => 'AppUser',
       _i2x3tia5.BirthVisibility => 'BirthVisibility',
       _ilvyd2nu.DatePrecision => 'DatePrecision',
@@ -279,6 +291,8 @@ class Protocol extends _isc.SerializationManager
     }
 
     switch (data) {
+      case _it4z223c.AppException():
+        return 'AppException';
       case _i2j2xfrn.AppUser():
         return 'AppUser';
       case _i2x3tia5.BirthVisibility():
@@ -330,6 +344,9 @@ class Protocol extends _isc.SerializationManager
     var dataClassName = data['className'];
     if (dataClassName is! String) {
       return super.deserializeByClassName(data);
+    }
+    if (dataClassName == 'AppException') {
+      return deserialize<_it4z223c.AppException>(data['data']);
     }
     if (dataClassName == 'AppUser') {
       return deserialize<_i2j2xfrn.AppUser>(data['data']);

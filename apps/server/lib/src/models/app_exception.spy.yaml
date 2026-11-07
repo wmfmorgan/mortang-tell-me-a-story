@@ -1,0 +1,7 @@
+### Single error envelope for every endpoint.
+### code: auth_required | forbidden | not_found | validation | conflict |
+###       invite_invalid | invite_accepted | invite_expired
+exception: AppException
+fields:
+  code: String
+  message: String
