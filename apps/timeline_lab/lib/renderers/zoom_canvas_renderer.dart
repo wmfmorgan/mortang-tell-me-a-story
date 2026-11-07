@@ -362,12 +362,20 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
             anchor: const Offset(-0.5, -0.5),
             opacity: _reveal(e.story.id),
             GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () => data.onSelect(e.story.id),
-              child: StoryDot(
-                spec: MarkerSpec(
-                  matched: e.matched,
-                  origin: isOrigin(e.story, data.dataset),
-                  selected: e.story.id == data.selectedId,
+              // 44 pt target around the dot. The pin anchors this box at its
+              // centre, so the dot does not move.
+              child: SizedBox.square(
+                dimension: LabTarget.min,
+                child: Center(
+                  child: StoryDot(
+                    spec: MarkerSpec(
+                      matched: e.matched,
+                      origin: isOrigin(e.story, data.dataset),
+                      selected: e.story.id == data.selectedId,
+                    ),
+                  ),
                 ),
               ),
             ),
