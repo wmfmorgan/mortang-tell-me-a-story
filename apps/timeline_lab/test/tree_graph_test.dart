@@ -211,4 +211,39 @@ void main() {
     await tapNode(leaf);
     expect(selected, leaf.storyId);
   });
+
+  test('a finger radius reaches the nearest dot; labels are not targets', () {
+    final layout = TreeLayout(buildTimeTree(entries)!);
+    final leaf = layout.nodes.firstWhere(
+      (n) => n.kind == TreeNodeKind.story && n.children.isEmpty,
+    );
+    final p = layout.positions[leaf]!;
+    // The label is not a target, even for a finger (D-i5).
+    expect(
+      layout.hitTest(p + const Offset(120, 0), radius: LabTarget.fingerRadius),
+      isNull,
+    );
+    // 12 pt below the dot: outside the precise radius, inside the finger
+    // one, and nearer this dot than the next row (26 pt away).
+    final q = p + const Offset(0, 12);
+    expect(layout.hitTest(q), isNull);
+    expect(layout.hitTest(q, radius: LabTarget.fingerRadius), same(leaf));
+
+    // Inner nodes use the same rule.
+    final years = [
+      for (final n in layout.nodes)
+        if (n.kind == TreeNodeKind.year) n,
+    ];
+    final year = years.firstWhere(
+      (y) => years.every(
+        (o) =>
+            identical(o, y) ||
+            (layout.positions[o]! - layout.positions[y]!).distance >
+                2 * LabTarget.fingerRadius,
+      ),
+    );
+    final r = layout.positions[year]! + const Offset(0, 18);
+    expect(layout.hitTest(r), isNull);
+    expect(layout.hitTest(r, radius: LabTarget.fingerRadius), same(year));
+  });
 }

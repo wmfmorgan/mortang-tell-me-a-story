@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../input/pointer_input.dart';
 import '../model/lab_models.dart';
 import '../playback/playback_controller.dart';
 import '../playback/reveal.dart';
@@ -146,28 +147,40 @@ class _TreeGraphTimelineState extends State<TreeGraphTimeline> {
               : NotificationListener<ScrollStartNotification>(
                   onNotification: (n) =>
                       disableFollowOnUserScroll(n, _playback),
-                  child: SingleChildScrollView(
-                    controller: _vCtl,
-                    child: SingleChildScrollView(
-                      controller: _hCtl,
-                      scrollDirection: Axis.horizontal,
-                      child: GestureDetector(
-                        onTapUp: (details) {
-                          final hit = layout.hitTest(details.localPosition);
-                          if (hit != null) _onTap(hit);
-                        },
-                        child: CustomPaint(
-                          size: layout.size,
-                          painter: TreePainter(
-                            layout: layout,
-                            dataset: widget.data.dataset,
-                            selectedId: widget.data.selectedId,
-                            playback: _playback,
-                            labelStyle: theme.labelSmall!,
-                            headingStyle: theme.labelLarge!.copyWith(
-                              fontWeight: FontWeight.w600,
+                  child: LayoutBuilder(
+                    builder: (context, box) => SingleChildScrollView(
+                      controller: _vCtl,
+                      child: ConstrainedBox(
+                        // A short (filtered) tree still pans anywhere (F7).
+                        constraints: BoxConstraints(minHeight: box.maxHeight),
+                        child: SingleChildScrollView(
+                          controller: _hCtl,
+                          scrollDirection: Axis.horizontal,
+                          child: GestureDetector(
+                            onTapUp: (details) {
+                              final hit = layout.hitTest(
+                                details.localPosition,
+                                radius: hitRadiusFor(
+                                  details.kind,
+                                  precise: TreeLayout.hitRadius,
+                                ),
+                              );
+                              if (hit != null) _onTap(hit);
+                            },
+                            child: CustomPaint(
+                              size: layout.size,
+                              painter: TreePainter(
+                                layout: layout,
+                                dataset: widget.data.dataset,
+                                selectedId: widget.data.selectedId,
+                                playback: _playback,
+                                labelStyle: theme.labelSmall!,
+                                headingStyle: theme.labelLarge!.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                onTapNode: _onTap,
+                              ),
                             ),
-                            onTapNode: _onTap,
                           ),
                         ),
                       ),

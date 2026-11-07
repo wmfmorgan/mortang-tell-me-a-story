@@ -333,13 +333,14 @@ class TreeLayout {
 
   static const hitRadius = 10.0;
 
-  /// Nearest node within [hitRadius] of [p].
-  TreeNode? hitTest(Offset p) {
+  /// The node whose centre is nearest [p] within [radius]. Labels are not
+  /// targets (D-i5); callers pass `LabTarget.fingerRadius` for finger taps.
+  TreeNode? hitTest(Offset p, {double radius = hitRadius}) {
     TreeNode? best;
     var bestDist = double.infinity;
     for (final n in nodes) {
       final dist = (positions[n]! - p).distance;
-      if (dist <= hitRadius && dist < bestDist) {
+      if (dist <= radius && dist < bestDist) {
         best = n;
         bestDist = dist;
       }
