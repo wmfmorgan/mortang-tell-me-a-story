@@ -434,6 +434,21 @@ class EndpointPeople extends _isc.EndpointRef {
       'picture': picture,
     },
   );
+
+  /// Sets or clears a linked person's passed-away flag (old
+  /// `mark_passed_away`). Checks in the business-rules.md §4.3 order;
+  /// clearing the flag clears the death fields.
+  _ida.Future<void> markPassedAway(
+    _isc.UuidValue personId,
+    bool value,
+  ) => caller.callServerEndpoint<void>(
+    'people',
+    'markPassedAway',
+    {
+      'personId': personId,
+      'value': value,
+    },
+  );
 }
 
 class Modules {

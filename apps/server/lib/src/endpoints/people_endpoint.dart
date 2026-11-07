@@ -181,6 +181,42 @@ class PeopleEndpoint extends Endpoint {
     return (await _toDtos(session, authz, [saved])).single;
   }
 
+  /// Sets or clears a linked person's passed-away flag (old
+  /// `mark_passed_away`). Checks in the business-rules.md §4.3 order;
+  /// clearing the flag clears the death fields.
+  Future<void> markPassedAway(
+    Session session,
+    UuidValue personId,
+    bool value,
+  ) async {
+    final authz = Authz(session);
+    final uid = authz.requireUser();
+    final person = await _readablePerson(authz, personId);
+    if (person == null) throw notFound('person not found');
+    if (person.userId == null) throw validation('person has not signed in');
+    if (person.userId == uid) throw validation('cannot mark yourself');
+    if (!await authz.isLiveSteward(person.homeFamilyId)) throw forbidden();
+    await session.db.transaction((t) async {
+      final current = await Person.db.findById(
+        session,
+        personId,
+        transaction: t,
+        lockMode: LockMode.forUpdate,
+      );
+      if (current == null) throw notFound('person not found');
+      await Person.db.updateRow(
+        session,
+        current.copyWith(
+          passedAway: value,
+          deathDate: value ? current.deathDate : null,
+          deathPrecision: value ? current.deathPrecision : null,
+          updatedAt: DateTime.now().toUtc(),
+        ),
+        transaction: t,
+      );
+    });
+  }
+
   /// [familyId] when it is live and in one of the caller's trees.
   Future<Family?> _readableFamily(Authz authz, UuidValue familyId) async {
     final family = await Family.db.findById(authz.session, familyId);

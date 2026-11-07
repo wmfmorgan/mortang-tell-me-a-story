@@ -481,6 +481,31 @@ class Endpoints extends _is.EndpointDispatch {
                     params['picture'],
                   ),
         ),
+        'markPassedAway': _is.MethodConnector(
+          name: 'markPassedAway',
+          params: {
+            'personId': _is.ParameterDescription(
+              name: 'personId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'value': _is.ParameterDescription(
+              name: 'value',
+              type: _is.getType<bool>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['people'] as _iqqt4psm.PeopleEndpoint)
+                  .markPassedAway(
+                    session,
+                    params['personId'],
+                    params['value'],
+                  ),
+        ),
       },
     );
     modules['serverpod_auth_idp'] = _iais.Endpoints()

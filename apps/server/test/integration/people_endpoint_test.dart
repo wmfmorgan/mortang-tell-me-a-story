@@ -677,5 +677,84 @@ void main() {
         },
       );
     });
+
+    group('markPassedAway', () {
+      // BR 103
+      test(
+        'when the owner or co-owner of the home family marks a linked person '
+        'then the flag toggles and name and about stay',
+        () async {
+          final linked = await fx.person(parent, userId: member, name: 'Me');
+          await Person.db.updateRow(fx.s, linked.copyWith(about: 'about'));
+
+          await endpoints.people.markPassedAway(as(owner), linked.id!, true);
+          final marked = await fx.reload(linked);
+          await endpoints.people.markPassedAway(as(coOwner), linked.id!, false);
+          final unmarked = await fx.reload(linked);
+
+          expect(marked.passedAway, isTrue);
+          expect(unmarked.passedAway, isFalse);
+          expect(unmarked.name, 'Me');
+          expect(unmarked.about, 'about');
+        },
+      );
+
+      test('when the flag is cleared then the death fields clear', () async {
+        final linked = await fx.person(
+          parent,
+          userId: member,
+          passedAway: true,
+          deathDate: DateTime.utc(2000),
+          deathPrecision: DatePrecision.year,
+        );
+
+        await endpoints.people.markPassedAway(as(owner), linked.id!, false);
+
+        final row = await fx.reload(linked);
+        expect(row.deathDate, isNull);
+        expect(row.deathPrecision, isNull);
+      });
+
+      // BR 103
+      test(
+        'when another tree family owner, a plain member, self, an unlinked '
+        'target or a non-tree caller marks then refused with §4.3 codes',
+        () async {
+          final linked = await fx.person(parent, userId: member, name: 'Me');
+          final unlinked = await fx.person(parent, name: 'Ada');
+
+          await expectLater(
+            endpoints.people.markPassedAway(as(childMember), linked.id!, true),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          await expectLater(
+            endpoints.people.markPassedAway(as(coOwner), unlinked.id!, true),
+            throwsAppError(AppErrorCode.validation, 'person has not signed in'),
+          );
+          await expectLater(
+            endpoints.people.markPassedAway(as(member), linked.id!, true),
+            throwsAppError(AppErrorCode.validation, 'cannot mark yourself'),
+          );
+          final other = await fx.person(parent, userId: owner, name: 'Owner');
+          await expectLater(
+            endpoints.people.markPassedAway(as(member), other.id!, true),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          await expectLater(
+            endpoints.people.markPassedAway(as(stranger), linked.id!, true),
+            throwsAppError(AppErrorCode.notFound, 'person not found'),
+          );
+          await expectLater(
+            endpoints.people.markPassedAway(
+              as(owner),
+              UuidValue.fromString(const Uuid().v7()),
+              true,
+            ),
+            throwsAppError(AppErrorCode.notFound, 'person not found'),
+          );
+          expect((await fx.reload(linked)).passedAway, isFalse);
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }
