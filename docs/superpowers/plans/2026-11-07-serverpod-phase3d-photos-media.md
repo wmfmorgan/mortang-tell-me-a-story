@@ -1,6 +1,6 @@
 # Phase 3d: Photos and Media Implementation Plan
 
-> Executed 2026-11-07 on `feat/p3d-photos-media` (`a42f350`..`71c1f4f`), with server tests at 131/131 (100 foundation + 31 here). Code blocks below match what landed; deviations found while executing: `queued` uses a null-aware set element (lint), `_liveFamiliesOf` types its id set as `<UuidValue>{…}` (a bare literal infers `Set<UuidValue?>` and fails at runtime in `inSet`), and `dart format` re-wrapped `finishUpload`. The first `server-generate` also re-wrapped imports in already-committed client DTO files (generator output, no content change). The client package needs `dart pub get` once in a fresh worktree before `dart analyze`.
+> Executed 2026-11-07 on `feat/p3d-photos-media` (`a42f350`..`71c1f4f`), with server tests at 131/131 (100 foundation + 31 here); a review follow-up (`5bebc02`, `a6da049`) hardened `finishUpload` and brought it to 134/134 (+34 here). Code blocks below match what landed; deviations found while executing: `queued` uses a null-aware set element (lint), `_liveFamiliesOf` types its id set as `<UuidValue>{…}` (a bare literal infers `Set<UuidValue?>` and fails at runtime in `inSet`), and `dart format` re-wrapped `finishUpload`. The first `server-generate` also re-wrapped imports in already-committed client DTO files (generator output, no content change). The client package needs `dart pub get` once in a fresh worktree before `dart analyze`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -30,6 +30,11 @@ All commands run from the worktree root (`/tmp/tmas-p3d-photos-media`) unless a 
 - **Errors.** `forbidden()` (default text) for access. The photo cap is `AppException(photoCap, 'photo limit reached')` (index §Conventions; §7 case 78 says VALIDATION, the index is binding). Upload checks are `validation` with the texts `unsupported image type` (from `extForMime`/sniffing), `photo is empty`, `photo is too large`, `image type does not match`, `photo already added`. A missing or unverifiable upload is `AppException(storageFailed, 'upload not found')`. These upload texts are new: §5.2 has no upload catalogue because the old client wrote to Storage directly.
 - **finishUpload has no `mimeType`** (contract signature). The server rebuilds the three candidate keys (`original.jpg|png|webp`) for `(story.familyId, storyId, photoId)` and verifies them in turn; the one that verifies is the upload, and its extension is the declared type the sniffed bytes must match. Nobody parses keys.
 - **finishUpload failure paths queue the blob** in the same transaction that decides the failure (contract: "on any failure the blob is queued for deletion"). When nothing verifies, all three candidate keys are queued (deleting a missing key is a no-op). The one exception is a second finish for a photo row that already exists: that blob belongs to the row, so nothing is queued.
+- **finishUpload refusals (review follow-up).**
+  - A candidate key already in `blob_deletions` (an earlier failed finish) is `storageFailed 'upload not found'` and no row, checked inside the transaction: on S3 `verifyUpload` only stats the blob, so it would pass while the drain deletes it.
+  - Access lost between start and finish (`canContribute` false): the candidate keys are queued unless a row with that photoId exists, then `forbidden()`.
+  - Story deleted while the finish waits for the story lock: the locked read returns null, the candidate keys are queued, and `forbidden()` (never the raw FK error).
+  - Story already gone before the finish starts: `forbidden()` with nothing queued. Its `familyId` is unknowable without parsing keys, so the keys can't be rebuilt; that blob stays until a storage-level sweep.
 - **The cap is checked twice:** a cheap count at `startUpload`, and the binding count at `finishUpload` under the story row lock (schema-design §3.2 "Lock the story row forNoKeyUpdate, count photos, reject at ≥ 20").
 - **Media.** Cover: `isLiveMember(family)` (D6b). Person avatar: `isTreeMemberOf(person.treeId)` (D8). User avatar: self, or both are members of one live family. Photo original/edited: `canReadStory(story)`. A key whose row exists but whose blob is missing is treated like an unknown key.
 
@@ -772,6 +777,114 @@ git commit -m "feat(server): PhotoEndpoint.startUpload"
       },
     );
 
+    /// Every key `finishUpload` may consider for [photoId] on [story].
+    Set<String> candidateKeys(Story story, UuidValue photoId) => {
+      for (final mime in ['image/jpeg', 'image/png', 'image/webp'])
+        photoOriginalKey(
+          familyId: story.familyId,
+          storyId: story.id!,
+          photoId: photoId,
+          mimeType: mime,
+        ),
+    };
+
+    test(
+      'when the uploaded key is already queued for deletion then '
+      'STORAGE_FAILED and no row (on S3, verifyUpload only stats the blob)',
+      () async {
+        final member = await fx.user();
+        final story = (await familyStory(member)).$2;
+        final as = asUser(sessionBuilder, member);
+        final ticket = await endpoints.photo.startUpload(
+          as,
+          story.id!,
+          'image/jpeg',
+          jpegBytes().lengthInBytes,
+        );
+        await fx.clientUpload(ticket.key, jpegBytes());
+        await queueBlobDeletions(fx.s, [ticket.key]);
+
+        await expectLater(
+          endpoints.photo.finishUpload(as, story.id!, ticket.photoId, 0),
+          throwsAppError(AppErrorCode.storageFailed, 'upload not found'),
+        );
+        expect(await Photo.db.findById(fx.s, ticket.photoId), isNull);
+      },
+    );
+
+    test(
+      'when the uploader leaves the family between start and finish then '
+      'FORBIDDEN, the candidate keys are queued and no row',
+      () async {
+        final member = await fx.user();
+        final (family, story) = await familyStory(await fx.user());
+        final membership = await fx.join(family, member);
+        final as = asUser(sessionBuilder, member);
+        final ticket = await endpoints.photo.startUpload(
+          as,
+          story.id!,
+          'image/jpeg',
+          jpegBytes().lengthInBytes,
+        );
+        await fx.clientUpload(ticket.key, jpegBytes());
+        await Membership.db.deleteRow(fx.s, membership);
+
+        await expectLater(
+          endpoints.photo.finishUpload(as, story.id!, ticket.photoId, 0),
+          throwsAppError(AppErrorCode.forbidden),
+        );
+        expect(await Photo.db.findById(fx.s, ticket.photoId), isNull);
+        final keys = candidateKeys(story, ticket.photoId);
+        expect(await fx.queued(keys), keys);
+      },
+    );
+
+    test(
+      'when the story is deleted while the finish waits for its lock then '
+      'FORBIDDEN, the candidate keys are queued and no row',
+      () async {
+        final member = await fx.user();
+        final story = (await familyStory(member)).$2;
+        final as = asUser(sessionBuilder, member);
+        final ticket = await endpoints.photo.startUpload(
+          as,
+          story.id!,
+          'image/jpeg',
+          jpegBytes().lengthInBytes,
+        );
+        await fx.clientUpload(ticket.key, jpegBytes());
+
+        late Future<Object?> outcome;
+        await fx.s.db.transaction((t) async {
+          await Story.db.findById(
+            fx.s,
+            story.id!,
+            transaction: t,
+            lockMode: LockMode.forUpdate,
+          );
+          // The finish passes its unlocked access check, then blocks on the
+          // story lock until this transaction deletes the story and commits.
+          outcome = endpoints.photo
+              .finishUpload(as, story.id!, ticket.photoId, 0)
+              .then<Object?>((_) => null, onError: (Object e) => e);
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          await Story.db.deleteRow(fx.s, story, transaction: t);
+        });
+
+        expect(
+          await outcome,
+          isA<AppException>().having(
+            (e) => e.code,
+            'code',
+            AppErrorCode.forbidden,
+          ),
+        );
+        expect(await Photo.db.findById(fx.s, ticket.photoId), isNull);
+        final keys = candidateKeys(story, ticket.photoId);
+        expect(await fx.queued(keys), keys);
+      },
+    );
+
     // BR 46
     test(
       'Given child member, when uploading for the origin story, then the key '
@@ -831,7 +944,7 @@ git commit -m "feat(server): PhotoEndpoint.startUpload"
     );
 ```
 
-Also add `import 'dart:typed_data';` at the top of the test file.
+Also add `import 'dart:typed_data';` and `import 'package:tell_me_a_story_server/src/media/blob_outbox.dart';` at the top of the test file.
 
 - [ ] **Step 2: Run to verify it fails**
 
@@ -843,43 +956,74 @@ Expected: compile error, `The method 'finishUpload' isn't defined`.
 Add imports `import '../live/live_events.dart';` and `import '../media/blob_outbox.dart';`, and inside the class:
 
 ```dart
+  static AppException _uploadNotFound() => AppException(
+    code: AppErrorCode.storageFailed,
+    message: 'upload not found',
+  );
+
   /// The image types a story photo may have.
   static const _mimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
   /// Verifies the uploaded blob for [photoId], checks its bytes and the cap,
-  /// and writes the row. On any failure the blob is queued for deletion,
-  /// except when the row already exists (the blob is that row's).
+  /// and writes the row. On any failure the candidate blobs are queued for
+  /// deletion, except when the row already exists (the blob is that row's).
   Future<PhotoDto> finishUpload(
     Session session,
     UuidValue storyId,
     UuidValue photoId,
     int sortOrder,
   ) async {
-    final story = await _contributable(session, storyId);
-    final uploaderId = Authz(session).requireUser();
+    final authz = Authz(session);
+    final uploaderId = authz.requireUser();
+    final story = await Story.db.findById(session, storyId);
+    // A story deleted before the finish leaves no familyId to rebuild the
+    // keys from (keys are never parsed); its upload can't be found again.
+    if (story == null) throw forbidden();
+    final keys = {
+      for (final mime in _mimeTypes)
+        mime: photoOriginalKey(
+          familyId: story.familyId,
+          storyId: storyId,
+          photoId: photoId,
+          mimeType: mime,
+        ),
+    };
+    if (!await authz.canContribute(story)) {
+      // Access lost between start and finish: drop the orphaned upload.
+      await session.db.transaction((t) async {
+        if (await Photo.db.findById(session, photoId, transaction: t) == null) {
+          await queueBlobDeletions(session, keys.values, transaction: t);
+        }
+      });
+      throw forbidden();
+    }
     final (
       photo,
       error,
     ) = await session.db.transaction<(Photo?, AppException?)>((t) async {
       // Serializes the cap count and the double-finish check per story.
-      await Story.db.findById(
+      final locked = await Story.db.findById(
         session,
         storyId,
         transaction: t,
         lockMode: LockMode.forNoKeyUpdate,
       );
+      if (locked == null) {
+        // Deleted while we waited for the lock; its photos are gone too.
+        await queueBlobDeletions(session, keys.values, transaction: t);
+        return (null, forbidden());
+      }
       if (await Photo.db.findById(session, photoId, transaction: t) != null) {
         return (null, validation('photo already added'));
       }
-      final keys = {
-        for (final mime in _mimeTypes)
-          mime: photoOriginalKey(
-            familyId: story.familyId,
-            storyId: storyId,
-            photoId: photoId,
-            mimeType: mime,
-          ),
-      };
+      // Already queued (an earlier failed finish): on S3 `verifyUpload` only
+      // stats the blob, so it would still pass while the drain deletes it.
+      final queued = await BlobDeletion.db.count(
+        session,
+        where: (b) => b.key.inSet(keys.values.toSet()),
+        transaction: t,
+      );
+      if (queued > 0) return (null, _uploadNotFound());
       String? declared;
       for (final MapEntry(key: mime, value: key) in keys.entries) {
         if (await session.storage.verifyUpload(
@@ -892,13 +1036,7 @@ Add imports `import '../live/live_events.dart';` and `import '../media/blob_outb
       }
       if (declared == null) {
         await queueBlobDeletions(session, keys.values, transaction: t);
-        return (
-          null,
-          AppException(
-            code: AppErrorCode.storageFailed,
-            message: 'upload not found',
-          ),
-        );
+        return (null, _uploadNotFound());
       }
       final key = keys[declared]!;
       final refused = await _checkUpload(
@@ -947,10 +1085,7 @@ Add imports `import '../live/live_events.dart';` and `import '../media/blob_outb
         path: key,
       );
     } on CloudStorageException {
-      return AppException(
-        code: AppErrorCode.storageFailed,
-        message: 'upload not found',
-      );
+      return _uploadNotFound();
     }
     if (bytes.lengthInBytes > photoMaxBytes) {
       return validation('photo is too large');
@@ -992,7 +1127,7 @@ Also add `import 'dart:typed_data';` at the top of the endpoint file (for `ByteD
 - [ ] **Step 4: Run to verify it passes**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/photo_endpoint_test.dart`
-Expected: 15 tests pass.
+Expected: 18 tests pass.
 
 - [ ] **Step 5: Commit**
 
@@ -1043,12 +1178,13 @@ git commit -m "feat(server): PhotoEndpoint.finishUpload verifies, sniffs and cap
       'and blobs on the published origin story; child-timeline owner '
       'deletes no parent photos',
       () async {
+        final parentAuthor = await fx.user();
         final parentOwner = await fx.user();
         final childOwner = await fx.user();
-        final (parent, origin) = await familyStory(
-          parentOwner,
-          authorRole: MembershipRole.owner,
-        );
+        // A plain member authors the origin, so the owner's rights come from
+        // the steward branch of canEditStory, not from authorship.
+        final (parent, origin) = await familyStory(parentAuthor);
+        await fx.join(parent, parentOwner, MembershipRole.owner);
         final child = await fx.branch(parent, origin);
         await fx.join(child, childOwner, MembershipRole.owner);
         final contributed = await fx.photo(
@@ -1197,7 +1333,7 @@ Expected: compile error, `The method 'delete' isn't defined`.
 - [ ] **Step 4: Run to verify it passes**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/photo_endpoint_test.dart`
-Expected: 20 tests pass.
+Expected: 23 tests pass.
 
 - [ ] **Step 5: Commit** (regenerate first: `mise exec -- just server-generate`)
 
@@ -1261,14 +1397,17 @@ git commit -m "feat(server): PhotoEndpoint.delete queues blobs"
       'the hero, then allowed; a plain member who did not upload it, or a '
       'photo of another story, then FORBIDDEN',
       () async {
+        final author = await fx.user();
         final owner = await fx.user();
         final uploader = await fx.user();
         final bystander = await fx.user();
+        // A plain member authors the story, so the owner's rights come from
+        // the steward branch of canEditStory, not from authorship.
         final (family, story) = await familyStory(
-          owner,
-          authorRole: MembershipRole.owner,
+          author,
           members: [uploader, bystander],
         );
+        await fx.join(family, owner, MembershipRole.owner);
         final first = await fx.photo(story, uploaderId: owner);
         final theirs = await fx.photo(
           story,
@@ -1276,7 +1415,7 @@ git commit -m "feat(server): PhotoEndpoint.delete queues blobs"
           sortOrder: 1,
         );
         final elsewhere = await fx.photo(
-          await fx.story(family, authorId: owner),
+          await fx.story(family, authorId: author),
           uploaderId: owner,
         );
 
@@ -1370,7 +1509,7 @@ Expected: compile error, `The method 'setHero' isn't defined`.
 - [ ] **Step 4: Run to verify it passes**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/photo_endpoint_test.dart`
-Expected: 22 tests pass.
+Expected: 25 tests pass.
 
 - [ ] **Step 5: Commit** (regenerate first: `mise exec -- just server-generate`)
 
@@ -1840,5 +1979,5 @@ git commit -m "feat(server): MediaEndpoint reads covers and avatars by row acces
 
 - [ ] **Step 1: Format** — `mise exec -- dart format apps/server/lib apps/server/test`, then `mise exec -- dart format --output=none --set-exit-if-changed apps/server/lib apps/server/test`. Expected: `Formatted N files (0 changed)`.
 - [ ] **Step 2: Analyze** — `cd apps/server && mise exec -- dart analyze lib test` and `cd packages/tell_me_a_story_client && mise exec -- dart analyze`. Expected: `No issues found!` twice.
-- [ ] **Step 3: Test** — `mise exec -- just server-test`. Expected: all pass (foundation 100 + 31 here).
+- [ ] **Step 3: Test** — `mise exec -- just server-test`. Expected: all pass (foundation 100 + 34 here).
 - [ ] **Step 4: Commit** any format-only changes as `style(server): format 3d`; otherwise nothing to commit.
