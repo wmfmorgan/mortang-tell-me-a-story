@@ -1,6 +1,11 @@
 import '../generated/serverpod.dart';
 
 /// Applies [constraintsSql] after Serverpod has run its migrations.
+///
+/// Each index and constraint is created only if no object with its name
+/// exists, so editing an existing definition has no effect on databases that
+/// already have it. To change one, add it under a new name and drop the old
+/// name in the same SQL.
 Future<void> applyConstraints(Serverpod pod) async {
   final session = await pod.createSession();
   try {
@@ -15,6 +20,9 @@ Future<void> applyConstraints(Serverpod pod) async {
 const constraintsSql = r'''
 -- Invariants Serverpod model YAML cannot express. Idempotent: safe to run on
 -- every server start after Serverpod has applied its migrations.
+-- Definitions are immutable by name: each is created only if absent by name,
+-- so editing one in place never reaches existing databases. To change one,
+-- add it under a new name and drop the old name in this same SQL.
 -- Column names are Serverpod's quoted camelCase field names.
 -- DatePrecision is serialized byIndex: 0 = year, 1 = month, 2 = day.
 
