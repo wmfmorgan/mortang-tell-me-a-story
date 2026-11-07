@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'filter/timeline_filter.dart';
@@ -94,6 +96,8 @@ class LabHome extends StatelessWidget {
       ),
     );
     final selected = c.selectedStory;
+    final window = MediaQuery.sizeOf(context);
+    final wide = window.width >= LabBreakpoint.sidebar;
 
     return Scaffold(
       appBar: AppBar(
@@ -108,46 +112,86 @@ class LabHome extends StatelessWidget {
         ],
         bottom: _RendererSwitch(controller: c),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= LabBreakpoint.sidebar;
-                // One Flex in both layouts so the renderer keeps its element
-                // (scroll, zoom, lane mode) across the breakpoint.
-                return Flex(
-                  direction: wide ? Axis.horizontal : Axis.vertical,
+      endDrawer: wide
+          ? null
+          : Drawer(
+              key: const Key('filters-drawer'),
+              width: math.min(360, window.width * 0.9),
+              child: SafeArea(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (wide)
-                      SizedBox(
-                        width: 300,
-                        child: SingleChildScrollView(
-                          child: FilterPanel(controller: c),
-                        ),
-                      )
-                    else
-                      ExpansionTile(
-                        title: const Text('Filters'),
-                        children: [FilterPanel(controller: c)],
-                      ),
-                    if (wide)
-                      const VerticalDivider(width: 1)
-                    else
-                      const Divider(height: 1),
-                    Expanded(
-                      child: Stack(
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+                      child: Row(
                         children: [
-                          // Behind the renderer: tiles and cards cover it.
-                          PlaybackWatermark(playback: playback),
-                          Positioned.fill(child: renderer),
+                          Expanded(
+                            // Live count: the scrim hides the status bar.
+                            child: Text(
+                              statusLine(
+                                c.matchCount,
+                                c.dataset.stories.length,
+                                c.filter,
+                              ),
+                              style: Theme.of(context).textTheme.labelLarge,
+                            ),
+                          ),
+                          Builder(
+                            builder: (context) => IconButton(
+                              key: const Key('filters-close'),
+                              tooltip: 'Close',
+                              icon: const Icon(Icons.close),
+                              onPressed: () =>
+                                  Scaffold.of(context).closeEndDrawer(),
+                            ),
+                          ),
                         ],
                       ),
                     ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.viewInsetsOf(context).bottom,
+                        ),
+                        child: FilterPanel(controller: c),
+                      ),
+                    ),
                   ],
-                );
-              },
+                ),
+              ),
+            ),
+      body: Column(
+        children: [
+          Expanded(
+            // One Flex in both layouts so the renderer keeps its element
+            // (scroll, zoom, lane mode) across the breakpoint.
+            child: Flex(
+              direction: wide ? Axis.horizontal : Axis.vertical,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (wide)
+                  SizedBox(
+                    width: 300,
+                    child: SingleChildScrollView(
+                      child: FilterPanel(controller: c),
+                    ),
+                  )
+                else
+                  _FilterBar(filter: c.filter),
+                if (wide)
+                  const VerticalDivider(width: 1)
+                else
+                  const Divider(height: 1),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      // Behind the renderer: tiles and cards cover it.
+                      PlaybackWatermark(playback: playback),
+                      Positioned.fill(child: renderer),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           PlaybackBar(playback: playback),
@@ -160,6 +204,39 @@ class LabHome extends StatelessWidget {
           ),
           _StatusRow(controller: c, playback: playback),
         ],
+      ),
+    );
+  }
+}
+
+/// Below [LabBreakpoint.sidebar]: a single row with the Filters button. The
+/// panel opens as an end drawer, so the renderer keeps its full height.
+class _FilterBar extends StatelessWidget {
+  const _FilterBar({required this.filter});
+
+  final TimelineFilter filter;
+
+  int get _activeGroups => [
+    filter.query.trim().isNotEmpty,
+    filter.fromYear != null || filter.toYear != null,
+    filter.personIds.isNotEmpty,
+    filter.placeIds.isNotEmpty,
+    filter.familyIds.isNotEmpty,
+  ].where((on) => on).length;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = _activeGroups;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: TextButton.icon(
+          key: const Key('filters-open'),
+          onPressed: () => Scaffold.of(context).openEndDrawer(),
+          icon: const Icon(Icons.tune),
+          label: Text(n == 0 ? 'Filters' : 'Filters · $n'),
+        ),
       ),
     );
   }
