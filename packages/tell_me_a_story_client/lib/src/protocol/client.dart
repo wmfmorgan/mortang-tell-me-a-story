@@ -11,12 +11,16 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
+
 import 'package:http/http.dart' as _i85jenna;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
     as _iacc;
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:tell_me_a_story_client/src/protocol/dto/photo_dto.dart'
+    as _ighpoo1p;
+
 import 'protocol.dart' as _il2as5qe;
 
 /// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
@@ -345,6 +349,24 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// Story photos (business-rules.md §2.7 without edit save/reset, §4.5; upload
+/// flow schema-design.md §4.2).
+/// {@category Endpoint}
+class EndpointPhoto extends _isc.EndpointRef {
+  EndpointPhoto(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'photo';
+
+  /// The story's photos, hero first.
+  _ida.Future<List<_ighpoo1p.PhotoDto>> list(_isc.UuidValue storyId) =>
+      caller.callServerEndpoint<List<_ighpoo1p.PhotoDto>>(
+        'photo',
+        'list',
+        {'storyId': storyId},
+      );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -385,6 +407,7 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    photo = EndpointPhoto(this);
     modules = Modules(this);
   }
 
@@ -392,12 +415,15 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointJwtRefresh jwtRefresh;
 
+  late final EndpointPhoto photo;
+
   late final Modules modules;
 
   @override
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'photo': photo,
   };
 
   @override

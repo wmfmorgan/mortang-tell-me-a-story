@@ -19,6 +19,8 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import 'package:serverpod_test/serverpod_test.dart' as _ist;
+import 'package:tell_me_a_story_server/src/generated/dto/photo_dto.dart'
+    as _iav5ek9v;
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
 import 'package:tell_me_a_story_server/src/generated/endpoints.dart';
 export 'package:serverpod_test/serverpod_test_public_exports.dart';
@@ -155,6 +157,8 @@ class TestEndpoints {
   late final _EmailIdpEndpoint emailIdp;
 
   late final _JwtRefreshEndpoint jwtRefresh;
+
+  late final _PhotoEndpoint photo;
 }
 
 class _InternalTestEndpoints extends TestEndpoints
@@ -169,6 +173,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     jwtRefresh = _JwtRefreshEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    photo = _PhotoEndpoint(
       endpoints,
       serializationManager,
     );
@@ -617,6 +625,48 @@ class _JwtRefreshEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<_iacs.AuthSuccess>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _PhotoEndpoint {
+  _PhotoEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<List<_iav5ek9v.PhotoDto>> list(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue storyId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'photo',
+            method: 'list',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'photo',
+          methodName: 'list',
+          parameters: _ist.testObjectToJson({'storyId': storyId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_iav5ek9v.PhotoDto>>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

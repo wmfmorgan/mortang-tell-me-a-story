@@ -17,6 +17,7 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../endpoints/photo_endpoint.dart' as _ihuw68ce;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
@@ -32,6 +33,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'photo': _ihuw68ce.PhotoEndpoint()
+        ..initialize(
+          server,
+          'photo',
           null,
         ),
     };
@@ -326,6 +333,30 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['photo'] = _is.EndpointConnector(
+      name: 'photo',
+      endpoint: endpoints['photo']!,
+      methodConnectors: {
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['photo'] as _ihuw68ce.PhotoEndpoint).list(
+                session,
+                params['storyId'],
+              ),
         ),
       },
     );
