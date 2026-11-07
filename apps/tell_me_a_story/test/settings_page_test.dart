@@ -114,7 +114,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(profile.names, isEmpty);
-    expect(profile.emails, isEmpty);
     expect(profile.uploads, 0);
   });
 
@@ -130,7 +129,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(profile.names, ['Ada']);
-    expect(profile.emails, isEmpty);
     expect(profile.births, [(null, null)]);
     expect(profile.abouts, [null]);
   });
@@ -148,39 +146,22 @@ void main() {
     expect(profile.names, ['Sarah Morgan']);
     expect(profile.births, [(DateTime(1987, 1, 1), 'year')]);
     expect(profile.abouts, ['A note']);
-    expect(profile.emails, isEmpty);
   });
 
-  testWidgets('a changed address calls updateEmail and the field stays', (
-    tester,
-  ) async {
+  testWidgets('the account email is read-only (D1)', (tester) async {
     final profile = _Profile();
     await pumpTall(tester, _app(profile));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
+    final field = tester.widget<TextField>(
       find.byKey(const Key('settings-email')),
-      'next@example.com',
     );
-    await tester.tap(find.byKey(const Key('settings-save')));
-    await tester.pumpAndSettle();
+    expect(field.readOnly, isTrue);
 
-    expect(profile.emails, ['next@example.com']);
-    expect(profile.names, ['Sarah Morgan']);
-    expect(_text(tester, 'settings-email'), 'sarah@example.com');
-  });
-
-  testWidgets('a blank email still saves the name', (tester) async {
-    final profile = _Profile();
-    await pumpTall(tester, _app(profile));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byKey(const Key('settings-email')), '  ');
     await tester.tap(find.byKey(const Key('settings-save')));
     await tester.pumpAndSettle();
 
     expect(profile.names, ['Sarah Morgan']);
-    expect(profile.emails, isEmpty);
     expect(_text(tester, 'settings-email'), 'sarah@example.com');
   });
 
@@ -212,7 +193,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(profile.names, ['Ada']);
-    expect(profile.emails, isEmpty);
     expect(find.text('Couldn’t save your profile. Try again.'), findsOneWidget);
     expect(find.byKey(const Key('profile-avatar-image')), findsWidgets);
   });
@@ -399,7 +379,6 @@ class _Profile implements ProfileGateway {
   OwnProfile profile;
   Uint8List? download;
   final names = <String>[];
-  final emails = <String>[];
   final births = <(DateTime?, String?)>[];
   final abouts = <String?>[];
   var uploads = 0;
@@ -442,11 +421,6 @@ class _Profile implements ProfileGateway {
     names.add(displayName);
     births.add((birthDate, birthPrecision));
     abouts.add(about);
-  }
-
-  @override
-  Future<void> updateEmail(String email) async {
-    emails.add(email);
   }
 }
 
