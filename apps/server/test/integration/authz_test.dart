@@ -85,6 +85,13 @@ void main() {
       expect(await authzFor(owner).isTreeMember(deletedBranch.id!), isFalse);
     });
 
+    test('a soft-deleted family is not tree-readable', () async {
+      expect(
+        await authzFor(branchMember).isTreeReadable(deletedBranch.id!),
+        isFalse,
+      );
+    });
+
     test('stranger and anonymous callers get nothing', () async {
       expect(await authzFor(stranger).isTreeReadable(root.id!), isFalse);
       expect(await authzFor(null).isMember(root.id!), isFalse);

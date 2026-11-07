@@ -6,7 +6,8 @@ import '../generated/protocol.dart';
 /// Family-level authorization predicates (business-rules.md §1).
 ///
 /// Every predicate is false for an unauthenticated session. "Live" means the
-/// family has no `deletedAt`. Tree membership is equality on `treeId`.
+/// family has no `deletedAt`. Tree membership is equality on `treeId`; tree
+/// reads require both the target family and the caller's family to be live.
 class Authz {
   Authz(this.session);
 
@@ -53,12 +54,13 @@ class Authz {
     return isMember(familyId);
   }
 
-  /// Caller is a member of some live family in the same tree as [familyId].
+  /// [familyId] is live and the caller is a member of some live family in the
+  /// same tree.
   Future<bool> isTreeReadable(UuidValue familyId) async {
     final uid = userId;
     if (uid == null) return false;
     final family = await Family.db.findById(session, familyId);
-    if (family == null) return false;
+    if (family == null || family.deletedAt != null) return false;
     final memberships = await Membership.db.find(
       session,
       where: (t) => t.userId.equals(uid),
@@ -74,12 +76,8 @@ class Authz {
     return count > 0;
   }
 
-  /// [isTreeReadable] and [familyId] itself is live.
-  Future<bool> isTreeMember(UuidValue familyId) async {
-    final family = await Family.db.findById(session, familyId);
-    if (family == null || family.deletedAt != null) return false;
-    return isTreeReadable(familyId);
-  }
+  /// Same as [isTreeReadable]; kept as the business-rules name.
+  Future<bool> isTreeMember(UuidValue familyId) => isTreeReadable(familyId);
 
   /// Throws `AppException(code: 'forbidden')` unless [allowed].
   void ensure(bool allowed) {
