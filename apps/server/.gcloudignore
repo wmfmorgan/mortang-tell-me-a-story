@@ -1,0 +1,6 @@
+.dart_tool/
+.serverpod/
+build/
+test/
+config/passwords.yaml
+.git
