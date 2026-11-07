@@ -314,7 +314,6 @@ class LaneCell extends StatelessWidget {
     List<TimelineEntry> shown,
     double Function(TimelineEntry) reveal,
   ) {
-    final d = data.dataset;
     final selected = shown.any((e) => e.story.id == data.selectedId);
     Widget content;
     if (shown.isEmpty) {
@@ -326,7 +325,7 @@ class LaneCell extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Dot(color: markerColor(e.story, d), alpha: entryOpacity(e)),
+            _Dot(alpha: entryOpacity(e)),
             const SizedBox(width: 4),
             Expanded(
               child: Text(
@@ -347,10 +346,7 @@ class LaneCell extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           for (final e in shown.take(maxDots))
-            _Dot(
-              color: markerColor(e.story, d),
-              alpha: entryOpacity(e) * reveal(e),
-            ),
+            _Dot(alpha: entryOpacity(e) * reveal(e)),
           if (shown.length > maxDots)
             Text(
               '+${shown.length - maxDots}',
@@ -388,9 +384,8 @@ class LaneCell extends StatelessWidget {
 }
 
 class _Dot extends StatelessWidget {
-  const _Dot({required this.color, required this.alpha});
+  const _Dot({required this.alpha});
 
-  final Color color;
   final double alpha;
 
   @override
@@ -400,7 +395,7 @@ class _Dot extends StatelessWidget {
     margin: const EdgeInsets.only(top: 3),
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      color: color.withValues(alpha: alpha),
+      color: labTerracotta.withValues(alpha: alpha),
     ),
   );
 }

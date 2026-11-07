@@ -7,7 +7,6 @@ import '../filter/timeline_filter.dart';
 import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
 import 'renderer_contract.dart';
-import 'story_marker.dart';
 import 'treemap_layout.dart';
 
 /// G: squarified treemap of story counts. Overview nests groups (decade,
@@ -127,12 +126,6 @@ class _TreemapTimelineState extends State<TreemapTimeline> {
   }
 }
 
-Color _tokenColor(TreemapColor c) => switch (c) {
-  TreemapColor.terracotta => labTerracotta,
-  TreemapColor.sage => labSage,
-  TreemapColor.moss => labMoss,
-};
-
 /// Overview tile: header + nested cell treemap.
 class _GroupTile extends StatelessWidget {
   const _GroupTile({
@@ -213,7 +206,6 @@ class _CellGrid extends StatelessWidget {
           child: TreemapCellTile(
             key: Key('treemap-cell-${c.id}'),
             cell: c,
-            color: _tokenColor(group.color),
             data: data,
             large: large,
             onTap: () => onCell(c),
@@ -230,14 +222,12 @@ class TreemapCellTile extends StatelessWidget {
   const TreemapCellTile({
     super.key,
     required this.cell,
-    required this.color,
     required this.data,
     required this.onTap,
     this.large = false,
   });
 
   final TreemapCell cell;
-  final Color color;
   final TimelineViewData data;
   final VoidCallback onTap;
   final bool large;
@@ -260,7 +250,7 @@ class TreemapCellTile extends StatelessWidget {
 
   Widget _build(BuildContext context, double revealed) {
     final share = cell.count == 0 ? 0.0 : cell.matchedCount / cell.count;
-    final fill = color.withValues(alpha: treemapFillAlpha(share));
+    final fill = labTerracotta.withValues(alpha: treemapFillAlpha(share));
     final theme = Theme.of(context).textTheme;
     final selected = cell.entries.any((e) => e.story.id == data.selectedId);
     return Semantics(
@@ -273,7 +263,7 @@ class TreemapCellTile extends StatelessWidget {
         onTap: onTap,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.05),
+            color: labTerracotta.withValues(alpha: 0.05),
             border: Border.all(
               color: selected ? labTerracotta : labPillBorder,
               width: selected ? 2 : 1,
@@ -344,10 +334,9 @@ class _StoryTiles extends StatelessWidget {
                 onTap: () => data.onSelect(e.story.id),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: markerColor(
-                      e.story,
-                      data.dataset,
-                    ).withValues(alpha: e.matched ? 0.18 : 0.06),
+                    color: labTerracotta.withValues(
+                      alpha: e.matched ? 0.18 : 0.06,
+                    ),
                     border: Border.all(
                       color: e.story.id == data.selectedId
                           ? labTerracotta

@@ -368,10 +368,7 @@ class _ZoomCanvasTimelineState extends State<ZoomCanvasTimeline>
                 height: 10,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: markerColor(
-                    e.story,
-                    data.dataset,
-                  ).withValues(alpha: entryOpacity(e)),
+                  color: labTerracotta.withValues(alpha: entryOpacity(e)),
                   border: e.story.id == data.selectedId
                       ? Border.all(color: labInk, width: 2)
                       : null,

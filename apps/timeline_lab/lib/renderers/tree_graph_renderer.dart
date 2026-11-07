@@ -224,15 +224,8 @@ class TreePainter extends CustomPainter {
 
   static String _overflowText(int count) => '+$count more';
 
-  Color _nodeColor(TreeNode n) => switch (n.kind) {
-    TreeNodeKind.story => markerColor(_stories[n.storyId]!, dataset),
-    TreeNodeKind.family => switch (n.id) {
-      'f-fam-reyes' => labSage,
-      'f-fam-okafor' => labMoss,
-      _ => labTerracotta,
-    },
-    _ => labInk,
-  };
+  Color _nodeColor(TreeNode n) =>
+      n.kind == TreeNodeKind.story ? labTerracotta : labInk;
 
   @override
   void paint(Canvas canvas, Size size) {

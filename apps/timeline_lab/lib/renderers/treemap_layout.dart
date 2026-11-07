@@ -93,30 +93,17 @@ class TreemapCell {
 
 /// A top-level group (decade, family or person) of cells.
 class TreemapGroup {
-  TreemapGroup({required this.id, required this.label, required this.color});
+  TreemapGroup({required this.id, required this.label});
 
   final String id;
   final String label;
-
-  /// Family colour in the family view; terracotta otherwise.
-  final TreemapColor color;
   final List<TreemapCell> cells = [];
 
   int get count => cells.fold(0, (sum, c) => sum + c.count);
   int get matchedCount => cells.fold(0, (sum, c) => sum + c.matchedCount);
 }
 
-/// Which token a group is drawn in. Kept as an enum so this file stays free
-/// of Flutter colour types.
-enum TreemapColor { terracotta, sage, moss }
-
 const untaggedGroup = 'Untagged';
-
-TreemapColor _familyColor(String familyId) => switch (familyId) {
-  'fam-reyes' => TreemapColor.sage,
-  'fam-okafor' => TreemapColor.moss,
-  _ => TreemapColor.terracotta,
-};
 
 /// Groups → cells, both sorted by story count descending (ties keep date
 /// order) as [squarify] expects.
@@ -136,14 +123,13 @@ List<TreemapGroup> buildTreemap(
   void add(
     String groupId,
     String groupLabel,
-    TreemapColor color,
     int sub,
     String subLabel,
     TimelineEntry e,
   ) {
     final g = groups.putIfAbsent(
       groupId,
-      () => TreemapGroup(id: groupId, label: groupLabel, color: color),
+      () => TreemapGroup(id: groupId, label: groupLabel),
     );
     final cellId = '$groupId/$sub';
     final c = cells.putIfAbsent(cellId, () {
@@ -158,35 +144,14 @@ List<TreemapGroup> buildTreemap(
     final s = e.story;
     switch (by) {
       case TreemapBy.decade:
-        add(
-          '${s.decade}',
-          '${s.decade}s',
-          TreemapColor.terracotta,
-          s.start.year,
-          '${s.start.year}',
-          e,
-        );
+        add('${s.decade}', '${s.decade}s', s.start.year, '${s.start.year}', e);
       case TreemapBy.family:
         final f = d.families[s.familyId];
-        add(
-          s.familyId,
-          f?.name ?? s.familyId,
-          _familyColor(s.familyId),
-          s.decade,
-          '${s.decade}s',
-          e,
-        );
+        add(s.familyId, f?.name ?? s.familyId, s.decade, '${s.decade}s', e);
       case TreemapBy.person:
         final people = s.personIds.isEmpty ? [untaggedGroup] : s.personIds;
         for (final p in people) {
-          add(
-            p,
-            d.people[p]?.name ?? p,
-            TreemapColor.terracotta,
-            s.decade,
-            '${s.decade}s',
-            e,
-          );
+          add(p, d.people[p]?.name ?? p, s.decade, '${s.decade}s', e);
         }
     }
   }
