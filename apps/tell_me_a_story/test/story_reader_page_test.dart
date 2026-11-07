@@ -445,6 +445,7 @@ class _FakeCommentsApi implements CommentsGateway {
       body: body.trim(),
       createdAt: DateTime.utc(2026, 9, 27, 12),
       authorDisplayName: 'Me',
+      canDelete: true,
     );
     rows.add(comment);
     return comment;
@@ -468,6 +469,7 @@ class _FakeCommentsApi implements CommentsGateway {
       body: body.trim(),
       createdAt: prev.createdAt,
       authorDisplayName: prev.authorDisplayName,
+      canDelete: prev.canDelete,
     );
   }
 
@@ -517,6 +519,7 @@ class _FakePerspectivesApi implements PerspectivesGateway {
       body: body.trim(),
       createdAt: DateTime.utc(2026, 9, 27, 12),
       authorDisplayName: 'Me',
+      canDelete: true,
     );
     rows.add(row);
     return row;
@@ -539,6 +542,7 @@ class _FakePerspectivesApi implements PerspectivesGateway {
       body: body.trim(),
       createdAt: prev.createdAt,
       authorDisplayName: prev.authorDisplayName,
+      canDelete: prev.canDelete,
     );
   }
 
@@ -1314,6 +1318,7 @@ void main() {
               body: 'My note',
               createdAt: DateTime.utc(2026, 9, 27),
               authorDisplayName: 'Me',
+              canDelete: true,
             ),
           ],
         ),
@@ -1327,6 +1332,7 @@ void main() {
               body: 'My telling',
               createdAt: DateTime.utc(2026, 9, 26),
               authorDisplayName: 'Me',
+              canDelete: true,
             ),
           ],
         ),
@@ -1363,6 +1369,7 @@ void main() {
           body: 'My note',
           createdAt: DateTime.utc(2026, 9, 27),
           authorDisplayName: 'Me',
+          canDelete: true,
         ),
         Comment(
           id: 'theirs',
@@ -1411,6 +1418,7 @@ void main() {
           body: 'My note',
           createdAt: DateTime.utc(2026, 9, 27),
           authorDisplayName: 'Me',
+          canDelete: true,
         ),
         Comment(
           id: 'theirs',
@@ -1495,6 +1503,7 @@ void main() {
           body: 'My note',
           createdAt: DateTime.utc(2026, 9, 27),
           authorDisplayName: 'Me',
+          canDelete: true,
         ),
       ],
     );
@@ -1532,6 +1541,7 @@ void main() {
     required String authorId,
     required String body,
     String author = 'Me',
+    bool? canDelete,
   }) {
     return Perspective(
       id: id,
@@ -1541,6 +1551,7 @@ void main() {
       body: body,
       createdAt: DateTime.utc(2026, 9, 26),
       authorDisplayName: author,
+      canDelete: canDelete ?? authorId == 'u1',
     );
   }
 
@@ -1625,6 +1636,67 @@ void main() {
     expect(perspectives.deleteCalls, 1);
     expect(find.text('A clearer telling.'), findsNothing);
     expect(find.text('Their telling'), findsOneWidget);
+  });
+
+  testWidgets('a steward sees Delete, not Edit, on others\' notes (D4)', (
+    tester,
+  ) async {
+    final comments = _FakeCommentsApi(
+      seed: [
+        Comment(
+          id: 'theirs',
+          storyId: _storyId,
+          familyId: _familyId,
+          authorId: 'u2',
+          body: 'Their note',
+          createdAt: DateTime.utc(2026, 9, 27),
+          authorDisplayName: 'Aunt Clara',
+          canDelete: true,
+        ),
+      ],
+    );
+    final perspectives = _FakePerspectivesApi(
+      seed: [
+        perspectiveRow(
+          id: 'theirs',
+          authorId: 'u2',
+          body: 'Their telling',
+          author: 'Aunt Clara',
+          canDelete: true,
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(story: _published()),
+        comments: comments,
+        perspectives: perspectives,
+        currentUserId: 'u1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final commentMenu = find.byKey(const Key('comment-menu-theirs'));
+    await tester.ensureVisible(commentMenu);
+    await tester.tap(commentMenu);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('comment-edit-theirs')), findsNothing);
+    await tester.tap(find.byKey(const Key('comment-delete-theirs')));
+    await tester.pumpAndSettle();
+    expect(comments.deleteCalls, 1);
+    expect(find.text('Their note'), findsNothing);
+
+    final perspectiveMenu = find.byKey(const Key('perspective-menu-theirs'));
+    await tester.ensureVisible(perspectiveMenu);
+    await tester.tap(perspectiveMenu);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('perspective-edit-theirs')), findsNothing);
+    await tester.tap(find.byKey(const Key('perspective-delete-theirs')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('delete-perspective-go')));
+    await tester.pumpAndSettle();
+    expect(perspectives.deleteCalls, 1);
+    expect(find.text('Their telling'), findsNothing);
   });
 
   testWidgets('failed perspective delete keeps the card', (tester) async {

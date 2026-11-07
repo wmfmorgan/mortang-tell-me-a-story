@@ -236,7 +236,7 @@ class CommentTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (canDelete && !editing)
+              if ((canDelete || onEdit != null) && !editing)
                 PopupMenuButton<String>(
                   key: Key('comment-menu-${comment.id}'),
                   tooltip: 'Comment actions',
@@ -245,16 +245,18 @@ class CommentTile extends StatelessWidget {
                     if (value == 'delete') onDelete?.call();
                   },
                   itemBuilder: (context) => [
-                    PopupMenuItem<String>(
-                      key: Key('comment-edit-${comment.id}'),
-                      value: 'edit',
-                      child: const Text('Edit'),
-                    ),
-                    PopupMenuItem<String>(
-                      key: Key('comment-delete-${comment.id}'),
-                      value: 'delete',
-                      child: const Text('Delete'),
-                    ),
+                    if (onEdit != null)
+                      PopupMenuItem<String>(
+                        key: Key('comment-edit-${comment.id}'),
+                        value: 'edit',
+                        child: const Text('Edit'),
+                      ),
+                    if (canDelete)
+                      PopupMenuItem<String>(
+                        key: Key('comment-delete-${comment.id}'),
+                        value: 'delete',
+                        child: const Text('Delete'),
+                      ),
                   ],
                 ),
             ],
