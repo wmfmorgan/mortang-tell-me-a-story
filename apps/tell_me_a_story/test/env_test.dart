@@ -29,7 +29,10 @@ void main() {
     expect(() => Env.validateServerUrl(''), throwsStateError);
     expect(() => Env.validateServerUrl('...'), throwsStateError);
     expect(() => Env.validateServerUrl('/api'), throwsStateError);
-    expect(() => Env.validateServerUrl('ws://127.0.0.1:8080'), throwsStateError);
+    expect(
+      () => Env.validateServerUrl('ws://127.0.0.1:8080'),
+      throwsStateError,
+    );
   });
 
   test('isAbsoluteHttpUrl rejects relative placeholders like ...', () {

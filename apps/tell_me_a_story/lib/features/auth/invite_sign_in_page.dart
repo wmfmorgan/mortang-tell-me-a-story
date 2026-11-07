@@ -348,7 +348,8 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
             const CircularProgressIndicator(color: albumTerracotta)
           else if (_requestId != null)
             SignInCodeForm(
-              message: 'We sent a code to $_sentTo. Enter it to join $familyLabel.',
+              message:
+                  'We sent a code to $_sentTo. Enter it to join $familyLabel.',
               messageKey: const Key('invite-sent'),
               signingIn: _signingIn,
               sending: _sending,

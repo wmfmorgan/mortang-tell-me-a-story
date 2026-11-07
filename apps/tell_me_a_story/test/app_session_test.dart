@@ -35,17 +35,20 @@ void main() {
     expect(ServerAppSession(client: client).currentUserId, _userId);
   });
 
-  test('an unreadable saved session starts signed out and is cleared', () async {
-    final broken = _BrokenStorage();
-    final client = await initServer(
-      url: _noServer,
-      storage: SessionRecoveringStorage(broken),
-    );
+  test(
+    'an unreadable saved session starts signed out and is cleared',
+    () async {
+      final broken = _BrokenStorage();
+      final client = await initServer(
+        url: _noServer,
+        storage: SessionRecoveringStorage(broken),
+      );
 
-    expect(client.auth.authInfo, isNull);
-    expect(ServerAppSession(client: client).currentUserId, isNull);
-    expect(broken.cleared, isTrue);
-  });
+      expect(client.auth.authInfo, isNull);
+      expect(ServerAppSession(client: client).currentUserId, isNull);
+      expect(broken.cleared, isTrue);
+    },
+  );
 
   test('a readable saved session is restored as is', () async {
     final storage = _Storage().._value = _auth(_userId);

@@ -24,7 +24,10 @@ void main() {
       final email = freshEmail('otp');
 
       // A new email registers.
-      await otp.signIn(requestId: await otp.sendCode(email), code: devLoginCode);
+      await otp.signIn(
+        requestId: await otp.sendCode(email),
+        code: devLoginCode,
+      );
       final userId = client.auth.authInfo?.authUserId.toString();
       expect(userId, isNotNull);
       expect(AppSession.instance.currentUserId, userId);
@@ -32,7 +35,10 @@ void main() {
       // The same email signs in to the existing account.
       await AppSession.instance.signOut();
       expect(AppSession.instance.currentUserId, isNull);
-      await otp.signIn(requestId: await otp.sendCode(email), code: devLoginCode);
+      await otp.signIn(
+        requestId: await otp.sendCode(email),
+        code: devLoginCode,
+      );
       expect(AppSession.instance.currentUserId, userId);
     },
   );
