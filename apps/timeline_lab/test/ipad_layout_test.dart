@@ -6,19 +6,17 @@ import 'support/ipad.dart';
 /// Sweep cases that overflow until the iPad plan task named in the reason
 /// lands. Each fixing task deletes its entries here as its red step.
 const _knownRed = <String, String>{
-  'split_third sliverList': 'card row (ipad Task 3), playback bar (Task 4)',
+  'split_third sliverList': 'playback bar (ipad Task 4)',
   'split_third renderBoxLayout': 'playback bar (ipad Task 4)',
   'split_third with a selected story':
-      'card row (ipad Task 3), playback bar (Task 4), panel (Task 6)',
-  'split_third_wide sliverList':
-      'card row (ipad Task 3), playback bar (Task 4)',
+      'playback bar (ipad Task 4), panel (Task 6)',
+  'split_third_wide sliverList': 'playback bar (ipad Task 4)',
   'split_third_wide renderBoxLayout': 'playback bar (ipad Task 4)',
-  'split_third_wide with a selected story':
-      'card row (ipad Task 3), playback bar (Task 4), panel (Task 6)',
-  'slide_over sliverList': 'card row (ipad Task 3), playback bar (Task 4)',
+  'split_third_wide with a selected story': 'playback bar (ipad Task 4)',
+  'slide_over sliverList': 'playback bar (ipad Task 4)',
   'slide_over renderBoxLayout': 'playback bar (ipad Task 4)',
   'slide_over with a selected story':
-      'card row (ipad Task 3), playback bar (Task 4), panel (Task 6)',
+      'playback bar (ipad Task 4), panel (Task 6)',
 };
 
 void main() {
