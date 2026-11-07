@@ -13,15 +13,21 @@ Future<void> resetAppState() async {
   ProfileSession.instance.clear();
 }
 
+/// The signed-in user's current family.
+Future<String> currentE2eFamilyId() async {
+  final familyId = FamilySelection.id ?? await InviteApi().currentFamilyId();
+  if (familyId == null) {
+    throw StateError('no current family');
+  }
+  return familyId;
+}
+
 /// Favorite on the signed-in user's current family. No Mapbox id.
 Future<Place> createFavoritePlace({
   required String label,
   required String address,
 }) async {
-  final familyId = FamilySelection.id ?? await InviteApi().currentFamilyId();
-  if (familyId == null) {
-    throw StateError('no family for favorite place');
-  }
+  final familyId = await currentE2eFamilyId();
   return PlacesApi().createPlace(
     familyId: familyId,
     label: label,

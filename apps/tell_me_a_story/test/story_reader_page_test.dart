@@ -66,7 +66,6 @@ const _bob = Person(
 
 final _park = Place(
   id: 'pl1',
-  familyId: _familyId,
   label: 'Central Park',
   address: 'New York, NY',
   lat: 40.78,
@@ -215,7 +214,7 @@ class _FakePeopleApi extends PeopleGateway {
 
   @override
   Future<List<Person>> listPeople(String familyId) async {
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -245,7 +244,7 @@ class _FakePlacesApi implements PlacesGateway {
 
   @override
   Future<List<Place>> listPlaces(String familyId) async {
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -1056,7 +1055,6 @@ void main() {
           seed: [
             Place(
               id: 'pl1',
-              familyId: _familyId,
               label: '   ',
               address: 'New York, NY',
               lat: 40.78,

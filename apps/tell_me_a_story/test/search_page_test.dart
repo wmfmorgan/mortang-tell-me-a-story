@@ -103,7 +103,6 @@ class _Places implements PlacesGateway {
   Future<List<Place>> listPlaces(String familyId) async => const [
     Place(
       id: 'porch',
-      familyId: _family,
       label: 'Back Porch',
       address: '12 Lane',
       lat: 1,

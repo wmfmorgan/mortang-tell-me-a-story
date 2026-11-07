@@ -166,7 +166,8 @@ void main() {
     await _addPerson(tester, 'C4', person);
     await _enterStory(tester, 'C4', title: title, body: body);
     await _step('C4', 'autosave', () async {
-      await _untilDraftReady(tester, familyId: place.familyId, title: title);
+      final familyId = await currentE2eFamilyId();
+      await _untilDraftReady(tester, familyId: familyId, title: title);
       await pumpUntilFound(
         tester,
         find.text('Saved'),
@@ -896,8 +897,9 @@ Future<Story> _publishAlbumStory(
     person: person,
     placeLabel: place.label,
   );
-  return _step(flow, 'published', () {
-    return _publishedStory(familyId: place.familyId, title: title);
+  return _step(flow, 'published', () async {
+    final familyId = await currentE2eFamilyId();
+    return _publishedStory(familyId: familyId, title: title);
   });
 }
 

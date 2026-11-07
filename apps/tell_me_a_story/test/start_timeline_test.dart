@@ -1170,7 +1170,6 @@ void main() {
               placesApi: _Places(const [
                 Place(
                   id: 'pl1',
-                  familyId: _parent,
                   label: 'Park',
                   address: 'Town',
                   lat: 1,
@@ -1338,7 +1337,6 @@ void main() {
             placesApi: _Places(const [
               Place(
                 id: 'pl1',
-                familyId: _parent,
                 label: 'Park',
                 address: 'Town',
                 lat: 1,

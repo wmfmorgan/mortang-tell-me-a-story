@@ -57,7 +57,7 @@ class _FakePeopleApi extends PeopleGateway {
   @override
   Future<List<Person>> listPeople(String familyId) async {
     if (throwOnList) throw StateError('people load failed');
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -88,20 +88,17 @@ class _FakePlacesApi implements PlacesGateway {
 
   @override
   Future<List<Place>> listFavorites(String familyId) async {
-    return rows.where((p) => p.familyId == familyId && p.isFavorite).toList();
+    return rows.where((p) => p.isFavorite).toList();
   }
 
   @override
   Future<List<Place>> listRecents(String familyId, {int limit = 10}) async {
-    return rows
-        .where((p) => p.familyId == familyId && p.lastUsedAt != null)
-        .take(limit)
-        .toList();
+    return rows.where((p) => p.lastUsedAt != null).take(limit).toList();
   }
 
   @override
   Future<List<Place>> listPlaces(String familyId) async {
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -476,7 +473,6 @@ const _wren = Person(
 
 final _park = Place(
   id: 'pl1',
-  familyId: _familyId,
   label: 'Central Park',
   address: 'New York, NY',
   lat: 40.78,
