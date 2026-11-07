@@ -19,6 +19,8 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import 'package:serverpod_test/serverpod_test.dart' as _ist;
+import 'package:tell_me_a_story_server/src/generated/dto/note_dto.dart'
+    as _i7033pn0;
 import 'package:tell_me_a_story_server/src/generated/dto/story_dto.dart'
     as _i5ckn2f1;
 import 'package:tell_me_a_story_server/src/generated/dto/story_facets_dto.dart'
@@ -27,6 +29,8 @@ import 'package:tell_me_a_story_server/src/generated/dto/story_search_dto.dart'
     as _ix1z7n33;
 import 'package:tell_me_a_story_server/src/generated/dto/story_write_dto.dart'
     as _iu03akf8;
+import 'package:tell_me_a_story_server/src/generated/note_kind.dart'
+    as _ija2hb8o;
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
 import 'package:tell_me_a_story_server/src/generated/endpoints.dart';
 export 'package:serverpod_test/serverpod_test_public_exports.dart';
@@ -164,6 +168,8 @@ class TestEndpoints {
 
   late final _JwtRefreshEndpoint jwtRefresh;
 
+  late final _NoteEndpoint note;
+
   late final _StoryEndpoint story;
 }
 
@@ -179,6 +185,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     jwtRefresh = _JwtRefreshEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    note = _NoteEndpoint(
       endpoints,
       serializationManager,
     );
@@ -631,6 +641,155 @@ class _JwtRefreshEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<_iacs.AuthSuccess>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _NoteEndpoint {
+  _NoteEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<List<_i7033pn0.NoteDto>> listForStory(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue storyId, {
+    _ija2hb8o.NoteKind? kind,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'note',
+            method: 'listForStory',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'note',
+          methodName: 'listForStory',
+          parameters: _ist.testObjectToJson({
+            'storyId': storyId,
+            'kind': kind,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_i7033pn0.NoteDto>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i7033pn0.NoteDto> create(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue storyId,
+    _ija2hb8o.NoteKind kind,
+    String body,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'note',
+            method: 'create',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'note',
+          methodName: 'create',
+          parameters: _ist.testObjectToJson({
+            'storyId': storyId,
+            'kind': kind,
+            'body': body,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i7033pn0.NoteDto>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> update(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue noteId,
+    String body,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'note',
+            method: 'update',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'note',
+          methodName: 'update',
+          parameters: _ist.testObjectToJson({
+            'noteId': noteId,
+            'body': body,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> delete(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue noteId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'note',
+            method: 'delete',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'note',
+          methodName: 'delete',
+          parameters: _ist.testObjectToJson({'noteId': noteId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

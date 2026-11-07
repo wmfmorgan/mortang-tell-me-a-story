@@ -13,6 +13,11 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+note:
+  - listForStory:
+  - create:
+  - update:
+  - delete:
 story:
   - createDraft:
   - updateDraft:

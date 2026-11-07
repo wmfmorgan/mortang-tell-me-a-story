@@ -16,6 +16,8 @@ import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:tell_me_a_story_client/src/protocol/dto/note_dto.dart'
+    as _i29gav6s;
 import 'package:tell_me_a_story_client/src/protocol/dto/story_dto.dart'
     as _ilx6iivj;
 
@@ -257,6 +259,7 @@ class Protocol extends _isc.SerializationManager
           _isc.getType<List<_isc.UuidValue>>,
           _isc.getType<List<int>>,
           _isc.getType<List<_isc.UuidValue>?>,
+          _isc.getType<List<_i29gav6s.NoteDto>>,
           _isc.getType<List<_ilx6iivj.StoryDto>>,
         ],
         modules: const [
@@ -754,6 +757,12 @@ class Protocol extends _isc.SerializationManager
                     .map((e) => deserialize<_isc.UuidValue>(e))
                     .toList()
               : null)
+          as T;
+    }
+    if (t == List<_i29gav6s.NoteDto>) {
+      return (data as List)
+              .map((e) => deserialize<_i29gav6s.NoteDto>(e))
+              .toList()
           as T;
     }
     if (t == List<_ilx6iivj.StoryDto>) {

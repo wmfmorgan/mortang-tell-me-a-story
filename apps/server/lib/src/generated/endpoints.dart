@@ -19,8 +19,11 @@ import 'package:tell_me_a_story_server/src/generated/dto/story_search_dto.dart'
     as _ix1z7n33;
 import 'package:tell_me_a_story_server/src/generated/dto/story_write_dto.dart'
     as _iu03akf8;
+import 'package:tell_me_a_story_server/src/generated/note_kind.dart'
+    as _ija2hb8o;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../endpoints/note_endpoint.dart' as _i4n3t746;
 import '../endpoints/story_endpoint.dart' as _iiu4mi32;
 
 class Endpoints extends _is.EndpointDispatch {
@@ -37,6 +40,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'note': _i4n3t746.NoteEndpoint()
+        ..initialize(
+          server,
+          'note',
           null,
         ),
       'story': _iiu4mi32.StoryEndpoint()
@@ -337,6 +346,109 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['note'] = _is.EndpointConnector(
+      name: 'note',
+      endpoint: endpoints['note']!,
+      methodConnectors: {
+        'listForStory': _is.MethodConnector(
+          name: 'listForStory',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'kind': _is.ParameterDescription(
+              name: 'kind',
+              type: _is.getType<_ija2hb8o.NoteKind?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['note'] as _i4n3t746.NoteEndpoint).listForStory(
+                    session,
+                    params['storyId'],
+                    kind: params['kind'],
+                  ),
+        ),
+        'create': _is.MethodConnector(
+          name: 'create',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'kind': _is.ParameterDescription(
+              name: 'kind',
+              type: _is.getType<_ija2hb8o.NoteKind>(),
+              nullable: false,
+            ),
+            'body': _is.ParameterDescription(
+              name: 'body',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['note'] as _i4n3t746.NoteEndpoint).create(
+                session,
+                params['storyId'],
+                params['kind'],
+                params['body'],
+              ),
+        ),
+        'update': _is.MethodConnector(
+          name: 'update',
+          params: {
+            'noteId': _is.ParameterDescription(
+              name: 'noteId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'body': _is.ParameterDescription(
+              name: 'body',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['note'] as _i4n3t746.NoteEndpoint).update(
+                session,
+                params['noteId'],
+                params['body'],
+              ),
+        ),
+        'delete': _is.MethodConnector(
+          name: 'delete',
+          params: {
+            'noteId': _is.ParameterDescription(
+              name: 'noteId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['note'] as _i4n3t746.NoteEndpoint).delete(
+                session,
+                params['noteId'],
+              ),
         ),
       },
     );

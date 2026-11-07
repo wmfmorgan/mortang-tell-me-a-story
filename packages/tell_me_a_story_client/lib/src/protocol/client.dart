@@ -18,6 +18,8 @@ import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:tell_me_a_story_client/src/protocol/dto/note_dto.dart'
+    as _i29gav6s;
 import 'package:tell_me_a_story_client/src/protocol/dto/story_dto.dart'
     as _ilx6iivj;
 import 'package:tell_me_a_story_client/src/protocol/dto/story_facets_dto.dart'
@@ -26,6 +28,8 @@ import 'package:tell_me_a_story_client/src/protocol/dto/story_search_dto.dart'
     as _iv05ipkh;
 import 'package:tell_me_a_story_client/src/protocol/dto/story_write_dto.dart'
     as _isb2dxzu;
+import 'package:tell_me_a_story_client/src/protocol/note_kind.dart'
+    as _i9uyyhv9;
 
 import 'protocol.dart' as _il2as5qe;
 
@@ -355,6 +359,68 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// Comments and perspectives (`story_notes`; business-rules §2.8, §4.8;
+/// D4). Only the body is editable. Writes post a `note` live event after
+/// commit, only while the story is published.
+/// {@category Endpoint}
+class EndpointNote extends _isc.EndpointRef {
+  EndpointNote(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'note';
+
+  /// The story's notes ([kind], or both when null), oldest first. A missing
+  /// or unreadable story is `NOT_FOUND: story`.
+  _ida.Future<List<_i29gav6s.NoteDto>> listForStory(
+    _isc.UuidValue storyId, {
+    _i9uyyhv9.NoteKind? kind,
+  }) => caller.callServerEndpoint<List<_i29gav6s.NoteDto>>(
+    'note',
+    'listForStory',
+    {
+      'storyId': storyId,
+      'kind': kind,
+    },
+  );
+
+  /// A note by the caller; needs `canContribute` on the story.
+  _ida.Future<_i29gav6s.NoteDto> create(
+    _isc.UuidValue storyId,
+    _i9uyyhv9.NoteKind kind,
+    String body,
+  ) => caller.callServerEndpoint<_i29gav6s.NoteDto>(
+    'note',
+    'create',
+    {
+      'storyId': storyId,
+      'kind': kind,
+      'body': body,
+    },
+  );
+
+  /// Replaces the body of the caller's own note while they can contribute.
+  _ida.Future<void> update(
+    _isc.UuidValue noteId,
+    String body,
+  ) => caller.callServerEndpoint<void>(
+    'note',
+    'update',
+    {
+      'noteId': noteId,
+      'body': body,
+    },
+  );
+
+  /// Deletes a note: its author while they can contribute, or an owner or
+  /// co-owner of the story's live family on a published story (D4).
+  _ida.Future<void> delete(_isc.UuidValue noteId) =>
+      caller.callServerEndpoint<void>(
+        'note',
+        'delete',
+        {'noteId': noteId},
+      );
+}
+
 /// Stories, their people tags, and search (endpoint-contract §2.2;
 /// business-rules §2.5, §2.6, §4.4).
 ///
@@ -568,6 +634,7 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    note = EndpointNote(this);
     story = EndpointStory(this);
     modules = Modules(this);
   }
@@ -575,6 +642,8 @@ class Client extends _isc.ServerpodClientShared {
   late final EndpointEmailIdp emailIdp;
 
   late final EndpointJwtRefresh jwtRefresh;
+
+  late final EndpointNote note;
 
   late final EndpointStory story;
 
@@ -584,6 +653,7 @@ class Client extends _isc.ServerpodClientShared {
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'note': note,
     'story': story,
   };
 
