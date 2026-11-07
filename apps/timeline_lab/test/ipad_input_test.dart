@@ -1,11 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timeline_lab/filter/timeline_filter.dart';
 import 'package:timeline_lab/lab_controller.dart';
 import 'package:timeline_lab/renderers/renderer_contract.dart';
 import 'package:timeline_lab/renderers/swimlanes_renderer.dart';
 import 'package:timeline_lab/renderers/tree_graph_renderer.dart';
+import 'package:timeline_lab/renderers/tree_graph_layout.dart';
 import 'package:timeline_lab/renderers/treemap_renderer.dart';
 import 'package:timeline_lab/renderers/zoom_canvas_renderer.dart';
 import 'package:timeline_lab/theme/lab_theme.dart';
@@ -45,6 +47,49 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(h.pixels, greaterThan(before));
+    }, variant: ios);
+
+    testWidgets('mouse cursor is a hand over a node only', (tester) async {
+      await pumpIpad(
+        tester,
+        ipadSizes['mini_landscape']!,
+        kind: RendererKind.treeGraph,
+        dpr: 1,
+      );
+      final layout =
+          (tester.widget<CustomPaint>(canvas).painter! as TreePainter).layout;
+      final origin = tester.getTopLeft(canvas);
+      // The tree's vertical scroll viewport: rendererRoot also covers the
+      // toolbar, and the horizontal scrollable spans the whole canvas height.
+      final view = tester.getRect(
+        find.ancestor(of: canvas, matching: find.byType(Scrollable)).last,
+      );
+      final leaf = layout.nodes.firstWhere(
+        (n) =>
+            n.kind == TreeNodeKind.story &&
+            view.deflate(40).contains(origin + layout.positions[n]!),
+      );
+      final at = origin + layout.positions[leaf]!;
+      final mouse = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+        pointer: 1,
+      );
+      await mouse.addPointer(location: view.center);
+      addTearDown(mouse.removePointer);
+
+      // Labels are not targets (D-i5), so hover the node itself.
+      await mouse.moveTo(at + const Offset(4, 0));
+      await tester.pump();
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.click,
+      );
+      await mouse.moveTo(at - const Offset(60, 0)); // between levels: empty
+      await tester.pump();
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        isNot(SystemMouseCursors.click),
+      );
     }, variant: ios);
   });
 
