@@ -6,9 +6,14 @@ import '../theme/lab_theme.dart';
 
 /// Every control writes through `controller.setFilter(filter.copyWith(...))`.
 class FilterPanel extends StatefulWidget {
-  const FilterPanel({super.key, required this.controller});
+  const FilterPanel({
+    super.key,
+    required this.controller,
+    this.searchFocusNode,
+  });
 
   final LabController controller;
+  final FocusNode? searchFocusNode;
 
   @override
   State<FilterPanel> createState() => _FilterPanelState();
@@ -50,6 +55,7 @@ class _FilterPanelState extends State<FilterPanel> {
           TextField(
             key: const Key('filter-search'),
             controller: _search,
+            focusNode: widget.searchFocusNode,
             decoration: const InputDecoration(
               labelText: 'Search',
               prefixIcon: Icon(Icons.search),
