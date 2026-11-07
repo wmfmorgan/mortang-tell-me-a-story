@@ -1,0 +1,30 @@
+### serverOnly: tokenHash must never be serialized to the app; endpoints return an
+### InviteSummary DTO (id, email, personId, status, expiresAt, createdAt).
+### Status is derived: acceptedAt → accepted; revokedAt → revoked;
+### expiresAt <= now → expired; else pending.
+class: Invite
+table: invites
+serverOnly: true
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  familyId: UuidValue, relation(parent=families, onDelete=Cascade)
+  personId: UuidValue?, relation(parent=people, onDelete=SetNull)
+  ### Null = open link invite. Lower-cased/trimmed (CHECK).
+  email: String?
+  ### lowercase hex SHA-256 of the raw token (CHECK invites_token_hash_shape).
+  tokenHash: String
+  invitedById: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
+  acceptedById: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
+  acceptedAt: DateTime?
+  revokedAt: DateTime?
+  ### Set by the app: now + 7 days (create and resend). No YAML default can express it.
+  expiresAt: DateTime
+  createdAt: DateTime, default=now
+indexes:
+  invites_token_hash_uidx:
+    fields: tokenHash
+    unique: true
+  invites_family_created_idx:
+    fields: familyId, createdAt
+  invites_person_idx:
+    fields: personId

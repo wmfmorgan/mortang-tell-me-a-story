@@ -1,0 +1,34 @@
+class: Person
+table: people
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  familyId: UuidValue, relation(parent=families, onDelete=Cascade)
+  ### Copy of families.treeId (immutable); kept equal by raw composite FK
+  ### people_family_tree_fk. Exists so "one linked person per tree" is a plain unique index.
+  treeId: UuidValue
+  ### Linked account. Unique per tree; NULLs are distinct so unlinked people don't collide.
+  userId: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
+  ### For linked people this mirrors AppUser.displayName (app-layer sync, §3.2).
+  name: String
+  relationship: String?
+  ### Lower-cased, trimmed, non-empty or null (CHECK).
+  email: String?
+  ### ≤ 500 chars (CHECK).
+  about: String?
+  ### Blob key, see §4. families/{familyId}/people/{personId}/avatar/{blobId}.jpg
+  avatarKey: String?
+  passedAway: bool, default=false
+  createdById: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
+  createdAt: DateTime, default=now
+  updatedAt: DateTime, default=now
+indexes:
+  people_tree_user_uidx:
+    fields: treeId, userId
+    unique: true
+  people_family_name_idx:
+    fields: familyId, name
+  ### Tree-wide person picker (story tagging across branches).
+  people_tree_name_idx:
+    fields: treeId, name
+  people_user_idx:
+    fields: userId

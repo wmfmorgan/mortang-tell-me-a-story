@@ -1,0 +1,15 @@
+### Comments and perspectives in one table.
+class: StoryNote
+table: story_notes
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  storyId: UuidValue, relation(parent=stories, onDelete=Cascade)
+  authorId: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
+  kind: NoteKind
+  body: String
+  createdAt: DateTime, default=now
+  updatedAt: DateTime, default=now
+indexes:
+  ### Lists per story+kind ordered by createdAt (comments_api.dart:68-69).
+  story_notes_story_kind_created_idx:
+    fields: storyId, kind, createdAt
