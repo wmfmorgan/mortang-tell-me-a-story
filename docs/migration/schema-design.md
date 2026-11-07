@@ -987,7 +987,8 @@ $constraints$;
 Caveats:
 - **Changing a constrained definition.** Definitions are immutable by name: the idempotency check is by **name**, so an in-place edit never reaches a database that already has the old one. To change a definition, give it a new name, and in the same SQL add the old name to the "Retired names" step (`ALTER TABLE … DROP CONSTRAINT IF EXISTS <old>`).
 - **Destructive Serverpod migrations.** If a migration drops and recreates a column or table (it warns `destructive`, `migration.dart:294-305`), the CHECKs on it are dropped with it. They come back on the next start.
-- **Repair migrations.** Don't apply `create-repair-migration` output without first removing its `DROP INDEX memberships_one_owner_uidx`.
+- **Repair migrations.** Don't apply `create-repair-migration` output without first removing its `DROP INDEX memberships_one_owner_uidx` and its drops of the composite FKs listed below.
+- **Expected boot warning.** From the second boot on, Serverpod's integrity check prints `WARNING: The database does not match the target database`. It lists `memberships_one_owner_uidx` and the composite FKs (`families_parent_same_tree_fk`, `families_origin_tree_fk`, `people_home_family_tree_fk`, `stories_family_tree_fk`, `stories_place_tree_fk`, `story_people_*_tree_fk`, `invites_*_tree_fk`, `kinships_*_tree_fk`). These are the `constraintsSql` objects Serverpod's model doesn't know about. The warning is harmless and is not a reason to run a repair migration. Seen on a dev boot on 2026-11-07.
 
 ### 3.4 What was verified
 - **Environment.** `apps/server/test/integration/constraints_test.dart`, run by `just server-test` on Serverpod 4.1.1's embedded Postgres 16, against the real DDL from `serverpod generate` and the init migration. The test setup runs `constraintsSql` before each test. All 58 server tests pass, on a fresh database and again on a reused one (idempotency).
