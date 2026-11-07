@@ -7,8 +7,8 @@ import '../playback/playback_controller.dart';
 import '../playback/reveal.dart';
 import '../theme/lab_theme.dart';
 import '../widgets/story_card.dart';
-import 'canvas_label.dart';
 import 'renderer_contract.dart';
+import 'time_axis_painter.dart';
 import 'time_scale.dart';
 
 enum AxisSide { left, right }
@@ -96,8 +96,7 @@ class _RenderBoxTimelineState extends State<RenderBoxTimeline> {
         child: TimeAxisLayout(
           minYear: data.dataset.minYear,
           maxYear: data.dataset.maxYear,
-          axisColor: labInk,
-          labelStyle: Theme.of(context).textTheme.labelSmall!,
+          labelStyle: LabText.axis(Theme.of(context).textTheme),
           playback: data.playback,
           children: [
             for (final e in data.entries.reversed)
@@ -176,7 +175,6 @@ class TimeAxisLayout extends MultiChildRenderObjectWidget {
     super.key,
     required this.minYear,
     required this.maxYear,
-    required this.axisColor,
     required this.labelStyle,
     this.playback,
     this.pxPerYear = 80,
@@ -188,7 +186,6 @@ class TimeAxisLayout extends MultiChildRenderObjectWidget {
   final int maxYear;
   final double pxPerYear;
   final double gap;
-  final Color axisColor;
   final TextStyle labelStyle;
   final PlaybackController? playback;
 
@@ -199,7 +196,6 @@ class TimeAxisLayout extends MultiChildRenderObjectWidget {
         maxYear: maxYear,
         pxPerYear: pxPerYear,
         gap: gap,
-        axisColor: axisColor,
         labelStyle: labelStyle,
       )..playback = playback;
 
@@ -213,7 +209,6 @@ class TimeAxisLayout extends MultiChildRenderObjectWidget {
       ..maxYear = maxYear
       ..pxPerYear = pxPerYear
       ..gap = gap
-      ..axisColor = axisColor
       ..labelStyle = labelStyle
       ..playback = playback;
   }
@@ -228,7 +223,6 @@ class RenderTimeAxisLayout extends RenderBox
     required this._maxYear,
     required this._pxPerYear,
     required this._gap,
-    required this._axisColor,
     required this._labelStyle,
   });
 
@@ -262,14 +256,6 @@ class RenderTimeAxisLayout extends RenderBox
     if (v == _gap) return;
     _gap = v;
     markNeedsLayout();
-  }
-
-  Color _axisColor;
-  Color get axisColor => _axisColor;
-  set axisColor(Color v) {
-    if (v == _axisColor) return;
-    _axisColor = v;
-    markNeedsPaint();
   }
 
   TextStyle _labelStyle;
@@ -362,78 +348,60 @@ class RenderTimeAxisLayout extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    final canvas = context.canvas;
-    final axis = Paint()
-      ..color = axisColor
-      ..strokeWidth = 2;
-    final axisTop = offset + Offset(_axisX, 0);
-    final axisBottom = offset + Offset(_axisX, _scale.toPx(minYear.toDouble()));
-    canvas.drawLine(axisTop, axisBottom, axis);
+    final scale = _scale;
+    final canvas = context.canvas
+      ..save()
+      ..translate(offset.dx, offset.dy);
+    // docs/ux/uxd-handoff.md R3: a solid 2 px line runs through the centre.
+    paintTimeAxis(
+      canvas,
+      scale,
+      direction: Axis.vertical,
+      cross: _axisX,
+      labelStyle: labelStyle,
+      labels: false,
+      side: TickSide.both,
+      spineWidth: LabStroke.mark,
+    );
 
-    final tick = Paint()
-      ..color = axisColor
-      ..strokeWidth = 1;
-    for (final t in _scale.yearTicks()) {
-      final half = t.kind == TickKind.decade ? 8.0 : 3.0;
-      canvas.drawLine(
-        offset + Offset(_axisX - half, t.px),
-        offset + Offset(_axisX + half, t.px),
-        tick,
-      );
-    }
-
-    final dot = Paint();
-    final connector = Paint()..strokeWidth = 1;
+    final connector = Paint()..strokeWidth = LabStroke.hairline;
     var child = firstChild;
     while (child != null) {
       final pd = child.parentData! as TimeAxisParentData;
       final r = _playback?.reveal(pd.storyId) ?? 1;
       if (r > 0) {
-        final color = labInk.withValues(alpha: 0.3 * r);
-        connector.color = color;
-        dot.color = color;
-        final from = offset + Offset(_axisX, pd.idealY);
+        connector.color = labRule.withValues(alpha: labRule.a * r);
+        final from = Offset(_axisX, pd.idealY);
         final edgeX = pd.side == AxisSide.left
             ? pd.offset.dx + child.size.width
             : pd.offset.dx;
-        final to = offset + Offset(edgeX, pd.offset.dy + child.size.height / 2);
-        canvas.drawLine(from, to, connector);
-        canvas.drawCircle(from, 2, dot);
+        canvas
+          ..drawLine(
+            from,
+            Offset(edgeX, pd.offset.dy + child.size.height / 2),
+            connector,
+          )
+          ..drawCircle(from, 2, connector);
       }
       child = pd.nextSibling;
     }
 
     final cursor = _playback?.cursorYear;
     if (cursor != null) {
-      final cy = _scale.toPx(cursor);
-      paintPlaybackCursor(
-        canvas,
-        offset + Offset(0, cy),
-        offset + Offset(size.width, cy),
-      );
+      final cy = scale.toPx(cursor);
+      paintPlaybackCursor(canvas, Offset(0, cy), Offset(size.width, cy));
     }
+    canvas.restore();
 
     defaultPaint(context, offset);
 
-    // Decade labels go last, centred on the axis, so cards never cover them.
-    // Children may have pushed layers, so re-read the canvas.
-    final top = context.canvas;
-    final pill = Paint()..color = labParchment;
-    for (final t in _scale.yearTicks()) {
-      if (t.kind != TickKind.decade) continue;
-      final label = CanvasLabel('${t.year}', labelStyle);
-      final rect = Rect.fromCenter(
-        center: offset + Offset(_axisX, t.px),
-        width: label.size.width + 8,
-        height: label.size.height + 2,
-      );
-      top.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(4)),
-        pill,
-      );
-      label.paint(top, rect.topLeft + const Offset(4, 1));
-      label.dispose();
-    }
+    // Decade pills go last, so cards never cover them. Children may have
+    // pushed layers, so re-read the canvas.
+    final top = context.canvas
+      ..save()
+      ..translate(offset.dx, offset.dy);
+    paintSpineLabels(top, scale, spineX: _axisX, labelStyle: labelStyle);
+    top.restore();
   }
 
   @override
