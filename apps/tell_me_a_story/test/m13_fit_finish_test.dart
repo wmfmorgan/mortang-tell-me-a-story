@@ -397,7 +397,7 @@ class _Invites implements InviteGateway {
     accepts++;
     final error = acceptError;
     if (error != null) throw error;
-    return const AcceptInviteResult(familyId: 'fam', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'fam');
   }
 
   @override
@@ -416,7 +416,10 @@ class _Invites implements InviteGateway {
   }
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
 
 class _People extends PeopleGateway {

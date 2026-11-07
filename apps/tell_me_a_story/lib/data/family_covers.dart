@@ -64,9 +64,8 @@ class FamilyCoversApi implements FamilyCoverClient {
         'image/jpeg',
         compressed.bytes.length,
       );
-      final uploaded = await server.FileUploader(
-        ticket.uploadDescription,
-      ).uploadByteData(ByteData.sublistView(compressed.bytes));
+      final uploaded = await server.FileUploader(ticket.uploadDescription)
+          .uploadByteData(ByteData.sublistView(compressed.bytes));
       if (!uploaded) throw const StorageFailedException();
       return _client.family.finishCoverUpload(id, ticket.key);
     });

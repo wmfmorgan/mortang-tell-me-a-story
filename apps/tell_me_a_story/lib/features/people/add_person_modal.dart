@@ -200,7 +200,10 @@ class _AddPersonModalState extends State<AddPersonModal> {
               email: email,
               personId: person.id,
             );
-            await invites.sendInviteEmail(inviteId: created.inviteId);
+            await invites.sendInviteEmail(
+              inviteId: created.inviteId,
+              token: created.token,
+            );
           } on AppException {
             // The person row is saved; invite failures keep the save sentence.
             if (mounted) _snack(_saveFailed);

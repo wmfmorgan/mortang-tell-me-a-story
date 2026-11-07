@@ -483,9 +483,7 @@ class FamiliesApi
     }.toList();
     if (wanted.isEmpty) return const {};
     try {
-      final blobs = await withServerErrors(
-        () => _client.media.getMany(wanted),
-      );
+      final blobs = await withServerErrors(() => _client.media.getMany(wanted));
       return {
         for (final entry in blobs.entries)
           entry.key: Uint8List.sublistView(entry.value),

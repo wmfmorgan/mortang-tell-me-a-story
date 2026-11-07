@@ -291,7 +291,7 @@ class _Photos implements PhotosGateway {
 class _Invite implements InviteGateway {
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: _ada, membershipId: 'm');
+    return const AcceptInviteResult(familyId: _ada);
   }
 
   @override
@@ -310,5 +310,8 @@ class _Invite implements InviteGateway {
   Future<String?> currentFamilyId() async => _ada;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }

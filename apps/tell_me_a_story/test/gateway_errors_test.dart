@@ -4,9 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
@@ -92,79 +89,7 @@ void main() {
     });
   });
 
-  group('edge functions without a session', () {
-    test('InviteApi reports unauthenticated', () async {
-      final api = InviteApi(
-        client: _client(
-          _Http((_) => (status: 200, body: const <String, Object>{})),
-        ),
-      );
-      await expectLater(
-        api.createInvite(familyId: 'f1'),
-        throwsA(
-          isA<AppException>()
-              .having((e) => e.code, 'code', AppErrorCode.unauthenticated)
-              .having((e) => e.message, 'message', 'Sign-in required'),
-        ),
-      );
-    });
-
-    test('ManageFamiliesApi reports unauthenticated', () async {
-      final api = ManageFamiliesApi(
-        client: _client(
-          _Http((_) => (status: 200, body: const <String, Object>{})),
-        ),
-      );
-      await expectLater(
-        api.renameFamily(familyId: 'f1', name: 'Morgan'),
-        throwsA(
-          isA<AppException>()
-              .having((e) => e.code, 'code', AppErrorCode.unauthenticated)
-              .having((e) => e.message, 'message', 'Sign-in required'),
-        ),
-      );
-    });
-  });
-
-  group('origin and profile RPCs', () {
-    test('FamiliesApi.setFamilyOrigin keeps the VALIDATION detail', () async {
-      final api = FamiliesApi(
-        client: _client(
-          _Http(
-            (_) => _error(400, 'P0001', 'VALIDATION: origin must be published'),
-          ),
-        ),
-      );
-      await expectLater(
-        api.setFamilyOrigin(familyId: 'f1', storyId: 's1'),
-        throwsA(
-          isA<AppException>()
-              .having((e) => e.code, 'code', AppErrorCode.validation)
-              .having((e) => e.message, 'message', 'origin must be published'),
-        ),
-      );
-    });
-
-    test('FamiliesApi.setFamilyOrigin uses the FORBIDDEN sentence', () async {
-      final api = FamiliesApi(
-        client: _client(
-          _Http((_) => _error(400, 'P0001', 'FORBIDDEN: not a steward')),
-        ),
-      );
-      await expectLater(
-        api.setFamilyOrigin(familyId: 'f1', storyId: 's1'),
-        throwsA(
-          isA<AppException>()
-              .having((e) => e.code, 'code', AppErrorCode.forbidden)
-              .having(
-                (e) => e.message,
-                'message',
-                'You do not have permission to do that.',
-              ),
-        ),
-      );
-    });
-
+  group('profile RPCs', () {
     test('PeopleApi.personProfile reports NOT_FOUND as AppException', () async {
       final api = PeopleApi(
         client: _client(

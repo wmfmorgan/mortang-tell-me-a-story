@@ -965,7 +965,7 @@ class _HubInvite implements InviteGateway {
 
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'fam-1', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'fam-1');
   }
 
   @override
@@ -977,10 +977,10 @@ class _HubInvite implements InviteGateway {
     String? email,
     String? personId,
   }) async {
-    return const CreateInviteResult(
+    return CreateInviteResult(
       inviteId: 'i',
       token: 't',
-      expiresAt: '2099-01-01T00:00:00Z',
+      expiresAt: DateTime.utc(2099),
       inviteUrl: 'http://127.0.0.1:3000/invite/t',
     );
   }
@@ -989,5 +989,8 @@ class _HubInvite implements InviteGateway {
   Future<String?> currentFamilyId() async => familyId;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
