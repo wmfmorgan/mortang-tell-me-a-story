@@ -422,6 +422,7 @@ abstract class StoriesGateway {
     DateTime? now,
   });
 
+  /// Deletes the story and its photo objects. A storage failure keeps the row.
   Future<void> discard(String storyId);
 
   /// One `story_people` insert. Does not replace the story's other people.
@@ -430,10 +431,15 @@ abstract class StoriesGateway {
 
 /// PostgREST CRUD gateway for family-scoped `stories` rows.
 class StoriesApi implements StoriesGateway {
-  StoriesApi({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+  StoriesApi({SupabaseClient? client, PhotosApi? photos})
+    : _client = client ?? Supabase.instance.client,
+      _photosOverride = photos;
 
   final SupabaseClient _client;
+  final PhotosApi? _photosOverride;
+
+  /// Story photo storage that [discard] cleans up.
+  late final PhotosApi _photos = _photosOverride ?? PhotosApi(client: _client);
 
   static const _storySelect =
       'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, story_people(person_id), photos(id, storage_path, edited_storage_path, edit_version, sort_order), profiles!author_id(display_name, avatar_path)';
@@ -765,6 +771,15 @@ class StoriesApi implements StoriesGateway {
 
   @override
   Future<void> discard(String storyId) async {
+    final rows = await _client
+        .from('stories')
+        .select('family_id')
+        .eq('id', storyId)
+        .limit(1);
+    final familyId = rows.isEmpty ? null : rows.first['family_id'] as String?;
+    if (familyId != null) {
+      await _photos.deleteAllForStory(familyId: familyId, storyId: storyId);
+    }
     await _client.from('stories').delete().eq('id', storyId);
   }
 

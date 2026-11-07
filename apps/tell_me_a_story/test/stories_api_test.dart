@@ -372,12 +372,6 @@ class _RecordingPhotos implements PhotosGateway {
       onDownload(storagePath);
 
   @override
-  Future<void> deleteAllForStory({
-    required String familyId,
-    required String storyId,
-  }) async {}
-
-  @override
   Future<void> deletePhoto(Photo photo) async {}
 
   @override

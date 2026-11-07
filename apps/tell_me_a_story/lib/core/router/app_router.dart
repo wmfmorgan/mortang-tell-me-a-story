@@ -459,7 +459,6 @@ GoRouter createAppRouter({
         builder: (context, state) => DraftsPage(
           inviteApi: inviteApi,
           storiesApi: storiesApi,
-          photosApi: photosApi,
           familiesApi: familiesApi,
           peopleApi: peopleApi,
         ),

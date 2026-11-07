@@ -440,12 +440,6 @@ class _FakePhotosApi implements PhotosGateway {
   }
 
   @override
-  Future<void> deleteAllForStory({
-    required String familyId,
-    required String storyId,
-  }) async {}
-
-  @override
   Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }
 

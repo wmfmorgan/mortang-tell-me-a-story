@@ -173,10 +173,6 @@ abstract class PhotosGateway {
   /// cards use that first photo.
   Future<void> setHeroPhoto({required String storyId, required String photoId});
 
-  Future<void> deleteAllForStory({
-    required String familyId,
-    required String storyId,
-  });
   Future<Uint8List> downloadBytes(String storagePath);
 }
 
@@ -305,7 +301,8 @@ class PhotosApi implements PhotosGateway {
     await _client.from('photos').delete().eq('id', photo.id);
   }
 
-  @override
+  /// Removes every object under `{familyId}/{storyId}`. Called by
+  /// `StoriesApi.discard`.
   Future<void> deleteAllForStory({
     required String familyId,
     required String storyId,
