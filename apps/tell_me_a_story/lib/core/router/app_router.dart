@@ -414,7 +414,6 @@ GoRouter createAppRouter({
         builder: (context, state) => SearchPage(
           inviteApi: inviteApi,
           peopleApi: peopleApi,
-          placesApi: placesApi,
           searchApi: searchApi,
           photosApi: photosApi,
           recents: recents,

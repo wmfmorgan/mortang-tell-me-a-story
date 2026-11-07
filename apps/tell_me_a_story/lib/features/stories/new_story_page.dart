@@ -107,9 +107,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
   int? _month;
   int? _day;
 
-  /// Decade-dated row loaded for edit. The year box stays empty. Saving the
-  /// same year leaves the decade in place.
-  StoryDate? _loadedLegacy;
   final List<Person> _selectedPeople = [];
 
   /// Linked ids hydrate could not show. While non-empty, saves leave story_people as is.
@@ -153,15 +150,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
   List<String>? get _personIdsToWrite => _unloadedPersonIds.isEmpty
       ? [for (final p in _selectedPeople) p.id]
       : null;
-
-  /// True when the boxes differ from a loaded decade row, or this is any other story.
-  bool get _shouldWriteDate {
-    final date = _storyDate;
-    if (date == null) return false;
-    final legacy = _loadedLegacy;
-    if (legacy == null) return true;
-    return date.year != legacy.year || date.month != null || date.day != null;
-  }
 
   @override
   void initState() {
@@ -325,17 +313,13 @@ class _NewStoryPageState extends State<NewStoryPage> {
     final parsed = start == null
         ? null
         : StoryDate.fromRow(start, story.timeframeEnd, story.datePrecision);
-    final legacy = parsed?.legacyDecade ?? false;
-    // A decade row opens with an empty year, including edit.
-    final keepDecadeBlank = legacy;
-    _year.text = parsed == null || keepDecadeBlank ? '' : '${parsed.year}';
+    _year.text = parsed == null ? '' : '${parsed.year}';
     _autosaveInserted = true;
     setState(() {
       _storyId = story.id;
       _familyId = familyId;
-      _loadedLegacy = legacy && _editing ? parsed : null;
-      _month = parsed == null || legacy ? null : parsed.month;
-      _day = parsed == null || legacy ? null : parsed.day;
+      _month = parsed?.month;
+      _day = parsed?.day;
       _title.text = story.title ?? '';
       _body.text = story.body ?? '';
       _placeId = story.placeId;
@@ -661,13 +645,12 @@ class _NewStoryPageState extends State<NewStoryPage> {
     _autosaveDirty = false;
     final familyId = await _ensureFamilyId();
     final date = _storyDate;
-    final keepLegacy = !_shouldWriteDate && _loadedLegacy != null;
     if (familyId == null) {
       if (autosave) throw StateError('no family');
       return null;
     }
-    if (!autosave && (date == null && !keepLegacy)) return null;
-    final resolvedRange = range ?? (_shouldWriteDate ? date?.toRange() : null);
+    if (!autosave && date == null) return null;
+    final resolvedRange = range ?? date?.toRange();
     if (!autosave && resolvedRange == null && !_autosaveInserted) return null;
     final story = await _writeDraft(
       _DraftSnapshot(

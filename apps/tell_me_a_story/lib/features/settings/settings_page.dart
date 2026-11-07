@@ -912,7 +912,7 @@ class _SettingsPageState extends State<SettingsPage> {
 }
 
 ({DateTime date, String precision})? _storedBirth(StoryDate? date) {
-  if (date == null || date.legacyDecade) return null;
+  if (date == null) return null;
   return storedPersonDate(year: date.year, month: date.month, day: date.day);
 }
 

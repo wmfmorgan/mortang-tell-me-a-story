@@ -82,7 +82,7 @@ class _TimelinePageState extends State<TimelinePage> {
   TimelineLive? get _live {
     if (widget.live != null) return widget.live;
     if (widget.storiesApi != null) return null;
-    return _ownedLive ??= SupabaseTimelineLive();
+    return _ownedLive ??= ServerTimelineLive();
   }
 
   PhotosGateway? get _photos {
