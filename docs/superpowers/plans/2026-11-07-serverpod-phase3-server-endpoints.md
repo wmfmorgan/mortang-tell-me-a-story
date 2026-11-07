@@ -16,7 +16,7 @@
 
 | Part | Plan | Depends on | Status |
 |---|---|---|---|
-| 3.0 Shared foundation | `2026-11-07-serverpod-phase3-0-foundation.md` | — | planned, verified in scratch (92/92) |
+| 3.0 Shared foundation | `2026-11-07-serverpod-phase3-0-foundation.md` | — | landed (server tests 96/96) |
 | 3a Families, places, profile | `2026-11-07-serverpod-phase3a-families.md` | 3.0 | plan written at slice start |
 | 3b People | `2026-11-07-serverpod-phase3b-people.md` | 3.0 | plan written at slice start |
 | 3c Stories, tags, notes, search | `2026-11-07-serverpod-phase3c-stories.md` | 3.0 | plan written at slice start |
@@ -61,6 +61,7 @@ class FamilyEndpoint extends Endpoint {
 - **Order of checks.** Authorization comes first, then existence, then validation, in the order business-rules §3 states for that operation. A missing or soft-deleted family is refused as `forbidden`, exactly like a stranger (`Authz.requireLive*`), so ids don't leak.
 - **Errors.** Throw only `AppException`, through `lib/src/errors.dart` (`forbidden`, `notFound`, `validation`, `conflict`) or `AppException(code: AppErrorCode.inviteInvalid | inviteAccepted | inviteExpired | photoCap | storageFailed, …)`. Messages are the business-rules §5.2 strings. Never return raw database text. Catch a known constraint violation (`DatabaseQueryException.code`) only to map it to a catalogue message; anything else propagates.
 - **Transactions.** Pass `transaction: t` to every DB call inside `session.db.transaction`. Lock the parent row (`lockMode: LockMode.forUpdate`) wherever schema-design §3.2 asks for a lock (co-owner cap, photo cap, kinship cycle).
+- **Linked-person race.** `ensureLinkedPerson` can lose a race on `people_tree_user_uidx`, for example on a double-tapped invite accept, or when a branch is created while that member accepts an invite. The losing transaction fails with `23505`. `createBranch` (3a) and `InviteEndpoint.accept` (3e) catch a `DatabaseQueryException` with code `23505` and constraint `people_tree_user_uidx` and rerun their transaction once; the rerun finds the committed person. Pin this with a test that inserts the person between the lookup and the insert, or that runs two accepts concurrently.
 - **Blobs.** Never call `deleteFile` from an endpoint. Old keys go through `queueBlobDeletions(session, keys, transaction: t)` inside the write transaction. New keys come from `blob_keys.dart`. Uploaded bytes are checked with `sniffImageMime` before a row is written.
 - **Live events.** Call `postLiveEvent(session, LiveEventDto(...))` after `session.db.transaction` returns, never inside it. Story, photo and note writes post (kinds `story`, `photo`, `note`); family-level writes don't.
 - **Anonymous callers** never reach a method body: `requireLogin` makes Serverpod throw `ServerpodUnauthenticatedException`. Don't add per-method anonymous tests. One test per endpoint class is enough.

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Dart 3.13.5, Serverpod 4.1.1 (`serverpod`, `serverpod_auth_idp_server`, `serverpod_test`), embedded Postgres 16, just.
 
-**Verified:** every file below was written and run on 2026-11-07 in a scratch worktree of `feat/serverpod-migration` at `93646e1`. `dart analyze` was clean on the server and the generated client, `dart format` left nothing to change, and `dart test` gave 92/92 (58 before). A throwaway probe endpoint also confirmed the endpoint conventions in the Phase 3 index (`2026-11-07-serverpod-phase3-server-endpoints.md` §Conventions) and was then deleted.
+**Verified:** every file below was written and run on 2026-11-07 in a scratch worktree of `feat/serverpod-migration` at `93646e1`. `dart analyze` was clean on the server and the generated client, `dart format` left nothing to change, and `dart test` gave 92/92 (58 before); review fixes during execution added two Authz tests, one drain test and one tree-scoping test, so the landed count is 96. A throwaway probe endpoint also confirmed the endpoint conventions in the Phase 3 index (`2026-11-07-serverpod-phase3-server-endpoints.md` §Conventions) and was then deleted.
 
 **References:** `docs/migration/business-rules.md` §1 (predicates), `docs/migration/schema-design.md` §3.2, §3.5, §4.2, §4.3, `docs/migration/endpoint-contract.md` §2.1, roadmap "Product decisions (2026-11-07)".
 
@@ -558,24 +558,56 @@ void main() {
         expect(await authzFor(member).canEditStory(gone), isFalse);
       });
 
-      test('members contribute to published stories only', () async {
-        expect(await authzFor(owner).canContribute(published), isTrue);
-        expect(await authzFor(owner).canContribute(draft), isFalse);
-        expect(await authzFor(member).canContribute(draft), isTrue);
-      });
+      test(
+        'members contribute to published stories; authors also to their drafts',
+        () async {
+          expect(await authzFor(owner).canContribute(published), isTrue);
+          expect(await authzFor(owner).canContribute(draft), isFalse);
+          expect(await authzFor(member).canContribute(draft), isTrue);
+        },
+      );
 
       test('origin contributors contribute to the origin story only', () async {
         expect(await authzFor(branchMember).canContribute(origin), isTrue);
         expect(await authzFor(branchMember).canContribute(published), isFalse);
       });
 
-      test('an unpublished origin ends origin contribution', () async {
-        final drafted = await Story.db.updateRow(
+      test('a soft-deleted parent ends origin contribution', () async {
+        expect(await authzFor(branchMember).canContribute(origin), isTrue);
+        await Family.db.updateRow(
           fx.s,
-          origin.copyWith(status: StoryStatus.draft, publishedAt: null),
+          root.copyWith(deletedAt: DateTime.now().toUtc()),
         );
-        expect(await authzFor(branchMember).canContribute(drafted), isFalse);
+        expect(await authzFor(branchMember).canContribute(origin), isFalse);
       });
+
+      test(
+        'a story in a soft-deleted family is unreadable, even to its author',
+        () async {
+          final gone = await fx.story(deletedBranch, authorId: member);
+          expect(await authzFor(member).canReadStory(gone), isFalse);
+          expect(await authzFor(branchMember).canReadStory(gone), isFalse);
+        },
+      );
+
+      test(
+        'members of a soft-deleted child are not origin contributors',
+        () async {
+          final goneChild = await Family.db.insertRow(
+            fx.s,
+            Family(
+              treeId: root.treeId,
+              parentId: root.id,
+              name: 'Gone child',
+              originStoryId: origin.id,
+              deletedAt: DateTime.now().toUtc(),
+            ),
+          );
+          final user = await fx.user();
+          await fx.join(goneChild, user);
+          expect(await authzFor(user).canContribute(origin), isFalse);
+        },
+      );
     });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }
@@ -786,8 +818,8 @@ class Authz {
           t.deletedAt.equals(null),
     );
     for (final child in children) {
-      if (await effectiveOrigin(child) == story.id &&
-          await isLiveMember(child.id!)) {
+      if (await isLiveMember(child.id!) &&
+          await effectiveOrigin(child) == story.id) {
         return true;
       }
     }
@@ -809,7 +841,7 @@ class Authz {
 - [ ] **Step 5: Run the tests**
 
 Run: `mise exec -- just server-test`
-Expected: `+78: All tests passed!`
+Expected: `+80: All tests passed!`
 
 - [ ] **Step 6: Commit**
 
@@ -1596,6 +1628,25 @@ void main() {
         expect(rows.single.attempts, 1);
       },
     );
+
+    test(
+      'when one blob delete fails then the rest of the batch still drains',
+      () async {
+        final failing = uniqueKey();
+        final good = uniqueKey();
+        await queueBlobDeletions(session, [failing, good]);
+
+        await drainBlobDeletions(
+          session,
+          delete: (k) async {
+            if (k == failing) throw StateError('storage down');
+          },
+        );
+
+        expect(await rowsFor(good), isEmpty);
+        expect((await rowsFor(failing)).single.attempts, 1);
+      },
+    );
   }, rollbackDatabase: RollbackDatabase.disabled);
 }
 ```
@@ -1676,7 +1727,7 @@ Future<int> drainBlobDeletions(
 - [ ] **Step 4: Run it**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/blob_outbox_test.dart`
-Expected: `+3: All tests passed!`
+Expected: `+4: All tests passed!`
 
 - [ ] **Step 5: Commit**
 
@@ -1807,6 +1858,19 @@ void main() {
       },
     );
 
+    test('a person linked in another tree is not reused', () async {
+      final user = await fx.userWithEmail('ed@example.com');
+      final homeA = await fx.family(await fx.tree());
+      final homeB = await fx.family(await fx.tree());
+
+      final inA = await ensure(homeA, user);
+      final inB = await ensure(homeB, user);
+
+      expect(inB.id, isNot(inA.id));
+      expect(inB.treeId, homeB.treeId);
+      expect(inB.homeFamilyId, homeB.id);
+    });
+
     test(
       'without a display name the email local part, then Member, is used',
       () async {
@@ -1901,7 +1965,7 @@ Future<Person> ensureLinkedPerson(
 - [ ] **Step 5: Run it**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/accounts_test.dart`
-Expected: `+5: All tests passed!`
+Expected: `+6: All tests passed!`
 
 - [ ] **Step 6: Commit**
 
@@ -1968,7 +2032,7 @@ mise exec -- dart format --output=none --set-exit-if-changed apps/server/lib app
 mise exec -- just server-test
 mise exec -- just test
 ```
-Expected: `0 changed`, `No issues found!`, `+92: All tests passed!`, and the Flutter suite unchanged at `+708: All tests passed!`.
+Expected: `0 changed`, `No issues found!`, `+96: All tests passed!`, and the Flutter suite unchanged at `+708: All tests passed!`.
 
 - [ ] **Step 2: Mark 3.0 done in the Phase 3 index**
 
