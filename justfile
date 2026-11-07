@@ -1,5 +1,8 @@
 # Run from the repo root. `just` lists recipes.
 
+gcp_project := "story-line"
+gcp_region := "us-central1"
+
 # List recipes
 default:
     @just --list
@@ -126,3 +129,36 @@ server-analyze:
 
 # Every local gate: format, analyze, app tests, server analyze and server tests
 check: fmt-check analyze test server-analyze server-test
+
+# One-time GCP project + state bucket + Resend secrets (RESEND_API_KEY=… RESEND_FROM=… just gcp-bootstrap)
+gcp-bootstrap:
+    PROJECT_ID={{gcp_project}} infra/gcp/bootstrap.sh
+
+# terraform init + apply for infra/gcp
+gcp-infra:
+    cd infra/gcp && terraform init && terraform apply
+
+# Build the server image on Cloud Build and roll it out to Cloud Run
+deploy-server:
+    #!/usr/bin/env sh
+    set -eu
+    tag=$(git rev-parse --short HEAD)
+    image={{gcp_region}}-docker.pkg.dev/{{gcp_project}}/story-line/server:$tag
+    gcloud builds submit apps/server --tag "$image" --project {{gcp_project}}
+    gcloud run deploy story-line-api --image "$image" --region {{gcp_region}} --project {{gcp_project}}
+
+# Build Flutter web against the Cloud Run API and deploy to Firebase Hosting (MAPBOX_ACCESS_TOKEN optional)
+deploy-web:
+    #!/usr/bin/env sh
+    set -eu
+    num=$(gcloud projects describe {{gcp_project}} --format='value(projectNumber)')
+    api="https://story-line-api-$num.{{gcp_region}}.run.app"
+    origin="https://{{gcp_project}}.web.app"
+    set -- flutter build web --release \
+        --dart-define=SERVER_URL="$api" \
+        --dart-define=INVITE_APP_ORIGIN="$origin"
+    if [ -n "${MAPBOX_ACCESS_TOKEN:-}" ]; then
+        set -- "$@" --dart-define=MAPBOX_ACCESS_TOKEN="$MAPBOX_ACCESS_TOKEN"
+    fi
+    (cd apps/tell_me_a_story && "$@")
+    firebase deploy --only hosting --project {{gcp_project}}
