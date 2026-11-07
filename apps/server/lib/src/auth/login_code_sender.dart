@@ -3,11 +3,14 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:serverpod/serverpod.dart';
 
+import 'local_mode.dart';
+
 /// Delivers a one-time login code.
 ///
-/// Development and test: logs the code (the fixed dev code is `111111`).
-/// Staging and production: sends it through Resend using the
-/// `resendApiKey` and `resendFrom` entries in `config/passwords.yaml`.
+/// Local (development or test with embedded Postgres, see [isLocalPod]):
+/// logs the code (the fixed dev code is `111111`).
+/// Otherwise: sends it through Resend using the `resendApiKey` and
+/// `resendFrom` entries in `config/passwords.yaml`.
 Future<void> sendLoginCode(
   Session session, {
   required String email,
@@ -15,8 +18,7 @@ Future<void> sendLoginCode(
   required String verificationCode,
   required Transaction? transaction,
 }) async {
-  final mode = session.serverpod.runMode;
-  if (mode == ServerpodRunMode.development || mode == ServerpodRunMode.test) {
+  if (isLocalPod(session.serverpod)) {
     session.log('Login code for $email: $verificationCode');
     return;
   }

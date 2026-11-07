@@ -1,4 +1,5 @@
 import 'src/auth/auth_config.dart';
+import 'src/auth/local_mode.dart';
 import 'src/db/constraints.dart';
 import 'src/generated/serverpod.dart';
 
@@ -6,10 +7,18 @@ import 'src/generated/serverpod.dart';
 void run(List<String> args) async {
   final pod = Serverpod(args);
 
-  configureAuth(
-    useDevLoginCode: pod.runMode == ServerpodRunMode.development ||
-        pod.runMode == ServerpodRunMode.test,
-  );
+  final local = isLocalPod(pod);
+  if (!local &&
+      (pod.getPassword('resendApiKey') == null ||
+          pod.getPassword('resendFrom') == null)) {
+    throw StateError(
+      'resendApiKey and resendFrom must be set in config/passwords.yaml '
+      '(or SERVERPOD_PASSWORD_* env vars) unless running locally with '
+      'embedded Postgres',
+    );
+  }
+
+  configureAuth(useDevLoginCode: local);
 
   pod.addCloudStorage(DatabaseCloudStorage('private'));
 

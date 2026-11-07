@@ -5,7 +5,7 @@ import 'package:serverpod_auth_idp_server/providers/email.dart';
 import '../generated/protocol.dart';
 import 'login_code_sender.dart';
 
-/// Fixed one-time login code used in the development and test run modes.
+/// Fixed one-time login code used by local servers (see `isLocalPod`).
 const devLoginCode = '111111';
 
 /// Registers JWT sessions and passwordless email-code login, and creates the
