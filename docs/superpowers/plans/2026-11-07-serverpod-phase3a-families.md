@@ -15,13 +15,13 @@
 ## Decisions this plan takes (inside the slice)
 
 - **Order of checks** follows business-rules §3 per method; authorization first. A missing or soft-deleted family is FORBIDDEN like a stranger (`Authz.requireLive*`), except the recovery reads (`listStewarded`, `directory`, `detail`) and `recover`, which use the caller's (possibly deleted) steward membership.
-- **`detail`** throws FORBIDDEN (`member only`) for a non-member or missing family and `owner or co-owner only` for a plain member of a deleted family, so it never returns null although the contract type is nullable. On a deleted family it returns the members and an empty `pendingInvites` (D6b).
+- **`detail`** returns `FamilyDetailDto` (non-null, as endpoint-contract §2.2 now declares). It throws FORBIDDEN (`member only`) for a non-member or missing family and `owner or co-owner only` for a plain member of a deleted family. On a deleted family it returns the members and an empty `pendingInvites` (D6b).
 - **`listTree`** and **`listOriginDependents`** return an empty list to callers who can't read them, as `list_family_tree` / `list_origin_dependents` did (BR 30, 48).
 - **`setOrigin`** keeps the bare FORBIDDEN of `set_family_origin` (`errors.dart` default message) and uses `NOT_FOUND: story` for the story check.
-- **`softDelete`** uses `requireLiveOwner`, so repeating it on an already-deleted family is FORBIDDEN rather than a no-op (Conventions: live checks everywhere but recovery). It only sets `deletedAt`; the purge is 3f.
+- **`softDelete`** is owner only. Repeating it as the owner (`isOwner`, which ignores soft delete) of an already-deleted family is a no-op (business-rules §3.5); everyone else is refused by `requireLiveOwner`. It only sets `deletedAt`; the purge is 3f.
 - **`removeMember`** walks every family with the family's `treeId`, soft-deleted ones included (business-rules §6 item 9), and unlinks the target's person in that tree.
 - **`createBranch` depth** walks `parentId` through deleted families too (D8: a deleted family doesn't split the tree).
-- **Covers:** `startCoverUpload` validates `mimeType` with `extForMime` (`unsupported image type`) and the declared size (`file is empty` / `file is too large`), then pins it with `UploadOptions(maxFileSize: coverMaxBytes, contentLength: byteLength, preventOverwrite: true)`. `finishCoverUpload` accepts only keys of the shape `families/{familyId}/cover/{uuid}.{jpg|png|webp}` (`invalid cover key`), `verifyUpload`s (`upload not found`), re-checks the stored size and sniffs the bytes against the key's extension; a rejected upload is queued in `blob_deletions`. Finishing with the current cover key is a no-op that returns it.
+- **Covers:** `startCoverUpload` validates `mimeType` with `extForMime` (`unsupported image type`) and the declared size (`file is empty` / `file is too large`), then pins it with `UploadOptions(maxFileSize: coverMaxBytes, contentLength: byteLength, preventOverwrite: true)`. `finishCoverUpload` accepts only keys of the shape `families/{familyId}/cover/{uuid}.{jpg|png|webp}` (`invalid cover key`), `verifyUpload`s (`upload not found`), re-checks the stored size and sniffs the bytes against the key's extension; a rejected upload is queued in `blob_deletions`. Finishing with the current cover key is a no-op that returns it, checked before the upload and again under the family row lock. A key already in `blob_deletions` (a replaced or rejected cover) is refused with `storageFailed` 'upload not found', before `verifyUpload` and again inside the transaction, so a dead key can never become the cover.
 - **Profile:** `me` creates the `users` row if the auth hook didn't (`ensureAppUser` fallback). `saveName`/`saveAccount` store a blank display name as null and then don't touch linked names (BR 107); otherwise every linked person in every tree takes the new name in the same transaction. `saveAccount` aligns the birth date to its precision at UTC midnight and checks year 1000–9999 and `about` ≤ 500 with local VALIDATION messages; a null `birthVisibility` keeps the current one. `saveAvatar` accepts JPEG ≤ 2 MiB (sniffed), stores it under `userAvatarKey` with `preventOverwrite`, then swaps the key and queues the old one.
 - **Places:** reads and writes need the family to be live and the caller to read its tree (`Authz.isTreeReadable`, member or tree reader, D6b); place rows are checked by `treeId` (`isTreeMemberOf`). `create` trims and requires label and address, returns the existing row for a known `(treeId, mapboxPlaceId)` (also on a lost insert race), and stamps `lastUsedAt`. `get` returns null for a missing or unreadable place.
 - **Generated client:** Serverpod 4.1.1 drops parameter defaults on the client, so `createBranch(personIds:)` and `recents(limit:)` are required named parameters in the client and test tools; the server keeps the contract defaults.
@@ -1403,7 +1403,7 @@ Append this group inside `withServerpod` in `apps/server/test/integration/family
             ),
           );
           final detail = await endpoints.family.detail(by(member), root.id!);
-          expect(detail!.name, root.name);
+          expect(detail.name, root.name);
           expect(detail.myRole, MembershipRole.member);
           expect(detail.members, hasLength(3));
           expect(detail.pendingInvites.map((i) => i.id), [pending.id]);
@@ -1427,7 +1427,7 @@ Append this group inside `withServerpod` in `apps/server/test/integration/family
           }
           for (final user in [owner, coOwner]) {
             final detail = await endpoints.family.detail(by(user), gone.id!);
-            expect(detail!.members, hasLength(3));
+            expect(detail.members, hasLength(3));
             expect(detail.pendingInvites, isEmpty);
           }
         },
@@ -1696,7 +1696,7 @@ ORDER BY f."createdAt", f."id"
   /// Family, members and pending invites. Live members read a live family;
   /// owners and co-owners also read a soft-deleted one (recovery read, D6b),
   /// whose invites are not readable, so `pendingInvites` is empty.
-  Future<FamilyDetailDto?> detail(Session session, UuidValue familyId) async {
+  Future<FamilyDetailDto> detail(Session session, UuidValue familyId) async {
     final family = await Family.db.findById(session, familyId);
     final role = await Authz(session).roleIn(familyId);
     if (family == null || role == null) throw forbidden('member only');
@@ -1933,6 +1933,35 @@ Append this group inside `withServerpod` in `apps/server/test/integration/family
           ),
         );
       });
+
+      // BR 8 (co-owner cap during transfer)
+      test(
+        'when the family already has two co-owners and one becomes owner with '
+        'former=co_owner then it succeeds with one owner and two co-owners',
+        () async {
+          await endpoints.family.addCoOwner(by(owner), root.id!, member);
+          await endpoints.family.transferOwnership(
+            by(owner),
+            root.id!,
+            member,
+            MembershipRole.coOwner,
+          );
+          final roles = await Membership.db.find(
+            fx.s,
+            where: (t) => t.familyId.equals(root.id!),
+          );
+          expect(
+            {for (final m in roles) m.userId: m.role},
+            {
+              member: MembershipRole.owner,
+              owner: MembershipRole.coOwner,
+              coOwner: MembershipRole.coOwner,
+              member2: MembershipRole.member,
+              member3: MembershipRole.member,
+            },
+          );
+        },
+      );
 
       // BR 9
       test('when a co-owner transfers then FORBIDDEN "owner only"', () async {
@@ -2323,6 +2352,24 @@ Append this group inside `withServerpod` in `apps/server/test/integration/family
         },
       );
 
+      // BR 16 (repeat is a no-op, business-rules §3.5)
+      test(
+        'when the owner soft-deletes an already deleted family then nothing '
+        'changes; a co-owner or member is still FORBIDDEN',
+        () async {
+          await endpoints.family.softDelete(by(owner), root.id!);
+          final first = (await fx.reload(root)).deletedAt;
+          await endpoints.family.softDelete(by(owner), root.id!);
+          expect((await fx.reload(root)).deletedAt, first);
+          for (final user in [coOwner, member]) {
+            await expectLater(
+              endpoints.family.softDelete(by(user), root.id!),
+              throwsAppError(AppErrorCode.forbidden, 'owner only'),
+            );
+          }
+        },
+      );
+
       // BR 19
       test(
         'when a co-owner recovers 10 days after delete then deletedAt is '
@@ -2361,8 +2408,9 @@ Append this group inside `withServerpod` in `apps/server/test/integration/family
             endpoints.family.rename(by(owner), root.id!, 'X'),
             throwsAppError(AppErrorCode.forbidden),
           );
+          final stranger = await fx.user();
           await expectLater(
-            endpoints.family.softDelete(by(owner), root.id!),
+            endpoints.family.softDelete(by(stranger), root.id!),
             throwsAppError(AppErrorCode.forbidden),
           );
           await expectLater(
@@ -2387,9 +2435,15 @@ Add to `FamilyEndpoint`, after the previous section:
   // ── soft delete ──────────────────────────────────────────────────────
 
   /// Owner only. Only sets `deletedAt`; the purge (3f) removes the family
-  /// after the recovery window.
+  /// after the recovery window. Repeating it as the owner of an already
+  /// deleted family is a no-op (business-rules.md §3.5).
   Future<void> softDelete(Session session, UuidValue familyId) async {
-    await Authz(session).requireLiveOwner(familyId);
+    final authz = Authz(session);
+    if (await authz.isOwner(familyId)) {
+      final family = await Family.db.findById(session, familyId);
+      if (family?.deletedAt != null) return;
+    }
+    await authz.requireLiveOwner(familyId);
     await session.db.transaction((t) async {
       final family = await _lockFamily(session, familyId, t);
       await Family.db.updateRow(
@@ -3499,6 +3553,44 @@ Append this group inside `withServerpod` in `apps/server/test/integration/family
         expect(await fx.queuedBlobKeys(), contains(key));
       });
 
+      test(
+        'when a replaced cover key is finished again then STORAGE_FAILED, the '
+        'cover stays and the live key is not queued',
+        () async {
+          final a = await uploadCover(owner);
+          await endpoints.family.finishCoverUpload(by(owner), family.id!, a);
+          final b = await uploadCover(owner);
+          await endpoints.family.finishCoverUpload(by(owner), family.id!, b);
+          expect(await fx.queuedBlobKeys(), contains(a));
+
+          await expectLater(
+            endpoints.family.finishCoverUpload(by(owner), family.id!, a),
+            throwsAppError(AppErrorCode.storageFailed, 'upload not found'),
+          );
+          expect((await fx.reload(family)).coverKey, b);
+          expect(await fx.queuedBlobKeys(), isNot(contains(b)));
+        },
+      );
+
+      test(
+        'when the same key is finished twice then the second call is a no-op '
+        'and the live key is not queued',
+        () async {
+          final key = await uploadCover(owner);
+          await endpoints.family.finishCoverUpload(by(owner), family.id!, key);
+          expect(
+            await endpoints.family.finishCoverUpload(
+              by(coOwner),
+              family.id!,
+              key,
+            ),
+            key,
+          );
+          expect((await fx.reload(family)).coverKey, key);
+          expect(await fx.queuedBlobKeys(), isNot(contains(key)));
+        },
+      );
+
       // BR 22
       test(
         'when stewards write through the API then id, createdById, parentId '
@@ -3579,7 +3671,9 @@ Add to `FamilyEndpoint`, after the previous section:
   /// Verifies the upload at [key], checks its size and that its bytes are the
   /// image type its extension names, then makes it the cover. A rejected blob
   /// is queued for deletion; the previous cover key is queued in the same
-  /// transaction that replaces it.
+  /// transaction that replaces it. Finishing the current cover again is a
+  /// no-op; a key already queued for deletion (e.g. a replaced cover) is
+  /// STORAGE_FAILED.
   Future<String> finishCoverUpload(
     Session session,
     UuidValue familyId,
@@ -3589,6 +3683,7 @@ Add to `FamilyEndpoint`, after the previous section:
     final mimeType = _coverKeyMime(familyId, key);
     final current = await Family.db.findById(session, familyId);
     if (current!.coverKey == key) return key;
+    if (await _isQueuedForDeletion(session, key)) throw _uploadGone();
     final uploaded = await session.storage.verifyUpload(
       storageId: blobStorageId,
       path: key,
@@ -3614,6 +3709,10 @@ Add to `FamilyEndpoint`, after the previous section:
           transaction: t,
           lockMode: LockMode.forUpdate,
         ))!;
+        if (family.coverKey == key) return;
+        if (await _isQueuedForDeletion(session, key, transaction: t)) {
+          throw _uploadGone();
+        }
         await queueBlobDeletions(session, [family.coverKey], transaction: t);
         await Family.db.updateRow(
           session,
@@ -3622,6 +3721,8 @@ Add to `FamilyEndpoint`, after the previous section:
           transaction: t,
         );
       });
+    } on AppException {
+      rethrow;
     } catch (_) {
       await queueBlobDeletions(session, [key]);
       rethrow;
@@ -3653,6 +3754,25 @@ Add to `FamilyEndpoint`, after the previous section:
 Append to the end of `apps/server/lib/src/endpoints/family_endpoint.dart`:
 
 ```dart
+/// [key] is already in `blob_deletions` (replaced or rejected), so it must
+/// never become a live reference again.
+Future<bool> _isQueuedForDeletion(
+  Session session,
+  String key, {
+  Transaction? transaction,
+}) async =>
+    await BlobDeletion.db.count(
+      session,
+      where: (b) => b.key.equals(key),
+      transaction: transaction,
+    ) >
+    0;
+
+AppException _uploadGone() => AppException(
+  code: AppErrorCode.storageFailed,
+  message: 'upload not found',
+);
+
 /// The MIME type a cover [key] of [familyId] names by its extension;
 /// VALIDATION for any key the server could not have issued for this family.
 String _coverKeyMime(UuidValue familyId, String key) {
