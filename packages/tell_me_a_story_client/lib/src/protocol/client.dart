@@ -373,6 +373,15 @@ class EndpointInvite extends _isc.EndpointRef {
       'personId': personId,
     },
   );
+
+  /// Joins the invite's family and returns its id. Single transaction:
+  /// membership, person link, invite marked accepted.
+  _ida.Future<_isc.UuidValue> accept(String token) =>
+      caller.callServerEndpoint<_isc.UuidValue>(
+        'invite',
+        'accept',
+        {'token': token},
+      );
 }
 
 /// The anonymous invite landing (business-rules.md §3.4, validate).

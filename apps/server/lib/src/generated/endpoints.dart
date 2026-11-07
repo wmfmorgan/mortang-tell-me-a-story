@@ -378,6 +378,25 @@ class Endpoints extends _is.EndpointDispatch {
                     personId: params['personId'],
                   ),
         ),
+        'accept': _is.MethodConnector(
+          name: 'accept',
+          params: {
+            'token': _is.ParameterDescription(
+              name: 'token',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['invite'] as _ip80nve4.InviteEndpoint).accept(
+                    session,
+                    params['token'],
+                  ),
+        ),
       },
     );
     connectors['invitePublic'] = _is.EndpointConnector(

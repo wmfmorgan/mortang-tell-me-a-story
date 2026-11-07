@@ -78,4 +78,86 @@ class InviteEndpoint extends Endpoint {
     if (person.userId != null) throw validation('person is already linked');
     if (person.passedAway) throw validation('person has passed');
   }
+
+  /// Joins the invite's family and returns its id. Single transaction:
+  /// membership, person link, invite marked accepted.
+  Future<UuidValue> accept(Session session, String token) async {
+    final uid = Authz(session).requireUser();
+    final trimmed = token.trim();
+    if (trimmed.isEmpty) throw validation('token is required');
+    final tokenHash = hashInviteToken(trimmed);
+    return _accept(session, uid, tokenHash);
+  }
+
+  Future<UuidValue> _accept(
+    Session session,
+    UuidValue uid,
+    String tokenHash,
+  ) => session.db.transaction((t) async {
+    final invite = await Invite.db.findFirstRow(
+      session,
+      where: (i) => i.tokenHash.equals(tokenHash),
+      transaction: t,
+      lockMode: LockMode.forUpdate,
+    );
+    if (invite == null) throw inviteInvalid();
+    final family = await Family.db.findById(
+      session,
+      invite.familyId,
+      transaction: t,
+    );
+    // D6a, then D2; both before the accepted/re-entry check.
+    if (family == null || family.deletedAt != null) throw inviteInvalid();
+    final invitedEmail = invite.email;
+    if (invitedEmail != null &&
+        invitedEmail != await accountEmail(session, uid, transaction: t)) {
+      throw inviteInvalid('Invite was sent to a different email');
+    }
+
+    final existing = await Membership.db.findFirstRow(
+      session,
+      where: (m) => m.familyId.equals(family.id!) & m.userId.equals(uid),
+      transaction: t,
+    );
+    if (invite.acceptedAt != null) {
+      if (invite.acceptedById != uid) throw inviteAccepted();
+      if (existing == null) throw validation('Could not check membership');
+      return family.id!;
+    }
+    if (invite.revokedAt != null) throw inviteInvalid();
+    final now = DateTime.now().toUtc();
+    if (isInviteExpired(invite, now)) throw inviteExpired();
+
+    // No demotion: an existing member keeps their role.
+    if (existing == null) {
+      try {
+        await Membership.db.insertRow(
+          session,
+          Membership(familyId: family.id!, userId: uid),
+          transaction: t,
+        );
+      } on DatabaseQueryException catch (e) {
+        if (e.code != '23505' ||
+            e.constraintName != 'memberships_family_user_uidx') {
+          rethrow;
+        }
+        throw validation('Could not create membership');
+      }
+    }
+
+    await ensureLinkedPerson(
+      session,
+      treeId: family.treeId,
+      homeFamilyId: family.id!,
+      userId: uid,
+      transaction: t,
+    );
+
+    await Invite.db.updateRow(
+      session,
+      invite.copyWith(acceptedAt: now, acceptedById: uid),
+      transaction: t,
+    );
+    return family.id!;
+  });
 }
