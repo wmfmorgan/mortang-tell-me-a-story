@@ -7,6 +7,8 @@ import 'package:timeline_lab/renderers/renderer_contract.dart';
 import 'package:timeline_lab/renderers/zoom_canvas_renderer.dart';
 import 'package:timeline_lab/theme/lab_theme.dart';
 
+import 'support/ipad.dart';
+
 const _scenarioFilter = TimelineFilter(
   personIds: {'p-1', 'p-4'},
   fromYear: 1950,
@@ -111,4 +113,61 @@ void main() {
       matchesGoldenFile('goldens/sliverList_narrow.png'),
     );
   });
+
+  // iPad goldens: logical sizes at DPR 1, iOS density, 24/20 pt insets.
+  for (final (name, size, kind) in [
+    (
+      'ipad_portrait_sliverList',
+      ipadSizes['mini_portrait']!,
+      RendererKind.sliverList,
+    ),
+    (
+      'ipad_portrait_swimlanes',
+      ipadSizes['mini_portrait']!,
+      RendererKind.swimlanes,
+    ),
+    (
+      'ipad_portrait_treeGraph',
+      ipadSizes['mini_portrait']!,
+      RendererKind.treeGraph,
+    ),
+    (
+      'ipad_portrait_zoomCanvas',
+      ipadSizes['mini_portrait']!,
+      RendererKind.zoomCanvas,
+    ),
+    (
+      'ipad_slideover_sliverList',
+      ipadSizes['slide_over']!,
+      RendererKind.sliverList,
+    ),
+  ]) {
+    testWidgets('golden $name', (tester) async {
+      await pumpIpad(tester, size, kind: kind, dpr: 1);
+      await expectLater(
+        find.byType(LabHome),
+        matchesGoldenFile('goldens/$name.png'),
+      );
+    }, variant: ios);
+  }
+
+  testWidgets('golden ipad_portrait_filters', (tester) async {
+    await pumpIpad(tester, ipadSizes['mini_portrait']!, dpr: 1);
+    await tester.tap(find.byKey(const Key('filters-open')));
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(LabHome),
+      matchesGoldenFile('goldens/ipad_portrait_filters.png'),
+    );
+  }, variant: ios);
+
+  testWidgets('golden ipad_landscape_selected', (tester) async {
+    final c = await pumpIpad(tester, ipadSizes['mini_landscape']!, dpr: 1);
+    c.select(c.entries.last.story.id);
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(LabHome),
+      matchesGoldenFile('goldens/ipad_landscape_selected.png'),
+    );
+  }, variant: ios);
 }
