@@ -100,6 +100,9 @@ class LabHome extends StatelessWidget {
     final wide = window.width >= LabBreakpoint.sidebar;
 
     return Scaffold(
+      // The keyboard covers the playback and status bars rather than
+      // shrinking the renderer (F4). Scroll views below pad themselves.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('Timeline Lab'),
         actions: [
@@ -173,6 +176,9 @@ class LabHome extends StatelessWidget {
                   SizedBox(
                     width: 300,
                     child: SingleChildScrollView(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.viewInsetsOf(context).bottom,
+                      ),
                       child: FilterPanel(controller: c),
                     ),
                   )

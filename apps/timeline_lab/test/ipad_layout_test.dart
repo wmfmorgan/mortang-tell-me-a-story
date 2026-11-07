@@ -120,4 +120,21 @@ void main() {
       );
     }, variant: ios);
   }
+
+  testWidgets('keyboard keeps the renderer height (landscape, selected)', (
+    tester,
+  ) async {
+    final size = ipadSizes['mini_landscape']!;
+    final c = await pumpIpad(tester, size);
+    c.select(c.entries.last.story.id);
+    await tester.pumpAndSettle();
+    final before = tester.getSize(rendererRoot).height;
+    final errors = await collectFlutterErrors(() async {
+      await tester.tap(find.byKey(const Key('filter-search')));
+      showKeyboard(tester, size);
+      await tester.pumpAndSettle();
+    });
+    expect(errors, isEmpty);
+    expect(tester.getSize(rendererRoot).height, before);
+  }, variant: ios);
 }
