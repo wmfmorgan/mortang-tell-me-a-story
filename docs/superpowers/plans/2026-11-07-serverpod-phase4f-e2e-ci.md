@@ -83,10 +83,12 @@ const _localServers = {'http://127.0.0.1:8080', 'http://localhost:8080'};
 /// The e2e flows create users and families, so they run only against a local
 /// `just server`.
 void assertLocalServer() {
-  final url = Env.serverUrl;
+  const url = Env.serverUrl;
   final origin = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   if (!_localServers.contains(origin)) {
-    fail('SERVER_URL "$url" is not the local just server (http://127.0.0.1:8080)');
+    fail(
+      'SERVER_URL "$url" is not the local just server (http://127.0.0.1:8080)',
+    );
   }
 }
 ```
@@ -94,6 +96,7 @@ void assertLocalServer() {
 - [ ] **Step 3: `preconditions.dart`**
 
 ```dart
+import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story/core/server/server_client.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
@@ -257,6 +260,7 @@ Future<void> _signIn(WidgetTester tester, String flow, String email) async {
 ```dart
     await _step('C6', 'send-code', () async {
       await _requestCode(tester, const Key('invite-email'), guest);
+      await pumpUntilFound(tester, find.byKey(const Key('invite-sent')));
     });
     await _step('C6', 'enter-code', () async {
       await _enterCode(tester, find.byKey(const Key('family-landing')));
@@ -284,14 +288,14 @@ Run: `bash e2e/check_flows.sh` → `9 flows match`.
   1. checkout; `e2e flow manifest` (`bash e2e/check_flows.sh`);
   2. `subosito/flutter-action` (3.47.7) — its Dart runs the server;
   3. `extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0` with `just-version: "1.46.0"` (mise.toml);
-  4. `server packages and passwords`: `(cd apps/server && dart pub get --enforce-lockfile)`, `(cd packages/tell_me_a_story_client && dart pub get --enforce-lockfile)`, `just server-passwords`;
+  4. `server packages and passwords`: `(cd apps/server && dart pub get --enforce-lockfile)` and `just server-passwords`. The client package needs no separate `pub get` (the app resolves it through its own lockfile), and no Serverpod CLI is needed (`just server` is `dart run bin/main.dart`);
   5. `just server (background)`: `just server > "$RUNNER_TEMP/server.log" 2>&1 &` and save the pid;
   6. `flutter pub get --enforce-lockfile` in the app;
   7. ChromeDriver step unchanged;
   8. `await just server`: poll `http://127.0.0.1:8080/` up to 300 s with `curl -s -o /dev/null` (any HTTP answer counts; connection refused does not), fail early if the server pid exits;
   9. `flutter drive … --dart-define=SERVER_URL=http://127.0.0.1:8080`;
   10. `e2e logs (server, chromedriver)` with `if: always()`.
-- [ ] **Step 2: Verify** — `python3 -c "import yaml,sys; yaml.safe_load(open('.github/workflows/ci.yml'))"` parses; `rg -n "supabase|deno|relay" .github/workflows/ci.yml` hits only the other jobs (lines before `e2e:`).
+- [ ] **Step 2: Verify** — `ruby -ryaml -e 'puts YAML.load_file(".github/workflows/ci.yml")["jobs"]["e2e"]["steps"].map{|s| s["name"]||s["uses"]}'` parses and lists the steps above; `rg -n "supabase|deno|relay" .github/workflows/ci.yml` hits only the other jobs (lines before `e2e:`).
 - [ ] **Step 3: Commit** — `ci: e2e job runs against just server`
 
 ### Task 5: `just run` passes `SERVER_URL`
@@ -310,6 +314,14 @@ Run: `bash e2e/check_flows.sh` → `9 flows match`.
 - [ ] `bash e2e/check_flows.sh` passes
 - [ ] Commit the plan as landed: `docs: Phase 4f plan as landed`
 
+## As landed
+- Commits: `4cf0950` plan, `37a688a` C1 rename, `c5c91ff` e2e code sign-in + support files + relay deletion (Tasks 2 and 3 in one commit, since the support changes alone leave `e2e_test.dart` uncompilable), `e09b23f` CI, `b8a0e26` `just run`.
+- Gate on `feat/p4f-e2e-ci`: format 0 changed (156 files); `flutter analyze` 23 issues, all pre-existing, none in `integration_test/`; `flutter test` +723 ~1; `just test-live` +2; `check_flows.sh` 9 flows match.
+- C6 also waits for the invite page's `invite-sent` text after the code request (4a keeps it on the invite page; that page has no "Check your email" heading).
+
 ## Notes for 4z
 - `flutter drive` can only pass once 4a–4e are merged: on this branch `main()` still starts Supabase, so `serverClient` is never initialised.
 - The e2e depends on 4a for: `app.main()` calling `initServer`, the keys `magic-link-email`, `invite-email`, `sign-in-code`, `sign-in-code-submit`, the send button text "Email me a sign-in code" on both pages, and `AuthRefresh` reacting to `serverClient.auth` sign-out.
+- 4a makes a throwaway compile fix in `integration_test/e2e_test.dart` and `support/prod_guard.dart`; on merge, take 4f's version of both files.
+- The e2e never reads `Place.familyId` (4d removes it): `createFavoritePlace` returns `({String familyId, String label})`.
+- The CI e2e job's embedded Postgres start on `ubuntu-latest` is unexercised until the first CI run.
