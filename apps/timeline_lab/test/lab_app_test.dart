@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:timeline_lab/filter/timeline_filter.dart';
 import 'package:timeline_lab/lab_app.dart';
 import 'package:timeline_lab/lab_controller.dart';
+import 'package:timeline_lab/playback/playback_schedule.dart';
 import 'package:timeline_lab/renderers/render_box_layout_renderer.dart';
 import 'package:timeline_lab/renderers/renderer_contract.dart';
 import 'package:timeline_lab/renderers/sliver_list_renderer.dart';
@@ -10,6 +11,7 @@ import 'package:timeline_lab/renderers/swimlanes_renderer.dart';
 import 'package:timeline_lab/renderers/tree_graph_renderer.dart';
 import 'package:timeline_lab/renderers/treemap_renderer.dart';
 import 'package:timeline_lab/renderers/zoom_canvas_renderer.dart';
+import 'package:timeline_lab/widgets/playback_bar.dart';
 
 Future<LabController> _pump(WidgetTester tester) async {
   tester.view.physicalSize = const Size(1280, 800);
@@ -28,20 +30,24 @@ int _matches(LabController c, TimelineFilter f) =>
 void main() {
   testWidgets('search updates the status line', (tester) async {
     final c = await _pump(tester);
-    expect(find.text('120 stories'), findsOneWidget);
+    Finder status(String text) => find.descendant(
+      of: find.byKey(const Key('status-bar')),
+      matching: find.text(text),
+    );
+    expect(status('120 stories'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('filter-search')), 'esther');
     await tester.pumpAndSettle();
     final n = _matches(c, const TimelineFilter(query: 'esther'));
     expect(n, greaterThan(0));
-    expect(find.text('$n of 120 stories match'), findsOneWidget);
+    expect(status('$n of 120 stories match'), findsOneWidget);
 
     final clear = find.byKey(const Key('filter-clear'));
     await tester.ensureVisible(clear);
     await tester.pumpAndSettle();
     await tester.tap(clear);
     await tester.pumpAndSettle();
-    expect(find.text('120 stories'), findsOneWidget);
+    expect(status('120 stories'), findsOneWidget);
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('filter-search')))
@@ -95,14 +101,74 @@ void main() {
       ...RendererKind.values.skip(1),
       RendererKind.values.first,
     ]) {
-      await tester.tap(find.byKey(const Key('renderer-picker')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(kind.label).last);
+      final segment = find.descendant(
+        of: find.byKey(const Key('renderer-picker')),
+        matching: find.text(kind.label),
+      );
+      await tester.ensureVisible(segment);
+      await tester.tap(segment);
       await tester.pumpAndSettle();
       for (final MapEntry(key: k, value: type) in roots.entries) {
         expect(find.byType(type), k == kind ? findsOneWidget : findsNothing);
       }
     }
+  });
+
+  testWidgets('bench menu sets the dataset size', (tester) async {
+    final c = await _pump(tester);
+    await tester.tap(find.byKey(const Key('dataset-size')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('dataset-size-1000')));
+    await tester.pumpAndSettle();
+    expect(c.datasetSize, 1000);
+    // Button label and status line.
+    expect(find.text('1000 stories'), findsNWidgets(2));
+  });
+
+  testWidgets('playback options menu sets design and speed', (tester) async {
+    await _pump(tester);
+    final pb = tester.widget<LabHome>(find.byType(LabHome)).playback;
+    await tester.tap(find.byKey(const Key('playback-design')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('playback-design-sweep')));
+    await tester.pumpAndSettle();
+    expect(pb.design, PlaybackDesign.sweep);
+    await tester.tap(find.byKey(const Key('playback-design')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('playback-speed-2.0')));
+    await tester.pumpAndSettle();
+    expect(pb.speed, 2.0);
+    expect(find.text('Sweep · 2×'), findsOneWidget);
+  });
+
+  testWidgets('status row holds the count, the caption and Hide/Dim', (
+    tester,
+  ) async {
+    await _pump(tester);
+    final row = find.byKey(const Key('status-bar'));
+    for (final key in ['filter-mode', 'playback-caption']) {
+      expect(
+        find.descendant(of: row, matching: find.byKey(Key(key))),
+        findsOneWidget,
+      );
+    }
+    expect(
+      find.descendant(of: row, matching: find.text('120 stories')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('the year watermark sits behind the renderer', (tester) async {
+    await _pump(tester);
+    final stack = tester.widget<Stack>(
+      find
+          .ancestor(
+            of: find.byType(PlaybackWatermark),
+            matching: find.byType(Stack),
+          )
+          .first,
+    );
+    expect(stack.children.first, isA<PlaybackWatermark>());
   });
 
   testWidgets('tapping a sliver card opens the selected-story panel', (
