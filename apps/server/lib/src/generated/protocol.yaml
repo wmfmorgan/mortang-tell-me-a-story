@@ -25,3 +25,4 @@ story:
   - listPublished:
   - listLatestPublished:
   - listForPerson:
+  - discard:

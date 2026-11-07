@@ -1012,5 +1012,101 @@ void main() {
         expect(await endpoints.story.getPublished(by(c.member), newId()), isNull);
       });
     });
+
+    group('discard', () {
+      test(
+        'when the author discards a story then it, its photos, notes and tags '
+        'are gone and both photo keys are queued',
+        () async {
+          final story = await c.draft();
+          final plain = await fx.photo(story);
+          final edited = await fx.photo(
+            story,
+            sortOrder: 1,
+            editedKey: 'families/x/edited-1.jpg',
+          );
+          await fx.note(story, c.author);
+          await fx.tag(story, await fx.person(c.family));
+          await endpoints.story.discard(by(c.author), story.id!);
+          expect(await Story.db.findById(fx.s, story.id!), isNull);
+          expect(
+            await Photo.db.count(fx.s, where: (t) => t.storyId.equals(story.id!)),
+            0,
+          );
+          expect(
+            await StoryNote.db.count(
+              fx.s,
+              where: (t) => t.storyId.equals(story.id!),
+            ),
+            0,
+          );
+          final queued = await BlobDeletion.db.find(
+            fx.s,
+            where: (t) => t.key.inSet({
+              plain.originalKey,
+              edited.originalKey,
+              edited.editedKey!,
+            }),
+          );
+          expect(queued, hasLength(3));
+        },
+      );
+
+      // D4
+      test(
+        'when an owner discards another member\'s story then FORBIDDEN and it '
+        'remains',
+        () async {
+          final story = await c.published();
+          for (final user in [c.owner, c.coOwner, c.member]) {
+            await expectLater(
+              endpoints.story.discard(by(user), story.id!),
+              throwsAppError(AppErrorCode.forbidden),
+            );
+          }
+          expect(await Story.db.findById(fx.s, story.id!), isNotNull);
+        },
+      );
+
+      // BR 137 (story part)
+      test(
+        'when its author discards a story in a soft-deleted family then '
+        'FORBIDDEN and nothing changes',
+        () async {
+          final story = await c.published();
+          final photo = await fx.photo(story);
+          await fx.softDelete(c.family);
+          await expectLater(
+            endpoints.story.discard(by(c.author), story.id!),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+          expect(await Story.db.findById(fx.s, story.id!), isNotNull);
+          expect(
+            await BlobDeletion.db.count(
+              fx.s,
+              where: (t) => t.key.equals(photo.originalKey),
+            ),
+            0,
+          );
+        },
+      );
+
+      test(
+        'when a published story is discarded then a deleted story event is '
+        'posted; discarding a draft posts nothing',
+        () async {
+          final published = await c.published();
+          final draft = await c.draft();
+          final family = liveEvents(fx.s, familyChannel(c.family.id!));
+          await endpoints.story.discard(by(c.author), draft.id!);
+          await endpoints.story.discard(by(c.author), published.id!);
+          await settle();
+          expect(family, hasLength(1));
+          expect(family.single.storyId, published.id);
+          expect(family.single.kind, LiveKind.story);
+          expect(family.single.deleted, isTrue);
+        },
+      );
+    });
   }, rollbackDatabase: RollbackDatabase.disabled);
 }

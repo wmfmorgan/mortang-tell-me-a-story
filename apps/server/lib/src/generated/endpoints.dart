@@ -598,6 +598,25 @@ class Endpoints extends _is.EndpointDispatch {
                     params['personId'],
                   ),
         ),
+        'discard': _is.MethodConnector(
+          name: 'discard',
+          params: {
+            'storyId': _is.ParameterDescription(
+              name: 'storyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['story'] as _iiu4mi32.StoryEndpoint).discard(
+                    session,
+                    params['storyId'],
+                  ),
+        ),
       },
     );
     modules['serverpod_auth_idp'] = _iais.Endpoints()

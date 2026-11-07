@@ -6,6 +6,7 @@ import '../generated/protocol.dart';
 import '../live/live_events.dart';
 import '../stories/story_dates.dart';
 import '../stories/story_dtos.dart';
+import '../media/blob_outbox.dart';
 
 /// Stories, their people tags, and search (endpoint-contract §2.2;
 /// business-rules §2.5, §2.6, §4.4).
@@ -429,6 +430,42 @@ class StoryEndpoint extends Endpoint {
     UuidValue familyId,
   ) async {
     if (!await Authz(session).isTreeReadable(familyId)) throw forbidden();
+  }
+
+  /// Deletes the caller's own story (any status) with its photos, notes and
+  /// tags. Owners can't delete other people's stories (D4). Photo blob keys
+  /// are queued for deletion in the same transaction.
+  Future<void> discard(Session session, UuidValue storyId) async {
+    final authz = Authz(session);
+    final uid = authz.requireUser();
+    final story = await Story.db.findById(session, storyId);
+    if (story == null ||
+        story.authorId != uid ||
+        !await authz.isLiveMember(story.familyId)) {
+      throw forbidden();
+    }
+    final deleted = await session.db.transaction<Story?>((t) async {
+      final row = await Story.db.findById(
+        session,
+        storyId,
+        transaction: t,
+        lockMode: LockMode.forUpdate,
+      );
+      if (row == null) return null;
+      final photos = await Photo.db.find(
+        session,
+        where: (p) => p.storyId.equals(storyId),
+        transaction: t,
+      );
+      await queueBlobDeletions(session, [
+        for (final photo in photos) ...[photo.originalKey, photo.editedKey],
+      ], transaction: t);
+      await Story.db.deleteRow(session, row, transaction: t);
+      return row;
+    });
+    if (deleted != null) {
+      await _postIfPublished(session, deleted, deleted: true);
+    }
   }
 }
 

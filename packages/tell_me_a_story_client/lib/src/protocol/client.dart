@@ -495,6 +495,16 @@ class EndpointStory extends _isc.EndpointRef {
     'listForPerson',
     {'personId': personId},
   );
+
+  /// Deletes the caller's own story (any status) with its photos, notes and
+  /// tags. Owners can't delete other people's stories (D4). Photo blob keys
+  /// are queued for deletion in the same transaction.
+  _ida.Future<void> discard(_isc.UuidValue storyId) =>
+      caller.callServerEndpoint<void>(
+        'story',
+        'discard',
+        {'storyId': storyId},
+      );
 }
 
 class Modules {
