@@ -76,4 +76,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(c.selectedStoryId, isNull);
   });
+
+  testWidgets('Esc in the filters drawer closes it and keeps the selection', (
+    tester,
+  ) async {
+    final (c, _) = await _pump(tester, const Size(744, 1133));
+    final id = c.entries.last.story.id;
+    c.select(id);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('filters-open')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('filters-drawer')), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('filters-drawer')), findsNothing);
+    expect(c.selectedStoryId, id);
+  });
 }

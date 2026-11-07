@@ -125,8 +125,11 @@ class _LabHomeState extends State<LabHome> {
             enabled: () => true,
             onInvoke: (_) => _focusSearch(),
           ),
+          // An open drawer takes Esc first (Scaffold's DismissIntent).
           ClearSelectionIntent: GuardedAction<ClearSelectionIntent>(
-            enabled: () => widget.controller.selectedStoryId != null,
+            enabled: () =>
+                widget.controller.selectedStoryId != null &&
+                !(_scaffoldKey.currentState?.isEndDrawerOpen ?? false),
             onInvoke: (_) => widget.controller.select(null),
           ),
         },
