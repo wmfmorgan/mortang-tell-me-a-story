@@ -13,6 +13,9 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+media:
+  - get:
+  - getMany:
 photo:
   - list:
   - startUpload:

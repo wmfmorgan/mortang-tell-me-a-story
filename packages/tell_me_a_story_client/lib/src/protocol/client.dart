@@ -11,6 +11,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
+import 'dart:typed_data' as _idt;
 
 import 'package:http/http.dart' as _i85jenna;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
@@ -351,6 +352,32 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// Authorized blob reads (endpoint-contract.md §2.0): every key is resolved
+/// to the row that holds it and access is checked on that row. Nobody parses
+/// keys. Unknown, unreadable and missing blobs all look the same: null from
+/// [get], absent from [getMany].
+/// {@category Endpoint}
+class EndpointMedia extends _isc.EndpointRef {
+  EndpointMedia(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'media';
+
+  _ida.Future<_idt.ByteData?> get(String key) =>
+      caller.callServerEndpoint<_idt.ByteData?>(
+        'media',
+        'get',
+        {'key': key},
+      );
+
+  _ida.Future<Map<String, _idt.ByteData>> getMany(List<String> keys) =>
+      caller.callServerEndpoint<Map<String, _idt.ByteData>>(
+        'media',
+        'getMany',
+        {'keys': keys},
+      );
+}
+
 /// Story photos (business-rules.md §2.7 without edit save/reset, §4.5; upload
 /// flow schema-design.md §4.2).
 /// {@category Endpoint}
@@ -465,6 +492,7 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    media = EndpointMedia(this);
     photo = EndpointPhoto(this);
     modules = Modules(this);
   }
@@ -472,6 +500,8 @@ class Client extends _isc.ServerpodClientShared {
   late final EndpointEmailIdp emailIdp;
 
   late final EndpointJwtRefresh jwtRefresh;
+
+  late final EndpointMedia media;
 
   late final EndpointPhoto photo;
 
@@ -481,6 +511,7 @@ class Client extends _isc.ServerpodClientShared {
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'media': media,
     'photo': photo,
   };
 

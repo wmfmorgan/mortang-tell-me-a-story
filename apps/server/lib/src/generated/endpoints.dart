@@ -17,6 +17,7 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../endpoints/media_endpoint.dart' as _iaymoujt;
 import '../endpoints/photo_endpoint.dart' as _ihuw68ce;
 
 class Endpoints extends _is.EndpointDispatch {
@@ -33,6 +34,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'media': _iaymoujt.MediaEndpoint()
+        ..initialize(
+          server,
+          'media',
           null,
         ),
       'photo': _ihuw68ce.PhotoEndpoint()
@@ -333,6 +340,49 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['media'] = _is.EndpointConnector(
+      name: 'media',
+      endpoint: endpoints['media']!,
+      methodConnectors: {
+        'get': _is.MethodConnector(
+          name: 'get',
+          params: {
+            'key': _is.ParameterDescription(
+              name: 'key',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['media'] as _iaymoujt.MediaEndpoint).get(
+                session,
+                params['key'],
+              ),
+        ),
+        'getMany': _is.MethodConnector(
+          name: 'getMany',
+          params: {
+            'keys': _is.ParameterDescription(
+              name: 'keys',
+              type: _is.getType<List<String>>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['media'] as _iaymoujt.MediaEndpoint).getMany(
+                    session,
+                    params['keys'],
+                  ),
         ),
       },
     );

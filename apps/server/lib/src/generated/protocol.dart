@@ -11,6 +11,7 @@
 // ignore_for_file: dead_code, unnecessary_type_check
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:typed_data' as _idt;
 import 'package:serverpod/protocol.dart' as _isp;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
@@ -264,6 +265,8 @@ class Protocol extends _is.DatabaseSerializationManager
           _is.getType<List<_is.UuidValue>>,
           _is.getType<List<int>>,
           _is.getType<List<_is.UuidValue>?>,
+          _is.getType<Map<String, _idt.ByteData>>,
+          _is.getType<List<String>>,
           _is.getType<List<_iav5ek9v.PhotoDto>>,
         ],
         modules: const [
@@ -2466,6 +2469,16 @@ class Protocol extends _is.DatabaseSerializationManager
                     .toList()
               : null)
           as T;
+    }
+    if (t == Map<String, _idt.ByteData>) {
+      return (data as Map).map(
+            (k, v) =>
+                MapEntry(deserialize<String>(k), deserialize<_idt.ByteData>(v)),
+          )
+          as T;
+    }
+    if (t == List<String>) {
+      return (data as List).map((e) => deserialize<String>(e)).toList() as T;
     }
     if (t == List<_iav5ek9v.PhotoDto>) {
       return (data as List)
