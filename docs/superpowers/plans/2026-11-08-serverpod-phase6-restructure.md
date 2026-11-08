@@ -790,29 +790,29 @@ Five files that move in Task 15 are still on the skip list. Six files count `mag
 
 | # | File:line | Today | Exact token | Owner decision |
 |---|---|---|---|---|
-| 1 | `core/theme/album_chrome.dart:179` | `Colors.white` (plus glyph on a non-terracotta `PlusLabel`) | none | |
+| 1 | `core/theme/album_chrome.dart:179` | `Colors.white` (plus glyph on a non-terracotta `PlusLabel`) | none | new `albumWhite` (`0xFFFFFFFF`) |
 | 2 | `core/theme/album_chrome.dart:215` | `Colors.transparent` (dialog `surfaceTintColor`) | `albumBackdropClear` | — |
-| 3 | `core/theme/album_chrome.dart:217` | `Color(0x332C2416)` (dialog shadow) | `albumInk.withAlpha(0x33)`: same ARGB, see Q-A | |
-| 4 | `core/theme/album_header.dart:287` | `Color(0xFFFFF6F3)` (Publish button text) | none (`albumDialogSurface` is `0xFFFFF8F6`) | |
+| 3 | `core/theme/album_chrome.dart:217` | `Color(0x332C2416)` (dialog shadow) | `albumInk.withAlpha(0x33)`: same ARGB, see Q-A | `albumInk.withAlpha(0x33)` (Q-A yes) |
+| 4 | `core/theme/album_header.dart:287` | `Color(0xFFFFF6F3)` (Publish button text) | none (`albumDialogSurface` is `0xFFFFF8F6`) | new `albumOnAccent` (`0xFFFFF6F3`) |
 | 5 | `core/theme/album_header.dart:787` | `Color(0xFFE6DCD1)` (family menu border) | `albumModalBorder` | — |
 | 6 | `core/theme/album_header.dart:938`, `:1025` | `Colors.transparent` (nav underline when inactive) | `albumBackdropClear` | — |
-| 7 | `core/theme/album_header.dart:1137` | `Color(0xFFFCF9F5)` (avatar menu fill) | none | |
+| 7 | `core/theme/album_header.dart:1137` | `Color(0xFFFCF9F5)` (avatar menu fill) | none | new `albumMenuSurface` (`0xFFFCF9F5`) |
 | 8 | `core/theme/album_header.dart:1140` | `Color(0xFFE6DCD1)` (avatar menu border) | `albumModalBorder` | — |
-| 9 | `core/theme/profile_avatar.dart:23` | `Color(0xFFEDE0DC)` (avatar fill) | none | |
-| 10 | `core/theme/profile_avatar.dart:24` | `Color(0xFFD5C7B7)` (avatar border) | none | |
-| 11 | `features/family/family_blur_dialog.dart:12` | `Color(0x662C2416)` (blur scrim) | `albumInk.withAlpha(0x66)`: same ARGB, see Q-A | |
+| 9 | `core/theme/profile_avatar.dart:23` | `Color(0xFFEDE0DC)` (avatar fill) | none | new `albumAvatarFill` (`0xFFEDE0DC`) |
+| 10 | `core/theme/profile_avatar.dart:24` | `Color(0xFFD5C7B7)` (avatar border) | none | new `albumAvatarBorder` (`0xFFD5C7B7`) |
+| 11 | `features/family/family_blur_dialog.dart:12` | `Color(0x662C2416)` (blur scrim) | `albumInk.withAlpha(0x66)`: same ARGB, see Q-A | `albumInk.withAlpha(0x66)` (Q-A yes) |
 | 12 | `features/family/family_blur_dialog.dart:26`, `:62`, `:242` | `Colors.transparent` (barrier) | `albumBackdropClear` | — |
 | 13 | `features/family/family_blur_dialog.dart:118` | `Color(0xFFFFF8F6)` (card fill) | `albumDialogSurface` | — |
-| 14 | `features/family/family_blur_dialog.dart:122` | `Color(0x1A000000)` (card shadow) | none | |
-| 15 | `features/family/family_blur_dialog.dart:189` | `Colors.white` (confirm button text) | none | |
-| 16 | `features/family/family_blur_dialog.dart:277`, `:368` | `Color(0xFFE8DFD5)` (send-invite card and row border) | none (`albumModalBorder` is `0xFFE6DCD1`, `albumPillBorder` is `0xFFE7DECE`) | |
-| 17 | `features/family/family_blur_dialog.dart:280` | `Color(0x1A2C2416)` (send-invite shadow) | `albumInk.withAlpha(0x1A)`: same ARGB, see Q-A | |
-| 18 | `features/family/family_blur_dialog.dart:366` | `Color(0xFFF7F1EA)` (send-invite row fill) | none (`albumPillFill` is `0xFFF6F1EB`) | |
-| 19 | `features/family/family_blur_dialog.dart:396` | `Color(0x80E8DFD5)` (divider) | none (follows row 16) | |
-| 20 | `features/auth/magic_link_page.dart:11` | `_landingLine = Color(0xFFB9B0AD)` | none | |
-| 21 | `features/auth/magic_link_page.dart:13` | `_landingOnPrimary = Color(0xFFFFF6F3)` | none (same value as row 4) | |
-| 22 | `features/auth/magic_link_page.dart:249`, `:315` | `Colors.white` (form card fill) | none (same as rows 1 and 15) | |
-| 23 | `features/auth/magic_link_page.dart:254`, `:320` | `Color(0x0D000000)` (form card shadow) | none | |
+| 14 | `features/family/family_blur_dialog.dart:122` | `Color(0x1A000000)` (card shadow) | none | new `albumShadow` (`0xFF000000`) `.withAlpha(0x1A)` |
+| 15 | `features/family/family_blur_dialog.dart:189` | `Colors.white` (confirm button text) | none | `albumWhite` |
+| 16 | `features/family/family_blur_dialog.dart:277`, `:368` | `Color(0xFFE8DFD5)` (send-invite card and row border) | none (`albumModalBorder` is `0xFFE6DCD1`, `albumPillBorder` is `0xFFE7DECE`) | new `albumInviteBorder` (`0xFFE8DFD5`) |
+| 17 | `features/family/family_blur_dialog.dart:280` | `Color(0x1A2C2416)` (send-invite shadow) | `albumInk.withAlpha(0x1A)`: same ARGB, see Q-A | `albumInk.withAlpha(0x1A)` (Q-A yes) |
+| 18 | `features/family/family_blur_dialog.dart:366` | `Color(0xFFF7F1EA)` (send-invite row fill) | none (`albumPillFill` is `0xFFF6F1EB`) | new `albumInviteNoteFill` (`0xFFF7F1EA`) |
+| 19 | `features/family/family_blur_dialog.dart:396` | `Color(0x80E8DFD5)` (divider) | none (follows row 16) | `albumInviteBorder.withAlpha(0x80)` |
+| 20 | `features/auth/magic_link_page.dart:11` | `_landingLine = Color(0xFFB9B0AD)` | none | new `albumLandingLine` (`0xFFB9B0AD`) |
+| 21 | `features/auth/magic_link_page.dart:13` | `_landingOnPrimary = Color(0xFFFFF6F3)` | none (same value as row 4) | `albumOnAccent` |
+| 22 | `features/auth/magic_link_page.dart:249`, `:315` | `Colors.white` (form card fill) | none (same as rows 1 and 15) | `albumWhite` |
+| 23 | `features/auth/magic_link_page.dart:254`, `:320` | `Color(0x0D000000)` (form card shadow) | none | `albumShadow.withAlpha(0x0D)` |
 
 **Q-A:** Is "an existing token with `.withAlpha(n)` that yields the identical ARGB" an existing-token match? Rows 3, 11 and 17 depend on it. If yes, those hits drop `const` on the enclosing expression where needed (for example `shadowColor: albumInk.withAlpha(0x33),`).
 
@@ -822,6 +822,8 @@ If a decision adds tokens, add each one to `lib/core/theme/album_theme.dart` aft
 
 - [ ] **Step 1:** Send the table and Q-A / Q-B; wait for answers.
 - [ ] **Step 2:** Fill the "Owner decision" column, commit the plan.
+
+**Owner answers (2026-11-07):** no exact token → add one named token per distinct value, with today's exact value (pixel-identical); Q-A yes (`token.withAlpha(n)` where the ARGB is identical, also for the black shadows via `albumShadow`); Q-B yes (Task 14 runs).
 
 ---
 
