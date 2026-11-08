@@ -62,7 +62,7 @@
 | 7.2 Tokens and shared primitives | this index, §7.2 | — (O3 answered 2026-11-08) | done (`feat/p7-2-tokens`; app `+741 ~12`) |
 | 7.3 Rail split at parity | this index, §7.3 | 7.1, 7.2 | done (`feat/p7-3-rail-split`; app `+741 ~12`, goldens unchanged) |
 | 7.4 Rail restyle and iPad | this index, §7.4 "TDD plan" | 7.3; owner screenshot sign-off before merge | done; owner signed off 2026-11-08 with one change (finger misses on Decades zoom out) (`feat/p7-4-restyle`; app `+817 ~12`, 6 goldens regenerated + 2 new) |
-| 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
+| 7.5 Timeline filters (dim only) | this index, §7.5 "TDD plan" | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | done; owner signed off 2026-11-08 with two changes (sidebar toggles and starts closed; no-match card pinned above the rows) (`feat/p7-5-filters`; app `+888 ~12`, 8 goldens regenerated for the button + 2 new) |
 | 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | not started |
 | 7.7 Whole-tree page and treemap | this index, §7.7 | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | built; owner signed off v2 and C19 on 2026-11-08, colour key added after (`feat/p7-7-treemap`; app `+802 ~12`, goldens `+8`); ready to merge |
@@ -837,8 +837,8 @@ Branch `feat/p7-4-restyle` from `feat/p7-3-rail-split` `26230d4` (7.3 is merging
 - **Dim, never hide.**
   - Unmatched rows keep their slot and use `albumDimInk` text with a hollow marker.
   - Counts read "matched of total" (copy in O2).
-  - With no matches, the rails stay mounted, with the empty state and a clear action.
-- **Placement.** A persistent sidebar at ≥ 900 pt (`AlbumBreakpoint.sidebar`); below that, an end drawer opened from a button beside the zoom switch.
+  - With no matches, the rails stay mounted, with the empty state and a clear action pinned at the top of the rail, above the first row, so it covers no row (owner, 2026-11-08 sign-off).
+- **Placement.** A `Filters` button beside the zoom switch at every width. At ≥ 900 pt (`AlbumBreakpoint.sidebar`) it toggles a docked, non-modal sidebar that starts closed and stays open across zoom changes until closed; below that, it opens an end drawer. (Owner decision, 2026-11-08 sign-off; it replaces "a persistent sidebar at ≥ 900 pt", so with the sidebar closed the rail keeps its full width.)
 - **Scope of the state.** The filter survives zoom changes and resets on a family switch.
 
 **Tests:**
@@ -853,6 +853,39 @@ Branch `feat/p7-4-restyle` from `feat/p7-3-rail-split` `26230d4` (7.3 is merging
 - Goldens `timeline_filtered_{desktop,ipad_mini_portrait}`.
 
 **Stop:** O2 copy approved, and screenshots signed off.
+
+### 7.5 TDD plan (written at slice start, 2026-11-08)
+
+Branch `feat/p7-5-filters` from `feat/p7-4-restyle` `7b19f98`. Each task writes the failing test first, runs it red, implements, runs it green, then runs the gates and commits. Copy is C11–C18 only, verbatim.
+
+**Plan fixes found at slice start:**
+- The decade bounds use the story's start decade (`decadeStartYear(publishedStart)`), the same key as its Decades row, so a decade header's C18 count always agrees with its dots. The lab's era overlap on the story span would let a 1949–1952 story match a 1950s filter while it sits in the 1940s row.
+- The goldens: the Filters button is on screen at every width, so the 8 baselines change with the filter empty, by the button only. (Before the owner's sign-off the sidebar was always shown at ≥ 900 pt and also changed the 5 desktop and landscape baselines; see "As landed".)
+- No new strings beyond C11–C18: the sidebar and drawer have no close label (the drawer closes on its scrim), the Filters button shows no count, and the panel's clear action reuses C17's `Clear filters`. C16 shows only while a filter is active.
+
+#### Task 1: Move `matchesSearch`
+- **Test:** `all_stories_logic_test` U-14 imports `ui/story/story_search.dart`; red until the file exists.
+- **Change:** new `lib/ui/story/story_search.dart` with `matchesSearch`, `nameMatches` and `_contains`; `all_stories_logic.dart` and `all_stories_card.dart` import it; no re-export.
+
+#### Task 2: `TimelineFilter`
+- **Tests** (`test/features/timeline/filter/timeline_filter_test.dart`, ported from the lab's `filter_test` without hide or families): people OR within; people AND decades across; decade bounds by start decade; place fails a story without a place; the query matches person names but not the place; an inactive filter (blank query) matches everything; `copyWith` clears decade bounds; `filterOptions` lists people, places and decades from the loaded stories (sorted, deduplicated); C16 and C18 strings.
+- **Change:** `lib/features/timeline/filter/timeline_filter.dart`: `TimelineFilter {personIds, placeIds, fromDecade, toDecade, query}`, `isActive`, `copyWith`, `matches(Story)` (text via `matchesSearch`), `filterOptions(stories)`, `filterStatusLine` (C16), `decadeMatchCount` (C18).
+
+#### Task 3: Dim on the rails
+- **Tests** (`test/features/timeline/filter/timeline_filter_page_test.dart`): with a person filter, each rail keeps the same row/dot count; unmatched dots are `StoryDot`s with `matched: false`, matched ones `matched: true`; an unmatched Years/Days title uses `0xFF6A6358`; the Decades count reads `{matched} of {total}` (C18) while filtering and `N stories` without; with the filter empty every dot is matched and no text uses the dim ink.
+- **Change:** each rail takes `dimmed` (the unmatched story ids) and `filtering`; dots and nodes pass `matched`; Years and Days texts use `albumDimInk` when dimmed; a Decades row with no match dims its label and count.
+
+#### Task 4: Panel, sidebar and drawer
+- **Tests:** at 900 pt the sidebar (`timeline-filter-sidebar`) starts closed with the rail at full width, and the `Filters` button (C11, key `timeline-filters-open`) beside the zoom switch docks it (360 pt, left of the rail, no drawer), it stays open across Decades → Years → Days, and the button closes it; at 899 pt the button opens the end drawer (`timeline-filter-drawer`, titled `Filters`); the panel shows `People`, `Places`, `Years` (C12–C14), the search hint (C15), and C16 while active; typing a query dims non-matches; the filter survives Decades → Years → Days; it resets on a family switch; with no match the rails stay mounted under C17 and `Clear filters` clears.
+- **Change:** `lib/features/timeline/filter/filter_panel.dart` (`FilterPanel`); `TimelinePage` keeps `_filter` and `_sidebarOpen`, builds the docked sidebar (360 pt, `AlbumBreakpoint.sidebar`) or the end drawer, and passes the button (`filterAction`) and the C17 `EmptyTimeline` card (`notice`) to the rails, where `buildRail` puts the button beside the zoom switch and pins the card between the zoom switch and the rows.
+
+#### Task 5: iPad sweep with the filters open
+- `timeline_page_ipad_test`: each of the 11 sizes with a filter active and the filters opened from the button (the docked sidebar at ≥ 900, the drawer below), on iOS, with no FlutterError; plus the keyboard up with the search focused.
+
+#### Task 6: Goldens and sign-off
+- New `timeline_filtered_{desktop,ipad_mini_portrait}` (a person filter on Decades; portrait with the drawer open). Regenerate the 8 baselines; open every PNG.
+- Screenshots under `/tmp/tmas-p7-5-shots/`: desktop with the sidebar (no filter, a person filter, a query, no matches); each zoom with a filter; iPad mini portrait with the drawer open and closed.
+- Status row and "As landed".
 
 ## 7.6S Server: tree reads (G1, G2)
 
@@ -1264,3 +1297,24 @@ Alternatives:
 - **Chip-label fade:** not reproduced on web (DPR 1.25) in `drafts_page`, `start_timeline_dialog`, `invite_modal`, `search_page` (incl. a selected chip) or `new_story_page`; nothing changed.
 - **Not folded:** the 7.3 review's `scrollDialStep`/`HangParentParentData` moves (lines not touched); far rail now uses `opacityOf(…, unmeasured: 1)`, matching the scaffold comment.
 - **Owner sign-off (2026-11-08):** approved, with one change: keep the zoom-out. On Decades a finger tap in the dots area that reaches no dot (more than 22 pt from every dot) is an empty tap and calls the rail's `onEmpty` (`_zoomOut`), as other empty taps do; only taps within the finger radius of a dot open a story or the chooser. Fixed test-first in `rail_touch_test.dart` ("a finger far from every dot zooms out", "a finger near stacked dots opens the chooser, not zoom-out"); app `+817 ~12`, goldens unchanged.
+
+**7.5 Timeline filters, dim only** (`feat/p7-5-filters`, from `feat/p7-4-restyle` `7b19f98`):
+- **Commits:** `ff66802` plan; `cb0aeb4` `matchesSearch`/`nameMatches` move to `lib/ui/story/story_search.dart` (All Stories imports them there, no re-export; `all_stories_logic_test` U-14 runs against the new import); `d148a70` `TimelineFilter` (+9 tests, the lab's `filter_test` without hide or families); `95dc93b` dim on the rails, `FilterPanel`, sidebar and drawer, iPad sweep (+15 page tests, +44 iPad cases); `50a42fb` goldens. Tasks 3 and 4 landed in one commit: the dim tests drive the filter through the panel.
+- **Gates:** `just check` passes: fmt `(0 changed)` ×2, `analyze: 6 issues (ceiling 6)` (all six already there), app `+885 ~12` (from `+817`, so +68), server `+447`; colours guard unchanged (no skip path, ceiling 16). `just test-goldens` `+10`.
+- **Copy:** C11–C18 verbatim: `Filters` (button and panel title), `People`, `Places`, `Years`, `Search titles, stories and people`, `{matched} of {total} stories match` (only while a filter is active), `No stories match these filters.` with `Clear filters` (also the panel's clear action), and `{matched} of {total}` on each Decades row while filtering. The decade range shows its bounds as data (`1950s – 1990s`), no words.
+- **Behaviour:**
+  - `TimelineFilter {personIds, placeIds, fromDecade, toDecade, query}`; OR within, AND across; text through `matchesSearch` (never the place). Chips come from the loaded stories (`Story.people`; `placeId` with `placeLabel`, else the address). The decade range is a `RangeSlider` over the loaded decades; a thumb at either end is an open bound.
+  - Dim, never hide: every rail keeps its rows and dots; an unmatched story's marker is hollow (`MarkerSpec.matched: false`) and its texts use `albumDimInk` (Years: date chip, place, photos, origin tag, title; Days: date, chips, origin tag, title, footer). A dimmed focused row keeps its ring and border, not the terracotta inks. A Decades row with no match dims its label and count.
+  - No match: the rail stays mounted; the `EmptyTimeline` card (C17, key `timeline-no-match`) whose action clears the filter is pinned between the zoom switch and the rows (`buildRail`'s `notice`), so it covers no row on any zoom. (Before the owner's sign-off it was centred over the rail and could cover a decade.)
+  - Placement: a `Filters` button beside the zoom switch at every width. At ≥ 900 pt (`AlbumBreakpoint.sidebar`) it toggles a docked, non-modal 360 pt sidebar left of the rail, closed by default; `_sidebarOpen` is page state, so it stays open across zooms until the button closes it. Below 900 pt the button opens a 360 pt (at most 90% wide) end drawer. Both only once the rail has stories. 360 pt is the narrowest width tried that shows the whole C15 hint (300 and 340 ellipsized it).
+  - Scope: page state, so it survives zoom changes, opening a story and the breakpoint; `_selectFamily` resets it.
+- **Goldens:** new `timeline_filtered_desktop` (sidebar docked from the button, Tom filter on Decades) and `timeline_filtered_ipad_mini_portrait` (drawer open). All 8 baselines regenerated on purpose for the Filters button: compared in RGB with the 7.4 PNGs (`7b19f98`), each differs only in a 64 × 14 pt box just left of the zoom switch (x 963–1027 desktop, 816–880 landscape, 427–491 portrait; y 109–123); every rail pixel matches 7.4.
+- **Changed assertion:** none left. The interim `rail_markers_test` spine change (centre of the rail after the sidebar) is reverted to 7.4's window-centre check now that the sidebar starts closed.
+- **Fixture:** `test/support/timeline_fixture.dart` gains optional `people`/`place` on `fixtureStory` (defaults unchanged) and `fixtureVaried` (the same six stories with Ada, Tom, Bea and three places).
+- **Screenshots** (`/tmp/tmas-p7-5-shots/`; own server on :8580 with `.serverpod/p75`, web on :3500; seeded through the API as `p7-5-shots@example.com`: Jenkins, 9 stories 1952–1999, Ada, Tom, Bea, Clara, 4 places): `01-desktop-sidebar-no-filter`, `02-desktop-person-filter-tom`, `03-desktop-text-query-summer`, `04-desktop-no-match-clear-filters`, `05-decades-filter-ada`, `05b-decades-filter-ada-after-zooms`, `06-years-filter-ada`, `06b-years-filter-ada-centred-on-a-match`, `07-days-filter-ada`, `07b-days-filter-ada-centred-on-a-match`, `08-ipad-mini-portrait-drawer-closed`, `09-ipad-mini-portrait-drawer-open`. Also checked live: the filter survives opening a story and coming back, and the 1280 → 744 resize.
+- **Fresh worktree:** `server-test` failed in its build hook because the `sqlite3` dylib download came back as a 92-byte error body (hash mismatch); copying the verified `libsqlite3.dylib` (sha256 `38c4a60b…`) from another worktree's `.dart_tool/hooks_runner/shared/sqlite3/build/download-38c4a60b/` fixed it.
+- **Owner sign-off (2026-11-08):** approved, with two changes, each test-first in its own commit:
+  - `946e624`: the sidebar toggles and starts closed. The `Filters` button beside the zoom switch shows at every width; at ≥ 900 pt it docks a non-modal 360 pt sidebar that stays open across zooms until the button closes it (`_sidebarOpen`, page state); below 900 pt it opens the end drawer as before. Closed, the rail has its full width, so the 5 desktop and landscape baselines are back to 7.4 plus the button (RGB diff against `7b19f98` confined to the button; see "Goldens"); the 3 portrait ones are unchanged from `50a42fb`; `timeline_filtered_desktop` regenerated (sidebar opened from the button). Tests: the placement test now covers closed at 900 pt (rail 0–900), docking, staying open across Decades → Years → Days and closing; the panel tests open the sidebar first (`_pumpWithFilters`); the iPad sweep opens the filters from the button at every size. `rail_markers_test` is back to its 7.4 form.
+  - `f93b697`: the no-match card (C17, same card and copy) is pinned at the top of the rail, between the zoom switch and the rows (`buildRail`'s new `notice` slot, passed by each rail), so it covers no row. +3 tests (Decades, Years, Days): the card sits under the zoom switch, ends above the rows' list and overlaps no story dot.
+  - Gates after both: `just check` passes (fmt `(0 changed)` ×2, `analyze: 6 issues (ceiling 6)`, app `+888 ~12`, server `+447`); `just test-goldens` `+10`; the iPad sweep (`timeline_page_ipad_test`) `+90`.
+  - v2 screenshots (`/tmp/tmas-p7-5-shots/v2/`, same server, data and ports): `01-desktop-sidebar-closed`, `02-desktop-sidebar-open`, `03-desktop-sidebar-open-person-filter-tom`, `04-desktop-no-match-pinned-decades`, `05-desktop-no-match-pinned-years`, `06-desktop-no-match-pinned-years-sidebar-closed`, `07-ipad-mini-portrait-no-match-pinned`.

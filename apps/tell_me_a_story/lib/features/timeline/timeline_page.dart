@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,12 +19,20 @@ import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
 import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
 import 'package:tell_me_a_story/features/invites/invite_accept.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
+import 'package:tell_me_a_story/features/timeline/filter/filter_panel.dart';
+import 'package:tell_me_a_story/features/timeline/filter/timeline_filter.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 import 'package:tell_me_a_story/features/timeline/rails/far_rail.dart';
 import 'package:tell_me_a_story/features/timeline/rails/mid_rail.dart';
 import 'package:tell_me_a_story/features/timeline/rails/full_card_rail.dart';
 import 'package:tell_me_a_story/features/timeline/origin_banner.dart';
+import 'package:tell_me_a_story/ui/timeline/empty_timeline.dart';
+import 'package:tell_me_a_story/ui/timeline/timeline_entry.dart';
+
+/// The filter sidebar's width at [AlbumBreakpoint.sidebar] and up, the
+/// drawer's widest: wide enough for the whole C15 search hint.
+const _filterPanelWidth = 360.0;
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
 class TimelinePage extends StatefulWidget {
@@ -73,6 +83,15 @@ class _TimelinePageState extends State<TimelinePage> {
   var _pinchLatched = false;
   var _originQueryHandled = false;
   final _anchorKeys = <String, GlobalKey>{};
+
+  /// Dim-only filter (Q4). It survives zoom changes and resets on a family
+  /// switch.
+  var _filter = const TimelineFilter();
+
+  /// The docked filter sidebar at [AlbumBreakpoint.sidebar] and up. It
+  /// starts closed and stays as the user left it across zooms (owner,
+  /// 2026-11-08).
+  var _sidebarOpen = false;
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
@@ -404,6 +423,7 @@ class _TimelinePageState extends State<TimelinePage> {
       _familyId = id;
       _loadingPublished = true;
       _tree = const [];
+      _filter = const TimelineFilter();
     });
     _watchLive();
     await _loadFamilies();
@@ -616,11 +636,26 @@ class _TimelinePageState extends State<TimelinePage> {
     final family = _currentFamily;
     final bands = decadeBands(_published);
     final showRail = !_loadingFamily && !_loadingPublished && bands.isNotEmpty;
+    final wide =
+        showRail && MediaQuery.sizeOf(context).width >= AlbumBreakpoint.sidebar;
+    final sidebar = wide && _sidebarOpen;
+    final dimmed = _dimmed;
     return Scaffold(
       backgroundColor: albumParchment,
       // The rails are not a form: the keyboard (a search field, a dialog)
       // floats over them instead of squeezing the viewport.
       resizeToAvoidBottomInset: false,
+      endDrawer: showRail && !wide
+          ? Drawer(
+              key: const Key('timeline-filter-drawer'),
+              width: math.min(
+                _filterPanelWidth,
+                MediaQuery.sizeOf(context).width * 0.9,
+              ),
+              backgroundColor: albumParchment,
+              child: SafeArea(child: _filterPanel(dimmed)),
+            )
+          : null,
       appBar: AlbumHeader(
         page: AlbumHeaderPage.timeline,
         familyName: family?.name ?? 'Family',
@@ -649,7 +684,7 @@ class _TimelinePageState extends State<TimelinePage> {
               showRail &&
               _zoom == TimelineZoom.far &&
               constraints.maxHeight > 96;
-          return GestureDetector(
+          final rail = GestureDetector(
             onScaleStart: (_) => _pinchLatched = false,
             onScaleUpdate: _onPinch,
             child: Stack(
@@ -667,7 +702,7 @@ class _TimelinePageState extends State<TimelinePage> {
                         onClose: () =>
                             setState(() => _originBannerHidden = true),
                       ),
-                    Expanded(child: _body(bands)),
+                    Expanded(child: _body(bands, dimmed, wide: wide)),
                     if (showFooter)
                       Padding(
                         // Clear the home indicator on iPad and iPhone.
@@ -694,12 +729,98 @@ class _TimelinePageState extends State<TimelinePage> {
               ],
             ),
           );
+          if (!sidebar) return rail;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                key: const Key('timeline-filter-sidebar'),
+                width: _filterPanelWidth,
+                child: _filterPanel(dimmed),
+              ),
+              const VerticalDivider(width: 1, thickness: 1, color: albumRule),
+              Expanded(child: rail),
+            ],
+          );
         },
       ),
     );
   }
 
-  Widget _body(List<DecadeBand> bands) {
+  /// Unmatched story ids; empty while no filter is active.
+  Set<String> get _dimmed {
+    if (!_filter.isActive) return const {};
+    return {
+      for (final entry in timelineEntries(_published, matches: _filter.matches))
+        if (!entry.matched) entry.id,
+    };
+  }
+
+  void _setFilter(TimelineFilter filter) => setState(() => _filter = filter);
+
+  /// The filters, scrolling above the keyboard: the docked sidebar at
+  /// [AlbumBreakpoint.sidebar] and up, the end drawer below.
+  Widget _filterPanel(Set<String> dimmed) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: FilterPanel(
+        filter: _filter,
+        options: filterOptions(_published),
+        matched: _published.length - dimmed.length,
+        total: _published.length,
+        onChanged: _setFilter,
+      ),
+    );
+  }
+
+  /// Beside the zoom switch at every width: toggles the docked sidebar when
+  /// [wide], else opens the end drawer.
+  Widget _filtersButton({required bool wide}) {
+    return Builder(
+      builder: (context) => TextButton.icon(
+        key: const Key('timeline-filters-open'),
+        onPressed: wide
+            ? () => setState(() => _sidebarOpen = !_sidebarOpen)
+            : () => Scaffold.of(context).openEndDrawer(),
+        icon: Icon(_filter.isActive ? Icons.filter_alt : Icons.tune),
+        label: const Text('Filters'),
+      ),
+    );
+  }
+
+  /// C17, pinned above the still-mounted rows when every story is dimmed
+  /// (none hidden); null otherwise.
+  Widget? _noMatch(Set<String> dimmed) {
+    if (!_filter.isActive || dimmed.length != _published.length) return null;
+    return Center(
+      child: IntrinsicWidth(
+        child: DecoratedBox(
+          key: const Key('timeline-no-match'),
+          decoration: ShapeDecoration(
+            color: albumParchment,
+            shape: albumContainerShape(
+              AlbumRadius.card,
+              side: const BorderSide(color: albumRule),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AlbumSpace.xl),
+            child: EmptyTimeline(
+              message: 'No stories match these filters.',
+              actionLabel: 'Clear filters',
+              onAction: () => _setFilter(const TimelineFilter()),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _body(
+    List<DecadeBand> bands,
+    Set<String> dimmed, {
+    required bool wide,
+  }) {
     if (_loadingFamily || _loadingPublished) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -737,6 +858,10 @@ class _TimelinePageState extends State<TimelinePage> {
         onOpenBranch: _selectFamily,
         onMid: _zoomIn,
         onFullCards: _openFullCards,
+        dimmed: dimmed,
+        filtering: _filter.isActive,
+        filterAction: _filtersButton(wide: wide),
+        notice: _noMatch(dimmed),
       ),
       TimelineZoom.mid => MidRail(
         stories: dialStories(_published),
@@ -752,6 +877,9 @@ class _TimelinePageState extends State<TimelinePage> {
         onOpenBranch: _selectFamily,
         onMacro: _fitAll,
         onFullCards: _zoomIn,
+        dimmed: dimmed,
+        filterAction: _filtersButton(wide: wide),
+        notice: _noMatch(dimmed),
       ),
       TimelineZoom.near => FullCardRail(
         stories: dialStories(_published),
@@ -774,6 +902,9 @@ class _TimelinePageState extends State<TimelinePage> {
         onOpenBranch: _selectFamily,
         onMacro: _fitAll,
         onMid: () => setState(() => _zoom = TimelineZoom.mid),
+        dimmed: dimmed,
+        filterAction: _filtersButton(wide: wide),
+        notice: _noMatch(dimmed),
       ),
     };
   }

@@ -30,6 +30,9 @@ class MidRail extends StatefulWidget {
     required this.onOpenBranch,
     required this.onMacro,
     required this.onFullCards,
+    this.dimmed = const {},
+    this.filterAction,
+    this.notice,
   });
 
   final List<Story> stories;
@@ -45,6 +48,15 @@ class MidRail extends StatefulWidget {
   final ValueChanged<String> onOpenBranch;
   final VoidCallback onMacro;
   final VoidCallback onFullCards;
+
+  /// Stories that miss the filter: dim ink and a hollow node (Q4).
+  final Set<String> dimmed;
+
+  /// Beside the zoom switch (the Filters button below the sidebar width).
+  final Widget? filterAction;
+
+  /// Pinned above the rows (the C17 no-match card).
+  final Widget? notice;
 
   @override
   State<MidRail> createState() => _MidRailState();
@@ -111,6 +123,8 @@ class _MidRailState extends State<MidRail> with RailScaffold<MidRail, String> {
       onMid: () {},
       onFullCards: widget.onFullCards,
       onEmpty: widget.onEmpty,
+      action: widget.filterAction,
+      notice: widget.notice,
       viewport: Stack(
         key: viewportKey,
         children: [
@@ -133,6 +147,7 @@ class _MidRailState extends State<MidRail> with RailScaffold<MidRail, String> {
                       onOpenBranch: widget.onOpenBranch,
                       cardOnLeft: i.isEven,
                       focused: widget.stories[i].id == centerKey,
+                      dimmed: widget.dimmed.contains(widget.stories[i].id),
                       opacity: opacityOf(
                         widget.stories[i].id,
                         unmeasured: 0.35,
@@ -192,6 +207,7 @@ class _DialRow extends StatelessWidget {
     required this.frame,
     required this.cardOnLeft,
     required this.focused,
+    required this.dimmed,
     required this.opacity,
     required this.onTap,
     required this.onNode,
@@ -205,6 +221,9 @@ class _DialRow extends StatelessWidget {
   final String? originTag;
   final ValueChanged<String> onOpenBranch;
   final bool focused;
+
+  /// Misses the filter: every text in [albumDimInk], a hollow node (Q4).
+  final bool dimmed;
   final double opacity;
   final VoidCallback onTap;
   final VoidCallback onNode;
@@ -216,6 +235,9 @@ class _DialRow extends StatelessWidget {
     final photos = story.photoCount > 0
         ? countWord(story.photoCount, 'photo', 'photos')
         : null;
+    // A dimmed row keeps the focus ring and border but not the terracotta
+    // ink, so its text stays in the dim ink.
+    final lit = focused && !dimmed;
     // Branch and parent-origin cards are moss-edged and never glow
     // (branch-callout.md Rules 1 and 8).
     final moss = frame.branchesStory || (focused && frame.parent != null);
@@ -274,7 +296,7 @@ class _DialRow extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: focused
+                        color: lit
                             ? albumTerracotta
                             : albumInk.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(4),
@@ -283,7 +305,11 @@ class _DialRow extends StatelessWidget {
                         year,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: focused ? albumParchment : albumInk,
+                          color: dimmed
+                              ? albumDimInk
+                              : lit
+                              ? albumParchment
+                              : albumInk,
                         ),
                       ),
                     ),
@@ -291,10 +317,12 @@ class _DialRow extends StatelessWidget {
                       Text(
                         place,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: focused
+                          color: dimmed
+                              ? albumDimInk
+                              : lit
                               ? albumTerracotta
                               : albumInk.withValues(alpha: 0.55),
-                          fontWeight: focused ? FontWeight.w700 : null,
+                          fontWeight: lit ? FontWeight.w700 : null,
                         ),
                       ),
                     if (photos != null)
@@ -304,14 +332,17 @@ class _DialRow extends StatelessWidget {
                           Icon(
                             Icons.photo_library,
                             size: 14,
-                            color: focused
+                            color: dimmed
+                                ? albumDimInk
+                                : lit
                                 ? albumTerracotta
                                 : albumInk.withValues(alpha: 0.45),
                           ),
                           const SizedBox(width: 4),
                           Text(
                             photos,
-                            style: Theme.of(context).textTheme.labelSmall,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: dimmed ? albumDimInk : null),
                           ),
                         ],
                       ),
@@ -323,15 +354,17 @@ class _DialRow extends StatelessWidget {
                     originTag!,
                     key: Key('timeline-origin-tag-${story.id}'),
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: albumSage,
+                      color: dimmed ? albumDimInk : albumSage,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 Text(
                   storyTitle(story),
                   textAlign: cardOnLeft ? TextAlign.end : TextAlign.start,
-                  style: Theme.of(context).textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: dimmed ? albumDimInk : null,
+                  ),
                 ),
               ],
             ),
@@ -342,7 +375,7 @@ class _DialRow extends StatelessWidget {
     final mark = StoryDot(
       reserveRings: false,
       spec: MarkerSpec(
-        matched: true,
+        matched: !dimmed,
         selected: focused && !frame.branchesStory && frame.parent == null,
         diameter: focused ? midDotFocusedDiameter : midDotDiameter,
       ),

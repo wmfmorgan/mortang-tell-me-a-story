@@ -32,6 +32,9 @@ class FullCardRail extends StatefulWidget {
     required this.onMacro,
     required this.onMid,
     this.onPerson,
+    this.dimmed = const {},
+    this.filterAction,
+    this.notice,
   });
 
   final List<Story> stories;
@@ -48,6 +51,15 @@ class FullCardRail extends StatefulWidget {
   final VoidCallback onMacro;
   final VoidCallback onMid;
   final void Function(({String id, String name}) person)? onPerson;
+
+  /// Stories that miss the filter: dim ink and a hollow dot (Q4).
+  final Set<String> dimmed;
+
+  /// Beside the zoom switch (the Filters button below the sidebar width).
+  final Widget? filterAction;
+
+  /// Pinned above the rows (the C17 no-match card).
+  final Widget? notice;
 
   @override
   State<FullCardRail> createState() => _FullCardRailState();
@@ -105,6 +117,8 @@ class _FullCardRailState extends State<FullCardRail>
       onMid: widget.onMid,
       onFullCards: () {},
       onEmpty: widget.onEmpty,
+      action: widget.filterAction,
+      notice: widget.notice,
       viewport: LayoutBuilder(
         builder: (context, constraints) {
           final wide = constraints.maxWidth >= 800;
@@ -137,6 +151,7 @@ class _FullCardRailState extends State<FullCardRail>
                       onOpenBranch: widget.onOpenBranch,
                       onPerson: widget.onPerson,
                       focused: widget.stories[i].id == centerKey,
+                      dimmed: widget.dimmed.contains(widget.stories[i].id),
                       opacity: opacityOf(widget.stories[i].id, unmeasured: 0.4),
                       gap: gap,
                       photos: widget.photos,
@@ -438,6 +453,7 @@ class _FullCardRow extends StatelessWidget {
     required this.cardOnLeft,
     required this.wide,
     required this.focused,
+    required this.dimmed,
     required this.opacity,
     required this.gap,
     required this.photos,
@@ -455,6 +471,7 @@ class _FullCardRow extends StatelessWidget {
   final ValueChanged<String> onOpenBranch;
   final void Function(({String id, String name}) person)? onPerson;
   final bool focused;
+  final bool dimmed;
   final double opacity;
   final double gap;
   final PhotosGateway? photos;
@@ -486,6 +503,7 @@ class _FullCardRow extends StatelessWidget {
     final storyCard = _FullCard(
       story: story,
       focused: focused,
+      dimmed: dimmed,
       branched: frame.branchesStory,
       parentOrigin: frame.parent != null,
       photos: photos,
@@ -511,6 +529,7 @@ class _FullCardRow extends StatelessWidget {
     final dot = _FullCardDot(
       key: Key('timeline-full-dot-${story.id}'),
       focused: focused,
+      matched: !dimmed,
       ringed: !frame.branchesStory && frame.parent == null,
     );
     final placed = frame.branchesStory
@@ -711,10 +730,17 @@ class _FullCardRow extends StatelessWidget {
 /// A Days story dot. A plain focused story takes the terracotta selected
 /// ring; a branch or parent-origin dot never does, so nothing covers the
 /// callout's moss ring and nothing glows (branch-callout.md Rules 1 and 8).
+/// An unmatched dot is hollow.
 class _FullCardDot extends StatelessWidget {
-  const _FullCardDot({super.key, required this.focused, required this.ringed});
+  const _FullCardDot({
+    super.key,
+    required this.focused,
+    required this.matched,
+    required this.ringed,
+  });
 
   final bool focused;
+  final bool matched;
   final bool ringed;
 
   @override
@@ -722,7 +748,7 @@ class _FullCardDot extends StatelessWidget {
     return StoryDot(
       reserveRings: false,
       spec: MarkerSpec(
-        matched: true,
+        matched: matched,
         selected: focused && ringed,
         diameter: focused ? fullDotFocusedDiameter : fullDotDiameter,
       ),
@@ -734,6 +760,7 @@ class _FullCard extends StatelessWidget {
   const _FullCard({
     required this.story,
     required this.focused,
+    required this.dimmed,
     required this.branched,
     required this.parentOrigin,
     required this.photos,
@@ -744,6 +771,9 @@ class _FullCard extends StatelessWidget {
 
   final Story story;
   final bool focused;
+
+  /// Misses the filter: every text in [albumDimInk] (Q4).
+  final bool dimmed;
   final bool branched;
   final bool parentOrigin;
   final PhotosGateway? photos;
@@ -814,7 +844,7 @@ class _FullCard extends StatelessWidget {
                     Text(
                       storyDateLabelFor(story),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: albumTerracotta,
+                        color: dimmed ? albumDimInk : albumTerracotta,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2,
                         fontSize: 12,
@@ -843,6 +873,7 @@ class _FullCard extends StatelessWidget {
                               icon: Icons.person,
                               label: person.name,
                               filled: focused,
+                              dimmed: dimmed,
                             ),
                           ),
                         if ((story.placeLabel ?? '').isNotEmpty)
@@ -850,6 +881,7 @@ class _FullCard extends StatelessWidget {
                             icon: Icons.location_on,
                             label: story.placeLabel!,
                             filled: focused,
+                            dimmed: dimmed,
                           ),
                       ],
                     ),
@@ -861,7 +893,7 @@ class _FullCard extends StatelessWidget {
                     originTag!,
                     key: Key('timeline-origin-tag-${story.id}'),
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: albumSage,
+                      color: dimmed ? albumDimInk : albumSage,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -871,6 +903,7 @@ class _FullCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     fontSize: 24,
                     height: 1.15,
+                    color: dimmed ? albumDimInk : null,
                   ),
                 ),
                 if (paths.isNotEmpty && photos != null)
@@ -897,7 +930,9 @@ class _FullCard extends StatelessWidget {
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
                                   fontSize: 12,
-                                  color: albumInk.withValues(alpha: 0.7),
+                                  color: dimmed
+                                      ? albumDimInk
+                                      : albumInk.withValues(alpha: 0.7),
                                 ),
                           ),
                           Text(
@@ -906,7 +941,7 @@ class _FullCard extends StatelessWidget {
                                 ?.copyWith(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: albumTerracotta,
+                                  color: dimmed ? albumDimInk : albumTerracotta,
                                 ),
                           ),
                         ],
@@ -928,16 +963,20 @@ class _FullChip extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.filled,
+    required this.dimmed,
   });
 
   final IconData icon;
   final String label;
   final bool filled;
+  final bool dimmed;
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.labelSmall
-        ?.copyWith(fontSize: 12, color: albumInk.withValues(alpha: 0.75));
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+      fontSize: 12,
+      color: dimmed ? albumDimInk : albumInk.withValues(alpha: 0.75),
+    );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(
@@ -957,7 +996,9 @@ class _FullChip extends StatelessWidget {
               Icon(
                 icon,
                 size: 12,
-                color: albumInk.withValues(alpha: filled ? 0.85 : 0.7),
+                color: dimmed
+                    ? albumDimInk
+                    : albumInk.withValues(alpha: filled ? 0.85 : 0.7),
               ),
               const SizedBox(width: 4),
               ConstrainedBox(

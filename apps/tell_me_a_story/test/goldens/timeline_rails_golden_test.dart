@@ -60,4 +60,38 @@ void main() {
       );
     });
   }
+
+  // 7.5: Decades with a Tom Jenkins filter on the varied fixture: the
+  // sidebar on desktop, the end drawer open on iPad mini portrait.
+  for (final (sizeName, size) in [
+    ('desktop', _desktop),
+    ('ipad_mini_portrait', _ipadMiniPortrait),
+  ]) {
+    testWidgets('timeline filtered $sizeName', (tester) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: albumTheme(),
+          home: fixturePage(fixtureVaried),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final open = find.byKey(const Key('timeline-filters-open'));
+      if (open.evaluate().isNotEmpty) {
+        await tester.tap(open);
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.byKey(Key('filter-person-${fixtureTom.id}')));
+      await tester.pumpAndSettle();
+
+      await expectLater(
+        find.byType(TimelinePage),
+        matchesGoldenFile('timeline/timeline_filtered_$sizeName.png'),
+      );
+    });
+  }
 }

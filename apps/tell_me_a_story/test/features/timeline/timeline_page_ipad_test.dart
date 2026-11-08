@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/features/timeline/rails/far_rail.dart';
 
 import '../../support/ipad.dart';
@@ -35,6 +37,60 @@ void main() {
           setIpadView(tester, size);
           await pumpFixtureTimeline(tester, stories: fixtureStacked);
           showKeyboard(tester, size);
+          await tester.pumpAndSettle();
+        });
+        expect(errors, isEmpty);
+      }, variant: ios);
+    }
+  });
+
+  // 7.5: the same sweep with a filter active and the filters open: the
+  // docked sidebar at 900 pt and up, the end drawer below.
+  group('no overflow with the filters open', () {
+    Future<void> openFilters(WidgetTester tester, Size size) async {
+      await tester.tap(find.byKey(const Key('timeline-filters-open')));
+      await tester.pumpAndSettle();
+      final wide = size.width >= AlbumBreakpoint.sidebar;
+      expect(
+        find.byKey(const Key('timeline-filter-sidebar')),
+        wide ? findsOneWidget : findsNothing,
+      );
+      expect(
+        find.byKey(const Key('timeline-filter-drawer')),
+        wide ? findsNothing : findsOneWidget,
+      );
+      final chip = find.byKey(Key('filter-person-${fixtureTom.id}'));
+      await tester.ensureVisible(chip);
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('filter-status')), findsOneWidget);
+    }
+
+    for (final MapEntry(key: name, value: size) in ipadSizes.entries) {
+      for (final MapEntry(key: zoom, value: zoomKey) in _zooms.entries) {
+        testWidgets('$name $zoom', (tester) async {
+          final errors = await collectFlutterErrors(() async {
+            setIpadView(tester, size);
+            await pumpFixtureTimeline(
+              tester,
+              stories: fixtureVaried,
+              zoomKey: zoomKey,
+            );
+            await openFilters(tester, size);
+          });
+          expect(errors, isEmpty);
+        }, variant: ios);
+      }
+
+      testWidgets('$name searching with the keyboard up', (tester) async {
+        final errors = await collectFlutterErrors(() async {
+          setIpadView(tester, size);
+          await pumpFixtureTimeline(tester, stories: fixtureVaried);
+          await openFilters(tester, size);
+          await tester.tap(find.byKey(const Key('filter-search')));
+          showKeyboard(tester, size);
+          await tester.pumpAndSettle();
+          await tester.enterText(find.byKey(const Key('filter-search')), 'zz');
           await tester.pumpAndSettle();
         });
         expect(errors, isEmpty);

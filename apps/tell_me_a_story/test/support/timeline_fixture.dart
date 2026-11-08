@@ -16,7 +16,13 @@ import 'fakes/fake_stories_gateway.dart';
 const jenkinsId = '00000000-0000-0000-0000-000000000001';
 const beaId = '00000000-0000-0000-0000-0000000000be';
 
-Story fixtureStory(String id, String title, DateTime start) {
+Story fixtureStory(
+  String id,
+  String title,
+  DateTime start, {
+  List<({String id, String name})>? people,
+  ({String id, String label})? place,
+}) {
   return Story(
     id: id,
     familyId: jenkinsId,
@@ -25,11 +31,14 @@ Story fixtureStory(String id, String title, DateTime start) {
     body: 'Told at the kitchen table.',
     timeframeStart: start,
     timeframeEnd: start,
-    placeId: 'pl',
-    placeLabel: 'Harbour Street',
+    placeId: place?.id ?? 'pl',
+    placeLabel: place?.label ?? 'Harbour Street',
     status: StoryStatus.published,
-    personIds: const ['p'],
-    personNames: const ['Ada Jenkins'],
+    personIds: people == null ? const ['p'] : [for (final p in people) p.id],
+    people: people ?? const [],
+    personNames: people == null
+        ? const ['Ada Jenkins']
+        : [for (final p in people) p.name],
     publishedAt: DateTime.utc(2026, 9, 27),
     createdAt: DateTime.utc(2026, 9, 27),
   );
@@ -50,6 +59,61 @@ final fixtureStacked = <Story>[
   ...fixturePublished,
   fixtureStory('s1961b', 'Summer fair', DateTime(1961, 7, 9)),
   fixtureStory('s1961c', 'Lake trip', DateTime(1961, 8, 20)),
+];
+
+const fixtureAda = (id: 'p-ada', name: 'Ada Jenkins');
+const fixtureTom = (id: 'p-tom', name: 'Tom Jenkins');
+const fixtureBea = (id: 'p-bea', name: 'Bea Jenkins');
+const fixtureHarbour = (id: 'pl-harbour', label: 'Harbour Street');
+const fixtureMill = (id: 'pl-mill', label: 'Mill Lane');
+const fixtureNorthgate = (id: 'pl-north', label: 'Northgate');
+
+/// The same six stories (same ids, dates and titles, so the Bea branch
+/// still starts at s1975) with several people and places: the filter
+/// fixture (7.5).
+final fixtureVaried = <Story>[
+  fixtureStory(
+    's1952',
+    'The flood year',
+    DateTime(1952, 3, 14),
+    people: const [fixtureAda],
+    place: fixtureHarbour,
+  ),
+  fixtureStory(
+    's1961',
+    'First car',
+    DateTime(1961, 6, 2),
+    people: const [fixtureTom],
+    place: fixtureMill,
+  ),
+  fixtureStory(
+    's1975',
+    'Bea moves north',
+    DateTime(1975, 8, 9),
+    people: const [fixtureBea, fixtureAda],
+    place: fixtureNorthgate,
+  ),
+  fixtureStory(
+    's1978',
+    'Summer at the lake',
+    DateTime(1978, 7, 1),
+    people: const [fixtureTom],
+    place: fixtureMill,
+  ),
+  fixtureStory(
+    's1984',
+    'The new kitchen',
+    DateTime(1984, 1, 20),
+    people: const [fixtureAda],
+    place: fixtureHarbour,
+  ),
+  fixtureStory(
+    's1999',
+    'Millennium eve',
+    DateTime(1999, 12, 31),
+    people: const [fixtureBea],
+    place: fixtureNorthgate,
+  ),
 ];
 
 class FixtureStories extends FakeStoriesGateway {
