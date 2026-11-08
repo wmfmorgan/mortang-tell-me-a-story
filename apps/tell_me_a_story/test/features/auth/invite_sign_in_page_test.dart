@@ -289,7 +289,9 @@ class _Preview implements InviteLinkGateway {
 /// Counts every accept attempt, including ones that throw.
 class _Invites extends FakeInviteGateway {
   _Invites()
-    : super(familyId: null, createdFamilyId: 'fam', acceptedFamilyId: 'fam');
+    : super(familyId: null, createdFamilyId: 'fam', acceptedFamilyId: 'fam') {
+    createInviteError = StateError('unexpected call');
+  }
 
   int accepts = 0;
 

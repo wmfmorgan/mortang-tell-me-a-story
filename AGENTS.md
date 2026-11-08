@@ -50,7 +50,7 @@ Run from the repo root as `mise exec -- just …` (or in a shell with mise activ
 - UI uses only `lib/core/theme/album_theme.dart` tokens. `test/architecture/no_hardcoded_colors_test.dart` fails on `Color(0x` or `Colors.` anywhere else in `lib/`. Its skip list names files by exact path from `lib/` and only shrinks: never add a path. A new token needs the owner's approval.
 - No new user-facing copy without the owner's approval.
 - No new dependencies without approval. Pin majors; no drive-by upgrades.
-- `lib/` layers: `app/` (composition root) may import anything; `core/` imports `core/`; `data/` imports `core/` and `data/`; `ui/` imports `core/`, `data/` and `ui/`; `features/<f>/` imports those plus lower-rank features (`featureRank` in `test/architecture/import_boundaries_test.dart`). Only `data/` and `core/server/` import the generated client or `serverpod*`. The test enforces this; change a rank only with the owner's approval.
+- `lib/` layers: `app/` (composition root) may import anything; `core/` imports `core/`; `data/` imports `core/` and `data/`; `ui/` imports `core/`, `data/` and `ui/`; `features/<f>/` imports those plus lower-rank features (`featureRank` in `test/architecture/import_boundaries_test.dart`). Only `app/` (with `main.dart`), `data/` and `core/server/` import the generated client or `serverpod*`. The test enforces this; change a rank only with the owner's approval.
 
 ## Off limits
 - No secrets in code, docs or chat. `apps/server/config/passwords.yaml` comes from `just server-passwords` and is git-ignored.

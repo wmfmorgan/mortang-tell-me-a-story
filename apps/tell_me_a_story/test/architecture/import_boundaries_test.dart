@@ -22,7 +22,7 @@ const featureRank = <String, int>{
   'timeline': 2,
 };
 
-/// Packages that only core/server/ and data/ may import.
+/// Packages that only app (main.dart, app/), core/server/ and data/ may import.
 const serverPackages = <String>[
   'package:tell_me_a_story_client/',
   'package:serverpod',
@@ -38,7 +38,7 @@ const uiLibraries = <String>[
 const _appPackage = 'package:tell_me_a_story/';
 
 final _directive = RegExp(
-  r"^(?:import|export)\s+'([^']+)'(?:\s+if\s*\([^)]*\)\s*'([^']+)')?",
+  r'''^(?:import|export)\s+['"]([^'"]+)['"](?:\s+if\s*\([^)]*\)\s*['"]([^'"]+)['"])?''',
   multiLine: true,
 );
 

@@ -2,10 +2,11 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-// Unit and widget tests mirror lib/: the test for lib/<dir>/<name>.dart is
-// test/<dir>/<name>_test.dart (or <name>_<aspect>_test.dart). live/ (tag
-// live), architecture/ (guards) and support/ (shared fakes) are the only
-// other folders. Run from apps/tell_me_a_story.
+// Unit and widget tests mirror lib/'s folders: every test file outside live/
+// (tag live), architecture/ (guards) and support/ (shared fakes) ends in
+// _test.dart, sits in a folder that also exists under lib/, and is not named
+// for a milestone (m<N>_...). File names are not matched to lib/ files.
+// Run from apps/tell_me_a_story.
 
 const _ownFolders = {'architecture', 'live', 'support'};
 final _milestoneName = RegExp(r'^m\d+(_\d+)*_');

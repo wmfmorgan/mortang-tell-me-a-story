@@ -655,7 +655,8 @@ void main() {
               ],
               familiesApi: _Families(),
               peopleApi: people,
-              manageApi: FakeManageFamiliesGateway(),
+              manageApi: FakeManageFamiliesGateway()
+                ..error = StateError('unexpected call'),
               currentUserId: 'me',
               origin: Story(
                 id: 's1',

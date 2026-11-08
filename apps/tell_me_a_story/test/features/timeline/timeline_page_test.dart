@@ -94,7 +94,10 @@ class _FakeFamilies extends FamiliesGateway {
 }
 
 class _FakeManage extends FakeManageFamiliesGateway {
-  _FakeManage(this.families);
+  /// Only [createRootFamily] is expected; every other call throws.
+  _FakeManage(this.families) {
+    error = StateError('unexpected call');
+  }
 
   final _FakeFamilies families;
 

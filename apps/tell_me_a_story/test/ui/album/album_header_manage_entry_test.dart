@@ -199,7 +199,8 @@ void main() {
             path: AppRoutes.manageFamilies,
             builder: (context, state) => ManageFamiliesPage(
               directoryApi: directory,
-              manageApi: FakeManageFamiliesGateway(),
+              manageApi: FakeManageFamiliesGateway()
+                ..error = StateError('unexpected call'),
             ),
           ),
           GoRoute(
@@ -207,7 +208,8 @@ void main() {
             builder: (context, state) => ManageFamilyPage(
               familyId: state.pathParameters['familyId']!,
               directoryApi: directory,
-              manageApi: FakeManageFamiliesGateway(),
+              manageApi: FakeManageFamiliesGateway()
+                ..error = StateError('unexpected call'),
             ),
           ),
           GoRoute(
@@ -312,7 +314,8 @@ void main() {
       MaterialApp(
         home: ManageFamiliesPage(
           directoryApi: directory,
-          manageApi: FakeManageFamiliesGateway(),
+          manageApi: FakeManageFamiliesGateway()
+            ..error = StateError('unexpected call'),
           familiesApi: _Families(
             stewarded: const [
               StewardFamily(
@@ -359,7 +362,8 @@ void main() {
               currentFamilyId: 'ada',
               onFamilySelected: FamilySelection.remember,
               stewarded: const [],
-              manageApi: FakeManageFamiliesGateway(),
+              manageApi: FakeManageFamiliesGateway()
+                ..error = StateError('unexpected call'),
             ),
             body: const Text('hub-screen'),
           ),
@@ -377,7 +381,8 @@ void main() {
               currentFamilyId: 'bea',
               onFamilySelected: FamilySelection.remember,
               stewarded: const [],
-              manageApi: FakeManageFamiliesGateway(),
+              manageApi: FakeManageFamiliesGateway()
+                ..error = StateError('unexpected call'),
             ),
             body: const Text('detail-screen'),
           ),
@@ -503,7 +508,8 @@ Widget _menu({
         currentFamilyId: currentId,
         onFamilySelected: (_) {},
         stewarded: stewarded,
-        manageApi: FakeManageFamiliesGateway(),
+        manageApi: FakeManageFamiliesGateway()
+          ..error = StateError('unexpected call'),
         onLogout: () async {},
       ),
     ),
@@ -537,7 +543,8 @@ class _SwitchHostState extends State<_SwitchHost> {
           currentFamilyId: _current,
           onFamilySelected: (id) => setState(() => _current = id),
           stewarded: widget.stewarded,
-          manageApi: FakeManageFamiliesGateway(),
+          manageApi: FakeManageFamiliesGateway()
+            ..error = StateError('unexpected call'),
           onLogout: () async {},
         ),
       ),
