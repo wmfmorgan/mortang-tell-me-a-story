@@ -524,9 +524,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/serverpod]
   push:
-    branches: [main]
+    branches: [main, feature/serverpod]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -719,6 +719,8 @@ git add .github/workflows/ci.yml
 git commit -m "ci: mise + just; app, server and e2e jobs"
 git push
 ```
+
+Not run in the 2026-11-07 execution (no push allowed); the first CI run happens when the owner pushes the branch. The triggers keep `feature/serverpod` (the plan first wrote `[main]` only, which would not have run CI on the Phase 5 PR).
 
 Expected on the PR checks:
 - `app`, `server` and `e2e` are green;
