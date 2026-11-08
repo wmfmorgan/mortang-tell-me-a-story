@@ -60,7 +60,7 @@
 | 7.0 Lab import | this index, §7.0 | — | done (#181; lab-test `+272`) |
 | 7.1 Golden harness and rail baselines | this index, §7.1 | — | done (`feat/p7-1-goldens`) |
 | 7.2 Tokens and shared primitives | this index, §7.2 | — (O3 answered 2026-11-08) | done (`feat/p7-2-tokens`; app `+741 ~12`) |
-| 7.3 Rail split at parity | written at slice start | 7.1, 7.2 | not started |
+| 7.3 Rail split at parity | this index, §7.3 | 7.1, 7.2 | done (`feat/p7-3-rail-split`; app `+741 ~12`, goldens unchanged) |
 | 7.4 Rail restyle and iPad | written at slice start | 7.3; owner screenshot sign-off before merge | not started |
 | 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
 | 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
@@ -1184,3 +1184,20 @@ Alternatives:
   - Owner feedback (2026-11-08), one commit each: `012bda7` family tints, `albumRuleStrong` group frames, scaled counts (+3 layout tests net, +4 view; both treemap goldens regenerated on purpose and re-inspected); `abe6212` the family header drills in, with the `Open {Family} timeline` action (C19); `ce98cd3` the tree row is hidden on the new-story and tree pages (+1 test). The page title stays the root family. v2 screenshots: `/tmp/tmas-p7-7-shots/v2/`.
   - **Sign-off (owner, 2026-11-08):** v2 screenshots approved; C19 approved; one addition, the family colour key: `6de01a9` (+2 view tests: every family with its tint in all three groupings, and wrapping with no overflow at 744 × 1133 and 320 × 568; both treemap goldens regenerated on purpose and re-inspected; screenshot `/tmp/tmas-p7-7-shots/v2/11-colour-key-desktop.png`). The page sweep's height floor became one half on iPad and a third at 320 pt, since the key row takes ~26 pt. Gates after it: `just check` passes (fmt 0 changed ×2, analyze 6, app `+802 ~12`, server `+447`), `just test-goldens` `+8` with the six rail PNGs unchanged.
   - `just check` in a fresh worktree also needs `just server-passwords` (the git-ignored `apps/server/config/passwords.yaml`); without it `server-test` stops after the unit tests.
+
+**7.3 Rail split at parity** (`feat/p7-3-rail-split`, from `feat/p7-2-tokens` `ac9bee0`):
+- **Commits** (Colours moved first, agreed with Main 2026-11-08):
+  - `7b7a39c`: Colours. The 12 hits in `timeline_page.dart` became `albumRule`, `albumDialogSurface` (×3), `albumInk.withAlpha(0xB3)`, `albumBackdropClear`, `albumParchment.withAlpha(0)` (×2), `albumBlush` (×3, incl. `.withValues(alpha: 0.3)`), `albumBlushPale` and `albumWhite`. The Days gradient's `const Positioned.fill` lost its `const`. The page left the skip list, and the ceiling is now 16. A throwaway test checked every token's ARGB against the literal it replaced before the commit; all nine pairs matched.
+  - `fcd824f`: Move. Code moved into `rails/{far_rail,mid_rail,full_card_rail,rail_scaffold}.dart`, `zoom_switch.dart` (`_ZoomSwitch` + `DialSubheader`) and `origin_banner.dart`. Classes used across files lost their underscore (`FarRail`, `MidRail`, `FullCardRail`, `OriginBanner`, `DialSubheader`, `HangParentParentData`) and gained `super.key`, which `use_key_in_widget_constructors` requires. Nothing else changed.
+  - `3290998`: Scaffold. `RailScaffold<W, K>` is a mixin on the rail `State`s, keyed by the row: a decade's start year on Decades, a story id on Years and Days. It owns the viewport key, the scroll controller, the centre row, the opacities, first-frame centring, `followFocus`, the arrow-key `step`, `measure`, the opacity tolerance check, and `buildRail` (zoom switch, arrow keys, empty tap, scroll-driven re-measure). Each rail supplies hooks: `rowKeys`, `rowContext`, `initialCenterKey`, `fallbackCenterKey`, `stepFallbackKey`, `measureWithoutTarget`, `opacityTolerance`, `fadeFor`, `focusIdFor`, `focusedStoryId` and `onCenterStory`. `edgeFade` is shared by Decades (`farEdgeOpacity`) and Days (`fullCardOpacity`). `ArrowKeys` and `EmptyTap` are private to the scaffold again.
+- **Line counts:** `timeline_page.dart` 771 (was 3770), `rails/full_card_rail.dart` 1076, `rails/mid_rail.dart` 681, `rails/far_rail.dart` 548, `rails/rail_scaffold.dart` 342, `zoom_switch.dart` 247, `origin_banner.dart` 81.
+- **Gates** (after each of the three commits): `just check` passes, with fmt `(0 changed)` twice, `analyze: 6 issues (ceiling 6)`, app `+741 ~12` and server `+432`. `just test-goldens` gives `+6` without regenerating. `timeline_page_test.dart` and `timeline_branching_test.dart` are unedited; `git diff --stat ac9bee0 -- apps/tell_me_a_story/test` shows only the colours guard.
+- **Left per rail** (sharing them would change behaviour or pixels):
+  - The edge gradients: Years has two 120-pt bands (stops 0.15/0.45/1), Days has one full-height band (0/18/82/100%), and Decades has none.
+  - The spines: Decades uses a 2-pt `albumRule` line, Years uses `_RailGutter`, and Days uses the keyed, width-aware `timeline-spine`. 7.4 unifies them.
+  - Centre measuring on Years uses `localToGlobal(Offset(0, h/2))`, not top + h/2, so Years keeps its own `fadeFor`.
+  - Days doesn't re-centre on a focus change; it only updates the centre row. So it keeps its own `didUpdateWidget` and doesn't use `followFocus`.
+  - Unmeasured-row opacity: Decades falls back to 1; Years passes 0.35 to `opacityOf` and Days passes 0.4.
+  - The opacity tolerance: 0.01 on Decades, 0.02 on Years and Days.
+  - Years and Days repeat the same eight short story-id hooks, because their widgets share no type.
+- **Fresh worktree:** `just server-test` also needs `apps/server/config/passwords.yaml` (gitignored) copied from the main checkout; without it the integration suites stop silently after `+47`.
