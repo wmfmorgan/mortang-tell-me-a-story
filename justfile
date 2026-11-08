@@ -1,6 +1,6 @@
 # Run from the repo root. `just` lists recipes.
 
-gcp_project := "story-line-nra"
+gcp_project := "story-line-app"
 gcp_region := "us-central1"
 
 # List recipes

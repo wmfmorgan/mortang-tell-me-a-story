@@ -2,10 +2,10 @@
 # One-time GCP bootstrap for Story Line: project, billing, APIs, Terraform
 # state bucket, Resend secrets and Firebase. Safe to re-run.
 #
-# Usage: PROJECT_ID=story-line-nra RESEND_API_KEY=… RESEND_FROM='Story Line <no-reply@…>' infra/gcp/bootstrap.sh
+# Usage: PROJECT_ID=story-line-app RESEND_API_KEY=… RESEND_FROM='Story Line <no-reply@…>' infra/gcp/bootstrap.sh
 set -euo pipefail
 
-PROJECT_ID="${PROJECT_ID:-story-line-nra}"
+PROJECT_ID="${PROJECT_ID:-story-line-app}"
 REGION="us-central1"
 BILLING_ACCOUNT="01EDE2-969598-73D6AD"
 STATE_BUCKET="gs://${PROJECT_ID}-tfstate"
