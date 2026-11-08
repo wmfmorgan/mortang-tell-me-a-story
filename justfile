@@ -23,6 +23,14 @@ test-live:
 test-goldens *args:
     cd apps/tell_me_a_story && flutter test --tags golden {{args}} test/goldens
 
+# Timeline lab in Chrome
+lab:
+    cd labs/timeline_lab && flutter run -d chrome
+
+# Timeline lab tests (pass --update-goldens to regenerate PNGs)
+lab-test *args:
+    cd labs/timeline_lab && flutter test {{args}}
+
 alias web := run
 
 # Flutter web-server on 127.0.0.1:3000 (MAPBOX_ACCESS_TOKEN=pk... just run)

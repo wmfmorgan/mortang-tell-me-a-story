@@ -57,7 +57,7 @@
 
 | Slice | Plan | Depends on | Status |
 |---|---|---|---|
-| 7.0 Lab import | this index, §7.0 | — | not started |
+| 7.0 Lab import | this index, §7.0 | — | done (#181; lab-test `+272`) |
 | 7.1 Golden harness and rail baselines | this index, §7.1 | — | done (`feat/p7-1-goldens`) |
 | 7.2 Tokens and shared primitives | written at slice start | — (O3 for the two exact-value colour token names) | not started |
 | 7.3 Rail split at parity | written at slice start | 7.1, 7.2 | not started |
@@ -137,7 +137,7 @@ Expected: `(0 changed)` twice, `analyze: 6 issues (ceiling 6)` (lower the ceilin
 
 ## 7.0 Lab import (Q7)
 
-**Branch:** `feat/p7-0-lab`. **Files:**
+**Branch:** `feat/p7-0-lab-import`. **Files:**
 - `labs/timeline_lab/**` (from the lab commits, then moved);
 - `justfile`;
 - `.github/workflows/ci.yml`;
@@ -149,7 +149,7 @@ The app (`apps/**`) is untouched.
 
 The lab work is the 52 linear commits `bdd128d^..6302bfe` on `worktree/silver-valley-593f` (no merges; the objects are in this repository). The branch's first two commits (`2c3aca2`, `d9729f7`) are already in our history, and the branch is 140+ commits behind. Merging it would revert the Phase 3–6 docs, so cherry-pick only the lab range.
 
-- [ ] **Step 1: Preconditions.** `git status --short` prints nothing. `git rev-parse --abbrev-ref HEAD` prints `feat/p7-0-lab`. `git cat-file -t 6302bfe` prints `commit`. `git rev-list --count bdd128d^..6302bfe` prints `52`.
+- [ ] **Step 1: Preconditions.** `git status --short` prints nothing. `git rev-parse --abbrev-ref HEAD` prints `feat/p7-0-lab-import`. `git cat-file -t 6302bfe` prints `commit`. `git rev-list --count bdd128d^..6302bfe` prints `52`.
 
 - [ ] **Step 2: Cherry-pick the lab range.**
 
@@ -191,7 +191,7 @@ git grep -l "apps/timeline_lab" -- labs/timeline_lab
 - In each file the grep lists (the lab README; nothing in `lib/` or `test/`), replace `apps/timeline_lab` with `labs/timeline_lab`.
 - Leave the archived handoff and lab plans unchanged: they are history.
 - In `justfile`, change both recipes to `cd labs/timeline_lab && …`.
-- In `.github/workflows/ci.yml`, append the analyze-only job from the Phase 5 plan (`docs/archive/superpowers/plans/2026-11-08-serverpod-phase5-cleanup.md`, Task 4 Step 2):
+- In `.github/workflows/ci.yml`, append the analyze-only job from the Phase 5 plan (`docs/archive/superpowers/plans/2026-11-08-serverpod-phase5-cleanup.md`, Task 4 Step 2), with the `install_args` line every other job has (it postdates the Phase 5 plan, `9491e43`):
 
 ```yaml
   lab:
@@ -207,6 +207,8 @@ git grep -l "apps/timeline_lab" -- labs/timeline_lab
           persist-credentials: false
 
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install_args: flutter # terraform is for deploys only
 
       - name: flutter pub get
         run: flutter pub get --enforce-lockfile
@@ -227,7 +229,7 @@ Commit: `chore(lab): timeline lab moves to labs/timeline_lab; lab recipes and an
   - `mise exec -- just lab-test 2>&1 | tail -n 1` → `+272: All tests passed!` on macOS. The 36 goldens are macOS arm64. A golden that differs only in glyph antialiasing on another Mac: report it; don't regenerate.
   - `(cd labs/timeline_lab && mise exec -- flutter analyze)` → `No issues found!`.
   - `actionlint .github/workflows/ci.yml && echo actionlint-ok`.
-  - `mise exec -- just check`: app `+689 ~12`, server `+425`, unchanged.
+  - `mise exec -- just check`: app and server counts unchanged from the `feature/serverpod` base (`+689 ~12` and `+425` at `315852d`; `+694 ~12` and `+432` at `49c0585`, where 7.0 was cut).
   - `git diff feature/serverpod --stat -- apps` prints nothing.
 - [ ] **Step 5: PR** `chore: timeline lab in labs/timeline_lab (Phase 7.0)`, merged with a merge commit. The CI `lab` job must be green.
 
