@@ -16,7 +16,7 @@ If the code and the plan disagree, stop and report the difference; don't reconci
   - `lib/data`: gateways and session state.
   - `lib/ui`: widgets used by several features.
   - `lib/features/<feature>`: screens.
-  - `test/` mirrors `lib/`; `test/architecture` holds the guards; `test/support/fakes` holds the shared gateway fakes; `test/live` (tag `live`); `integration_test/` (e2e).
+  - `test/` mirrors `lib/`; `test/architecture` holds the guards; `test/support/fakes` holds the shared gateway fakes; `test/live` (tag `live`); `test/goldens` (tag `golden`, macOS only, own `flutter_test_config.dart`); `integration_test/` (e2e).
 - `apps/server/`: Serverpod 4.1.1 server. Endpoints are in `lib/src/endpoints`, rules in `lib/src/<domain>`, models in `lib/src/models/*.spy.yaml`, migrations in `migrations/`.
 - `packages/tell_me_a_story_client/`: generated; never edit by hand.
 - `labs/timeline_lab/`: the timeline lab, a dev-only Flutter bench (synthetic data, macOS goldens). Nothing in `apps/` imports it. `just lab`, `just lab-test`; CI runs `flutter analyze` on it only.
@@ -39,6 +39,7 @@ Run from the repo root as `mise exec -- just …` (or in a shell with mise activ
 | …server analyze | `just server-analyze` | no issues |
 | …server tests | `just server-test` | all passing |
 | Live client tests | `just server`, then `just test-live` | all passing |
+| Goldens (macOS) | `just test-goldens` | all passing; regenerate only on purpose (`just test-goldens --update-goldens`) and open every changed PNG |
 | e2e | `flutter drive` per README | 9/9 flows |
 
 - `just test` includes `test/architecture/e2e_flow_manifest_test.dart`, which fails if `integration_test/flows.md` and `e2e_test.dart` disagree.

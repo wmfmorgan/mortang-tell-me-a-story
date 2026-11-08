@@ -11,13 +11,17 @@ default:
 setup:
     mise install
 
-# flutter test in apps/tell_me_a_story
+# flutter test in apps/tell_me_a_story (goldens excluded: they are macOS-only)
 test:
-    cd apps/tell_me_a_story && flutter test
+    cd apps/tell_me_a_story && flutter test --exclude-tags golden
 
 # Live client tests against a running `just server` (start it first)
 test-live:
     cd apps/tell_me_a_story && flutter test --tags live --run-skipped test/live
+
+# Golden tests, macOS only (just test-goldens --update-goldens to regenerate)
+test-goldens *args:
+    cd apps/tell_me_a_story && flutter test --tags golden {{args}} test/goldens
 
 # Timeline lab in Chrome
 lab:

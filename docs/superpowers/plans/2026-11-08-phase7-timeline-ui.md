@@ -57,8 +57,8 @@
 
 | Slice | Plan | Depends on | Status |
 |---|---|---|---|
-| 7.0 Lab import | this index, §7.0 | — | done on `feat/p7-0-lab-import` (lab-test `+272`); PR pending |
-| 7.1 Golden harness and rail baselines | this index, §7.1 | — | not started |
+| 7.0 Lab import | this index, §7.0 | — | done (#181; lab-test `+272`) |
+| 7.1 Golden harness and rail baselines | this index, §7.1 | — | done (`feat/p7-1-goldens`) |
 | 7.2 Tokens and shared primitives | written at slice start | — (O3 for the two exact-value colour token names) | not started |
 | 7.3 Rail split at parity | written at slice start | 7.1, 7.2 | not started |
 | 7.4 Rail restyle and iPad | written at slice start | 7.3; owner screenshot sign-off before merge | not started |
@@ -535,11 +535,11 @@ CI's `app` job runs `just test`, so it now excludes goldens with no change to `c
 - [ ] **Step 5: Generate and inspect.**
   1. Run `mise exec -- just test-goldens --update-goldens`.
   2. Open all six PNGs in `test/goldens/timeline/` with the read tool. Expected: real glyphs, not boxes. The header shows `Tell Me a Story`, `Jenkins`, `Stories / Timeline / Draft Stories`. The zoom pill has the selected segment in terracotta.
-  3. In `decades_desktop`, the 1970s row holds `2 stories preserved` and the moss `Bea Branch` callout. `years_*` shows the hanging Bea callout on the 1975 node, and `days_*` shows full cards.
+  3. In `decades_desktop`, the 1970s row holds `2 stories preserved` and the moss `Bea Branch` callout. `years_*` and `days_*` open on the 1999 story: `years_ipad_mini_portrait` shows the hanging Bea callout on the 1975 node, but in `years_desktop` it is only a faded stub at the bottom edge (as landed). `days_*` shows full cards.
   4. At 744 pt the header shows `Tell …` and hides the family name. That is today's behaviour; record it, don't fix it here.
 - [ ] **Step 6: Green.** `mise exec -- just test-goldens 2>&1 | tail -n 1` → `+6: All tests passed!`.
 - [ ] **Step 7: The rest is unchanged.**
-  - `mise exec -- just test 2>&1 | tail -n 1` → `+689 ~12: All tests passed!`. Goldens are excluded, and there is no "undeclared tag" warning.
+  - `mise exec -- just test 2>&1 | tail -n 1` → `+694 ~12: All tests passed!` (the count at `feature/serverpod` 49c0585; the earlier `+689` was stale). Goldens are excluded, and there is no "undeclared tag" warning.
   - `mise exec -- just fmt-check` shows `(0 changed)` twice.
   - `mise exec -- just analyze` shows `analyze: 6 issues (ceiling 6)`.
 
