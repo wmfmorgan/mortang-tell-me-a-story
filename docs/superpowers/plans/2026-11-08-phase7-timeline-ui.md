@@ -65,7 +65,7 @@
 | 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
 | 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | not started |
-| 7.7 Whole-tree page and treemap | written at slice start | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | not started |
+| 7.7 Whole-tree page and treemap | this index, §7.7 | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | built; owner signed off v2 and C19 on 2026-11-08, colour key added after (`feat/p7-7-treemap`; app `+802 ~12`, goldens `+8`); ready to merge |
 | 7.8 Family tree graph | written at slice start | 7.7, **7.M pass** (O4 thresholds approved 2026-11-08); screenshots before merge | not started |
 | 7.z Close | this index, §7.z | all | not started |
 
@@ -935,36 +935,97 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
 
 ## 7.7 Whole-tree page and treemap (Q2)
 
-**Owns:**
-- uses the 7.6S plumbing as landed: `StoriesGateway.listPublishedInTree`, `TimelineLive.watchTree` and `treeEventMatters` (`lib/data/stories_api.dart`, `lib/data/timeline_live.dart`);
+**Branch:** `feat/p7-7-treemap`, from `feature/serverpod` `fd00bd4` (7.0, 7.1, 7.2, 7.6S merged; app `+751 ~12`). **Owns:**
+- uses the 7.6S plumbing as landed, unchanged: `StoriesGateway.listPublishedInTree`, `TimelineLive.watchTree` and `treeEventMatters` (`lib/data/stories_api.dart`, `lib/data/timeline_live.dart`). No new gateway call, so no new live test;
 - `lib/core/router/app_routes.dart` (`familyTree = '/family/:id/tree'`, `familyTreePath(id)`);
-- `lib/app/app_router.dart` (the route, beside `allStories` at `:183`);
-- `lib/ui/album/album_header.dart` (`AlbumHeaderPage.familyTree` and the entry point per O1);
+- `lib/app/app_router.dart` (the route, beside `allStories`);
+- `lib/ui/album/album_header.dart` (`AlbumHeaderPage.familyTree` and the O1 menu row);
+- `lib/ui/timeline/view_switch.dart` (the `label` becomes optional: C5–C7, and 7.8's C3/C4, have no approved "Group by"-style label);
 - new `lib/features/timeline/tree/{family_tree_page,tree_timeline_loader,treemap_layout,treemap_view}.dart`;
-- the fakes listed in Conventions.
+- tests: `test/features/timeline/tree/{tree_timeline_loader,treemap_layout,treemap_view,family_tree_page}_test.dart`, `test/app/app_router_test.dart`, `test/ui/album/album_header_family_menu_test.dart`, `test/ui/timeline/view_switch_test.dart`, `test/goldens/family_tree_treemap_golden_test.dart` and its two PNGs.
+
+**Not touched:** `timeline_page.dart` and `features/timeline/rails/` (7.3 owns them), the server, the generated client, every fake listed in Conventions (the shared `FakeStoriesGateway.listPublishedInTree` already returns the store as one tree).
+
+**Copy.** Only approved strings (O2), verbatim:
+- C1 `See the whole family tree` (menu row), C2 `{Family} family tree` (page heading; `{Family}` is the tree's root family, the live row with no live parent, falling back to the current family), C5–C7 `By family` · `By decade` · `By person` (grouping switch, in that order, `By family` selected first), C9 `No stories in this family tree yet.` (empty tree).
+- Reused app strings, no new copy: `Couldn't load stories.` + `Retry` (All Stories' load error), `No one tagged` (All Stories' person grouping, for stories with no tagged person), `1 story` / `{n} stories` (All Stories' `groupCountLabel`, in cell semantics), `Untitled` (`storyTitle`), story date labels (`storyDateLabelFor`), `{decade}s` and years.
+- Dropped lab copy: the `Group by` label (the switch has none), the `All` crumb (the C2 heading is the root crumb), the `›` separator (a `chevron_right` icon), the dim-mode `matched/total` counts (O6).
+- C8 (`{n} more stories`) belongs to the graph's `+N` chip and stays with 7.8; the treemap has no `+N`.
+- C19 `Open {Family} timeline` (owner feedback, 2026-11-08): **approved 2026-11-08**, in one constant (`openFamilyTimelineLabel`).
+- The family colour key (owner, after v2 sign-off) adds no copy: only the family names.
 
 **Change:**
-- **Load.** The page loads `listFamilyTree(familyId)` and `listPublishedInTree(familyId)`, and refetches on `watchTree`.
-- **Treemap.** Port `treemap_layout.dart` and `treemap_renderer.dart`:
-  - squarified;
-  - all three groupings (O5): Family → decade, Decade → year and Person → decade;
-  - drill-down;
-  - a finger tap on a cell under 44 pt opens its group;
-  - quiet by default;
-  - no playback and no filter (O6).
+- **Route.** `/family/:id/tree` → `FamilyTreePage(familyId:, storiesApi:, familiesApi:)` from `createAppRouter`, beside `allStories`. The router's existing auth redirect covers it.
+- **Entry (O1 A).** `_FamilyMenu` gets a row `family-menu-tree` (C1, `Icons.forest_outlined`), right after `family-menu-divider` and before `family-menu-invite`, shown when `currentFamilyId` is set, except on the new-story page (where Invite is hidden too) and on the tree page itself (owner feedback). Selecting it calls `GoRouter.of(context).go(AppRoutes.familyTreePath(currentFamilyId))`, as the Stories item does. No header nav item is active on the tree page.
+- **Load.** `TreeTimelineLoader.load(familyId)` runs `listFamilyTree(familyId)` and `listPublishedInTree(familyId)` in parallel and rethrows the gateway's own error (the `ParallelWaitError` unwrap from `AllStoriesLoader`). The page shows a spinner, then the treemap; a failure shows `Couldn't load stories.` with `Retry`. The header chrome (`listMine`/`listStewarded`) is the same best-effort read All Stories uses. `FamilySelection.remember(familyId)` on open.
+- **Live.** `initState` calls `live.watchTree(familyId, onChange: reload)`; the reload keeps the treemap on screen (no spinner) and a generation counter drops stale results. `live` defaults as `TimelinePage`'s does: the injected one, none when only `storiesApi` is injected (tests), otherwise an owned `ServerTimelineLive` that `dispose` closes.
+- **Treemap** (`treemap_layout.dart`, pure; `treemap_view.dart`, widgets), ported from the lab:
+  - `squarify` unchanged; `TreemapCell`/`TreemapGroup` hold `TimelineEntry`s (7.2) instead of the lab's entries;
+  - `buildTreemap(List<TimelineEntry>, List<TreeFamily>, TreemapBy)`: `family` → decade cells (group label = the family's name), `decade` → year cells (`1950s` → `1952`), `person` → decade cells over `Story.people` (a story counts once per tagged person; untagged stories go to `No one tagged`); groups and cells sorted by count, descending, ties in timeline order;
+  - `TreemapLayout`/`TreemapSlot`/`RenderTreemapLayout` unchanged;
+  - visual weight (owner feedback): every cell and story tile is tinted by family, cycling `albumSageTint`, `albumBlush`, `albumBlushPale`, `albumPillFill` in tree order (four families never share a tint; a family keeps its tint across groupings). In `By decade` and `By person` a cell takes its **dominant family's** tint (most stories; a tie goes to the earliest story's family). Group frames use `albumRuleStrong`; cells keep `albumModalBorder`. The count uses `AlbumText.count` in `albumInk` (the style's `albumDimInk` is 3.8:1 on the sage tint), sized at a fifth of the cell's shorter side between the base size and 32; the label is w600, at `AlbumText.group` size in cells ≥ 96 pt. Ink is ≥ 4.5:1 on every tint (tested). No new tokens. Shapes `albumContainerShape(AlbumRadius.group/tile)`;
+  - a family colour key (`treemap-family-key`) under the grouping switch in all three groupings: per family, in tree order, a 14 pt swatch with the cell tint (`albumRuleStrong` hairline, so `albumPillFill` still shows) and the family name; it wraps on narrow widths and ellipsizes a name wider than the row;
+  - drill-down: overview (groups of cells) → tap a group header → that group's cells, large → tap a cell → one tile per story, in date order. The crumb row is the C2 heading (`treemap-crumb-root`, tappable once drilled) › group (`treemap-crumb-group`) › cell;
+  - a **finger** tap on an overview cell under `AlbumTarget.min` (44 pt) in either axis opens its group instead (`isFingerLike`); mouse, trackpad and pencil open the cell;
+  - switching grouping returns to the overview;
+  - removed from the lab: playback (`RevealOpacity`, the fill rise; Q3), the dim shading and matched counts (O6), `selectedId`.
 - **Taps.**
-  - A story tile pushes `AppRoutes.storyPath(id)` (the reader, as `timeline_page.dart:537-543` does).
-  - A family cell's title remembers the family (`FamilySelection.remember`) and goes to `AppRoutes.timeline`.
-- **The view switch** appears only when 7.8 lands. Until then the page shows the treemap alone.
+  - A story tile pushes `AppRoutes.storyPath(id)` (the reader) and reloads quietly on return, as All Stories does.
+  - Every group header drills in, in every grouping (owner feedback). In `By family`, the drilled view (group or cell level) shows a terracotta `Open {Family} timeline` action (C19, `treemap-open-family`) after the crumbs: it calls `FamilySelection.remember(id)` and goes to `AppRoutes.timeline`.
+- **Empty tree.** No published story in the tree: the heading and `EmptyTimeline(message: C9)`, no switch.
+- **No view switch** until 7.8; the page shows the treemap alone.
 
-**Tests:**
-- Port `treemap_test` (199 lines; layout and hit tests on `Story`/`TreeFamily`).
-- Page widget tests with fakes: load, live refresh, tile → reader route, family → timeline, the empty tree.
-- The router test for `/family/:id/tree`, the header entry test, and the iPad sweep.
-- Live: covered by 7.6S (`test/live/stories_live_test.dart`, `server_timeline_live_test.dart`); 7.7 adds none unless the page needs a new gateway call.
-- Goldens `family_tree_treemap_{desktop,ipad_mini_portrait}`.
+### Task 1: Treemap layout (pure)
+- [x] **Step 1 (red):** `test/features/timeline/tree/treemap_layout_test.dart`, ported from the lab's `treemap_test` (`squarify` group unchanged) with app `Story`/`TreeFamily` fixtures (Jenkins root, branches Bea and Cal, stories across 1950–1999, one untagged):
+  1. `squarify`: the lab's four proportional/no-overlap cases, the no-sliver case and the zero-total case.
+  2. `By decade`: groups and cells add up to the story count, sort descending, each entry sits in its decade group and year cell.
+  3. `By family`: group ids are exactly the families with stories, labels are the tree names, cells are `{decade}s`.
+  4. `By person`: a story counts once per tagged person; untagged stories form `No one tagged`.
+  5. Ties keep timeline order (two groups of equal count keep their first-story order).
+  6. Ink on the strongest fill (`0.18` terracotta over parchment) is ≥ 4.5:1 (`test/support/contrast.dart`).
+
+  Run `mise exec -- flutter test test/features/timeline/tree`: compile errors (no library).
+- [x] **Step 2 (green):** `lib/features/timeline/tree/treemap_layout.dart`. Rerun: green.
+
+### Task 2: Treemap view
+- [x] **Step 1 (red):** `treemap_view_test.dart` (1280 × 800, `albumTheme()`):
+  1. Overview shows one `treemap-group-<id>` per family and the C2 heading; the switch reads `By family` · `By decade` · `By person` with `By family` selected and no label.
+  2. `By decade`: tap a group header → `treemap-crumb-group` appears; tap a cell → one `treemap-story-<id>` per story; tap a tile → `onStory(id)`; tap `treemap-crumb-root` → back to the overview.
+  3. `By family`: tap the group header → drills in, `onFamily` not called; the drilled view shows `Open Bea timeline`, which calls `onFamily(id)`; it is absent in `By decade`.
+  4. A finger tap on a sub-44 pt overview cell opens its group; a mouse tap on the same cell opens the cell.
+  5. Switching grouping while drilled returns to the overview.
+  6. Cell semantics read `{label}, {n} stories` / `1 story`.
+  7. With no stories: C9 (`empty-timeline`), no switch.
+
+  `test/ui/timeline/view_switch_test.dart`: with no `label`, only the `SegmentedButton` shows.
+- [x] **Step 2 (green):** `treemap_view.dart` (`TreemapView({title, stories, tree, onStory, onFamily})`), the optional `ViewSwitch.label`. Rerun: green.
+
+### Task 3: Loader, page, route, header row
+- [x] **Step 1 (red):**
+  - `tree_timeline_loader_test.dart`: both calls run with the family id; a failing `listPublishedInTree` rethrows the gateway's `AppException`, not a `ParallelWaitError`.
+  - `family_tree_page_test.dart` (fakes: `FakeStoriesGateway`, a `FamiliesGateway` with a three-family tree, a recording `TimelineLive`):
+    1. load: the spinner, then `Jenkins family tree` and the treemap; `listPublishedInTree` called once; `watchTree` subscribed with the family id; `FamilySelection.id` is the family;
+    2. live refresh: a new published story in the store, then `onChange()` → the new story's group count shows, no spinner in between;
+    3. tile → reader: drill and tap a story → the router is at `AppRoutes.storyPath(id)`;
+    4. family → timeline: drill into a family, tap `Open Cal timeline` → `FamilySelection.id` is that family and the router is at `AppRoutes.timeline`;
+    5. the empty tree → C9;
+    6. error → `Couldn't load stories.`; `Retry` loads again;
+    7. iPad sweep: 744 × 1133, 1133 × 744, 1024 × 1366, 1366 × 1024 and 320 × 568 render without a layout exception, and the treemap fills the space under the switch.
+  - `app_router_test.dart`: signed-in `/family/<id>/tree` shows `FamilyTreePage`; signed-out is redirected to sign-in.
+  - `album_header_family_menu_test.dart`: the dropdown order becomes families, divider, tree row, invite, branch, Manage, with C1 text; the row shows without write access; picking it from Drafts goes to `/family/<current>/tree`.
+- [x] **Step 2 (green):** the routes, the page, the loader, `AlbumHeaderPage.familyTree` and the row. `mise exec -- just test`.
+
+### Task 4: Goldens
+- [x] `test/goldens/family_tree_treemap_golden_test.dart` (`@Tags(['golden'])`): `FamilyTreePage` with the Task 3 fakes (Jenkins, Bea, Cal; stories across 1950–1999) at `desktop` 1280 × 800 and `ipad_mini_portrait` 744 × 1133, overview, `By family`. `mise exec -- just test-goldens --update-goldens`, open both PNGs, then `just test-goldens`: `+8`, the six rail PNGs unchanged (`git status --short test/goldens/timeline` empty).
+
+### Task 5: Gates, live, e2e, screenshots
+- [x] `mise exec -- just check`; the live suite against a server from this worktree (7.6S "As landed" env, own data dir); the e2e per README (9/9).
+- [x] Screenshots (Conventions' sign-off, own server and web-server): the family menu with the row; the overview in each grouping; one drill-down; iPad mini portrait. To `/tmp/tmas-p7-7-shots/`.
+- [x] Status row and "As landed"; commit.
 
 **Stop:** screenshots signed off before merge (O1, O2, O5 and O6 are answered). Gates include `test-live` and e2e.
+
+**Done when:** `just check` passes with the new tests, `just test-goldens` is `+8` with the six rail PNGs unchanged, the live suite passes against this branch's server, and `git status --short` is clean.
 
 ## 7.8 Family tree graph (Q2; gated on 7.M)
 
@@ -1011,7 +1072,7 @@ Send these through Main. Each answer is recorded here before the slice that depe
 | # | Answer |
 |---|---|
 | O1 | **(A)**: a family menu row opening `/family/:id/tree`. |
-| O2 | All 18 strings (C1–C18) approved as proposed; use them verbatim. |
+| O2 | All 18 strings (C1–C18) approved as proposed; use them verbatim. C19 (`Open {Family} timeline`, 7.7 owner feedback) approved 2026-11-08. |
 | O3 | The proposed token names in 7.2 approved, including `albumBlush` = `0xFFF5DED6` and `albumBlushPale` = `0xFFF5ECE9`. |
 | O4 | The proposed thresholds approved. |
 | O5 | All three treemap groupings (family, decade, person). |
@@ -1044,6 +1105,7 @@ Alternatives:
 | C16 | Status line | `{matched} of {total} stories match` |
 | C17 | No-match state + action | `No stories match these filters.` · `Clear filters` |
 | C18 | Decade header count while filtering | `{matched} of {total}` |
+| C19 | Treemap, drilled-in family action (7.7 owner feedback) | `Open {Family} timeline` (approved 2026-11-08) |
 
 **O3. Token names (blocks 7.2).**
 - Confirm the names in 7.2 for the lab's scales and tints. The values are the lab's, accepted under Q5.
@@ -1101,6 +1163,27 @@ Alternatives:
   - `albumCardRadius` (12) and `AlbumRadius.card` (12) both exist; merging them is left to a later slice.
   - The C10 chooser title stays with 7.4, so `showStoryChooser` has no title row yet.
   - `just check` needs `dart pub get` in `apps/server` in a fresh worktree; otherwise `server-analyze` reports the missing `serverpod_cloud_storage_gcp`.
+
+**7.7 Whole-tree page and treemap** (`feat/p7-7-treemap`, from `feature/serverpod` `fd00bd4`; owner signed off the v2 screenshots and approved C19 on 2026-11-08):
+- **Commits:**
+  - `ae4f404`: the §7.7 plan;
+  - `6c14334`: treemap layout and view, optional `ViewSwitch.label` (+23 tests);
+  - `36758f7`: loader, page, route, header row (+18 tests);
+  - `2b84b0e`: the two goldens;
+  - then this "As landed" commit.
+- **Gates:**
+  - `just check` passes: fmt `(0 changed)` twice, `analyze: 6 issues (ceiling 6)`, app `+792 ~12` (from `+751 ~12`, so +41), `server-analyze` no issues, server `+447` (unchanged);
+  - the import, layout and colours guards pass; no colour hit in `lib/features/timeline/tree/`, skip list unchanged at 17;
+  - `just test-goldens` `+8`: the six rail PNGs unchanged, plus `family_tree_treemap_{desktop,ipad_mini_portrait}.png` (both opened and checked);
+  - live `+29` against a server from this worktree (the 7.6S env with ports 8380–8382, database port 8390 and `SERVERPOD_DATABASE_DATA_PATH=.serverpod/p77/pgdata`);
+  - e2e 9/9 (`flutter drive … -d web-server --web-port=3700 --driver-port=4544 --dart-define=SERVER_URL=http://127.0.0.1:8380`, with chromedriver 157.0.8103.38 fetched by `npx @puppeteer/browsers install chromedriver@157.0.8103.38` into `/tmp`; none is on PATH).
+- **Screenshots** (`/tmp/tmas-p7-7-shots/`, seeded through the API as `p7-shots@example.com`: Jenkins with 8 stories 1952–1999, branches Bea (from 1975, 3 stories) and Cal (from 1984, 2 stories)): `01-family-menu-desktop`, `02-treemap-by-family-desktop`, `03-treemap-by-decade-desktop`, `04-treemap-by-person-desktop`, `05-drill-group-1970s-desktop`, `06-drill-stories-jenkins-1950s-desktop`, `07-treemap-by-family-ipad-mini-portrait`, `08-family-menu-ipad-mini-portrait`. Also checked live: a story tile opens the reader, and the `Bea · 3` title opens Bea's timeline.
+- **Plan fixes:**
+  - Owns also `test/support/tree_fixture.dart` (the shared Jenkins/Bea/Cal tree for the layout, view, page and golden tests).
+  - The server refuses to publish a story with no person (`person required`), so `No one tagged` in `By person` only shows for stories whose people all lack a name; it is kept because `Story.people` drops unnamed people.
+  - Owner feedback (2026-11-08), one commit each: `012bda7` family tints, `albumRuleStrong` group frames, scaled counts (+3 layout tests net, +4 view; both treemap goldens regenerated on purpose and re-inspected); `abe6212` the family header drills in, with the `Open {Family} timeline` action (C19); `ce98cd3` the tree row is hidden on the new-story and tree pages (+1 test). The page title stays the root family. v2 screenshots: `/tmp/tmas-p7-7-shots/v2/`.
+  - **Sign-off (owner, 2026-11-08):** v2 screenshots approved; C19 approved; one addition, the family colour key: `6de01a9` (+2 view tests: every family with its tint in all three groupings, and wrapping with no overflow at 744 × 1133 and 320 × 568; both treemap goldens regenerated on purpose and re-inspected; screenshot `/tmp/tmas-p7-7-shots/v2/11-colour-key-desktop.png`). The page sweep's height floor became one half on iPad and a third at 320 pt, since the key row takes ~26 pt. Gates after it: `just check` passes (fmt 0 changed ×2, analyze 6, app `+802 ~12`, server `+447`), `just test-goldens` `+8` with the six rail PNGs unchanged.
+  - `just check` in a fresh worktree also needs `just server-passwords` (the git-ignored `apps/server/config/passwords.yaml`); without it `server-test` stops after the unit tests.
 
 **7.3 Rail split at parity** (`feat/p7-3-rail-split`, from `feat/p7-2-tokens` `ac9bee0`):
 - **Commits** (Colours moved first, agreed with Main 2026-11-08):

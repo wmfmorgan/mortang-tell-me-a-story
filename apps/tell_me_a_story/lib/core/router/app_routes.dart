@@ -23,6 +23,11 @@ abstract final class AppRoutes {
   static const allStories = '/family/:id/stories';
 
   static String allStoriesPath(String familyId) => '/family/$familyId/stories';
+
+  /// The whole-tree page (O1) for the tree [familyId] belongs to.
+  static const familyTree = '/family/:id/tree';
+
+  static String familyTreePath(String familyId) => '/family/$familyId/tree';
   static const newStory = '/stories/new';
   static const story = '/stories/:storyId';
   static const storyEdit = '/stories/:storyId/edit';

@@ -26,6 +26,7 @@ enum AlbumHeaderPage {
   manageFamilies,
   familyLanding,
   allStories,
+  familyTree,
 }
 
 /// Stitch screen `703158c2c064414883d9d1c1dff8902a` header only.
@@ -657,6 +658,7 @@ class _FamilyMenu extends StatelessWidget {
     required this.active,
   });
 
+  static const _treeValue = 'family-tree';
   static const _inviteValue = 'invite';
   static const _timelineValue = 'start-timeline';
   static const _manageValue = 'manage-families';
@@ -672,6 +674,12 @@ class _FamilyMenu extends StatelessWidget {
   final bool active;
 
   bool get _showInvite => page != AlbumHeaderPage.capture && canWrite;
+
+  /// Hidden where Invite is always hidden (capture) and on the tree page.
+  bool get _showTree =>
+      currentFamilyId != null &&
+      page != AlbumHeaderPage.capture &&
+      page != AlbumHeaderPage.familyTree;
 
   String? _nameFor(String id) {
     for (final family in families) {
@@ -737,6 +745,15 @@ class _FamilyMenu extends StatelessWidget {
         thickness: 1,
         color: albumSage.withValues(alpha: 0.3),
       ),
+      if (_showTree)
+        PopupMenuItem<String>(
+          key: const Key('family-menu-tree'),
+          value: _treeValue,
+          child: _familyActionRow(
+            Icons.forest_outlined,
+            'See the whole family tree',
+          ),
+        ),
       if (_showInvite)
         PopupMenuItem<String>(
           key: const Key('family-menu-invite'),
@@ -790,6 +807,10 @@ class _FamilyMenu extends StatelessWidget {
       items: _menuItems(),
     );
     if (selected == null || !context.mounted) return;
+    if (selected == _treeValue) {
+      GoRouter.of(context).go(AppRoutes.familyTreePath(currentFamilyId!));
+      return;
+    }
     if (selected == _inviteValue) {
       onInvite?.call();
       return;
