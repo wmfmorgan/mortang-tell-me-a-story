@@ -63,7 +63,7 @@ class FamilyRoleChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: owner ? albumTerracotta : Colors.transparent,
+        color: owner ? albumTerracotta : albumBackdropClear,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: owner ? albumTerracotta : albumSage),
       ),

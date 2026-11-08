@@ -726,12 +726,13 @@ Paste it into `lib/data/app_exception.dart` above `/// [AppException.message] fo
 
 One hit, with an exact token: `color: owner ? albumTerracotta : Colors.transparent,` → `color: owner ? albumTerracotta : albumBackdropClear,` (`albumBackdropClear` is `Colors.transparent` in `album_theme.dart`).
 
-- [ ] **Step 1: Before screenshots** (see "Screenshot check"), stem `family_role`:
-  - `hub`: `/manage-families` with the role chips visible;
-  - `detail`: `/manage-families/<Colour Check id>`, people list with role pills.
+- [ ] **Step 1: Before screenshots** (see "Screenshot check"), stem `family_role`. The edited branch is drawn only by `FamilyRoleChip(role: 'co_owner')` in `transfer_ownership_dialog.dart` (the hub and detail role pills are other widgets), so the family needs a co-owner:
+  - `hub`: `/manage-families`;
+  - `detail` and `detail-members`: `/manage-families/<id>`, top and scrolled to the members list;
+  - `transfer-dialog`: `/manage-families/<id>` → Transfer ownership… (shows the co-owner chip with the transparent fill).
 - [ ] **Step 2: Edit** the line above.
 - [ ] **Step 3: Skip list.** Delete `'features/family/family_role.dart',` from `temporaryHardcodedColorSkipPaths` and set `_skipListCeiling = 22;`.
-- [ ] **Step 4: After screenshots and compare.** Expected AE `0` for both screens.
+- [ ] **Step 4: After screenshots and compare.** Expected AE `0` for every screen.
 - [ ] **Step 5: Gates.** Expected `+688 ~12`.
 - [ ] **Step 6: Commit.** `git commit -am "style(client): family_role uses album tokens; leaves the colour skip list"` (body: screens and AE values).
 
