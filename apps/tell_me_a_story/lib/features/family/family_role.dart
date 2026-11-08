@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/album_theme.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 
 /// First letter of [name], skipping a leading "The ", uppercased.
 String familyMonogram(String name) {

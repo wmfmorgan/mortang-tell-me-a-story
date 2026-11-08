@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'core/theme/album_theme.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 
 class TellMeAStoryApp extends StatelessWidget {
   const TellMeAStoryApp({super.key, required this.router});

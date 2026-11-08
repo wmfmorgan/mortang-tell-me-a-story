@@ -2,10 +2,10 @@ import 'dart:typed_data';
 
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-import '../core/server/server_client.dart';
-import 'app_exception.dart';
-import 'photos_api.dart';
-import 'server/server_errors.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
+import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story/data/server/server_errors.dart';
 
 const familyCoverMaxBytes = 5242880;
 

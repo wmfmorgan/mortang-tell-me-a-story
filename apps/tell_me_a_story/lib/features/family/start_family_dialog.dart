@@ -3,9 +3,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/album_theme.dart';
-import '../../data/app_exception.dart';
-import '../../data/manage_families_api.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
+import 'package:tell_me_a_story/data/manage_families_api.dart';
 
 /// Stitch `78ba55e6adf1449685fe9dadcc1ccdfc`. Returns the new family id.
 Future<String?> showStartFamilyDialog(

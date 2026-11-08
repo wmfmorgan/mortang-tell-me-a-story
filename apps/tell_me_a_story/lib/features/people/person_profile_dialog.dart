@@ -3,17 +3,17 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/router/app_router.dart';
-import '../../core/server/app_session.dart';
-import '../../core/theme/album_theme.dart';
-import '../../data/app_exception.dart';
-import '../../data/invite_api.dart';
-import '../../data/people_api.dart';
-import '../../data/stories_api.dart';
-import '../family/family_blur_dialog.dart';
-import '../stories/story_date.dart';
-import 'edit_person_dialog.dart';
-import 'person_date_field.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
+import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/family/family_blur_dialog.dart';
+import 'package:tell_me_a_story/features/stories/story_date.dart';
+import 'package:tell_me_a_story/features/people/edit_person_dialog.dart';
+import 'package:tell_me_a_story/features/people/person_date_field.dart';
 
 /// Name pill. A tap opens the person profile. An empty id does not.
 class PersonNamePill extends StatelessWidget {

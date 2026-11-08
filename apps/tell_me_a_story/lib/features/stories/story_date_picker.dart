@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/album_theme.dart';
-import 'story_date.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/features/stories/story_date.dart';
 
 const _dateFill = albumParchment;
 const _dateOutline = albumSage;

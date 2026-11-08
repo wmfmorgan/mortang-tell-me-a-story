@@ -3,10 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../../core/theme/album_theme.dart';
-import '../../data/families_api.dart';
-import '../../data/stories_api.dart';
-import 'timeline_zoom.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
 const calloutStroke = 2.0;
 const calloutDotGap = 2.0;

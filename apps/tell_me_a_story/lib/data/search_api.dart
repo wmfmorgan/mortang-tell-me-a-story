@@ -1,9 +1,9 @@
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-import '../core/server/server_client.dart';
-import 'server/server_errors.dart';
-import 'server/wire.dart';
-import 'stories_api.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
+import 'package:tell_me_a_story/data/server/server_errors.dart';
+import 'package:tell_me_a_story/data/server/wire.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
 
 enum SearchSort { relevant, chronological, recentlyAdded }
 

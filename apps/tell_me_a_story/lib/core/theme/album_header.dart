@@ -4,18 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../data/families_api.dart';
-import '../../data/family_selection.dart';
-import '../../data/manage_families_api.dart';
-import '../../data/profile_session.dart';
-import '../../features/family/family_role.dart';
-import '../../features/family/family_tree_order.dart';
-import '../navigation/unsaved_guard.dart';
-import '../router/app_router.dart';
-import '../server/app_session.dart';
-import 'album_chrome.dart';
-import 'album_theme.dart';
-import 'profile_avatar.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/data/profile_session.dart';
+import 'package:tell_me_a_story/features/family/family_role.dart';
+import 'package:tell_me_a_story/features/family/family_tree_order.dart';
+import 'package:tell_me_a_story/core/navigation/unsaved_guard.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/core/theme/album_chrome.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/core/theme/profile_avatar.dart';
 
 /// Which signed-in screen is showing the shared bar.
 enum AlbumHeaderPage {

@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/router/app_router.dart';
-import '../../core/router/auth_refresh.dart';
-import '../../core/theme/album_theme.dart';
-import '../../data/family_selection.dart';
-import '../../data/invite_api.dart';
-import '../family/family_role.dart';
-import 'magic_link_page.dart';
-import 'otp_sign_in.dart';
-import 'sign_in_code_form.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/features/family/family_role.dart';
+import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
+import 'package:tell_me_a_story/features/auth/otp_sign_in.dart';
+import 'package:tell_me_a_story/features/auth/sign_in_code_form.dart';
 
 const _inviteSage = Color(0xFF7A8B74);
 const _inviteOutline = albumSage;

@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-import '../core/server/server_client.dart';
-import 'server/server_errors.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
+import 'package:tell_me_a_story/data/server/server_errors.dart';
 
 const maxPhotosPerStory = 20;
 

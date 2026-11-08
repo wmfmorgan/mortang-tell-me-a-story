@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import '../../core/theme/album_theme.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 
 /// Width / height of the frame that shows [imageAspect] whole.
 ///

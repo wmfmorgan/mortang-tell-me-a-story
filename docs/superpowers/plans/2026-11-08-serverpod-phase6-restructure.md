@@ -143,7 +143,7 @@ After Task 1, every importer names a lib file by the same package URI, including
 mise exec -- dart fix --apply --code=always_use_package_imports
 ```
 
-Expected: about `413 fixes made in 71 files.`
+Expected: about `413 fixes made in 71 files.` `dart fix` also adds `flutter_web_plugins: any` to `pubspec.yaml`, which breaks `pub get` (it is an SDK package). Revert it: `git checkout pubspec.yaml`.
 
 - [ ] **Step 4: Fix the one conditional import by hand.** `dart fix` leaves the conditional part of the `main.dart` import relative. Make it:
 

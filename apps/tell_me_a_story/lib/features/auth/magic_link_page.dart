@@ -3,9 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/album_theme.dart';
-import 'otp_sign_in.dart';
-import 'sign_in_code_form.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/features/auth/otp_sign_in.dart';
+import 'package:tell_me_a_story/features/auth/sign_in_code_form.dart';
 
 const _landingInkMuted = albumInk;
 const _landingLine = Color(0xFFB9B0AD);

@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 
-import '../../data/family_selection.dart';
-import '../../data/profile_session.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/profile_session.dart';
 
 /// Notifies [GoRouter] when the signed-in user changes.
 ///

@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-import 'server_client.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
 
 /// Who is signed in, for code outside `lib/data`.
 ///

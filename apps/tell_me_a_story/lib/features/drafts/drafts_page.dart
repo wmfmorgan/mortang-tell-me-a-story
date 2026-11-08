@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/router/app_router.dart';
-import '../../core/server/app_session.dart';
-import '../../core/theme/album_chrome.dart';
-import '../../core/theme/album_header.dart';
-import '../../core/theme/album_theme.dart';
-import '../../data/families_api.dart';
-import '../../data/family_selection.dart';
-import '../../data/invite_api.dart';
-import '../../data/people_api.dart';
-import '../../data/manage_families_api.dart';
-import '../../data/stories_api.dart';
-import '../family/start_timeline_dialog.dart';
-import '../invites/invite_modal.dart';
-import '../stories/story_date.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/core/theme/album_chrome.dart';
+import 'package:tell_me_a_story/core/theme/album_header.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
+import 'package:tell_me_a_story/features/invites/invite_modal.dart';
+import 'package:tell_me_a_story/features/stories/story_date.dart';
 
 enum _DraftsFilter {
   all,

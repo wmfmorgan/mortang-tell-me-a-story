@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/album_theme.dart';
-import '../../data/app_exception.dart';
-import '../../data/comments_api.dart';
-import '../../data/families_api.dart';
-import '../../data/manage_families_api.dart';
-import '../../data/people_api.dart';
-import '../../data/stories_api.dart';
-import '../timeline/timeline_zoom.dart';
-import 'family_blur_dialog.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
+import 'package:tell_me_a_story/data/comments_api.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
+import 'package:tell_me_a_story/features/family/family_blur_dialog.dart';
 
 class StartTimelineResult {
   const StartTimelineResult({required this.familyId, required this.name});

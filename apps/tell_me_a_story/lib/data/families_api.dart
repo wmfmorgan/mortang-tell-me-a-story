@@ -2,12 +2,12 @@ import 'dart:typed_data';
 
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-import '../core/server/server_client.dart';
-import 'app_exception.dart';
-import 'family_covers.dart';
-import 'recovery_window.dart';
-import 'server/server_errors.dart';
-import 'server/wire.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
+import 'package:tell_me_a_story/data/family_covers.dart';
+import 'package:tell_me_a_story/data/recovery_window.dart';
+import 'package:tell_me_a_story/data/server/server_errors.dart';
+import 'package:tell_me_a_story/data/server/wire.dart';
 
 /// A trimmed family name, or `Family` when blank.
 String _familyName(String name) {

@@ -3,8 +3,8 @@ import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     show EmailAccountRequestException, EmailAccountRequestExceptionReason;
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-import '../../core/server/server_client.dart';
-import '../../data/server/server_errors.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
+import 'package:tell_me_a_story/data/server/server_errors.dart';
 
 const signInCodeWrong = "That code isn't right. Check it and try again.";
 const signInCodeExpired = 'That code has expired. Send a new one.';

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../features/family/family_blur_dialog.dart';
-import 'album_theme.dart';
+import 'package:tell_me_a_story/features/family/family_blur_dialog.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 
 /// Centered Stitch content column. The scaffold behind it stays parchment.
 const albumColumnWidth = 800.0;

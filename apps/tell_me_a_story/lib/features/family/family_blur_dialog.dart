@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/album_theme.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 
 /// Shared sigma-4 scrim. Start-a-family keeps its own sigma-5 blur.
 Widget familyBlurShell({required Widget child}) {

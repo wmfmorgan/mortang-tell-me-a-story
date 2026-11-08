@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'album_theme.dart';
-import 'profile_initials.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/core/theme/profile_initials.dart';
 
 /// Signed-in circle. A picture fills it. Initials show only when there is
 /// no picture and the saved name has words.

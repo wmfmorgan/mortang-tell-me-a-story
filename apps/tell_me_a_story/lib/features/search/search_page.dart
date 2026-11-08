@@ -5,18 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/router/app_router.dart';
-import '../../core/theme/album_chrome.dart';
-import '../../core/theme/album_theme.dart';
-import '../../data/invite_api.dart';
-import '../../data/people_api.dart';
-import '../../data/perspectives_api.dart' show displayNameOrMember;
-import '../../data/photos_api.dart';
-import '../../data/search_api.dart';
-import '../../data/stories_api.dart';
-import '../people/person_profile_dialog.dart';
-import '../stories/story_date.dart';
-import 'search_recents.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/core/theme/album_chrome.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/perspectives_api.dart'
+    show displayNameOrMember;
+import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story/data/search_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
+import 'package:tell_me_a_story/features/stories/story_date.dart';
+import 'package:tell_me_a_story/features/search/search_recents.dart';
 
 const _noMatches = 'No stories match. Try another person, place, or time.';
 const _searchingCopy = 'Searching the album…';

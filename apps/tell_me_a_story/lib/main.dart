@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 
-import 'app.dart';
-import 'core/config/env.dart';
-import 'core/navigation/before_unload.dart';
-import 'core/router/app_router.dart';
-import 'core/router/auth_refresh.dart';
-import 'core/router/url_strategy_stub.dart'
-    if (dart.library.html) 'core/router/url_strategy_web.dart';
-import 'core/server/app_session.dart';
-import 'core/server/server_client.dart';
-import 'data/families_api.dart';
-import 'data/invite_api.dart';
-import 'data/people_api.dart';
-import 'data/profile_api.dart';
-import 'data/profile_session.dart';
+import 'package:tell_me_a_story/app.dart';
+import 'package:tell_me_a_story/core/config/env.dart';
+import 'package:tell_me_a_story/core/navigation/before_unload.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/core/router/url_strategy_stub.dart'
+    if (dart.library.html) 'package:tell_me_a_story/core/router/url_strategy_web.dart';
+import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/profile_api.dart';
+import 'package:tell_me_a_story/data/profile_session.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -1,4 +1,4 @@
-import '../../data/stories_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
 
 /// A story date: a year, optionally with a month, optionally with a day.
 class StoryDate {

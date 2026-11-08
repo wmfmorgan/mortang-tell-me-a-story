@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../../core/theme/album_theme.dart';
-import '../../data/families_api.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
 
 /// Lower-cased name with surrounding space trimmed and one leading "The "
 /// dropped (same rule as familyMonogram in family_role.dart).

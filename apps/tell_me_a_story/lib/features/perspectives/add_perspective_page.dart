@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/album_chrome.dart';
-import '../../core/theme/album_theme.dart';
-import '../../data/perspectives_api.dart';
-import '../../data/profile_session.dart';
-import '../../data/stories_api.dart';
+import 'package:tell_me_a_story/core/theme/album_chrome.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/perspectives_api.dart';
+import 'package:tell_me_a_story/data/profile_session.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
 
 /// Words in [text], split on whitespace. Empty text is 0.
 int perspectiveWordCount(String text) {

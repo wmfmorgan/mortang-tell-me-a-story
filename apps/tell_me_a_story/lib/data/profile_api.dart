@@ -3,10 +3,10 @@ import 'dart:typed_data';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-import '../core/server/server_client.dart';
-import 'photos_api.dart';
-import 'server/server_errors.dart';
-import 'server/wire.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
+import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story/data/server/server_errors.dart';
+import 'package:tell_me_a_story/data/server/wire.dart';
 
 /// Who sees the account's birth date on its linked people.
 enum BirthVisibility {

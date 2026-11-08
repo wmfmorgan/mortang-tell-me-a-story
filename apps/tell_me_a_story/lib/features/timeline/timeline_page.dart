@@ -5,26 +5,26 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/router/app_router.dart';
-import '../../core/server/app_session.dart';
-import '../../core/theme/album_header.dart';
-import '../../core/theme/album_theme.dart';
-import '../../data/families_api.dart';
-import '../../data/family_selection.dart';
-import '../../data/invite_api.dart';
-import '../../data/manage_families_api.dart';
-import '../../data/people_api.dart';
-import '../../data/photos_api.dart';
-import '../../data/stories_api.dart';
-import '../../data/timeline_live.dart';
-import '../family/start_timeline_dialog.dart';
-import '../people/person_profile_dialog.dart';
-import '../invites/invite_accept.dart';
-import '../invites/invite_modal.dart';
-import '../stories/photo_frame.dart';
-import '../stories/story_date.dart';
-import 'timeline_branching.dart';
-import 'timeline_zoom.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/core/theme/album_header.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/data/timeline_live.dart';
+import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
+import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
+import 'package:tell_me_a_story/features/invites/invite_accept.dart';
+import 'package:tell_me_a_story/features/invites/invite_modal.dart';
+import 'package:tell_me_a_story/features/stories/photo_frame.dart';
+import 'package:tell_me_a_story/features/stories/story_date.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
 class TimelinePage extends StatefulWidget {

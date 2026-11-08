@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
-import 'profile_api.dart';
+import 'package:tell_me_a_story/data/profile_api.dart';
 
 /// Process memory for the signed-in profile. Not kept across a restart.
 class ProfileSession extends ChangeNotifier {
