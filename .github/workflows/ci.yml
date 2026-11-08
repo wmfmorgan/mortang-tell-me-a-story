@@ -26,6 +26,8 @@ jobs:
           persist-credentials: false
 
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install_args: flutter just # terraform is for deploys only
 
       - name: tool versions
         run: |
@@ -58,6 +60,8 @@ jobs:
           persist-credentials: false
 
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install_args: flutter just # terraform is for deploys only
 
       - name: server packages and passwords
         run: |
@@ -84,6 +88,8 @@ jobs:
           persist-credentials: false
 
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install_args: flutter just # terraform is for deploys only
 
       - name: server packages and passwords
         run: |
