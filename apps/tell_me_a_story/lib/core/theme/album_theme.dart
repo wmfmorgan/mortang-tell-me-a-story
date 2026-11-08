@@ -17,6 +17,12 @@ const albumBackdropClear = Colors.transparent;
 /// Plus glyph and button text on terracotta; sign-in landing card fill.
 const albumWhite = Color(0xFFFFFFFF);
 
+/// Text on terracotta buttons (Publish story, sign-in landing buttons).
+const albumOnAccent = Color(0xFFFFF6F3);
+
+/// Header avatar menu fill.
+const albumMenuSurface = Color(0xFFFCF9F5);
+
 const albumCardRadius = 12.0;
 
 ColorScheme albumColorScheme() {

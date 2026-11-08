@@ -284,7 +284,7 @@ class _HeaderBar extends StatelessWidget {
           onPressed: onPublish,
           style: FilledButton.styleFrom(
             backgroundColor: albumTerracotta,
-            foregroundColor: const Color(0xFFFFF6F3),
+            foregroundColor: albumOnAccent,
             elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             shape: const StadiumBorder(),
@@ -784,7 +784,7 @@ class _FamilyMenu extends StatelessWidget {
       color: albumDialogSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE6DCD1)),
+        side: const BorderSide(color: albumModalBorder),
       ),
       constraints: menuConstraints,
       items: _menuItems(),
@@ -935,7 +935,7 @@ class _ClosedFamilyLabel extends StatelessWidget {
                   width: painter.width,
                   height: 2,
                   decoration: BoxDecoration(
-                    color: active ? albumInk : Colors.transparent,
+                    color: active ? albumInk : albumBackdropClear,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -1022,7 +1022,7 @@ class _NavItem extends StatelessWidget {
                 width: painter.width,
                 height: 2,
                 decoration: BoxDecoration(
-                  color: active ? albumInk : Colors.transparent,
+                  color: active ? albumInk : albumBackdropClear,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -1134,10 +1134,10 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
       padding: EdgeInsets.zero,
       offset: const Offset(0, 40),
       constraints: const BoxConstraints(minWidth: 224, maxWidth: 280),
-      color: const Color(0xFFFCF9F5),
+      color: albumMenuSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE6DCD1)),
+        side: const BorderSide(color: albumModalBorder),
       ),
       onSelected: (value) {
         unawaited(_onAvatarSelected(context, value));
