@@ -2,7 +2,7 @@ import 'package:flutter/material.dart' show TextField, FilledButton;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:tell_me_a_story/app.dart';
+import 'package:tell_me_a_story/app/app.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/main.dart' as app;
 

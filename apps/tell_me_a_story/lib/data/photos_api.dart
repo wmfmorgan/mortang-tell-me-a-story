@@ -3,8 +3,9 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-import '../core/server/server_client.dart';
-import 'server/server_errors.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
+import 'package:tell_me_a_story/data/server/server_errors.dart';
 
 const maxPhotosPerStory = 20;
 
@@ -75,15 +76,6 @@ class CompressedPhoto {
   final Uint8List bytes;
   final String mimeType; // image/jpeg
   final String extension; // jpg
-}
-
-class StorageFailedException implements Exception {
-  const StorageFailedException({this.code = 'STORAGE_FAILED', this.cause});
-  final String code;
-  final Object? cause;
-
-  @override
-  String toString() => 'StorageFailedException($code)';
 }
 
 /// Lowest [Photo.sortOrder] first, then id.

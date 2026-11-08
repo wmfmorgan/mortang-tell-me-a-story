@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/router/app_router.dart';
-import '../../data/families_api.dart';
-import '../../data/manage_families_api.dart';
-import '../../data/people_api.dart';
-import '../../data/stories_api.dart';
-import 'start_timeline_dialog.dart';
+import 'package:tell_me_a_story/core/router/app_routes.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
 
 /// Branch dialog shared by signed-in hosts. The caller reloads and snacks.
 Future<StartTimelineResult?> openStartTimeline(

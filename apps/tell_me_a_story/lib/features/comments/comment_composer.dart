@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/album_theme.dart';
-import '../../data/comments_api.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/comments_api.dart';
 
 /// Inline short comment field + Post. Empty/whitespace Post is a no-op.
 class CommentComposer extends StatefulWidget {

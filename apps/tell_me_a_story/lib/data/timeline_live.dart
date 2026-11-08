@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-import '../core/server/server_client.dart';
+import 'package:tell_me_a_story/core/server/server_client.dart';
 
 /// Whether a live event should refresh the open family timeline.
 ///

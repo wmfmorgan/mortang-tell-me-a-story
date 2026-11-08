@@ -14,6 +14,33 @@ const albumInk = Color(0xFF2C2416);
 const albumDialogSurface = Color(0xFFFFF8F6);
 const albumBackdropClear = Colors.transparent;
 
+/// Plus glyph and button text on terracotta; sign-in landing card fill.
+const albumWhite = Color(0xFFFFFFFF);
+
+/// Text on terracotta buttons (Publish story, sign-in landing buttons).
+const albumOnAccent = Color(0xFFFFF6F3);
+
+/// Header avatar menu fill.
+const albumMenuSurface = Color(0xFFFCF9F5);
+
+/// Profile avatar circle fill when there is no picture.
+const albumAvatarFill = Color(0xFFEDE0DC);
+
+/// Profile avatar circle border.
+const albumAvatarBorder = Color(0xFFD5C7B7);
+
+/// Send-invite confirm: card and note borders, divider (at alpha 0x80).
+const albumInviteBorder = Color(0xFFE8DFD5);
+
+/// Send-invite confirm: note row fill.
+const albumInviteNoteFill = Color(0xFFF7F1EA);
+
+/// Black for drop shadows; use with withAlpha.
+const albumShadow = Color(0xFF000000);
+
+/// Sign-in landing: card borders, footer rules, muted lines (with alpha).
+const albumLandingLine = Color(0xFFB9B0AD);
+
 const albumCardRadius = 12.0;
 
 ColorScheme albumColorScheme() {

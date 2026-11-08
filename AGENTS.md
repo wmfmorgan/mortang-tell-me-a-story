@@ -11,10 +11,12 @@ If the code and the plan disagree, stop and report the difference; don't reconci
 
 ## Layout
 - `apps/tell_me_a_story/`: Flutter client (iPad + web).
-  - `lib/core`: config, server connection, router, theme tokens.
-  - `lib/data`: gateways (models, `XGateway`, `XApi` on the generated client).
+  - `lib/app`: router and app widget.
+  - `lib/core`: config, route paths, server connection, theme tokens.
+  - `lib/data`: gateways and session state.
+  - `lib/ui`: widgets used by several features.
   - `lib/features/<feature>`: screens.
-  - Tests: `test/`, `test/live` (tag `live`), `integration_test/`.
+  - `test/` mirrors `lib/`; `test/architecture` holds the guards; `test/support/fakes` holds the shared gateway fakes; `test/live` (tag `live`); `integration_test/` (e2e).
 - `apps/server/`: Serverpod 4.1.1 server. Endpoints are in `lib/src/endpoints`, rules in `lib/src/<domain>`, models in `lib/src/models/*.spy.yaml`, migrations in `migrations/`.
 - `packages/tell_me_a_story_client/`: generated; never edit by hand.
 
@@ -45,9 +47,10 @@ Run from the repo root as `mise exec -- just …` (or in a shell with mise activ
 ## Code rules
 - No swallowed errors. Every catch shows or returns a mapped message, or rethrows.
 - Server errors are `AppException` with an `AppErrorCode` (`apps/server/lib/src/models/app_error_code.spy.yaml`; shorthands in `apps/server/lib/src/errors.dart`). Messages are user-facing copy; never put raw database text in them. The client maps them in `lib/data/server/server_errors.dart`. A new code needs the owner's approval.
-- UI uses only `lib/core/theme/album_theme.dart` tokens. `test/theme/no_hardcoded_colors_test.dart` fails on `Color(0x` or `Colors.` anywhere else in `lib/`. Its skip list names files by exact path from `lib/` and only shrinks: never add a path. A new token needs the owner's approval.
+- UI uses only `lib/core/theme/album_theme.dart` tokens. `test/architecture/no_hardcoded_colors_test.dart` fails on `Color(0x` or `Colors.` anywhere else in `lib/`. Its skip list names files by exact path from `lib/` and only shrinks: never add a path. A new token needs the owner's approval.
 - No new user-facing copy without the owner's approval.
 - No new dependencies without approval. Pin majors; no drive-by upgrades.
+- `lib/` layers: `app/` (composition root) may import anything; `core/` imports `core/`; `data/` imports `core/` and `data/`; `ui/` imports `core/`, `data/` and `ui/`; `features/<f>/` imports those plus lower-rank features (`featureRank` in `test/architecture/import_boundaries_test.dart`). Only `app/` (with `main.dart`), `data/` and `core/server/` import the generated client or `serverpod*`. The test enforces this; change a rank only with the owner's approval.
 
 ## Off limits
 - No secrets in code, docs or chat. `apps/server/config/passwords.yaml` comes from `just server-passwords` and is git-ignored.

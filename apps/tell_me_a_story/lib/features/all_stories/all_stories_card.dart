@@ -3,11 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/album_theme.dart';
-import '../../data/families_api.dart';
-import '../../data/stories_api.dart';
-import '../stories/story_date.dart';
-import 'all_stories_logic.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
+import 'package:tell_me_a_story/features/all_stories/all_stories_logic.dart';
 
 /// Ink at 70% on parchment. That composite is the #6A6358 dim floor.
 Color allStoriesDimInk() {

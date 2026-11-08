@@ -1,0 +1,3879 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/app/app.dart';
+import 'package:tell_me_a_story/app/app_router.dart';
+import 'package:tell_me_a_story/core/router/app_routes.dart';
+import 'package:tell_me_a_story/data/auth_refresh.dart';
+import 'package:tell_me_a_story/ui/album/album_header.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/data/timeline_live.dart';
+import 'package:tell_me_a_story/features/invites/invite_modal.dart';
+import 'package:tell_me_a_story/ui/story/photo_frame.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
+
+import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_manage_families_gateway.dart';
+import '../../support/fakes/fake_photos_gateway.dart';
+import '../../support/fakes/fake_stories_gateway.dart';
+
+const _familyId = '00000000-0000-0000-0000-000000000001';
+
+Uint8List _pngOf(int width, int height) {
+  final bytes = Uint8List.fromList(const [
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+    0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, //
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, //
+  ]);
+  bytes[16] = (width >> 24) & 0xff;
+  bytes[17] = (width >> 16) & 0xff;
+  bytes[18] = (width >> 8) & 0xff;
+  bytes[19] = width & 0xff;
+  bytes[20] = (height >> 24) & 0xff;
+  bytes[21] = (height >> 16) & 0xff;
+  bytes[22] = (height >> 8) & 0xff;
+  bytes[23] = height & 0xff;
+  return bytes;
+}
+
+class _FakeStoriesApi extends FakeStoriesGateway {
+  _FakeStoriesApi({List<Story>? published}) : published = [...?published];
+
+  final List<Story> published;
+
+  @override
+  Future<Story?> getPublished(String storyId) async {
+    for (final s in published) {
+      if (s.id == storyId && s.status == StoryStatus.published) return s;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<Story>> listPublished(String familyId) async {
+    return published.where((s) => s.familyId == familyId).toList();
+  }
+}
+
+class _ReadableTree extends FamiliesGateway {
+  _ReadableTree({required this.mine, required this.tree});
+
+  final List<MemberFamily> mine;
+  final List<TreeFamily> tree;
+
+  @override
+  Future<List<MemberFamily>> listMine() async => mine;
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => const [];
+
+  @override
+  Future<List<TreeFamily>> listFamilyTree(String familyId) async => tree;
+}
+
+class _FakeFamilies extends FamiliesGateway {
+  _FakeFamilies(this.rows);
+
+  final List<MemberFamily> rows;
+
+  @override
+  Future<List<MemberFamily>> listMine() async => rows;
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => const [];
+}
+
+class _FakeManage extends FakeManageFamiliesGateway {
+  /// Only [createRootFamily] is expected; every other call throws.
+  _FakeManage(this.families) {
+    error = StateError('unexpected call');
+  }
+
+  final _FakeFamilies families;
+
+  @override
+  Future<String> createRootFamily(String name) async {
+    const id = '00000000-0000-0000-0000-00000000000b';
+    families.rows.add(
+      MemberFamily(id: id, name: name, createdAt: DateTime.utc(2022)),
+    );
+    return id;
+  }
+}
+
+class _FakeLive implements TimelineLive {
+  void Function()? onChange;
+  String? familyId;
+
+  @override
+  void watch({required String familyId, required void Function() onChange}) {
+    this.familyId = familyId;
+    this.onChange = onChange;
+  }
+
+  @override
+  void watchStory({
+    required String storyId,
+    required void Function() onChange,
+  }) {}
+
+  @override
+  void dispose() {}
+
+  void emit() => onChange?.call();
+}
+
+class _RecordingStories extends _FakeStoriesApi {
+  _RecordingStories({super.published});
+
+  final loads = <String>[];
+
+  @override
+  Future<List<Story>> listPublished(String familyId) async {
+    loads.add(familyId);
+    return super.listPublished(familyId);
+  }
+}
+
+class _SlowStoriesApi extends _FakeStoriesApi {
+  _SlowStoriesApi() {
+    _pending = Completer<List<Story>>();
+  }
+
+  late final Completer<List<Story>> _pending;
+
+  @override
+  Future<List<Story>> listPublished(String familyId) => _pending.future;
+}
+
+Story _published({
+  String id = 's1',
+  String familyId = _familyId,
+  String? title,
+  String? body = 'Jam',
+  DateTime? timeframeStart,
+  DateTime? timeframeEnd,
+  String? placeLabel,
+  List<String> personNames = const [],
+  int photoCount = 0,
+  int commentCount = 0,
+  List<String> photoPaths = const [],
+  String? authorDisplayName,
+  DateTime? createdAt,
+}) {
+  return Story(
+    id: id,
+    familyId: familyId,
+    authorId: 'u1',
+    title: title,
+    body: body,
+    timeframeStart: timeframeStart ?? DateTime(1980, 1, 1),
+    timeframeEnd: timeframeEnd ?? DateTime(1989, 12, 31),
+    placeId: placeLabel == null ? 'pl' : 'pl',
+    status: StoryStatus.published,
+    personIds: const ['p'],
+    placeLabel: placeLabel,
+    personNames: personNames,
+    photoCount: photoCount,
+    commentCount: commentCount,
+    photoPaths: photoPaths,
+    authorDisplayName: authorDisplayName,
+    publishedAt: DateTime(2026, 9, 27),
+    createdAt: createdAt,
+  );
+}
+
+Widget _timeline({
+  required StoriesGateway stories,
+  ThemeData? theme,
+  FamiliesGateway? families,
+  TimelineLive? live,
+  PhotosGateway? photos,
+  Key? pageKey,
+}) {
+  return MaterialApp(
+    theme: theme,
+    home: TimelinePage(
+      key: pageKey,
+      api: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
+      storiesApi: stories,
+      familiesApi: families,
+      live: live,
+      photosApi: photos,
+    ),
+  );
+}
+
+class _FakePhotos extends FakePhotosGateway {
+  _FakePhotos({Uint8List? bytes}) : bytes = bytes ?? _png;
+
+  final Uint8List bytes;
+
+  static final _png = Uint8List.fromList(const [
+    0x89,
+    0x50,
+    0x4E,
+    0x47,
+    0x0D,
+    0x0A,
+    0x1A,
+    0x0A,
+    0x00,
+    0x00,
+    0x00,
+    0x0D,
+    0x49,
+    0x48,
+    0x44,
+    0x52,
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x08,
+    0x06,
+    0x00,
+    0x00,
+    0x00,
+    0x1F,
+    0x15,
+    0xC4,
+    0x89,
+    0x00,
+    0x00,
+    0x00,
+    0x0A,
+    0x49,
+    0x44,
+    0x41,
+    0x54,
+    0x78,
+    0x9C,
+    0x63,
+    0x00,
+    0x01,
+    0x00,
+    0x00,
+    0x05,
+    0x00,
+    0x01,
+    0x0D,
+    0x0A,
+    0x2D,
+    0xB4,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x49,
+    0x45,
+    0x4E,
+    0x44,
+    0xAE,
+    0x42,
+    0x60,
+    0x82,
+  ]);
+
+  @override
+  Future<Uint8List> downloadBytes(String storagePath) async => bytes;
+}
+
+Future<void> _openFullCards(WidgetTester tester, String storyId) async {
+  expect(storyId, isNotEmpty);
+  await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+  await tester.pumpAndSettle();
+}
+
+void _pinch(WidgetTester tester, double scale) {
+  final detector = tester.widget<GestureDetector>(
+    find.byWidgetPredicate(
+      (widget) => widget is GestureDetector && widget.onScaleUpdate != null,
+    ),
+  );
+  detector.onScaleStart?.call(
+    ScaleStartDetails(
+      focalPoint: Offset.zero,
+      localFocalPoint: Offset.zero,
+      pointerCount: 2,
+    ),
+  );
+  detector.onScaleUpdate?.call(
+    ScaleUpdateDetails(
+      focalPoint: Offset.zero,
+      localFocalPoint: Offset.zero,
+      scale: scale,
+      horizontalScale: scale,
+      verticalScale: scale,
+      pointerCount: 2,
+    ),
+  );
+}
+
+bool _mossRingOn(WidgetTester tester, Finder dot) {
+  final dotCenter = tester.getCenter(dot);
+  return find
+      .byWidgetPredicate((widget) {
+        if (widget is! DecoratedBox) return false;
+        final decoration = widget.decoration;
+        if (decoration is! BoxDecoration) return false;
+        final side = decoration.border?.top;
+        return decoration.shape == BoxShape.circle &&
+            side?.color == branchMoss &&
+            side?.width == calloutStroke;
+      })
+      .evaluate()
+      .any((element) {
+        final box = element.renderObject! as RenderBox;
+        final center = box.localToGlobal(box.size.center(Offset.zero));
+        return (center - dotCenter).distance <= 1;
+      });
+}
+
+String _tooltipFor(WidgetTester tester, String storyId) {
+  return tester
+          .widget<Tooltip>(
+            find.ancestor(
+              of: find.byKey(Key('timeline-dot-$storyId')),
+              matching: find.byType(Tooltip),
+            ),
+          )
+          .message ??
+      '';
+}
+
+void _expectBranchCallout(
+  WidgetTester tester, {
+  required String storyId,
+  required String dotKey,
+  required String familyId,
+  required String label,
+}) {
+  final ring = find.byKey(Key('timeline-branch-callout-ring-$storyId'));
+  final dot = find.byKey(Key(dotKey));
+  expect(ring, findsOneWidget);
+  expect(dot, findsOneWidget);
+  final dotCenter = tester.getCenter(dot);
+  expect((tester.getCenter(ring) - dotCenter).distance, lessThanOrEqualTo(1));
+  expect(tester.getSize(ring), const Size(calloutHit, calloutHit));
+  expect(
+    find
+        .byWidgetPredicate((widget) {
+          if (widget is! DecoratedBox) return false;
+          final decoration = widget.decoration;
+          if (decoration is! BoxDecoration) return false;
+          final side = decoration.border?.top;
+          return decoration.shape == BoxShape.circle &&
+              side?.color == branchMoss &&
+              side?.width == 2;
+        })
+        .evaluate()
+        .any((element) {
+          final box = element.renderObject! as RenderBox;
+          final center = box.localToGlobal(box.size.center(Offset.zero));
+          return (center - dotCenter).distance <= 1;
+        }),
+    isTrue,
+  );
+
+  final name = find.byKey(Key('timeline-branch-callout-$familyId'));
+  expect(name, findsOneWidget);
+  final text = tester.widget<Text>(
+    find.descendant(of: name, matching: find.byType(Text)),
+  );
+  expect(text.data, label);
+  expect(text.maxLines, 1);
+  expect(text.overflow, TextOverflow.ellipsis);
+  expect(text.style?.color, branchMoss);
+  expect(text.style?.fontWeight, FontWeight.w500);
+  expect(
+    find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint && widget.painter is CalloutLeaderPainter,
+    ),
+    findsWidgets,
+  );
+  expect(find.byKey(Key('timeline-branch-mark-$familyId')), findsNothing);
+}
+
+void _expectMossCard(
+  WidgetTester tester,
+  String storyId, {
+  required bool days,
+}) {
+  if (days) {
+    final material = tester.widget<Material>(
+      find
+          .ancestor(
+            of: find.byKey(Key('timeline-card-$storyId')),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    final side = (material.shape! as RoundedRectangleBorder).side;
+    expect(side.color, branchMoss);
+    expect(side.width, 1);
+    expect(material.color, albumParchment);
+    final radius = (material.shape! as RoundedRectangleBorder).borderRadius;
+    expect(radius, BorderRadius.circular(albumCardRadius));
+    return;
+  }
+  final stub = find.byKey(Key('timeline-stub-$storyId'));
+  expect(
+    find
+        .descendant(
+          of: stub,
+          matching: find.byWidgetPredicate((widget) {
+            if (widget is! DecoratedBox) return false;
+            final decoration = widget.decoration;
+            if (decoration is! BoxDecoration) return false;
+            return decoration.color == albumParchment &&
+                decoration.border?.top.color == branchMoss &&
+                decoration.border?.top.width == 1 &&
+                decoration.borderRadius ==
+                    BorderRadius.circular(albumCardRadius);
+          }),
+        )
+        .evaluate()
+        .isNotEmpty,
+    isTrue,
+  );
+}
+
+void _expectZoom(WidgetTester tester, String key) {
+  final button = tester.widget<TextButton>(find.byKey(Key(key)));
+  expect(
+    button.style?.foregroundColor?.resolve(const <WidgetState>{}),
+    albumParchment,
+  );
+}
+
+void main() {
+  test('far footer names the family', () {
+    expect(
+      farFooter(familyName: 'Test Family'),
+      'Test Family - Stories preserved across the decades.',
+    );
+  });
+
+  setUpAll(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
+  testWidgets(
+    'W-21 a non-member opens a branch they can read through the tree',
+    (tester) async {
+      addTearDown(FamilySelection.clear);
+      const branchId = '00000000-0000-0000-0000-0000000000aa';
+      FamilySelection.remember(branchId);
+      await tester.pumpWidget(
+        _timeline(
+          stories: _FakeStoriesApi(published: const []),
+          families: _ReadableTree(
+            mine: [
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(2020),
+              ),
+            ],
+            tree: const [
+              TreeFamily(id: _familyId, name: 'Ada'),
+              TreeFamily(
+                id: branchId,
+                name: 'East Branch',
+                parentFamilyId: _familyId,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('East Branch'), findsWidgets);
+      expect(find.text('Ada'), findsNothing);
+    },
+  );
+
+  testWidgets('a saved family outside the tree falls back to the membership', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    FamilySelection.remember('00000000-0000-0000-0000-0000000000bb');
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: const []),
+        families: _ReadableTree(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Ada',
+              createdAt: DateTime.utc(2020),
+            ),
+          ],
+          tree: const [TreeFamily(id: _familyId, name: 'Ada')],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Ada'), findsWidgets);
+  });
+
+  testWidgets('empty published list shows locked empty copy', (tester) async {
+    await tester.pumpWidget(_timeline(stories: _FakeStoriesApi(published: [])));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsOneWidget,
+    );
+    expect(find.text('Stories'), findsWidgets);
+  });
+
+  testWidgets('a decade uses the click pointer and arrows scroll each rail', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Arrival',
+              timeframeStart: DateTime(1954),
+            ),
+            _published(id: 'mid', title: 'Jam', timeframeStart: DateTime(1980)),
+            _published(
+              id: 'late',
+              title: 'Willow',
+              timeframeStart: DateTime(2024),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final decade = tester.widget<MouseRegion>(
+      find
+          .ancestor(of: find.text('1980s'), matching: find.byType(MouseRegion))
+          .first,
+    );
+    expect(decade.cursor, SystemMouseCursors.click);
+
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.text('1950 · IN FOCUS'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('timeline-decade-1980')));
+    await tester.pumpAndSettle();
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.text('1954 · IN FOCUS'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(find.text('2024 · IN FOCUS'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
+  });
+
+  testWidgets('published story preview appears after listPublished', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(stories: _FakeStoriesApi(published: [_published()])),
+    );
+    await tester.pumpAndSettle();
+
+    expect(_tooltipFor(tester, 's1'), 'Untitled (January 1, 1980)');
+    expect(find.text('Jam'), findsNothing);
+    expect(find.text('1980s'), findsOneWidget);
+  });
+
+  testWidgets('timeline card prefers a saved title', (tester) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              title: 'Making Blackberry Jam on the Back Porch',
+              body: 'We spent the afternoon.',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      _tooltipFor(tester, 's1'),
+      'Making Blackberry Jam on the Back Porch (January 1, 1980)',
+    );
+    expect(find.text('We spent the afternoon.'), findsNothing);
+  });
+
+  testWidgets('loading published shows small progress', (tester) async {
+    await tester.pumpWidget(_timeline(stories: _SlowStoriesApi()));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('shared header shows Invite, New story, and Drafts', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_timeline(stories: _FakeStoriesApi(published: [])));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tell Me a Story'), findsOneWidget);
+    expect(find.text('Stories'), findsWidgets);
+    expect(find.text('Draft Stories'), findsOneWidget);
+    expect(find.byKey(const Key('header-invite')), findsNothing);
+    expect(find.text('New story'), findsOneWidget);
+    expect(find.text('Search archive...'), findsNothing);
+    expect(find.text('Family'), findsOneWidget);
+    expect(find.byKey(const Key('timeline-search')), findsOneWidget);
+    expect(find.byKey(const Key('header-avatar')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-decades')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-timeline')), findsNothing);
+    expect(find.text('Save draft'), findsNothing);
+    expect(find.text('Publish'), findsNothing);
+    expect(find.text('Timeline'), findsOneWidget);
+    expect(find.text('Family Members'), findsNothing);
+    expect(find.text('Places'), findsNothing);
+    expect(find.text('Help'), findsNothing);
+    expect(find.byKey(const Key('timeline-more')), findsNothing);
+  });
+
+  testWidgets('album AppBar fits at 320px without overflow', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: []),
+        theme: albumTheme(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('timeline-search')), findsOneWidget);
+    expect(find.text('Draft Stories'), findsOneWidget);
+    expect(find.byKey(const Key('header-invite')), findsNothing);
+    expect(find.text('New story'), findsOneWidget);
+    expect(find.byKey(const Key('header-avatar')), findsOneWidget);
+  });
+
+  testWidgets('1px layout pass does not overflow the timeline column', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1, 1));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        theme: albumTheme(),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('above 320 the search icon stays a 40px target', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1370, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: []),
+        theme: albumTheme(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.renderObject<RenderBox>(find.byType(AlbumHeader)).size.height,
+      72,
+    );
+    expect(
+      tester.widget<Text>(find.text('Tell Me a Story')).style?.fontSize,
+      24,
+    );
+    expect(
+      tester.renderObject<RenderBox>(find.text('Tell Me a Story')).size.width,
+      greaterThan(300),
+    );
+    final search = tester
+        .renderObject<RenderBox>(find.byKey(const Key('timeline-search')))
+        .size;
+    expect(search.width, 40);
+    expect(search.height, greaterThanOrEqualTo(40));
+  });
+
+  testWidgets('family switch reloads that family and Invite uses it', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    const otherId = '00000000-0000-0000-0000-000000000002';
+    final stories = _RecordingStories(published: [_published(title: 'Jam')]);
+    final live = _FakeLive();
+    await tester.pumpWidget(
+      _timeline(
+        stories: stories,
+        live: live,
+        families: _FakeFamilies([
+          MemberFamily(
+            id: _familyId,
+            name: 'Ada',
+            createdAt: DateTime.utc(2020),
+          ),
+          MemberFamily(id: otherId, name: 'Bea', createdAt: DateTime.utc(2021)),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(live.familyId, _familyId);
+    expect(stories.loads, [_familyId]);
+
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bea').last);
+    await tester.pumpAndSettle();
+
+    expect(stories.loads.last, otherId);
+    expect(live.familyId, otherId);
+    expect(find.byKey(const Key('timeline-dot-s1')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu-invite')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<InviteModal>(find.byType(InviteModal)).familyId,
+      otherId,
+    );
+  });
+
+  testWidgets('Drafts and New story leave the timeline', (tester) async {
+    final router = GoRouter(
+      initialLocation: AppRoutes.timeline,
+      routes: [
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) => TimelinePage(
+            api: FakeInviteGateway(
+              familyId: _familyId,
+              createdFamilyId: _familyId,
+              acceptedFamilyId: 'f',
+            ),
+            storiesApi: _FakeStoriesApi(published: []),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.drafts,
+          builder: (context, state) => const Text('drafts-screen'),
+        ),
+        GoRoute(
+          path: AppRoutes.newStory,
+          builder: (context, state) => const Text('new-story-screen'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Draft Stories'));
+    await tester.pumpAndSettle();
+    expect(find.text('drafts-screen'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New story'));
+    await tester.pumpAndSettle();
+    expect(find.text('new-story-screen'), findsOneWidget);
+  });
+
+  testWidgets('returning to timeline opens the family remembered at create', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    const otherId = '00000000-0000-0000-0000-000000000002';
+    final stories = _FakeStoriesApi(
+      published: [
+        _published(id: 'old', title: 'Old', familyId: _familyId),
+        _published(id: 'new', title: 'New', familyId: otherId),
+      ],
+    );
+    final router = GoRouter(
+      initialLocation: AppRoutes.timeline,
+      routes: [
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) => TimelinePage(
+            api: FakeInviteGateway(
+              familyId: _familyId,
+              createdFamilyId: _familyId,
+              acceptedFamilyId: 'f',
+            ),
+            storiesApi: stories,
+            familiesApi: _FakeFamilies([
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(2020),
+              ),
+              MemberFamily(
+                id: otherId,
+                name: 'Bea',
+                createdAt: DateTime.utc(2021),
+              ),
+            ]),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.manageFamilies,
+          builder: (context, state) => const Text('manage-screen'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('Ada'), findsWidgets);
+    expect(_tooltipFor(tester, 'old'), contains('Old'));
+
+    router.push(AppRoutes.manageFamilies);
+    await tester.pumpAndSettle();
+    FamilySelection.remember(otherId);
+    router.go(AppRoutes.timeline);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bea'), findsWidgets);
+    expect(_tooltipFor(tester, 'new'), contains('New'));
+    expect(find.byKey(const Key('timeline-dot-old')), findsNothing);
+  });
+
+  testWidgets(
+    'the timeline dropdown has Manage families and no Start a family',
+    (tester) async {
+      addTearDown(FamilySelection.clear);
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      FamilySelection.remember(_familyId);
+      final families = _FakeFamilies([
+        MemberFamily(id: _familyId, name: 'Ada', createdAt: DateTime.utc(2020)),
+      ]);
+      final stories = _FakeStoriesApi(
+        published: [
+          _published(id: 'oldA', title: 'Old A', familyId: _familyId),
+        ],
+      );
+      final router = GoRouter(
+        initialLocation: AppRoutes.timeline,
+        routes: [
+          GoRoute(
+            path: AppRoutes.timeline,
+            builder: (context, state) => TimelinePage(
+              api: FakeInviteGateway(
+                familyId: _familyId,
+                createdFamilyId: _familyId,
+                acceptedFamilyId: 'f',
+              ),
+              storiesApi: stories,
+              familiesApi: families,
+              live: _FakeLive(),
+              manageApi: _FakeManage(families),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('No stories yet. Capture the first one for this family.'),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+      await tester.pumpAndSettle();
+      _expectZoom(tester, 'timeline-zoom-full');
+      expect(find.text('Old A'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('family-menu')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('family-menu-start')), findsNothing);
+      expect(find.byKey(const Key('family-menu-manage')), findsOneWidget);
+    },
+  );
+
+  testWidgets('returning to timeline after publish reloads published list', (
+    tester,
+  ) async {
+    final stories = _FakeStoriesApi(published: []);
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
+      storiesApi: stories,
+    );
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+    router.go(AppRoutes.timeline);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsOneWidget,
+    );
+
+    router.push(AppRoutes.drafts);
+    await tester.pumpAndSettle();
+
+    stories.published.add(_published(familyId: _familyId, title: 'Jam'));
+
+    router.go(AppRoutes.timeline);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widgetList<Tooltip>(find.byType(Tooltip))
+          .any((tip) => tip.message?.contains('Jam') ?? false),
+      isTrue,
+    );
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsNothing,
+    );
+
+    auth.dispose();
+  });
+
+  testWidgets('tapping a published card pushes the story reader', (
+    tester,
+  ) async {
+    final story = _published(title: 'Jam');
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
+      storiesApi: _FakeStoriesApi(published: [story]),
+    );
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+    router.go(AppRoutes.timeline);
+    await tester.pumpAndSettle();
+
+    expect(_tooltipFor(tester, story.id), contains('Jam'));
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
+    expect(find.text('Years'), findsOneWidget);
+    _expectZoom(tester, 'timeline-zoom-mid');
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.timeline,
+    );
+
+    await tester.tap(find.byKey(Key('timeline-mid-node-${story.id}')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-full');
+    expect(find.byKey(const Key('story-reader-modal')), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.timeline,
+    );
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(Key('timeline-stub-${story.id}')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
+    expect(find.byKey(const Key('family-menu')), findsOneWidget);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      AppRoutes.storyPath(story.id),
+    );
+    await tester.tap(find.byKey(const Key('story-reader-close')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.timeline,
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-full');
+    expect(find.text('Jam'), findsOneWidget);
+    expect(find.text('Currently Focused'), findsNothing);
+    expect(find.text('Family Archive · Near Zoom View'), findsNothing);
+    expect(find.textContaining('photos · '), findsOneWidget);
+
+    await tester.tap(find.byKey(Key('timeline-card-${story.id}')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('story-reader-close')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-full');
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-decade-node-1980')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+    expect(find.byKey(const Key('story-reader-modal')), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.timeline,
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('timeline-dot-${story.id}')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('story-reader-close')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-macro');
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.timeline,
+    );
+
+    auth.dispose();
+  });
+
+  testWidgets('opening a story from Years and popping stays on Years', (
+    tester,
+  ) async {
+    final story = _published(title: 'Jam');
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
+      storiesApi: _FakeStoriesApi(published: [story]),
+    );
+    addTearDown(auth.dispose);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+    router.go('${AppRoutes.timeline}?view=decades');
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-macro');
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+
+    await tester.tap(find.byKey(Key('timeline-stub-${story.id}')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('story-reader-close')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+    expect(
+      router.routerDelegate.currentConfiguration.uri.queryParameters['view'],
+      isNot('decades'),
+    );
+  });
+
+  testWidgets('empty space steps out and controls do not', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-full');
+
+    await tester.tap(find.byKey(const Key('timeline-card-s1')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-full');
+
+    await tester.tap(find.byKey(const Key('timeline-empty')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+
+    await tester.tap(find.byKey(const Key('timeline-stub-s1')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+
+    await tester.tap(find.byKey(const Key('timeline-empty')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-macro');
+
+    await tester.tap(find.byKey(const Key('timeline-empty')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-macro');
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-decade-1980')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+  });
+
+  testWidgets('Fit returns to the constellation from mid', (tester) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
+    expect(find.text('Mid-1980s'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
+    await tester.pumpAndSettle();
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
+    expect(find.text('CONTINUOUS FAMILY DIAL'), findsNothing);
+    expect(find.text('1980s · IN FOCUS'), findsNothing);
+    _expectZoom(tester, 'timeline-zoom-macro');
+    expect(find.text('Fit all'), findsNothing);
+  });
+
+  testWidgets('Stories sits left of Timeline and Timeline opens Decades', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final timeline = tester.getTopLeft(
+      find.byKey(const Key('header-nav-timeline')),
+    );
+    final stories = tester.getTopLeft(find.byKey(const Key('timeline-nav')));
+    expect(stories.dx, lessThan(timeline.dx));
+    expect(find.byKey(const Key('header-underline-decades')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-mid');
+
+    await tester.tap(find.byKey(const Key('header-nav-timeline')));
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-macro');
+  });
+
+  testWidgets('the zoom pill slides from Decades to Years to Days', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    double leftOf(Key key) => tester.getTopLeft(find.byKey(key)).dx;
+    final pill = const Key('timeline-zoom-pill');
+    final macro = const Key('timeline-zoom-macro');
+    final mid = const Key('timeline-zoom-mid');
+    final full = const Key('timeline-zoom-full');
+
+    expect(leftOf(pill), closeTo(leftOf(macro), 1));
+
+    await tester.tap(find.byKey(mid));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(leftOf(pill), greaterThan(leftOf(macro) + 8));
+    expect(leftOf(pill), lessThan(leftOf(mid)));
+    await tester.pumpAndSettle();
+    expect(leftOf(pill), closeTo(leftOf(mid), 1));
+
+    await tester.tap(find.byKey(full));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(leftOf(pill), greaterThan(leftOf(mid) + 8));
+    expect(leftOf(pill), lessThan(leftOf(full)));
+    await tester.pumpAndSettle();
+    expect(leftOf(pill), closeTo(leftOf(full), 1));
+  });
+
+  testWidgets('mid dial keeps the center year sharp and fades the edges', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Arrival',
+              timeframeStart: DateTime(1954),
+            ),
+            _published(id: 'mid', title: 'Jam', timeframeStart: DateTime(1980)),
+            _published(
+              id: 'late',
+              title: 'Willow',
+              timeframeStart: DateTime(2024),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('2020s')).dy,
+      lessThan(tester.getTopLeft(find.text('1950s')).dy),
+    );
+    double decadeOpacity(String label) {
+      return tester
+          .widget<Opacity>(
+            find
+                .ancestor(of: find.text(label), matching: find.byType(Opacity))
+                .first,
+          )
+          .opacity;
+    }
+
+    expect(decadeOpacity('1980s'), 1);
+    expect(decadeOpacity('2020s'), lessThan(1));
+    expect(decadeOpacity('1950s'), lessThan(1));
+    expect(find.text('Jam (1980)'), findsNothing);
+    expect(_tooltipFor(tester, 'mid'), 'Jam (January 1, 1980)');
+    await tester.tap(find.byKey(const Key('timeline-decade-1980')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    expect(find.text('1980 · IN FOCUS'), findsNothing);
+    expect(find.text('DIAL CENTER'), findsNothing);
+    expect(find.text('Mid-1980s to Mid-1990s Era'), findsNothing);
+
+    double opacityFor(String id) {
+      return tester
+          .widget<Opacity>(
+            find
+                .ancestor(
+                  of: find.byKey(Key('timeline-stub-$id')),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity;
+    }
+
+    expect(opacityFor('mid') > opacityFor('early'), isTrue);
+    expect(opacityFor('mid') > opacityFor('late'), isTrue);
+    expect(find.byKey(const Key('timeline-stub-mid')), findsOneWidget);
+  });
+
+  test('a far decade dims before it reaches the viewport edge', () {
+    const viewportHeight = 400.0;
+    final band = viewportHeight * farFadeBand;
+
+    expect(
+      farEdgeOpacity(
+        rowTop: viewportHeight / 2 - 40,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: viewportHeight,
+      ),
+      1,
+    );
+    expect(
+      farEdgeOpacity(
+        rowTop: 30,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: viewportHeight,
+      ),
+      closeTo(70 / band, 0.001),
+    );
+    expect(
+      farEdgeOpacity(
+        rowTop: viewportHeight - 110,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: viewportHeight,
+      ),
+      closeTo(70 / band, 0.001),
+    );
+    expect(70 / band, lessThan(0.6));
+    expect(
+      farEdgeOpacity(
+        rowTop: -120,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: viewportHeight,
+      ),
+      0,
+    );
+  });
+
+  test('full cards fade with the same band as the far rail', () {
+    const viewportHeight = 400.0;
+    const band = viewportHeight * farFadeBand;
+
+    expect(
+      fullCardOpacity(
+        rowTop: viewportHeight / 2 - 40,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: viewportHeight,
+      ),
+      1,
+    );
+    expect(
+      fullCardOpacity(
+        rowTop: -40,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: viewportHeight,
+      ),
+      0,
+    );
+    expect(
+      fullCardOpacity(
+        rowTop: band / 2 - 40,
+        rowHeight: 80,
+        viewportTop: 0,
+        viewportHeight: viewportHeight,
+      ),
+      closeTo(0.5, 0.001),
+    );
+  });
+
+  testWidgets('a far decade fades as it leaves and sharpens when it returns', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Arrival',
+              timeframeStart: DateTime(1954),
+            ),
+            _published(id: 'mid', title: 'Jam', timeframeStart: DateTime(1980)),
+            _published(
+              id: 'late',
+              title: 'Willow',
+              timeframeStart: DateTime(2024),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    double decadeOpacity(String label) {
+      return tester
+          .widget<Opacity>(
+            find
+                .ancestor(of: find.text(label), matching: find.byType(Opacity))
+                .first,
+          )
+          .opacity;
+    }
+
+    final scrollable = find
+        .ancestor(of: find.text('2020s'), matching: find.byType(Scrollable))
+        .first;
+    final view = tester.renderObject<RenderBox>(scrollable);
+    final row = tester.renderObject<RenderBox>(
+      find
+          .ancestor(of: find.text('2020s'), matching: find.byType(Opacity))
+          .first,
+    );
+    final slack =
+        row.localToGlobal(Offset.zero).dy - view.localToGlobal(Offset.zero).dy;
+    expect(slack, greaterThan(0));
+    final homeOpacity = decadeOpacity('2020s');
+
+    final position = tester.state<ScrollableState>(scrollable).position;
+    final home = position.pixels;
+    position.jumpTo(home + slack + row.size.height / 2);
+    await tester.pumpAndSettle();
+
+    final leaving = tester.renderObject<RenderBox>(
+      find
+          .ancestor(of: find.text('2020s'), matching: find.byType(Opacity))
+          .first,
+    );
+    final leavingView = tester.renderObject<RenderBox>(scrollable);
+    final expected = farEdgeOpacity(
+      rowTop: leaving.localToGlobal(Offset.zero).dy,
+      rowHeight: leaving.size.height,
+      viewportTop: leavingView.localToGlobal(Offset.zero).dy,
+      viewportHeight: leavingView.size.height,
+    );
+    expect(expected, lessThan(homeOpacity));
+    expect(decadeOpacity('2020s'), closeTo(expected, 0.02));
+
+    position.jumpTo(home);
+    await tester.pumpAndSettle();
+    expect(decadeOpacity('2020s'), closeTo(homeOpacity, 0.02));
+  });
+
+  testWidgets('oldest published story can sit at the dial center', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Arrival',
+              timeframeStart: DateTime(1954),
+            ),
+            _published(id: 'mid', title: 'Jam', timeframeStart: DateTime(1980)),
+            _published(
+              id: 'late',
+              title: 'Willow',
+              timeframeStart: DateTime(2024),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-decade-1950')));
+    await tester.pumpAndSettle();
+
+    final early = find.byKey(const Key('timeline-stub-early'));
+    final row = tester.renderObject<RenderBox>(
+      find.ancestor(of: early, matching: find.byType(Opacity)).first,
+    );
+    final view = tester.renderObject<RenderBox>(
+      find.ancestor(of: early, matching: find.byType(Scrollable)).first,
+    );
+    final rowMid = row.localToGlobal(row.size.center(Offset.zero)).dy;
+    final viewMid = view.localToGlobal(view.size.center(Offset.zero)).dy;
+    expect((rowMid - viewMid).abs(), lessThan(1.5));
+    expect(find.text('1954 · IN FOCUS'), findsNothing);
+
+    final earlyTop = tester.getTopLeft(early).dy;
+    final lateTop = tester
+        .getTopLeft(find.byKey(const Key('timeline-stub-late')))
+        .dy;
+    expect(lateTop, lessThan(earlyTop));
+  });
+
+  testWidgets('mid stubs and near cards show the title without the body', (
+    tester,
+  ) async {
+    const body = 'We spent the afternoon stirring the pot.';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [_published(id: 's1', title: 'title2', body: body)],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('title2'), findsOneWidget);
+    expect(find.text(body), findsNothing);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    expect(find.text('title2'), findsOneWidget);
+    expect(find.text(body), findsNothing);
+  });
+
+  testWidgets('mid branch rail runs from the join toward newer stories', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Arrival',
+              timeframeStart: DateTime(1954),
+            ),
+            _published(id: 'mid', title: 'Jam', timeframeStart: DateTime(1980)),
+            _published(
+              id: 'late',
+              title: 'Willow',
+              timeframeStart: DateTime(2024),
+            ),
+          ],
+        ),
+        families: _FakeFamilies([
+          MemberFamily(
+            id: _familyId,
+            name: 'Jenkins',
+            createdAt: DateTime.utc(1970),
+          ),
+          MemberFamily(
+            id: 'child',
+            name: 'Martinez',
+            parentFamilyId: _familyId,
+            createdAt: DateTime.utc(1985),
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-decade-1980')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('timeline-branch-late')), findsNothing);
+    expect(find.byKey(const Key('timeline-branch-mid')), findsNothing);
+    expect(find.byKey(const Key('timeline-branch-early')), findsNothing);
+  });
+
+  testWidgets('a draft in the gateway list stays off the rail', (tester) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(title: 'Jam'),
+            Story(
+              id: 'draft-1',
+              familyId: _familyId,
+              authorId: 'u1',
+              title: 'Secret draft',
+              body: 'hidden',
+              timeframeStart: DateTime(1990, 1, 1),
+              status: StoryStatus.draft,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('1990s'), findsNothing);
+    expect(find.text('Secret draft'), findsNothing);
+  });
+
+  testWidgets('branch chrome appears only when a child family is visible', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _FakeFamilies([
+          MemberFamily(
+            id: _familyId,
+            name: 'Jenkins',
+            createdAt: DateTime.utc(1970),
+          ),
+          MemberFamily(
+            id: 'child',
+            name: 'Martinez',
+            parentFamilyId: _familyId,
+            createdAt: DateTime.utc(1985),
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('MARTINEZ BRANCH'), findsNothing);
+    expect(find.text('← Martinez union joined archive'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    expect(find.text('Martinez Branch'), findsNothing);
+    expect(find.text('← Martinez union joined archive'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    expect(find.text('Martinez Branch'), findsNothing);
+    expect(find.text('← Martinez union joined archive'), findsNothing);
+    expect(
+      find.text('Martinez branch fork & merge indicator active'),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('timeline-spine')), findsOneWidget);
+  });
+
+  testWidgets('search chip opens /search on far, mid, and near', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final router = GoRouter(
+      initialLocation: AppRoutes.timeline,
+      routes: [
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) => TimelinePage(
+            api: FakeInviteGateway(
+              familyId: _familyId,
+              createdFamilyId: _familyId,
+              acceptedFamilyId: 'f',
+            ),
+            storiesApi: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.search,
+          builder: (context, state) => const Text('search-screen'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp.router(theme: albumTheme(), routerConfig: router),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> openAndBack() async {
+      expect(find.byKey(const Key('timeline-search')), findsOneWidget);
+      expect(find.text('Search archive...'), findsNothing);
+      await tester.ensureVisible(find.byKey(const Key('timeline-search')));
+      await tester.tap(find.byKey(const Key('timeline-search')));
+      await tester.pumpAndSettle();
+      expect(find.text('search-screen'), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
+    }
+
+    await openAndBack();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    await openAndBack();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    await openAndBack();
+  });
+
+  testWidgets('a published live event adds a dot', (tester) async {
+    final stories = _FakeStoriesApi(published: []);
+    final live = _FakeLive();
+    await tester.pumpWidget(_timeline(stories: stories, live: live));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsOneWidget,
+    );
+
+    stories.published.add(_published(title: 'Jam'));
+    live.emit();
+    await tester.pumpAndSettle();
+    expect(_tooltipFor(tester, 's1'), contains('Jam'));
+  });
+
+  testWidgets('full cards list the whole family newest first', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const body = 'secret body line';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'wagon',
+              title: 'Wagon',
+              body: body,
+              timeframeStart: DateTime(1989),
+            ),
+            _published(
+              id: 'lawn',
+              title: 'Lawn',
+              body: body,
+              timeframeStart: DateTime(1990),
+            ),
+            _published(
+              id: 'canning',
+              title: 'Canning',
+              body: body,
+              timeframeStart: DateTime(1991),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'lawn');
+
+    expect(
+      tester.getTopLeft(find.text('Canning')).dy,
+      lessThan(tester.getTopLeft(find.text('Wagon')).dy),
+    );
+    expect(find.text(body), findsNothing);
+  });
+
+  testWidgets('full cards show people and place chips from stored fields', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'placed',
+              title: 'Lawn',
+              personNames: const ['Aunt Clara', 'Uncle Arthur'],
+              placeLabel: 'University Lawn',
+            ),
+            _published(id: 'plain', title: 'Wagon'),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'placed');
+    expect(find.text('Aunt Clara'), findsOneWidget);
+    expect(find.text('Uncle Arthur'), findsOneWidget);
+    expect(find.text('University Lawn'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('timeline-card-plain')),
+        matching: find.byIcon(Icons.location_on),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('the viewport center card is sharp and carries the byline', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'early',
+              title: 'Wagon',
+              timeframeStart: DateTime(1989),
+              authorDisplayName: 'Aunt Sarah',
+            ),
+            _published(
+              id: 'mid',
+              title: 'Lawn',
+              timeframeStart: DateTime(1990),
+              authorDisplayName: 'Aunt Sarah',
+            ),
+            _published(
+              id: 'late',
+              title: 'Canning',
+              timeframeStart: DateTime(1991),
+              authorDisplayName: 'Aunt Sarah',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-decade-1990')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+
+    double opacityFor(String id) {
+      return tester
+          .widget<Opacity>(
+            find
+                .ancestor(
+                  of: find.byKey(Key('timeline-card-$id')),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity;
+    }
+
+    expect(opacityFor('mid'), greaterThan(opacityFor('late')));
+    expect(opacityFor('mid'), greaterThan(opacityFor('early')));
+    expect(find.text('Added by Aunt Sarah'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('timeline-card-late')),
+        matching: find.textContaining('Added by'),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('the center card paints the first photo and the stored count', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _timeline(
+        photos: _FakePhotos(),
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'lawn',
+              title: 'Lawn',
+              photoCount: 4,
+              commentCount: 1,
+              photoPaths: const ['families/a.jpg', 'families/b.jpg'],
+              createdAt: DateTime(2026, 2, 1),
+            ),
+            _published(
+              id: 'plain',
+              title: 'Wagon',
+              photoCount: 0,
+              createdAt: DateTime(2026, 1, 1),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'lawn');
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('timeline-card-lawn')),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('4 photos · 1 note'), findsOneWidget);
+    expect(
+      tester
+          .widget<Image>(
+            find.descendant(
+              of: find.byKey(const Key('timeline-card-lawn')),
+              matching: find.byType(Image),
+            ),
+          )
+          .fit,
+      BoxFit.contain,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('timeline-card-plain')),
+        matching: find.byType(Image),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('a focused portrait photo uses a tall well instead of a slit', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final portrait = _pngOf(30, 45);
+    await tester.pumpWidget(
+      _timeline(
+        photos: _FakePhotos(bytes: portrait),
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'lawn',
+              title: 'Lawn',
+              photoCount: 1,
+              photoPaths: const ['families/portrait.jpg'],
+              createdAt: DateTime(2026, 2, 1),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await _openFullCards(tester, 'lawn');
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final well = tester.getSize(
+      find.byKey(const Key('timeline-card-photos-families/portrait.jpg')),
+    );
+    expect(
+      well.height,
+      cardPhotoHeight(width: well.width, imageAspect: 30 / 45, focused: true),
+    );
+    expect(well.height, greaterThan(192));
+    expect(
+      tester
+          .widget<Image>(
+            find.descendant(
+              of: find.byKey(
+                const Key('timeline-card-photos-families/portrait.jpg'),
+              ),
+              matching: find.byType(Image),
+            ),
+          )
+          .fit,
+      BoxFit.contain,
+    );
+  });
+
+  testWidgets('full cards drop the zoom cluster and stay on one line at 320', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _FakeFamilies([
+          MemberFamily(
+            id: _familyId,
+            name: 'Jenkins',
+            createdAt: DateTime.utc(1970),
+          ),
+          MemberFamily(
+            id: 'child',
+            name: 'Martinez',
+            parentFamilyId: _familyId,
+            createdAt: DateTime.utc(1985),
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 's1');
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    _expectZoom(tester, 'timeline-zoom-full');
+    expect(find.text('Decades'), findsOneWidget);
+    expect(find.text('Years'), findsOneWidget);
+    expect(find.text('Days'), findsOneWidget);
+    expect(find.byKey(const Key('timeline-zoom-in')), findsNothing);
+    expect(find.byKey(const Key('timeline-fit')), findsNothing);
+    expect(find.textContaining('union joined archive'), findsNothing);
+    expect(find.textContaining('Branch'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint &&
+            (widget.painter?.runtimeType.toString().contains('Dash') ?? false),
+      ),
+      findsNothing,
+    );
+
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
+    await tester.pumpAndSettle();
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    _expectZoom(tester, 'timeline-zoom-macro');
+    expect(find.text('CONTINUOUS FAMILY DIAL'), findsNothing);
+    expect(find.text('MARTINEZ BRANCH'), findsNothing);
+  });
+
+  testWidgets('pinch uses the existing handler and the 0.5 reveal', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+
+    _pinch(tester, 1.1);
+    await tester.pumpAndSettle();
+    _expectZoom(tester, 'timeline-zoom-full');
+
+    final card = find.byKey(const Key('timeline-card-s1'));
+    final scrollable = find
+        .ancestor(of: card, matching: find.byType(Scrollable))
+        .first;
+    final delta =
+        (tester.getRect(card).center.dy - tester.getRect(scrollable).center.dy)
+            .abs();
+    expect(delta, lessThan(48));
+
+    _pinch(tester, 0.9);
+    await tester.pumpAndSettle();
+    expect(find.text('Continuous Family Dial'), findsNothing);
+    _expectZoom(tester, 'timeline-zoom-mid');
+  });
+
+  test('related marks sort null years first, then year, then id', () {
+    const ada = TreeFamily(id: 'b', name: 'Ada', branchYear: 1972);
+    const bea = TreeFamily(id: 'a', name: 'Bea');
+    const cy = TreeFamily(id: 'c', name: 'Cy', branchYear: 1960);
+    final marks = relatedMarks([
+      ada,
+      bea,
+      cy,
+      const TreeFamily(id: 'open', name: 'Open'),
+    ], 'open');
+    expect(marks.map((row) => row.id).toList(), ['a', 'c', 'b']);
+    expect(branchMarkLabel(bea), 'Bea Branch');
+    expect(branchMarkLabel(ada), 'Ada Branch');
+  });
+
+  testWidgets('one family paints no branch mark and no related block', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _FakeFamilies([
+          MemberFamily(
+            id: _familyId,
+            name: 'Jenkins',
+            createdAt: DateTime.utc(1970),
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_branchMarks(), findsNothing);
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('Related families'), findsNothing);
+    expect(find.byKey(const Key('family-menu-start')), findsNothing);
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    expect(_branchMarks(), findsNothing);
+    _expectZoom(tester, 'timeline-zoom-mid');
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    expect(_branchMarks(), findsNothing);
+  });
+
+  testWidgets('a null-year family callout sits on its story at each zoom', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 's1',
+      dotKey: 'timeline-dot-s1',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    expect(find.textContaining('Bea ·'), findsNothing);
+    expect(find.byKey(Key('timeline-dot-$bea')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 's1',
+      dotKey: 'timeline-mid-node-s1',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    _expectMossCard(tester, 's1', days: false);
+    expect(
+      tester.getBottomLeft(find.byKey(Key('timeline-branch-callout-$bea'))).dy,
+      lessThanOrEqualTo(
+        tester.getTopLeft(find.byKey(const Key('timeline-stub-s1'))).dy,
+      ),
+    );
+    final semanticsHandle = tester.ensureSemantics();
+    expect(find.bySemanticsLabel('Open Bea timeline'), findsOneWidget);
+    final node = tester.getSemantics(
+      find.bySemanticsLabel('Open Bea timeline'),
+    );
+    expect(node.flagsCollection.isButton, isTrue);
+    final focus = find.byKey(const Key('timeline-branch-callout-focus-s1'));
+    expect(focus, findsOneWidget);
+    expect(
+      find.ancestor(of: focus, matching: find.byType(InkWell)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: focus, matching: find.byType(InkWell)),
+      findsNothing,
+    );
+    semanticsHandle.dispose();
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 's1',
+      dotKey: 'timeline-full-dot-s1',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    _expectMossCard(tester, 's1', days: true);
+
+    await tester.tap(find.byKey(Key('timeline-branch-callout-$bea')));
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, bea);
+  });
+
+  testWidgets('a 1972 callout sits on the story that started the branch', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'new',
+              title: 'Newer',
+              timeframeStart: DateTime(1984),
+            ),
+            _published(
+              id: 'mid',
+              title: 'Close',
+              timeframeStart: DateTime(1975),
+            ),
+            _published(
+              id: 'old',
+              title: 'Older',
+              timeframeStart: DateTime(1960),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'mid',
+              branchYear: 1972,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      _containsFinder(
+        tester,
+        find.byKey(const Key('timeline-decade-row-1970')),
+        find.byKey(const Key('timeline-branch-callout-ring-mid')),
+      ),
+      isTrue,
+    );
+    _expectBranchCallout(
+      tester,
+      storyId: 'mid',
+      dotKey: 'timeline-dot-mid',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    expect(
+      _containsFinder(
+        tester,
+        find.byKey(const Key('timeline-decade-row-1980')),
+        find.byKey(const Key('timeline-branch-callout-$bea')),
+      ),
+      isFalse,
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 'mid',
+      dotKey: 'timeline-mid-node-mid',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    _expectMossCard(tester, 'mid', days: false);
+    expect(
+      find.byKey(const Key('timeline-branch-callout-ring-new')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 'mid',
+      dotKey: 'timeline-full-dot-mid',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    _expectMossCard(tester, 'mid', days: true);
+  });
+
+  testWidgets('years and days rings sit on the branching story dot', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'mid',
+              title: 'Close',
+              timeframeStart: DateTime(1975),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'mid',
+              branchYear: 1972,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 'mid',
+      dotKey: 'timeline-mid-node-mid',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    _expectMossCard(tester, 'mid', days: false);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 'mid',
+      dotKey: 'timeline-full-dot-mid',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    _expectMossCard(tester, 'mid', days: true);
+  });
+
+  testWidgets('a no-year callout names the family and rings its story', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [_published(id: 'first', title: 'First tale')],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'first',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 'first',
+      dotKey: 'timeline-dot-first',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    expect(find.textContaining('Bea ·'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 'first',
+      dotKey: 'timeline-mid-node-first',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    _expectMossCard(tester, 'first', days: false);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 'first',
+      dotKey: 'timeline-full-dot-first',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    _expectMossCard(tester, 'first', days: true);
+    expect(find.text('First tale'), findsOneWidget);
+  });
+
+  testWidgets('a no-year callout rings the narrow full-card dot', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(700, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [_published(id: 'first', title: 'First tale')],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'first',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    _expectBranchCallout(
+      tester,
+      storyId: 'first',
+      dotKey: 'timeline-full-dot-first',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+    _expectMossCard(tester, 'first', days: true);
+    final card = find.byKey(const Key('timeline-card-first'));
+    final label = find.byKey(Key('timeline-branch-callout-$bea'));
+    expect(
+      (tester.getRect(card).left - tester.getRect(label).left).abs(),
+      lessThanOrEqualTo(1),
+    );
+  });
+
+  testWidgets('tapping the years ring opens the branch family', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final ring = find.byKey(const Key('timeline-branch-callout-ring-s1'));
+    final node = find.byKey(const Key('timeline-mid-node-s1'));
+    const ringTap = Offset(14, 0);
+    expect(
+      (tester.getCenter(ring) + ringTap - tester.getCenter(node)).distance,
+      greaterThan(tester.getSize(node).shortestSide / 2),
+    );
+    await tester.tapAt(tester.getCenter(ring) + ringTap);
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, bea);
+  });
+
+  testWidgets('tapping the years ring on a diagonal opens the branch', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final ring = find.byKey(const Key('timeline-branch-callout-ring-s1'));
+    expect(tester.getSize(ring).shortestSide, greaterThanOrEqualTo(44));
+    const ringTap = Offset(10, 10);
+    await tester.tapAt(tester.getCenter(ring) + ringTap);
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, bea);
+    _expectZoom(tester, 'timeline-zoom-mid');
+    expect(find.byKey(const Key('story-reader-modal')), findsNothing);
+  });
+
+  testWidgets('a drag along the years ring does not open the branch', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final center = tester.getCenter(
+      find.byKey(const Key('timeline-branch-callout-ring-s1')),
+    );
+    final gesture = await tester.startGesture(center + const Offset(16, 0));
+    await gesture.moveTo(center + const Offset(0, 16));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, isNull);
+    _expectZoom(tester, 'timeline-zoom-mid');
+  });
+
+  testWidgets('tapping the years node opens the story', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-mid-node-s1')));
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, isNull);
+    _expectZoom(tester, 'timeline-zoom-full');
+    expect(find.byKey(const Key('timeline-card-s1')), findsOneWidget);
+  });
+
+  testWidgets('the years leader ends at the label', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'new',
+              title: 'Newer',
+              timeframeStart: DateTime(1990),
+            ),
+            _published(
+              id: 'old',
+              title: 'Older',
+              timeframeStart: DateTime(1970),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'old',
+              branchYear: 1972,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final label = find.byKey(Key('timeline-branch-callout-$bea'));
+    final labelRect = tester.getRect(label);
+    final end = _leaderEnd(tester);
+    expect(
+      labelRect.center.dx,
+      greaterThan(
+        tester.getCenter(find.byKey(const Key('timeline-mid-node-old'))).dx,
+      ),
+    );
+    expect(labelRect.left, closeTo(end.dx + calloutLabelGap, 2));
+    expect(
+      tester.getRect(find.byKey(const Key('timeline-stub-old'))).left,
+      closeTo(labelRect.left, 2),
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    final daysLabel = tester.getRect(
+      find.byKey(Key('timeline-branch-callout-$bea')),
+    );
+    final daysEnd = _leaderEnd(tester);
+    expect(daysLabel.left, closeTo(daysEnd.dx + calloutLabelGap, 2));
+    expect(
+      tester.getRect(find.byKey(const Key('timeline-card-old'))).left,
+      closeTo(daysLabel.left, 2),
+    );
+  });
+
+  testWidgets('a decade branch dot stays on the line and comes last', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'plain',
+              title: 'Plain',
+              timeframeStart: DateTime(1972),
+            ),
+            _published(
+              id: 'branch',
+              title: 'Branch',
+              timeframeStart: DateTime(1974),
+            ),
+            _published(
+              id: 'later',
+              title: 'Later',
+              timeframeStart: DateTime(1976),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'branch',
+              branchYear: 1974,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final plain = tester.getCenter(find.byKey(const Key('timeline-dot-plain')));
+    final later = tester.getCenter(find.byKey(const Key('timeline-dot-later')));
+    final branch = tester.getCenter(
+      find.byKey(const Key('timeline-dot-branch')),
+    );
+    expect(branch.dx, greaterThan(plain.dx));
+    expect(branch.dx, greaterThan(later.dx));
+    expect((branch.dy - plain.dy).abs(), lessThanOrEqualTo(1));
+    expect((branch.dy - later.dy).abs(), lessThanOrEqualTo(1));
+    final label = tester.getRect(
+      find.byKey(Key('timeline-branch-callout-$bea')),
+    );
+    expect(
+      (label.center.dy - _leaderEnd(tester).dy).abs(),
+      lessThanOrEqualTo(2),
+    );
+    final decoration =
+        tester
+                .widget<Container>(
+                  find.descendant(
+                    of: find.byKey(const Key('timeline-dot-branch')),
+                    matching: find.byType(Container),
+                  ),
+                )
+                .decoration!
+            as BoxDecoration;
+    expect(decoration.boxShadow, isNull);
+  });
+
+  testWidgets('enter on the callout opens the branch', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final focus = find.byKey(const Key('timeline-branch-callout-focus-s1'));
+    expect(_mossFocusOutline(), findsNothing);
+    final scope = find.descendant(of: focus, matching: find.byType(Row)).first;
+    Focus.of(tester.element(scope)).requestFocus();
+    await tester.pump();
+    await tester.pump();
+    expect(_mossFocusOutline(), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, bea);
+  });
+
+  testWidgets('enter on a focused branch card opens the story', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    final story = _published(title: 'Jam');
+    final auth = AuthRefresh(initiallySignedIn: true);
+    addTearDown(auth.dispose);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
+      storiesApi: _FakeStoriesApi(published: [story]),
+      familiesApi: _TreeFamilies(
+        mine: [
+          MemberFamily(
+            id: _familyId,
+            name: 'Jenkins',
+            createdAt: DateTime.utc(1970),
+          ),
+        ],
+        tree: [
+          const TreeFamily(id: _familyId, name: 'Jenkins'),
+          TreeFamily(
+            id: bea,
+            name: 'Bea',
+            parentFamilyId: _familyId,
+            originStoryId: story.id,
+          ),
+        ],
+      ),
+    );
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+    router.go(AppRoutes.timeline);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final card = find.byKey(Key('timeline-stub-${story.id}'));
+    expect(find.byKey(Key('timeline-branch-callout-$bea')), findsOneWidget);
+    final scope = find
+        .descendant(of: card, matching: find.byType(MouseRegion))
+        .first;
+    final node = Focus.of(tester.element(scope));
+    node.requestFocus();
+    await tester.pump();
+    await tester.pump();
+    expect(
+      node.hasPrimaryFocus,
+      isTrue,
+      reason: 'branch card did not take focus',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('story-reader-modal')), findsOneWidget);
+  });
+
+  testWidgets('tapping a mark opens that family timeline', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(id: 'ada', title: 'Ada tale'),
+            _published(id: 'bea-story', familyId: bea, title: 'Bea tale'),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 'ada',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_tooltipFor(tester, 'ada'), contains('Ada tale'));
+    expect(find.byKey(const Key('timeline-dot-bea-story')), findsNothing);
+    _expectBranchCallout(
+      tester,
+      storyId: 'ada',
+      dotKey: 'timeline-dot-ada',
+      familyId: bea,
+      label: 'Bea Branch',
+    );
+
+    final ring = find.byKey(const Key('timeline-branch-callout-ring-ada'));
+    final ringRect = tester.getRect(ring);
+    final dotRect = tester.getRect(find.byKey(const Key('timeline-dot-ada')));
+    await tester.tapAt(Offset(ringRect.right - 2, ringRect.center.dy));
+    expect(ringRect.right - 2, greaterThan(dotRect.right));
+    await tester.pumpAndSettle();
+
+    expect(FamilySelection.id, bea);
+    expect(_tooltipFor(tester, 'bea-story'), contains('Bea tale'));
+    expect(_tooltipFor(tester, 'bea-story'), isNot(contains('Origin')));
+    expect(_tooltipFor(tester, 'ada'), contains('Origin'));
+    expect(find.text('Origin · from Jenkins'), findsNothing);
+    expect(find.text('Ada tale'), findsNothing);
+    final parentLabel = find.byKey(Key('timeline-branch-callout-$_familyId'));
+    expect(parentLabel, findsOneWidget);
+    expect(
+      tester.getCenter(parentLabel).dy,
+      lessThan(tester.getCenter(find.byKey(const Key('timeline-dot-ada'))).dy),
+    );
+  });
+
+  testWidgets('a tree-read open family is not listed and no row is checked', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const ada = '00000000-0000-0000-0000-0000000000ad';
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelinePage(
+          api: FakeInviteGateway(
+            familyId: bea,
+            createdFamilyId: bea,
+            acceptedFamilyId: 'f',
+          ),
+          storiesApi: _FakeStoriesApi(
+            published: [_published(familyId: bea, title: 'Bea tale')],
+          ),
+          familiesApi: _TreeFamilies(
+            mine: [
+              MemberFamily(id: ada, name: 'Ada', createdAt: DateTime.utc(1970)),
+            ],
+            tree: const [
+              TreeFamily(id: ada, name: 'Ada'),
+              TreeFamily(id: bea, name: 'Bea'),
+            ],
+            stewarded: [StewardFamily(id: ada, name: 'Ada', role: 'owner')],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FilledButton, 'New story'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('family-menu-invite')), findsNothing);
+    expect(find.byKey(const Key('family-menu-start-timeline')), findsNothing);
+    expect(find.text('Related families'), findsNothing);
+    expect(find.byKey(Key('family-menu-related-$bea')), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(Key('family-menu-item-$ada')),
+        matching: find.byIcon(Icons.check),
+      ),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('family-menu-start')), findsNothing);
+    expect(find.byKey(const Key('family-menu-manage')), findsOneWidget);
+  });
+
+  testWidgets(
+    'origin banner shows for an owner and a co-owner, not a member, and not a root with no published stories',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const parent = '00000000-0000-0000-0000-0000000000aa';
+      const sentence =
+          'Every timeline starts with a story. Set the origin story for Ada.';
+
+      Future<void> pumpRole(String role) async {
+        await tester.pumpWidget(
+          _timeline(
+            pageKey: ValueKey('banner-$role'),
+            stories: _FakeStoriesApi(),
+            families: _TreeFamilies(
+              mine: [
+                MemberFamily(
+                  id: _familyId,
+                  name: 'Ada',
+                  createdAt: DateTime.utc(1970),
+                  parentFamilyId: parent,
+                ),
+              ],
+              tree: const [
+                TreeFamily(id: parent, name: 'Parent'),
+                TreeFamily(id: _familyId, name: 'Ada', parentFamilyId: parent),
+              ],
+              stewarded: [
+                StewardFamily(id: _familyId, name: 'Ada', role: role),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pumpRole('owner');
+      expect(find.text(sentence), findsOneWidget);
+      expect(find.text('Choose from Parent'), findsOneWidget);
+
+      await pumpRole('co_owner');
+      expect(find.text(sentence), findsOneWidget);
+      expect(find.text('Choose from Parent'), findsOneWidget);
+
+      await pumpRole('member');
+      expect(find.text(sentence), findsNothing);
+      expect(find.text('Choose from Parent'), findsNothing);
+
+      await tester.pumpWidget(
+        _timeline(
+          pageKey: const ValueKey('banner-root-empty'),
+          stories: _FakeStoriesApi(),
+          families: _TreeFamilies(
+            mine: [
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(1970),
+              ),
+            ],
+            tree: const [TreeFamily(id: _familyId, name: 'Ada')],
+            stewarded: const [
+              StewardFamily(id: _familyId, name: 'Ada', role: 'owner'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('timeline-origin-banner')), findsNothing);
+
+      await tester.pumpWidget(
+        _timeline(
+          pageKey: const ValueKey('banner-root-story'),
+          stories: _FakeStoriesApi(published: [_published(title: 'Ada tale')]),
+          families: _TreeFamilies(
+            mine: [
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(1970),
+              ),
+            ],
+            tree: const [TreeFamily(id: _familyId, name: 'Ada')],
+            stewarded: const [
+              StewardFamily(id: _familyId, name: 'Ada', role: 'owner'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(sentence), findsOneWidget);
+      expect(find.textContaining('Choose from'), findsNothing);
+      expect(
+        find.text('Open one of your stories and choose Set as origin for Ada.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('a decade parent callout leaves the top of the origin dot', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    const origin = 'origin';
+    const earlier = 'earlier';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: earlier,
+              title: 'Earlier',
+              timeframeStart: DateTime(1992),
+            ),
+            _published(
+              id: origin,
+              title: 'The beginning',
+              timeframeStart: DateTime(1995),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Child line',
+              createdAt: DateTime.utc(1995),
+              parentFamilyId: parent,
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: parent, name: 'The WFM Morgans'),
+            TreeFamily(
+              id: _familyId,
+              name: 'Child line',
+              parentFamilyId: parent,
+              originStoryId: origin,
+              branchYear: 1995,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final parentName = find.byKey(const Key('timeline-branch-callout-$parent'));
+    expect(parentName, findsOneWidget);
+    final parentText = tester.widget<Text>(
+      find.descendant(of: parentName, matching: find.byType(Text)),
+    );
+    expect(parentText.data, 'The WFM Morgans Branch');
+    expect(parentText.style?.color, branchMoss);
+    expect(parentText.style?.fontWeight, FontWeight.w500);
+    expect(
+      parentText.style?.fontSize,
+      Theme.of(tester.element(parentName)).textTheme.labelLarge?.fontSize,
+    );
+    expect(
+      find.byKey(const Key('timeline-branch-callout-ring-$origin')),
+      findsNothing,
+    );
+    expect(find.text('Origin · from The WFM Morgans'), findsNothing);
+    expect(find.text('The beginning'), findsNothing);
+    expect(_tooltipFor(tester, origin), contains('The beginning'));
+    expect(_tooltipFor(tester, origin), contains('Origin'));
+    expect(
+      _mossRingOn(tester, find.byKey(const Key('timeline-dot-$origin'))),
+      isTrue,
+    );
+    expect(
+      _containsFinder(
+        tester,
+        find.byKey(const Key('timeline-decade-row-1990')),
+        find.byKey(const Key('timeline-branch-callout-$parent')),
+      ),
+      isTrue,
+    );
+    final dot = tester.getCenter(find.byKey(const Key('timeline-dot-$origin')));
+    final label = tester.getCenter(
+      find.byKey(const Key('timeline-branch-callout-$parent')),
+    );
+    expect(label.dy, lessThan(dot.dy));
+    expect(label.dx, greaterThan(dot.dx));
+    expect(
+      dot.dx,
+      greaterThan(
+        tester.getCenter(find.byKey(const Key('timeline-dot-$earlier'))).dx,
+      ),
+    );
+    final leader = _calloutLeaders(tester).single;
+    expect(leader.start.dx, greaterThan(0));
+    expect(leader.start.dy, lessThan(0));
+    expect(leader.start.dx.abs(), closeTo(leader.start.dy.abs(), 0.01));
+    expect(leader.elbow.dx, greaterThan(leader.start.dx));
+    expect(leader.elbow.dy, lessThan(leader.start.dy));
+    expect(
+      (leader.start.dx - leader.elbow.dx).abs(),
+      closeTo((leader.start.dy - leader.elbow.dy).abs(), 0.01),
+    );
+    expect(leader.end.dy, closeTo(leader.elbow.dy, 0.01));
+    expect(leader.end.dx, greaterThan(leader.elbow.dx));
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    expect(find.text('Origin · from The WFM Morgans'), findsOneWidget);
+    final yearsLabel = find.byKey(const Key('timeline-branch-callout-$parent'));
+    expect(yearsLabel, findsOneWidget);
+    final yearsText = tester.widget<Text>(
+      find.descendant(of: yearsLabel, matching: find.byType(Text)),
+    );
+    expect(yearsText.data, 'The WFM Morgans Branch');
+    expect(yearsText.style?.fontSize, calloutParentFontSize);
+    final card = tester.getRect(find.byKey(const Key('timeline-stub-$origin')));
+    final yearsRect = tester.getRect(yearsLabel);
+    expect(yearsRect.bottom, lessThan(card.top));
+    expect(yearsRect.center.dx, lessThan(card.center.dx));
+    final yearsLeader = _calloutLeaders(tester).single;
+    expect(
+      (yearsLeader.elbow.dy - yearsLeader.start.dy).abs(),
+      closeTo(calloutDiagonal + calloutParentLift, 0.5),
+    );
+    final yearsPaint = tester.renderObject<RenderBox>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint && widget.painter is CalloutLeaderPainter,
+      ),
+    );
+    final yearsStart = yearsPaint.localToGlobal(
+      yearsPaint.size.center(Offset.zero) + yearsLeader.start,
+    );
+    expect(yearsStart.dx, closeTo(card.center.dx, 2));
+    expect(yearsStart.dy, closeTo(card.top - calloutLeaderGap, 2));
+    expect(yearsLeader.elbow.dx, lessThan(yearsLeader.start.dx));
+    expect(yearsLeader.end.dx, lessThan(yearsLeader.elbow.dx));
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-macro')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-branch-callout-$parent')));
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, parent);
+  });
+
+  testWidgets('a decade parent callout sits above a child callout', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    const origin = 'origin';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: origin,
+              title: 'The beginning',
+              timeframeStart: DateTime(1995),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Child line',
+              createdAt: DateTime.utc(1995),
+              parentFamilyId: parent,
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: parent, name: 'The WFM Morgans'),
+            TreeFamily(
+              id: _familyId,
+              name: 'Child line',
+              parentFamilyId: parent,
+              originStoryId: origin,
+              branchYear: 1995,
+            ),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: origin,
+              branchYear: 1996,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dot = tester.getCenter(find.byKey(const Key('timeline-dot-$origin')));
+    final parentLabel = tester.getCenter(
+      find.byKey(const Key('timeline-branch-callout-$parent')),
+    );
+    final childLabel = tester.getCenter(
+      find.byKey(const Key('timeline-branch-callout-$bea')),
+    );
+    expect(parentLabel.dy, lessThan(dot.dy));
+    expect(parentLabel.dx, greaterThan(dot.dx));
+    expect(find.text('The WFM Morgans Branch'), findsOneWidget);
+    expect(find.text('Bea Branch'), findsOneWidget);
+    expect(childLabel.dy, greaterThan(dot.dy));
+    expect(childLabel.dx, greaterThan(dot.dx));
+    final leaders = _calloutLeaders(tester);
+    expect(leaders, hasLength(2));
+    expect(
+      leaders.any(
+        (leader) =>
+            leader.start.dy < 0 &&
+            leader.start.dx > 0 &&
+            (leader.start.dx - leader.start.dy.abs()).abs() < 0.01,
+      ),
+      isTrue,
+    );
+    expect(
+      leaders.any((leader) => leader.start.dy > 0 && leader.start.dx > 0),
+      isTrue,
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+    expect(find.text('The WFM Morgans Branch'), findsOneWidget);
+    expect(find.text('Bea Branch'), findsOneWidget);
+    final daysCard = tester.getRect(
+      find.byKey(const Key('timeline-card-$origin')),
+    );
+    final daysStart = _leaderStart(tester);
+    expect(daysStart.dx, closeTo(daysCard.center.dx, 3));
+    expect(daysStart.dy, closeTo(daysCard.top - calloutLeaderGap, 3));
+  });
+
+  testWidgets('a days parent callout follows the card at the decade angle', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    const origin = 'origin';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: origin,
+              title: 'The beginning',
+              timeframeStart: DateTime(1995),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Child line',
+              createdAt: DateTime.utc(1995),
+              parentFamilyId: parent,
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: parent, name: 'The WFM Morgans'),
+            TreeFamily(
+              id: _familyId,
+              name: 'Child line',
+              parentFamilyId: parent,
+              originStoryId: origin,
+              branchYear: 1995,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+
+    final parentName = find.byKey(const Key('timeline-branch-callout-$parent'));
+    expect(parentName, findsOneWidget);
+    final parentText = tester.widget<Text>(
+      find.descendant(of: parentName, matching: find.byType(Text)),
+    );
+    expect(parentText.data, 'The WFM Morgans Branch');
+    expect(parentText.style?.color, branchMoss);
+    expect(parentText.style?.fontWeight, FontWeight.w500);
+    expect(parentText.style?.fontSize, calloutDaysParentFontSize);
+    expect(parentText.style?.fontSize, greaterThan(calloutParentFontSize));
+    expect(find.text('Origin · from The WFM Morgans'), findsOneWidget);
+    final dotFinder = find.byKey(const Key('timeline-full-dot-$origin'));
+    expect(_mossRingOn(tester, dotFinder), isFalse);
+    final cardRect = tester.getRect(
+      find.byKey(const Key('timeline-card-$origin')),
+    );
+    expect(
+      (tester.getCenter(dotFinder).dy - cardRect.center.dy).abs(),
+      lessThanOrEqualTo(1),
+    );
+    final label = tester.getCenter(parentName);
+    expect(label.dx, greaterThanOrEqualTo(0));
+    expect(label.dy, lessThan(cardRect.top));
+    final start = _leaderStart(tester);
+    expect(label.dx, lessThan(start.dx));
+    expect(start.dx, closeTo(cardRect.center.dx, 3));
+    expect(start.dy, closeTo(cardRect.top - calloutLeaderGap, 3));
+    final leader = _calloutLeaders(tester).single;
+    expect(leader.start.dx, closeTo(0, 0.01));
+    expect(leader.start.dy, closeTo(-calloutLeaderGap, 0.01));
+    expect(
+      (leader.elbow.dx - leader.start.dx).abs(),
+      closeTo(calloutDiagonal, 0.01),
+    );
+    expect(
+      (leader.elbow.dy - leader.start.dy).abs(),
+      closeTo(calloutDiagonal, 0.01),
+    );
+    expect(leader.elbow.dx, lessThan(leader.start.dx));
+    expect(leader.elbow.dy, lessThan(leader.start.dy));
+    expect(leader.end.dy, closeTo(leader.elbow.dy, 0.01));
+    expect(leader.end.dx, lessThan(leader.elbow.dx));
+
+    await tester.tap(parentName);
+    await tester.pumpAndSettle();
+    expect(FamilySelection.id, parent);
+  });
+
+  testWidgets('a root origin uses a plain Origin tag', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const origin = 'root-origin';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: origin,
+              title: 'Root tale',
+              timeframeStart: DateTime(1980),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Ada',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Ada', originStoryId: origin),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Origin'), findsNothing);
+    expect(find.text('Root tale'), findsNothing);
+    expect(_tooltipFor(tester, origin), 'Root tale · Origin (January 1, 1980)');
+    expect(
+      _mossRingOn(tester, find.byKey(const Key('timeline-dot-$origin'))),
+      isTrue,
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    expect(find.text('Origin'), findsOneWidget);
+    expect(find.text('Root tale'), findsOneWidget);
+    expect(find.textContaining('Origin · from'), findsNothing);
+  });
+
+  testWidgets('a narrow origin card stays inside the right edge', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(700, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    const origin = 'origin-story';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: origin,
+              familyId: parent,
+              title: 'The beginning',
+              timeframeStart: DateTime(1974),
+            ),
+          ],
+        ),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Ada',
+              createdAt: DateTime.utc(1970),
+              parentFamilyId: parent,
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: parent, name: 'Parent'),
+            TreeFamily(
+              id: _familyId,
+              name: 'Ada',
+              parentFamilyId: parent,
+              originStoryId: origin,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const Key('timeline-card-$origin'));
+    expect(tester.getRect(card).right, lessThanOrEqualTo(700));
+  });
+
+  testWidgets(
+    'a narrow origin card lines up with a plain card when neither is focused',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(700, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const parent = '00000000-0000-0000-0000-0000000000aa';
+      const origin = 'origin-story';
+      const plain = 'later-tale';
+      await tester.pumpWidget(
+        _timeline(
+          stories: _FakeStoriesApi(
+            published: [
+              _published(
+                id: plain,
+                title: 'Later tale',
+                timeframeStart: DateTime(1998),
+              ),
+              _published(
+                id: 'center-tale',
+                title: 'Center tale',
+                timeframeStart: DateTime(1985),
+              ),
+              _published(
+                id: origin,
+                familyId: parent,
+                title: 'The beginning',
+                timeframeStart: DateTime(1970),
+              ),
+            ],
+          ),
+          families: _TreeFamilies(
+            mine: [
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(1970),
+                parentFamilyId: parent,
+              ),
+            ],
+            tree: const [
+              TreeFamily(id: parent, name: 'Parent'),
+              TreeFamily(
+                id: _familyId,
+                name: 'Ada',
+                parentFamilyId: parent,
+                originStoryId: origin,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+      await tester.pumpAndSettle();
+
+      final originCard = find.byKey(const Key('timeline-card-$origin'));
+      final plainCard = find.byKey(const Key('timeline-card-$plain'));
+      expect(_cardScale(tester, originCard), 1);
+      expect(_cardScale(tester, plainCard), 1);
+      expect(
+        (tester.getRect(originCard).left - tester.getRect(plainCard).left)
+            .abs(),
+        lessThanOrEqualTo(1),
+      );
+      final originDot = find.byKey(const Key('timeline-full-dot-$origin'));
+      expect(find.text('Parent Branch'), findsOneWidget);
+      expect(
+        (tester.getCenter(originDot).dy - tester.getCenter(originCard).dy)
+            .abs(),
+        lessThanOrEqualTo(1),
+      );
+      expect(
+        (tester
+                    .getCenter(
+                      find.byKey(const Key('timeline-full-dot-$plain')),
+                    )
+                    .dy -
+                tester.getCenter(plainCard).dy)
+            .abs(),
+        lessThanOrEqualTo(1),
+      );
+    },
+  );
+
+  testWidgets(
+    'a focused parent origin card has a moss border and does not scale',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const parent = '00000000-0000-0000-0000-0000000000aa';
+      const origin = 'origin-story';
+      await tester.pumpWidget(
+        _timeline(
+          stories: _FakeStoriesApi(
+            published: [
+              _published(
+                id: origin,
+                familyId: parent,
+                title: 'The beginning',
+                timeframeStart: DateTime(1974),
+              ),
+            ],
+          ),
+          families: _TreeFamilies(
+            mine: [
+              MemberFamily(
+                id: _familyId,
+                name: 'Ada',
+                createdAt: DateTime.utc(1970),
+                parentFamilyId: parent,
+              ),
+            ],
+            tree: const [
+              TreeFamily(id: parent, name: 'Parent'),
+              TreeFamily(
+                id: _familyId,
+                name: 'Ada',
+                parentFamilyId: parent,
+                originStoryId: origin,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+      await tester.pumpAndSettle();
+
+      final stub = find.byKey(const Key('timeline-stub-$origin'));
+      final yearsBox = tester.widget<DecoratedBox>(
+        find
+            .descendant(
+              of: stub,
+              matching: find.byWidgetPredicate((widget) {
+                if (widget is! DecoratedBox) return false;
+                final decoration = widget.decoration;
+                return decoration is BoxDecoration &&
+                    decoration.borderRadius == BorderRadius.circular(12);
+              }),
+            )
+            .first,
+      );
+      final yearsDecoration = yearsBox.decoration as BoxDecoration;
+      final yearsBorder = yearsDecoration.border?.top;
+      expect(yearsBorder?.color, branchMoss);
+      expect(yearsBorder?.width, 2);
+      expect(yearsDecoration.boxShadow, isNull);
+      expect(_ancestorScale(tester, stub), 1);
+
+      await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+      await tester.pumpAndSettle();
+      final card = find.byKey(const Key('timeline-card-$origin'));
+      final material = tester.widget<Material>(
+        find.ancestor(of: card, matching: find.byType(Material)).first,
+      );
+      final side = (material.shape! as RoundedRectangleBorder).side;
+      expect(side.color, branchMoss);
+      expect(side.width, 2);
+      final daysBox = tester.widget<DecoratedBox>(
+        find.descendant(of: card, matching: find.byType(DecoratedBox)).first,
+      );
+      expect((daysBox.decoration as BoxDecoration).boxShadow, isNull);
+      expect(_cardScale(tester, card), 1);
+    },
+  );
+
+  testWidgets('a focused wide branch card stays put', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const bea = '00000000-0000-0000-0000-0000000000be';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _TreeFamilies(
+          mine: [
+            MemberFamily(
+              id: _familyId,
+              name: 'Jenkins',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(
+              id: bea,
+              name: 'Bea',
+              parentFamilyId: _familyId,
+              originStoryId: 's1',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const Key('timeline-card-s1'));
+    expect(_cardScale(tester, card), 1);
+    final transform = tester.widget<Transform>(
+      find.ancestor(of: card, matching: find.byType(Transform)).first,
+    );
+    final moved = transform.transform.getTranslation();
+    expect(moved.x, 0);
+    expect(moved.y, 0);
+    final laidOut = tester.getTopLeft(card);
+    await tester.pump();
+    expect(tester.getTopLeft(card), laidOut);
+  });
+}
+
+Offset _leaderStart(WidgetTester tester) {
+  final elements = find
+      .byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint && widget.painter is CalloutLeaderPainter,
+      )
+      .evaluate()
+      .toList();
+  for (final element in elements) {
+    final painter =
+        (element.widget as CustomPaint).painter! as CalloutLeaderPainter;
+    final leader = painter.leaders.single;
+    if (elements.length > 1 && leader.start.dy >= 0) continue;
+    final box = element.renderObject! as RenderBox;
+    return box.localToGlobal(box.size.center(Offset.zero) + leader.start);
+  }
+  fail('no parent leader');
+}
+
+Offset _leaderEnd(WidgetTester tester) {
+  final finder = find.byWidgetPredicate(
+    (widget) => widget is CustomPaint && widget.painter is CalloutLeaderPainter,
+  );
+  final paint = tester.widget<CustomPaint>(finder.first);
+  final painter = paint.painter! as CalloutLeaderPainter;
+  final box = tester.renderObject<RenderBox>(finder.first);
+  return box.localToGlobal(
+    box.size.center(Offset.zero) + painter.leaders.single.end,
+  );
+}
+
+List<CalloutLeader> _calloutLeaders(WidgetTester tester) {
+  final finder = find.byWidgetPredicate(
+    (widget) => widget is CustomPaint && widget.painter is CalloutLeaderPainter,
+  );
+  final paint = tester.widget<CustomPaint>(finder);
+  return (paint.painter! as CalloutLeaderPainter).leaders;
+}
+
+Finder _mossFocusOutline() {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! DecoratedBox) return false;
+    final decoration = widget.decoration;
+    if (decoration is! BoxDecoration) return false;
+    final side = decoration.border?.top;
+    return decoration.shape != BoxShape.circle &&
+        decoration.borderRadius == BorderRadius.circular(4) &&
+        side?.color == branchMoss &&
+        side?.width == calloutStroke;
+  });
+}
+
+double _cardScale(WidgetTester tester, Finder card) {
+  Transform? transform;
+  tester.element(card).visitAncestorElements((ancestor) {
+    final widget = ancestor.widget;
+    if (widget is Transform) {
+      transform = widget;
+      return false;
+    }
+    return true;
+  });
+  return transform!.transform.storage[0];
+}
+
+double _ancestorScale(WidgetTester tester, Finder card) {
+  var scale = 1.0;
+  tester.element(card).visitAncestorElements((ancestor) {
+    final widget = ancestor.widget;
+    if (widget is Transform) scale *= widget.transform.storage[0];
+    return true;
+  });
+  return scale;
+}
+
+bool _containsFinder(WidgetTester tester, Finder ancestor, Finder descendant) {
+  if (ancestor.evaluate().isEmpty || descendant.evaluate().isEmpty) {
+    return false;
+  }
+  final root = tester.element(ancestor);
+  final target = tester.element(descendant);
+  var found = false;
+  void walk(Element element) {
+    if (found) return;
+    if (element == target) {
+      found = true;
+      return;
+    }
+    element.visitChildren(walk);
+  }
+
+  walk(root);
+  return found;
+}
+
+Finder _branchMarks() {
+  return find.byWidgetPredicate((widget) {
+    final key = widget.key;
+    return key is ValueKey<String> &&
+        key.value.startsWith('timeline-branch-mark-');
+  });
+}
+
+class _TreeFamilies extends FamiliesGateway {
+  _TreeFamilies({
+    required this.mine,
+    required this.tree,
+    this.stewarded = const [],
+  });
+
+  final List<MemberFamily> mine;
+  final List<TreeFamily> tree;
+  final List<StewardFamily> stewarded;
+
+  @override
+  Future<List<MemberFamily>> listMine() async => mine;
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => stewarded;
+
+  @override
+  Future<List<TreeFamily>> listFamilyTree(String familyId) async => tree;
+}

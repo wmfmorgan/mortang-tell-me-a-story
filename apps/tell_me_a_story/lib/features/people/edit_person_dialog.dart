@@ -3,11 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../core/theme/album_chrome.dart';
-import '../../core/theme/album_theme.dart';
-import '../../data/invite_api.dart';
-import '../../data/people_api.dart';
-import '../family/family_blur_dialog.dart';
+import 'package:tell_me_a_story/ui/album/album_chrome.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/ui/dialogs/family_blur_dialog.dart';
 
 /// Edit person. The gate is [Person.userId] from the people row.
 Future<Person?> showEditPersonDialog(

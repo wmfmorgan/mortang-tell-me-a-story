@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import '../../data/families_api.dart';
-import '../../data/stories_api.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
 
 enum AllStoriesGroupBy { date, member, place }
 

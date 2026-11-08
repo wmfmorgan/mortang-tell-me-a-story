@@ -7,18 +7,18 @@ import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/router/app_router.dart';
-import '../../core/theme/album_chrome.dart';
-import '../../core/theme/album_header.dart';
-import '../../core/theme/album_theme.dart';
-import '../../core/theme/profile_avatar.dart';
-import '../../data/families_api.dart';
-import '../../data/family_selection.dart';
-import '../../data/photos_api.dart';
-import '../../data/stories_api.dart';
-import 'all_stories_card.dart';
-import 'all_stories_loader.dart';
-import 'all_stories_logic.dart';
+import 'package:tell_me_a_story/core/router/app_routes.dart';
+import 'package:tell_me_a_story/ui/album/album_chrome.dart';
+import 'package:tell_me_a_story/ui/album/album_header.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/ui/avatar/profile_avatar.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/all_stories/all_stories_card.dart';
+import 'package:tell_me_a_story/features/all_stories/all_stories_loader.dart';
+import 'package:tell_me_a_story/features/all_stories/all_stories_logic.dart';
 
 /// Viewport widths for the 3 / 2 / 1 card grid. Landing has no grid
 /// breakpoints, so these are the spec-allowed fill.

@@ -22,6 +22,17 @@ class AppException implements Exception {
   String toString() => 'AppException(${code.name}: $message)';
 }
 
+/// A blob upload the store refused (`AppErrorCode.storageFailed` on the
+/// server, or `FileUploader` returning false).
+class StorageFailedException implements Exception {
+  const StorageFailedException({this.code = 'STORAGE_FAILED', this.cause});
+  final String code;
+  final Object? cause;
+
+  @override
+  String toString() => 'StorageFailedException($code)';
+}
+
 /// [AppException.message] for an expected gateway failure, or null for any
 /// other error (callers show their generic sentence).
 String? appErrorMessage(Object error) =>

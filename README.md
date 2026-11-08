@@ -4,11 +4,13 @@ Private family storytelling app (Mortang): a Flutter client for iPad and web on 
 
 ## Layout
 
-- `apps/tell_me_a_story/`: Flutter client.
-  - `lib/core`: config, server connection, router, theme tokens.
-  - `lib/data`: one gateway per backend area (models, `XGateway`, `XApi` on the generated client).
+- `apps/tell_me_a_story/`: Flutter client (iPad + web).
+  - `lib/app`: router and app widget.
+  - `lib/core`: config, route paths, server connection, theme tokens.
+  - `lib/data`: gateways and session state.
+  - `lib/ui`: widgets used by several features.
   - `lib/features/<feature>`: screens.
-  - Tests: `test/` (unit and widget), `test/live` (needs `just server`), `integration_test/` (e2e).
+  - `test/` mirrors `lib/`; `test/architecture` holds the guards; `test/support/fakes` holds the shared gateway fakes; `test/live` (tag `live`); `integration_test/` (e2e).
 - `apps/server/`: Serverpod 4.1.1 server.
   - Endpoints: `lib/src/endpoints`.
   - Rules: `lib/src/<domain>`.
