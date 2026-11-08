@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 const temporaryHardcodedColorSkipPaths = <String>{
   'features/auth/invite_sign_in_page.dart',
-  'features/auth/magic_link_page.dart',
   'features/comments/comment_composer.dart',
   'features/drafts/drafts_page.dart',
   'features/family/add_co_owner_dialog.dart',
@@ -24,7 +23,7 @@ const temporaryHardcodedColorSkipPaths = <String>{
 };
 
 /// The skip list only shrinks: lower this when a file leaves the list.
-const _skipListCeiling = 18;
+const _skipListCeiling = 17;
 
 const _albumThemePath = 'core/theme/album_theme.dart';
 

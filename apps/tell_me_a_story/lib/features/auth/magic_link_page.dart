@@ -8,9 +8,9 @@ import 'package:tell_me_a_story/data/otp_sign_in.dart';
 import 'package:tell_me_a_story/features/auth/sign_in_code_form.dart';
 
 const _landingInkMuted = albumInk;
-const _landingLine = Color(0xFFB9B0AD);
+const _landingLine = albumLandingLine;
 const _landingField = albumParchment;
-const _landingOnPrimary = Color(0xFFFFF6F3);
+const _landingOnPrimary = albumOnAccent;
 
 const landingHeadline = 'Your family’s stories, kept together.';
 const landingSubhead =
@@ -246,12 +246,12 @@ class _SignInPageState extends State<SignInPage> {
         constraints: const BoxConstraints(maxWidth: 576),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: albumWhite,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: _landingLine.withValues(alpha: 0.3)),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
-                color: Color(0x0D000000),
+                color: albumShadow.withAlpha(0x0D),
                 blurRadius: 2,
                 offset: Offset(0, 1),
               ),
@@ -312,12 +312,12 @@ class _SignInPageState extends State<SignInPage> {
       constraints: const BoxConstraints(maxWidth: 448),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: albumWhite,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: _landingLine.withValues(alpha: 0.3)),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x0D000000),
+              color: albumShadow.withAlpha(0x0D),
               blurRadius: 2,
               offset: Offset(0, 1),
             ),

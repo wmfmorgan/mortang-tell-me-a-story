@@ -38,6 +38,9 @@ const albumInviteNoteFill = Color(0xFFF7F1EA);
 /// Black for drop shadows; use with withAlpha.
 const albumShadow = Color(0xFF000000);
 
+/// Sign-in landing: card borders, footer rules, muted lines (with alpha).
+const albumLandingLine = Color(0xFFB9B0AD);
+
 const albumCardRadius = 12.0;
 
 ColorScheme albumColorScheme() {
