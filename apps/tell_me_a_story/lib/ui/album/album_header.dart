@@ -675,6 +675,12 @@ class _FamilyMenu extends StatelessWidget {
 
   bool get _showInvite => page != AlbumHeaderPage.capture && canWrite;
 
+  /// Hidden where Invite is always hidden (capture) and on the tree page.
+  bool get _showTree =>
+      currentFamilyId != null &&
+      page != AlbumHeaderPage.capture &&
+      page != AlbumHeaderPage.familyTree;
+
   String? _nameFor(String id) {
     for (final family in families) {
       if (family.id == id) return family.name;
@@ -739,7 +745,7 @@ class _FamilyMenu extends StatelessWidget {
         thickness: 1,
         color: albumSage.withValues(alpha: 0.3),
       ),
-      if (currentFamilyId != null)
+      if (_showTree)
         PopupMenuItem<String>(
           key: const Key('family-menu-tree'),
           value: _treeValue,
@@ -802,9 +808,7 @@ class _FamilyMenu extends StatelessWidget {
     );
     if (selected == null || !context.mounted) return;
     if (selected == _treeValue) {
-      final familyId = currentFamilyId;
-      if (page == AlbumHeaderPage.familyTree || familyId == null) return;
-      GoRouter.of(context).go(AppRoutes.familyTreePath(familyId));
+      GoRouter.of(context).go(AppRoutes.familyTreePath(currentFamilyId!));
       return;
     }
     if (selected == _inviteValue) {

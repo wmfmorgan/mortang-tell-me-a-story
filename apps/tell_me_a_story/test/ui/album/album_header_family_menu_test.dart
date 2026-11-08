@@ -154,6 +154,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('family-menu-invite')), findsNothing);
     expect(find.byKey(const Key('family-menu-start-timeline')), findsOneWidget);
+    expect(find.byKey(const Key('family-menu-tree')), findsNothing);
   });
 
   testWidgets(
@@ -487,6 +488,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(router.state.uri.path, AppRoutes.familyTreePath('ada'));
     expect(find.text('tree-ada'), findsOneWidget);
+  });
+
+  testWidgets('the tree page hides its own tree row', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: _switchScreen(
+          page: AlbumHeaderPage.familyTree,
+          currentId: 'ada',
+          kid: 'kid',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('family-menu-manage')), findsOneWidget);
+    expect(find.byKey(const Key('family-menu-tree')), findsNothing);
   });
 
   testWidgets('no current family, no tree row', (tester) async {
