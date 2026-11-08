@@ -61,7 +61,7 @@
 | 7.1 Golden harness and rail baselines | this index, §7.1 | — | done (`feat/p7-1-goldens`) |
 | 7.2 Tokens and shared primitives | this index, §7.2 | — (O3 answered 2026-11-08) | done (`feat/p7-2-tokens`; app `+741 ~12`) |
 | 7.3 Rail split at parity | this index, §7.3 | 7.1, 7.2 | done (`feat/p7-3-rail-split`; app `+741 ~12`, goldens unchanged) |
-| 7.4 Rail restyle and iPad | written at slice start | 7.3; owner screenshot sign-off before merge | not started |
+| 7.4 Rail restyle and iPad | this index, §7.4 "TDD plan" | 7.3; owner screenshot sign-off before merge | in progress (`feat/p7-4-restyle`) |
 | 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
 | 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | not started |
@@ -773,6 +773,57 @@ Color allStoriesDimInk() => albumDimInk;
 - Goldens regenerated on purpose, plus `days`/`decades` at the iPad mini landscape size (1133 × 744).
 
 **Stop:** the screenshot sign-off (Decades, Years, Days, the branch callout and the chooser, at both sizes) before merge.
+
+### 7.4 TDD plan (written at slice start, 2026-11-08)
+
+Branch `feat/p7-4-restyle` from `feat/p7-3-rail-split` `26230d4` (7.3 is merging into `feature/serverpod`; its review clean-ups ride along only on lines this slice already touches). Each task writes the failing test first, runs it red, implements, runs it green, then runs the gates and commits. Copy is C10 only.
+
+**Plan fixes found at slice start:**
+- Years shows one row per story, 64 pt or more apart, so a finger never covers two Years nodes. The stacked year a finger can cover is the Decades dot cluster (three 1962 stories sit 20 pt apart, inside a 22 pt finger radius). The chooser goes there.
+- Narrow Days draws its spine at x = 14 while the plain dots sit at x = 22 and the branch dot at x = 30 (visible in `days_ipad_mini_portrait.png`). One spine fixes this: the spine, the plain dots and the narrow branch dot share x = 22.
+
+#### Task 1: Chooser title (C10)
+- **Test** (`test/ui/timeline/story_chooser_test.dart`): the menu shows `Stories here` (key `chooser-title`) above the rows; the title is not selectable (tapping it keeps the menu open and resolves nothing).
+- **Change** (`lib/ui/timeline/story_chooser.dart`): a disabled first `PopupMenuItem` with the C10 text in `AlbumText.count`-weight ink.
+
+#### Task 2: Markers
+- **Tests** (`test/features/timeline/rail_markers_test.dart`, new):
+  - Decades, Years and Days story dots are `StoryDot`s: matched (filled); the focused/highlighted plain story has `selected: true`; others `selected: false`.
+  - A branch story's dot (child callout or parent origin) never has `selected` (the moss callout ring is the only ring; branch-callout.md Rule 1, "nothing covers the green ring"), and no `boxShadow` anywhere on it.
+  - An origin dot with no callout on Decades is a `StoryDot` with `origin: true` (moss ring, Rule 8 "An origin dot with no callout … still gets the moss ring").
+- **Change:** `_FarDot`, the Years `mark` and `_FullCardDot` paint `StoryDot(reserveRings: false)` at the existing diameters; `_OriginDot` goes (its ring is the marker's origin ring: same 2 pt gap and 2 pt stroke as the callout ring). The Days blush halo and the Years pale disc go: focus is the terracotta selected ring. Branch callout ring, leader and label are unchanged (`placeBranchCallout`, `parentCalloutOverlay`).
+- **`timeline_page_test` updates:** `_mossRingOn` also accepts a `StoryDot` whose spec has `origin: true` centred on the dot.
+
+#### Task 3: Corners
+- **Tests** (in `rail_markers_test.dart`): the Years focused and branch cards, the Days card and the origin banner use `albumContainerShape(AlbumRadius.card)` (a `RoundedSuperellipseBorder` of radius 12); the Years date chip and the Days person/place chips keep their shapes.
+- **Change:** `ShapeDecoration`/`Material.shape` with `albumContainerShape`; `InkWell.customBorder` follows the shape.
+- **`timeline_page_test` updates:** `_expectMossCard` (both branches) and the focused-card asserts that read `BoxDecoration.borderRadius`/`RoundedRectangleBorder` read the superellipse shape instead. Every changed assert is listed in "As landed".
+
+#### Task 4: One spine
+- **Tests:** each rail has exactly one `RailSpine` (key `timeline-spine`), 2 pt wide in `albumRule`, centred on the viewport on Decades, Years and wide Days, and at x = 22 from the rail's left edge on narrow Days, through the centre of every plain and branch dot (±1).
+- **Change:** new `rails/rail_spine.dart` (`RailSpine({double? left})`); `_RailGutter` and the two inline spines go.
+
+#### Task 5: Touch and the chooser
+- **Tests** (`test/features/timeline/rail_touch_test.dart`, new):
+  - a touch tap 18 pt from a lone Decades dot opens its story; a mouse click at the same point does not;
+  - a touch tap between two 1962 dots on Decades opens the chooser (C10 title plus one row per covered story) and picking a row opens that story;
+  - a touch tap 18 pt from a Years node opens Days on it; the mouse keeps the 8 pt slop.
+- **Change:** Decades dots answer the mouse, trackpad and stylus only; a touch-only detector over the row's dot area collects the dots within `hitRadiusFor(kind, precise: radius)` of the tap: one opens it, several open `showStoryChooser`. The Years plain node gets a touch-only 44 pt target around its mouse target.
+
+#### Task 6: Insets
+- **Tests:** with `viewPadding.bottom = 20` the Decades footer text bottom sits ≥ 20 pt above the window bottom; with a 313 pt keyboard inset the rail viewport keeps its height (the Scaffold sets `resizeToAvoidBottomInset: false`).
+- **Change:** `timeline_page.dart` footer padding adds `MediaQuery.viewPaddingOf(context).bottom`; `Scaffold(resizeToAvoidBottomInset: false)`.
+
+#### Task 7: iPad sweep
+- `test/support/ipad.dart` (the lab's sizes, insets, `setIpadView`, `showKeyboard`, `collectFlutterErrors`, without the lab-only renderer helpers) and `test/features/timeline/timeline_page_ipad_test.dart`: every one of the 11 sizes × Decades/Years/Days pumps `TimelinePage` with the golden fixture (6 stories and the Bea branch), on `TargetPlatform.iOS`, with no FlutterError (overflows included); plus each size with the keyboard shown.
+
+#### Task 8: Chip-label fade
+- Reproduced first on web (`flutter run -d web-server`, DPR 1.25) in `drafts_page`, `start_timeline_dialog`, `invite_modal`, `search_page` and `new_story_page`, with crops saved beside the sign-off screenshots. Changes only if it reproduces.
+
+#### Task 9: Goldens and sign-off
+- Add `mini_landscape` (1133 × 744) to the golden sizes for `decades` and `days`; regenerate every timeline golden with `just test-goldens --update-goldens`; open each PNG.
+- BEFORE (`26230d4`) and AFTER screenshots at 1280 × 800 and 744 × 1133: Decades, Years, Days, the branch callout, and the chooser on the 1962 cluster (a touch tap). Server from this worktree on :8280 with its own data dir; web on :3100.
+- Status row and "As landed".
 
 ## 7.5 Timeline filters, dim only (Q4)
 
