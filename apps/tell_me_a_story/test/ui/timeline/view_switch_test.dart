@@ -35,6 +35,30 @@ void main() {
     expect(button().selected, {_View.overview});
   });
 
+  testWidgets('with no label, only the segments show', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: albumTheme(),
+        home: Scaffold(
+          body: ViewSwitch<_View>(
+            switchKey: const Key('view-switch'),
+            values: _View.values,
+            labelOf: (v) => v.name,
+            selected: _View.graph,
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    final row = find.descendant(
+      of: find.byType(ViewSwitch<_View>),
+      matching: find.byType(Row),
+    );
+    final children = tester.widget<Row>(row.first).children;
+    expect(children, hasLength(1));
+    expect(children.single, isA<SegmentedButton<_View>>());
+  });
+
   testWidgets('scrolls sideways instead of overflowing when narrow', (
     tester,
   ) async {
