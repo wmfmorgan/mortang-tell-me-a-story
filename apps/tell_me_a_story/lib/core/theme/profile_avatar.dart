@@ -20,8 +20,8 @@ class ProfileAvatar extends StatelessWidget {
   final String? displayName;
   final Uint8List? bytes;
 
-  static const fill = Color(0xFFEDE0DC);
-  static const borderColor = Color(0xFFD5C7B7);
+  static const fill = albumAvatarFill;
+  static const borderColor = albumAvatarBorder;
 
   @override
   Widget build(BuildContext context) {
