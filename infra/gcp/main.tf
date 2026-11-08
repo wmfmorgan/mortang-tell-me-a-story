@@ -20,6 +20,8 @@ locals {
     "firebase.googleapis.com",
     "firebasehosting.googleapis.com",
     "storage.googleapis.com",
+    # Signs the browsers' direct-upload URLs for the photo bucket (IAM signBlob).
+    "iamcredentials.googleapis.com",
   ])
 
   # Generated secrets: key => { secret id, env var on the API container }.
@@ -68,6 +70,44 @@ resource "google_project_iam_member" "api_cloudsql_client" {
   project = var.project_id
   role    = "roles/cloudsql.client"
   member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+# --- Blob storage (photos, covers, avatars) ----------------------------------
+
+# Private; every read goes through the API's media endpoint. Browsers PUT
+# photos and covers straight to signed URLs, hence CORS for the web origin.
+# No lifecycle rule: blobs are deleted by the server's blob outbox.
+resource "google_storage_bucket" "blobs" {
+  name                        = "${var.project_id}-blobs"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  versioning {
+    enabled = false
+  }
+
+  cors {
+    origin          = [var.web_origin]
+    method          = ["PUT"]
+    response_header = ["Content-Type", "x-goog-content-length-range", "x-goog-if-generation-match"]
+    max_age_seconds = 3600
+  }
+
+  depends_on = [google_project_service.this]
+}
+
+resource "google_storage_bucket_iam_member" "api_blobs" {
+  bucket = google_storage_bucket.blobs.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.api.email}"
+}
+
+# The API has no key file: it signs upload URLs as itself through IAM signBlob.
+resource "google_service_account_iam_member" "api_sign_self" {
+  service_account_id = google_service_account.api.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.api.email}"
 }
 
 # --- Cloud SQL --------------------------------------------------------------
@@ -226,6 +266,10 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "SERVERPOD_PASSWORD_inviteAppOrigin"
         value = var.web_origin
       }
+      env {
+        name  = "SERVERPOD_PASSWORD_gcsBucket"
+        value = google_storage_bucket.blobs.name
+      }
 
       dynamic "env" {
         for_each = local.secret_env
@@ -250,6 +294,8 @@ resource "google_cloud_run_v2_service" "api" {
     google_secret_manager_secret_version.generated,
     google_secret_manager_secret_iam_member.api,
     google_project_iam_member.api_cloudsql_client,
+    google_storage_bucket_iam_member.api_blobs,
+    google_service_account_iam_member.api_sign_self,
     google_sql_database.app,
     google_sql_user.app,
   ]

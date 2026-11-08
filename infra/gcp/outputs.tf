@@ -12,3 +12,8 @@ output "sql_connection_name" {
   description = "Cloud SQL connection name (project:region:instance)."
   value       = google_sql_database_instance.pg.connection_name
 }
+
+output "blob_bucket" {
+  description = "Private GCS bucket for photos, covers and avatars."
+  value       = google_storage_bucket.blobs.name
+}

@@ -22,7 +22,9 @@ database:
 redis:
   enabled: false
 
-maxRequestSize: 52428800 # 50 MiB: DatabaseCloudStorage uploads go through the API server
+# 4 MiB: photos and covers go straight from the client to GCS on signed URLs;
+# only avatars and person pictures (≤ 2 MiB, base64 in the call) come through here.
+maxRequestSize: 4194304
 
 sessionLogs:
   consoleEnabled: true
