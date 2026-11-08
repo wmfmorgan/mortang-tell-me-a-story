@@ -14,6 +14,9 @@ const albumInk = Color(0xFF2C2416);
 const albumDialogSurface = Color(0xFFFFF8F6);
 const albumBackdropClear = Colors.transparent;
 
+/// Plus glyph and button text on terracotta; sign-in landing card fill.
+const albumWhite = Color(0xFFFFFFFF);
+
 const albumCardRadius = 12.0;
 
 ColorScheme albumColorScheme() {

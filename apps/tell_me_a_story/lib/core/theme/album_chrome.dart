@@ -176,7 +176,7 @@ class PlusLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final circle = onTerracotta ? albumParchment : albumTerracotta;
-    final plus = onTerracotta ? albumTerracotta : Colors.white;
+    final plus = onTerracotta ? albumTerracotta : albumWhite;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -212,9 +212,9 @@ Future<T?> showAlbumDialog<T>({
         ),
         child: Material(
           color: albumParchment,
-          surfaceTintColor: Colors.transparent,
+          surfaceTintColor: albumBackdropClear,
           elevation: 8,
-          shadowColor: const Color(0x332C2416),
+          shadowColor: albumInk.withAlpha(0x33),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(color: albumSage.withValues(alpha: 0.35)),

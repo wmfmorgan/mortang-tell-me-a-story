@@ -832,9 +832,9 @@ If a decision adds tokens, add each one to `lib/core/theme/album_theme.dart` aft
 **Files:** `lib/core/theme/album_chrome.dart` (lines 179, 215, 217), `lib/core/theme/album_theme.dart` (only if Task 9 added tokens), `test/architecture/no_hardcoded_colors_test.dart`
 
 - [ ] **Step 1: Before screenshots**, stem `album_chrome`:
-  - `header-plus`: `/timeline` with the header's New story control visible;
-  - `manage-plus`: `/manage-families`, with its "+" label visible;
-  - `album-dialog`: `/manage-families/<id>` → Rename (a `showAlbumDialog` dialog).
+  - `manage-members`: `/manage-families/<id>` scrolled down, "Add co-owner" visible (a `PlusLabel` with `onTerracotta: false`, which draws row 1; the header's New story and the hub's Start a family use `onTerracotta: true` and do not);
+  - `capture-add-person-plus`: `/stories/new` scrolled to People, "Add person" visible;
+  - `album-dialog-add-person`: then press "Add person" (the add-person modal is a `showAlbumDialog` dialog; Rename is not).
 - [ ] **Step 2: Edit.**
   - Line 215: `surfaceTintColor: Colors.transparent,` → `surfaceTintColor: albumBackdropClear,`.
   - Line 217 and line 179: apply Task 9 rows 3 and 1.
