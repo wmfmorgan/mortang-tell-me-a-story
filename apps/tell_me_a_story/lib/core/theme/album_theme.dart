@@ -29,6 +29,15 @@ const albumAvatarFill = Color(0xFFEDE0DC);
 /// Profile avatar circle border.
 const albumAvatarBorder = Color(0xFFD5C7B7);
 
+/// Send-invite confirm: card and note borders, divider (at alpha 0x80).
+const albumInviteBorder = Color(0xFFE8DFD5);
+
+/// Send-invite confirm: note row fill.
+const albumInviteNoteFill = Color(0xFFF7F1EA);
+
+/// Black for drop shadows; use with withAlpha.
+const albumShadow = Color(0xFF000000);
+
 const albumCardRadius = 12.0;
 
 ColorScheme albumColorScheme() {

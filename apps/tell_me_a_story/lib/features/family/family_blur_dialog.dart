@@ -9,7 +9,7 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 Widget familyBlurShell({required Widget child}) {
   return BackdropFilter(
     filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-    child: ColoredBox(color: const Color(0x662C2416), child: child),
+    child: ColoredBox(color: albumInk.withAlpha(0x66), child: child),
   );
 }
 
@@ -23,7 +23,7 @@ Future<T?> showBlurredCard<T>({
     context: context,
     barrierDismissible: barrierDismissible,
     barrierLabel: 'Dismiss',
-    barrierColor: Colors.transparent,
+    barrierColor: albumBackdropClear,
     transitionDuration: const Duration(milliseconds: 200),
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
       return familyBlurShell(
@@ -59,7 +59,7 @@ Future<bool> showFamilyBlurDialog(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Dismiss',
-    barrierColor: Colors.transparent,
+    barrierColor: albumBackdropClear,
     transitionDuration: const Duration(milliseconds: 200),
     pageBuilder: (context, animation, secondaryAnimation) {
       return _FamilyBlurDialog(
@@ -115,11 +115,11 @@ class _FamilyBlurDialog extends StatelessWidget {
               child: DecoratedBox(
                 key: dialogKey,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF8F6),
+                  color: albumDialogSurface,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
-                      color: Color(0x1A000000),
+                      color: albumShadow.withAlpha(0x1A),
                       blurRadius: 25,
                       offset: Offset(0, 20),
                     ),
@@ -186,7 +186,7 @@ class _FamilyBlurDialog extends StatelessWidget {
                                   onPressed: () => Navigator.pop(context, true),
                                   style: FilledButton.styleFrom(
                                     backgroundColor: confirmColor,
-                                    foregroundColor: Colors.white,
+                                    foregroundColor: albumWhite,
                                     elevation: 0,
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 16,
@@ -239,7 +239,7 @@ Future<bool> showSendInviteConfirm(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Dismiss',
-    barrierColor: Colors.transparent,
+    barrierColor: albumBackdropClear,
     transitionDuration: const Duration(milliseconds: 200),
     pageBuilder: (context, animation, secondaryAnimation) {
       return _SendInviteConfirm(name: name, email: email);
@@ -274,10 +274,10 @@ class _SendInviteConfirm extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: albumParchment,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE8DFD5)),
-                  boxShadow: const [
+                  border: Border.all(color: albumInviteBorder),
+                  boxShadow: [
                     BoxShadow(
-                      color: Color(0x1A2C2416),
+                      color: albumInk.withAlpha(0x1A),
                       blurRadius: 28,
                       offset: Offset(0, 16),
                     ),
@@ -363,9 +363,9 @@ class _SendInviteConfirm extends StatelessWidget {
                         const SizedBox(height: 16),
                         DecoratedBox(
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF7F1EA),
+                            color: albumInviteNoteFill,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE8DFD5)),
+                            border: Border.all(color: albumInviteBorder),
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(12),
@@ -393,7 +393,10 @@ class _SendInviteConfirm extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 18),
-                        const Divider(height: 1, color: Color(0x80E8DFD5)),
+                        Divider(
+                          height: 1,
+                          color: albumInviteBorder.withAlpha(0x80),
+                        ),
                         const SizedBox(height: 14),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,

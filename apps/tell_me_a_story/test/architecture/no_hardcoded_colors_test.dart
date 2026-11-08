@@ -8,7 +8,6 @@ const temporaryHardcodedColorSkipPaths = <String>{
   'features/comments/comment_composer.dart',
   'features/drafts/drafts_page.dart',
   'features/family/add_co_owner_dialog.dart',
-  'features/family/family_blur_dialog.dart',
   'features/family/manage_families_page.dart',
   'features/family/manage_family_page.dart',
   'features/family/start_family_dialog.dart',
@@ -25,7 +24,7 @@ const temporaryHardcodedColorSkipPaths = <String>{
 };
 
 /// The skip list only shrinks: lower this when a file leaves the list.
-const _skipListCeiling = 19;
+const _skipListCeiling = 18;
 
 const _albumThemePath = 'core/theme/album_theme.dart';
 
