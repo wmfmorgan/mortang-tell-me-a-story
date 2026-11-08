@@ -281,6 +281,10 @@ abstract class StoriesGateway {
   Future<List<Story>> listMyDrafts(String familyId);
   Future<List<Story>> listPublished(String familyId);
 
+  /// Published stories of every live family in [familyId]'s tree, in
+  /// timeline order. Tree readers of a live family only.
+  Future<List<Story>> listPublishedInTree(String familyId);
+
   /// Published story by id using the published-list select. Null when not found or not readable.
   Future<Story?> getPublishedOrigin(String storyId);
 
@@ -446,6 +450,10 @@ class StoriesApi implements StoriesGateway {
   @override
   Future<List<Story>> listPublished(String familyId) =>
       _stories(() => _client.story.listPublished(_uuid(familyId)));
+
+  @override
+  Future<List<Story>> listPublishedInTree(String familyId) =>
+      _stories(() => _client.story.listPublishedInTree(_uuid(familyId)));
 
   @override
   Future<Story?> getPublishedOrigin(String storyId) => getPublished(storyId);
