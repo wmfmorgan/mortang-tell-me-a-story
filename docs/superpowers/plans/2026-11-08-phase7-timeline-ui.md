@@ -854,6 +854,39 @@ Branch `feat/p7-4-restyle` from `feat/p7-3-rail-split` `26230d4` (7.3 is merging
 
 **Stop:** O2 copy approved, and screenshots signed off.
 
+### 7.5 TDD plan (written at slice start, 2026-11-08)
+
+Branch `feat/p7-5-filters` from `feat/p7-4-restyle` `7b19f98`. Each task writes the failing test first, runs it red, implements, runs it green, then runs the gates and commits. Copy is C11–C18 only, verbatim.
+
+**Plan fixes found at slice start:**
+- The decade bounds use the story's start decade (`decadeStartYear(publishedStart)`), the same key as its Decades row, so a decade header's C18 count always agrees with its dots. The lab's era overlap on the story span would let a 1949–1952 story match a 1950s filter while it sits in the 1940s row.
+- The goldens: every entry point is on screen, so the 8 baselines change with the filter empty (the Filters button beside the zoom switch below 900 pt, the persistent sidebar at 900 pt and up). The rails' own pixels are unchanged with the filter empty; the 8 are regenerated on purpose and listed in "As landed".
+- No new strings beyond C11–C18: the sidebar and drawer have no close label (the drawer closes on its scrim), the Filters button shows no count, and the panel's clear action reuses C17's `Clear filters`. C16 shows only while a filter is active.
+
+#### Task 1: Move `matchesSearch`
+- **Test:** `all_stories_logic_test` U-14 imports `ui/story/story_search.dart`; red until the file exists.
+- **Change:** new `lib/ui/story/story_search.dart` with `matchesSearch`, `nameMatches` and `_contains`; `all_stories_logic.dart` and `all_stories_card.dart` import it; no re-export.
+
+#### Task 2: `TimelineFilter`
+- **Tests** (`test/features/timeline/filter/timeline_filter_test.dart`, ported from the lab's `filter_test` without hide or families): people OR within; people AND decades across; decade bounds by start decade; place fails a story without a place; the query matches person names but not the place; an inactive filter (blank query) matches everything; `copyWith` clears decade bounds; `filterOptions` lists people, places and decades from the loaded stories (sorted, deduplicated); C16 and C18 strings.
+- **Change:** `lib/features/timeline/filter/timeline_filter.dart`: `TimelineFilter {personIds, placeIds, fromDecade, toDecade, query}`, `isActive`, `copyWith`, `matches(Story)` (text via `matchesSearch`), `filterOptions(stories)`, `filterStatusLine` (C16), `decadeMatchCount` (C18).
+
+#### Task 3: Dim on the rails
+- **Tests** (`test/features/timeline/filter/timeline_filter_page_test.dart`): with a person filter, each rail keeps the same row/dot count; unmatched dots are `StoryDot`s with `matched: false`, matched ones `matched: true`; an unmatched Years/Days title uses `0xFF6A6358`; the Decades count reads `{matched} of {total}` (C18) while filtering and `N stories` without; with the filter empty every dot is matched and no text uses the dim ink.
+- **Change:** each rail takes `dimmed` (the unmatched story ids) and `filtering`; dots and nodes pass `matched`; Years and Days texts use `albumDimInk` when dimmed; a Decades row with no match dims its label and count.
+
+#### Task 4: Panel, sidebar and drawer
+- **Tests:** at 900 pt the sidebar (`timeline-filter-sidebar`) is shown and there is no Filters button; at 899 pt there is no sidebar, the `Filters` button (C11, key `timeline-filters-open`) sits beside the zoom switch and opens the end drawer (`timeline-filter-drawer`, titled `Filters`); the panel shows `People`, `Places`, `Years` (C12–C14), the search hint (C15), and C16 while active; typing a query dims non-matches; the filter survives Decades → Years → Days; it resets on a family switch; with no match the rails stay mounted under C17 and `Clear filters` clears.
+- **Change:** `lib/features/timeline/filter/filter_panel.dart` (`FilterPanel`); `TimelinePage` keeps `_filter`, builds the sidebar (300 pt, `AlbumBreakpoint.sidebar`) or the end drawer, passes the button to `DialSubheader` through the rails, and lays `EmptyTimeline` (C17) over the mounted rail.
+
+#### Task 5: iPad sweep with the filters open
+- `timeline_page_ipad_test`: each of the 11 sizes with a filter active and the filters open (the sidebar at ≥ 900, the drawer below), on iOS, with no FlutterError; plus the keyboard up with the search focused.
+
+#### Task 6: Goldens and sign-off
+- New `timeline_filtered_{desktop,ipad_mini_portrait}` (a person filter on Decades; portrait with the drawer open). Regenerate the 8 baselines; open every PNG.
+- Screenshots under `/tmp/tmas-p7-5-shots/`: desktop with the sidebar (no filter, a person filter, a query, no matches); each zoom with a filter; iPad mini portrait with the drawer open and closed.
+- Status row and "As landed".
+
 ## 7.6S Server: tree reads (G1, G2)
 
 **Branch:** `feat/p7-6s-tree-reads`, from `feature/serverpod` `920cc17`. **Owns:**
