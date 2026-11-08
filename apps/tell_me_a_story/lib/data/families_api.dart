@@ -6,6 +6,7 @@ import 'package:tell_me_a_story/core/server/server_client.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/family_covers.dart';
 import 'package:tell_me_a_story/data/recovery_window.dart';
+import 'package:tell_me_a_story/data/server/media_batches.dart';
 import 'package:tell_me_a_story/data/server/server_errors.dart';
 import 'package:tell_me_a_story/data/server/wire.dart';
 
@@ -507,16 +508,8 @@ class FamiliesApi
     final wanted = {
       for (final key in keys)
         if (key != null && key.isNotEmpty) key,
-    }.toList();
+    };
     if (wanted.isEmpty) return const {};
-    try {
-      final blobs = await withServerErrors(() => _client.media.getMany(wanted));
-      return {
-        for (final entry in blobs.entries)
-          entry.key: Uint8List.sublistView(entry.value),
-      };
-    } catch (_) {
-      return const {};
-    }
+    return getMediaBatched(_client, wanted);
   }
 }

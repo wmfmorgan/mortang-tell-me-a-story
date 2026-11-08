@@ -346,6 +346,26 @@ void main() {
     expect(thumbs.keys, ['s1', 's2', 's3']);
     expect(thumbs['s1'], thumbs['s2']);
   });
+
+  test(
+    'downloadFirstThumbs on the server fetches in bounded batches',
+    () async {
+      final client = _MediaClient();
+      final stories = [
+        for (var i = 0; i < 20; i++)
+          _storyWithPaths(['f/s/p$i.jpg'], id: 's$i'),
+      ];
+
+      final thumbs = await downloadFirstThumbs(stories, null, client: client);
+
+      expect(client.recording.calls.length, greaterThan(1));
+      for (final call in client.recording.calls) {
+        expect(call.length, lessThanOrEqualTo(8));
+      }
+      expect(thumbs.keys, [for (final story in stories) story.id]);
+      expect(thumbs['s19'], [1, 2, 3]);
+    },
+  );
 }
 
 Story _storyWithPaths(List<String> paths, {String id = 's1'}) {
@@ -366,4 +386,28 @@ class _RecordingPhotos extends FakePhotosGateway {
   @override
   Future<Uint8List> downloadBytes(String storagePath) =>
       onDownload(storagePath);
+}
+
+class _RecordingMedia extends server.EndpointMedia {
+  _RecordingMedia(super.caller);
+
+  final calls = <List<String>>[];
+
+  @override
+  Future<Map<String, ByteData>> getMany(List<String> keys) async {
+    calls.add(List.of(keys));
+    return {
+      for (final key in keys)
+        key: ByteData.sublistView(Uint8List.fromList([1, 2, 3])),
+    };
+  }
+}
+
+class _MediaClient extends server.Client {
+  _MediaClient() : super('http://127.0.0.1:1/');
+
+  late final recording = _RecordingMedia(this);
+
+  @override
+  server.EndpointMedia get media => recording;
 }

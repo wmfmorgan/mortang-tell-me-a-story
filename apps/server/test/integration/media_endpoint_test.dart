@@ -1,6 +1,7 @@
 import 'package:serverpod/serverpod.dart';
 import 'package:tell_me_a_story_server/src/auth/auth_config.dart';
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
+import 'package:tell_me_a_story_server/src/media/blob_keys.dart';
 import 'package:test/test.dart';
 
 import 'support/fixtures.dart';
@@ -220,6 +221,31 @@ void main() {
         );
 
         expect(got.keys.toSet(), {cover, avatar, mine});
+      },
+    );
+
+    test(
+      'when getMany asks for more than mediaManyMaxKeys keys then VALIDATION; '
+      'exactly the cap is served',
+      () async {
+        final member = await fx.user();
+        final family = await fx.family(await fx.tree());
+        await fx.join(family, member);
+        final cover = await fx.cover(family);
+        final session = asUser(sessionBuilder, member);
+        final atCap = [
+          cover,
+          for (var i = 1; i < mediaManyMaxKeys; i++) 'unknown/$i',
+        ];
+
+        expect(
+          (await endpoints.media.getMany(session, atCap)).keys,
+          [cover],
+        );
+        await expectLater(
+          endpoints.media.getMany(session, [...atCap, 'one/more']),
+          throwsAppError(AppErrorCode.validation, 'too many keys'),
+        );
       },
     );
   }, rollbackDatabase: RollbackDatabase.disabled);

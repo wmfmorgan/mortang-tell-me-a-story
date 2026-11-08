@@ -4,6 +4,7 @@ import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import 'package:tell_me_a_story/core/server/server_client.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story/data/server/media_batches.dart';
 import 'package:tell_me_a_story/data/server/server_errors.dart';
 import 'package:tell_me_a_story/data/server/wire.dart';
 
@@ -561,9 +562,9 @@ int compareStories(Story a, Story b) {
 }
 
 /// First photo of each story, by story id. A missing or empty blob is
-/// omitted, and a failed fetch leaves every thumb blank. With [photos]
-/// (tests) each key is downloaded once; without it all keys are fetched in
-/// one `media.getMany` call on [client] (default [serverClient]).
+/// omitted. With [photos] (tests) each key is downloaded once; without it the
+/// keys go to `media.getMany` on [client] (default [serverClient]) in
+/// batches ([getMediaBatched]), so a failed batch blanks only its thumbs.
 Future<Map<String, Uint8List>> downloadFirstThumbs(
   List<Story> stories,
   PhotosGateway? photos, {
@@ -575,7 +576,7 @@ Future<Map<String, Uint8List>> downloadFirstThumbs(
   };
   if (keys.isEmpty) return const {};
   final bytes = photos == null
-      ? await _getMany(client, keys)
+      ? await getMediaBatched(client ?? serverClient, keys)
       : await _downloadEach(photos, keys);
   final out = <String, Uint8List>{};
   for (final story in stories) {
@@ -584,24 +585,6 @@ Future<Map<String, Uint8List>> downloadFirstThumbs(
     if (data != null && data.isNotEmpty) out[story.id] = data;
   }
   return out;
-}
-
-Future<Map<String, Uint8List>> _getMany(
-  server.Client? client,
-  Set<String> keys,
-) async {
-  try {
-    final blobs = await withServerErrors(
-      () => (client ?? serverClient).media.getMany(keys.toList()),
-    );
-    return {
-      for (final MapEntry(:key, :value) in blobs.entries)
-        key: Uint8List.sublistView(value),
-    };
-  } catch (_) {
-    // Missing thumbs stay parchment blanks.
-    return const {};
-  }
 }
 
 Future<Map<String, Uint8List>> _downloadEach(
