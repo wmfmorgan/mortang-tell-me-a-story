@@ -32,4 +32,89 @@ void main() {
     expect(shape.borderRadius, BorderRadius.circular(12));
     expect(albumTheme().scaffoldBackgroundColor, albumParchment);
   });
+
+  test('timeline tints are album colours at fixed alphas', () {
+    expect(albumRule, albumInk.withAlpha(0x33));
+    expect(albumRuleStrong, albumInk.withAlpha(0x99));
+    expect(albumWatermark, albumInk.withAlpha(0x1F));
+    expect(albumSageTint, albumSage.withAlpha(0x59));
+    expect(albumSageLine, albumSage.withAlpha(0x73));
+  });
+
+  test('exact-value tokens keep their hex values (O3)', () {
+    expect(albumDimInk, const Color(0xFF6A6358));
+    expect(albumBlush, const Color(0xFFF5DED6));
+    expect(albumBlushPale, const Color(0xFFF5ECE9));
+  });
+
+  test('timeline scales match the lab', () {
+    expect(
+      [AlbumSpace.xs, AlbumSpace.s, AlbumSpace.m, AlbumSpace.l, AlbumSpace.xl],
+      [4, 8, 12, 16, 24],
+    );
+    expect(
+      [
+        AlbumRadius.tile,
+        AlbumRadius.group,
+        AlbumRadius.card,
+        AlbumRadius.sheet,
+        AlbumRadius.pill,
+      ],
+      [4, 8, 12, 16, 20],
+    );
+    expect(
+      [AlbumStroke.hairline, AlbumStroke.rule, AlbumStroke.mark],
+      [1, 1.5, 2],
+    );
+    expect(
+      [
+        AlbumMarker.dot,
+        AlbumMarker.small,
+        AlbumMarker.gap,
+        AlbumMarker.ring,
+        AlbumMarker.hollow,
+      ],
+      [10, 8, 2, 2, 1.5],
+    );
+    expect(AlbumTarget.min, 44);
+    expect(AlbumTarget.fingerRadius, 22);
+    expect(AlbumBreakpoint.sidebar, 900);
+    expect(AlbumBreakpoint.compact, 600);
+  });
+
+  test('text roles build on the theme text styles', () {
+    final t = albumTheme().textTheme;
+    expect(AlbumText.axis(t).fontWeight, FontWeight.w600);
+    expect(AlbumText.axis(t).fontFeatures, const [
+      FontFeature.tabularFigures(),
+    ]);
+    expect(AlbumText.count(t).color, albumDimInk);
+    expect(AlbumText.lane(t).fontWeight, FontWeight.w600);
+    expect(AlbumText.group(t), t.titleSmall);
+  });
+
+  test('containers have continuous corners', () {
+    const side = BorderSide(color: albumSageLine);
+    final shape = albumContainerShape(AlbumRadius.card, side: side);
+    expect(shape, isA<RoundedSuperellipseBorder>());
+    expect(
+      (shape as RoundedSuperellipseBorder).borderRadius,
+      BorderRadius.circular(12),
+    );
+    expect(shape.side, side);
+  });
+
+  test('selected segment is terracotta with a parchment label', () {
+    final style = albumTheme().segmentedButtonTheme.style!;
+    expect(
+      style.backgroundColor!.resolve({WidgetState.selected}),
+      albumTerracotta,
+    );
+    expect(
+      style.foregroundColor!.resolve({WidgetState.selected}),
+      albumParchment,
+    );
+    expect(style.backgroundColor!.resolve({}), albumPillFill);
+    expect(style.foregroundColor!.resolve({}), albumInk);
+  });
 }

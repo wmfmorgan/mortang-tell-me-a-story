@@ -9,10 +9,8 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/ui/story/story_date.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_logic.dart';
 
-/// Ink at 70% on parchment. That composite is the #6A6358 dim floor.
-Color allStoriesDimInk() {
-  return Color.alphaBlend(albumInk.withValues(alpha: 0.7), albumParchment);
-}
+/// Ink at 70% on parchment: the #6A6358 dim floor ([albumDimInk]).
+Color allStoriesDimInk() => albumDimInk;
 
 const allStoriesMotion = Duration(milliseconds: 240);
 
