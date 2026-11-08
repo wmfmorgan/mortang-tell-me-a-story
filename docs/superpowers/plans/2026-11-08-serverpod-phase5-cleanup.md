@@ -86,7 +86,7 @@
 
 - [ ] **Step 1: Check the branch and tree**
 
-Run: `git -C /Users/david/projects/mortang-tell-me-a-story status --short && git rev-parse --abbrev-ref HEAD`
+Run: `git status --short && git rev-parse --abbrev-ref HEAD` (in the checkout or worktree that holds `feat/p5-cleanup`)
 Expected: nothing, then `feat/p5-cleanup`. Anything else is the owner's work: stop and ask.
 
 - [ ] **Step 2: Record the baseline** (all from the repo root)
@@ -108,14 +108,14 @@ Expected:
 - App analyze: `6 issues found.`
 - Server analyze: `No issues found!`
 - `just test`: `+685 ~12: All tests passed!` (this count was measured at `de30ef5`; if yours differs, write yours down and use it below).
-- `just server-test`: `All tests passed!`; write down the `+N` count.
+- `just server-test`: `All tests passed!`; write down the `+N` count (measured `+425` at `501910b`).
 - `check_flows: 9 flows match (…)`.
 
 Every later "test count unchanged" check compares against these numbers.
 
 - [ ] **Step 3: Point the roadmap at the plans**
 
-In `docs/superpowers/plans/2026-11-06-serverpod-migration-roadmap.md`, replace the last cell of the `| 5. Cleanup |` row, `written at Phase 4 close`, with `` `2026-11-08-serverpod-phase5-cleanup.md` ``. Add this row after it:
+In `docs/superpowers/plans/2026-11-06-serverpod-migration-roadmap.md`, replace the last cell of the `| 5. Cleanup |` row, `written at Phase 4 close`, with `` `2026-11-08-serverpod-phase5-cleanup.md` ``. Add this row after it (already applied in `501910b`, together with both plans; then this step and Step 4 have nothing to add beyond these plan-text fixes):
 
 ```markdown
 | 6. Restructure | `lib/` gets `app/` and `ui/` layers with enforced import rules; `test/` mirrors `lib/`; hard-coded colours in the moved files become tokens; `MagicLinkPage` → `SignInPage`; shared test fakes | `2026-11-08-serverpod-phase6-restructure.md` |
