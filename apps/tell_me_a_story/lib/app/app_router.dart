@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -33,122 +31,8 @@ import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/data/search_api.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
-
-/// Pops the current route, or opens the timeline when this page is the root.
-void popOrGoTimeline(BuildContext context) {
-  final router = GoRouter.maybeOf(context);
-  if (router != null) {
-    if (router.canPop()) {
-      router.pop();
-    } else {
-      router.go(AppRoutes.timeline);
-    }
-    return;
-  }
-  Navigator.of(context).pop();
-}
-
-/// Card, scrim, and icon label shared by the reader and the capture form.
-class AlbumModalFrame extends StatelessWidget {
-  const AlbumModalFrame({
-    super.key,
-    required this.frameKey,
-    required this.label,
-    required this.trailing,
-    required this.child,
-    this.markKey,
-    this.showScrim = true,
-  });
-
-  final Key frameKey;
-  final Key? markKey;
-  final String label;
-  final Widget trailing;
-  final Widget child;
-  final bool showScrim;
-
-  @override
-  Widget build(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height;
-    final theme = Theme.of(context);
-    return Material(
-      type: MaterialType.transparency,
-      child: Stack(
-        children: [
-          if (showScrim)
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                child: const ColoredBox(color: albumModalScrim),
-              ),
-            ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: 1040,
-                  maxHeight: height - 48,
-                ),
-                child: Material(
-                  key: frameKey,
-                  color: albumParchment,
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: albumModalBorder),
-                  ),
-                  child: Scaffold(
-                    backgroundColor: albumParchment,
-                    body: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.auto_stories_outlined,
-                                key: markKey,
-                                color: albumTerracotta,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                label,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: albumSage,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.4,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: trailing,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(child: child),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// Transparent route used for the story reader and the capture form.
 CustomTransitionPage<void> albumModalPage({
@@ -164,36 +48,6 @@ CustomTransitionPage<void> albumModalPage({
     transitionsBuilder: (context, animation, secondary, child) => child,
     child: child,
   );
-}
-
-/// Chrome-lock paths: sign-in entry (signed-out), `/family` (signed-in home).
-abstract final class AppRoutes {
-  static const signIn = '/';
-  static const familyLanding = '/family';
-  static const timeline = '/timeline';
-  static const allStories = '/family/:id/stories';
-
-  static String allStoriesPath(String familyId) => '/family/$familyId/stories';
-  static const newStory = '/stories/new';
-  static const story = '/stories/:storyId';
-  static const storyEdit = '/stories/:storyId/edit';
-  static const storyPerspective = '/stories/:storyId/perspective';
-  static const invite = '/invite/:token';
-  static const drafts = '/drafts';
-  static const search = '/search';
-  static const settings = '/settings';
-  static const manageFamilies = '/manage-families';
-  static const manageFamily = '/manage-families/:familyId';
-
-  static String storyPath(String id) => '/stories/$id';
-
-  static String storyEditPath(String id) => '/stories/$id/edit';
-
-  static String invitePath(String token) => '/invite/$token';
-
-  static String manageFamilyPath(String id) => '/manage-families/$id';
-
-  static String storyPerspectivePath(String id) => '/stories/$id/perspective';
 }
 
 /// Where a signed-in session opens from the sign-in route.

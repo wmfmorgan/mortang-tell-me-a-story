@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 
-import 'package:tell_me_a_story/app.dart';
+import 'package:tell_me_a_story/app/app.dart';
 import 'package:tell_me_a_story/core/config/env.dart';
 import 'package:tell_me_a_story/core/navigation/before_unload.dart';
-import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/app/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
-import 'package:tell_me_a_story/core/router/url_strategy_stub.dart'
-    if (dart.library.html) 'package:tell_me_a_story/core/router/url_strategy_web.dart';
+import 'package:tell_me_a_story/app/url_strategy_stub.dart'
+    if (dart.library.html) 'package:tell_me_a_story/app/url_strategy_web.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/core/server/server_client.dart';
 import 'package:tell_me_a_story/data/families_api.dart';

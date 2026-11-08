@@ -11,7 +11,7 @@ import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/features/family/family_role.dart';
 import 'package:tell_me_a_story/features/family/family_tree_order.dart';
 import 'package:tell_me_a_story/core/navigation/unsaved_guard.dart';
-import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/core/theme/album_chrome.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
