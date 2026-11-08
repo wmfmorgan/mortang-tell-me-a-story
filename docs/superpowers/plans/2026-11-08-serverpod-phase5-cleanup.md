@@ -1090,13 +1090,14 @@ Run from the repo root and paste the output in the PR body.
 
 ## Off limits
 - No secrets in code, docs or chat. `apps/server/config/passwords.yaml` comes from `just server-passwords` and is git-ignored.
-- No production or hosted config changes (Netlify settings, server hosting, DNS, mail provider keys).
+- No production or hosted config changes (web and server hosting, DNS, mail provider keys).
+- Deployment: see the GCP hosting work (pending).
 ```
 
 - [ ] **Step 2: Check that nothing stale is left**
 
 Run: `git grep -n -i -E "supabase|deno|pgtap|notion|§15|impl spec|mapRpcError" -- AGENTS.md README.md .cursor`
-Expected: no output.
+Expected: one line, `AGENTS.md:8`, where the new text names "the old impl spec" as archived history. Nothing else.
 
 - [ ] **Step 3: Commit**
 
