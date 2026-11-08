@@ -13,7 +13,6 @@ import 'package:tell_me_a_story/ui/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
@@ -24,6 +23,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_manage_families_gateway.dart';
 import '../../support/fakes/fake_photos_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
 
@@ -93,7 +93,7 @@ class _FakeFamilies extends FamiliesGateway {
   Future<List<StewardFamily>> listStewarded() async => const [];
 }
 
-class _FakeManage implements ManageFamiliesGateway {
+class _FakeManage extends FakeManageFamiliesGateway {
   _FakeManage(this.families);
 
   final _FakeFamilies families;
@@ -105,73 +105,6 @@ class _FakeManage implements ManageFamiliesGateway {
       MemberFamily(id: id, name: name, createdAt: DateTime.utc(2022)),
     );
     return id;
-  }
-
-  @override
-  Future<String> createBranchFamily({
-    required String parentFamilyId,
-    required String originStoryId,
-    required String name,
-    required int branchYear,
-    required String ownerUserId,
-    List<String> personIds = const [],
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> renameFamily({required String familyId, required String name}) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> addCoOwner({required String familyId, required String userId}) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> removeCoOwner({
-    required String familyId,
-    required String userId,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> removeMember({
-    required String familyId,
-    required String userId,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> transferOwnership({
-    required String familyId,
-    required String newOwnerUserId,
-    required String formerOwnerBecomes,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> softDeleteFamily(String familyId) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> recoverFamily(String familyId) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<DateTime> resendInvite(String inviteId) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> revokeInvite(String inviteId) {
-    throw UnimplementedError();
   }
 }
 

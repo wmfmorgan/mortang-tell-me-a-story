@@ -8,10 +8,11 @@ import 'package:tell_me_a_story/ui/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/ui/family/family_role.dart';
 import 'package:tell_me_a_story/ui/family/family_tree_order.dart';
 import 'package:tell_me_a_story/features/family/manage_families_page.dart';
+
+import '../../support/fakes/fake_manage_families_gateway.dart';
 
 void main() {
   setUp(() {
@@ -521,7 +522,7 @@ void main() {
                 StewardFamily(id: 'ada', name: 'Ada Archive', role: 'owner'),
               ],
             ),
-            manageApi: _NoManage(),
+            manageApi: _noManage(),
           ),
         ),
       );
@@ -578,7 +579,7 @@ void main() {
                 ),
               ],
             ),
-            manageApi: _NoManage(),
+            manageApi: _noManage(),
           ),
         ),
       );
@@ -631,7 +632,7 @@ void main() {
                 ),
               ],
             ),
-            manageApi: _NoManage(),
+            manageApi: _noManage(),
           ),
         ),
         GoRoute(
@@ -659,7 +660,7 @@ void main() {
           home: ManageFamiliesPage(
             directoryApi: _EmptyDirectory(),
             familiesApi: _Families(),
-            manageApi: _NoManage(),
+            manageApi: _noManage(),
           ),
         ),
       );
@@ -763,63 +764,7 @@ class _EmptyDirectory implements FamilyDirectoryGateway {
   Future<FamilyDetail?> loadDetail(String familyId) async => null;
 }
 
-Never _manageCalled() => throw StateError('ManageFamiliesGateway called');
-
-class _NoManage implements ManageFamiliesGateway {
-  _NoManage();
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => _manageCalled();
-
-  @override
-  Future<String> createRootFamily(String name) => _manageCalled();
-
-  @override
-  Future<String> createBranchFamily({
-    required String parentFamilyId,
-    required String originStoryId,
-    required String name,
-    required int branchYear,
-    required String ownerUserId,
-    List<String> personIds = const [],
-  }) => _manageCalled();
-
-  @override
-  Future<void> renameFamily({required String familyId, required String name}) =>
-      _manageCalled();
-
-  @override
-  Future<void> addCoOwner({required String familyId, required String userId}) =>
-      _manageCalled();
-
-  @override
-  Future<void> removeCoOwner({
-    required String familyId,
-    required String userId,
-  }) => _manageCalled();
-
-  @override
-  Future<void> removeMember({
-    required String familyId,
-    required String userId,
-  }) => _manageCalled();
-
-  @override
-  Future<void> transferOwnership({
-    required String familyId,
-    required String newOwnerUserId,
-    required String formerOwnerBecomes,
-  }) => _manageCalled();
-
-  @override
-  Future<void> softDeleteFamily(String familyId) => _manageCalled();
-
-  @override
-  Future<void> recoverFamily(String familyId) => _manageCalled();
-
-  @override
-  Future<DateTime> resendInvite(String inviteId) => _manageCalled();
-
-  @override
-  Future<void> revokeInvite(String inviteId) => _manageCalled();
-}
+/// A manage gateway that fails every call: these flows must not use it.
+FakeManageFamiliesGateway _noManage() =>
+    FakeManageFamiliesGateway()
+      ..error = StateError('ManageFamiliesGateway called');

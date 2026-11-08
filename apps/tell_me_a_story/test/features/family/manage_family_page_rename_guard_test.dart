@@ -6,10 +6,10 @@ import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_manage_families_gateway.dart';
 
 const _ada = 'ada';
 const _bea = 'bea';
@@ -156,7 +156,7 @@ class _Families extends FamiliesGateway {
   ];
 }
 
-class _Manage implements ManageFamiliesGateway {
+class _Manage extends FakeManageFamiliesGateway {
   _Manage({required this.failRename});
 
   final bool failRename;
@@ -173,54 +173,4 @@ class _Manage implements ManageFamiliesGateway {
       );
     }
   }
-
-  @override
-  Future<String> createRootFamily(String name) async => 'new';
-
-  @override
-  Future<String> createBranchFamily({
-    required String parentFamilyId,
-    required String originStoryId,
-    required String name,
-    required int branchYear,
-    required String ownerUserId,
-    List<String> personIds = const [],
-  }) async => 'branch';
-
-  @override
-  Future<void> addCoOwner({
-    required String familyId,
-    required String userId,
-  }) async {}
-
-  @override
-  Future<void> removeCoOwner({
-    required String familyId,
-    required String userId,
-  }) async {}
-
-  @override
-  Future<void> removeMember({
-    required String familyId,
-    required String userId,
-  }) async {}
-
-  @override
-  Future<void> transferOwnership({
-    required String familyId,
-    required String newOwnerUserId,
-    required String formerOwnerBecomes,
-  }) async {}
-
-  @override
-  Future<void> softDeleteFamily(String familyId) async {}
-
-  @override
-  Future<void> recoverFamily(String familyId) async {}
-
-  @override
-  Future<DateTime> resendInvite(String inviteId) async => DateTime.utc(2026);
-
-  @override
-  Future<void> revokeInvite(String inviteId) async {}
 }

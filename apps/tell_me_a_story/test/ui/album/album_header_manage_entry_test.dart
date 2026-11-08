@@ -9,11 +9,11 @@ import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/ui/album/album_header.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_manage_families_gateway.dart';
 
 void main() {
   setUp(() {
@@ -199,7 +199,7 @@ void main() {
             path: AppRoutes.manageFamilies,
             builder: (context, state) => ManageFamiliesPage(
               directoryApi: directory,
-              manageApi: _Manage(),
+              manageApi: FakeManageFamiliesGateway(),
             ),
           ),
           GoRoute(
@@ -207,7 +207,7 @@ void main() {
             builder: (context, state) => ManageFamilyPage(
               familyId: state.pathParameters['familyId']!,
               directoryApi: directory,
-              manageApi: _Manage(),
+              manageApi: FakeManageFamiliesGateway(),
             ),
           ),
           GoRoute(
@@ -312,7 +312,7 @@ void main() {
       MaterialApp(
         home: ManageFamiliesPage(
           directoryApi: directory,
-          manageApi: _Manage(),
+          manageApi: FakeManageFamiliesGateway(),
           familiesApi: _Families(
             stewarded: const [
               StewardFamily(
@@ -359,7 +359,7 @@ void main() {
               currentFamilyId: 'ada',
               onFamilySelected: FamilySelection.remember,
               stewarded: const [],
-              manageApi: _Manage(),
+              manageApi: FakeManageFamiliesGateway(),
             ),
             body: const Text('hub-screen'),
           ),
@@ -377,7 +377,7 @@ void main() {
               currentFamilyId: 'bea',
               onFamilySelected: FamilySelection.remember,
               stewarded: const [],
-              manageApi: _Manage(),
+              manageApi: FakeManageFamiliesGateway(),
             ),
             body: const Text('detail-screen'),
           ),
@@ -503,7 +503,7 @@ Widget _menu({
         currentFamilyId: currentId,
         onFamilySelected: (_) {},
         stewarded: stewarded,
-        manageApi: _Manage(),
+        manageApi: FakeManageFamiliesGateway(),
         onLogout: () async {},
       ),
     ),
@@ -537,7 +537,7 @@ class _SwitchHostState extends State<_SwitchHost> {
           currentFamilyId: _current,
           onFamilySelected: (id) => setState(() => _current = id),
           stewarded: widget.stewarded,
-          manageApi: _Manage(),
+          manageApi: FakeManageFamiliesGateway(),
           onLogout: () async {},
         ),
       ),
@@ -606,63 +606,4 @@ class _Directory implements FamilyDirectoryGateway {
 
   @override
   Future<FamilyDetail?> loadDetail(String familyId) async => detail;
-}
-
-class _Manage implements ManageFamiliesGateway {
-  @override
-  Future<String> createRootFamily(String name) async => 'created-1';
-
-  @override
-  Future<String> createBranchFamily({
-    required String parentFamilyId,
-    required String originStoryId,
-    required String name,
-    required int branchYear,
-    required String ownerUserId,
-    List<String> personIds = const [],
-  }) async => 'unused';
-
-  @override
-  Future<void> renameFamily({
-    required String familyId,
-    required String name,
-  }) async {}
-
-  @override
-  Future<void> addCoOwner({
-    required String familyId,
-    required String userId,
-  }) async {}
-
-  @override
-  Future<void> removeCoOwner({
-    required String familyId,
-    required String userId,
-  }) async {}
-
-  @override
-  Future<void> removeMember({
-    required String familyId,
-    required String userId,
-  }) async {}
-
-  @override
-  Future<void> transferOwnership({
-    required String familyId,
-    required String newOwnerUserId,
-    required String formerOwnerBecomes,
-  }) async {}
-
-  @override
-  Future<void> softDeleteFamily(String familyId) async {}
-
-  @override
-  Future<void> recoverFamily(String familyId) async {}
-
-  @override
-  Future<DateTime> resendInvite(String inviteId) async =>
-      DateTime.utc(2026, 10, 17);
-
-  @override
-  Future<void> revokeInvite(String inviteId) async {}
 }

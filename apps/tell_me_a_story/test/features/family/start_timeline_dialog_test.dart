@@ -9,7 +9,6 @@ import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
@@ -23,6 +22,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_manage_families_gateway.dart';
 import '../../support/fakes/fake_photos_gateway.dart';
 import '../../support/fakes/fake_places_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
@@ -116,9 +116,7 @@ class _EmptyDirectory implements FamilyDirectoryGateway {
   Future<FamilyDetail?> loadDetail(String familyId) async => null;
 }
 
-class _Manage implements ManageFamiliesGateway {
-  Object? error;
-  var calls = 0;
+class _Manage extends FakeManageFamiliesGateway {
   String? parentFamilyId;
   String? originStoryId;
   String? name;
@@ -135,63 +133,22 @@ class _Manage implements ManageFamiliesGateway {
     required String ownerUserId,
     List<String> personIds = const [],
   }) async {
-    calls++;
     this.parentFamilyId = parentFamilyId;
     this.originStoryId = originStoryId;
     this.name = name;
     this.branchYear = branchYear;
     this.ownerUserId = ownerUserId;
     this.personIds = personIds;
-    final failure = error;
-    if (failure != null) throw failure;
+    await super.createBranchFamily(
+      parentFamilyId: parentFamilyId,
+      originStoryId: originStoryId,
+      name: name,
+      branchYear: branchYear,
+      ownerUserId: ownerUserId,
+      personIds: personIds,
+    );
     return 'new-family';
   }
-
-  @override
-  Future<String> createRootFamily(String name) async => 'root';
-
-  @override
-  Future<void> renameFamily({
-    required String familyId,
-    required String name,
-  }) async {}
-
-  @override
-  Future<void> addCoOwner({
-    required String familyId,
-    required String userId,
-  }) async {}
-
-  @override
-  Future<void> removeCoOwner({
-    required String familyId,
-    required String userId,
-  }) async {}
-
-  @override
-  Future<void> removeMember({
-    required String familyId,
-    required String userId,
-  }) async {}
-
-  @override
-  Future<void> transferOwnership({
-    required String familyId,
-    required String newOwnerUserId,
-    required String formerOwnerBecomes,
-  }) async {}
-
-  @override
-  Future<void> softDeleteFamily(String familyId) async {}
-
-  @override
-  Future<void> recoverFamily(String familyId) async {}
-
-  @override
-  Future<DateTime> resendInvite(String inviteId) async => DateTime.utc(2026);
-
-  @override
-  Future<void> revokeInvite(String inviteId) async {}
 }
 
 class _Stories extends FakeStoriesGateway {
@@ -657,14 +614,14 @@ void main() {
 
     await tester.tap(find.byKey(const Key('start-timeline-picker-cancel')));
     await tester.pumpAndSettle();
-    expect(manage.calls, 0);
+    expect(manage.calls, isEmpty);
 
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('start-timeline-write')));
     await tester.pumpAndSettle();
     expect(wrote, isTrue);
-    expect(manage.calls, 0);
+    expect(manage.calls, isEmpty);
   });
 
   testWidgets('year prefills from the picked story and stays editable', (
@@ -1090,7 +1047,7 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, 'Save draft'));
       await tester.pumpAndSettle();
       expect(stories.publishCalls, 0);
-      expect(manage.calls, 0);
+      expect(manage.calls, isEmpty);
       expect(
         router.routerDelegate.currentConfiguration.uri.path,
         AppRoutes.newStory,
@@ -1107,7 +1064,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
       await tester.pumpAndSettle();
       expect(stories.publishCalls, 1);
-      expect(manage.calls, 0);
+      expect(manage.calls, isEmpty);
       expect(find.byKey(const Key('start-timeline-change')), findsNothing);
       expect(
         router.routerDelegate.currentConfiguration.uri.path,
@@ -1267,7 +1224,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('start-timeline-cancel')));
     await tester.pumpAndSettle();
-    expect(manage.calls, 0);
+    expect(manage.calls, isEmpty);
     expect(
       router
           .routerDelegate
@@ -1301,7 +1258,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox.shrink());
-      expect(manage.calls, 0);
+      expect(manage.calls, isEmpty);
       expect(stories.publishCalls, 0);
     },
   );

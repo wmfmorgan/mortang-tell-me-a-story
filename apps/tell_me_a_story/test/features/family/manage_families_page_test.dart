@@ -8,12 +8,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_manage_families_gateway.dart';
 
 void main() {
   late _Directory directory;
@@ -130,7 +130,7 @@ void main() {
     await tester.tap(find.byKey(const Key('manage-family-recover-old-1')));
     await tester.pumpAndSettle();
 
-    expect(manage.recovered, ['old-1']);
+    expect(manage.callsTo('recoverFamily'), ['old-1']);
     expect(find.text('Recoverable (60 days)'), findsNothing);
     expect(find.text('West Archive'), findsOneWidget);
     expect(find.text('1 active'), findsOneWidget);
@@ -233,7 +233,7 @@ void main() {
     await tester.tap(find.byKey(const Key('start-family-create')));
     await tester.pumpAndSettle();
 
-    expect(manage.createdNames, ['North Archive']);
+    expect(manage.callsTo('createRootFamily'), ['North Archive']);
     expect(FamilySelection.id, 'created-1');
     expect(router.state.uri.path, AppRoutes.familyLanding);
     expect(find.text('landing-landed'), findsOneWidget);
@@ -322,15 +322,15 @@ void main() {
     );
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    expect(manage.demoted, isEmpty);
+    expect(manage.callsTo('removeCoOwner'), isEmpty);
 
     await tester.tap(find.byKey(const Key('manage-family-make-member-co-1')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Make member').last);
     await tester.pumpAndSettle();
 
-    expect(manage.demoted, [(familyId: 'fam-1', userId: 'co-1')]);
-    expect(manage.removed, isEmpty);
+    expect(manage.callsTo('removeCoOwner'), ['fam-1,co-1']);
+    expect(manage.callsTo('removeMember'), isEmpty);
     expect(find.text('1 of 2'), findsOneWidget);
     expect(find.byKey(const Key('manage-family-add-co-owner')), findsOneWidget);
   });
@@ -375,15 +375,15 @@ void main() {
     );
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    expect(manage.removed, isEmpty);
+    expect(manage.callsTo('removeMember'), isEmpty);
 
     await tester.tap(find.byKey(const Key('manage-family-remove-co-1')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('remove-member-confirm')));
     await tester.pumpAndSettle();
 
-    expect(manage.removed, [(familyId: 'fam-1', userId: 'co-1')]);
-    expect(manage.demoted, isEmpty);
+    expect(manage.callsTo('removeMember'), ['fam-1,co-1']);
+    expect(manage.callsTo('removeCoOwner'), isEmpty);
   });
 
   testWidgets('remove on a member row confirms before remove-member', (
@@ -401,13 +401,13 @@ void main() {
     expect(find.text('Remove Cara North from North Archive?'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    expect(manage.removed, isEmpty);
+    expect(manage.callsTo('removeMember'), isEmpty);
 
     await tester.tap(find.byKey(const Key('manage-family-remove-mem-1')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('remove-member-confirm')));
     await tester.pumpAndSettle();
-    expect(manage.removed, [(familyId: 'fam-1', userId: 'mem-1')]);
+    expect(manage.callsTo('removeMember'), ['fam-1,mem-1']);
   });
 
   testWidgets('add co-owner cancel and close make no call', (tester) async {
@@ -428,13 +428,13 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('add-co-owner-dialog')), findsNothing);
-    expect(manage.added, isEmpty);
+    expect(manage.callsTo('addCoOwner'), isEmpty);
 
     await open();
     await tester.tap(find.byKey(const Key('add-co-owner-close')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('add-co-owner-dialog')), findsNothing);
-    expect(manage.added, isEmpty);
+    expect(manage.callsTo('addCoOwner'), isEmpty);
   });
 
   testWidgets('pending invites stay hidden without rows or for a member', (
@@ -538,10 +538,10 @@ void main() {
       find.byKey(const Key('manage-family-resend-busy-inv-1')),
       findsOneWidget,
     );
-    expect(manage.resent, isEmpty);
+    expect(manage.callsTo('resendInvite'), isEmpty);
     gate.complete();
     await tester.pumpAndSettle();
-    expect(manage.resent, ['inv-1']);
+    expect(manage.callsTo('resendInvite'), ['inv-1']);
     expect(
       find.text(
         'Invite sent again to james.carter@gmail.com. The old link no longer works.',
@@ -562,7 +562,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('cancel-invite-keep')));
     await tester.pumpAndSettle();
-    expect(manage.revoked, isEmpty);
+    expect(manage.callsTo('revokeInvite'), isEmpty);
 
     await tester.tap(
       find.byKey(const Key('manage-family-cancel-invite-inv-1')),
@@ -576,7 +576,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('cancel-invite-confirm')));
     await tester.pumpAndSettle();
-    expect(manage.revoked, ['inv-1']);
+    expect(manage.callsTo('revokeInvite'), ['inv-1']);
   });
 
   testWidgets('a member does not see rename, transfer, or delete', (
@@ -668,7 +668,7 @@ void main() {
     await tester.tap(find.byKey(const Key('add-co-owner-submit')));
     await tester.pumpAndSettle();
 
-    expect(manage.added, [(familyId: 'fam-1', userId: 'mem-1')]);
+    expect(manage.callsTo('addCoOwner'), ['fam-1,mem-1']);
     expect(find.byKey(const Key('add-co-owner-dialog')), findsNothing);
   });
 
@@ -700,9 +700,7 @@ void main() {
     await tester.tap(submit);
     await tester.pumpAndSettle();
 
-    expect(manage.transfers, [
-      (familyId: 'fam-1', newOwner: 'co-1', former: 'member'),
-    ]);
+    expect(manage.callsTo('transferOwnership'), ['fam-1,co-1,member']);
   });
 
   testWidgets('delete confirms only when the typed name matches', (
@@ -742,7 +740,7 @@ void main() {
     await tester.tap(submit);
     await tester.pumpAndSettle();
 
-    expect(manage.deleted, ['fam-1']);
+    expect(manage.callsTo('softDeleteFamily'), ['fam-1']);
     expect(FamilySelection.id, isNull);
     expect(router.state.uri.path, AppRoutes.manageFamilies);
   });
@@ -799,49 +797,24 @@ class _Directory implements FamilyDirectoryGateway {
   Future<FamilyDetail?> loadDetail(String familyId) async => detail;
 }
 
-class _Manage implements ManageFamiliesGateway {
-  _Manage(this.directory);
+/// Records through [FakeManageFamiliesGateway.calls]; demoting, recovering,
+/// and resending also update [directory] or wait on [resendGate].
+class _Manage extends FakeManageFamiliesGateway {
+  _Manage(this.directory) : super(resentUntil: DateTime(2026, 10, 17));
 
   final _Directory directory;
-  final createdNames = <String>[];
-  final recovered = <String>[];
-  final deleted = <String>[];
-  final added = <({String familyId, String userId})>[];
-  final demoted = <({String familyId, String userId})>[];
-  final removed = <({String familyId, String userId})>[];
-  final transfers = <({String familyId, String newOwner, String former})>[];
-  final resent = <String>[];
-  final revoked = <String>[];
   Completer<void>? resendGate;
+
+  /// Arguments of each call to [method], as `arg,arg`.
+  List<String> callsTo(String method) => [
+    for (final call in calls)
+      if (call.startsWith('$method:')) call.substring(method.length + 1),
+  ];
 
   @override
   Future<String> createRootFamily(String name) async {
-    createdNames.add(name);
+    await super.createRootFamily(name);
     return 'created-1';
-  }
-
-  @override
-  Future<String> createBranchFamily({
-    required String parentFamilyId,
-    required String originStoryId,
-    required String name,
-    required int branchYear,
-    required String ownerUserId,
-    List<String> personIds = const [],
-  }) async => 'unused';
-
-  @override
-  Future<void> renameFamily({
-    required String familyId,
-    required String name,
-  }) async {}
-
-  @override
-  Future<void> addCoOwner({
-    required String familyId,
-    required String userId,
-  }) async {
-    added.add((familyId: familyId, userId: userId));
   }
 
   @override
@@ -849,7 +822,7 @@ class _Manage implements ManageFamiliesGateway {
     required String familyId,
     required String userId,
   }) async {
-    demoted.add((familyId: familyId, userId: userId));
+    await super.removeCoOwner(familyId: familyId, userId: userId);
     final current = directory.detail;
     if (current == null) return;
     directory.detail = FamilyDetail(
@@ -871,48 +844,16 @@ class _Manage implements ManageFamiliesGateway {
   }
 
   @override
-  Future<void> removeMember({
-    required String familyId,
-    required String userId,
-  }) async {
-    removed.add((familyId: familyId, userId: userId));
-  }
-
-  @override
-  Future<void> transferOwnership({
-    required String familyId,
-    required String newOwnerUserId,
-    required String formerOwnerBecomes,
-  }) async {
-    transfers.add((
-      familyId: familyId,
-      newOwner: newOwnerUserId,
-      former: formerOwnerBecomes,
-    ));
-  }
-
-  @override
-  Future<void> softDeleteFamily(String familyId) async {
-    deleted.add(familyId);
-  }
-
-  @override
   Future<DateTime> resendInvite(String inviteId) async {
     final gate = resendGate;
     resendGate = null;
     if (gate != null) await gate.future;
-    resent.add(inviteId);
-    return DateTime(2026, 10, 17);
-  }
-
-  @override
-  Future<void> revokeInvite(String inviteId) async {
-    revoked.add(inviteId);
+    return super.resendInvite(inviteId);
   }
 
   @override
   Future<void> recoverFamily(String familyId) async {
-    recovered.add(familyId);
+    await super.recoverFamily(familyId);
     directory.directory = const FamilyDirectory(
       active: [
         FamilyRoster(
