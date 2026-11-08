@@ -2097,6 +2097,25 @@ class Endpoints extends _is.EndpointDispatch {
                     params['familyId'],
                   ),
         ),
+        'listPublishedInTree': _is.MethodConnector(
+          name: 'listPublishedInTree',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['story'] as _iiu4mi32.StoryEndpoint)
+                  .listPublishedInTree(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
         'listLatestPublished': _is.MethodConnector(
           name: 'listLatestPublished',
           params: {

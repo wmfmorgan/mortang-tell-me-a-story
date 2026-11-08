@@ -3261,6 +3261,37 @@ class _StoryEndpoint {
     });
   }
 
+  _ida.Future<List<_i5ckn2f1.StoryDto>> listPublishedInTree(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'story',
+            method: 'listPublishedInTree',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'story',
+          methodName: 'listPublishedInTree',
+          parameters: _ist.testObjectToJson({'familyId': familyId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_i5ckn2f1.StoryDto>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
   _ida.Future<List<_i5ckn2f1.StoryDto>> listLatestPublished(
     _ist.TestSessionBuilder sessionBuilder,
     _is.UuidValue familyId, {

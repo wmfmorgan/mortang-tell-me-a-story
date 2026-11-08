@@ -96,6 +96,7 @@ story:
   - getPublished:
   - listMyDrafts:
   - listPublished:
+  - listPublishedInTree:
   - listLatestPublished:
   - listForPerson:
   - discard:

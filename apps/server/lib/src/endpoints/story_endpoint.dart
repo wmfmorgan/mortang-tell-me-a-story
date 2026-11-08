@@ -371,6 +371,31 @@ class StoryEndpoint extends Endpoint {
     return storyDtos(session, stories);
   }
 
+  /// Published stories of every live family in [familyId]'s tree, in
+  /// timeline order (G1). A soft-deleted family's stories are left out, and
+  /// it doesn't split the tree (D6b, D8). Tree readers of live [familyId]
+  /// only.
+  Future<List<StoryDto>> listPublishedInTree(
+    Session session,
+    UuidValue familyId,
+  ) async {
+    await _requireFamilyReader(session, familyId);
+    final family = (await Family.db.findById(session, familyId))!;
+    final liveFamilies = await Family.db.find(
+      session,
+      where: (t) => t.treeId.equals(family.treeId) & t.deletedAt.equals(null),
+    );
+    final stories = await Story.db.find(
+      session,
+      where: (t) =>
+          t.treeId.equals(family.treeId) &
+          t.status.equals(StoryStatus.published) &
+          t.familyId.inSet(<UuidValue>{for (final f in liveFamilies) f.id!}),
+      orderByList: _timelineOrder,
+    );
+    return storyDtos(session, stories);
+  }
+
   /// Published in the last [withinDays] days, newest first (`latestOrder`),
   /// at most [limit].
   Future<List<StoryDto>> listLatestPublished(

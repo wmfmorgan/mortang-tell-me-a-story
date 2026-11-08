@@ -797,6 +797,7 @@ class EndpointMedia extends _isc.EndpointRef {
         {'key': key},
       );
 
+  /// At most [mediaManyMaxKeys] keys per call, else VALIDATION.
   _ida.Future<Map<String, _idt.ByteData>> getMany(List<String> keys) =>
       caller.callServerEndpoint<Map<String, _idt.ByteData>>(
         'media',
@@ -1353,6 +1354,18 @@ class EndpointStory extends _isc.EndpointRef {
   ) => caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
     'story',
     'listPublished',
+    {'familyId': familyId},
+  );
+
+  /// Published stories of every live family in [familyId]'s tree, in
+  /// timeline order (G1). A soft-deleted family's stories are left out, and
+  /// it doesn't split the tree (D6b, D8). Tree readers of live [familyId]
+  /// only.
+  _ida.Future<List<_ilx6iivj.StoryDto>> listPublishedInTree(
+    _isc.UuidValue familyId,
+  ) => caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+    'story',
+    'listPublishedInTree',
     {'familyId': familyId},
   );
 
