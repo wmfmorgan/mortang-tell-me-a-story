@@ -61,7 +61,7 @@
 | 7.1 Golden harness and rail baselines | this index, §7.1 | — | done (`feat/p7-1-goldens`) |
 | 7.2 Tokens and shared primitives | this index, §7.2 | — (O3 answered 2026-11-08) | done (`feat/p7-2-tokens`; app `+741 ~12`) |
 | 7.3 Rail split at parity | this index, §7.3 | 7.1, 7.2 | done (`feat/p7-3-rail-split`; app `+741 ~12`, goldens unchanged) |
-| 7.4 Rail restyle and iPad | this index, §7.4 "TDD plan" | 7.3; owner screenshot sign-off before merge | in progress (`feat/p7-4-restyle`) |
+| 7.4 Rail restyle and iPad | this index, §7.4 "TDD plan" | 7.3; owner screenshot sign-off before merge | done, awaiting owner screenshot sign-off (`feat/p7-4-restyle`; app `+815 ~12`, 6 goldens regenerated + 2 new) |
 | 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
 | 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | not started |
@@ -1169,3 +1169,15 @@ Alternatives:
   - The opacity tolerance: 0.01 on Decades, 0.02 on Years and Days.
   - Years and Days repeat the same eight short story-id hooks, because their widgets share no type.
 - **Fresh worktree:** `just server-test` also needs `apps/server/config/passwords.yaml` (gitignored) copied from the main checkout; without it the integration suites stop silently after `+47`.
+
+**7.4 Rail restyle and iPad** (`feat/p7-4-restyle`, from `feat/p7-3-rail-split` `26230d4`):
+- **Commits:** `8d94a0a` plan; `a0058d6` C10 chooser title; `fe469ba` markers, corners, one spine (`rails/rail_spine.dart`, shared `test/support/timeline_fixture.dart`); `c025012` finger hit radius and the stacked-year chooser (`fingerDevices`/`preciseDevices` in `pointer_input.dart`); `31525f1` insets, narrow decade rows, iPad sweep (`test/support/ipad.dart`); `a79ed93` spine fills the viewport + goldens; `c9a6814` unused imports.
+- **Gates:** `just check` passes: fmt `(0 changed)` ×2, `analyze: 6 issues (ceiling 6)`, app `+815 ~12` (from `+741`), server `+447`; colours guard ceiling 16, no skip path added. `just test-goldens` `+8`.
+- **Goldens:** all six regenerated (`{decades,years,days}_{desktop,ipad_mini_portrait}`), plus new `decades_ipad_mini_landscape` and `days_ipad_mini_landscape`. The golden test now reads the shared fixture (same data).
+- **Changed `timeline_page_test` assertions:** `_mossRingOn` (also accepts a `StoryDot` with `origin`); `_expectMossCard` (both branches read `RoundedSuperellipseBorder`/`ShapeDecoration` of radius `AlbumRadius.card`); "a decade branch dot stays on the line and comes last" (the branch `StoryDot` is not `selected` and has no shadow, instead of a `Container` `BoxDecoration.boxShadow == null`); "a focused parent origin card has a moss border and does not scale" (Years reads `ShapeDecoration` side/shadows, Days reads `RoundedSuperellipseBorder.side` and `ShapeDecoration.shadows`).
+- **Fixes found:** the old Decades spine (and the first `RailSpine`) had zero height, so Decades never showed its line; narrow Days drew the spine at x = 14, off the dots (now x = 22 for spine, plain and branch dots; the branch card stays under its label). Decades at Split View/Slide Over overflowed (count row and branch callout); the count ellipsizes and the branch label shortens to the dots column.
+- **Plan fix:** the stacked-year chooser lives on Decades (a finger covers neighbouring dots 20 pt apart); Years rows are too far apart for a finger to cover two.
+- **Dots:** mid 12/14 and full 12/14 pt (were 16/22 and 14/20); far unchanged 12/14.
+- **Chip-label fade:** not reproduced on web (DPR 1.25) in `drafts_page`, `start_timeline_dialog`, `invite_modal`, `search_page` (incl. a selected chip) or `new_story_page`; nothing changed.
+- **Not folded:** the 7.3 review's `scrollDialStep`/`HangParentParentData` moves (lines not touched); far rail now uses `opacityOf(…, unmeasured: 1)`, matching the scaffold comment.
+- **Owner sign-off:** pending (screenshots in `/tmp/tmas-p7-4-shots/`).
