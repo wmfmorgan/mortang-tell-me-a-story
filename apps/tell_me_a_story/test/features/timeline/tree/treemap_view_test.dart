@@ -95,6 +95,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('treemap-crumb-group')), findsOneWidget);
     expect(find.text('1970s'), findsOneWidget);
+    expect(find.byKey(const Key('treemap-open-family')), findsNothing);
 
     await tester.tap(find.byKey(const Key('treemap-cell-1970/1975')));
     await tester.pumpAndSettle();
@@ -116,22 +117,32 @@ void main() {
     expect(find.byKey(const Key('treemap-group-1970')), findsOneWidget);
   });
 
-  testWidgets('By family: the header opens the family, a cell drills in', (
+  testWidgets('By family: the header drills in; the action opens the family', (
     tester,
   ) async {
     await pump(tester);
+    expect(find.byKey(const Key('treemap-open-family')), findsNothing);
     await tester.tap(find.byKey(const Key('treemap-group-${TreeFixture.bea}')));
     await tester.pumpAndSettle();
-    expect(families, [TreeFixture.bea]);
-    expect(find.byKey(const Key('treemap-crumb-group')), findsNothing);
+    expect(families, isEmpty);
+    expect(find.byKey(const Key('treemap-crumb-group')), findsOneWidget);
+    expect(
+      find.byKey(const Key('treemap-cell-${TreeFixture.bea}/1980')),
+      findsOneWidget,
+    );
+    expect(find.text(openFamilyTimelineLabel('Bea')), findsOneWidget);
+    expect(openFamilyTimelineLabel('Bea'), 'Open Bea timeline');
 
     await tester.tap(
       find.byKey(const Key('treemap-cell-${TreeFixture.bea}/1980')),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('treemap-crumb-group')), findsOneWidget);
     expect(storyTiles(), findsOneWidget);
     expect(find.byKey(const Key('treemap-story-b1982')), findsOneWidget);
+    expect(families, isEmpty);
+
+    await tester.tap(find.byKey(const Key('treemap-open-family')));
+    await tester.pumpAndSettle();
     expect(families, [TreeFixture.bea]);
   });
 

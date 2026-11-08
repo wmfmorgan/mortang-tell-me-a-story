@@ -178,9 +178,14 @@ void main() {
     expect(find.text('reader-landed'), findsOneWidget);
   });
 
-  testWidgets('a family title opens that family timeline', (tester) async {
+  testWidgets('a family opens its timeline from the drilled view', (
+    tester,
+  ) async {
     await pump(tester);
     await tester.tap(find.byKey(const Key('treemap-group-${TreeFixture.cal}')));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, AppRoutes.familyTreePath(TreeFixture.bea));
+    await tester.tap(find.text('Open Cal timeline'));
     await tester.pumpAndSettle();
 
     expect(FamilySelection.id, TreeFixture.cal);

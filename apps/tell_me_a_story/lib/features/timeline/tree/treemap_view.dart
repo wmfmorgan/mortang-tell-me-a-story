@@ -18,6 +18,10 @@ import 'package:tell_me_a_story/ui/timeline/view_switch.dart';
 /// C9.
 const emptyTreeMessage = 'No stories in this family tree yet.';
 
+/// C19, pending owner approval: the drilled-in action of a family group in
+/// the By family grouping.
+String openFamilyTimelineLabel(String family) => 'Open $family timeline';
+
 /// C5–C7.
 String treemapByLabel(TreemapBy by) => switch (by) {
   TreemapBy.family => 'By family',
@@ -50,7 +54,7 @@ class TreemapView extends StatefulWidget {
   final List<TreeFamily> tree;
   final ValueChanged<String> onStory;
 
-  /// A family's title in the By family grouping.
+  /// The drilled-in [openFamilyTimelineLabel] action (By family only).
   final ValueChanged<String> onFamily;
 
   @override
@@ -106,9 +110,6 @@ class _TreemapViewState extends State<TreemapView> {
               child: _GroupTile(
                 group: g,
                 tints: tints,
-                onHeader: _by == TreemapBy.family
-                    ? () => widget.onFamily(g.id)
-                    : () => _open(group: g.id),
                 onGroup: () => _open(group: g.id),
                 onCell: (c) => _open(group: g.id, cell: c.id),
               ),
@@ -195,6 +196,16 @@ class _TreemapViewState extends State<TreemapView> {
             ),
           ],
           if (cell != null) ...[chevron, Text(cell.label, style: crumbStyle)],
+          if (group != null && _by == TreemapBy.family) ...[
+            const SizedBox(width: AlbumSpace.m),
+            TextButton.icon(
+              key: const Key('treemap-open-family'),
+              onPressed: () => widget.onFamily(group.id),
+              style: TextButton.styleFrom(foregroundColor: albumTerracotta),
+              icon: const Icon(Icons.arrow_forward, size: 18),
+              label: Text(openFamilyTimelineLabel(group.label)),
+            ),
+          ],
         ],
       ),
     );
@@ -206,14 +217,12 @@ class _GroupTile extends StatelessWidget {
   const _GroupTile({
     required this.group,
     required this.tints,
-    required this.onHeader,
     required this.onGroup,
     required this.onCell,
   });
 
   final TreemapGroup group;
   final Map<String, Color> tints;
-  final VoidCallback onHeader;
   final VoidCallback onGroup;
   final ValueChanged<TreemapCell> onCell;
 
@@ -239,7 +248,7 @@ class _GroupTile extends StatelessWidget {
               if (roomForHeader)
                 InkWell(
                   key: Key('treemap-group-${group.id}'),
-                  onTap: onHeader,
+                  onTap: onGroup,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(6, 3, 6, 2),
                     child: Text(
