@@ -2,26 +2,29 @@
 # One-time GCP bootstrap for Story Line: project, billing, APIs, Terraform
 # state bucket, Resend secrets and Firebase. Safe to re-run.
 #
-# Usage: PROJECT_ID=story-line-app RESEND_API_KEY=… RESEND_FROM='Story Line <no-reply@…>' infra/gcp/bootstrap.sh
+# Usage: BILLING_ACCOUNT=XXXXXX-XXXXXX-XXXXXX RESEND_API_KEY=… RESEND_FROM='Story Line <no-reply@…>' \
+#          PROJECT_ID=story-line-app infra/gcp/bootstrap.sh
+# BILLING_ACCOUNT is required (`gcloud billing accounts list` shows the IDs).
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-story-line-app}"
 REGION="us-central1"
-BILLING_ACCOUNT="01EDE2-969598-73D6AD"
 STATE_BUCKET="gs://${PROJECT_ID}-tfstate"
 
 secret_exists() {
   gcloud secrets describe "$1" --project "$PROJECT_ID" >/dev/null 2>&1
 }
 
-# Fail before touching anything if a Resend secret is missing and has no value
-# to create it from (a missing project or disabled API also reads as missing).
+# Fail before touching anything if the billing account is unset, or a Resend
+# secret is missing and has no value to create it from (a missing project or
+# disabled API also reads as missing).
 missing=()
+[ -n "${BILLING_ACCOUNT:-}" ] || missing+=(BILLING_ACCOUNT)
 secret_exists story-line-resend-api-key || [ -n "${RESEND_API_KEY:-}" ] || missing+=(RESEND_API_KEY)
 secret_exists story-line-resend-from || [ -n "${RESEND_FROM:-}" ] || missing+=(RESEND_FROM)
 if [ "${#missing[@]}" -gt 0 ]; then
-  echo "error: ${missing[*]} must be set (the matching Secret Manager secret does not exist yet)." >&2
-  echo "usage: RESEND_API_KEY=… RESEND_FROM='Story Line <no-reply@your-domain>' just gcp-bootstrap" >&2
+  echo "error: ${missing[*]} must be set (BILLING_ACCOUNT always; the Resend values until their Secret Manager secrets exist)." >&2
+  echo "usage: BILLING_ACCOUNT=XXXXXX-XXXXXX-XXXXXX RESEND_API_KEY=… RESEND_FROM='Story Line <no-reply@your-domain>' just gcp-bootstrap" >&2
   exit 1
 fi
 

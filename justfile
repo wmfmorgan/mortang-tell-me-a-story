@@ -130,7 +130,7 @@ server-analyze:
 # Every local gate: format, analyze, app tests, server analyze and server tests
 check: fmt-check analyze test server-analyze server-test
 
-# One-time GCP project + state bucket + Resend secrets (RESEND_API_KEY=… RESEND_FROM=… just gcp-bootstrap)
+# One-time GCP project + billing + state bucket + Resend secrets (BILLING_ACCOUNT=… RESEND_API_KEY=… RESEND_FROM=… just gcp-bootstrap)
 gcp-bootstrap:
     PROJECT_ID={{gcp_project}} infra/gcp/bootstrap.sh
 
@@ -138,10 +138,16 @@ gcp-bootstrap:
 gcp-infra:
     cd infra/gcp && terraform init && terraform apply
 
-# Build the server image on Cloud Build and roll it out to Cloud Run
+# Build the server image on Cloud Build and roll it out to Cloud Run (refuses uncommitted apps/server changes)
 deploy-server:
     #!/usr/bin/env sh
     set -eu
+    # The image is tagged with the commit, so it must contain exactly that commit's apps/server.
+    if [ -n "$(git status --porcelain -- apps/server)" ]; then
+        echo "deploy-server: apps/server has uncommitted changes; commit or stash them first." >&2
+        git status --short -- apps/server >&2
+        exit 1
+    fi
     tag=$(git rev-parse --short HEAD)
     image={{gcp_region}}-docker.pkg.dev/{{gcp_project}}/story-line/server:$tag
     gcloud builds submit apps/server --tag "$image" --project {{gcp_project}}

@@ -39,6 +39,8 @@ build/
 # Terraform
 infra/gcp/.terraform/
 infra/gcp/*.tfstate*
+infra/gcp/*.tfplan
+infra/gcp/tfplan
 
 # Firebase CLI deploy cache
 .firebase/
