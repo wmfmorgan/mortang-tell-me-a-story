@@ -81,4 +81,4 @@ Recommendation: **A**. Keep the Flutter UI, add a Dart backend package in the sa
    - copy the bucket objects into S3/R2;
    - remap storage paths to keys.
 6. Delete `supabase/`, the Deno functions, `scripts/advisors`, `e2e/relay.ts`, and the `supabase_flutter` dependency. Rewrite CI as dart analyze/test + a backend integration job against Postgres. Make e2e use a test-only login-token endpoint.
-7. Hosting: one backend service (Fly/Render/etc.), managed Postgres, R2/S3, and Netlify or the backend for the web build.
+7. Hosting (decided, shipped on `feat/gcp-story-line`): the API runs on Cloud Run with Cloud SQL Postgres 16; the web build is on Firebase Hosting; photos are stored in Postgres through `DatabaseCloudStorage` (no R2/S3); infra is Terraform in `infra/gcp`.
