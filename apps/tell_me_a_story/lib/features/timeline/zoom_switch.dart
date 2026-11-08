@@ -206,12 +206,17 @@ class DialSubheader extends StatelessWidget {
     required this.onMacro,
     required this.onMid,
     required this.onFullCards,
+    this.action,
   });
 
   final TimelineZoom selected;
   final VoidCallback onMacro;
   final VoidCallback onMid;
   final VoidCallback onFullCards;
+
+  /// Sits just before the zoom switch, on its line (the Filters button
+  /// below [AlbumBreakpoint.sidebar]).
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +233,7 @@ class DialSubheader extends StatelessWidget {
             spacing: 12,
             runSpacing: 8,
             children: [
+              ?action,
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerRight,

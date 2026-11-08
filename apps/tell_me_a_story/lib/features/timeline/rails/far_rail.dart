@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/timeline/filter/timeline_filter.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 import 'package:tell_me_a_story/features/timeline/rails/rail_scaffold.dart';
@@ -27,6 +28,9 @@ class FarRail extends StatefulWidget {
     required this.onOpenBranch,
     required this.onMid,
     required this.onFullCards,
+    this.dimmed = const {},
+    this.filtering = false,
+    this.filterAction,
   });
 
   final List<DecadeBand> bands;
@@ -40,6 +44,15 @@ class FarRail extends StatefulWidget {
   final ValueChanged<String> onOpenBranch;
   final VoidCallback onMid;
   final VoidCallback onFullCards;
+
+  /// Stories that miss the filter: drawn hollow, never hidden (Q4).
+  final Set<String> dimmed;
+
+  /// A filter is active: decade counts read "matched of total" (C18).
+  final bool filtering;
+
+  /// Beside the zoom switch (the Filters button below the sidebar width).
+  final Widget? filterAction;
 
   @override
   State<FarRail> createState() => _FarRailState();
@@ -131,6 +144,8 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
           dotKey: _dotKey,
           onEmpty: widget.onEmpty,
           onYear: widget.onYear,
+          dimmed: widget.dimmed,
+          filtering: widget.filtering,
         ),
     ];
   }
@@ -143,6 +158,7 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
       onMid: widget.onMid,
       onFullCards: widget.onFullCards,
       onEmpty: widget.onEmpty,
+      action: widget.filterAction,
       viewport: Stack(
         key: viewportKey,
         children: [
@@ -177,6 +193,8 @@ class _FarDecadeRow extends StatelessWidget {
     required this.onEmpty,
     required this.onYear,
     required this.onOpenBranch,
+    required this.dimmed,
+    required this.filtering,
   });
 
   final DecadeBand band;
@@ -194,11 +212,16 @@ class _FarDecadeRow extends StatelessWidget {
   final VoidCallback onEmpty;
   final ValueChanged<int> onYear;
   final ValueChanged<String> onOpenBranch;
+  final Set<String> dimmed;
+  final bool filtering;
 
   @override
   Widget build(BuildContext context) {
     final stories = band.stories;
+    final matched = stories.where((s) => !dimmed.contains(s.id)).length;
     final count = countWord(band.stories.length, 'story', 'stories');
+    // A decade with no match keeps its row in the dim ink (Q4).
+    final noMatch = filtering && matched == 0;
     final label = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
@@ -210,11 +233,13 @@ class _FarDecadeRow extends StatelessWidget {
             onTap: () => onYear(band.startYear),
             child: Text(
               band.label,
-              style: focused
-                  ? Theme.of(context).textTheme.headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.w700)
-                  : Theme.of(context).textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w500),
+              style:
+                  (focused
+                          ? Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(fontWeight: FontWeight.w700)
+                          : Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w500))
+                      ?.copyWith(color: noMatch ? albumDimInk : null),
             ),
           ),
         ),
@@ -234,11 +259,17 @@ class _FarDecadeRow extends StatelessWidget {
               ),
             Flexible(
               child: Text(
-                focused ? '$count preserved' : count,
+                filtering
+                    ? decadeMatchCount(matched, stories.length)
+                    : focused
+                    ? '$count preserved'
+                    : count,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: focused
+                  color: noMatch
+                      ? albumDimInk
+                      : focused
                       ? albumTerracotta
                       : albumInk.withValues(alpha: 0.6),
                   fontWeight: focused ? FontWeight.w700 : FontWeight.w500,
@@ -282,6 +313,7 @@ class _FarDecadeRow extends StatelessWidget {
             _FarDot(
               story: story,
               highlighted: highlighted,
+              matched: !dimmed.contains(story.id),
               origin: origin,
               ringed: true,
               anchor: dotKey(story.id),
@@ -420,6 +452,7 @@ class _FarDecadeRow extends StatelessWidget {
         anchor: dotKey(story.id),
         story: story,
         highlighted: highlighted,
+        matched: !dimmed.contains(story.id),
         origin: origin,
         onTap: () => onDot(story),
       ),
@@ -450,6 +483,7 @@ class _FarDecadeRow extends StatelessWidget {
       dot: _FarDot(
         anchor: dotKey(story.id),
         story: story,
+        matched: !dimmed.contains(story.id),
         highlighted: highlighted,
         origin: origin,
         onTap: () => onDot(story),
@@ -558,11 +592,12 @@ class _RenderCenterOnDot extends RenderShiftedBox {
 /// One Decades story dot. A plain dot carries its own rings: terracotta when
 /// highlighted, moss when it is an origin with no callout. A dot inside a
 /// branch callout is never [ringed]: the callout's moss ring is the only
-/// ring there (branch-callout.md Rule 1).
+/// ring there (branch-callout.md Rule 1). An unmatched dot is hollow.
 class _FarDot extends StatelessWidget {
   const _FarDot({
     required this.story,
     required this.highlighted,
+    required this.matched,
     required this.anchor,
     required this.onTap,
     this.origin = false,
@@ -571,6 +606,7 @@ class _FarDot extends StatelessWidget {
 
   final Story story;
   final bool highlighted;
+  final bool matched;
   final GlobalKey anchor;
   final VoidCallback onTap;
   final bool origin;
@@ -588,7 +624,7 @@ class _FarDot extends StatelessWidget {
           key: anchor,
           reserveRings: false,
           spec: MarkerSpec(
-            matched: true,
+            matched: matched,
             selected: ringed && highlighted,
             origin: ringed && origin,
             diameter: highlighted ? farDotHighlightedDiameter : farDotDiameter,

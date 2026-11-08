@@ -190,7 +190,8 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
   }
 
   /// Zoom switch above an arrow-key, empty-tap rail. [viewport] holds the
-  /// [Stack] keyed [viewportKey]; scrolling re-measures.
+  /// [Stack] keyed [viewportKey]; scrolling re-measures. [action] sits
+  /// beside the zoom switch.
   Widget buildRail({
     required TimelineZoom selected,
     required VoidCallback onMacro,
@@ -198,6 +199,7 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
     required VoidCallback onFullCards,
     required VoidCallback onEmpty,
     required Widget viewport,
+    Widget? action,
   }) {
     return _ArrowKeys(
       onStep: step,
@@ -211,6 +213,7 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
               onMacro: onMacro,
               onMid: onMid,
               onFullCards: onFullCards,
+              action: action,
             ),
           ),
           Expanded(
