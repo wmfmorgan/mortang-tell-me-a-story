@@ -1693,6 +1693,39 @@ class _LiveEndpoint {
     return _localTestStreamManager.outputStreamController.stream;
   }
 
+  _ida.Stream<_imnjid3i.LiveEventDto> watchTree(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue familyId,
+  ) {
+    var _localTestStreamManager =
+        _ist.TestStreamManager<_imnjid3i.LiveEventDto>();
+    _ist.callStreamFunctionAndHandleExceptions(
+      () async {
+        var _localUniqueSession =
+            (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+              endpoint: 'live',
+              method: 'watchTree',
+            );
+        var _localCallContext = await _endpointDispatch
+            .getMethodStreamCallContext(
+              createSessionCallback: (_) => _localUniqueSession,
+              endpointPath: 'live',
+              methodName: 'watchTree',
+              arguments: {'familyId': familyId},
+              requestedInputStreams: [],
+              serializationManager: _serializationManager,
+            );
+        await _localTestStreamManager.callStreamMethod(
+          _localCallContext,
+          _localUniqueSession,
+          {},
+        );
+      },
+      _localTestStreamManager.outputStreamController,
+    );
+    return _localTestStreamManager.outputStreamController.stream;
+  }
+
   _ida.Stream<_imnjid3i.LiveEventDto> watchStory(
     _ist.TestSessionBuilder sessionBuilder,
     _is.UuidValue storyId,

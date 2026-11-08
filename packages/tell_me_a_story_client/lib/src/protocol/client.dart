@@ -549,7 +549,8 @@ class EndpointFamily extends _isc.EndpointRef {
 
   /// Owner only. Only sets `deletedAt`; the purge (3f) removes the family
   /// after the recovery window. Repeating it as the owner of an already
-  /// deleted family is a no-op (business-rules.md §3.5).
+  /// deleted family is a no-op (business-rules.md §3.5). Posts a `family`
+  /// event (deleted) to the tree channel after commit.
   _ida.Future<void> softDelete(_isc.UuidValue familyId) =>
       caller.callServerEndpoint<void>(
         'family',
@@ -558,7 +559,8 @@ class EndpointFamily extends _isc.EndpointRef {
       );
 
   /// Owner or co-owner of the soft-deleted family, inside the recovery
-  /// window (recovery exception, D6b).
+  /// window (recovery exception, D6b). Posts a `family` event to the tree
+  /// channel after commit.
   _ida.Future<void> recover(_isc.UuidValue familyId) =>
       caller.callServerEndpoint<void>(
         'family',
@@ -594,6 +596,7 @@ class EndpointFamily extends _isc.EndpointRef {
   /// "Start a new timeline" (business-rules.md §3.2, in that check order).
   /// The owner and each picked linked member get a linked person in the tree
   /// (D6d). A lost race on `people_tree_user_uidx` reruns the write once.
+  /// Posts a `family` event to the tree channel after commit.
   _ida.Future<_isc.UuidValue> createBranch({
     required _isc.UuidValue parentFamilyId,
     required _isc.UuidValue originStoryId,
@@ -762,6 +765,21 @@ class EndpointLive extends _isc.EndpointRef {
       >(
         'live',
         'watchFamily',
+        {'familyId': familyId},
+        {},
+      );
+
+  /// Events for every live family in [familyId]'s tree (`tree:<treeId>`):
+  /// story, photo and note events of each family, and a `family` event when
+  /// a family of the tree is created, soft-deleted or recovered. Tree readers
+  /// of live [familyId] (`isTreeReadable`, which every live member passes).
+  _ida.Stream<_iliy4w0g.LiveEventDto> watchTree(_isc.UuidValue familyId) =>
+      caller.callStreamingServerEndpoint<
+        _ida.Stream<_iliy4w0g.LiveEventDto>,
+        _iliy4w0g.LiveEventDto
+      >(
+        'live',
+        'watchTree',
         {'familyId': familyId},
         {},
       );

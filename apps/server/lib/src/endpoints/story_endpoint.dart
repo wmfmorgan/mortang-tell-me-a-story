@@ -286,6 +286,7 @@ class StoryEndpoint extends Endpoint {
         storyStatus: story.status,
         deleted: deleted,
       ),
+      treeId: story.treeId,
     );
   }
 

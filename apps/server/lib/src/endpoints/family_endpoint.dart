@@ -5,6 +5,7 @@ import '../authz/authz.dart';
 import '../errors.dart';
 import '../generated/protocol.dart';
 import '../families/purge.dart';
+import '../live/live_events.dart';
 import '../media/blob_keys.dart';
 import '../media/blob_outbox.dart';
 
@@ -375,7 +376,8 @@ ORDER BY f."createdAt", f."id"
 
   /// Owner only. Only sets `deletedAt`; the purge (3f) removes the family
   /// after the recovery window. Repeating it as the owner of an already
-  /// deleted family is a no-op (business-rules.md §3.5).
+  /// deleted family is a no-op (business-rules.md §3.5). Posts a `family`
+  /// event (deleted) to the tree channel after commit.
   Future<void> softDelete(Session session, UuidValue familyId) async {
     final authz = Authz(session);
     if (await authz.isOwner(familyId)) {
@@ -383,24 +385,26 @@ ORDER BY f."createdAt", f."id"
       if (family?.deletedAt != null) return;
     }
     await authz.requireLiveOwner(familyId);
-    await session.db.transaction((t) async {
+    final deleted = await session.db.transaction((t) async {
       final family = await _lockFamily(session, familyId, t);
-      await Family.db.updateRow(
+      return Family.db.updateRow(
         session,
         family.copyWith(deletedAt: DateTime.now().toUtc()),
         columns: (c) => [c.deletedAt],
         transaction: t,
       );
     });
+    await postFamilyEvent(session, deleted, deleted: true);
   }
 
   /// Owner or co-owner of the soft-deleted family, inside the recovery
-  /// window (recovery exception, D6b).
+  /// window (recovery exception, D6b). Posts a `family` event to the tree
+  /// channel after commit.
   Future<void> recover(Session session, UuidValue familyId) async {
     if (!await Authz(session).isSteward(familyId)) {
       throw forbidden('owner or co-owner only');
     }
-    await session.db.transaction((t) async {
+    final recovered = await session.db.transaction((t) async {
       final family = await _lockFamily(session, familyId, t);
       final deletedAt = family.deletedAt;
       if (deletedAt == null) throw validation('family is not deleted');
@@ -408,13 +412,14 @@ ORDER BY f."createdAt", f."id"
       if (deletedAt.isBefore(cutoff)) {
         throw forbidden('recovery window closed');
       }
-      await Family.db.updateRow(
+      return Family.db.updateRow(
         session,
         family.copyWith(deletedAt: null),
         columns: (c) => [c.deletedAt],
         transaction: t,
       );
     });
+    await postFamilyEvent(session, recovered);
   }
 
   // ── origin ───────────────────────────────────────────────────────────
@@ -488,6 +493,7 @@ ORDER BY f."createdAt", f."id"
   /// "Start a new timeline" (business-rules.md §3.2, in that check order).
   /// The owner and each picked linked member get a linked person in the tree
   /// (D6d). A lost race on `people_tree_user_uidx` reruns the write once.
+  /// Posts a `family` event to the tree channel after commit.
   Future<UuidValue> createBranch(
     Session session, {
     required UuidValue parentFamilyId,
@@ -539,7 +545,7 @@ ORDER BY f."createdAt", f."id"
         if (p.userId != null) p.userId!,
     };
 
-    Future<UuidValue> write() => session.db.transaction((t) async {
+    Future<Family> write() => session.db.transaction((t) async {
       final branch = await Family.db.insertRow(
         session,
         Family(
@@ -577,17 +583,20 @@ ORDER BY f."createdAt", f."id"
           transaction: t,
         );
       }
-      return branch.id!;
+      return branch;
     });
 
+    Family branch;
     try {
-      return await write();
+      branch = await write();
     } on DatabaseQueryException catch (e) {
       if (e.code != '23505' || e.constraintName != 'people_tree_user_uidx') {
         rethrow;
       }
-      return write();
+      branch = await write();
     }
+    await postFamilyEvent(session, branch);
+    return branch.id!;
   }
 
   // ── cover ────────────────────────────────────────────────────────────

@@ -1,7 +1,9 @@
-### What changed in a LiveEventDto.
+### What changed in a LiveEventDto. `family`: a family of the tree was
+### created, soft-deleted or recovered (tree channel only).
 enum: LiveKind
 serialized: byName
 values:
   - story
   - photo
   - note
+  - family
