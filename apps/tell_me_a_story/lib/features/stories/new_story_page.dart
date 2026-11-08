@@ -23,8 +23,8 @@ import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
 import 'package:tell_me_a_story/features/places/place_map.dart';
 import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
-import 'package:tell_me_a_story/features/stories/story_date.dart';
-import 'package:tell_me_a_story/features/stories/story_date_picker.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
+import 'package:tell_me_a_story/ui/story/story_date_picker.dart';
 
 const _storyCardGap = 20.0;
 

@@ -16,7 +16,7 @@ import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/search_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
-import 'package:tell_me_a_story/features/stories/story_date.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
 import 'package:tell_me_a_story/features/search/search_recents.dart';
 
 const _noMatches = 'No stories match. Try another person, place, or time.';

@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/features/stories/photo_frame.dart';
+import 'package:tell_me_a_story/ui/story/photo_frame.dart';
 
 void main() {
   test('framed aspect keeps a photo between 3:4 and 16:9', () {

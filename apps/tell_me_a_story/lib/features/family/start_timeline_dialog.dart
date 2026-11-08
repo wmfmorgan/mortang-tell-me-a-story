@@ -9,7 +9,7 @@ import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
+import 'package:tell_me_a_story/ui/story/story_title.dart';
 import 'package:tell_me_a_story/features/family/family_blur_dialog.dart';
 
 class StartTimelineResult {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/features/stories/story_date.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
 
 void main() {
   test('StoryDate round-trips each precision', () {

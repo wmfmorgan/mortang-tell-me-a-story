@@ -24,7 +24,7 @@ import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/people/person_date_field.dart';
-import 'package:tell_me_a_story/features/stories/story_date.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
 
 /// Signed-in profile at `/settings`. Name, email, a picture, and one Save.
 class SettingsPage extends StatefulWidget {

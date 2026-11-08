@@ -28,10 +28,10 @@ import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
 import 'package:tell_me_a_story/features/family/family_blur_dialog.dart';
 import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
 import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';
-import 'package:tell_me_a_story/features/stories/photo_frame.dart';
+import 'package:tell_me_a_story/ui/story/photo_frame.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 import 'package:tell_me_a_story/features/stories/reader_meta.dart';
-import 'package:tell_me_a_story/features/stories/story_date.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
 
 /// Large reader headline. Only a saved title is used.
 String readerHeadline({String? title}) {

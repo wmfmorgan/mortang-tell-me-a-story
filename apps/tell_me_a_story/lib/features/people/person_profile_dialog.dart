@@ -11,7 +11,7 @@ import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/family/family_blur_dialog.dart';
-import 'package:tell_me_a_story/features/stories/story_date.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
 import 'package:tell_me_a_story/features/people/edit_person_dialog.dart';
 import 'package:tell_me_a_story/features/people/person_date_field.dart';
 

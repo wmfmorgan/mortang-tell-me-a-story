@@ -20,7 +20,7 @@ import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
-import 'package:tell_me_a_story/features/stories/story_date.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
 import 'package:tell_me_a_story/features/family/family_role.dart';
 import 'package:tell_me_a_story/features/family/start_timeline_host.dart';
 

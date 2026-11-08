@@ -11,7 +11,7 @@ import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
-import 'package:tell_me_a_story/features/stories/story_date_picker.dart';
+import 'package:tell_me_a_story/ui/story/story_date_picker.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';

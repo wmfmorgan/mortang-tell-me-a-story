@@ -14,7 +14,7 @@ import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
-import 'package:tell_me_a_story/features/stories/story_date.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
 
 enum _DraftsFilter {
   all,

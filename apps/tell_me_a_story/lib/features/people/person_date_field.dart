@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/features/stories/story_date.dart';
-import 'package:tell_me_a_story/features/stories/story_date_picker.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
+import 'package:tell_me_a_story/ui/story/story_date_picker.dart';
 
 /// Date of birth or date of passing. Reuses the story year, month, and day boxes.
 class PersonDateField extends StatefulWidget {

@@ -21,10 +21,11 @@ import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
 import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
 import 'package:tell_me_a_story/features/invites/invite_accept.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
-import 'package:tell_me_a_story/features/stories/photo_frame.dart';
-import 'package:tell_me_a_story/features/stories/story_date.dart';
+import 'package:tell_me_a_story/ui/story/photo_frame.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
+import 'package:tell_me_a_story/ui/story/story_title.dart';
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
 class TimelinePage extends StatefulWidget {
