@@ -153,7 +153,8 @@ deploy-server:
     gcloud builds submit apps/server --tag "$image" --project {{gcp_project}}
     gcloud run deploy story-line-api --image "$image" --region {{gcp_region}} --project {{gcp_project}}
 
-# Build Flutter web against the Cloud Run API and deploy to Firebase Hosting (MAPBOX_ACCESS_TOKEN optional)
+# Build Flutter web against the Cloud Run API and deploy to Firebase Hosting.
+# Mapbox token: $MAPBOX_ACCESS_TOKEN, else the story-line-mapbox-token secret; required (stories need a place).
 deploy-web:
     #!/usr/bin/env sh
     set -eu
@@ -163,8 +164,14 @@ deploy-web:
     set -- flutter build web --release \
         --dart-define=SERVER_URL="$api" \
         --dart-define=INVITE_APP_ORIGIN="$origin"
-    if [ -n "${MAPBOX_ACCESS_TOKEN:-}" ]; then
-        set -- "$@" --dart-define=MAPBOX_ACCESS_TOKEN="$MAPBOX_ACCESS_TOKEN"
+    token="${MAPBOX_ACCESS_TOKEN:-}"
+    if [ -z "$token" ]; then
+        token=$(gcloud secrets versions access latest --secret story-line-mapbox-token --project {{gcp_project}} 2>/dev/null || true)
     fi
+    if [ -z "$token" ]; then
+        echo "deploy-web: no Mapbox token. Set MAPBOX_ACCESS_TOKEN or create the story-line-mapbox-token secret (see README)." >&2
+        exit 1
+    fi
+    set -- "$@" --dart-define=MAPBOX_ACCESS_TOKEN="$token"
     (cd apps/tell_me_a_story && "$@")
     firebase deploy --only hosting --project {{gcp_project}}

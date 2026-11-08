@@ -93,7 +93,9 @@ just gcp-infra
 # 3. Server: Cloud Build image tagged with the commit, rolled out to Cloud Run
 just deploy-server
 # 4. Web: Flutter release build against the Cloud Run API, deployed to Firebase Hosting
-MAPBOX_ACCESS_TOKEN=pk... just deploy-web
+just deploy-web
 ```
 
 `just deploy-server` refuses to run while `apps/server` has uncommitted changes. Steps 3 and 4 are the routine deploy; rerun step 2 after changing `infra/gcp`.
+
+`just deploy-web` needs a public Mapbox token, because stories need a place and the place picker uses Mapbox. It uses `MAPBOX_ACCESS_TOKEN` if that is set, and otherwise reads the Secret Manager secret `story-line-mapbox-token`. Create that secret once with `printf %s 'pk…' | gcloud secrets create story-line-mapbox-token --data-file=- --project story-line-app`. In the Mapbox account, restrict the token's URLs to `https://story-line-app.web.app` and `https://story-line-app.firebaseapp.com`.
