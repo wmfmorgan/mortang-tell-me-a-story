@@ -14,7 +14,7 @@ copy rule and are not meant to be ported.
 
 ```sh
 just lab                       # Chrome
-cd apps/timeline_lab && flutter run -d chrome   # or -d macos
+cd labs/timeline_lab && flutter run -d chrome   # or -d macos
 ```
 
 The top bar has two controls:

@@ -21,11 +21,11 @@ test-live:
 
 # Timeline lab in Chrome
 lab:
-    cd apps/timeline_lab && flutter run -d chrome
+    cd labs/timeline_lab && flutter run -d chrome
 
 # Timeline lab tests (pass --update-goldens to regenerate PNGs)
 lab-test *args:
-    cd apps/timeline_lab && flutter test {{args}}
+    cd labs/timeline_lab && flutter test {{args}}
 
 alias web := run
 
