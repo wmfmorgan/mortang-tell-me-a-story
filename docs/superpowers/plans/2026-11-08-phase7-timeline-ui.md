@@ -67,7 +67,7 @@
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | **passed** 2026-11-08 (owner's verdict against the O4 thresholds; no numeric exports, see §7.M "Outcome" and "As landed") |
 | 7.7 Whole-tree page and treemap | this index, §7.7 | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | built; owner signed off v2 and C19 on 2026-11-08, colour key added after (`feat/p7-7-treemap`; app `+802 ~12`, goldens `+8`); ready to merge |
 | 7.8 Family tree graph | this index, §7.8 "TDD plan" | 7.7, **7.M pass** (passed 2026-11-08); screenshots before merge | done; owner signed off 2026-11-08 with one change (the family name chip selects the family) (`feat/p7-8-tree-graph`; app `+973 ~12`, goldens `+14`: 2 new, the 2 treemap PNGs regenerated for the view switch, approved) |
-| 7.z Close | this index, §7.z | all | not started |
+| 7.z Close | this index, §7.z | all | done (`chore/p7-z-close`; lab deleted per O7, plan archived) |
 
 ```
 7.0 ──────────────────► 7.M ───────────┐
@@ -1218,7 +1218,7 @@ Branch `feat/p7-8-tree-graph` from `feature/serverpod` `1954671` (7.0–7.7 merg
 
 ## 7.z Close
 
-- Gates on `feature/serverpod` after the last merge: `just check`, `just test-live`, `just test-goldens`, the e2e (9/9), and CI green, including the `lab` job.
+- Gates on `feature/serverpod` after the last merge: `just check`, `just test-live`, `just test-goldens`, the e2e (9/9), and CI green (the `lab` job went with the lab, O7).
 - Fill "As landed" below: commits per slice, the counts, the iPad table, and the owner's answers to O1–O6.
 - `AGENTS.md`: check that the layout, gates and `test/goldens` lines match what landed.
 - Move this plan and the slice plans to `docs/archive/superpowers/plans/` (the `docs/superpowers/plans/README.md` rule).
@@ -1240,7 +1240,7 @@ Send these through Main. Each answer is recorded here before the slice that depe
 | O4 | The proposed thresholds approved. |
 | O5 | All three treemap groupings (family, decade, person). |
 | O6 | No filters on the tree views for now. |
-| O7 | Decide at 7.z. |
+| O7 | **Delete** the lab (owner, 2026-11-08). 7.z removes `labs/timeline_lab`, the `lab`/`lab-test` recipes and the CI `lab` job. |
 
 **O1. Where the whole-tree views live (blocks 7.7).** Recommended: **(A)** a row in the family menu (`album_header.dart` `_menuItems`, `:693-764`), between the family list divider and "Invite…". It opens `/family/:id/tree` for the current family; the header handles the navigation itself, as its "Stories" item does (`:171-177`).
 - It fits the menu's existing family-level actions (invite, add a branch, manage).
@@ -1293,13 +1293,32 @@ Alternatives:
 - The rails look as the owner signed off (Q5), split out of `timeline_page.dart`. `timeline_page.dart` is off the colour skip list (ceiling 16).
 - The timeline has dim-only filters (Q4) with approved copy.
 - The family tree graph (7.M pass) and the treemap read the whole tree through `story.listPublishedInTree` and update through `live.watchTree`. They are reached from the approved entry point.
-- `labs/timeline_lab` is in the repo with `just lab`/`just lab-test` and an analyze-only CI job.
+- `labs/timeline_lab` came in with 7.0 (`just lab`/`just lab-test`, an analyze-only CI job) and was deleted at 7.z (O7).
 - Goldens run with `just test-goldens`, and CI excludes them.
 - `just check`, `just test-live`, `just test-goldens`, the e2e (9/9) and CI are green. The app count is at least `+689 ~12` plus the new tests; the server count is `+425` plus the 7.6S cases; analyze ≤ 6.
 
 ## As landed
 
-(Filled in by 7.z; slices add their notes as they land.)
+**Phase 7 summary (7.z, 2026-11-08):**
+- **PRs and merge commits** into `feature/serverpod`:
+
+| Slice | PR | Merge |
+|---|---|---|
+| 7.0 Lab import | #181 | `659f82a` |
+| 7.1 Golden harness | #182 | `920cc17` |
+| 7.6S Server tree reads | #183 | `0ee6780` |
+| 7.2 Tokens and primitives | #184 | `fd00bd4` |
+| 7.3 Rail split | #185 | `2c21572` |
+| 7.7 Whole-tree page and treemap | #187 | `a8ead54` |
+| 7.4 Rail restyle and iPad | #188 | `53967c3` |
+| Build robustness (no libsqlite3 download; CI caches embedded Postgres) | #189 | `5c4ba8a` |
+| 7.5 Timeline filters | #190 | `1954671` |
+| 7.8 Family tree graph | #191 | pending (not merged at 7.z) |
+
+- **Counts** (at `feat/p7-8-tree-graph` `83fe9bb`): app `+973 ~12` (Phase 6: `+689 ~12`), server `+447` (was `+425`), live `+29` (was `+27`), e2e 9/9, `just test-goldens` `+14`, `analyze: 6 issues (ceiling 6)`, colour skip list 17 → 16 (`timeline_page.dart` off it).
+- **7.M:** passed 2026-11-08 on the owner's verdict against the O4 thresholds. No numeric exports were recorded, so there is no iPad table (see "7.M iPad measurement" below).
+- **Owner answers O1–O7** ("Owner questions" → "Answers"): O1 (A) family menu row; O2 C1–C18 approved, C19 added; O3 token names approved; O4 thresholds approved; O5 all three groupings; O6 no filters on the tree views; O7 delete the lab.
+- **7.z** (`chore/p7-z-close`): lab deleted; this summary and the roadmap row; `AGENTS.md` checked; plan archived to `docs/archive/superpowers/plans/`.
 
 **7.2 Tokens and shared primitives** (`feat/p7-2-tokens`, from `feature/serverpod` `920cc17`):
 - **Commits:**
