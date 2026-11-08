@@ -27,7 +27,7 @@
 | # | Owner decision (2026-11-08) | Where it lands |
 |---|---|---|
 | Q1 | Keep the Decades/Years/Days rails and restyle them (option 1). No sliver rebuild. | 7.3, 7.4 |
-| Q2 | Ship two whole-tree views: the **family tree graph** (Family mode) and the **treemap** overview. This needs G1 `story.listPublishedInTree` plus an index migration, and G2 tree-wide live updates. The entry point is open (owner question O1). Every new string is pending approval. | 7.6S, 7.7, 7.8 |
+| Q2 | Ship two whole-tree views: the **family tree graph** (Family mode) and the **treemap** overview. This needs G1 `story.listPublishedInTree` plus an index migration, and G2 tree-wide live updates. The entry point is a family menu row (O1). Every new string needs approval (C1–C18 approved, O2). | 7.6S, 7.7, 7.8 |
 | Q3 | No playback. | Not ported; `lib/playback/` and every playback hook stay in the lab. |
 | Q4 | Filters on the timeline, **dim only** (no hide), reusing the All Stories `matchesSearch` and dim-ink rules. | 7.5 |
 | Q5 | Accept the lab's visual system: continuous corners, the marker system and the terracotta selected toggle. Screenshots for owner sign-off before merge. | 7.2, 7.4 |
@@ -59,14 +59,14 @@
 |---|---|---|---|
 | 7.0 Lab import | this index, §7.0 | — | done (#181; lab-test `+272`) |
 | 7.1 Golden harness and rail baselines | this index, §7.1 | — | done (`feat/p7-1-goldens`) |
-| 7.2 Tokens and shared primitives | written at slice start | — (O3 for the two exact-value colour token names) | not started |
+| 7.2 Tokens and shared primitives | written at slice start | — (O3 answered 2026-11-08) | not started |
 | 7.3 Rail split at parity | written at slice start | 7.1, 7.2 | not started |
 | 7.4 Rail restyle and iPad | written at slice start | 7.3; owner screenshot sign-off before merge | not started |
-| 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approval (O2) and screenshots before merge | not started |
+| 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
 | 7.6S Server: tree reads (G1, G2) | written at slice start | — | not started |
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | not started |
-| 7.7 Whole-tree page and treemap | written at slice start | 7.2, 7.6S; entry point (O1) and copy (O2) answered; screenshots before merge | not started |
-| 7.8 Family tree graph | written at slice start | 7.7, **7.M pass** (O4 thresholds); screenshots before merge | not started |
+| 7.7 Whole-tree page and treemap | written at slice start | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | not started |
+| 7.8 Family tree graph | written at slice start | 7.7, **7.M pass** (O4 thresholds approved 2026-11-08); screenshots before merge | not started |
 | 7.z Close | this index, §7.z | all | not started |
 
 ```
@@ -774,7 +774,7 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
    - VoiceOver on the tree nodes;
    - the home-indicator inset.
 
-**Pass thresholds** (proposed; confirm in O4). The gate is the **1 000-story** run:
+**Pass thresholds** (approved, O4). The gate is the **1 000-story** run:
 - S1 and S2: at least 90% of frames ≤ 16.7 ms, and no frame over 50 ms during the gesture.
 - S4: the longest frame is ≤ 500 ms.
 - S3 is the reference: if S3 also fails, the build or device setup is suspect; re-check before judging S1/S2.
@@ -799,7 +799,7 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
 - **Load.** The page loads `listFamilyTree(familyId)` and `listPublishedInTree(familyId)`, and refetches on `watchTree`.
 - **Treemap.** Port `treemap_layout.dart` and `treemap_renderer.dart`:
   - squarified;
-  - groupings per O5 (default: Family → decade, plus Decade → year and Person → decade);
+  - all three groupings (O5): Family → decade, Decade → year and Person → decade;
   - drill-down;
   - a finger tap on a cell under 44 pt opens its group;
   - quiet by default;
@@ -816,7 +816,7 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
 - Live: `listPublishedInTree` returns a branch's story, and `watchTree` fires on a branch publish (`test/live/stories_live_test.dart`, `server_timeline_live_test.dart`).
 - Goldens `family_tree_treemap_{desktop,ipad_mini_portrait}`.
 
-**Stop:** O1 and O2 answered before the slice starts; screenshots signed off before merge. Gates include `test-live` and e2e.
+**Stop:** screenshots signed off before merge (O1, O2, O5 and O6 are answered). Gates include `test-live` and e2e.
 
 ## 7.8 Family tree graph (Q2; gated on 7.M)
 
@@ -858,6 +858,18 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
 
 Send these through Main. Each answer is recorded here before the slice that depends on it starts.
 
+**Answers (owner, 2026-11-08):**
+
+| # | Answer |
+|---|---|
+| O1 | **(A)**: a family menu row opening `/family/:id/tree`. |
+| O2 | All 18 strings (C1–C18) approved as proposed; use them verbatim. |
+| O3 | The proposed token names in 7.2 approved, including `albumBlush` = `0xFFF5DED6` and `albumBlushPale` = `0xFFF5ECE9`. |
+| O4 | The proposed thresholds approved. |
+| O5 | All three treemap groupings (family, decade, person). |
+| O6 | No filters on the tree views for now. |
+| O7 | Decide at 7.z. |
+
 **O1. Where the whole-tree views live (blocks 7.7).** Recommended: **(A)** a row in the family menu (`album_header.dart` `_menuItems`, `:693-764`), between the family list divider and "Invite…". It opens `/family/:id/tree` for the current family; the header handles the navigation itself, as its "Stories" item does (`:171-177`).
 - It fits the menu's existing family-level actions (invite, add a branch, manage).
 - It needs no change to the locked zoom ladder.
@@ -867,7 +879,7 @@ Alternatives:
 - **(B)** A fourth segment in the timeline zoom pill. It mixes "zoom" with "another view" and changes the locked R3/M13 ladder.
 - **(C)** A fourth header nav item. That means less room for the family name on iPad.
 
-**O2. Copy (all pending approval).**
+**O2. Copy (approved 2026-11-08 as proposed).**
 
 | Id | Where | Proposed text |
 |---|---|---|
