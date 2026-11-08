@@ -9,7 +9,7 @@ class ViewSwitch<T> extends StatelessWidget {
   const ViewSwitch({
     super.key,
     required this.switchKey,
-    required this.label,
+    this.label,
     required this.values,
     required this.labelOf,
     required this.selected,
@@ -19,7 +19,9 @@ class ViewSwitch<T> extends StatelessWidget {
 
   /// Goes on the `SegmentedButton` itself, so tests can read `.selected`.
   final Key switchKey;
-  final String label;
+
+  /// Shown before the segments. Null when the segment names say it all.
+  final String? label;
   final List<T> values;
   final String Function(T) labelOf;
   final T selected;
@@ -27,28 +29,33 @@ class ViewSwitch<T> extends StatelessWidget {
   final List<Widget> trailing;
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    padding: const EdgeInsets.symmetric(
-      horizontal: AlbumSpace.l,
-      vertical: AlbumSpace.s,
-    ),
-    child: Row(
-      children: [
-        Text(label, style: AlbumText.lane(Theme.of(context).textTheme)),
-        const SizedBox(width: AlbumSpace.m),
-        SegmentedButton<T>(
-          key: switchKey,
-          showSelectedIcon: false,
-          segments: [
-            for (final v in values)
-              ButtonSegment(value: v, label: Text(labelOf(v))),
+  Widget build(BuildContext context) {
+    final label = this.label;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AlbumSpace.l,
+        vertical: AlbumSpace.s,
+      ),
+      child: Row(
+        children: [
+          if (label != null) ...[
+            Text(label, style: AlbumText.lane(Theme.of(context).textTheme)),
+            const SizedBox(width: AlbumSpace.m),
           ],
-          selected: {selected},
-          onSelectionChanged: (s) => onChanged(s.first),
-        ),
-        ...trailing,
-      ],
-    ),
-  );
+          SegmentedButton<T>(
+            key: switchKey,
+            showSelectedIcon: false,
+            segments: [
+              for (final v in values)
+                ButtonSegment(value: v, label: Text(labelOf(v))),
+            ],
+            selected: {selected},
+            onSelectionChanged: (s) => onChanged(s.first),
+          ),
+          ...trailing,
+        ],
+      ),
+    );
+  }
 }
