@@ -1,6 +1,15 @@
-.dart_tool/
-.serverpod/
-build/
-test/
-config/passwords.yaml
+# Kept out of the image build context. Docker cannot include .gitignore, so
+# its rules are repeated here; keep the two in step.
 .git
+test/
+
+# From apps/server/.gitignore
+.dart_tool/
+.packages
+build/
+web/app
+doc/api/
+config/passwords.yaml
+config/firebase_service_account_key.json
+.serverpod/
+**/sp_*.db*
