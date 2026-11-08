@@ -9,6 +9,9 @@ locals {
   # Cloud Run's deterministic URL: <service>-<project number>.<region>.run.app
   api_host = "story-line-api-${data.google_project.this.number}.${var.region}.run.app"
 
+  # Firebase Hosting serves the web app on both default domains.
+  web_origins = [var.web_origin, "https://${var.project_id}.firebaseapp.com"]
+
   services = toset([
     "run.googleapis.com",
     "sqladmin.googleapis.com",
@@ -75,7 +78,7 @@ resource "google_project_iam_member" "api_cloudsql_client" {
 # --- Blob storage (photos, covers, avatars) ----------------------------------
 
 # Private; every read goes through the API's media endpoint. Browsers PUT
-# photos and covers straight to signed URLs, hence CORS for the web origin.
+# photos and covers straight to signed URLs, hence CORS for the web origins.
 # No lifecycle rule: blobs are deleted by the server's blob outbox.
 resource "google_storage_bucket" "blobs" {
   name                        = "${var.project_id}-blobs"
@@ -88,7 +91,7 @@ resource "google_storage_bucket" "blobs" {
   }
 
   cors {
-    origin          = [var.web_origin]
+    origin          = local.web_origins
     method          = ["PUT"]
     response_header = ["Content-Type", "x-goog-content-length-range", "x-goog-if-generation-match"]
     max_age_seconds = 3600
