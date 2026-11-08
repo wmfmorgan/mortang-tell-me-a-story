@@ -66,7 +66,7 @@
 | 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | **passed** 2026-11-08 (owner's verdict against the O4 thresholds; no numeric exports, see §7.M "Outcome" and "As landed") |
 | 7.7 Whole-tree page and treemap | this index, §7.7 | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | built; owner signed off v2 and C19 on 2026-11-08, colour key added after (`feat/p7-7-treemap`; app `+802 ~12`, goldens `+8`); ready to merge |
-| 7.8 Family tree graph | this index, §7.8 "TDD plan" | 7.7, **7.M pass** (passed 2026-11-08); screenshots before merge | built; screenshots awaiting owner sign-off (`feat/p7-8-tree-graph`; app `+971 ~12`, goldens `+14`: 2 new, the 2 treemap PNGs regenerated for the view switch) |
+| 7.8 Family tree graph | this index, §7.8 "TDD plan" | 7.7, **7.M pass** (passed 2026-11-08); screenshots before merge | done; owner signed off 2026-11-08 with one change (the family name chip selects the family) (`feat/p7-8-tree-graph`; app `+973 ~12`, goldens `+14`: 2 new, the 2 treemap PNGs regenerated for the view switch, approved) |
 | 7.z Close | this index, §7.z | all | not started |
 
 ```
@@ -1403,7 +1403,7 @@ Alternatives:
 - **No numbers:** there are no Timelines exports (`~/p7-ipad/*.json`), no per-screen frame counts and no device, iPadOS or Safari versions on record. The device checklist (Pencil, trackpad cursor, Magic Keyboard, Stage Manager, VoiceOver, home indicator) was not reported.
 - **Effect on 7.8:** the gate is open; the `+N` collapse for groups over 6 stays, with no node cap.
 
-**7.8 Family tree graph** (`feat/p7-8-tree-graph`, from `feature/serverpod` `1954671`; screenshots awaiting the owner's sign-off):
+**7.8 Family tree graph** (`feat/p7-8-tree-graph`, from `feature/serverpod` `1954671`; owner signed off 2026-11-08 with one change, see "Owner sign-off"):
 - **Commits:**
   - `48d1777`: 7.M passed (owner's verdict) and the §7.8 TDD plan;
   - `ef179bd`: tree graph layout, Family mode (`tree_graph_layout.dart`; +10 tests, `tree_graph_layout_test`);
@@ -1419,8 +1419,8 @@ Alternatives:
 - **Behaviour:**
   - The page opens on `Family tree` (C3); `Overview` (C4) shows the 7.7 treemap unchanged. The switch (`family-tree-view`) sits at the same place in both views: on its own row in the graph, leading the grouping switch's row in the treemap (`ViewSwitch.leading`). The view is page state, so a live reload keeps it; switching views rebuilds the graph, so its `+N` expansions and family selection reset.
   - Graph: family → decade → story; branches hang off their origin leaf (moss ring), or off the parent family when the origin isn't published; a family whose parent isn't in the tree is a root (several roots hang from a hub labelled with C2). Decades over 6 show 5 and `+N` (the latest stories; origins never collapse); `+N` expands, the expanded decade's dot collapses it. Family names sit on chips in their 7.7 treemap tint (`treemapFamilyTints`), with an `albumRuleStrong` hairline; decade labels knock the edges out on parchment; edges are `albumRule` curves.
-  - Taps: nearest node within 10 pt (mouse, pencil, trackpad) or 22 pt (finger), plus the whole `+N` pill; text labels are not targets. A story opens the reader (and reloads quietly on return, as the treemap); a family is selected (terracotta ring around its chip) and the heading row shows C19, which opens that family's timeline, as the treemap's drilled family does. The cursor is a hand over a target.
-  - Semantics: story `{title}, {date}` (button), `+N` C8 `{n} more stories` (button, on the pill's rect), family `{name (year)}, {n} stories` (button, selected state), decade and hub `{label}, {n} stories`.
+  - Taps: the `+N` pill or a family's name chip under the pointer (whole box), else the nearest node within 10 pt (mouse, pencil, trackpad) or 22 pt (finger); other labels are not targets. A story opens the reader (and reloads quietly on return, as the treemap); a family (its dot or its chip) is selected (terracotta ring around its chip) and the heading row shows C19, which opens that family's timeline, as the treemap's drilled family does. The cursor is a hand over a target.
+  - Semantics: story `{title}, {date}` (button), `+N` C8 `{n} more stories` (button, on the pill's rect), family `{name (year)}, {n} stories` (one button per family whose rect covers its dot and its chip, selected state), decade and hub `{label}, {n} stories`.
   - Performance sanity check: 1 000 synthetic stories over five families build and lay out in under 500 ms in the layout test and pump their first frame in under 3 s in the debug widget test; 7.M is the real gate.
 - **Copy:** C3, C4, C8 and C19 verbatim; the `+N` chip shows only the number; the branch year shows as data (`Bea (1975)`). No new string.
 - **Plan fixes:**
@@ -1429,3 +1429,6 @@ Alternatives:
   - The 7.7 page tests that exercise the treemap tap `Overview` first; their assertions are unchanged. The 7.7 five-size sweep became the 11 `ipadSizes` on iOS with insets, both views.
   - The `ViewSwitch` placement on the treemap made the two treemap goldens change; the assignment's "existing 12 unchanged" could not hold for them (reported to Main).
 - **Screenshots** (`/tmp/tmas-p7-8-shots/`; own server and web-server on :3800, seeded through the API as `p7-8-shots@example.com`: Jenkins with 14 stories 1952–1999, eight of them in the 1960s, branches Bea from 1975 (3 stories) and Cal from 1984 (2 stories)): `01-graph-desktop`, `02-graph-ipad-mini-portrait`, `03-plus-n-collapsed-desktop` (crop), `04-plus-n-expanded-desktop`, `05-family-selected-c19-desktop`, `06-view-switch-overview-desktop`, `07-view-switch-overview-ipad-mini-portrait`, `08-graph-ipad-mini-portrait-panned`. Also checked live: a story dot opens the reader, and Bea's node then `Open Bea timeline` opens Bea's timeline.
+- **Owner sign-off (2026-11-08):** approved, including the regenerated treemap goldens, opening on `Family tree`, and the reset of `+N` expansions and family selection when switching views. Kept as built: a family node selects and C19 navigates (two steps, as the treemap). One change, test-first:
+  - `acd1721`: the family name chip selects the family too, as its dot does. The whole chip box is a target for every pointer (`TreeGraphPainter.familyChipRect`, `targetBox`; a box under the pointer wins over the nearest dot), and VoiceOver keeps one node per family, its rect the chip plus the dot. +2 tests (`tree_graph_view_test`): the chip's four corners and middle select Bea with a mouse and a finger, a point 4 pt right of the chip does not; Bea has one semantics node with the union rect, and its tap selects her.
+  - Gates after it: `just check` passes (fmt `(0 changed)` ×2, `analyze: 6 issues (ceiling 6)`, app `+973 ~12`, server `+447`); `just test-goldens` `+14`, no PNG changed.
