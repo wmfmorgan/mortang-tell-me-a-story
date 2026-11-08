@@ -837,7 +837,7 @@ Branch `feat/p7-4-restyle` from `feat/p7-3-rail-split` `26230d4` (7.3 is merging
 - **Dim, never hide.**
   - Unmatched rows keep their slot and use `albumDimInk` text with a hollow marker.
   - Counts read "matched of total" (copy in O2).
-  - With no matches, the rails stay mounted, with the empty state and a clear action.
+  - With no matches, the rails stay mounted, with the empty state and a clear action pinned at the top of the rail, above the first row, so it covers no row (owner, 2026-11-08 sign-off).
 - **Placement.** A `Filters` button beside the zoom switch at every width. At ≥ 900 pt (`AlbumBreakpoint.sidebar`) it toggles a docked, non-modal sidebar that starts closed and stays open across zoom changes until closed; below that, it opens an end drawer. (Owner decision, 2026-11-08 sign-off; it replaces "a persistent sidebar at ≥ 900 pt", so with the sidebar closed the rail keeps its full width.)
 - **Scope of the state.** The filter survives zoom changes and resets on a family switch.
 
@@ -877,7 +877,7 @@ Branch `feat/p7-5-filters` from `feat/p7-4-restyle` `7b19f98`. Each task writes 
 
 #### Task 4: Panel, sidebar and drawer
 - **Tests:** at 900 pt the sidebar (`timeline-filter-sidebar`) starts closed with the rail at full width, and the `Filters` button (C11, key `timeline-filters-open`) beside the zoom switch docks it (360 pt, left of the rail, no drawer), it stays open across Decades → Years → Days, and the button closes it; at 899 pt the button opens the end drawer (`timeline-filter-drawer`, titled `Filters`); the panel shows `People`, `Places`, `Years` (C12–C14), the search hint (C15), and C16 while active; typing a query dims non-matches; the filter survives Decades → Years → Days; it resets on a family switch; with no match the rails stay mounted under C17 and `Clear filters` clears.
-- **Change:** `lib/features/timeline/filter/filter_panel.dart` (`FilterPanel`); `TimelinePage` keeps `_filter` and `_sidebarOpen`, builds the docked sidebar (360 pt, `AlbumBreakpoint.sidebar`) or the end drawer, passes the button to `DialSubheader` through the rails, and shows `EmptyTimeline` (C17) with the mounted rail.
+- **Change:** `lib/features/timeline/filter/filter_panel.dart` (`FilterPanel`); `TimelinePage` keeps `_filter` and `_sidebarOpen`, builds the docked sidebar (360 pt, `AlbumBreakpoint.sidebar`) or the end drawer, and passes the button (`filterAction`) and the C17 `EmptyTimeline` card (`notice`) to the rails, where `buildRail` puts the button beside the zoom switch and pins the card between the zoom switch and the rows.
 
 #### Task 5: iPad sweep with the filters open
 - `timeline_page_ipad_test`: each of the 11 sizes with a filter active and the filters opened from the button (the docked sidebar at ≥ 900, the drawer below), on iOS, with no FlutterError; plus the keyboard up with the search focused.
@@ -1222,7 +1222,7 @@ Alternatives:
 - **Behaviour:**
   - `TimelineFilter {personIds, placeIds, fromDecade, toDecade, query}`; OR within, AND across; text through `matchesSearch` (never the place). Chips come from the loaded stories (`Story.people`; `placeId` with `placeLabel`, else the address). The decade range is a `RangeSlider` over the loaded decades; a thumb at either end is an open bound.
   - Dim, never hide: every rail keeps its rows and dots; an unmatched story's marker is hollow (`MarkerSpec.matched: false`) and its texts use `albumDimInk` (Years: date chip, place, photos, origin tag, title; Days: date, chips, origin tag, title, footer). A dimmed focused row keeps its ring and border, not the terracotta inks. A Decades row with no match dims its label and count.
-  - No match: the rail stays mounted under a centred `EmptyTimeline` card (C17) whose action clears the filter.
+  - No match: the rail stays mounted; the `EmptyTimeline` card (C17, key `timeline-no-match`) whose action clears the filter is pinned between the zoom switch and the rows (`buildRail`'s `notice`), so it covers no row on any zoom. (Before the owner's sign-off it was centred over the rail and could cover a decade.)
   - Placement: a `Filters` button beside the zoom switch at every width. At ≥ 900 pt (`AlbumBreakpoint.sidebar`) it toggles a docked, non-modal 360 pt sidebar left of the rail, closed by default; `_sidebarOpen` is page state, so it stays open across zooms until the button closes it. Below 900 pt the button opens a 360 pt (at most 90% wide) end drawer. Both only once the rail has stories. 360 pt is the narrowest width tried that shows the whole C15 hint (300 and 340 ellipsized it).
   - Scope: page state, so it survives zoom changes, opening a story and the breakpoint; `_selectFamily` resets it.
 - **Goldens:** new `timeline_filtered_desktop` (sidebar docked from the button, Tom filter on Decades) and `timeline_filtered_ipad_mini_portrait` (drawer open). All 8 baselines regenerated on purpose for the Filters button: compared in RGB with the 7.4 PNGs (`7b19f98`), each differs only in a 64 × 14 pt box just left of the zoom switch (x 963–1027 desktop, 816–880 landscape, 427–491 portrait; y 109–123); every rail pixel matches 7.4.

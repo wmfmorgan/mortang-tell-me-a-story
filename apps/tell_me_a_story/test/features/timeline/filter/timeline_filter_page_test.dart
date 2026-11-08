@@ -295,6 +295,29 @@ void main() {
       expect(_dots(tester, 'timeline-dot-').values, everyElement(isTrue));
     });
 
+    for (final zoomKey in [null, 'timeline-zoom-mid', 'timeline-zoom-full']) {
+      testWidgets('the C17 card is pinned above the rows, covering none '
+          '(${zoomKey ?? 'Decades'})', (tester) async {
+        _setView(tester, _desktop);
+        await _pumpWithFilters(tester, zoomKey: zoomKey);
+        await tester.enterText(find.byKey(const Key('filter-search')), 'zzz');
+        await tester.pumpAndSettle();
+        final card = tester.getRect(find.byKey(const Key('timeline-no-match')));
+        final zoom = tester.getRect(find.byKey(const Key('timeline-zoom-mid')));
+        final rows = tester.getRect(find.byType(ListView).first);
+        // Under the zoom switch, above the scrolling rows.
+        expect(card.top, greaterThanOrEqualTo(zoom.bottom));
+        expect(card.bottom, lessThanOrEqualTo(rows.top));
+        for (final id in _ids) {
+          for (final prefix in _dotKeys.values) {
+            final dot = find.byKey(Key('$prefix$id'));
+            if (dot.evaluate().isEmpty) continue;
+            expect(card.overlaps(tester.getRect(dot)), isFalse, reason: id);
+          }
+        }
+      });
+    }
+
     testWidgets('the panel clears with Clear filters too', (tester) async {
       _setView(tester, _desktop);
       await _pumpWithFilters(tester);

@@ -31,6 +31,7 @@ class FarRail extends StatefulWidget {
     this.dimmed = const {},
     this.filtering = false,
     this.filterAction,
+    this.notice,
   });
 
   final List<DecadeBand> bands;
@@ -53,6 +54,9 @@ class FarRail extends StatefulWidget {
 
   /// Beside the zoom switch (the Filters button below the sidebar width).
   final Widget? filterAction;
+
+  /// Pinned above the rows (the C17 no-match card).
+  final Widget? notice;
 
   @override
   State<FarRail> createState() => _FarRailState();
@@ -159,6 +163,7 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
       onFullCards: widget.onFullCards,
       onEmpty: widget.onEmpty,
       action: widget.filterAction,
+      notice: widget.notice,
       viewport: Stack(
         key: viewportKey,
         children: [

@@ -702,19 +702,7 @@ class _TimelinePageState extends State<TimelinePage> {
                         onClose: () =>
                             setState(() => _originBannerHidden = true),
                       ),
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: _body(bands, dimmed, wide: wide),
-                          ),
-                          if (showRail &&
-                              _filter.isActive &&
-                              dimmed.length == _published.length)
-                            Positioned.fill(child: _noMatch()),
-                        ],
-                      ),
-                    ),
+                    Expanded(child: _body(bands, dimmed, wide: wide)),
                     if (showFooter)
                       Padding(
                         // Clear the home indicator on iPad and iPhone.
@@ -800,26 +788,27 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 
-  /// C17 over the still-mounted rail: every story is dimmed, none hidden.
-  Widget _noMatch() {
+  /// C17, pinned above the still-mounted rows when every story is dimmed
+  /// (none hidden); null otherwise.
+  Widget? _noMatch(Set<String> dimmed) {
+    if (!_filter.isActive || dimmed.length != _published.length) return null;
     return Center(
       child: IntrinsicWidth(
-        child: IntrinsicHeight(
-          child: DecoratedBox(
-            decoration: ShapeDecoration(
-              color: albumParchment,
-              shape: albumContainerShape(
-                AlbumRadius.card,
-                side: const BorderSide(color: albumRule),
-              ),
+        child: DecoratedBox(
+          key: const Key('timeline-no-match'),
+          decoration: ShapeDecoration(
+            color: albumParchment,
+            shape: albumContainerShape(
+              AlbumRadius.card,
+              side: const BorderSide(color: albumRule),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(AlbumSpace.xl),
-              child: EmptyTimeline(
-                message: 'No stories match these filters.',
-                actionLabel: 'Clear filters',
-                onAction: () => _setFilter(const TimelineFilter()),
-              ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AlbumSpace.xl),
+            child: EmptyTimeline(
+              message: 'No stories match these filters.',
+              actionLabel: 'Clear filters',
+              onAction: () => _setFilter(const TimelineFilter()),
             ),
           ),
         ),
@@ -872,6 +861,7 @@ class _TimelinePageState extends State<TimelinePage> {
         dimmed: dimmed,
         filtering: _filter.isActive,
         filterAction: _filtersButton(wide: wide),
+        notice: _noMatch(dimmed),
       ),
       TimelineZoom.mid => MidRail(
         stories: dialStories(_published),
@@ -889,6 +879,7 @@ class _TimelinePageState extends State<TimelinePage> {
         onFullCards: _zoomIn,
         dimmed: dimmed,
         filterAction: _filtersButton(wide: wide),
+        notice: _noMatch(dimmed),
       ),
       TimelineZoom.near => FullCardRail(
         stories: dialStories(_published),
@@ -913,6 +904,7 @@ class _TimelinePageState extends State<TimelinePage> {
         onMid: () => setState(() => _zoom = TimelineZoom.mid),
         dimmed: dimmed,
         filterAction: _filtersButton(wide: wide),
+        notice: _noMatch(dimmed),
       ),
     };
   }

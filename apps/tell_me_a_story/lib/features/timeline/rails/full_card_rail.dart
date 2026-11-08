@@ -34,6 +34,7 @@ class FullCardRail extends StatefulWidget {
     this.onPerson,
     this.dimmed = const {},
     this.filterAction,
+    this.notice,
   });
 
   final List<Story> stories;
@@ -56,6 +57,9 @@ class FullCardRail extends StatefulWidget {
 
   /// Beside the zoom switch (the Filters button below the sidebar width).
   final Widget? filterAction;
+
+  /// Pinned above the rows (the C17 no-match card).
+  final Widget? notice;
 
   @override
   State<FullCardRail> createState() => _FullCardRailState();
@@ -114,6 +118,7 @@ class _FullCardRailState extends State<FullCardRail>
       onFullCards: () {},
       onEmpty: widget.onEmpty,
       action: widget.filterAction,
+      notice: widget.notice,
       viewport: LayoutBuilder(
         builder: (context, constraints) {
           final wide = constraints.maxWidth >= 800;

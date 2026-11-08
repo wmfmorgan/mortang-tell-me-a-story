@@ -191,7 +191,8 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
 
   /// Zoom switch above an arrow-key, empty-tap rail. [viewport] holds the
   /// [Stack] keyed [viewportKey]; scrolling re-measures. [action] sits
-  /// beside the zoom switch.
+  /// beside the zoom switch. [notice] is pinned between the zoom switch and
+  /// the rows, so it never covers a row (the C17 no-match card).
   Widget buildRail({
     required TimelineZoom selected,
     required VoidCallback onMacro,
@@ -200,6 +201,7 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
     required VoidCallback onEmpty,
     required Widget viewport,
     Widget? action,
+    Widget? notice,
   }) {
     return _ArrowKeys(
       onStep: step,
@@ -216,6 +218,11 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
               action: action,
             ),
           ),
+          if (notice != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              child: notice,
+            ),
           Expanded(
             child: _EmptyTap(
               onTap: onEmpty,
