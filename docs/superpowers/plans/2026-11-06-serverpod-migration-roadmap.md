@@ -20,12 +20,12 @@
 - Cutover is **big-bang**. Supabase users and Serverpod auth users have separate ids, so gateways can't switch one at a time. The client is first given seams while still on Supabase, the server is built and tested standalone, and then a single phase switches every gateway.
 
 **Reference inputs** (produced by the 2026-11-06 audit):
-- `docs/migration/audit.md`: current-state audit
-- `docs/migration/business-rules.md`: authorization matrix, invariants and workflows to port
-- `docs/migration/schema-design.md`: new schema as Serverpod models
-- `docs/migration/data-model-review.md`: data-model review (2026-11-07) applied to the schema
-- `docs/migration/endpoint-contract.md`: gateway → endpoint map and client change list
-- `docs/migration/serverpod-notes.md`: Serverpod 4.1 APIs used by these plans
+- `docs/archive/migration/audit.md`: current-state audit
+- `docs/archive/migration/business-rules.md`: authorization matrix, invariants and workflows to port
+- `docs/archive/migration/schema-design.md`: new schema as Serverpod models
+- `docs/archive/migration/data-model-review.md`: data-model review (2026-11-07) applied to the schema
+- `docs/archive/migration/endpoint-contract.md`: gateway → endpoint map and client change list
+- `docs/archive/migration/serverpod-notes.md`: Serverpod 4.1 APIs used by these plans
 
 ---
 
@@ -42,6 +42,8 @@ Every phase ends green on `just test` (client) and `just server-test` (backend, 
 | 3. Server endpoints (parallel slices) | 3a families/memberships/tree/origin/manage + places + profile; 3b people; 3c stories/drafts/story_people + search + notes; 3d photos + `MediaEndpoint`; 3e invites; 3f live streams + purge and blob-drain future calls. Shared foundation (3.0) lands first. Each slice ports its business-rules test cases. Decisions D2–D6 apply (invite email binding, live-family checks, moderation, person delete, full purge, branch person rows). | `2026-11-07-serverpod-phase3-server-endpoints.md` (index) and `2026-11-07-serverpod-phase3-0-foundation.md` |
 | 4. Client cutover | Every `*Api` body switched to the Serverpod client; 6-digit code login pages; `supabase_flutter` removed; tests updated. Settings email becomes read-only (D1); reader shows delete on others' comments/perspectives for stewards via `NoteDto.canDelete` (D4). 4.0 foundation first, then slices 4a–4f on `feat/p4-cutover`, then 4z merges the switch in one step. **Landed 2026-11-07:** app 685, live 27, server 425, local e2e 9/9 flows. | `2026-11-07-serverpod-phase4-client-cutover.md` (index) and `2026-11-07-serverpod-phase4-0-foundation.md` |
 | 5. Cleanup | Delete `supabase/`, `scripts/advisors/`, `e2e/`, the Supabase CLI from mise; CI on mise + just (`flutter test`, `server-test`); `AGENTS.md`, README and `netlify.toml` (or Serverpod web hosting) rewritten; e2e reads the dev OTP code; every existing doc archived to `docs/archive/` | `2026-11-08-serverpod-phase5-cleanup.md` |
+
+Plans for Phases 1–4 are in `docs/archive/superpowers/plans/`.
 | 6. Restructure | `lib/app` composition root, shared `lib/ui`, import-boundary guards, MagicLink → SignIn rename, colours fixed in skip-listed files before they move, tests mirror `lib/`, shared test fakes. Runs before the timeline UI rework. | `2026-11-08-serverpod-phase6-restructure.md` |
 
 ## Product decisions (2026-11-07)

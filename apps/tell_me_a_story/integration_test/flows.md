@@ -1,6 +1,6 @@
 # E2E flow manifest
 
-Lock: `docs/design-doc/e2e.md` (U1) and `docs/design-doc/e2e-addendum-a.md`. `test/architecture/e2e_flow_manifest_test.dart` checks this file in `flutter test`. One row per flow. The test name is the exact `testWidgets` description in `e2e_test.dart`. Owning paths are relative to `apps/tell_me_a_story/lib/`.
+Lock: `docs/archive/design-doc/e2e.md` (U1) and `docs/archive/design-doc/e2e-addendum-a.md`. `test/architecture/e2e_flow_manifest_test.dart` checks this file in `flutter test`. One row per flow. The test name is the exact `testWidgets` description in `e2e_test.dart`. Owning paths are relative to `apps/tell_me_a_story/lib/`.
 
 | Flow | Test name | Spec source | Owning paths |
 |---|---|---|---|

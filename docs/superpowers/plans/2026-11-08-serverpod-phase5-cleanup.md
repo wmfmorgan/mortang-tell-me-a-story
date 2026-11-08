@@ -69,7 +69,7 @@
 | `.gitignore`, `mise.toml` | Modify | 2 |
 | `justfile` | Modify | 2, 3 |
 | `.github/workflows/ci.yml` | Modify (Task 1), rewrite (Task 4) | 1, 2, 4 |
-| `docs/**` (77 tracked files) and `r1-shots/` (10) | Move to `docs/archive/` (except 3 active plans) | 6 |
+| `docs/**` (76 tracked files) and `r1-shots/` (10) | Move to `docs/archive/` (except 3 active plans) | 6 |
 | `docs/README.md` | Create | 6 |
 | `apps/tell_me_a_story/lib/data/app_exception.dart` | Comment path | 6 |
 | `docs/superpowers/plans/2026-11-06-serverpod-migration-roadmap.md` | Rows and links | 0, 6, 10 |
@@ -763,14 +763,14 @@ mise exec -- flutter drive \
   --dart-define=SERVER_URL=http://127.0.0.1:8080
 ```
 
-Expected: `All tests passed!` with the 9 flows C1–C9. No commit.
+Expected: `All tests passed.` then `Application finished.` (flutter drive prints only the summary, not the flow names; the 9 flows C1–C9 are all the `testWidgets` in `e2e_test.dart`). No commit; the plan-text fix for this step lands with Task 6.
 
 ---
 
 ### Task 6: Archive every doc and fix the links that break
 
 **Files:**
-- Move: every tracked file under `docs/` (77) and `r1-shots/` (10), except the roadmap and the Phase 5/6 plans, to `docs/archive/`
+- Move: every tracked file under `docs/` (76) and `r1-shots/` (10), except the roadmap and the Phase 5/6 plans, to `docs/archive/`
 - Create: `docs/README.md`
 - Modify:
   - `apps/tell_me_a_story/integration_test/flows.md:3`;
@@ -825,7 +825,7 @@ Expected:
 - [ ] **Step 5: Check that no live link is left**
 
 Run: `git grep -n -E "docs/(design-doc|impl-spec|m14-review|migration|plans|ux)/|r1-shots/" -- . ':!docs/archive' ':!README.md' ':!AGENTS.md'`
-Expected: no output (`README.md` and `AGENTS.md` are rewritten in Tasks 8 and 9).
+Expected: matches only in this plan (`2026-11-08-serverpod-phase5-cleanup.md`), which describes the move (`README.md` and `AGENTS.md` are rewritten in Tasks 8 and 9).
 
 - [ ] **Step 6: Gates**
 
@@ -839,9 +839,11 @@ Expected: `(0 changed)` twice; `+686 ~12: All tests passed!`
 - [ ] **Step 7: Commit**
 
 ```bash
-git add -A docs r1-shots apps/tell_me_a_story/integration_test/flows.md apps/tell_me_a_story/lib/data/app_exception.dart
+git add -A docs apps/tell_me_a_story/integration_test/flows.md apps/tell_me_a_story/lib/data/app_exception.dart
 git commit -m "docs: archive every existing doc under docs/archive; fix live links"
 ```
+
+(`r1-shots` is not named: after the move it no longer exists and `git add` would fail on the pathspec; `git mv` already staged it.)
 
 ---
 
