@@ -913,7 +913,9 @@ Future<String> _linkTabInvite(WidgetTester tester, String flow) async {
     final menu = find.byKey(const Key('family-menu'));
     await tester.ensureVisible(menu);
     await tester.tap(menu);
-    final invite = find.byKey(const Key('family-menu-invite'));
+    // The menu grows open over 300 ms; a row is tappable only once revealed
+    // (as `family-menu-manage` in _startFamily).
+    final invite = find.byKey(const Key('family-menu-invite')).hitTestable();
     await pumpUntilFound(tester, invite);
     await tester.ensureVisible(invite);
     await tester.tap(invite);
