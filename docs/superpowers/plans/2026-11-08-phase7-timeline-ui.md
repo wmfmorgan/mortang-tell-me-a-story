@@ -59,7 +59,7 @@
 |---|---|---|---|
 | 7.0 Lab import | this index, §7.0 | — | done (#181; lab-test `+272`) |
 | 7.1 Golden harness and rail baselines | this index, §7.1 | — | done (`feat/p7-1-goldens`) |
-| 7.2 Tokens and shared primitives | this index, §7.2 | — (O3 answered 2026-11-08) | in progress (`feat/p7-2-tokens`) |
+| 7.2 Tokens and shared primitives | this index, §7.2 | — (O3 answered 2026-11-08) | done (`feat/p7-2-tokens`; app `+741 ~12`) |
 | 7.3 Rail split at parity | written at slice start | 7.1, 7.2 | not started |
 | 7.4 Rail restyle and iPad | written at slice start | 7.3; owner screenshot sign-off before merge | not started |
 | 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
@@ -1042,4 +1042,30 @@ Alternatives:
 
 ## As landed
 
-(Filled in by 7.z.)
+(Filled in by 7.z; slices add their notes as they land.)
+
+**7.2 Tokens and shared primitives** (`feat/p7-2-tokens`, from `feature/serverpod` `920cc17`):
+- **Commits:**
+  - `d94a41b`: owner answers O1–O7;
+  - `9f5fd86`: the §7.2 plan;
+  - `256accb`: tokens and `albumDimInk` (+19 tests);
+  - `3f98657`: primitives (+28 tests).
+- **Gates:**
+  - `just check` passes: fmt `(0 changed)` twice, `analyze: 6 issues (ceiling 6)` (all six already there), app `+741 ~12` (from `+694 ~12`, so +47), server `+432`;
+  - the import, layout and colours guards pass, with the skip list unchanged at 17;
+  - `just test-goldens` gives `+6`, with no PNG changed.
+- **Plan fixes:**
+  - The index's 7.2 row said 7.5 would point `allStoriesDimInk()` at the token. 7.2 did it, and 7.5's "Owns" line for it is gone. The dim-ink test passed against the old `alphaBlend` body before the swap, so the change is ARGB-identical.
+  - The lab's `EmptyTimeline` was a Hide-mode empty state with fixed copy. Hide mode is out of scope (Q4), so it now takes `message`, plus an optional `actionLabel`/`onAction`. Callers pass C9, or C17 with `Clear filters`.
+  - Added a `TimelineEntry` adapter (`timeline_entry.dart`: `Story` + `matched`, `year` = `fractionalYear(publishedStart)`, and `timelineEntries(…, matches:)`). It replaces the lab's `TimelineEntry` and `LabStory.fractionalYear`.
+  - `fractionalYear` uses the calendar day in UTC, so a local `DateTime` near a DST change still maps to its own day.
+  - `isOrigin` takes `Iterable<TreeFamily>`, not the lab's dataset.
+  - Not ported:
+    - `familyLaneOrder` (swimlanes and the zoom canvas only);
+    - the `reveal` parameter of `paintStoryMarker` (playback, Q3);
+    - `LabText.badge` (7.8) and `labDimOpacity`;
+    - the lab theme's chip, input, menu, drawer and slider themes (they would change pixels);
+    - the lab's fourth field-border case, which checks that the theme's text field uses the border.
+  - `albumCardRadius` (12) and `AlbumRadius.card` (12) both exist; merging them is left to a later slice.
+  - The C10 chooser title stays with 7.4, so `showStoryChooser` has no title row yet.
+  - `just check` needs `dart pub get` in `apps/server` in a fresh worktree; otherwise `server-analyze` reports the missing `serverpod_cloud_storage_gcp`.
