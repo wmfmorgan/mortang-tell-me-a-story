@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
-import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 
 const _userA = '00000000-0000-4000-8000-00000000000a';

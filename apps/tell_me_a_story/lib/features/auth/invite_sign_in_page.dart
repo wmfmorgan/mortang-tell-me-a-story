@@ -3,13 +3,13 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/features/family/family_role.dart';
 import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
-import 'package:tell_me_a_story/features/auth/otp_sign_in.dart';
+import 'package:tell_me_a_story/data/otp_sign_in.dart';
 import 'package:tell_me_a_story/features/auth/sign_in_code_form.dart';
 
 const _inviteSage = Color(0xFF7A8B74);

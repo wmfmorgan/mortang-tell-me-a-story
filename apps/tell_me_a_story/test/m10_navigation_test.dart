@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app/app.dart';
 import 'package:tell_me_a_story/app/app_router.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/core/theme/album_header.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';

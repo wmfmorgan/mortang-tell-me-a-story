@@ -10,9 +10,6 @@ import 'package:flutter_test/flutter_test.dart';
 // that moves a file renames its entries. Never add an edge.
 const knownViolations = <String>{
   'core/navigation/leave_story_dialog.dart -> features/family/family_blur_dialog.dart',
-  'core/router/auth_refresh.dart -> data/family_selection.dart',
-  'core/router/auth_refresh.dart -> data/profile_session.dart',
-  'core/router/auth_refresh.dart -> package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart',
   'core/theme/album_chrome.dart -> features/family/family_blur_dialog.dart',
   'core/theme/album_header.dart -> data/families_api.dart',
   'core/theme/album_header.dart -> data/family_selection.dart',
@@ -21,9 +18,6 @@ const knownViolations = <String>{
   'core/theme/album_header.dart -> features/family/family_role.dart',
   'core/theme/album_header.dart -> features/family/family_tree_order.dart',
   'features/auth/invite_sign_in_page.dart -> features/family/family_role.dart',
-  'features/auth/otp_sign_in.dart -> package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart',
-  'features/auth/otp_sign_in.dart -> package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart',
-  'features/auth/otp_sign_in.dart -> package:tell_me_a_story_client/tell_me_a_story_client.dart',
   'features/invites/invite_modal.dart -> features/family/family_blur_dialog.dart',
   'features/people/add_person_modal.dart -> features/family/family_blur_dialog.dart',
   'features/people/edit_person_dialog.dart -> features/family/family_blur_dialog.dart',

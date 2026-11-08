@@ -32,7 +32,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/data/search_api.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/data/auth_refresh.dart';
 
 /// Transparent route used for the story reader and the capture form.
 CustomTransitionPage<void> albumModalPage({

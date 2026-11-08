@@ -7,7 +7,7 @@ import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story/app/app.dart';
 import 'package:tell_me_a_story/app/app_router.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';

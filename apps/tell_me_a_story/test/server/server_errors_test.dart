@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/photos_api.dart'
-    show StorageFailedException;
 import 'package:tell_me_a_story/data/server/server_errors.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 

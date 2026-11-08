@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     show EmailAccountRequestException, EmailAccountRequestExceptionReason;
-import 'package:tell_me_a_story/features/auth/otp_sign_in.dart';
+import 'package:tell_me_a_story/data/otp_sign_in.dart';
 
 void main() {
   EmailAccountRequestException refusal(EmailAccountRequestExceptionReason r) =>

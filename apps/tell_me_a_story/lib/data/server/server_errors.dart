@@ -1,8 +1,6 @@
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/photos_api.dart'
-    show StorageFailedException;
 
 /// Runs a server call and turns the server's errors into the client's, so
 /// features keep catching the client [AppException] and the photo

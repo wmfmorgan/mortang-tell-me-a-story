@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';

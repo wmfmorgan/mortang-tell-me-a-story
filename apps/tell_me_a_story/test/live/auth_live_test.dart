@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/features/auth/otp_sign_in.dart';
+import 'package:tell_me_a_story/data/otp_sign_in.dart';
 
 import 'support/live_server.dart';
 
