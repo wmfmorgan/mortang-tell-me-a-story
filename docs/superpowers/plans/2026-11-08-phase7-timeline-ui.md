@@ -64,9 +64,9 @@
 | 7.4 Rail restyle and iPad | this index, §7.4 "TDD plan" | 7.3; owner screenshot sign-off before merge | done; owner signed off 2026-11-08 with one change (finger misses on Decades zoom out) (`feat/p7-4-restyle`; app `+817 ~12`, 6 goldens regenerated + 2 new) |
 | 7.5 Timeline filters (dim only) | this index, §7.5 "TDD plan" | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | done; owner signed off 2026-11-08 with two changes (sidebar toggles and starts closed; no-match card pinned above the rows) (`feat/p7-5-filters`; app `+888 ~12`, 8 goldens regenerated for the button + 2 new) |
 | 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
-| 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | not started |
+| 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | **passed** 2026-11-08 (owner's verdict against the O4 thresholds; no numeric exports, see §7.M "Outcome" and "As landed") |
 | 7.7 Whole-tree page and treemap | this index, §7.7 | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | built; owner signed off v2 and C19 on 2026-11-08, colour key added after (`feat/p7-7-treemap`; app `+802 ~12`, goldens `+8`); ready to merge |
-| 7.8 Family tree graph | written at slice start | 7.7, **7.M pass** (O4 thresholds approved 2026-11-08); screenshots before merge | not started |
+| 7.8 Family tree graph | this index, §7.8 "TDD plan" | 7.7, **7.M pass** (passed 2026-11-08); screenshots before merge | in progress (`feat/p7-8-tree-graph`) |
 | 7.z Close | this index, §7.z | all | not started |
 
 ```
@@ -1017,6 +1017,8 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
 - **Pass:** 7.8 may start.
 - **Fail:** stop and report to the owner through Main. The options are: ship the treemap only (7.7) and keep the tree graph in the lab; or rework the graph to cull off-screen nodes and measure again.
 
+**Outcome (2026-11-08): pass.** The owner ran the measurement on their own iPad on 2026-11-08 and reports it fine against the approved O4 thresholds. This is the owner's verdict: no Timelines exports or per-screen numbers (frames, frames over 16.7 ms, longest frame) were recorded for S1–S4. 7.8 may start; it keeps the `+N` collapse for groups over 6 (no node cap).
+
 ## 7.7 Whole-tree page and treemap (Q2)
 
 **Branch:** `feat/p7-7-treemap`, from `feature/serverpod` `fd00bd4` (7.0, 7.1, 7.2, 7.6S merged; app `+751 ~12`). **Owns:**
@@ -1136,6 +1138,83 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
 - Goldens `family_tree_graph_{desktop,ipad_mini_portrait}`.
 
 **Stop:** screenshots signed off before merge.
+
+### 7.8 TDD plan (written at slice start, 2026-11-08)
+
+Branch `feat/p7-8-tree-graph` from `feature/serverpod` `1954671` (7.0–7.7 merged; 7.M passed). Each task writes the failing test first, runs it red, implements, runs it green, then runs the gates and commits.
+
+**Owns (as planned, made exact):**
+- new `lib/features/timeline/tree/{tree_graph_layout,tree_graph_view}.dart`;
+- `lib/features/timeline/tree/family_tree_page.dart` (the view switch and which view shows);
+- `lib/features/timeline/tree/treemap_view.dart`: only an optional `viewSwitch` slot, put before the grouping switch, and the C2 heading as a shared `TreeHeading` widget (the graph shows the same heading);
+- `lib/ui/timeline/view_switch.dart`: an optional `leading` list before the segments, so the page's switch and the treemap's grouping switch share one row;
+- `lib/core/theme/album_theme.dart`: `AlbumText.badge` (the lab's `LabText.badge`, deferred to 7.8 by 7.2: `labelSmall` w700 in `albumParchment`). A text style, not a colour token;
+- tests: `test/features/timeline/tree/{tree_graph_layout,tree_graph_view}_test.dart` (new), `family_tree_page_test.dart`, `test/ui/timeline/view_switch_test.dart`, `test/core/theme/album_theme_test.dart`, `test/support/tree_fixture.dart` (a crowded 1960s for `+N`), `test/goldens/family_tree_graph_golden_test.dart` and its two PNGs, and `family_tree_treemap_golden_test.dart` (it now selects `Overview` first).
+
+**Not touched:** the server, the generated client, the gateways and their fakes, the router, the header, the rails.
+
+**Copy.** Only approved strings, verbatim:
+- C3 · C4 `Family tree` · `Overview` (the page's view switch, in that order, no label; `Family tree` selected when the page opens, since the menu row C1 says "See the whole family tree").
+- C8 `{n} more stories`: the semantics label of a `+N` node. The painted chip shows `+N` only (a number, no words).
+- C19 `Open {Family} timeline`: the action shown after a family node is tapped (the 7.7 pattern: the family title drills in or selects, and C19 navigates).
+- Reused, no new copy: C2 (heading, and the root node's label when the tree has more than one root family), `Untitled` (`storyTitle`), story date labels (`storyDateLabelFor`), `{decade}s`, `1 story` / `{n} stories` (group semantics, All Stories' wording), family names, and the branch year as data (`Bea (1975)`, as the lab).
+- Dropped lab copy: `Tree` (switch label), `Time`/`Family` (modes), `Families` (the lab's multi-root label; C2 replaces it), `+N more` (the chip shows `+N`).
+
+**Change:**
+- **Layout** (`tree_graph_layout.dart`, pure): `TreeNode {id, kind, label, storyId, familyId, hiddenStoryIds, children, parent, storyCount, depth}`; kinds `root`, `family`, `decade`, `story`, `overflow`. `buildFamilyTree(List<Story> stories, List<TreeFamily> tree, {required String rootLabel, Set<String> expanded, int maxLeaves = 6})`: stories in timeline order; a family whose parent is not in the tree (null or soft-deleted, D8) is a root; one root is the graph's root, several hang from a `root` node labelled `rootLabel`; a family with neither stories nor branches is left out; decades in date order; more than `maxLeaves` stories in a decade show `maxLeaves - 1` plus one overflow node (`+N`, the latest stories), except branch origins, which never collapse; a branch hangs off its origin leaf, or off its parent family when the origin is not published; `expanded` (decade node ids) shows every story. `TreeLayout` unchanged from the lab (depth on x, leaves stacked on y, parents centred on their first and last child, `hitTest(p, radius:)` nearest node, labels are not targets, `storyNodes`).
+- **View** (`tree_graph_view.dart`): `TreeGraphView({title, stories, tree, onStory, onFamily, viewSwitch})`. The C2 heading (`TreeHeading`), then the view switch row, then the graph in a vertical and a horizontal scroll view, at least the viewport tall (full-height pan). One `CustomPainter`:
+  - edges: cubic curves in `albumRule`, `AlbumStroke.rule` wide (calm);
+  - story nodes: `paintStoryMarker` (`AlbumMarker.small`, matched, moss ring on a branch origin), label right of the dot in `labelSmall` `albumInk`;
+  - decade and root nodes: an `albumInk` dot, label above-right on an `albumParchment` knockout (edges pass under it);
+  - family nodes: an `albumInk` dot, label above-right on a chip in the family's 7.7 tint (`treemapFamilyTints`, cycling `albumSageTint`, `albumBlush`, `albumBlushPale`, `albumPillFill` in tree order, over parchment), `albumRuleStrong` hairline, ink ≥ 4.5:1 on every tint; a selected family gets an `albumTerracotta` ring around its chip;
+  - overflow: an `albumInk` pill holding `+N` in `AlbumText.badge` (parchment, ≥ 4.5:1).
+- **Taps** (nearest node within `hitRadiusFor(kind, precise: 10)`, so a finger reaches 22 pt): a story → `onStory(id)`; `+N` → its decade expands; an expanded decade → collapses again; a family → selected, and the heading row shows the C19 action (`tree-graph-open-family`), which calls `onFamily(id)`; the root does nothing. The cursor is a hand over a node.
+- **Semantics** (`semanticsBuilder`): story `{title}, {date}` (button, tap opens); `+N` C8 (button, tap expands); family `{name}, {n} stories` (button, tap selects); decade and root `{label}, {n} stories`.
+- **Page.** `FamilyTreePage` keeps `_view` (`FamilyTreeView.graph` first). It builds the C3/C4 `SegmentedButton` (key `family-tree-view`, the `ViewSwitch` style, no selected icon) and hands it to whichever view shows: the graph puts it in its own switch row; the treemap puts it before its grouping switch (`ViewSwitch.leading`), so it sits in the same place in both. Switching keeps the loaded data; a live reload keeps the view. The treemap's 7.7 behaviour is unchanged.
+- **Empty tree.** C9 with no switch, as 7.7.
+
+#### Task 1: Layout (pure)
+- **Test** `tree_graph_layout_test.dart`, ported from the lab's `tree_graph_test` "family tree" and "layout" groups and the finger-radius case, with `TreeFixture` (Jenkins → Bea from 1975, Cal from 1984) and a 1 000-story synthetic tree:
+  1. Jenkins is the root; Bea and Cal hang off the `s1975` and `s1984` leaves; every story is shown once (leaves plus `hiddenStoryIds`); `storyCount` of the root is the story count.
+  2. A decade with 8 stories shows 5 plus `+3` (the latest three, in date order); with the decade in `expanded`, all 8; a branch origin in a crowded decade is never collapsed.
+  3. Without the origin story published, the branch hangs off its parent family.
+  4. A family whose parent is not in the tree is a root; two roots hang from a `root` node labelled with `rootLabel`; a family with no stories and no branches is absent; no stories → null.
+  5. Layout: parents centred on their children, depth on x, leaves one `leafGap` apart, every story in `storyNodes`.
+  6. Hit testing: a label is not a target; 12 pt below a dot misses with the precise radius and hits with `AlbumTarget.fingerRadius`.
+  7. Ink on each family tint over parchment and parchment on the `+N` ink pill are ≥ 4.5:1 (`test/support/contrast.dart`).
+  8. 1 000 stories over five families: built and laid out with every story reachable (the benchmark sanity check; see Task 2 for the frame).
+
+#### Task 2: View
+- **Test** `tree_graph_view_test.dart` (1280 × 800, `albumTheme()`):
+  1. The C2 heading and one painter; tapping the `s1952` dot (mouse) calls `onStory('s1952')`; a finger 12 pt off the dot does too, a mouse there does nothing.
+  2. `+N`: the crowded decade shows `+3`; tapping it shows all its stories; tapping the decade collapses it.
+  3. A family tap selects it: C19 `Open Bea timeline` shows, and tapping it calls `onFamily(bea)`; tapping the root family (`Jenkins`) shows `Open Jenkins timeline` instead.
+  4. Semantics: a story node reads `{title}, {date}` and is a button; `+3` reads `3 more stories`; a family reads `Bea (1975), 3 stories`; tapping a story's semantics node calls `onStory`.
+  5. The graph pans on both axes and is at least the viewport tall.
+  6. With 1 000 stories, the first frame builds without error (sanity check; logs the time).
+  - `album_theme_test`: `AlbumText.badge` is `labelSmall` w700 in `albumParchment`.
+
+#### Task 3: Page and the view switch
+- **Tests** (`family_tree_page_test.dart`):
+  1. The page opens on `Family tree`: the switch (`family-tree-view`) reads `Family tree` · `Overview` with `Family tree` selected and no label; `TreeGraphView` shows, `TreemapView` doesn't.
+  2. Tapping `Overview` shows the treemap with the same switch in the grouping row (same top-left as on the graph, ±1); tapping `Family tree` goes back.
+  3. A live reload keeps the selected view.
+  4. A graph story tap opens the reader; a graph family tap, then C19, goes to the timeline with that family selected.
+  5. The 7.7 treemap cases select `Overview` first; their assertions are unchanged.
+  6. iPad sweep: the 11 `ipadSizes`, on iOS with the insets, both views: no FlutterError; the graph's viewport starts below the switch and reaches the window bottom; the treemap keeps 7.7's floor.
+  - `view_switch_test`: `leading` widgets come before the segments.
+
+#### Task 4: Goldens
+- `test/goldens/family_tree_graph_golden_test.dart` (`@Tags(['golden'])`): the page on `Family tree` with the crowded fixture (a `+N` on Jenkins' 1960s) at `desktop` 1280 × 800 and `ipad_mini_portrait` 744 × 1133. `family_tree_treemap_golden_test` taps `Overview` first; its two PNGs are regenerated on purpose (the switch row now leads with C3/C4) and the 10 rail PNGs stay unchanged (`git status --short test/goldens/timeline` empty). Open every changed PNG.
+
+#### Task 5: Gates, live, e2e, screenshots
+- `mise exec -- just check`; `just test-goldens` (`+14`); the live suite and the e2e (9/9) against a server from this worktree (own ports and data dir).
+- Screenshots to `/tmp/tmas-p7-8-shots/` (own server and web-server, seeded as in 7.7): the graph at 1280 × 800 and 744 × 1133, a `+N` collapsed and expanded, a selected family with C19, and the view switch on both views.
+- Status row and "As landed"; commit.
+
+**Stop:** screenshots signed off before merge.
+
+**Done when:** `just check` passes with the new tests, `just test-goldens` is `+14` with the 10 rail PNGs unchanged, the live suite and e2e pass against this branch's server, and `git status --short` is clean.
 
 ## 7.z Close
 
@@ -1318,3 +1397,8 @@ Alternatives:
   - `f93b697`: the no-match card (C17, same card and copy) is pinned at the top of the rail, between the zoom switch and the rows (`buildRail`'s new `notice` slot, passed by each rail), so it covers no row. +3 tests (Decades, Years, Days): the card sits under the zoom switch, ends above the rows' list and overlaps no story dot.
   - Gates after both: `just check` passes (fmt `(0 changed)` ×2, `analyze: 6 issues (ceiling 6)`, app `+888 ~12`, server `+447`); `just test-goldens` `+10`; the iPad sweep (`timeline_page_ipad_test`) `+90`.
   - v2 screenshots (`/tmp/tmas-p7-5-shots/v2/`, same server, data and ports): `01-desktop-sidebar-closed`, `02-desktop-sidebar-open`, `03-desktop-sidebar-open-person-filter-tom`, `04-desktop-no-match-pinned-decades`, `05-desktop-no-match-pinned-years`, `06-desktop-no-match-pinned-years-sidebar-closed`, `07-ipad-mini-portrait-no-match-pinned`.
+
+**7.M iPad measurement** (owner, 2026-11-08):
+- **Result: pass**, on the owner's verdict. The owner ran §7.M on their own iPad and reports it fine against the approved O4 thresholds.
+- **No numbers:** there are no Timelines exports (`~/p7-ipad/*.json`), no per-screen frame counts and no device, iPadOS or Safari versions on record. The device checklist (Pencil, trackpad cursor, Magic Keyboard, Stage Manager, VoiceOver, home indicator) was not reported.
+- **Effect on 7.8:** the gate is open; the `+N` collapse for groups over 6 stays, with no node cap.
