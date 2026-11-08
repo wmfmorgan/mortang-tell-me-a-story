@@ -14,6 +14,7 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_stories_gateway.dart';
 
 const _ada = 'ada';
 
@@ -413,17 +414,7 @@ Future<void> _expectLeave(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 300));
 }
 
-class _Stories implements StoriesGateway {
-  @override
-  Future<Story?> getPublishedOrigin(String storyId) async => null;
-  @override
-  Future<List<Story>> listLatestPublished(
-    String familyId, {
-    int withinDays = 7,
-    int limit = 3,
-    DateTime? now,
-  }) async => const [];
-
+class _Stories extends FakeStoriesGateway {
   _Stories({this.story});
 
   Story? story;
@@ -541,24 +532,6 @@ class _Stories implements StoriesGateway {
 
   @override
   Future<Story> getStory(String storyId) async => story!;
-
-  @override
-  Future<Story?> getPublished(String storyId) async => null;
-
-  @override
-  Future<List<Story>> listMyDrafts(String familyId) async => const [];
-
-  @override
-  Future<List<Story>> listPublished(String familyId) async => const [];
-
-  @override
-  Future<void> discard(String storyId) async {}
-
-  @override
-  Future<void> linkPerson({
-    required String storyId,
-    required String personId,
-  }) async {}
 }
 
 class _People extends PeopleGateway {

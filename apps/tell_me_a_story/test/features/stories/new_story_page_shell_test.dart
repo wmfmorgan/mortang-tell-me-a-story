@@ -13,6 +13,7 @@ import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_stories_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -800,17 +801,7 @@ void main() {
   });
 }
 
-class _AutosaveStories implements StoriesGateway {
-  @override
-  Future<Story?> getPublishedOrigin(String storyId) async => null;
-  @override
-  Future<List<Story>> listLatestPublished(
-    String familyId, {
-    int withinDays = 7,
-    int limit = 3,
-    DateTime? now,
-  }) async => const [];
-
+class _AutosaveStories extends FakeStoriesGateway {
   Object? createError;
   final List<String?> createIds = [];
   final List<String> createStatuses = [];
@@ -946,18 +937,6 @@ class _AutosaveStories implements StoriesGateway {
     }
     return existing;
   }
-
-  @override
-  Future<Story?> getPublished(String storyId) async => null;
-
-  @override
-  Future<List<Story>> listMyDrafts(String familyId) async => const [];
-
-  @override
-  Future<List<Story>> listPublished(String familyId) async => const [];
-
-  @override
-  Future<void> discard(String storyId) async {}
 
   @override
   Future<void> linkPerson({

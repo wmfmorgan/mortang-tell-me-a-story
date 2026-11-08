@@ -18,7 +18,6 @@ import 'package:tell_me_a_story/data/perspectives_api.dart'
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/auth/sign_in_page.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
@@ -26,6 +25,7 @@ import 'package:tell_me_a_story/features/family/family_landing_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 import '../support/fakes/fake_invite_gateway.dart';
+import '../support/fakes/fake_stories_gateway.dart';
 
 class _StubPeopleApi extends PeopleGateway {
   @override
@@ -95,90 +95,6 @@ class _StubMapboxSearch implements MapboxSearchGateway {
   @override
   Future<List<MapboxSearchHit>> search(String query, {int limit = 5}) async =>
       const [];
-}
-
-class _StubStoriesApi implements StoriesGateway {
-  @override
-  Future<Story?> getPublishedOrigin(String storyId) async => null;
-  @override
-  Future<List<Story>> listLatestPublished(
-    String familyId, {
-    int withinDays = 7,
-    int limit = 3,
-    DateTime? now,
-  }) async => const [];
-
-  @override
-  Future<Story> createDraft({
-    String? id,
-    required String familyId,
-    DateTime? timeframeStart,
-    DateTime? timeframeEnd,
-    String? datePrecision,
-    String? title,
-    String? body,
-    String? placeId,
-    bool allowUndated = false,
-    List<String> personIds = const [],
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<bool> autosaveDraft({
-    required String storyId,
-    DateTime? timeframeStart,
-    DateTime? timeframeEnd,
-    String? datePrecision,
-    String? title,
-    String? body,
-    String? placeId,
-    List<String>? personIds,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Story> updateDraft({
-    required String storyId,
-    DateTime? timeframeStart,
-    DateTime? timeframeEnd,
-    String? datePrecision,
-    String? title,
-    String? body,
-    String? placeId,
-    List<String>? personIds,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Story> publish(String storyId) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Story> getStory(String storyId) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Story?> getPublished(String storyId) async => null;
-
-  @override
-  Future<List<Story>> listMyDrafts(String familyId) async => const [];
-
-  @override
-  Future<List<Story>> listPublished(String familyId) async => const [];
-
-  @override
-  Future<void> discard(String storyId) async {}
-
-  @override
-  Future<void> linkPerson({
-    required String storyId,
-    required String personId,
-  }) async {}
 }
 
 class _StubPhotosApi implements PhotosGateway {
@@ -263,7 +179,7 @@ GoRouter _router({required AuthRefresh auth}) {
     peopleApi: _StubPeopleApi(),
     placesApi: _StubPlacesApi(),
     mapboxSearch: _StubMapboxSearch(),
-    storiesApi: _StubStoriesApi(),
+    storiesApi: FakeStoriesGateway(),
     photosApi: _StubPhotosApi(),
     commentsApi: _StubCommentsApi(),
     perspectivesApi: _StubPerspectivesApi(),

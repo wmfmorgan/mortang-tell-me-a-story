@@ -15,6 +15,7 @@ import 'package:tell_me_a_story/ui/story/story_date_picker.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_stories_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -122,17 +123,7 @@ class _FakeMapboxSearch implements MapboxSearchGateway {
       const [];
 }
 
-class _FakeStoriesApi implements StoriesGateway {
-  @override
-  Future<Story?> getPublishedOrigin(String storyId) async => null;
-  @override
-  Future<List<Story>> listLatestPublished(
-    String familyId, {
-    int withinDays = 7,
-    int limit = 3,
-    DateTime? now,
-  }) async => const [];
-
+class _FakeStoriesApi extends FakeStoriesGateway {
   _FakeStoriesApi({this.story, this.throwOnCreate = false});
 
   Story? story;
@@ -303,15 +294,6 @@ class _FakeStoriesApi implements StoriesGateway {
     if (existing.status != StoryStatus.published) return null;
     return existing;
   }
-
-  @override
-  Future<List<Story>> listMyDrafts(String familyId) async => const [];
-
-  @override
-  Future<List<Story>> listPublished(String familyId) async => const [];
-
-  @override
-  Future<void> discard(String storyId) async {}
 
   final List<String> linkedIds = [];
 

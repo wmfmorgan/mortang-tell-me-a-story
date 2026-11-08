@@ -19,6 +19,7 @@ import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_stories_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -47,104 +48,24 @@ Story _draft({
   );
 }
 
-class _FakeStoriesApi implements StoriesGateway {
-  @override
-  Future<Story?> getPublishedOrigin(String storyId) async => null;
-  @override
-  Future<List<Story>> listLatestPublished(
-    String familyId, {
-    int withinDays = 7,
-    int limit = 3,
-    DateTime? now,
-  }) async => const [];
+class _FakeStoriesApi extends FakeStoriesGateway {
+  _FakeStoriesApi({List<Story>? drafts})
+    : super(stories: drafts ?? const [], userId: 'u1');
 
-  _FakeStoriesApi({List<Story>? drafts}) : drafts = [...?drafts];
-
-  final List<Story> drafts;
-  final List<String> discarded = [];
   var failDiscard = false;
   final familyLoads = <String>[];
 
   @override
-  Future<Story> createDraft({
-    String? id,
-    required String familyId,
-    DateTime? timeframeStart,
-    DateTime? timeframeEnd,
-    String? datePrecision,
-    String? title,
-    String? body,
-    String? placeId,
-    bool allowUndated = false,
-    List<String> personIds = const [],
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<bool> autosaveDraft({
-    required String storyId,
-    DateTime? timeframeStart,
-    DateTime? timeframeEnd,
-    String? datePrecision,
-    String? title,
-    String? body,
-    String? placeId,
-    List<String>? personIds,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Story> updateDraft({
-    required String storyId,
-    DateTime? timeframeStart,
-    DateTime? timeframeEnd,
-    String? datePrecision,
-    String? title,
-    String? body,
-    String? placeId,
-    List<String>? personIds,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Story> publish(String storyId) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Story> getStory(String storyId) async {
-    return drafts.firstWhere((s) => s.id == storyId);
-  }
-
-  @override
-  Future<Story?> getPublished(String storyId) async => null;
-
-  @override
   Future<List<Story>> listMyDrafts(String familyId) async {
     familyLoads.add(familyId);
-    final rows = drafts.where((s) => s.familyId == familyId).toList();
-    rows.sort(compareStories);
-    return rows;
+    return (await super.listMyDrafts(familyId))..sort(compareStories);
   }
-
-  @override
-  Future<List<Story>> listPublished(String familyId) async => const [];
 
   @override
   Future<void> discard(String storyId) async {
     if (failDiscard) throw Exception('storage');
-    discarded.add(storyId);
-    drafts.removeWhere((s) => s.id == storyId);
+    await super.discard(storyId);
   }
-
-  @override
-  Future<void> linkPerson({
-    required String storyId,
-    required String personId,
-  }) async {}
 }
 
 class _ThrowingListStoriesApi extends _FakeStoriesApi {

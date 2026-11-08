@@ -3,6 +3,8 @@ import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_loader.dart';
 
+import '../../support/fakes/fake_stories_gateway.dart';
+
 void main() {
   test('L-01 a root origin already in the list skips A3', () async {
     final origin = _story('origin');
@@ -115,7 +117,7 @@ TreeFamily _tree(
   );
 }
 
-class _Stories implements StoriesGateway {
+class _Stories extends FakeStoriesGateway {
   _Stories({
     this.published = const [],
     this.origin,
@@ -127,7 +129,6 @@ class _Stories implements StoriesGateway {
   final Story? origin;
   final Object? publishedError;
   final Object? originError;
-  final calls = <String>[];
   final originIds = <String>[];
 
   @override
@@ -144,78 +145,6 @@ class _Stories implements StoriesGateway {
     if (originError != null) throw originError!;
     return origin;
   }
-
-  @override
-  Future<Story> createDraft({
-    String? id,
-    required String familyId,
-    DateTime? timeframeStart,
-    DateTime? timeframeEnd,
-    String? datePrecision,
-    String? title,
-    String? body,
-    String? placeId,
-    bool allowUndated = false,
-    List<String> personIds = const [],
-  }) => Future<Story>.error(UnimplementedError());
-
-  @override
-  Future<Story> updateDraft({
-    required String storyId,
-    DateTime? timeframeStart,
-    DateTime? timeframeEnd,
-    String? datePrecision,
-    String? title,
-    String? body,
-    String? placeId,
-    List<String>? personIds,
-  }) => Future<Story>.error(UnimplementedError());
-
-  @override
-  Future<bool> autosaveDraft({
-    required String storyId,
-    DateTime? timeframeStart,
-    DateTime? timeframeEnd,
-    String? datePrecision,
-    String? title,
-    String? body,
-    String? placeId,
-    List<String>? personIds,
-  }) => Future<bool>.error(UnimplementedError());
-
-  @override
-  Future<Story> publish(String storyId) =>
-      Future<Story>.error(UnimplementedError());
-
-  @override
-  Future<Story> getStory(String storyId) =>
-      Future<Story>.error(UnimplementedError());
-
-  @override
-  Future<Story?> getPublished(String storyId) =>
-      Future<Story?>.error(UnimplementedError());
-
-  @override
-  Future<List<Story>> listMyDrafts(String familyId) =>
-      Future<List<Story>>.error(UnimplementedError());
-
-  @override
-  Future<List<Story>> listLatestPublished(
-    String familyId, {
-    int withinDays = 7,
-    int limit = 3,
-    DateTime? now,
-  }) => Future<List<Story>>.error(UnimplementedError());
-
-  @override
-  Future<void> discard(String storyId) =>
-      Future<void>.error(UnimplementedError());
-
-  @override
-  Future<void> linkPerson({
-    required String storyId,
-    required String personId,
-  }) => Future<void>.error(UnimplementedError());
 }
 
 class _Families extends FamiliesGateway {
