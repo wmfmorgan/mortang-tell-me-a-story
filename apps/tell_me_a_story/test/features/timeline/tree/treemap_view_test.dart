@@ -224,6 +224,83 @@ void main() {
     expect(find.byKey(const Key('treemap-by')), findsNothing);
   });
 
+  Color? fillOf(WidgetTester tester, Key cell) {
+    final box = tester.widget<DecoratedBox>(
+      find
+          .descendant(of: find.byKey(cell), matching: find.byType(DecoratedBox))
+          .first,
+    );
+    return (box.decoration as ShapeDecoration).color;
+  }
+
+  testWidgets('By family: cells take their family tint', (tester) async {
+    await pump(tester);
+    final tints = treemapFamilyTints(TreeFixture.tree);
+    expect(
+      fillOf(tester, const Key('treemap-cell-${TreeFixture.jenkins}/1950')),
+      tints[TreeFixture.jenkins],
+    );
+    expect(
+      fillOf(tester, const Key('treemap-cell-${TreeFixture.bea}/1970')),
+      tints[TreeFixture.bea],
+    );
+    expect(tints[TreeFixture.jenkins], isNot(tints[TreeFixture.bea]));
+  });
+
+  testWidgets('By decade: a cell takes its dominant family tint', (
+    tester,
+  ) async {
+    await pump(tester);
+    await groupBy(tester, TreemapBy.decade);
+    final tints = treemapFamilyTints(TreeFixture.tree);
+    expect(
+      fillOf(tester, const Key('treemap-cell-1970/1975')),
+      tints[TreeFixture.jenkins],
+    );
+    expect(
+      fillOf(tester, const Key('treemap-cell-1970/1977')),
+      tints[TreeFixture.bea],
+    );
+  });
+
+  testWidgets('group frames use the strong rule', (tester) async {
+    await pump(tester);
+    final frame = tester.widget<DecoratedBox>(
+      find
+          .ancestor(
+            of: find.byKey(const Key('treemap-group-${TreeFixture.bea}')),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
+    );
+    final shape = (frame.decoration as ShapeDecoration).shape as OutlinedBorder;
+    expect(shape.side.color, albumRuleStrong);
+  });
+
+  testWidgets('the count scales with the cell and the label is bolder', (
+    tester,
+  ) async {
+    // Small enough that Cal's cells sit below the 32 pt cap.
+    await pump(tester, size: const Size(700, 500));
+    Text countIn(String key) => tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(Key(key)),
+        matching: find.byKey(const Key('treemap-count')),
+      ),
+    );
+    final big = countIn('treemap-cell-${TreeFixture.jenkins}/1950');
+    final small = countIn('treemap-cell-${TreeFixture.cal}/1990');
+    expect(big.style!.fontSize, greaterThan(small.style!.fontSize!));
+    expect(big.style!.color, albumInk);
+    final label = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(Key('treemap-cell-${TreeFixture.jenkins}/1950')),
+        matching: find.text('1950s'),
+      ),
+    );
+    expect(label.style!.fontWeight, FontWeight.w600);
+  });
+
   testWidgets('fits a 320 pt wide window without overflow', (tester) async {
     await pump(tester, size: const Size(320, 568));
     expect(tester.takeException(), isNull);

@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/features/timeline/tree/treemap_layout.dart';
 import 'package:tell_me_a_story/ui/timeline/timeline_entry.dart';
 
@@ -148,12 +149,63 @@ void main() {
     });
   });
 
-  test('ink stays ≥ 4.5:1 on the strongest fill', () {
-    final strongest = albumTerracotta.withValues(alpha: treemapTileShade);
-    expect(
-      contrast(albumInk, over(strongest, albumParchment)),
-      greaterThanOrEqualTo(4.5),
-    );
-    expect(treemapCellShade, lessThan(treemapTileShade));
+  group('family tints', () {
+    test('cycle the palette in tree order, so four families all differ', () {
+      final tints = treemapFamilyTints(TreeFixture.tree);
+      expect(tints[TreeFixture.jenkins], treemapPalette[0]);
+      expect(tints[TreeFixture.bea], treemapPalette[1]);
+      expect(tints[TreeFixture.cal], treemapPalette[2]);
+      expect(treemapPalette, [
+        albumSageTint,
+        albumBlush,
+        albumBlushPale,
+        albumPillFill,
+      ]);
+      final five = treemapFamilyTints([
+        for (var i = 0; i < 5; i++) TreeFamily(id: 'f$i', name: 'F$i'),
+      ]);
+      expect(five.values.take(4).toSet(), hasLength(4));
+      expect(five['f4'], treemapPalette[0]);
+    });
+
+    test('a cell takes its dominant family; a tie goes to the earliest', () {
+      final decade = buildTreemap(
+        timelineEntries(TreeFixture.stories),
+        TreeFixture.tree,
+        TreemapBy.decade,
+      );
+      final seventies = decade.firstWhere((g) => g.label == '1970s');
+      final y1977 = seventies.cells.firstWhere((c) => c.label == '1977');
+      expect(treemapDominantFamily(y1977), TreeFixture.bea);
+
+      final person = buildTreemap(
+        timelineEntries(TreeFixture.stories),
+        TreeFixture.tree,
+        TreemapBy.person,
+      );
+      final bea = person.firstWhere((g) => g.id == TreeFixture.beaP.id);
+      // Bea Jenkins in the 1970s: s1975 (Jenkins) then b1977 (Bea), a tie.
+      final bea70s = bea.cells.firstWhere((c) => c.label == '1970s');
+      expect(treemapDominantFamily(bea70s), TreeFixture.jenkins);
+      // Bea Jenkins in the 1980s: b1982 only.
+      final bea80s = bea.cells.firstWhere((c) => c.label == '1980s');
+      expect(treemapDominantFamily(bea80s), TreeFixture.bea);
+    });
+  });
+
+  test('the count grows with the cell, between the base size and 32', () {
+    expect(treemapCountSize(40, base: 12), 12);
+    expect(treemapCountSize(100, base: 12), 20);
+    expect(treemapCountSize(1000, base: 12), 32);
+  });
+
+  test('ink stays ≥ 4.5:1 on every tint', () {
+    for (final tint in treemapPalette) {
+      expect(
+        contrast(albumInk, over(tint, albumParchment)),
+        greaterThanOrEqualTo(4.5),
+        reason: '$tint',
+      );
+    }
   });
 }

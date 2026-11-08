@@ -1,18 +1,47 @@
 import 'dart:math' as math;
-import 'dart:ui' show Rect;
+import 'dart:ui' show Color, Rect;
 
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/ui/timeline/timeline_entry.dart';
 
 /// The treemap groupings (O5): C5–C7.
 enum TreemapBy { family, decade, person }
 
-/// Fill of every overview cell: one quiet shade of terracotta. The area is
-/// the information; nothing is dimmed on the tree views (O6).
-const treemapCellShade = 0.10;
+/// Family tints, drawn over parchment. Ink stays ≥ 4.5:1 on each.
+const treemapPalette = <Color>[
+  albumSageTint,
+  albumBlush,
+  albumBlushPale,
+  albumPillFill,
+];
 
-/// Fill of a story tile at the deepest level.
-const treemapTileShade = 0.18;
+/// One tint per family, cycling [treemapPalette] in tree order: up to four
+/// families never share a tint, and a family keeps its tint in every
+/// grouping.
+Map<String, Color> treemapFamilyTints(List<TreeFamily> tree) => {
+  for (final (i, f) in tree.indexed)
+    f.id: treemapPalette[i % treemapPalette.length],
+};
+
+/// The family with the most stories in [cell]; a tie goes to the family of
+/// the earliest story.
+String treemapDominantFamily(TreemapCell cell) {
+  final counts = <String, int>{};
+  for (final e in cell.entries) {
+    counts.update(e.story.familyId, (n) => n + 1, ifAbsent: () => 1);
+  }
+  var best = counts.keys.first;
+  for (final MapEntry(:key, :value) in counts.entries) {
+    if (value > counts[best]!) best = key;
+  }
+  return best;
+}
+
+/// Count size for a cell whose shorter side is [shortestSide]: a fifth of
+/// it, never below [base] (the `AlbumText.count` size) nor above 32.
+double treemapCountSize(double shortestSide, {required double base}) =>
+    (shortestSide / 5).clamp(base, 32);
 
 /// Squarified treemap (Bruls, Huizing, van Wijk 2000). [values] must be in
 /// descending order; returns one rect per value, in the same order, tiling

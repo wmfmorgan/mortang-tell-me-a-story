@@ -85,13 +85,15 @@ class _TreemapViewState extends State<TreemapView> {
     );
     final group = groups.where((g) => g.id == _groupId).firstOrNull;
     final cell = group?.cells.where((c) => c.id == _cellId).firstOrNull;
+    final tints = treemapFamilyTints(widget.tree);
 
     final Widget body;
     if (cell != null) {
-      body = _StoryTiles(cell: cell, onStory: widget.onStory);
+      body = _StoryTiles(cell: cell, tints: tints, onStory: widget.onStory);
     } else if (group != null) {
       body = _CellGrid(
         group: group,
+        tints: tints,
         large: true,
         onCell: (c) => _open(group: group.id, cell: c.id),
       );
@@ -103,6 +105,7 @@ class _TreemapViewState extends State<TreemapView> {
               weight: g.count.toDouble(),
               child: _GroupTile(
                 group: g,
+                tints: tints,
                 onHeader: _by == TreemapBy.family
                     ? () => widget.onFamily(g.id)
                     : () => _open(group: g.id),
@@ -202,12 +205,14 @@ class _TreemapViewState extends State<TreemapView> {
 class _GroupTile extends StatelessWidget {
   const _GroupTile({
     required this.group,
+    required this.tints,
     required this.onHeader,
     required this.onGroup,
     required this.onCell,
   });
 
   final TreemapGroup group;
+  final Map<String, Color> tints;
   final VoidCallback onHeader;
   final VoidCallback onGroup;
   final ValueChanged<TreemapCell> onCell;
@@ -222,7 +227,7 @@ class _GroupTile extends StatelessWidget {
       decoration: ShapeDecoration(
         shape: albumContainerShape(
           AlbumRadius.group,
-          side: const BorderSide(color: albumModalBorder),
+          side: const BorderSide(color: albumRuleStrong),
         ),
       ),
       child: LayoutBuilder(
@@ -248,6 +253,7 @@ class _GroupTile extends StatelessWidget {
               Expanded(
                 child: _CellGrid(
                   group: group,
+                  tints: tints,
                   onCell: onCell,
                   onSmallTap: onGroup,
                 ),
@@ -263,12 +269,14 @@ class _GroupTile extends StatelessWidget {
 class _CellGrid extends StatelessWidget {
   const _CellGrid({
     required this.group,
+    required this.tints,
     required this.onCell,
     this.large = false,
     this.onSmallTap,
   });
 
   final TreemapGroup group;
+  final Map<String, Color> tints;
   final ValueChanged<TreemapCell> onCell;
   final bool large;
   final VoidCallback? onSmallTap;
@@ -283,6 +291,7 @@ class _CellGrid extends StatelessWidget {
           child: TreemapCellTile(
             key: Key('treemap-cell-${c.id}'),
             cell: c,
+            tint: tints[treemapDominantFamily(c)] ?? albumPillFill,
             large: large,
             onTap: () => onCell(c),
             onSmallTap: onSmallTap,
@@ -292,17 +301,20 @@ class _CellGrid extends StatelessWidget {
   );
 }
 
-/// One cell: its label and story count on the quiet shade.
+/// One cell: its label and story count on its family's tint. In the decade
+/// and person groupings the tint is the cell's dominant family.
 class TreemapCellTile extends StatelessWidget {
   const TreemapCellTile({
     super.key,
     required this.cell,
+    required this.tint,
     required this.onTap,
     this.large = false,
     this.onSmallTap,
   });
 
   final TreemapCell cell;
+  final Color tint;
   final VoidCallback onTap;
 
   /// Drill-down cells stand alone; overview cells sit inside a group.
@@ -311,6 +323,9 @@ class TreemapCellTile extends StatelessWidget {
   /// Tap target for fingers when this cell is under [AlbumTarget.min] in
   /// either axis. Null means [onTap] for every input.
   final VoidCallback? onSmallTap;
+
+  /// Cells at least this big on their shorter side get the group label size.
+  static const _bigLabelSide = 96.0;
 
   @override
   Widget build(BuildContext context) {
@@ -335,7 +350,7 @@ class TreemapCellTile extends StatelessWidget {
                     .call(),
             child: DecoratedBox(
               decoration: ShapeDecoration(
-                color: albumTerracotta.withValues(alpha: treemapCellShade),
+                color: tint,
                 shape: albumContainerShape(
                   radius,
                   side: const BorderSide(
@@ -349,19 +364,43 @@ class TreemapCellTile extends StatelessWidget {
                   if (box.maxWidth < 34 || box.maxHeight < 18) {
                     return const SizedBox.shrink();
                   }
+                  final shortest = math.min(box.maxWidth, box.maxHeight);
+                  final labelStyle =
+                      (large || shortest >= _bigLabelSide
+                              ? AlbumText.group(theme)
+                              : theme.labelSmall!)
+                          .copyWith(
+                            color: albumInk,
+                            fontWeight: FontWeight.w600,
+                          );
+                  final count = AlbumText.count(theme);
                   return Padding(
                     padding: const EdgeInsets.all(AlbumSpace.xs),
-                    child: Text(
-                      large || box.maxHeight >= 34
-                          ? '${cell.label}\n${cell.count}'
-                          : cell.label,
-                      maxLines: 2,
-                      overflow: TextOverflow.clip,
-                      // Label and count are separate lines; never break
-                      // "1920s" mid-word in a narrow cell.
-                      softWrap: false,
-                      style: (large ? theme.titleSmall : theme.labelSmall)
-                          ?.copyWith(color: albumInk),
+                    // Never overflow a short cell: shrink the pair instead.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.topLeft,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(cell.label, softWrap: false, style: labelStyle),
+                          if (large || box.maxHeight >= 34)
+                            Text(
+                              '${cell.count}',
+                              key: const Key('treemap-count'),
+                              softWrap: false,
+                              style: count.copyWith(
+                                color: albumInk,
+                                height: 1.1,
+                                fontSize: treemapCountSize(
+                                  shortest,
+                                  base: count.fontSize ?? 12,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -376,9 +415,14 @@ class TreemapCellTile extends StatelessWidget {
 
 /// Deepest level: one equal-area tile per story, in date order.
 class _StoryTiles extends StatelessWidget {
-  const _StoryTiles({required this.cell, required this.onStory});
+  const _StoryTiles({
+    required this.cell,
+    required this.tints,
+    required this.onStory,
+  });
 
   final TreemapCell cell;
+  final Map<String, Color> tints;
   final ValueChanged<String> onStory;
 
   @override
@@ -399,7 +443,7 @@ class _StoryTiles extends StatelessWidget {
                 onTap: () => onStory(story.id),
                 child: DecoratedBox(
                   decoration: ShapeDecoration(
-                    color: albumTerracotta.withValues(alpha: treemapTileShade),
+                    color: tints[story.familyId] ?? albumPillFill,
                     shape: albumContainerShape(
                       AlbumRadius.group,
                       side: const BorderSide(color: albumPillBorder),
