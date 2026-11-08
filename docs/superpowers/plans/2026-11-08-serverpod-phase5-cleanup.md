@@ -992,9 +992,9 @@ just server-migration <tag>   # only when the database schema changed
 
 Never edit a migration that already exists.
 
-## Hosting
+## Deployment
 
-Netlify builds the web app (`netlify.toml`). The Serverpod server's production host is not chosen yet.
+Deployment: see the GCP hosting work (pending).
 ````
 
 - [ ] **Step 2: Replace `apps/tell_me_a_story/README.md`**
