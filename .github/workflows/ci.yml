@@ -159,3 +159,25 @@ jobs:
               cat "$RUNNER_TEMP/$f"
             fi
           done
+
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+        working-directory: labs/timeline_lab
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install_args: flutter # terraform is for deploys only
+
+      - name: flutter pub get
+        run: flutter pub get --enforce-lockfile
+
+      - name: flutter analyze
+        run: flutter analyze
