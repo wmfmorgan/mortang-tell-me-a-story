@@ -183,6 +183,17 @@ class _TreeGraphViewState extends State<TreeGraphView> {
 
   Widget _graph(BuildContext context, TreeLayout layout) {
     final theme = Theme.of(context).textTheme;
+    final painter = TreeGraphPainter(
+      layout: layout,
+      stories: _storyById,
+      tree: widget.tree,
+      tints: treemapFamilyTints(widget.tree),
+      selectedFamilyId: _selectedFamilyId,
+      labelStyle: theme.labelSmall!.copyWith(color: albumInk),
+      headingStyle: AlbumText.group(theme).copyWith(color: albumInk),
+      badgeStyle: AlbumText.badge(theme),
+      onTapNode: _onTap,
+    );
     return LayoutBuilder(
       key: const Key('tree-graph-pan'),
       builder: (context, box) => SingleChildScrollView(
@@ -204,13 +215,13 @@ class _TreeGraphViewState extends State<TreeGraphView> {
                   builder: (context, over, child) => MouseRegion(
                     cursor: over ? SystemMouseCursors.click : MouseCursor.defer,
                     onHover: (e) => _hoverTarget.value =
-                        layout.hitTest(e.localPosition) != null,
+                        painter.nodeAt(e.localPosition) != null,
                     onExit: (_) => _hoverTarget.value = false,
                     child: child,
                   ),
                   child: GestureDetector(
                     onTapUp: (details) {
-                      final hit = layout.hitTest(
+                      final hit = painter.nodeAt(
                         details.localPosition,
                         radius: hitRadiusFor(
                           details.kind,
@@ -222,18 +233,7 @@ class _TreeGraphViewState extends State<TreeGraphView> {
                     child: CustomPaint(
                       key: const Key('tree-graph-canvas'),
                       size: layout.size,
-                      painter: TreeGraphPainter(
-                        layout: layout,
-                        stories: _storyById,
-                        tree: widget.tree,
-                        tints: treemapFamilyTints(widget.tree),
-                        selectedFamilyId: _selectedFamilyId,
-                        labelStyle: theme.labelSmall!.copyWith(color: albumInk),
-                        headingStyle: AlbumText.group(theme)
-                            .copyWith(color: albumInk),
-                        badgeStyle: AlbumText.badge(theme),
-                        onTapNode: _onTap,
-                      ),
+                      painter: painter,
                     ),
                   ),
                 ),
@@ -323,7 +323,7 @@ class TreeGraphPainter extends CustomPainter {
       final label = _label(n);
       switch (n.kind) {
         case TreeNodeKind.overflow:
-          _paintOverflow(canvas, label, p);
+          _paintOverflow(canvas, n, label, p);
         case TreeNodeKind.story:
           final story = stories[n.storyId];
           paintStoryMarker(
@@ -391,15 +391,34 @@ class TreeGraphPainter extends CustomPainter {
     }
   }
 
+  /// The `+N` pill of overflow node [n], in canvas coordinates. The whole
+  /// pill is a target: it is the node, not a label beside it.
+  Rect overflowRect(TreeNode n) {
+    final p = layout.positions[n]!;
+    final label = _label(n);
+    return Rect.fromLTWH(
+      p.dx - AlbumSpace.xs,
+      p.dy - label.size.height / 2 - 2,
+      label.size.width + 2 * AlbumSpace.s,
+      label.size.height + 4,
+    );
+  }
+
+  /// The node nearest [p] within [radius] ([TreeLayout.hitTest]), else the
+  /// `+N` pill under [p]. Text labels are not targets.
+  TreeNode? nodeAt(Offset p, {double radius = TreeLayout.hitRadius}) =>
+      layout.hitTest(p, radius: radius) ??
+      layout.nodes
+          .where(
+            (n) =>
+                n.kind == TreeNodeKind.overflow && overflowRect(n).contains(p),
+          )
+          .firstOrNull;
+
   /// `+N` as one ink pill holding its own text.
-  void _paintOverflow(Canvas canvas, CanvasLabel label, Offset p) {
+  void _paintOverflow(Canvas canvas, TreeNode n, CanvasLabel label, Offset p) {
     final pill = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        p.dx - AlbumSpace.xs,
-        p.dy - label.size.height / 2 - 2,
-        label.size.width + 2 * AlbumSpace.s,
-        label.size.height + 4,
-      ),
+      overflowRect(n),
       const Radius.circular(AlbumRadius.pill),
     );
     canvas.drawRRect(pill, Paint()..color = albumInk);
@@ -432,7 +451,9 @@ class TreeGraphPainter extends CustomPainter {
       (size) => [
         for (final n in layout.nodes)
           CustomPainterSemantics(
-            rect: layout.rectOf(n),
+            rect: n.kind == TreeNodeKind.overflow
+                ? overflowRect(n)
+                : layout.rectOf(n),
             properties: SemanticsProperties(
               label: _semanticsLabel(n),
               button: _tappable(n),

@@ -129,6 +129,22 @@ void main() {
     expect(node(tester, sixties).children, hasLength(6));
   });
 
+  testWidgets('the whole +N pill is a target, not just its anchor', (
+    tester,
+  ) async {
+    await pump(tester);
+    const sixties = 'f-${TreeFixture.jenkins}-d-1960';
+    final more = node(tester, 'more:$sixties');
+    final pill = painter(tester).overflowRect(more);
+    final anchor = painter(tester).layout.positions[more]!;
+    // The pill's far end is beyond the precise radius of its anchor.
+    final end = Offset(pill.right - 2, pill.center.dy);
+    expect((end - anchor).distance, greaterThan(10));
+
+    await tapNode(tester, more.id, offset: end - anchor);
+    expect(node(tester, sixties).children, hasLength(8));
+  });
+
   testWidgets('a family tap selects it and offers its timeline (C19)', (
     tester,
   ) async {
