@@ -59,7 +59,7 @@
 |---|---|---|---|
 | 7.0 Lab import | this index, §7.0 | — | done (#181; lab-test `+272`) |
 | 7.1 Golden harness and rail baselines | this index, §7.1 | — | done (`feat/p7-1-goldens`) |
-| 7.2 Tokens and shared primitives | written at slice start | — (O3 answered 2026-11-08) | not started |
+| 7.2 Tokens and shared primitives | this index, §7.2 | — (O3 answered 2026-11-08) | in progress (`feat/p7-2-tokens`) |
 | 7.3 Rail split at parity | written at slice start | 7.1, 7.2 | not started |
 | 7.4 Rail restyle and iPad | written at slice start | 7.3; owner screenshot sign-off before merge | not started |
 | 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
@@ -555,33 +555,150 @@ CI's `app` job runs `just test`, so it now excludes goldens with no change to `c
 
 ## 7.2 Tokens and shared primitives (Q5)
 
-**Owns:**
-- `lib/core/theme/album_theme.dart`;
-- new `lib/ui/timeline/`: `time_scale.dart`, `time_axis_painter.dart`, `canvas_label.dart`, `story_marker.dart`, `pointer_input.dart`, `story_chooser.dart`, `empty_timeline.dart`, `view_switch.dart`;
-- tests `test/core/theme/album_theme_test.dart` and `test/ui/timeline/*_test.dart`;
-- `test/support/contrast.dart` (from the lab).
+**Branch:** `feat/p7-2-tokens`. **Files:**
+- Modify: `lib/core/theme/album_theme.dart`, `lib/features/all_stories/all_stories_card.dart` (`allStoriesDimInk()` only), `test/core/theme/album_theme_test.dart`.
+- Create `lib/ui/timeline/`:
+  - `time_scale.dart`, with `fractionalYear`;
+  - `time_axis_painter.dart`;
+  - `canvas_label.dart`;
+  - `story_marker.dart`, with `isOrigin`;
+  - `pointer_input.dart`;
+  - `timeline_entry.dart`;
+  - `story_chooser.dart`;
+  - `empty_timeline.dart`;
+  - `view_switch.dart`.
+- Create tests:
+  - `test/core/theme/{album_contrast,album_field_border}_test.dart`;
+  - `test/features/all_stories/all_stories_card_test.dart`;
+  - `test/ui/timeline/{time_scale,time_axis_painter,canvas_label,story_marker,pointer_input,timeline_entry,story_chooser,empty_timeline,view_switch}_test.dart`;
+  - `test/support/contrast.dart` (copied from the lab unchanged).
 
-**Change:**
-- **Tokens** (port `labs/timeline_lab/lib/theme/lab_theme.dart`; names pending O3):
-  - scales `AlbumSpace` (4/8/12/16/24), `AlbumRadius` (tile 4, group 8, card 12, sheet 16, pill 20), `AlbumStroke` (1/1.5/2), `AlbumMarker` (dot 10, small 8, gap 2, ring 2, hollow 1.5), `AlbumTarget` (min 44, finger radius 22), `AlbumBreakpoint` (sidebar 900, compact 600);
-  - text roles `AlbumText.axis/count/lane/group`; `badge` waits for 7.8;
-  - tints `albumRule` (`albumInk` at 0x33), `albumRuleStrong` (0x99), `albumWatermark` (0x1F), `albumSageTint` (`albumSage` at 0x59), `albumSageLine` (0x73);
-  - `albumDimInk = Color(0xFF6A6358)`;
-  - `albumContainerShape(radius, {side})` (`RoundedSuperellipseBorder`), `AlbumFieldBorder`, and a `segmentedButtonTheme` in `albumTheme()` (terracotta selected, parchment label, 5.18:1).
-- **Exact-value colour tokens for `timeline_page.dart`'s hits without one** (Phase 6 rule; names pending O3): `0xFFF5DED6` (focused-dot halo, focused-card glow, filled chip) and `0xFFF5ECE9` (unfilled chip). Each gets a one-line doc comment naming its users.
-- **Primitives** ported from the lab with `LabStory`/`LabFamily` replaced by `Story`/`TreeFamily`:
-  - `fractionalYear(DateTime)` lives in `time_scale.dart` (it divides by the year's real day count), not on `Story`;
-  - `StoryChooser` lists titles with `story_date.dart`'s label;
-  - `ViewSwitch` is a `SegmentedButton` on the new theme;
-  - nothing in `lib/` uses the primitives yet.
-- No pixel change on any existing screen: `albumTheme()` gains only a theme for widgets the app doesn't use yet (`SegmentedButton`).
+**Names** (O3, approved 2026-11-08). The lab's `Lab*`/`lab*` names become `Album*`/`album*`. Three exceptions:
+- `labDimmedInk` → `albumDimInk`;
+- `labMoss` → the existing `branchMoss`;
+- `labSurface`, `labBorder` and the other colour copies → the existing album tokens.
 
-**Tests:**
-- Port `time_scale_test`, `time_axis_painter_test`, `canvas_label_test`, `story_marker_test`, `pointer_input_test`, `story_chooser_test`, `field_border_test`, and the contrast cases of `lab_theme_test` (with `support/contrast.dart`), each red first.
-- Add a test that `allStoriesDimInk().toARGB32() == albumDimInk.toARGB32()`, so 7.5's swap is pixel-identical.
-- `just test-goldens` is unchanged (no regeneration).
+No pixel changes anywhere:
+- `albumTheme()` gains only `segmentedButtonTheme`, and `lib/` has no `SegmentedButton` today;
+- `inputDecorationTheme` keeps its `OutlineInputBorder`;
+- nothing in `lib/` uses the new primitives yet;
+- the `allStoriesDimInk()` swap is ARGB-identical (Task 1, Step 1 proves it before the swap).
 
-**Done when:** the gates are green with the new tests, goldens are unchanged, and there are no colour-guard hits in `lib/ui/timeline/`.
+**Dropped from the lab port (out of scope):**
+- `LabText.badge` (waits for 7.8), `labDimOpacity`, and the lab theme's chip, menu, drawer and slider themes;
+- `familyLaneOrder` (swimlanes and the zoom canvas only);
+- the `reveal` playback parameter of `paintStoryMarker` (Q3).
+
+### Task 1: Tokens
+
+- [ ] **Step 1: Red tests.**
+  - In `album_theme_test.dart`, add cases that:
+    - the tints equal `albumInk.withAlpha(0x33 / 0x99 / 0x1F)` and `albumSage.withAlpha(0x59 / 0x73)`;
+    - `albumDimInk`, `albumBlush` and `albumBlushPale` keep their hex values;
+    - every scale value matches the table below;
+    - the `AlbumText` roles build on the theme (`axis` is w600 with tabular figures, `count` is `albumDimInk`, `lane` is w600, `group` is `titleSmall`);
+    - `albumContainerShape(12, side:)` is a `RoundedSuperellipseBorder` with that radius and side;
+    - the segmented theme resolves selected to terracotta/parchment and unselected to `albumPillFill`/`albumInk`.
+  - `album_contrast_test.dart`: the lab's `lab_theme_test` contrast cases with album tokens:
+    - six text pairs at ≥ 4.5:1;
+    - the selected-segment label at 5.18:1 (±0.01);
+    - terracotta and moss markers at ≥ 3:1 on parchment.
+  - `album_field_border_test.dart`: the lab's `field_border_test` with `AlbumFieldBorder`. Its fourth case (the lab theme's text field uses the border) is not ported, because the app's input theme keeps `OutlineInputBorder`.
+  - `all_stories_card_test.dart`: `expect(allStoriesDimInk().toARGB32(), albumDimInk.toARGB32())`.
+  - Run `mise exec -- flutter test test/core/theme test/features/all_stories/all_stories_card_test.dart`. Expected: compile errors (`albumDimInk`, `AlbumSpace`, … undefined).
+- [ ] **Step 2: Green.** In `album_theme.dart`, after `albumCardRadius`, add the tokens below (doc comments as in the lab), and import `dart:ui show lerpDouble` for `AlbumFieldBorder`. Then add the lab's `segmentedButtonTheme` to `albumTheme()`, with `GoogleFonts.sourceSans3(fontWeight: FontWeight.w600, fontSize: 14)` as the text style. Re-run Step 1's tests: they pass, including the dim-ink case against the *old* `alphaBlend` body. That proves the swap is pixel-identical.
+
+  | Token | Value |
+  |---|---|
+  | `albumDimInk` | `Color(0xFF6A6358)` |
+  | `albumBlush` | `Color(0xFFF5DED6)`: timeline focused-dot halo, focused-card glow, filled chip |
+  | `albumBlushPale` | `Color(0xFFF5ECE9)`: timeline unfilled chip |
+  | `albumRuleStrong` / `albumRule` / `albumWatermark` | `Color(0x992C2416)` / `Color(0x332C2416)` / `Color(0x1F2C2416)` |
+  | `albumSageTint` / `albumSageLine` | `Color(0x597A8B74)` / `Color(0x737A8B74)` |
+  | `AlbumSpace` | `xs 4, s 8, m 12, l 16, xl 24` |
+  | `AlbumRadius` | `tile 4, group 8, card 12, sheet 16, pill 20` |
+  | `AlbumStroke` | `hairline 1, rule 1.5, mark 2` |
+  | `AlbumMarker` | `dot 10, small 8, gap 2, ring 2, hollow 1.5` |
+  | `AlbumTarget` | `min 44, fingerRadius 22` |
+  | `AlbumBreakpoint` | `sidebar 900, compact 600` |
+  | `AlbumText` | `axis`, `count`, `lane`, `group` |
+  | `albumContainerShape(radius, {side})` | `RoundedSuperellipseBorder` |
+  | `AlbumFieldBorder({borderSide, radius = AlbumRadius.card})` | the lab's `LabFieldBorder` |
+
+- [ ] **Step 3: Point the dim ink at the token.** In `all_stories_card.dart`:
+
+```dart
+/// Ink at 70% on parchment: the #6A6358 dim floor ([albumDimInk]).
+Color allStoriesDimInk() => albumDimInk;
+```
+
+- [ ] **Step 4: Gates.**
+  - `mise exec -- just check` passes (app count up by Task 1's tests).
+  - `mise exec -- just test-goldens 2>&1 | tail -n 1` gives `+6`, and `git status --short apps/tell_me_a_story/test/goldens` is empty.
+- [ ] **Step 5: Commit** `feat(client): timeline tokens in album_theme (O3) and albumDimInk for All Stories`.
+
+### Task 2: Shared primitives in `lib/ui/timeline/`
+
+- [ ] **Step 1: Red tests.**
+  - Copy `time_scale_test`, `time_axis_painter_test`, `canvas_label_test` and `pointer_input_test` from `labs/timeline_lab/test/`, changing only the imports (`package:tell_me_a_story/ui/timeline/…`, `core/theme/album_theme.dart`) and `LabTarget` → `AlbumTarget`.
+  - `time_scale_test` also gains `fractionalYear` cases:
+    - `DateTime(1987)` → `1987`;
+    - `DateTime(2000, 7, 2)` → `2000.5` (leap year);
+    - `DateTime(1987, 7, 2)` → `1987 + 182 / 365`;
+    - Dec 31 is in `(y + 0.99, y + 1)`;
+    - a local 23:30 time equals the UTC calendar day.
+  - Port `story_marker_test` with `AlbumMarker`. Add an `isOrigin` case: `TreeFamily(originStoryId: 's1975')` makes `s1975` an origin and `s1952` not.
+  - Port `story_chooser_test` with three app `Story`s at year, month and day precision, one with a blank title. It also asserts the rows `The flood year · 1952`, `First car · June 1952` and `Untitled · June 2, 1952`.
+  - New `timeline_entry_test`:
+    - an entry's `id` and `year` (`fractionalYear(publishedStart)`);
+    - `timelineEntries(stories, matches:)` keeps order and flags matches;
+    - with no `matches`, every entry matches.
+  - New `empty_timeline_test`, using C17 and C9:
+    - the message and the `empty-action` button call `onAction`;
+    - with no action, the message shows alone.
+  - New `view_switch_test`:
+    - the `SegmentedButton` under `switchKey` reports the tapped value and hides the check icon;
+    - at 200 pt wide, long labels scroll instead of overflowing.
+  - Run `mise exec -- flutter test test/ui/timeline`. Expected: compile errors (missing libraries).
+- [ ] **Step 2: Green: port the lab files.**
+  - **Same API as the lab:**
+    - `time_scale.dart`: the lab's file, plus:
+
+      ```dart
+      double fractionalYear(DateTime date) {
+        final day = DateTime.utc(date.year, date.month, date.day);
+        final start = DateTime.utc(date.year);
+        final days = DateTime.utc(date.year + 1).difference(start).inDays;
+        return date.year + day.difference(start).inDays / days;
+      }
+      ```
+
+    - `canvas_label.dart`: unchanged.
+    - `time_axis_painter.dart`: lab tokens → album tokens.
+    - `pointer_input.dart`: `LabTarget` → `AlbumTarget`.
+  - **`story_marker.dart`:**
+    - `isOrigin(Story story, Iterable<TreeFamily> families)`;
+    - `MarkerSpec`, `paintStoryMarker(canvas, c, spec)` and `StoryDot`, with `albumTerracotta` and `branchMoss`. There is no `reveal` parameter.
+  - **`timeline_entry.dart`** (the adapter from the lab's `TimelineEntry`):
+    - `TimelineEntry({required Story story, required bool matched})`, with the getters `id` and `year`;
+    - `timelineEntries(Iterable<Story>, {bool Function(Story)? matches})`.
+  - **`story_chooser.dart`:** `showStoryChooser(context, {globalPosition, required List<Story> stories})`. Rows read `'${storyTitle(s)} · ${storyDateLabelFor(s)}'`, keyed `chooser-<id>`. The C10 title is 7.4's job.
+  - **`empty_timeline.dart`:**
+    - `EmptyTimeline({required String message, String? actionLabel, VoidCallback? onAction})`, which asserts that the label and the callback come together;
+    - keys `empty-timeline` and `empty-action`;
+    - callers pass approved copy (C9, or C17 with `Clear filters`).
+  - **`view_switch.dart`:** the lab's widget, with padding `AlbumSpace.l`/`s`, a gap of `AlbumSpace.m`, and the label in `AlbumText.lane`.
+- [ ] **Step 3: Gates.** Same as Task 1, Step 4. The import guard passes (`ui/` imports only `core/`, `data/` and `ui/`), the layout guard passes (`test/ui/timeline` mirrors `lib/ui/timeline`), and the colours guard passes with no hits in `lib/ui/timeline/` and the skip list unchanged.
+- [ ] **Step 4: Commit** `feat(client): shared timeline primitives in lib/ui/timeline (TimeScale, markers, labels, hit radius, chooser, empty state, view switch, TimelineEntry)`.
+
+### Task 3: Plan bookkeeping
+
+- [ ] Set the Status row to done, and add the 7.2 "As landed" notes. Commit `docs(plan): Phase 7.2 status and as-landed notes`.
+
+**Done when:**
+- the gates are green with the new tests;
+- the goldens are unchanged;
+- there are no colour-guard hits in `lib/ui/timeline/`.
 
 ## 7.3 Rail split at parity
 
@@ -661,7 +778,6 @@ CI's `app` job runs `just test`, so it now excludes goldens with no change to `c
 
 **Owns:**
 - new `lib/ui/story/story_search.dart` (`matchesSearch`, `nameMatches` and their `_contains`, moved from `features/all_stories/all_stories_logic.dart:324-352`; All Stories imports them from here);
-- `features/all_stories/all_stories_card.dart` (`allStoriesDimInk()` returns `albumDimInk`; its callers stay);
 - new `lib/features/timeline/filter/{timeline_filter,filter_panel}.dart`;
 - the rails, for the dim state.
 
