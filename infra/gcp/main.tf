@@ -245,13 +245,13 @@ resource "google_cloud_run_v2_service" "api" {
         mount_path = "/cloudsql"
       }
 
-      # Migrations run on start.
+      # Migrations run on start. 10 s × 24 = 240 s, Cloud Run's startup limit.
       startup_probe {
         tcp_socket {
           port = 8080
         }
         period_seconds    = 10
-        failure_threshold = 30
+        failure_threshold = 24
       }
 
       env {
