@@ -12,7 +12,7 @@
 - Fresh start. Existing Supabase data is test data, so nothing is migrated and the hosted project gets retired.
 - iPad + web stay the targets. Login is a 6-digit email code typed in the app, so no deep links are needed.
 - Deno and Python are removed. Deno is already out of `mise.toml`; the Supabase CLI stays there only until Phase 5.
-- The repo's previous spec process (`AGENTS.md`, `docs/impl-spec`) does not govern this work. `AGENTS.md` is rewritten in Phase 5.
+- The repo's previous spec process (`AGENTS.md`, `docs/archive/impl-spec`) does not govern this work. `AGENTS.md` is rewritten in Phase 5.
 - Dev and test Postgres is Serverpod's **embedded Postgres** (`dataPath` in `config/*.yaml`; PG 16, fetched by Serverpod's build hooks). There is no Docker, no system Postgres and no extra mise tool; this was checked in a scratch 4.1.1 scaffold, where `dart test` passed against embedded PG 16. Prod uses managed Postgres ≥16.
 - Dev blob storage is Serverpod's `DatabaseCloudStorage` (with `maxRequestSize` raised). Prod is S3-compatible (`serverpod_cloud_storage_s3_compat`).
 - Sign-up stays open, as today. The 4.1.1 email IDP has only `onAfterAccountCreated` and no pre-create hook, so every data endpoint gates on membership or invite.

@@ -117,7 +117,6 @@ void main() {
     if (support.existsSync()) {
       for (final entity in support.listSync(recursive: true)) {
         if (entity is File &&
-            entity.path.endsWith('.dart') &&
             entity.readAsStringSync().contains('testWidgets(')) {
           errors.add(
             'testWidgets( found in ${entity.path}; '

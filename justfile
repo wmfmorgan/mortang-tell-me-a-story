@@ -103,6 +103,9 @@ analyze ceiling="6":
     else
         count=$( { grep -vF '•' "$out" | grep -Eo '[0-9]+ issues? found\.' | tail -n 1 | grep -Eo '^[0-9]+'; } || true )
     fi
+    case "{{ceiling}}" in
+        ''|*[!0-9]*) echo "analyze: ceiling must be a whole number, got '{{ceiling}}'" >&2; exit 1 ;;
+    esac
     if [ -z "$count" ]; then
         echo "analyze: no issue count in the output (exit $rc)" >&2
         exit 1

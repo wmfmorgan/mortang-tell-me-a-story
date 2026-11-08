@@ -28,6 +28,8 @@ just server-setup       # serverpod_cli 4.1.1, server and client packages, local
 (cd apps/tell_me_a_story && flutter pub get)
 ```
 
+Commands below assume mise is activated in your shell (`mise activate`); otherwise prefix each with `mise exec --`, e.g. `mise exec -- just check`.
+
 `just server-passwords` writes `apps/server/config/passwords.yaml` with random local secrets. It is git-ignored; never commit it.
 
 ## Run locally

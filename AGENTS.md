@@ -25,7 +25,7 @@ If the code and the plan disagree, stop and report the difference; don't reconci
 - Server models change only in `*.spy.yaml`, followed by `just server-generate`. A schema change gets a new migration (`just server-migration <tag>`). Never edit an existing migration.
 
 ## Gates
-Run from the repo root and paste the output in the PR body.
+Run from the repo root as `mise exec -- just …` (or in a shell with mise activated) and paste the output in the PR body.
 
 | Gate | Command | Baseline |
 |---|---|---|
