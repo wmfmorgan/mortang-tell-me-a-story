@@ -6,12 +6,12 @@ import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
 import '../../support/fakes/fake_photos_gateway.dart';
+import '../../support/fakes/fake_places_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
 
 const _ada = 'ada';
@@ -74,7 +74,7 @@ Future<GoRouter> _mount(
             acceptedFamilyId: _ada,
           ),
           peopleApi: _People(),
-          placesApi: _Places(),
+          placesApi: FakePlacesGateway(),
           mapboxSearch: _Mapbox(),
           storiesApi: stories,
           photosApi: FakePhotosGateway(),
@@ -158,53 +158,6 @@ class _People extends PeopleGateway {
   }) async {
     throw UnimplementedError();
   }
-}
-
-class _Places implements PlacesGateway {
-  @override
-  Future<List<Place>> listFavorites(String familyId) async => const [];
-
-  @override
-  Future<List<Place>> listRecents(String familyId, {int limit = 10}) async =>
-      const [];
-
-  @override
-  Future<List<Place>> listPlaces(String familyId) async => const [];
-
-  @override
-  Future<Place> createPlace({
-    required String familyId,
-    required String label,
-    required String address,
-    required double lat,
-    required double lng,
-    String? mapboxPlaceId,
-    bool isFavorite = false,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place> markUsed(String placeId) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place> setFavorite({
-    required String placeId,
-    required bool isFavorite,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place?> findByMapboxPlaceId(
-    String familyId,
-    String mapboxPlaceId,
-  ) async => null;
-
-  @override
-  Future<Place?> getPlace(String id) async => null;
 }
 
 class _Mapbox implements MapboxSearchGateway {

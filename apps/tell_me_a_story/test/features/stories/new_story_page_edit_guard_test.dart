@@ -12,6 +12,7 @@ import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
 import '../../support/fakes/fake_photos_gateway.dart';
+import '../../support/fakes/fake_places_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
 
 const _ada = 'ada';
@@ -350,49 +351,11 @@ class _People extends PeopleGateway {
   }
 }
 
-class _Places implements PlacesGateway {
-  @override
-  Future<List<Place>> listFavorites(String familyId) async => [_park];
-
-  @override
-  Future<List<Place>> listRecents(String familyId, {int limit = 10}) async =>
-      const [];
-
-  @override
-  Future<List<Place>> listPlaces(String familyId) async => [_park];
-
-  @override
-  Future<Place> createPlace({
-    required String familyId,
-    required String label,
-    required String address,
-    required double lat,
-    required double lng,
-    String? mapboxPlaceId,
-    bool isFavorite = false,
-  }) async {
-    throw UnimplementedError();
-  }
+class _Places extends FakePlacesGateway {
+  _Places() : super(places: [_park]);
 
   @override
   Future<Place> markUsed(String placeId) async => _park;
-
-  @override
-  Future<Place> setFavorite({
-    required String placeId,
-    required bool isFavorite,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place?> findByMapboxPlaceId(
-    String familyId,
-    String mapboxPlaceId,
-  ) async => null;
-
-  @override
-  Future<Place?> getPlace(String id) async => id == _park.id ? _park : null;
 }
 
 class _Mapbox implements MapboxSearchGateway {

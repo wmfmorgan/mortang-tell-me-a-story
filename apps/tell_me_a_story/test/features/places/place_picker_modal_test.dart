@@ -6,6 +6,8 @@ import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/features/places/place_map.dart';
 import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 
+import '../../support/fakes/fake_places_gateway.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
 const _mapFailureCopy =
@@ -31,11 +33,10 @@ Place _place({
   );
 }
 
-class _FakePlacesGateway implements PlacesGateway {
+class _FakePlacesGateway extends FakePlacesGateway {
   _FakePlacesGateway({List<Place>? seed, this.throwOnCreate = false})
-    : rows = [...?seed];
+    : super(places: seed ?? const [], now: DateTime.utc(2026, 9, 27, 12));
 
-  final List<Place> rows;
   final bool throwOnCreate;
   var markUsedCalls = 0;
   String? lastMarkedId;
@@ -46,21 +47,15 @@ class _FakePlacesGateway implements PlacesGateway {
 
   @override
   Future<List<Place>> listFavorites(String familyId) async {
-    final filtered = rows.where((p) => p.isFavorite).toList()
+    final filtered = places.where((p) => p.isFavorite).toList()
       ..sort((a, b) => a.label.compareTo(b.label));
     return filtered;
   }
 
   @override
-  Future<List<Place>> listRecents(String familyId, {int limit = 10}) async {
-    final filtered = rows.where((p) => p.lastUsedAt != null).toList()
-      ..sort((a, b) => b.lastUsedAt!.compareTo(a.lastUsedAt!));
-    return filtered.take(limit).toList();
-  }
-
-  @override
   Future<List<Place>> listPlaces(String familyId) async {
-    final filtered = rows.toList()..sort((a, b) => a.label.compareTo(b.label));
+    final filtered = places.toList()
+      ..sort((a, b) => a.label.compareTo(b.label));
     return filtered;
   }
 
@@ -89,75 +84,26 @@ class _FakePlacesGateway implements PlacesGateway {
       isFavorite: isFavorite,
       lastUsedAt: DateTime.utc(2026, 9, 27),
     );
-    rows.add(place);
+    places.add(place);
     return place;
   }
 
   @override
-  Future<Place> markUsed(String placeId) async {
+  Future<Place> markUsed(String placeId) {
     markUsedCalls++;
     lastMarkedId = placeId;
-    final i = rows.indexWhere((p) => p.id == placeId);
-    if (i < 0) throw StateError('missing $placeId');
-    final existing = rows[i];
-    final updated = Place(
-      id: existing.id,
-      label: existing.label,
-      address: existing.address,
-      lat: existing.lat,
-      lng: existing.lng,
-      mapboxPlaceId: existing.mapboxPlaceId,
-      isFavorite: existing.isFavorite,
-      lastUsedAt: DateTime.utc(2026, 9, 27, 12),
-    );
-    rows[i] = updated;
-    return updated;
+    return super.markUsed(placeId);
   }
 
   @override
   Future<Place> setFavorite({
     required String placeId,
     required bool isFavorite,
-  }) async {
+  }) {
     setFavoriteCalls++;
     lastFavoritePlaceId = placeId;
     lastFavoriteValue = isFavorite;
-    final i = rows.indexWhere((p) => p.id == placeId);
-    if (i < 0) throw StateError('missing $placeId');
-    final existing = rows[i];
-    final updated = Place(
-      id: existing.id,
-      label: existing.label,
-      address: existing.address,
-      lat: existing.lat,
-      lng: existing.lng,
-      mapboxPlaceId: existing.mapboxPlaceId,
-      isFavorite: isFavorite,
-      lastUsedAt: existing.lastUsedAt,
-    );
-    rows[i] = updated;
-    return updated;
-  }
-
-  @override
-  Future<Place?> findByMapboxPlaceId(
-    String familyId,
-    String mapboxPlaceId,
-  ) async {
-    for (final p in rows) {
-      if (p.mapboxPlaceId == mapboxPlaceId) {
-        return p;
-      }
-    }
-    return null;
-  }
-
-  @override
-  Future<Place?> getPlace(String id) async {
-    for (final p in rows) {
-      if (p.id == id) return p;
-    }
-    return null;
+    return super.setFavorite(placeId: placeId, isFavorite: isFavorite);
   }
 }
 
@@ -537,9 +483,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(places.createCalls, 1);
-    expect(places.rows.last.label, 'Short Name');
-    expect(places.rows.last.address, 'Full Address, City');
-    expect(places.rows.last.mapboxPlaceId, 'poi.new');
+    expect(places.places.last.label, 'Short Name');
+    expect(places.places.last.address, 'Full Address, City');
+    expect(places.places.last.mapboxPlaceId, 'poi.new');
 
     await tester.ensureVisible(find.text('Use this place'));
     await tester.tap(find.text('Use this place'));

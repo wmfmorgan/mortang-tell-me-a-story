@@ -13,7 +13,6 @@ import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart'
     hide displayNameOrMember;
-import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/features/auth/sign_in_page.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
@@ -23,6 +22,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 import '../support/fakes/fake_invite_gateway.dart';
 import '../support/fakes/fake_photos_gateway.dart';
+import '../support/fakes/fake_places_gateway.dart';
 import '../support/fakes/fake_stories_gateway.dart';
 
 class _StubPeopleApi extends PeopleGateway {
@@ -40,53 +40,6 @@ class _StubPeopleApi extends PeopleGateway {
   }) async {
     throw UnimplementedError();
   }
-}
-
-class _StubPlacesApi implements PlacesGateway {
-  @override
-  Future<List<Place>> listFavorites(String familyId) async => const [];
-
-  @override
-  Future<List<Place>> listRecents(String familyId, {int limit = 10}) async =>
-      const [];
-
-  @override
-  Future<List<Place>> listPlaces(String familyId) async => const [];
-
-  @override
-  Future<Place> createPlace({
-    required String familyId,
-    required String label,
-    required String address,
-    required double lat,
-    required double lng,
-    String? mapboxPlaceId,
-    bool isFavorite = false,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place> markUsed(String placeId) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place> setFavorite({
-    required String placeId,
-    required bool isFavorite,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place?> findByMapboxPlaceId(
-    String familyId,
-    String mapboxPlaceId,
-  ) async => null;
-
-  @override
-  Future<Place?> getPlace(String id) async => null;
 }
 
 class _StubMapboxSearch implements MapboxSearchGateway {
@@ -147,7 +100,7 @@ GoRouter _router({required AuthRefresh auth}) {
       acceptedFamilyId: 'f',
     ),
     peopleApi: _StubPeopleApi(),
-    placesApi: _StubPlacesApi(),
+    placesApi: FakePlacesGateway(),
     mapboxSearch: _StubMapboxSearch(),
     storiesApi: FakeStoriesGateway(),
     photosApi: FakePhotosGateway(),
@@ -284,7 +237,7 @@ void main() {
         acceptedFamilyId: 'f',
       ),
       peopleApi: _StubPeopleApi(),
-      placesApi: _StubPlacesApi(),
+      placesApi: FakePlacesGateway(),
       mapboxSearch: _StubMapboxSearch(),
     );
 
@@ -321,7 +274,7 @@ void main() {
       ),
       familiesApi: _MemberOf(['ada']),
       peopleApi: _StubPeopleApi(),
-      placesApi: _StubPlacesApi(),
+      placesApi: FakePlacesGateway(),
       mapboxSearch: _StubMapboxSearch(),
     );
 
@@ -352,7 +305,7 @@ void main() {
         acceptedFamilyId: 'f',
       ),
       peopleApi: _StubPeopleApi(),
-      placesApi: _StubPlacesApi(),
+      placesApi: FakePlacesGateway(),
       mapboxSearch: _StubMapboxSearch(),
     );
 
@@ -382,7 +335,7 @@ void main() {
       ),
       familiesApi: _MemberOf(['family-1']),
       peopleApi: _StubPeopleApi(),
-      placesApi: _StubPlacesApi(),
+      placesApi: FakePlacesGateway(),
       mapboxSearch: _StubMapboxSearch(),
     );
 

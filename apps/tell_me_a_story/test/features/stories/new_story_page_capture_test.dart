@@ -16,6 +16,7 @@ import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
 import '../../support/fakes/fake_photos_gateway.dart';
+import '../../support/fakes/fake_places_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -57,64 +58,12 @@ class _FakePeopleApi extends PeopleGateway {
   }
 }
 
-class _FakePlacesApi implements PlacesGateway {
-  _FakePlacesApi({List<Place>? seed}) : rows = [...?seed];
-
-  final List<Place> rows;
-
-  @override
-  Future<List<Place>> listFavorites(String familyId) async {
-    return rows.where((p) => p.isFavorite).toList();
-  }
-
-  @override
-  Future<List<Place>> listRecents(String familyId, {int limit = 10}) async {
-    return rows.where((p) => p.lastUsedAt != null).take(limit).toList();
-  }
-
-  @override
-  Future<List<Place>> listPlaces(String familyId) async {
-    return rows.toList();
-  }
-
-  @override
-  Future<Place> createPlace({
-    required String familyId,
-    required String label,
-    required String address,
-    required double lat,
-    required double lng,
-    String? mapboxPlaceId,
-    bool isFavorite = false,
-  }) async {
-    throw UnimplementedError();
-  }
+class _FakePlacesApi extends FakePlacesGateway {
+  _FakePlacesApi({List<Place>? seed}) : super(places: seed ?? const []);
 
   @override
   Future<Place> markUsed(String placeId) async {
-    return rows.firstWhere((p) => p.id == placeId);
-  }
-
-  @override
-  Future<Place> setFavorite({
-    required String placeId,
-    required bool isFavorite,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place?> findByMapboxPlaceId(
-    String familyId,
-    String mapboxPlaceId,
-  ) async => null;
-
-  @override
-  Future<Place?> getPlace(String id) async {
-    for (final p in rows) {
-      if (p.id == id) return p;
-    }
-    return null;
+    return places.firstWhere((p) => p.id == placeId);
   }
 }
 

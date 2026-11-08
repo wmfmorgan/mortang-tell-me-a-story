@@ -22,6 +22,7 @@ import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 
 import '../../support/fakes/fake_photos_gateway.dart';
+import '../../support/fakes/fake_places_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -139,64 +140,6 @@ class _FakePeopleApi extends PeopleGateway {
     List<int>? pictureBytes,
   }) {
     throw UnimplementedError();
-  }
-}
-
-class _FakePlacesApi implements PlacesGateway {
-  _FakePlacesApi({List<Place>? seed}) : rows = [...?seed];
-
-  final List<Place> rows;
-
-  @override
-  Future<List<Place>> listFavorites(String familyId) async => const [];
-
-  @override
-  Future<List<Place>> listRecents(String familyId, {int limit = 10}) async =>
-      const [];
-
-  @override
-  Future<List<Place>> listPlaces(String familyId) async {
-    return rows.toList();
-  }
-
-  @override
-  Future<Place> createPlace({
-    required String familyId,
-    required String label,
-    required String address,
-    required double lat,
-    required double lng,
-    String? mapboxPlaceId,
-    bool isFavorite = false,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place> markUsed(String placeId) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place> setFavorite({
-    required String placeId,
-    required bool isFavorite,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Place?> findByMapboxPlaceId(
-    String familyId,
-    String mapboxPlaceId,
-  ) async => null;
-
-  @override
-  Future<Place?> getPlace(String id) async {
-    for (final p in rows) {
-      if (p.id == id) return p;
-    }
-    return null;
   }
 }
 
@@ -495,7 +438,7 @@ Widget _readerApp({
           storyId: state.pathParameters['storyId']!,
           storiesApi: stories,
           peopleApi: people ?? _FakePeopleApi(),
-          placesApi: places ?? _FakePlacesApi(),
+          placesApi: places ?? FakePlacesGateway(),
           photosApi: photos ?? _FakePhotosApi(),
           commentsApi: comments ?? _FakeCommentsApi(),
           perspectivesApi: perspectivesApi,
@@ -570,7 +513,7 @@ void main() {
       _readerApp(
         stories: _FakeStoriesApi(story: _published()),
         people: _FakePeopleApi(seed: const [_ada, _bob]),
-        places: _FakePlacesApi(seed: [_park]),
+        places: FakePlacesGateway(places: [_park]),
         photos: _FakePhotosApi(
           seed: const [
             Photo(
@@ -958,8 +901,8 @@ void main() {
     await tester.pumpWidget(
       _readerApp(
         stories: _FakeStoriesApi(story: _published()),
-        places: _FakePlacesApi(
-          seed: [
+        places: FakePlacesGateway(
+          places: [
             Place(
               id: 'pl1',
               label: '   ',
@@ -994,7 +937,7 @@ void main() {
           storyId: _storyId,
           storiesApi: _FakeStoriesApi(story: _published(title: 'Jam')),
           peopleApi: _FakePeopleApi(),
-          placesApi: _FakePlacesApi(),
+          placesApi: FakePlacesGateway(),
           photosApi: _FakePhotosApi(),
           commentsApi: _FakeCommentsApi(),
           perspectivesApi: _FakePerspectivesApi(),
