@@ -6,13 +6,13 @@ The web app now ships to Firebase Hosting (`https://story-line-app.web.app`) thr
 Netlify project: `mortang-tellmeastory` (`app.netlify.com/projects/mortang-tellmeastory`, from the Netlify bot's comment on PR #54). The Netlify bot hasn't posted statuses or comments on PRs #172–#177. No Netlify webhook or branch-protection check could be confirmed from the CLI, because the `gh` token lacks `admin:repo_hook`.
 
 ## Order matters
-Netlify builds whatever lands on `main`. Once `feat/gcp-hosting` is merged, `main` has no `netlify.toml`, so Netlify would build using its UI settings: no ignore script and no SPA rewrite. **Stop Netlify builds (step 1) before that merge.**
+Netlify builds only what lands on `main`. `feat/gcp-hosting` merges into `feature/serverpod`; once `feature/serverpod` is merged to `main`, `main` has no `netlify.toml`, so Netlify would build using its UI settings: no ignore script and no SPA rewrite. **Stop Netlify builds (step 1) before that merge.**
 
 ## Steps
 
 |#|What|Where|Who|When|
 |---|---|---|---|---|
-|1|Stop builds: Project configuration → Build & deploy → Continuous deployment → **Stop builds**|Netlify UI|David|Before merging `feat/gcp-hosting` to `main`|
+|1|Stop builds: Project configuration → Build & deploy → Continuous deployment → **Stop builds**|Netlify UI|David|Before merging `feature/serverpod` to `main`|
 |2|Copy any Netlify env vars still needed (`MAPBOX_ACCESS_TOKEN`) to your shell or a password manager; `just deploy-web` reads `MAPBOX_ACCESS_TOKEN` from the environment|Netlify UI → Environment variables|David|Before step 6|
 |3|Mapbox token URL restrictions: add `https://story-line-app.web.app`, then remove the `*.netlify.app` URL|Mapbox account → Tokens|David|Before step 6|
 |4|Old links: either let `mortang-tellmeastory.netlify.app` die, or deploy a one-file `_redirects` (`/* https://story-line-app.web.app/:splat 301!`) by hand and keep it for a few weeks|Netlify UI (manual deploy)|David (decide)|Optional, before step 6|
