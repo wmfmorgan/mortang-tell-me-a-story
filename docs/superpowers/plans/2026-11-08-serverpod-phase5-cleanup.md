@@ -1,6 +1,6 @@
 # Phase 5: Cleanup Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Run the tasks in order on `feat/serverpod-migration`. Each task ends in one commit and must leave every gate green.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Run the tasks in order on `feat/p5-cleanup`, branched from `feature/serverpod` (the integration branch) once Phase 4 has merged into it; open one PR into `feature/serverpod`. Each task ends in one commit and must leave every gate green.
 
 **Goal:** Remove the Supabase era from the repo. That means deleting the backend, its CI and tooling; moving the e2e flow check into `flutter test`; running CI on mise + just with a server job; archiving every existing doc; and rewriting `AGENTS.md`, the README and the hosting notes for the Serverpod stack.
 
@@ -87,7 +87,7 @@
 - [ ] **Step 1: Check the branch and tree**
 
 Run: `git -C /Users/david/projects/mortang-tell-me-a-story status --short && git rev-parse --abbrev-ref HEAD`
-Expected: only the two new plan files `?? docs/superpowers/plans/2026-11-08-serverpod-phase5-cleanup.md` and `?? docs/superpowers/plans/2026-11-08-serverpod-phase6-restructure.md` (or nothing, if they are already committed), then `feat/serverpod-migration`. Anything else is the owner's work: stop and ask.
+Expected: nothing, then `feat/p5-cleanup`. Anything else is the owner's work: stop and ask.
 
 - [ ] **Step 2: Record the baseline** (all from the repo root)
 

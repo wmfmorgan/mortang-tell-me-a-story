@@ -1,6 +1,6 @@
 # Phase 6: Restructure Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Run the tasks in order on `feat/serverpod-migration`, after Phase 5 (`2026-11-08-serverpod-phase5-cleanup.md`) has landed. Each task is one commit (Tasks 17 and 18 are several) and must leave every gate green. **Task 9 is a stop:** the owner answers the token questions before Tasks 10–15 run.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Run the tasks in order on `feat/p6-restructure`, branched from `feature/serverpod` (the integration branch) after Phase 5 (`2026-11-08-serverpod-phase5-cleanup.md`) has merged into it; open one PR into `feature/serverpod`. Each task is one commit (Tasks 17 and 18 are several) and must leave every gate green. **Task 9 is a stop:** the owner answers the token questions before Tasks 10–15 run.
 
 **Goal:** Restructure the Flutter app without changing behaviour:
 - `lib/` gets an `app/` composition root and a shared `ui/` layer, with import rules a test enforces;
@@ -122,7 +122,7 @@ After Task 1, every importer names a lib file by the same package URI, including
 
 ### Task 0: Preconditions and baseline
 
-- [ ] **Step 1:** `git status --short` prints nothing, `git rev-parse --abbrev-ref HEAD` prints `feat/serverpod-migration`, and the roadmap's Phase 5 row says **Landed**. `git branch --list 'feat/*'` should show no unmerged client branch. Every `lib/` move conflicts with open work, so if one exists, stop and ask whether to wait.
+- [ ] **Step 1:** `git status --short` prints nothing, `git rev-parse --abbrev-ref HEAD` prints `feat/p6-restructure`, and the roadmap's Phase 5 row says **Landed**. `git branch --list 'feat/*'` should show no unmerged client branch. Every `lib/` move conflicts with open work, so if one exists, stop and ask whether to wait.
 - [ ] **Step 2:** Run the gates. Expected: `+686 ~12` (or the Phase 5 exit count; record it). Also run `mise exec -- just server-test 2>&1 | tail -n 1` and record the count; it must not change in this phase.
 
 ---
