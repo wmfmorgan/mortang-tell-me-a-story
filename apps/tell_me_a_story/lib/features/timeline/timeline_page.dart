@@ -30,8 +30,9 @@ import 'package:tell_me_a_story/features/timeline/origin_banner.dart';
 import 'package:tell_me_a_story/ui/timeline/empty_timeline.dart';
 import 'package:tell_me_a_story/ui/timeline/timeline_entry.dart';
 
-/// The filter sidebar's width at [AlbumBreakpoint.sidebar] and up.
-const _sidebarWidth = 300.0;
+/// The filter sidebar's width at [AlbumBreakpoint.sidebar] and up, the
+/// drawer's widest: wide enough for the whole C15 search hint.
+const _filterPanelWidth = 360.0;
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
 class TimelinePage extends StatefulWidget {
@@ -641,7 +642,10 @@ class _TimelinePageState extends State<TimelinePage> {
       endDrawer: showRail && !sidebar
           ? Drawer(
               key: const Key('timeline-filter-drawer'),
-              width: math.min(360, MediaQuery.sizeOf(context).width * 0.9),
+              width: math.min(
+                _filterPanelWidth,
+                MediaQuery.sizeOf(context).width * 0.9,
+              ),
               backgroundColor: albumParchment,
               child: SafeArea(child: _filterPanel(dimmed)),
             )
@@ -737,7 +741,7 @@ class _TimelinePageState extends State<TimelinePage> {
             children: [
               SizedBox(
                 key: const Key('timeline-filter-sidebar'),
-                width: _sidebarWidth,
+                width: _filterPanelWidth,
                 child: _filterPanel(dimmed),
               ),
               const VerticalDivider(width: 1, thickness: 1, color: albumRule),
