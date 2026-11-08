@@ -40,10 +40,10 @@ const calloutLabelWidthDial = 460.0;
 
 const farDotDiameter = 12.0;
 const farDotHighlightedDiameter = 14.0;
-const midDotDiameter = 16.0;
-const midDotFocusedDiameter = 22.0;
-const fullDotDiameter = 14.0;
-const fullDotFocusedDiameter = 20.0;
+const midDotDiameter = 12.0;
+const midDotFocusedDiameter = 14.0;
+const fullDotDiameter = 12.0;
+const fullDotFocusedDiameter = 14.0;
 
 /// Padding inside a Years branch card so the chip and title clear the border.
 const calloutCardPadding = 16.0;

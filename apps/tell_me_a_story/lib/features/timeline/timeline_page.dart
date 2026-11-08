@@ -618,6 +618,9 @@ class _TimelinePageState extends State<TimelinePage> {
     final showRail = !_loadingFamily && !_loadingPublished && bands.isNotEmpty;
     return Scaffold(
       backgroundColor: albumParchment,
+      // The rails are not a form: the keyboard (a search field, a dialog)
+      // floats over them instead of squeezing the viewport.
+      resizeToAvoidBottomInset: false,
       appBar: AlbumHeader(
         page: AlbumHeaderPage.timeline,
         familyName: family?.name ?? 'Family',
@@ -667,7 +670,13 @@ class _TimelinePageState extends State<TimelinePage> {
                     Expanded(child: _body(bands)),
                     if (showFooter)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                        // Clear the home indicator on iPad and iPhone.
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          8,
+                          16,
+                          12 + MediaQuery.viewPaddingOf(context).bottom,
+                        ),
                         child: Text(
                           farFooter(familyName: family?.name ?? 'Family'),
                           textAlign: TextAlign.center,

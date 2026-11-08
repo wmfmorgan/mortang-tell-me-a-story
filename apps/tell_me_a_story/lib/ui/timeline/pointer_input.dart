@@ -19,3 +19,15 @@ bool isFingerLike(PointerDeviceKind kind) => switch (kind) {
 /// pointers, at least [AlbumTarget.fingerRadius] for fingers.
 double hitRadiusFor(PointerDeviceKind kind, {required double precise}) =>
     isFingerLike(kind) ? math.max(precise, AlbumTarget.fingerRadius) : precise;
+
+/// The [isFingerLike] kinds, for `GestureDetector.supportedDevices`.
+const fingerDevices = {PointerDeviceKind.touch};
+
+/// Every kind that is not [isFingerLike]: these hit a dot exactly.
+const preciseDevices = {
+  PointerDeviceKind.mouse,
+  PointerDeviceKind.trackpad,
+  PointerDeviceKind.stylus,
+  PointerDeviceKind.invertedStylus,
+  PointerDeviceKind.unknown,
+};

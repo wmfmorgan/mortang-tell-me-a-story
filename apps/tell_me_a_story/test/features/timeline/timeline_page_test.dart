@@ -21,6 +21,7 @@ import 'package:tell_me_a_story/ui/story/photo_frame.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
+import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
 import '../../support/fakes/fake_manage_families_gateway.dart';
@@ -336,9 +337,17 @@ void _pinch(WidgetTester tester, double scale) {
   );
 }
 
+/// A moss ring around [dot]: the branch callout's ring (a moss-bordered
+/// circle), or the marker's own origin ring (a `StoryDot` with `origin`).
 bool _mossRingOn(WidgetTester tester, Finder dot) {
   final dotCenter = tester.getCenter(dot);
-  return find
+  bool centred(Element element) {
+    final box = element.renderObject! as RenderBox;
+    final center = box.localToGlobal(box.size.center(Offset.zero));
+    return (center - dotCenter).distance <= 1;
+  }
+
+  final callout = find
       .byWidgetPredicate((widget) {
         if (widget is! DecoratedBox) return false;
         final decoration = widget.decoration;
@@ -349,11 +358,12 @@ bool _mossRingOn(WidgetTester tester, Finder dot) {
             side?.width == calloutStroke;
       })
       .evaluate()
-      .any((element) {
-        final box = element.renderObject! as RenderBox;
-        final center = box.localToGlobal(box.size.center(Offset.zero));
-        return (center - dotCenter).distance <= 1;
-      });
+      .any(centred);
+  final marker = find
+      .byWidgetPredicate((widget) => widget is StoryDot && widget.spec.origin)
+      .evaluate()
+      .any(centred);
+  return callout || marker;
 }
 
 String _tooltipFor(WidgetTester tester, String storyId) {
@@ -422,6 +432,10 @@ void _expectBranchCallout(
   expect(find.byKey(Key('timeline-branch-mark-$familyId')), findsNothing);
 }
 
+bool _isCardShape(ShapeBorder? shape) =>
+    shape is RoundedSuperellipseBorder &&
+    shape.borderRadius == BorderRadius.circular(AlbumRadius.card);
+
 void _expectMossCard(
   WidgetTester tester,
   String storyId, {
@@ -436,12 +450,11 @@ void _expectMossCard(
           )
           .first,
     );
-    final side = (material.shape! as RoundedRectangleBorder).side;
+    expect(_isCardShape(material.shape), isTrue);
+    final side = (material.shape! as RoundedSuperellipseBorder).side;
     expect(side.color, branchMoss);
     expect(side.width, 1);
     expect(material.color, albumParchment);
-    final radius = (material.shape! as RoundedRectangleBorder).borderRadius;
-    expect(radius, BorderRadius.circular(albumCardRadius));
     return;
   }
   final stub = find.byKey(Key('timeline-stub-$storyId'));
@@ -452,12 +465,12 @@ void _expectMossCard(
           matching: find.byWidgetPredicate((widget) {
             if (widget is! DecoratedBox) return false;
             final decoration = widget.decoration;
-            if (decoration is! BoxDecoration) return false;
+            if (decoration is! ShapeDecoration) return false;
+            final shape = decoration.shape;
             return decoration.color == albumParchment &&
-                decoration.border?.top.color == branchMoss &&
-                decoration.border?.top.width == 1 &&
-                decoration.borderRadius ==
-                    BorderRadius.circular(albumCardRadius);
+                _isCardShape(shape) &&
+                (shape as RoundedSuperellipseBorder).side.color == branchMoss &&
+                shape.side.width == 1;
           }),
         )
         .evaluate()
@@ -2790,17 +2803,25 @@ void main() {
       (label.center.dy - _leaderEnd(tester).dy).abs(),
       lessThanOrEqualTo(2),
     );
-    final decoration =
-        tester
-                .widget<Container>(
-                  find.descendant(
-                    of: find.byKey(const Key('timeline-dot-branch')),
-                    matching: find.byType(Container),
-                  ),
-                )
-                .decoration!
-            as BoxDecoration;
-    expect(decoration.boxShadow, isNull);
+    final marker = tester.widget<StoryDot>(
+      find.descendant(
+        of: find.byKey(const Key('timeline-dot-branch')),
+        matching: find.byType(StoryDot),
+      ),
+    );
+    expect(marker.spec.selected, isFalse);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('timeline-dot-branch')),
+        matching: find.byWidgetPredicate(
+          (w) =>
+              w is DecoratedBox &&
+              w.decoration is BoxDecoration &&
+              (w.decoration as BoxDecoration).boxShadow != null,
+        ),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('enter on the callout opens the branch', (tester) async {
@@ -3683,17 +3704,18 @@ void main() {
               matching: find.byWidgetPredicate((widget) {
                 if (widget is! DecoratedBox) return false;
                 final decoration = widget.decoration;
-                return decoration is BoxDecoration &&
-                    decoration.borderRadius == BorderRadius.circular(12);
+                return decoration is ShapeDecoration &&
+                    _isCardShape(decoration.shape);
               }),
             )
             .first,
       );
-      final yearsDecoration = yearsBox.decoration as BoxDecoration;
-      final yearsBorder = yearsDecoration.border?.top;
-      expect(yearsBorder?.color, branchMoss);
-      expect(yearsBorder?.width, 2);
-      expect(yearsDecoration.boxShadow, isNull);
+      final yearsDecoration = yearsBox.decoration as ShapeDecoration;
+      final yearsBorder =
+          (yearsDecoration.shape as RoundedSuperellipseBorder).side;
+      expect(yearsBorder.color, branchMoss);
+      expect(yearsBorder.width, 2);
+      expect(yearsDecoration.shadows, isNull);
       expect(_ancestorScale(tester, stub), 1);
 
       await tester.tap(find.byKey(const Key('timeline-zoom-full')));
@@ -3702,13 +3724,13 @@ void main() {
       final material = tester.widget<Material>(
         find.ancestor(of: card, matching: find.byType(Material)).first,
       );
-      final side = (material.shape! as RoundedRectangleBorder).side;
+      final side = (material.shape! as RoundedSuperellipseBorder).side;
       expect(side.color, branchMoss);
       expect(side.width, 2);
       final daysBox = tester.widget<DecoratedBox>(
         find.descendant(of: card, matching: find.byType(DecoratedBox)).first,
       );
-      expect((daysBox.decoration as BoxDecoration).boxShadow, isNull);
+      expect((daysBox.decoration as ShapeDecoration).shadows, isNull);
       expect(_cardScale(tester, card), 1);
     },
   );

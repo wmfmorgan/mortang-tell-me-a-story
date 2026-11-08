@@ -21,4 +21,11 @@ void main() {
       expect(hitRadiusFor(kind, precise: 12), 12, reason: '$kind');
     }
   });
+
+  test('finger and precise devices split every kind by isFingerLike', () {
+    for (final kind in PointerDeviceKind.values) {
+      expect(fingerDevices.contains(kind), isFingerLike(kind), reason: '$kind');
+      expect(preciseDevices.contains(kind), !isFingerLike(kind));
+    }
+  });
 }

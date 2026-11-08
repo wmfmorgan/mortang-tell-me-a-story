@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -6,6 +8,10 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 import 'package:tell_me_a_story/features/timeline/rails/rail_scaffold.dart';
+import 'package:tell_me_a_story/features/timeline/rails/rail_spine.dart';
+import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
+import 'package:tell_me_a_story/ui/timeline/pointer_input.dart';
+import 'package:tell_me_a_story/ui/timeline/story_chooser.dart';
 
 class FarRail extends StatefulWidget {
   const FarRail({
@@ -43,6 +49,10 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
   final _rowKeys = <int, GlobalKey>{};
 
   GlobalKey _rowKey(int year) => _rowKeys.putIfAbsent(year, GlobalKey.new);
+
+  final _dotKeys = <String, GlobalKey>{};
+
+  GlobalKey _dotKey(String id) => _dotKeys.putIfAbsent(id, GlobalKey.new);
 
   @override
   Iterable<int> get rowKeys => widget.bands.map((band) => band.startYear);
@@ -115,9 +125,11 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
           originStoryId: widget.originStoryId,
           onOpenBranch: widget.onOpenBranch,
           focused: band.startYear == centerKey,
-          opacity: opacities[band.startYear] ?? 1,
+          opacity: opacityOf(band.startYear, unmeasured: 1),
           highlight: _highlight(band),
           onDot: widget.onDot,
+          dotKey: _dotKey,
+          onEmpty: widget.onEmpty,
           onYear: widget.onYear,
         ),
     ];
@@ -134,13 +146,7 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
       viewport: Stack(
         key: viewportKey,
         children: [
-          const Positioned.fill(
-            child: IgnorePointer(
-              child: Center(
-                child: SizedBox(width: 2, child: ColoredBox(color: albumRule)),
-              ),
-            ),
-          ),
+          const RailSpine(),
           LayoutBuilder(
             builder: (context, constraints) {
               final pad = constraints.maxHeight / 2;
@@ -167,6 +173,8 @@ class _FarDecadeRow extends StatelessWidget {
     required this.branching,
     this.originStoryId,
     required this.onDot,
+    required this.dotKey,
+    required this.onEmpty,
     required this.onYear,
     required this.onOpenBranch,
   });
@@ -178,6 +186,12 @@ class _FarDecadeRow extends StatelessWidget {
   final RailBranching branching;
   final String? originStoryId;
   final ValueChanged<Story> onDot;
+
+  /// Finds each story's painted dot, so a finger tap can measure to it.
+  final GlobalKey Function(String id) dotKey;
+
+  /// A finger tap that reaches no dot is an empty tap: it zooms out.
+  final VoidCallback onEmpty;
   final ValueChanged<int> onYear;
   final ValueChanged<String> onOpenBranch;
 
@@ -218,57 +232,78 @@ class _FarDecadeRow extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-            Text(
-              focused ? '$count preserved' : count,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: focused
-                    ? albumTerracotta
-                    : albumInk.withValues(alpha: 0.6),
-                fontWeight: focused ? FontWeight.w700 : FontWeight.w500,
+            Flexible(
+              child: Text(
+                focused ? '$count preserved' : count,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: focused
+                      ? albumTerracotta
+                      : albumInk.withValues(alpha: 0.6),
+                  fontWeight: focused ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
             ),
           ],
         ),
       ],
     );
-    final plain = <Widget>[];
-    final branched = <Widget>[];
-    for (final story in stories) {
-      final frame = branching.frameFor(story);
-      final highlighted = focused && story.id == highlight?.id;
-      final origin = story.id == originStoryId;
-      if (frame.parent != null) {
-        branched.add(
-          _farParent(context, frame, highlighted: highlighted, origin: origin),
-        );
-      } else if (frame.branchesStory) {
-        branched.add(
-          _farBranch(context, frame, highlighted: highlighted, origin: origin),
-        );
-      } else {
-        final dot = _FarDot(
-          story: story,
-          highlighted: highlighted,
-          origin: origin,
-          onTap: () => onDot(story),
-        );
-        plain.add(
-          origin ? _OriginDot(highlighted: highlighted, child: dot) : dot,
-        );
+    // The dots half is narrow on Split View and Slide Over, so a branch
+    // label shortens (with an ellipsis) to fit it.
+    Widget dots(double width) {
+      final plain = <Widget>[];
+      final branched = <Widget>[];
+      for (final story in stories) {
+        final frame = branching.frameFor(story);
+        final highlighted = focused && story.id == highlight?.id;
+        final origin = story.id == originStoryId;
+        if (frame.parent != null) {
+          branched.add(
+            _farParent(
+              context,
+              frame,
+              highlighted: highlighted,
+              origin: origin,
+            ),
+          );
+        } else if (frame.branchesStory) {
+          branched.add(
+            _farBranch(
+              context,
+              frame,
+              highlighted: highlighted,
+              origin: origin,
+              width: width,
+            ),
+          );
+        } else {
+          plain.add(
+            _FarDot(
+              story: story,
+              highlighted: highlighted,
+              origin: origin,
+              ringed: true,
+              anchor: dotKey(story.id),
+              onTap: () => onDot(story),
+            ),
+          );
+        }
       }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [...plain, ...branched],
+          ),
+        ],
+      );
     }
-    final dots = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [...plain, ...branched],
-        ),
-      ],
-    );
+
     return Opacity(
       opacity: opacity,
       child: Padding(
@@ -322,15 +357,53 @@ class _FarDecadeRow extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: dots,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                supportedDevices: fingerDevices,
+                onTapUp: (details) => _onFingerTap(context, details),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) =>
+                        dots(constraints.maxWidth),
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// A finger reaches every dot within [hitRadiusFor] of the tap. One dot
+  /// opens its story; several (a stacked year) open the chooser; none is an
+  /// empty tap, which zooms out (owner, 7.4 sign-off). Pointers never get
+  /// here: the dots answer them directly.
+  Future<void> _onFingerTap(BuildContext context, TapUpDetails details) async {
+    final covered = <Story>[];
+    for (final story in band.stories) {
+      final box = dotKey(story.id).currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached) continue;
+      final centre = box.localToGlobal(box.size.center(Offset.zero));
+      final reach = hitRadiusFor(
+        details.kind,
+        precise: box.size.shortestSide / 2,
+      );
+      if ((centre - details.globalPosition).distance <= reach) {
+        covered.add(story);
+      }
+    }
+    if (covered.isEmpty) return onEmpty();
+    if (covered.length == 1) return onDot(covered.single);
+    final id = await showStoryChooser(
+      context,
+      globalPosition: details.globalPosition,
+      stories: covered,
+    );
+    for (final story in covered) {
+      if (story.id == id) return onDot(story);
+    }
   }
 
   Widget _farParent(
@@ -344,6 +417,7 @@ class _FarDecadeRow extends StatelessWidget {
       context: context,
       frame: frame,
       dot: _FarDot(
+        anchor: dotKey(story.id),
         story: story,
         highlighted: highlighted,
         origin: origin,
@@ -366,13 +440,15 @@ class _FarDecadeRow extends StatelessWidget {
     StoryFrame frame, {
     required bool highlighted,
     required bool origin,
+    required double width,
   }) {
     final story = frame.story;
-    final placed = placeBranchCallout(
+    PlacedBranch place(double maxLabelWidth) => placeBranchCallout(
       context: context,
       frame: frame,
       side: CalloutSide.right,
       dot: _FarDot(
+        anchor: dotKey(story.id),
         story: story,
         highlighted: highlighted,
         origin: origin,
@@ -380,9 +456,12 @@ class _FarDecadeRow extends StatelessWidget {
       ),
       dotDiameter: highlighted ? farDotHighlightedDiameter : farDotDiameter,
       centerToLane: calloutHit / 2,
-      maxLabelWidth: calloutLabelWidthFar,
+      maxLabelWidth: maxLabelWidth,
       onOpen: onOpenBranch,
     );
+    var placed = place(calloutLabelWidthFar);
+    final fit = width - calloutHit - placed.push;
+    if (fit < calloutLabelWidthFar) placed = place(math.max(0, fit));
     return _CenterOnDot(
       dotExtent: calloutHit,
       child: Stack(
@@ -476,66 +555,43 @@ class _RenderCenterOnDot extends RenderShiftedBox {
   }
 }
 
-/// Moss ring for an origin story that has no callout of its own.
-class _OriginDot extends StatelessWidget {
-  const _OriginDot({required this.highlighted, required this.child});
-
-  final bool highlighted;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final diameter = highlighted ? farDotHighlightedDiameter : farDotDiameter;
-    final ring = diameter + 2 * calloutDotGap + 2 * calloutStroke;
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
-      children: [
-        IgnorePointer(
-          child: Container(
-            width: ring,
-            height: ring,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: branchMoss, width: calloutStroke),
-            ),
-          ),
-        ),
-        child,
-      ],
-    );
-  }
-}
-
+/// One Decades story dot. A plain dot carries its own rings: terracotta when
+/// highlighted, moss when it is an origin with no callout. A dot inside a
+/// branch callout is never [ringed]: the callout's moss ring is the only
+/// ring there (branch-callout.md Rule 1).
 class _FarDot extends StatelessWidget {
   const _FarDot({
     required this.story,
     required this.highlighted,
+    required this.anchor,
     required this.onTap,
     this.origin = false,
+    this.ringed = false,
   });
 
   final Story story;
   final bool highlighted;
+  final GlobalKey anchor;
   final VoidCallback onTap;
   final bool origin;
+  final bool ringed;
 
   @override
   Widget build(BuildContext context) {
     final dot = GestureDetector(
       key: Key('timeline-dot-${story.id}'),
+      supportedDevices: preciseDevices,
       onTap: onTap,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        child: Container(
-          width: highlighted ? farDotHighlightedDiameter : farDotDiameter,
-          height: highlighted ? farDotHighlightedDiameter : farDotDiameter,
-          decoration: BoxDecoration(
-            color: albumTerracotta,
-            shape: BoxShape.circle,
-            border: highlighted
-                ? Border.all(color: albumTerracotta, width: 2)
-                : null,
+        child: StoryDot(
+          key: anchor,
+          reserveRings: false,
+          spec: MarkerSpec(
+            matched: true,
+            selected: ringed && highlighted,
+            origin: ringed && origin,
+            diameter: highlighted ? farDotHighlightedDiameter : farDotDiameter,
           ),
         ),
       ),

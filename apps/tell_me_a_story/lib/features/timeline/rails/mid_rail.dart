@@ -10,6 +10,9 @@ import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 import 'package:tell_me_a_story/ui/story/story_title.dart';
 import 'package:tell_me_a_story/features/timeline/rails/rail_scaffold.dart';
+import 'package:tell_me_a_story/features/timeline/rails/rail_spine.dart';
+import 'package:tell_me_a_story/ui/timeline/pointer_input.dart';
+import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
 
 class MidRail extends StatefulWidget {
   const MidRail({
@@ -111,6 +114,7 @@ class _MidRailState extends State<MidRail> with RailScaffold<MidRail, String> {
       viewport: Stack(
         key: viewportKey,
         children: [
+          const RailSpine(),
           LayoutBuilder(
             builder: (context, constraints) {
               final pad = constraints.maxHeight / 2;
@@ -212,34 +216,31 @@ class _DialRow extends StatelessWidget {
     final photos = story.photoCount > 0
         ? countWord(story.photoCount, 'photo', 'photos')
         : null;
+    // Branch and parent-origin cards are moss-edged and never glow
+    // (branch-callout.md Rules 1 and 8).
+    final moss = frame.branchesStory || (focused && frame.parent != null);
+    final shape = albumContainerShape(
+      AlbumRadius.card,
+      side: frame.branchesStory
+          ? const BorderSide(color: branchMoss)
+          : focused
+          ? BorderSide(color: moss ? branchMoss : albumTerracotta, width: 2)
+          : BorderSide.none,
+    );
     final card = InkWell(
       key: Key('timeline-stub-${story.id}'),
       onTap: onTap,
-      borderRadius: BorderRadius.circular(
-        frame.branchesStory
-            ? albumCardRadius
-            : focused
-            ? 12
-            : 4,
-      ),
+      customBorder: shape,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
         child: DecoratedBox(
-          decoration: frame.branchesStory
-              ? BoxDecoration(
-                  color: albumParchment,
-                  borderRadius: BorderRadius.circular(albumCardRadius),
-                  border: Border.all(color: branchMoss, width: 1),
-                )
-              : focused
-              ? BoxDecoration(
-                  color: albumDialogSurface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: frame.parent != null ? branchMoss : albumTerracotta,
-                    width: 2,
-                  ),
-                  boxShadow: frame.parent != null
+          decoration: frame.branchesStory || focused
+              ? ShapeDecoration(
+                  color: frame.branchesStory
+                      ? albumParchment
+                      : albumDialogSurface,
+                  shape: shape,
+                  shadows: moss
                       ? null
                       : [
                           BoxShadow(
@@ -338,33 +339,22 @@ class _DialRow extends StatelessWidget {
         ),
       ),
     );
-    final mark = Container(
-      width: focused ? midDotFocusedDiameter : midDotDiameter,
-      height: focused ? midDotFocusedDiameter : midDotDiameter,
-      decoration: BoxDecoration(
-        color: focused
-            ? albumTerracotta.withValues(alpha: 0.22)
-            : albumDialogSurface,
-        shape: BoxShape.circle,
-        border: Border.all(color: albumTerracotta, width: focused ? 2 : 1.5),
-      ),
-      child: Center(
-        child: Container(
-          width: focused ? 8 : 6,
-          height: focused ? 8 : 6,
-          decoration: const BoxDecoration(
-            color: albumTerracotta,
-            shape: BoxShape.circle,
-          ),
-        ),
+    final mark = StoryDot(
+      reserveRings: false,
+      spec: MarkerSpec(
+        matched: true,
+        selected: focused && !frame.branchesStory && frame.parent == null,
+        diameter: focused ? midDotFocusedDiameter : midDotDiameter,
       ),
     );
     // The branch ring sits just outside the dot. Extra slop belongs only on
-    // a plain node, where it cannot cover that stroke.
+    // a plain node, where it cannot cover that stroke: 8 pt for a pointer,
+    // and the finger radius as a disk for a finger.
     Widget nodeHit({required bool slop}) {
       final hit = GestureDetector(
         key: Key('timeline-mid-node-${story.id}'),
         behavior: HitTestBehavior.opaque,
+        supportedDevices: slop ? preciseDevices : null,
         onTap: onNode,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
@@ -375,7 +365,18 @@ class _DialRow extends StatelessWidget {
       );
       // The square bounds cover the ring on the diagonals. Only the disk
       // should open the story.
-      return slop ? hit : ClipOval(child: hit);
+      if (!slop) return ClipOval(child: hit);
+      return ClipOval(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          supportedDevices: fingerDevices,
+          onTap: onNode,
+          child: SizedBox.square(
+            dimension: 2 * AlbumTarget.fingerRadius,
+            child: Center(child: hit),
+          ),
+        ),
+      );
     }
 
     final placed = frame.branchesStory
@@ -434,7 +435,6 @@ class _DialRow extends StatelessWidget {
           alignment: placed == null ? Alignment.center : Alignment.topCenter,
           clipBehavior: Clip.none,
           children: [
-            const Positioned.fill(child: _RailGutter()),
             if (placed == null)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -649,33 +649,5 @@ class _RenderHangParentCallout extends RenderBox
   @override
   void paint(PaintingContext context, Offset offset) {
     defaultPaint(context, offset);
-  }
-}
-
-class _RailGutter extends StatelessWidget {
-  const _RailGutter();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: SizedBox.shrink()),
-        SizedBox(
-          width: calloutGutter,
-          child: Stack(
-            children: [
-              Positioned(
-                top: 0,
-                bottom: 0,
-                left: 27,
-                width: 2,
-                child: ColoredBox(color: albumInk.withValues(alpha: 0.16)),
-              ),
-            ],
-          ),
-        ),
-        const Expanded(child: SizedBox.shrink()),
-      ],
-    );
   }
 }
