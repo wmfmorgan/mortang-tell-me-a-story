@@ -400,7 +400,7 @@ supabase/.temp
 - [ ] **Step 6: Check that nothing outside docs still points at the old backend**
 
 Run: `git grep -n -i -E "supabase|deno|pgtap|splinter|advisors" -- . ':!docs'`
-Expected: matches only in `AGENTS.md`, `README.md` (Tasks 8 and 9 rewrite them) and `netlify.toml` line 3 (Task 7).
+Expected: matches only in `AGENTS.md`, `README.md` (Tasks 8 and 9 rewrite them) and `netlify.toml` line 3 (Task 7 skipped, so this one stays).
 
 - [ ] **Step 7: Gates**
 
@@ -849,6 +849,8 @@ git commit -m "docs: archive every existing doc under docs/archive; fix live lin
 
 ### Task 7: Hosting notes (`netlify.toml`)
 
+**Skipped (2026-11-07, Main):** hosting moves to GCP (Cloud Run + Firebase Hosting, Terraform in `infra/gcp`) on a separate branch. `netlify.toml` is not touched here, and README and `AGENTS.md` say only "Deployment: see the GCP hosting work (pending)". The steps below are kept for history and were not run.
+
 **Files:**
 - Rewrite: `netlify.toml`
 
@@ -1135,7 +1137,7 @@ Expected:
 - [ ] **Step 2: Check nothing old is left**
 
 Run: `git grep -n -i -E "supabase|deno|pgtap|splinter|check_flows" -- . ':!docs'`
-Expected: no output. (Docs are excluded: the archive is history, and the active plans name what was deleted.)
+Expected: only `netlify.toml:3` (Task 7 skipped; the GCP hosting branch replaces that file). (Docs are excluded: the archive is history, and the active plans name what was deleted.)
 
 - [ ] **Step 3: Update the roadmap and this plan**
 
@@ -1157,3 +1159,34 @@ git commit -m "docs: Phase 5 landed"
 - Every pre-2026-11-08 doc is under `docs/archive/` with its old subpath. Outside the archive, no file links to an old `docs/…` path.
 - `AGENTS.md`, `README.md`, `apps/tell_me_a_story/README.md` and `netlify.toml` describe the Serverpod stack. The Netlify UI change is listed as an owner action.
 - `lib/` and `test/` are unchanged except the new `test/architecture/e2e_flow_manifest_test.dart` and one comment path in `app_exception.dart`.
+
+## As landed
+
+Executed 2026-11-07 in a worktree of `feat/p5-cleanup` (from `501910b`); not pushed.
+
+Commits (`git log --oneline 501910b..HEAD`, before this one):
+
+```
+34d5d7c docs: AGENTS.md for the Serverpod stack
+1e56bc5 docs: README for the Serverpod stack
+67ebfd4 docs: archive every existing doc under docs/archive; fix live links
+01cfce6 ci: mise + just; app, server and e2e jobs
+9bec113 chore(just): fmt-check, analyze (ceiling 6), server-analyze and check recipes
+b8fffda chore: remove Supabase backend, advisors and their CI, recipes and CLI
+4b61de2 test(client): e2e flow manifest check runs in flutter test; drop e2e/check_flows.sh
+0199a41 docs: Phase 5 plan baseline (Task 0)
+```
+
+Gates: format 0 changed (app and server); `just analyze` 6 issues (ceiling 6); `just test` `+686 ~12`; `just server-analyze` no issues; `just server-test` `+425`; `just check` passes; `just test-live` `+27`; `actionlint` clean; local e2e `All tests passed.` (9 flows).
+
+Differences from the plan (each fixed in this plan's text in the task's commit):
+- Task 0: Step 3's roadmap rows and both plans were already in `501910b`, so Task 0's commit only records the baseline (server `+425`) and the worktree-neutral status check.
+- Task 2: `git add -A supabase scripts …` fails after `git rm`; those paths are dropped from the add.
+- Task 4: the plan's triggers dropped `feature/serverpod`; kept as `[main, feature/serverpod]` so the Phase 5 PR runs CI. Not pushed, so the first CI run (mise Flutter install, embedded Postgres) is still unverified. No `labs/timeline_lab`, so no `lab` job.
+- Task 5: flutter drive prints `All tests passed.`, not flow names.
+- Task 6: its roadmap edit put the "Plans for Phases 1–4" sentence inside the phase table (after the Phase 5 row); moved below the table in the Task 10 commit.
+- Task 6: 76 docs + 10 shots (not 77 + 10; total 86 as planned); `r1-shots` dropped from `git add`; the live-link grep matches this plan.
+- Task 7: skipped (GCP hosting branch); README and `AGENTS.md` say "Deployment: see the GCP hosting work (pending)" instead of the Netlify text. `netlify.toml:3` still says `supabase-only`.
+- Task 7 Step 2 (not run): `tomllib` needs Python ≥ 3.11.
+- Task 9: the stale-word grep hits `AGENTS.md:8` ("the old impl spec" as archived history).
+
