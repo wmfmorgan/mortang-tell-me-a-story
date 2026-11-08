@@ -15,15 +15,21 @@ secret_exists() {
   gcloud secrets describe "$1" --project "$PROJECT_ID" >/dev/null 2>&1
 }
 
+# The secret exists and has at least one enabled version.
+secret_ready() {
+  gcloud secrets versions list "$1" --project "$PROJECT_ID" \
+    --filter='state=ENABLED' --limit=1 --format='value(name)' 2>/dev/null | grep -q .
+}
+
 # Fail before touching anything if the billing account is unset, or a Resend
-# secret is missing and has no value to create it from (a missing project or
-# disabled API also reads as missing).
+# secret has no enabled version and no value to add one from (a missing
+# project or disabled API also reads as not ready).
 missing=()
 [ -n "${BILLING_ACCOUNT:-}" ] || missing+=(BILLING_ACCOUNT)
-secret_exists story-line-resend-api-key || [ -n "${RESEND_API_KEY:-}" ] || missing+=(RESEND_API_KEY)
-secret_exists story-line-resend-from || [ -n "${RESEND_FROM:-}" ] || missing+=(RESEND_FROM)
+secret_ready story-line-resend-api-key || [ -n "${RESEND_API_KEY:-}" ] || missing+=(RESEND_API_KEY)
+secret_ready story-line-resend-from || [ -n "${RESEND_FROM:-}" ] || missing+=(RESEND_FROM)
 if [ "${#missing[@]}" -gt 0 ]; then
-  echo "error: ${missing[*]} must be set (BILLING_ACCOUNT always; the Resend values until their Secret Manager secrets exist)." >&2
+  echo "error: ${missing[*]} must be set (BILLING_ACCOUNT always; the Resend values until their Secret Manager secrets have an enabled version)." >&2
   echo "usage: BILLING_ACCOUNT=XXXXXX-XXXXXX-XXXXXX RESEND_API_KEY=… RESEND_FROM='Story Line <no-reply@your-domain>' just gcp-bootstrap" >&2
   exit 1
 fi
@@ -53,18 +59,21 @@ gcloud services enable \
 echo "==> Terraform state bucket $STATE_BUCKET"
 if ! gcloud storage buckets describe "$STATE_BUCKET" --project "$PROJECT_ID" >/dev/null 2>&1; then
   gcloud storage buckets create "$STATE_BUCKET" --project "$PROJECT_ID" \
-    --location="$REGION" --uniform-bucket-level-access
+    --location="$REGION" --uniform-bucket-level-access --public-access-prevention
 fi
-gcloud storage buckets update "$STATE_BUCKET" --project "$PROJECT_ID" --versioning >/dev/null
+gcloud storage buckets update "$STATE_BUCKET" --project "$PROJECT_ID" \
+  --versioning --public-access-prevention >/dev/null
 
 echo "==> Resend secrets"
 create_secret() {
   local id="$1" value="$2"
-  if secret_exists "$id"; then
-    echo "$id exists; leaving it alone."
+  if ! secret_exists "$id"; then
+    gcloud secrets create "$id" --project "$PROJECT_ID" --replication-policy=automatic
+  fi
+  if secret_ready "$id"; then
+    echo "$id has an enabled version; leaving it alone."
     return
   fi
-  gcloud secrets create "$id" --project "$PROJECT_ID" --replication-policy=automatic
   printf %s "$value" | gcloud secrets versions add "$id" --project "$PROJECT_ID" --data-file=-
 }
 create_secret story-line-resend-api-key "${RESEND_API_KEY:-}"
