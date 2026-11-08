@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:serverpod/serverpod.dart';
 
 import '../authz/authz.dart';
+import '../errors.dart';
 import '../generated/protocol.dart';
 import '../media/blob_keys.dart';
 
@@ -19,10 +20,12 @@ class MediaEndpoint extends Endpoint {
     return visible.isEmpty ? null : _retrieve(session, key);
   }
 
+  /// At most [mediaManyMaxKeys] keys per call, else VALIDATION.
   Future<Map<String, ByteData>> getMany(
     Session session,
     List<String> keys,
   ) async {
+    if (keys.length > mediaManyMaxKeys) throw validation('too many keys');
     final visible = await _MediaAccess(session).visible(keys.toSet());
     final result = <String, ByteData>{};
     for (final key in visible) {

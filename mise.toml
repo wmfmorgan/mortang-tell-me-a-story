@@ -1,5 +1,7 @@
-# Tool versions for local dev and CI. CI installs exactly these through
-# jdx/mise-action; this file is the only place they are pinned.
+# Tool versions for local dev and CI; this file is the only place they are
+# pinned. CI installs flutter and just from here through jdx/mise-action
+# (`install_args`); terraform is only for deploys.
 [tools]
 flutter = "3.47.7"
 just = "1.46.0"
+terraform = "1.14.5"

@@ -25,7 +25,7 @@ Private family storytelling app (Mortang): a Flutter client for iPad and web on 
 Needs [mise](https://mise.jdx.dev). From the repo root:
 
 ```bash
-mise install            # Flutter 3.47.7 and just 1.46.0 from mise.toml
+mise install            # Flutter 3.47.7, just 1.46.0 and Terraform 1.14.5 from mise.toml
 just server-setup       # serverpod_cli 4.1.1, server and client packages, local passwords
 (cd apps/tell_me_a_story && flutter pub get)
 ```
@@ -80,4 +80,22 @@ Never edit a migration that already exists.
 
 ## Deployment
 
-Deployment: see the GCP hosting work (pending).
+Production runs on Google Cloud project `story-line-app` (`infra/gcp`): the API on Cloud Run, Postgres on Cloud SQL, photos, covers and avatars in a private Cloud Storage bucket, and the web app on Firebase Hosting (`https://story-line-app.web.app`).
+
+Needs `terraform` (pinned in `mise.toml`), plus `gcloud` and `firebase` signed in to an account that may create projects and link billing (`gcloud auth login`, `gcloud auth application-default login`, `firebase login`). From the repo root:
+
+```bash
+# 1. Once: project, billing, APIs, Terraform state bucket, Resend secrets, Firebase
+BILLING_ACCOUNT=XXXXXX-XXXXXX-XXXXXX RESEND_API_KEY=... \
+  RESEND_FROM='Story Line <no-reply@your-domain>' just gcp-bootstrap
+# 2. Infrastructure (Cloud SQL, Cloud Run service, bucket, secrets, IAM): terraform init + apply
+just gcp-infra
+# 3. Server: Cloud Build image tagged with the commit, rolled out to Cloud Run
+just deploy-server
+# 4. Web: Flutter release build against the Cloud Run API, deployed to Firebase Hosting
+just deploy-web
+```
+
+`just deploy-server` refuses to run while `apps/server` has uncommitted changes. Steps 3 and 4 are the routine deploy; rerun step 2 after changing `infra/gcp`.
+
+`just deploy-web` uses a public Mapbox token for the place picker: `MAPBOX_ACCESS_TOKEN` if that is set, and otherwise the Secret Manager secret `story-line-mapbox-token`. Without a token it deploys anyway, with a warning, and the place picker is off. Create the secret once with `printf %s 'pk…' | gcloud secrets create story-line-mapbox-token --data-file=- --project story-line-app`. In the Mapbox account, restrict the token's URLs to `https://story-line-app.web.app` and `https://story-line-app.firebaseapp.com`.

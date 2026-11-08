@@ -3,6 +3,7 @@ import 'src/auth/local_mode.dart';
 import 'src/db/constraints.dart';
 import 'src/future_calls/schedule.dart';
 import 'src/generated/serverpod.dart';
+import 'src/media/blob_storage.dart';
 
 /// The starting point of the Serverpod server.
 void run(List<String> args) async {
@@ -22,7 +23,7 @@ void run(List<String> args) async {
   configureAuth(useDevLoginCode: local);
   installAuthenticationHandler(pod);
 
-  pod.addCloudStorage(DatabaseCloudStorage('private'));
+  await addBlobStorage(pod);
 
   await pod.start();
   await applyConstraints(pod);

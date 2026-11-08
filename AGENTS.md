@@ -55,4 +55,4 @@ Run from the repo root as `mise exec -- just …` (or in a shell with mise activ
 ## Off limits
 - No secrets in code, docs or chat. `apps/server/config/passwords.yaml` comes from `just server-passwords` and is git-ignored.
 - No production or hosted config changes (web and server hosting, DNS, mail provider keys).
-- Deployment: see the GCP hosting work (pending).
+- Deployment (README "Deployment"; needs terraform from `mise.toml`, gcloud and firebase): once `BILLING_ACCOUNT=… RESEND_API_KEY=… RESEND_FROM=… just gcp-bootstrap`, then `just gcp-infra` → `just deploy-server` → `just deploy-web`. These change hosted resources, so run them only when the owner asks.

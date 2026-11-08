@@ -1,5 +1,8 @@
 # Run from the repo root. `just` lists recipes.
 
+gcp_project := "story-line-app"
+gcp_region := "us-central1"
+
 # List recipes
 default:
     @just --list
@@ -126,3 +129,49 @@ server-analyze:
 
 # Every local gate: format, analyze, app tests, server analyze and server tests
 check: fmt-check analyze test server-analyze server-test
+
+# One-time GCP project + billing + state bucket + Resend secrets (BILLING_ACCOUNT=… RESEND_API_KEY=… RESEND_FROM=… just gcp-bootstrap)
+gcp-bootstrap:
+    PROJECT_ID={{gcp_project}} infra/gcp/bootstrap.sh
+
+# terraform init + apply for infra/gcp
+gcp-infra:
+    cd infra/gcp && terraform init && terraform apply
+
+# Build the server image on Cloud Build and roll it out to Cloud Run (refuses uncommitted apps/server changes)
+deploy-server:
+    #!/usr/bin/env sh
+    set -eu
+    # The image is tagged with the commit, so it must contain exactly that commit's apps/server.
+    if [ -n "$(git status --porcelain -- apps/server)" ]; then
+        echo "deploy-server: apps/server has uncommitted changes; commit or stash them first." >&2
+        git status --short -- apps/server >&2
+        exit 1
+    fi
+    tag=$(git rev-parse --short HEAD)
+    image={{gcp_region}}-docker.pkg.dev/{{gcp_project}}/story-line/server:$tag
+    gcloud builds submit apps/server --tag "$image" --project {{gcp_project}}
+    gcloud run deploy story-line-api --image "$image" --region {{gcp_region}} --project {{gcp_project}}
+
+# Build Flutter web against the Cloud Run API and deploy to Firebase Hosting.
+# Mapbox token: $MAPBOX_ACCESS_TOKEN, else the story-line-mapbox-token secret. Optional, but without it the place picker is off.
+deploy-web:
+    #!/usr/bin/env sh
+    set -eu
+    num=$(gcloud projects describe {{gcp_project}} --format='value(projectNumber)')
+    api="https://story-line-api-$num.{{gcp_region}}.run.app"
+    origin="https://{{gcp_project}}.web.app"
+    set -- flutter build web --release \
+        --dart-define=SERVER_URL="$api" \
+        --dart-define=INVITE_APP_ORIGIN="$origin"
+    token="${MAPBOX_ACCESS_TOKEN:-}"
+    if [ -z "$token" ]; then
+        token=$(gcloud secrets versions access latest --secret story-line-mapbox-token --project {{gcp_project}} 2>/dev/null || true)
+    fi
+    if [ -n "$token" ]; then
+        set -- "$@" --dart-define=MAPBOX_ACCESS_TOKEN="$token"
+    else
+        echo "deploy-web: WARNING no Mapbox token; the place picker will be off (see README)." >&2
+    fi
+    (cd apps/tell_me_a_story && "$@")
+    firebase deploy --only hosting --project {{gcp_project}}

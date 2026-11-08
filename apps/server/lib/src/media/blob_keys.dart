@@ -12,6 +12,10 @@ const photoMaxBytes = 52428800;
 const coverMaxBytes = 5242880;
 const avatarMaxBytes = 2097152;
 
+/// Keys per `media.getMany` call. Keeps one response well under Cloud Run's
+/// 32 MiB cap; the client asks for 8 at a time.
+const mediaManyMaxKeys = 16;
+
 const _extByMime = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
