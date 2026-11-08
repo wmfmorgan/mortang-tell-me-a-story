@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
@@ -186,8 +187,8 @@ class _Manage implements ManageFamiliesGateway {
     required String name,
   }) async {
     if (failRename) {
-      throw ManageFamiliesException(
-        code: 'VALIDATION',
+      throw const AppException(
+        code: AppErrorCode.validation,
         message: 'Rename failed',
       );
     }

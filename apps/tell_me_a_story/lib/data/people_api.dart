@@ -2,8 +2,10 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'app_exception.dart';
 import 'families_api.dart';
 import 'photos_api.dart';
+import 'supabase_errors.dart';
 
 /// Family-scoped person row. Relationship is optional; new people send null.
 class Person {
@@ -118,10 +120,6 @@ PersonProfile? personProfileFromRpc(Object? res) {
   );
 }
 
-class PersonProfileNotFound implements Exception {
-  const PersonProfileNotFound();
-}
-
 const personAvatarsBucket = 'person-avatars';
 
 String personAvatarObjectPath(String personId) => '$personId/avatar.jpg';
@@ -212,8 +210,9 @@ abstract class PeopleGateway {
     throw UnimplementedError();
   }
 
-  /// `person-avatars` when [path] is `{personId}/avatar.jpg`, else `avatars`.
-  Future<String?> signedPictureUrl({
+  /// Picture bytes: `person-avatars` when [path] is `{personId}/avatar.jpg`,
+  /// else `avatars`. Null when there is no picture.
+  Future<Uint8List?> pictureBytes({
     required String personId,
     String? path,
   }) async => null;
@@ -243,14 +242,16 @@ class PeopleApi implements PeopleGateway {
   }
 
   @override
-  Future<List<Person>> listTreePeople(String familyId) async {
-    final familyIds = await _treeFamilyIds(familyId);
-    final rows = await _client
-        .from('people')
-        .select(_treeSelect)
-        .inFilter('family_id', familyIds)
-        .order('name');
-    return Future.wait(rows.map(_treePerson));
+  Future<List<Person>> listTreePeople(String familyId) {
+    return withAppErrors(() async {
+      final familyIds = await _treeFamilyIds(familyId);
+      final rows = await _client
+          .from('people')
+          .select(_treeSelect)
+          .inFilter('family_id', familyIds)
+          .order('name');
+      return Future.wait(rows.map(_treePerson));
+    });
   }
 
   /// One [Person] per tree row. Linked profiles load together.
@@ -258,7 +259,7 @@ class PeopleApi implements PeopleGateway {
     final userId = row['user_id'] as String?;
     final profile = userId == null
         ? null
-        : await personProfile(row['id'] as String);
+        : await _treeProfile(row['id'] as String);
     return Person(
       id: row['id'] as String,
       familyId: row['family_id'] as String,
@@ -268,6 +269,20 @@ class PeopleApi implements PeopleGateway {
       birthDate: profile?.birthDate,
       birthPrecision: profile?.birthPrecision,
     );
+  }
+
+  /// [personProfile] for one tree row. A hidden linked row fails the listing
+  /// with a non-catalog error, so callers keep their generic failure copy.
+  Future<PersonProfile?> _treeProfile(String personId) async {
+    try {
+      return await personProfile(personId);
+    } on AppException catch (error, stack) {
+      if (error.code != AppErrorCode.notFound) rethrow;
+      Error.throwWithStackTrace(
+        StateError('person_profile: ${error.message}'),
+        stack,
+      );
+    }
   }
 
   /// Families in [familyId]'s tree. One family when the walk returns none.
@@ -299,25 +314,27 @@ class PeopleApi implements PeopleGateway {
     final trimmedAbout = _aboutOrNull(about);
     ensureValidPersonCreate(name: name, about: trimmedAbout);
     final trimmedEmail = _emailOrNull(email);
-    final uid = _client.auth.currentUser!.id;
-    final row = await _client
-        .from('people')
-        .insert({
-          'family_id': familyId,
-          'name': name.trim(),
-          'relationship': null,
-          'email': ?trimmedEmail,
-          'passed_away': passedAway,
-          'about': ?trimmedAbout,
-          'created_by': uid,
-        })
-        .select(_rowSelect)
-        .single();
-    var person = Person.fromJson(row);
-    if (pictureBytes != null && pictureBytes.isNotEmpty) {
-      person = await _uploadPersonPicture(person, pictureBytes);
-    }
-    return person;
+    return withAppErrors(() async {
+      final uid = _client.auth.currentUser!.id;
+      final row = await _client
+          .from('people')
+          .insert({
+            'family_id': familyId,
+            'name': name.trim(),
+            'relationship': null,
+            'email': ?trimmedEmail,
+            'passed_away': passedAway,
+            'about': ?trimmedAbout,
+            'created_by': uid,
+          })
+          .select(_rowSelect)
+          .single();
+      var person = Person.fromJson(row);
+      if (pictureBytes != null && pictureBytes.isNotEmpty) {
+        person = await _uploadPersonPicture(person, pictureBytes);
+      }
+      return person;
+    });
   }
 
   @override
@@ -332,19 +349,14 @@ class PeopleApi implements PeopleGateway {
   }
 
   @override
-  Future<PersonProfile?> personProfile(String personId) async {
-    try {
+  Future<PersonProfile?> personProfile(String personId) {
+    return withAppErrors(() async {
       final res = await _client.rpc(
         'person_profile',
         params: {'p_person_id': personId},
       );
       return personProfileFromRpc(res);
-    } on PostgrestException catch (error) {
-      if (error.message.startsWith('NOT_FOUND:')) {
-        throw const PersonProfileNotFound();
-      }
-      rethrow;
-    }
+    });
   }
 
   @override
@@ -375,17 +387,19 @@ class PeopleApi implements PeopleGateway {
     if (writePassedAway) patch['passed_away'] = passedAway;
     if (writeAbout) patch['about'] = trimmedAbout;
     if (writeEmail) patch['email'] = _emailOrNull(email);
-    final row = await _client
-        .from('people')
-        .update(patch)
-        .eq('id', personId)
-        .select(_rowSelect)
-        .single();
-    var person = Person.fromJson(row);
-    if (pictureBytes != null && pictureBytes.isNotEmpty) {
-      person = await _uploadPersonPicture(person, pictureBytes);
-    }
-    return person;
+    return withAppErrors(() async {
+      final row = await _client
+          .from('people')
+          .update(patch)
+          .eq('id', personId)
+          .select(_rowSelect)
+          .single();
+      var person = Person.fromJson(row);
+      if (pictureBytes != null && pictureBytes.isNotEmpty) {
+        person = await _uploadPersonPicture(person, pictureBytes);
+      }
+      return person;
+    });
   }
 
   @override
@@ -403,14 +417,13 @@ class PeopleApi implements PeopleGateway {
   }
 
   @override
-  Future<void> markPassedAway({
-    required String personId,
-    required bool value,
-  }) async {
-    await _client.rpc(
-      'mark_passed_away',
-      params: {'p_person_id': personId, 'p_value': value},
-    );
+  Future<void> markPassedAway({required String personId, required bool value}) {
+    return withAppErrors(() async {
+      await _client.rpc(
+        'mark_passed_away',
+        params: {'p_person_id': personId, 'p_value': value},
+      );
+    });
   }
 
   @override
@@ -433,7 +446,7 @@ class PeopleApi implements PeopleGateway {
   }
 
   @override
-  Future<String?> signedPictureUrl({
+  Future<Uint8List?> pictureBytes({
     required String personId,
     String? path,
   }) async {
@@ -441,7 +454,7 @@ class PeopleApi implements PeopleGateway {
     final bucket = path == personAvatarObjectPath(personId)
         ? personAvatarsBucket
         : avatarsBucketName;
-    return _client.storage.from(bucket).createSignedUrl(path, 3600);
+    return _client.storage.from(bucket).download(path);
   }
 
   Future<Person> _uploadPersonPicture(Person person, List<int> bytes) async {

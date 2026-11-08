@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
@@ -392,12 +393,6 @@ class _FakePhotosApi implements PhotosGateway {
       ..clear()
       ..addAll(next);
   }
-
-  @override
-  Future<void> deleteAllForStory({
-    required String familyId,
-    required String storyId,
-  }) async {}
 
   @override
   Future<Uint8List> downloadBytes(String storagePath) async {
@@ -2195,9 +2190,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      families.originError = const OriginRpcException(
-        'VALIDATION',
-        'origin must be published',
+      families.originError = const AppException(
+        code: AppErrorCode.validation,
+        message: 'origin must be published',
       );
       await tester.tap(find.byKey(const Key('reader-overflow')));
       await tester.pumpAndSettle();
@@ -2209,9 +2204,9 @@ void main() {
       expect(find.text('Jam'), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
 
-      families.originError = const OriginRpcException(
-        'FORBIDDEN',
-        'You do not have permission to do that.',
+      families.originError = const AppException(
+        code: AppErrorCode.forbidden,
+        message: 'You do not have permission to do that.',
       );
       await tester.tap(find.byKey(const Key('reader-overflow')));
       await tester.pumpAndSettle();
@@ -2691,7 +2686,7 @@ class _OriginFamilies extends FamiliesGateway {
   final List<TreeFamily> tree;
   final List<StewardFamily> stewarded;
   List<OriginDependent> dependents;
-  OriginRpcException? originError;
+  AppException? originError;
   final List<({String familyId, String storyId})> originCalls = [];
 
   @override

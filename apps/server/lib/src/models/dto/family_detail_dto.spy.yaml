@@ -1,0 +1,8 @@
+### Family + members + pending invites in one call (FamilyEndpoint.detail).
+class: FamilyDetailDto
+fields:
+  id: UuidValue
+  name: String
+  myRole: MembershipRole
+  members: List<FamilyMemberDto>
+  pendingInvites: List<PendingInviteDto>

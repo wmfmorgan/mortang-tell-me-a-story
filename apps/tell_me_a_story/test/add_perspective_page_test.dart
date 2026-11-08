@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart';
+import 'package:tell_me_a_story/data/profile_api.dart';
+import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -170,6 +172,22 @@ void main() {
     expect(find.text('Dad (Thomas)'), findsOneWidget);
     expect(find.text('DT'), findsOneWidget);
     expect(find.text('Author'), findsOneWidget);
+  });
+
+  testWidgets('with no postingAs the page shows the signed-in profile name', (
+    tester,
+  ) async {
+    ProfileSession.loadOwn = () async =>
+        const OwnProfile(id: 'u1', displayName: 'Sarah Morgan');
+    addTearDown(() {
+      ProfileSession.loadOwn = null;
+      ProfileSession.instance.clear();
+    });
+
+    await _pumpOverlay(tester, api: _FakePerspectivesApi());
+
+    expect(find.text('Posting as'), findsOneWidget);
+    expect(find.text('Sarah Morgan'), findsOneWidget);
   });
 
   testWidgets('shows locked Add Perspective copy and no title field', (

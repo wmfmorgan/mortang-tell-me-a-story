@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'photos_api.dart';
+import 'supabase_errors.dart';
 
 enum StoryStatus { draft, published }
 
@@ -282,7 +283,7 @@ class PersonStoryCard {
     required this.whenLabel,
     this.place,
     this.photoCount = 0,
-    this.thumbUrl,
+    this.thumbBytes,
   });
 
   final String id;
@@ -290,7 +291,7 @@ class PersonStoryCard {
   final String whenLabel;
   final String? place;
   final int photoCount;
-  final String? thumbUrl;
+  final Uint8List? thumbBytes;
 }
 
 class PublishReadiness {
@@ -351,6 +352,21 @@ bool isDuplicateStoryKey(Object error) {
   return message.contains('duplicate key');
 }
 
+/// Runs [insert]. When a retried create collides on its client-chosen [id],
+/// runs [update] instead, so creating the same draft twice is one draft.
+Future<T> createOrUpdateExisting<T>({
+  required String? id,
+  required Future<T> Function() insert,
+  required Future<T> Function() update,
+}) async {
+  try {
+    return await insert();
+  } catch (error) {
+    if (id == null || !isDuplicateStoryKey(error)) rethrow;
+    return update();
+  }
+}
+
 abstract class StoriesGateway {
   Future<Story> createDraft({
     String? id,
@@ -406,6 +422,7 @@ abstract class StoriesGateway {
     DateTime? now,
   });
 
+  /// Deletes the story and its photo objects. A storage failure keeps the row.
   Future<void> discard(String storyId);
 
   /// One `story_people` insert. Does not replace the story's other people.
@@ -414,10 +431,15 @@ abstract class StoriesGateway {
 
 /// PostgREST CRUD gateway for family-scoped `stories` rows.
 class StoriesApi implements StoriesGateway {
-  StoriesApi({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+  StoriesApi({SupabaseClient? client, PhotosApi? photos})
+    : _client = client ?? Supabase.instance.client,
+      _photosOverride = photos;
 
   final SupabaseClient _client;
+  final PhotosApi? _photosOverride;
+
+  /// Story photo storage that [discard] cleans up.
+  late final PhotosApi _photos = _photosOverride ?? PhotosApi(client: _client);
 
   static const _storySelect =
       'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, story_people(person_id), photos(id, storage_path, edited_storage_path, edit_version, sort_order), profiles!author_id(display_name, avatar_path)';
@@ -441,27 +463,44 @@ class StoriesApi implements StoriesGateway {
     if (!allowUndated) {
       ensureValidDraftSave(timeframeStart: timeframeStart);
     }
-    final uid = _client.auth.currentUser!.id;
-    final payload = <String, dynamic>{
-      'family_id': familyId,
-      'author_id': uid,
-      'title': storedStoryTitle(title),
-      'body': body?.trim(),
-      'timeframe_start': timeframeStart == null ? null : _date(timeframeStart),
-      'timeframe_end': timeframeEnd == null ? null : _date(timeframeEnd),
-      if (datePrecision != null) 'date_precision': datePrecision,
-      'place_id': placeId,
-      'status': 'draft',
-    };
-    if (id != null) payload['id'] = id;
-    final row = await _client
-        .from('stories')
-        .insert(payload)
-        .select(_storySelect)
-        .single();
-    final story = Story.fromJson(row);
-    await _replacePeople(story.id, personIds);
-    return getStory(story.id);
+    return createOrUpdateExisting(
+      id: id,
+      insert: () async {
+        final uid = _client.auth.currentUser!.id;
+        final payload = <String, dynamic>{
+          'family_id': familyId,
+          'author_id': uid,
+          'title': storedStoryTitle(title),
+          'body': body?.trim(),
+          'timeframe_start': timeframeStart == null
+              ? null
+              : _date(timeframeStart),
+          'timeframe_end': timeframeEnd == null ? null : _date(timeframeEnd),
+          if (datePrecision != null) 'date_precision': datePrecision,
+          'place_id': placeId,
+          'status': 'draft',
+        };
+        if (id != null) payload['id'] = id;
+        final row = await _client
+            .from('stories')
+            .insert(payload)
+            .select(_storySelect)
+            .single();
+        final story = Story.fromJson(row);
+        await _replacePeople(story.id, personIds);
+        return getStory(story.id);
+      },
+      update: () => updateDraft(
+        storyId: id!,
+        timeframeStart: timeframeStart,
+        timeframeEnd: timeframeEnd,
+        datePrecision: datePrecision,
+        title: title,
+        body: body,
+        placeId: placeId,
+        personIds: personIds,
+      ),
+    );
   }
 
   @override
@@ -625,13 +664,11 @@ class StoriesApi implements StoriesGateway {
     for (final row in rows) {
       final story = Story.fromJson(row);
       final title = story.title?.trim() ?? '';
-      String? thumb;
+      Uint8List? thumb;
       final path = story.photoPaths.isEmpty ? null : story.photoPaths.first;
       if (path != null && path.isNotEmpty) {
         try {
-          thumb = await _client.storage
-              .from(storyPhotosBucket)
-              .createSignedUrl(path, 3600);
+          thumb = await _client.storage.from(storyPhotosBucket).download(path);
         } catch (_) {
           thumb = null;
         }
@@ -643,7 +680,7 @@ class StoriesApi implements StoriesGateway {
           whenLabel: _profileWhen(story),
           place: story.placeLabel,
           photoCount: story.photoCount,
-          thumbUrl: thumb,
+          thumbBytes: thumb,
         ),
       );
     }
@@ -669,17 +706,19 @@ class StoriesApi implements StoriesGateway {
   }
 
   @override
-  Future<List<Story>> listPublished(String familyId) async {
-    final rows = await _client
-        .from('stories')
-        .select(_publishedSelect)
-        .eq('family_id', familyId)
-        .eq('status', 'published')
-        .order('timeframe_start')
-        .order('date_precision')
-        .order('created_at')
-        .order('id');
-    return rows.map(Story.fromJson).toList();
+  Future<List<Story>> listPublished(String familyId) {
+    return withAppErrors(() async {
+      final rows = await _client
+          .from('stories')
+          .select(_publishedSelect)
+          .eq('family_id', familyId)
+          .eq('status', 'published')
+          .order('timeframe_start')
+          .order('date_precision')
+          .order('created_at')
+          .order('id');
+      return rows.map(Story.fromJson).toList();
+    });
   }
 
   @override
@@ -730,17 +769,33 @@ class StoriesApi implements StoriesGateway {
 
   @override
   Future<void> discard(String storyId) async {
+    final rows = await _client
+        .from('stories')
+        .select('family_id')
+        .eq('id', storyId)
+        .limit(1);
+    final familyId = rows.isEmpty ? null : rows.first['family_id'] as String?;
+    if (familyId != null) {
+      await _photos.deleteAllForStory(familyId: familyId, storyId: storyId);
+    }
     await _client.from('stories').delete().eq('id', storyId);
   }
 
   @override
-  Future<void> linkPerson({
-    required String storyId,
-    required String personId,
-  }) async {
-    await _client.from('story_people').insert({
-      'story_id': storyId,
-      'person_id': personId,
+  Future<void> linkPerson({required String storyId, required String personId}) {
+    return withAppErrors(() async {
+      try {
+        await _client.from('story_people').insert({
+          'story_id': storyId,
+          'person_id': personId,
+        });
+      } on PostgrestException catch (error) {
+        // A retried link: the row this call writes already exists.
+        if (error.code != '23505' ||
+            !error.message.contains('story_people_pkey')) {
+          rethrow;
+        }
+      }
     });
   }
 

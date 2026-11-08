@@ -5,6 +5,10 @@ class Env {
   static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
+  /// Serverpod API server, e.g. `http://127.0.0.1:8080`. Replaces the
+  /// Supabase defines at the Phase 4 cutover.
+  static const serverUrl = String.fromEnvironment('SERVER_URL');
+
   /// Shareable app origin for invite links. Staging MS: change define only.
   static const inviteAppOrigin = String.fromEnvironment(
     'INVITE_APP_ORIGIN',

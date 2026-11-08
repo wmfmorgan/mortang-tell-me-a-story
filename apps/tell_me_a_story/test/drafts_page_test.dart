@@ -81,13 +81,11 @@ class _FakeStoriesApi implements StoriesGateway {
     DateTime? now,
   }) async => const [];
 
-  _FakeStoriesApi({List<Story>? drafts, List<String>? callLog})
-    : drafts = [...?drafts],
-      callLog = callLog ?? [];
+  _FakeStoriesApi({List<Story>? drafts}) : drafts = [...?drafts];
 
   final List<Story> drafts;
   final List<String> discarded = [];
-  final List<String> callLog;
+  var failDiscard = false;
   final familyLoads = <String>[];
 
   @override
@@ -160,7 +158,7 @@ class _FakeStoriesApi implements StoriesGateway {
 
   @override
   Future<void> discard(String storyId) async {
-    callLog.add('discard:$storyId');
+    if (failDiscard) throw Exception('storage');
     discarded.add(storyId);
     drafts.removeWhere((s) => s.id == storyId);
   }
@@ -261,13 +259,6 @@ class _StubMapboxSearch implements MapboxSearchGateway {
 }
 
 class _FakePhotosApi implements PhotosGateway {
-  _FakePhotosApi({List<String>? callLog, this.failDelete = false})
-    : callLog = callLog ?? [];
-
-  final List<String> deletedStories = [];
-  final List<String> callLog;
-  final bool failDelete;
-
   @override
   Future<List<Photo>> listPhotos(String storyId) async => const [];
 
@@ -292,29 +283,14 @@ class _FakePhotosApi implements PhotosGateway {
   }) async {}
 
   @override
-  Future<void> deleteAllForStory({
-    required String familyId,
-    required String storyId,
-  }) async {
-    callLog.add('photos:$storyId');
-    if (failDelete) throw Exception('storage');
-    deletedStories.add(storyId);
-  }
-
-  @override
   Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }
 
-Widget _drafts({
-  required StoriesGateway stories,
-  PhotosGateway? photos,
-  FamiliesGateway? families,
-}) {
+Widget _drafts({required StoriesGateway stories, FamiliesGateway? families}) {
   return MaterialApp(
     home: DraftsPage(
       inviteApi: _FakeInviteApi(),
       storiesApi: stories,
-      photosApi: photos ?? _FakePhotosApi(),
       familiesApi: families,
     ),
   );
@@ -480,40 +456,27 @@ void main() {
     expect(locations, contains(AppRoutes.newStory));
   });
 
-  testWidgets(
-    'Discard calls deleteAllForStory then discard and removes the row',
-    (tester) async {
-      final log = <String>[];
-      final api = _FakeStoriesApi(
-        drafts: [_draft(id: 's1')],
-        callLog: log,
-      );
-      final photos = _FakePhotosApi(callLog: log);
-      await tester.pumpWidget(_drafts(stories: api, photos: photos));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Discard draft'));
-      await tester.pumpAndSettle();
-
-      expect(photos.deletedStories, ['s1']);
-      expect(api.discarded, ['s1']);
-      expect(log, ['photos:s1', 'discard:s1']);
-      expect(find.text('Continue writing'), findsNothing);
-      expect(
-        find.text(
-          'No drafts yet. Stories you’re still writing will show up here.',
-        ),
-        findsOneWidget,
-      );
-    },
-  );
-
-  testWidgets('storage failure on prefix cleanup keeps the draft row', (
-    tester,
-  ) async {
+  testWidgets('Discard calls discard and removes the row', (tester) async {
     final api = _FakeStoriesApi(drafts: [_draft(id: 's1')]);
-    final photos = _FakePhotosApi(failDelete: true);
-    await tester.pumpWidget(_drafts(stories: api, photos: photos));
+    await tester.pumpWidget(_drafts(stories: api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Discard draft'));
+    await tester.pumpAndSettle();
+
+    expect(api.discarded, ['s1']);
+    expect(find.text('Continue writing'), findsNothing);
+    expect(
+      find.text(
+        'No drafts yet. Stories you’re still writing will show up here.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a failed discard keeps the draft row', (tester) async {
+    final api = _FakeStoriesApi(drafts: [_draft(id: 's1')])..failDiscard = true;
+    await tester.pumpWidget(_drafts(stories: api));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Discard draft'));

@@ -1,0 +1,9 @@
+### An invite that is not accepted or revoked. sentAt is invites.lastSentAt.
+class: PendingInviteDto
+fields:
+  id: UuidValue
+  email: String?
+  personId: UuidValue?
+  sentAt: DateTime
+  expiresAt: DateTime
+  createdAt: DateTime

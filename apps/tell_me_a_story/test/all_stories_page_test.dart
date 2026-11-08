@@ -941,10 +941,4 @@ class _Photos implements PhotosGateway {
     required String storyId,
     required String photoId,
   }) => Future<void>.error(UnimplementedError());
-
-  @override
-  Future<void> deleteAllForStory({
-    required String familyId,
-    required String storyId,
-  }) => Future<void>.error(UnimplementedError());
 }

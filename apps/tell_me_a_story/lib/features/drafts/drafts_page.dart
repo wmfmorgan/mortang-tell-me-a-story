@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/server/app_session.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
@@ -10,7 +10,6 @@ import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
-import '../../data/photos_api.dart';
 import '../../data/manage_families_api.dart';
 import '../../data/stories_api.dart';
 import '../family/start_timeline_dialog.dart';
@@ -32,14 +31,12 @@ class DraftsPage extends StatefulWidget {
     super.key,
     this.inviteApi,
     this.storiesApi,
-    this.photosApi,
     this.familiesApi,
     this.peopleApi,
   });
 
   final InviteGateway? inviteApi;
   final StoriesGateway? storiesApi;
-  final PhotosGateway? photosApi;
   final FamiliesGateway? familiesApi;
   final PeopleGateway? peopleApi;
 
@@ -50,7 +47,6 @@ class DraftsPage extends StatefulWidget {
 class _DraftsPageState extends State<DraftsPage> {
   late final InviteGateway _invite;
   StoriesGateway? _storiesOverride;
-  PhotosGateway? _photosOverride;
 
   var _loading = true;
   var _loadError = false;
@@ -64,9 +60,6 @@ class _DraftsPageState extends State<DraftsPage> {
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
-
-  PhotosGateway get _photos =>
-      widget.photosApi ?? (_photosOverride ??= PhotosApi());
 
   @override
   void initState() {
@@ -161,13 +154,7 @@ class _DraftsPageState extends State<DraftsPage> {
     return id != null && _memberIds.contains(id);
   }
 
-  String? _sessionUserId() {
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
-  }
+  String? _sessionUserId() => AppSession.instance.currentUserId;
 
   Future<void> _startTimeline() async {
     final id = _familyId;
@@ -250,8 +237,6 @@ class _DraftsPageState extends State<DraftsPage> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final familyId = _familyId ?? story.familyId;
-      await _photos.deleteAllForStory(familyId: familyId, storyId: story.id);
       await _stories.discard(story.id);
       if (!mounted) return;
       await _reload();

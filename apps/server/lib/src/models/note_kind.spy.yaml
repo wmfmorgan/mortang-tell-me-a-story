@@ -1,0 +1,6 @@
+### Replaces the separate comments / perspectives tables.
+enum: NoteKind
+serialized: byName
+values:
+  - comment
+  - perspective

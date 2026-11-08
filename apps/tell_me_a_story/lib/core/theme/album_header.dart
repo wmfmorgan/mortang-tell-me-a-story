@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
@@ -13,6 +12,7 @@ import '../../features/family/family_role.dart';
 import '../../features/family/family_tree_order.dart';
 import '../navigation/unsaved_guard.dart';
 import '../router/app_router.dart';
+import '../server/app_session.dart';
 import 'album_chrome.dart';
 import 'album_theme.dart';
 import 'profile_avatar.dart';
@@ -1112,7 +1112,7 @@ class _HeaderAvatarState extends State<_HeaderAvatar> {
       await callback();
       return;
     }
-    await Supabase.instance.client.auth.signOut();
+    await AppSession.instance.signOut();
   }
 
   Future<void> _onAvatarSelected(BuildContext context, String value) async {

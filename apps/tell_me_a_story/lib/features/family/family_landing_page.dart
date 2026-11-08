@@ -6,9 +6,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/server/app_session.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/app_exception.dart';
 import '../../data/families_api.dart';
 import '../../data/family_covers.dart';
 import '../../data/family_selection.dart';
@@ -16,7 +18,6 @@ import '../../data/invite_api.dart';
 import '../../data/manage_families_api.dart';
 import '../../data/people_api.dart';
 import '../../data/photos_api.dart';
-import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 import '../invites/invite_modal.dart';
 import '../stories/story_date.dart';
@@ -208,7 +209,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
   Future<void> _startTimeline() async {
     final family = _family;
     if (family == null || !mounted) return;
-    final userId = signedInUserId();
+    final userId = AppSession.instance.currentUserId;
     if (userId == null) return;
     List<Story> stories = const [];
     try {
@@ -216,7 +217,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
       stories = await api.listPublished(family.id);
     } catch (error) {
       if (!mounted) return;
-      _snack(mapRpcError(error) ?? 'Try again');
+      _snack(appErrorMessage(error) ?? 'Try again');
       return;
     }
     if (!mounted) return;
@@ -276,7 +277,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
       _snack(
         error is CoverPhotoException
             ? error.message
-            : mapRpcError(error) ??
+            : appErrorMessage(error) ??
                   'Couldn’t save the family photo. Try again.',
       );
     }

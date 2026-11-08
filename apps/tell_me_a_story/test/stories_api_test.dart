@@ -162,6 +162,55 @@ void main() {
     expect(isDuplicateStoryKey(StateError('network')), isFalse);
   });
 
+  group('createOrUpdateExisting', () {
+    test('a duplicate client id runs the update', () async {
+      final calls = <String>[];
+      final result = await createOrUpdateExisting<String>(
+        id: 's1',
+        insert: () async {
+          calls.add('insert');
+          throw const PostgrestException(
+            message:
+                'duplicate key value violates unique constraint "stories_pkey"',
+            code: '23505',
+          );
+        },
+        update: () async {
+          calls.add('update');
+          return 'updated';
+        },
+      );
+      expect(result, 'updated');
+      expect(calls, ['insert', 'update']);
+    });
+
+    test('without a client id the duplicate is rethrown', () async {
+      await expectLater(
+        createOrUpdateExisting<String>(
+          id: null,
+          insert: () async => throw const PostgrestException(
+            message: 'duplicate key value',
+            code: '23505',
+          ),
+          update: () async => 'updated',
+        ),
+        throwsA(isA<PostgrestException>()),
+      );
+    });
+
+    test('other insert errors are rethrown', () async {
+      final error = StateError('network');
+      await expectLater(
+        createOrUpdateExisting<String>(
+          id: 's1',
+          insert: () async => throw error,
+          update: () async => 'updated',
+        ),
+        throwsA(same(error)),
+      );
+    });
+  });
+
   test('lean story select resolves original, edited, and reset photos', () {
     final source = File('lib/data/stories_api.dart').readAsStringSync();
     final select = RegExp(r"static const _storySelect =\s*'([^']+)'")
@@ -321,12 +370,6 @@ class _RecordingPhotos implements PhotosGateway {
   @override
   Future<Uint8List> downloadBytes(String storagePath) =>
       onDownload(storagePath);
-
-  @override
-  Future<void> deleteAllForStory({
-    required String familyId,
-    required String storyId,
-  }) async {}
 
   @override
   Future<void> deletePhoto(Photo photo) async {}

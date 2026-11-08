@@ -1,12 +1,14 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/server/app_session.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/app_exception.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
-import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 import '../family/family_blur_dialog.dart';
 import '../stories/story_date.dart';
@@ -69,19 +71,11 @@ Future<void> showPersonProfile(
       personId: personId,
       fallbackName: name,
       people: people ?? PeopleApi(),
-      signedInUserId: signedInUserId ?? _sessionUserId(),
+      signedInUserId: signedInUserId ?? AppSession.instance.currentUserId,
       invites: invites,
       loadStories: loadStories,
     ),
   );
-}
-
-String? _sessionUserId() {
-  try {
-    return Supabase.instance.client.auth.currentUser?.id;
-  } catch (_) {
-    return null;
-  }
 }
 
 class PersonProfileDialog extends StatefulWidget {
@@ -112,7 +106,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
   var _missing = false;
   var _loading = true;
   var _steward = false;
-  String? _pictureUrl;
+  Uint8List? _pictureBytes;
   List<PersonStoryCard> _stories = const [];
 
   @override
@@ -127,13 +121,11 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     try {
       profile = await widget.people.personProfile(widget.personId);
       if (profile == null) missing = true;
-    } on PersonProfileNotFound {
-      missing = true;
     } catch (_) {
       missing = true;
     }
     Person? editor;
-    String? pictureUrl;
+    Uint8List? picture;
     var stories = const <PersonStoryCard>[];
     if (profile != null && !missing) {
       try {
@@ -142,12 +134,12 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
         editor = null;
       }
       try {
-        pictureUrl = await widget.people.signedPictureUrl(
+        picture = await widget.people.pictureBytes(
           personId: widget.personId,
           path: profile.avatarPath,
         );
       } catch (_) {
-        pictureUrl = null;
+        picture = null;
       }
       try {
         final load = widget.loadStories ?? _defaultPersonStories;
@@ -170,7 +162,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
       _steward = steward;
       _editor = editor;
       _missing = missing || profile == null;
-      _pictureUrl = pictureUrl;
+      _pictureBytes = picture;
       _stories = stories;
       _loading = false;
     });
@@ -227,7 +219,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+        SnackBar(content: Text(appErrorMessage(error) ?? 'Try again')),
       );
       return;
     }
@@ -477,7 +469,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
   }
 
   Widget _thumb(PersonStoryCard story) {
-    final url = story.thumbUrl;
+    final bytes = story.thumbBytes;
     return SizedBox(
       width: 56,
       height: 56,
@@ -485,13 +477,13 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: url == null || url.isEmpty
+            child: bytes == null || bytes.isEmpty
                 ? const ColoredBox(
                     color: albumParchment,
                     child: SizedBox(width: 56, height: 56),
                   )
-                : Image.network(
-                    url,
+                : Image.memory(
+                    bytes,
                     width: 56,
                     height: 56,
                     fit: BoxFit.cover,
@@ -532,8 +524,10 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
   }
 
   Widget _picture(PersonProfile profile) {
-    final url = _pictureUrl;
-    final empty = profile.avatarPath == null || url == null || url.isEmpty;
+    final stored = _pictureBytes;
+    final bytes = profile.avatarPath == null || stored == null || stored.isEmpty
+        ? null
+        : stored;
     return Center(
       child: SizedBox(
         width: 112,
@@ -550,13 +544,13 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
                 border: Border.all(color: albumInk.withValues(alpha: 0.12)),
               ),
               child: ClipOval(
-                child: empty
+                child: bytes == null
                     ? const ColoredBox(
                         key: Key('person-avatar-empty'),
                         color: albumParchment,
                       )
-                    : Image.network(
-                        url,
+                    : Image.memory(
+                        bytes,
                         key: const Key('person-avatar-image'),
                         width: 112,
                         height: 112,

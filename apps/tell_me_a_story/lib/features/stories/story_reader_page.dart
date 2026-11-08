@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/server/app_session.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
+import '../../data/app_exception.dart';
 import '../../data/comments_api.dart';
 import '../../data/families_api.dart';
 import '../../data/manage_families_api.dart';
@@ -196,14 +197,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     return false;
   }
 
-  String? get _currentUserId {
-    if (widget.currentUserId != null) return widget.currentUserId;
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
-  }
+  String? get _currentUserId =>
+      widget.currentUserId ?? AppSession.instance.currentUserId;
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
@@ -680,7 +675,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       }
     } catch (error) {
       if (!mounted) return;
-      final message = error is OriginRpcException ? error.message : 'Try again';
+      final message = error is AppException ? error.message : 'Try again';
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
     }

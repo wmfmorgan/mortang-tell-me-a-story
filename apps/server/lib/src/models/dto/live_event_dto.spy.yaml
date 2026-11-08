@@ -1,0 +1,8 @@
+### Posted after commit to family:<familyId> and, when storyId is set, story:<storyId>.
+class: LiveEventDto
+fields:
+  familyId: UuidValue
+  storyId: UuidValue?
+  kind: LiveKind
+  storyStatus: StoryStatus?
+  deleted: bool

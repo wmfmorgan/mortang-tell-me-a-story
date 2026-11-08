@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
@@ -181,7 +180,6 @@ class _FakeStoriesApi implements StoriesGateway {
   String? lastPlaceId;
   List<String> lastPersonIds = const [];
   final List<List<String>?> personIdsArgs = [];
-  Set<String> duplicateLinkIds = {};
   Object? linkError;
 
   Story _draft({
@@ -353,12 +351,6 @@ class _FakeStoriesApi implements StoriesGateway {
   }) async {
     linkCalls++;
     linkedIds.add(personId);
-    if (duplicateLinkIds.contains(personId)) {
-      throw const PostgrestException(
-        message: 'duplicate key value violates unique constraint "story_people_pkey"',
-        code: '23505',
-      );
-    }
     final error = linkError;
     if (error != null) throw error;
   }
@@ -446,12 +438,6 @@ class _FakePhotosApi implements PhotosGateway {
       if (updated != null) rows[i] = updated;
     }
   }
-
-  @override
-  Future<void> deleteAllForStory({
-    required String familyId,
-    required String storyId,
-  }) async {}
 
   @override
   Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
@@ -1604,40 +1590,10 @@ void main() {
     },
   );
 
-  testWidgets('re-adding a person already on the story shows no error', (
-    tester,
-  ) async {
-    final stories = _FakeStoriesApi(story: _mattIsBorn(personIds: const ['p1']))
-      ..duplicateLinkIds = {'w1'};
-    await tester.pumpWidget(
-      _captureShell(
-        stories: stories,
-        people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
-        editStoryId: 's1',
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final add = find.widgetWithText(TextButton, 'Add person');
-    await tester.ensureVisible(add);
-    await tester.tap(add);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('William F Morgan'));
-    await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
-    await tester.pumpAndSettle();
-
-    expect(stories.linkedIds, ['w1']);
-    expect(find.byType(SnackBar), findsNothing);
-    expect(find.byKey(const Key('add-person-picker')), findsNothing);
-    expect(find.widgetWithText(Chip, 'William F Morgan'), findsOneWidget);
-  });
-
   testWidgets('other link errors still show the save error', (tester) async {
     final stories = _FakeStoriesApi(story: _mattIsBorn(personIds: const ['p1']))
-      ..linkError = const PostgrestException(
-        message: 'new row violates row-level security policy for table "story_people"',
-        code: '42501',
+      ..linkError = Exception(
+        'new row violates row-level security policy for table "story_people"',
       );
     await tester.pumpWidget(
       _captureShell(
@@ -1832,38 +1788,6 @@ void main() {
         ),
         findsOneWidget,
       );
-    },
-  );
-
-  testWidgets(
-    'a duplicate key on another constraint still shows the save error',
-    (tester) async {
-      final stories =
-          _FakeStoriesApi(story: _mattIsBorn(personIds: const ['p1']))
-            ..linkError = const PostgrestException(
-              message: 'duplicate key value violates unique constraint "photos_pkey"',
-              code: '23505',
-            );
-      await tester.pumpWidget(
-        _captureShell(
-          stories: stories,
-          people: _FakePeopleApi(seed: const [_ada], tree: const [_will]),
-          editStoryId: 's1',
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final add = find.widgetWithText(TextButton, 'Add person');
-      await tester.ensureVisible(add);
-      await tester.tap(add);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('William F Morgan'));
-      await tester.pump();
-      await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Couldn’t save person. Try again.'), findsOneWidget);
-      expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
     },
   );
 

@@ -1,0 +1,7 @@
+### Returned once by InviteEndpoint.create; token is never stored (only its hash).
+class: CreatedInviteDto
+fields:
+  inviteId: UuidValue
+  token: String
+  expiresAt: DateTime
+  inviteUrl: String

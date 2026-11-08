@@ -1,5 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'app_exception.dart';
+import 'supabase_errors.dart';
+
 abstract class ManageFamiliesGateway {
   Future<String> createRootFamily(String name);
 
@@ -42,8 +45,8 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     }, expectStatus: 201);
     final id = json['family_id'];
     if (id is! String || id.isEmpty) {
-      throw ManageFamiliesException(
-        code: 'VALIDATION',
+      throw const AppException(
+        code: AppErrorCode.validation,
         message: 'create_family returned no id',
       );
     }
@@ -69,7 +72,10 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     }, expectStatus: 201);
     final id = json['family_id'];
     if (id is! String || id.isEmpty) {
-      throw ManageFamiliesException(code: 'VALIDATION', message: 'Try again');
+      throw const AppException(
+        code: AppErrorCode.validation,
+        message: 'Try again',
+      );
     }
     return id;
   }
@@ -132,8 +138,8 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     final raw = json['expires_at'];
     final expires = raw is String ? DateTime.tryParse(raw) : null;
     if (expires == null) {
-      throw ManageFamiliesException(
-        code: 'VALIDATION',
+      throw const AppException(
+        code: AppErrorCode.validation,
         message: 'resend_invite returned no expires_at',
       );
     }
@@ -151,47 +157,26 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     int expectStatus = 200,
   }) async {
     if (_client.auth.currentSession == null) {
-      throw ManageFamiliesException(
-        code: 'AUTH_REQUIRED',
+      throw const AppException(
+        code: AppErrorCode.unauthenticated,
         message: 'Sign-in required',
       );
     }
     try {
       final res = await _client.functions.invoke(functionName, body: body);
-      final decoded = _asMap(res.data);
+      final decoded = envelopeBody(res.data);
       if (res.status != expectStatus) {
-        throw ManageFamiliesException(
-          code: decoded['code'] as String? ?? 'VALIDATION',
-          message: decoded['message'] as String? ?? 'Try again',
-        );
+        throw appExceptionFromEnvelope(decoded, fallbackMessage: 'Try again');
       }
       return decoded;
-    } on ManageFamiliesException {
-      rethrow;
-    } on FunctionException catch (e) {
-      final decoded = _asMap(e.details);
-      throw ManageFamiliesException(
-        code: decoded['code'] as String? ?? 'VALIDATION',
-        message: decoded['message'] as String? ?? 'Try again',
+    } on FunctionException catch (e, stack) {
+      Error.throwWithStackTrace(
+        appExceptionFromEnvelope(
+          envelopeBody(e.details),
+          fallbackMessage: 'Try again',
+        ),
+        stack,
       );
     }
   }
-}
-
-Map<String, dynamic> _asMap(dynamic data) {
-  return switch (data) {
-    final Map<String, dynamic> m => m,
-    final Map m => Map<String, dynamic>.from(m),
-    _ => <String, dynamic>{},
-  };
-}
-
-class ManageFamiliesException implements Exception {
-  ManageFamiliesException({required this.code, required this.message});
-
-  final String code;
-  final String message;
-
-  @override
-  String toString() => 'ManageFamiliesException($code: $message)';
 }

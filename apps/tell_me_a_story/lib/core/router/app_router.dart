@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/comments_api.dart';
 import '../../data/families_api.dart';
@@ -32,6 +31,7 @@ import '../../features/search/search_recents.dart';
 import '../../features/stories/story_reader_page.dart';
 import '../../features/timeline/timeline_page.dart';
 import '../../data/search_api.dart';
+import '../server/app_session.dart';
 import '../theme/album_theme.dart';
 import 'auth_refresh.dart';
 
@@ -451,7 +451,7 @@ GoRouter createAppRouter({
           inviteApi: inviteApi,
           peopleApi: peopleApi,
           onLogout: onLogout,
-          currentUserId: _signedInUserId(),
+          currentUserId: AppSession.instance.currentUserId,
         ),
       ),
       GoRoute(
@@ -459,19 +459,10 @@ GoRouter createAppRouter({
         builder: (context, state) => DraftsPage(
           inviteApi: inviteApi,
           storiesApi: storiesApi,
-          photosApi: photosApi,
           familiesApi: familiesApi,
           peopleApi: peopleApi,
         ),
       ),
     ],
   );
-}
-
-String? _signedInUserId() {
-  try {
-    return Supabase.instance.client.auth.currentUser?.id;
-  } catch (_) {
-    return null;
-  }
 }

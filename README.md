@@ -76,7 +76,9 @@ flutter run -d web-server --web-hostname=127.0.0.1 --web-port=3000 \
   --dart-define=MAPBOX_ACCESS_TOKEN=<public-token>
 ```
 
-From the repo root, `make help` lists the local commands. `make run` serves this web-server smoke on port 3000. `MAPBOX_ACCESS_TOKEN=... make run` passes the optional Mapbox token.
+From the repo root, run `mise install` (needs [mise](https://mise.jdx.dev)); it installs the pinned tools from `mise.toml`: Flutter, Supabase CLI and just. Then `just` lists the local commands; `just setup` re-runs `mise install`. `just run` serves this web-server smoke on port 3000. `MAPBOX_ACCESS_TOKEN=... just run` passes the optional Mapbox token.
+
+`just server-setup` prepares the Serverpod backend in `apps/server` (CLI, packages, local secrets). `just server` runs it on :8080 with an embedded Postgres; the dev login code is `111111`. `just server-test` runs its tests.
 
 Local demo `ANON_KEY` above is the standard Supabase local key from `supabase status` (safe for local only). If your ports differ, use your `API_URL` / `ANON_KEY` from status.
 

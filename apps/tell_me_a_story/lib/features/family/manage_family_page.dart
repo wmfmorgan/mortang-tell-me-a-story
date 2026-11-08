@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/navigation/unsaved_guard.dart';
 import '../../core/router/app_router.dart';
+import '../../core/server/app_session.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
+import '../../data/app_exception.dart';
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
@@ -163,15 +164,8 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     return false;
   }
 
-  String? _sessionUserId() {
-    final injected = widget.currentUserId;
-    if (injected != null) return injected;
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
-  }
+  String? _sessionUserId() =>
+      widget.currentUserId ?? AppSession.instance.currentUserId;
 
   Future<void> _startTimeline() async {
     final id = _sessionFamilyId;
@@ -219,7 +213,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
       await _manage.renameFamily(familyId: detail.id, name: _name.text);
       await _load();
       return true;
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
       return false;
     }
@@ -238,7 +232,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     try {
       await _manage.addCoOwner(familyId: detail.id, userId: picked);
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }
@@ -271,7 +265,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     try {
       await _manage.removeCoOwner(familyId: detail.id, userId: person.userId);
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }
@@ -294,7 +288,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     try {
       await _manage.removeMember(familyId: detail.id, userId: person.userId);
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }
@@ -311,7 +305,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
             'Invite sent again to $email. The old link no longer works.';
       });
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
       if (mounted) await _load();
     } finally {
@@ -341,7 +335,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
     try {
       await _manage.revokeInvite(invite.id);
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }
@@ -362,7 +356,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
         formerOwnerBecomes: choice.formerOwnerBecomes,
       );
       await _load();
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }
@@ -380,7 +374,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
       FamilySelection.forget(detail.id);
       if (!mounted) return;
       context.go(AppRoutes.manageFamilies);
-    } on ManageFamiliesException catch (e) {
+    } on AppException catch (e) {
       _snack(e.message);
     }
   }

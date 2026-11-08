@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/theme/album_header.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
@@ -377,12 +378,6 @@ class _Photos implements PhotosGateway {
   Future<void> setHeroPhoto({
     required String storyId,
     required String photoId,
-  }) async {}
-
-  @override
-  Future<void> deleteAllForStory({
-    required String familyId,
-    required String storyId,
   }) async {}
 
   @override
@@ -940,8 +935,8 @@ void main() {
     );
     await tester.pump();
 
-    manage.error = ManageFamiliesException(
-      code: 'VALIDATION',
+    manage.error = const AppException(
+      code: AppErrorCode.validation,
       message: 'too many levels',
     );
     await _tapCreate(tester);
@@ -950,7 +945,10 @@ void main() {
     expect(find.textContaining('VALIDATION:'), findsNothing);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
-    manage.error = ManageFamiliesException(code: 'NOT_FOUND', message: 'story');
+    manage.error = const AppException(
+      code: AppErrorCode.notFound,
+      message: 'story',
+    );
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(
@@ -959,8 +957,8 @@ void main() {
     );
     expect(find.text('story'), findsNothing);
 
-    manage.error = ManageFamiliesException(
-      code: 'FORBIDDEN',
+    manage.error = const AppException(
+      code: AppErrorCode.forbidden,
       message: 'member only',
     );
     await _tapCreate(tester);
@@ -978,8 +976,8 @@ void main() {
     expect(find.text('Try again'), findsOneWidget);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
-    manage.error = ManageFamiliesException(
-      code: 'VALIDATION',
+    manage.error = const AppException(
+      code: AppErrorCode.validation,
       message: 'create_branch_family returned no id',
     );
     await _tapCreate(tester);
@@ -988,8 +986,8 @@ void main() {
     expect(find.text('create_branch_family returned no id'), findsNothing);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
-    manage.error = ManageFamiliesException(
-      code: 'VALIDATION',
+    manage.error = const AppException(
+      code: AppErrorCode.validation,
       message: 'Request failed',
     );
     await _tapCreate(tester);
@@ -1003,7 +1001,10 @@ void main() {
     tester,
   ) async {
     final manage = _Manage()
-      ..error = ManageFamiliesException(code: 'NOT_FOUND', message: 'story');
+      ..error = const AppException(
+        code: AppErrorCode.notFound,
+        message: 'story',
+      );
     await _openForm(
       tester,
       origin: _story(),

@@ -1,0 +1,9 @@
+### One row of the family directory.
+class: FamilyRosterDto
+fields:
+  id: UuidValue
+  name: String
+  role: MembershipRole
+  memberCount: int
+  publishedCount: int
+  deletedAt: DateTime?

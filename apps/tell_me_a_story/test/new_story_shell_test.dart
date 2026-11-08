@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
@@ -545,23 +544,6 @@ void main() {
     expect(stories.updateIds, isEmpty);
   });
 
-  testWidgets('a duplicate-key insert becomes an update by the same id', (
-    tester,
-  ) async {
-    final stories = _AutosaveStories()..duplicateOnCreate = true;
-    await tester.pumpWidget(_shell(stories: stories));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
-    await tester.pump(kAutosavePause);
-    await tester.pump();
-
-    expect(stories.createIds, hasLength(1));
-    expect(stories.autosaveIds, [stories.createIds.single]);
-    expect(stories.updateIds, isEmpty);
-    expect(find.text('Saved'), findsOneWidget);
-  });
-
   testWidgets('a typing pause saves and leaving saves with no prompt', (
     tester,
   ) async {
@@ -894,7 +876,6 @@ class _AutosaveStories implements StoriesGateway {
     DateTime? now,
   }) async => const [];
 
-  var duplicateOnCreate = false;
   Object? createError;
   final List<String?> createIds = [];
   final List<String> createStatuses = [];
@@ -939,14 +920,6 @@ class _AutosaveStories implements StoriesGateway {
     createStatuses.add('draft');
     createStarts.add(timeframeStart);
     createAllowUndated.add(allowUndated);
-    if (duplicateOnCreate) {
-      duplicateOnCreate = false;
-      throw const PostgrestException(
-        message:
-            'duplicate key value violates unique constraint "stories_pkey"',
-        code: '23505',
-      );
-    }
     if (createError != null) throw createError!;
     story = Story(
       id: id ?? 'server-id',

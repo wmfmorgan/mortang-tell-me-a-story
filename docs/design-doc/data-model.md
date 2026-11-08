@@ -1,3 +1,5 @@
+> Superseded for the Serverpod rewrite by docs/migration/schema-design.md. Describes the Supabase state as of 2026-10-16.
+
 ## Family data model — ER diagram (2026-10-16)
 Source: `main` migrations through `20261016140000_passed_away_guard_steward.sql`, checked against prod `lchytafmnuefrgkguynt` (information_schema + pg_constraint, read-only) on 2026-10-16. Key columns only. PR #37 is not included.
 ```mermaid

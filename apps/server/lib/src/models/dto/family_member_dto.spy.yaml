@@ -1,0 +1,7 @@
+### A member of a family. No email: other users' emails are not exposed.
+class: FamilyMemberDto
+fields:
+  userId: UuidValue
+  role: MembershipRole
+  displayName: String?
+  avatarKey: String?
