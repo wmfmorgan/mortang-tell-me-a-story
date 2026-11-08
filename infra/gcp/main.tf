@@ -90,6 +90,11 @@ resource "google_storage_bucket" "blobs" {
     enabled = false
   }
 
+  # No soft delete: a deleted blob (D6c purge, replaced covers) is gone at once.
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
+
   cors {
     origin          = local.web_origins
     method          = ["PUT"]
@@ -100,9 +105,11 @@ resource "google_storage_bucket" "blobs" {
   depends_on = [google_project_service.this]
 }
 
+# objectUser covers every call the storage package makes: objects insert, get
+# (metadata and media) and delete, and creating objects through signed URLs.
 resource "google_storage_bucket_iam_member" "api_blobs" {
   bucket = google_storage_bucket.blobs.name
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.api.email}"
 }
 
