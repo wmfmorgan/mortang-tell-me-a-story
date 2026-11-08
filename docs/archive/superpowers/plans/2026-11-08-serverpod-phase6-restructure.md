@@ -2066,3 +2066,61 @@ done
 - No `MagicLinkPage` or `AppRoutes.magicLink`; `/` still opens the sign-in page.
 - Every test file sits under the `lib/` folder it tests; no milestone names. The six shared fakes replace the private gateway fakes, except ones named on purpose.
 - App test count = Phase 5 exit + 3 (`+689 ~12` from 686). The server count is unchanged. analyze ≤ 6. `just check`, `test-live`, the e2e run and CI are green.
+
+## As landed
+
+Landed 2026-11-07 on `feat/p6-restructure` (from `feature/serverpod` at `ddb7732`), not pushed. App `+689 ~12` (686 + 3), server `+425` (unchanged), analyze 6, `just check`, `just test-live` (`+27`) and the local e2e (9/9) green. CI not yet run (branch not pushed).
+
+Commits (the Task 19 docs commit follows these):
+
+```
+d8f71ce refactor(client): package imports in lib (always_use_package_imports)
+8494c9f test(client): architecture guards: import rules, colour skip-list ceiling
+4fe5a48 refactor(client): MagicLinkPage → SignInPage, AppRoutes.magicLink → signIn (URL unchanged)
+3d051a0 refactor(client): split AppRoutes and AlbumModalFrame out of the router; router and app widget move to lib/app
+f2ad404 refactor(client): shared story widgets and storyTitle move to lib/ui/story
+6738ae1 refactor(client): otp_sign_in and auth_refresh into data/; StorageFailedException into app_exception
+dc3504f style(client): family_role uses album tokens; leaves the colour skip list
+1633eec refactor(client): family_role, family_tree_order, leave_story_dialog and the unsaved guard move to lib/ui
+d81d198 docs: Phase 6 token decisions
+8e7fa20 style(client): album_chrome uses album tokens; leaves the colour skip list
+d9f4ef0 style(client): album_header uses album tokens; leaves the colour skip list
+b5a153c style(client): profile_avatar uses album tokens; leaves the colour skip list
+82f68e8 style(client): family_blur_dialog uses album tokens; leaves the colour skip list
+6dfa14f style(client): sign-in page uses album tokens; leaves the colour skip list
+dd865e2 refactor(client): album chrome, header, avatar and blur dialog move to lib/ui; sign_in_page.dart
+60e66fb test(client): import rules enforced without exceptions
+3e6a641 test(client): app, core, data and ui tests mirror lib
+6706eef test(client): feature tests mirror lib
+275c86e test(client): milestone tests renamed by subject; m13 split by subject
+85d558d test(client): guard that tests mirror lib and are named by subject
+e89b7bc test(client): shared gateway fakes
+35df9fb test(client): InviteGateway fakes use FakeInviteGateway
+96540ec test(client): StoriesGateway fakes use FakeStoriesGateway
+220282c test(client): PhotosGateway fakes use FakePhotosGateway
+97dc2e4 test(client): PlacesGateway fakes use FakePlacesGateway
+8cfc326 test(client): MapboxSearchGateway fakes use FakeMapboxSearch
+a7c38de test(client): ManageFamiliesGateway fakes use FakeManageFamiliesGateway
+```
+
+**Task 9 decisions (owner, 2026-11-07).** Every hit without an exact token got a new token with today's exact value, so every colour fix was pixel-identical (AE 0 on every screenshot pair). Q-A yes: `token.withAlpha(n)` where the ARGB is identical. Q-B yes: the sign-in page was fixed before its rename. New tokens in `core/theme/album_theme.dart`:
+
+| Token | Value | Used by |
+|---|---|---|
+| `albumWhite` | `0xFFFFFFFF` | `PlusLabel` plus glyph, blur-dialog confirm text, sign-in landing card fills |
+| `albumOnAccent` | `0xFFFFF6F3` | Publish story text, sign-in landing button text |
+| `albumMenuSurface` | `0xFFFCF9F5` | header avatar menu fill |
+| `albumAvatarFill` | `0xFFEDE0DC` | `ProfileAvatar.fill` |
+| `albumAvatarBorder` | `0xFFD5C7B7` | `ProfileAvatar.borderColor` |
+| `albumInviteBorder` | `0xFFE8DFD5` | send-invite card and note borders; divider via `.withAlpha(0x80)` |
+| `albumInviteNoteFill` | `0xFFF7F1EA` | send-invite note fill |
+| `albumLandingLine` | `0xFFB9B0AD` | sign-in landing lines (`_landingLine`) |
+| `albumShadow` | `0xFF000000` | blur-dialog card shadow `.withAlpha(0x1A)`, sign-in card shadows `.withAlpha(0x0D)` |
+
+Same-ARGB alpha forms: `albumInk.withAlpha(0x33)` (album dialog shadow), `.withAlpha(0x66)` (blur scrim), `.withAlpha(0x1A)` (send-invite shadow). Colour skip list ceiling: 17.
+
+**Screenshot checks** (1280×800, DPR 1.25, e2e owner family; `/tmp/tmas-p6-shots/<stem>/`): `family_role` hub, detail, detail-members, transfer-dialog; `album_chrome` manage-members, capture-add-person-plus, album-dialog-add-person; `album_header` family-nav, family-menu, avatar-menu, capture-header; `profile_avatar` family-nav, settings, manage-members; `family_blur_dialog` remove-confirm, send-invite-confirm, add-co-owner-dialog; `sign_in_page` landing, code-step. All AE 0. Differences from the planned screens: Task 7 and Task 10 screens corrected in the plan (the planned ones never drew the edited colour); Task 12 used the members list instead of a person profile dialog; Task 13 used the remove-member confirm and add-co-owner dialog instead of delete-family and leave-story (no data writes).
+
+**Differences from the plan:** `dart fix` (Task 1) adds `flutter_web_plugins: any` to `pubspec.yaml`, reverted; four, not five, "to magic-link" test names (Task 3); `new_story_shell_test.dart` carried two `core/theme/album_header.dart` fixture strings, updated in Task 15.
+
+**Fakes kept on purpose:** none keep `implements <Gateway>`. Private fakes that differ from the shared behaviour are subclasses (`extends FakeXGateway`) overriding only what differs; each is named with its reason in its migration commit body (`35df9fb`, `96540ec`, `220282c`, `97dc2e4`, `8cfc326`, `a7c38de`). Test-side changes: assertions read the shared fakes' fields (`createdFamilyNames`, `sentInvites`, `queries`, `calls`, `photos`, `places`), and `people_profiles_test` expects the shared fake's invite id `invite-1`.

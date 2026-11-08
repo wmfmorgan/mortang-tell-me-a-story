@@ -11,10 +11,12 @@ If the code and the plan disagree, stop and report the difference; don't reconci
 
 ## Layout
 - `apps/tell_me_a_story/`: Flutter client (iPad + web).
-  - `lib/core`: config, server connection, router, theme tokens.
-  - `lib/data`: gateways (models, `XGateway`, `XApi` on the generated client).
+  - `lib/app`: router and app widget.
+  - `lib/core`: config, route paths, server connection, theme tokens.
+  - `lib/data`: gateways and session state.
+  - `lib/ui`: widgets used by several features.
   - `lib/features/<feature>`: screens.
-  - Tests: `test/`, `test/live` (tag `live`), `integration_test/`.
+  - `test/` mirrors `lib/`; `test/architecture` holds the guards; `test/support/fakes` holds the shared gateway fakes; `test/live` (tag `live`); `integration_test/` (e2e).
 - `apps/server/`: Serverpod 4.1.1 server. Endpoints are in `lib/src/endpoints`, rules in `lib/src/<domain>`, models in `lib/src/models/*.spy.yaml`, migrations in `migrations/`.
 - `packages/tell_me_a_story_client/`: generated; never edit by hand.
 
