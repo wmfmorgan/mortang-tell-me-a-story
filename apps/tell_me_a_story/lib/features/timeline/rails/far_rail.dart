@@ -8,6 +8,8 @@ import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 import 'package:tell_me_a_story/features/timeline/rails/rail_scaffold.dart';
 import 'package:tell_me_a_story/features/timeline/rails/rail_spine.dart';
 import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
+import 'package:tell_me_a_story/ui/timeline/pointer_input.dart';
+import 'package:tell_me_a_story/ui/timeline/story_chooser.dart';
 
 class FarRail extends StatefulWidget {
   const FarRail({
@@ -45,6 +47,10 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
   final _rowKeys = <int, GlobalKey>{};
 
   GlobalKey _rowKey(int year) => _rowKeys.putIfAbsent(year, GlobalKey.new);
+
+  final _dotKeys = <String, GlobalKey>{};
+
+  GlobalKey _dotKey(String id) => _dotKeys.putIfAbsent(id, GlobalKey.new);
 
   @override
   Iterable<int> get rowKeys => widget.bands.map((band) => band.startYear);
@@ -120,6 +126,7 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
           opacity: opacityOf(band.startYear, unmeasured: 1),
           highlight: _highlight(band),
           onDot: widget.onDot,
+          dotKey: _dotKey,
           onYear: widget.onYear,
         ),
     ];
@@ -163,6 +170,7 @@ class _FarDecadeRow extends StatelessWidget {
     required this.branching,
     this.originStoryId,
     required this.onDot,
+    required this.dotKey,
     required this.onYear,
     required this.onOpenBranch,
   });
@@ -174,6 +182,9 @@ class _FarDecadeRow extends StatelessWidget {
   final RailBranching branching;
   final String? originStoryId;
   final ValueChanged<Story> onDot;
+
+  /// Finds each story's painted dot, so a finger tap can measure to it.
+  final GlobalKey Function(String id) dotKey;
   final ValueChanged<int> onYear;
   final ValueChanged<String> onOpenBranch;
 
@@ -248,6 +259,7 @@ class _FarDecadeRow extends StatelessWidget {
             highlighted: highlighted,
             origin: origin,
             ringed: true,
+            anchor: dotKey(story.id),
             onTap: () => onDot(story),
           ),
         );
@@ -318,15 +330,49 @@ class _FarDecadeRow extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: dots,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                supportedDevices: fingerDevices,
+                onTapUp: (details) => _onFingerTap(context, details),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: dots,
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// A finger reaches every dot within [hitRadiusFor] of the tap. One dot
+  /// opens its story; several (a stacked year) open the chooser. Pointers
+  /// never get here: the dots answer them directly.
+  Future<void> _onFingerTap(BuildContext context, TapUpDetails details) async {
+    final covered = <Story>[];
+    for (final story in band.stories) {
+      final box = dotKey(story.id).currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached) continue;
+      final centre = box.localToGlobal(box.size.center(Offset.zero));
+      final reach = hitRadiusFor(
+        details.kind,
+        precise: box.size.shortestSide / 2,
+      );
+      if ((centre - details.globalPosition).distance <= reach) {
+        covered.add(story);
+      }
+    }
+    if (covered.isEmpty) return;
+    if (covered.length == 1) return onDot(covered.single);
+    final id = await showStoryChooser(
+      context,
+      globalPosition: details.globalPosition,
+      stories: covered,
+    );
+    for (final story in covered) {
+      if (story.id == id) return onDot(story);
+    }
   }
 
   Widget _farParent(
@@ -340,6 +386,7 @@ class _FarDecadeRow extends StatelessWidget {
       context: context,
       frame: frame,
       dot: _FarDot(
+        anchor: dotKey(story.id),
         story: story,
         highlighted: highlighted,
         origin: origin,
@@ -369,6 +416,7 @@ class _FarDecadeRow extends StatelessWidget {
       frame: frame,
       side: CalloutSide.right,
       dot: _FarDot(
+        anchor: dotKey(story.id),
         story: story,
         highlighted: highlighted,
         origin: origin,
@@ -480,6 +528,7 @@ class _FarDot extends StatelessWidget {
   const _FarDot({
     required this.story,
     required this.highlighted,
+    required this.anchor,
     required this.onTap,
     this.origin = false,
     this.ringed = false,
@@ -487,6 +536,7 @@ class _FarDot extends StatelessWidget {
 
   final Story story;
   final bool highlighted;
+  final GlobalKey anchor;
   final VoidCallback onTap;
   final bool origin;
   final bool ringed;
@@ -495,10 +545,12 @@ class _FarDot extends StatelessWidget {
   Widget build(BuildContext context) {
     final dot = GestureDetector(
       key: Key('timeline-dot-${story.id}'),
+      supportedDevices: preciseDevices,
       onTap: onTap,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: StoryDot(
+          key: anchor,
           reserveRings: false,
           spec: MarkerSpec(
             matched: true,

@@ -11,6 +11,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 import 'package:tell_me_a_story/ui/story/story_title.dart';
 import 'package:tell_me_a_story/features/timeline/rails/rail_scaffold.dart';
 import 'package:tell_me_a_story/features/timeline/rails/rail_spine.dart';
+import 'package:tell_me_a_story/ui/timeline/pointer_input.dart';
 import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
 
 class MidRail extends StatefulWidget {
@@ -347,11 +348,13 @@ class _DialRow extends StatelessWidget {
       ),
     );
     // The branch ring sits just outside the dot. Extra slop belongs only on
-    // a plain node, where it cannot cover that stroke.
+    // a plain node, where it cannot cover that stroke: 8 pt for a pointer,
+    // and the finger radius as a disk for a finger.
     Widget nodeHit({required bool slop}) {
       final hit = GestureDetector(
         key: Key('timeline-mid-node-${story.id}'),
         behavior: HitTestBehavior.opaque,
+        supportedDevices: slop ? preciseDevices : null,
         onTap: onNode,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
@@ -362,7 +365,18 @@ class _DialRow extends StatelessWidget {
       );
       // The square bounds cover the ring on the diagonals. Only the disk
       // should open the story.
-      return slop ? hit : ClipOval(child: hit);
+      if (!slop) return ClipOval(child: hit);
+      return ClipOval(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          supportedDevices: fingerDevices,
+          onTap: onNode,
+          child: SizedBox.square(
+            dimension: 2 * AlbumTarget.fingerRadius,
+            child: Center(child: hit),
+          ),
+        ),
+      );
     }
 
     final placed = frame.branchesStory
