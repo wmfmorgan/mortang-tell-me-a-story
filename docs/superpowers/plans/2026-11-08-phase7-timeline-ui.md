@@ -63,7 +63,7 @@
 | 7.3 Rail split at parity | this index, §7.3 | 7.1, 7.2 | done (`feat/p7-3-rail-split`; app `+741 ~12`, goldens unchanged) |
 | 7.4 Rail restyle and iPad | written at slice start | 7.3; owner screenshot sign-off before merge | not started |
 | 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
-| 7.6S Server: tree reads (G1, G2) | written at slice start | — | not started |
+| 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | not started |
 | 7.7 Whole-tree page and treemap | written at slice start | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | not started |
 | 7.8 Family tree graph | written at slice start | 7.7, **7.M pass** (O4 thresholds approved 2026-11-08); screenshots before merge | not started |
@@ -77,7 +77,7 @@
 7.6S ───────┴─► 7.7 ────────────────► 7.8 ─► 7.z
 ```
 
-7.0, 7.1, 7.2 and 7.6S can start at once. 7.0 and 7.1 both edit `justfile` and `AGENTS.md`: whichever merges second rebases and keeps both sides. 7.7 runs alongside 7.3–7.5. Their only shared files are `test/features/timeline/timeline_page_test.dart` and `test/features/stories/story_reader_page_test.dart` (7.7 adds `watchTree` to the `implements TimelineLive` fakes); keep both sides there.
+7.0, 7.1, 7.2 and 7.6S can start at once. 7.0 and 7.1 both edit `justfile` and `AGENTS.md`: whichever merges second rebases and keeps both sides. 7.7 runs alongside 7.3–7.5. 7.6S adds a no-op `watchTree` to the `implements TimelineLive` fakes in `test/features/timeline/timeline_page_test.dart` and `test/features/stories/story_reader_page_test.dart`, which 7.3–7.5 also edit; keep both sides there.
 
 ---
 
@@ -120,7 +120,7 @@ Expected: `(0 changed)` twice, `analyze: 6 issues (ceiling 6)` (lower the ceilin
 5. Merge only after the owner approves. Record the approval (date and any changes asked for) in the slice plan.
 
 **Fakes.** A slice that changes an interface updates every fake of it in `test/`, following the Phase 4 convention:
-- 7.7: `StoriesGateway.listPublishedInTree` goes in the shared `test/support/fakes/fake_stories_gateway.dart`. `TimelineLive.watchTree` gets a no-op default in the abstract class, like `watchStory` (`lib/data/timeline_live.dart:24-36`), and is implemented in each `implements TimelineLive` fake: `test/features/timeline/timeline_page_test.dart` (`_FakeLive`) and `test/features/stories/story_reader_page_test.dart`.
+- 7.6S: `StoriesGateway.listPublishedInTree` goes in the shared `test/support/fakes/fake_stories_gateway.dart`. `TimelineLive.watchTree` gets a no-op default in the abstract class, like `watchStory` (`lib/data/timeline_live.dart:24-36`), and is implemented in each `implements TimelineLive` fake: `test/features/timeline/timeline_page_test.dart` (`_FakeLive`), `test/features/stories/story_reader_page_test.dart` (`_StoryReload`) and `test/goldens/timeline_rails_golden_test.dart` (`_Live`). 7.7 only overrides them where a test needs it.
 
 **Out of scope:**
 - **Playback (Q3).**
@@ -805,16 +805,14 @@ Color allStoriesDimInk() => albumDimInk;
 
 ## 7.6S Server: tree reads (G1, G2)
 
-**Owns:**
-- `apps/server/lib/src/endpoints/story_endpoint.dart`, `live_endpoint.dart`, `lib/src/live/live_events.dart`, and the three `postLiveEvent` callers (`story_endpoint.dart:280`, `photo_endpoint.dart:238`, `note_endpoint.dart:167`);
-- `lib/src/models/story.spy.yaml`;
-- a new migration;
-- `test/integration/{story_endpoint,live_endpoint}_test.dart`;
-- the regenerated `packages/tell_me_a_story_client` (`just server-generate`). The app compiles unchanged, because the change only adds things.
+**Branch:** `feat/p7-6s-tree-reads`, from `feature/serverpod` `920cc17`. **Owns:**
+- server: `lib/src/endpoints/{story,live,family}_endpoint.dart`, `lib/src/live/live_events.dart`, the three `postLiveEvent` callers (`story_endpoint.dart:280`, `photo_endpoint.dart:238`, `note_endpoint.dart:167`), `lib/src/models/story.spy.yaml`, `lib/src/models/dto/{live_kind,live_event_dto}.spy.yaml`, a new migration, `test/integration/{story_endpoint,live_endpoint}_test.dart`;
+- the regenerated `packages/tell_me_a_story_client` (`just server-generate`);
+- client plumbing (moved here from 7.7; no UI): `lib/data/stories_api.dart` (`StoriesGateway.listPublishedInTree`), `lib/data/timeline_live.dart` (`TimelineLive.watchTree`, `treeEventMatters`), `test/support/fakes/fake_stories_gateway.dart`, a no-op `watchTree` in the three `implements TimelineLive` fakes (`test/features/timeline/timeline_page_test.dart` `_FakeLive`, `test/features/stories/story_reader_page_test.dart` `_StoryReload`, `test/goldens/timeline_rails_golden_test.dart` `_Live`; no pixel change), `test/data/{stories_api,timeline_live}_test.dart`, `test/live/{stories_live,server_timeline_live}_test.dart`.
 
 **G1 `story.listPublishedInTree(UuidValue familyId) → List<StoryDto>`.**
-- **Authorization:** the existing `_requireFamilyReader` (`isTreeReadable`: the family is live, and the caller is a live member of some family in its tree), otherwise `forbidden`.
-- **Rows:** stories with `treeId = family.treeId`, `status = published`, and `familyId` in the tree's **live** families (D6b; a deleted middle family hides only its own stories, D8). Ordered by `_timelineOrder` (`story_endpoint.dart:504-509`), built with `storyDtos`, as `listForPerson` does at `:399-427`.
+- **Authorization:** the existing `_requireFamilyReader` (`Authz.isTreeReadable`: the family is live, and the caller is a live member of some live family with the same `treeId`), otherwise `forbidden`. It is the rule `listPublished` and `watchFamily` already use for tree readers. Anonymous callers never reach it (`requireLogin`).
+- **Rows:** stories with `treeId = family.treeId`, `status = published`, and `familyId` in the tree's **live** families (D6b; a deleted middle family hides only its own stories, and its parent and children stay one tree, D8). Ordered by `_timelineOrder` (`story_endpoint.dart:504-509`), built with `storyDtos`, as `listForPerson` does at `:399-427`.
 - **Index:** add to `story.spy.yaml` `indexes:`:
 
 ```yaml
@@ -826,27 +824,62 @@ Color allStoriesDimInk() => albumDimInk;
 
 then `mise exec -- just server-generate` and `mise exec -- just server-migration tree-timeline` (a new migration; never edit `20261107133050788-init`).
 
-**G2: `live.watchTree(UuidValue familyId)`, chosen over N `watchFamily` subscriptions.**
-- **Branches created later are covered.** `LiveKind` has only `story|photo|note`, so no event announces a new family. With N subscriptions, the client would miss a branch created after it subscribed until the next full reload. One tree channel covers it with no client bookkeeping.
-- **One subscription.** That means one authorization check (`isTreeReadable`, the same rule as G1), one retry/backoff loop in `ServerTimelineLive`, and one permanent-refusal path. N subscriptions mean N of each, plus resubscribing whenever the tree's family list changes.
-- **Small change.** `treeChannel(treeId) => 'tree:$treeId'`. `postLiveEvent(session, event, {required UuidValue treeId})` also posts to the tree channel. Every caller already holds the `Story`, so it passes `story.treeId`. There is no model change: `LiveEventDto` keeps `familyId`, so the client can tell which family changed.
-- **Same trust model as `watchFamily`.** Authorization happens once, at subscribe (`live_endpoint.dart:9-21`). Events are only hints; the refetch through G1 re-checks access. Writes to soft-deleted families are refused (D6b), so no event comes from one.
-- **Cost of the alternative.** It needs no server change. But it carries the bookkeeping above, and it still can't see a new branch without a family event, which would be a new `LiveKind` anyway.
+**G2: `live.watchTree(UuidValue familyId) → Stream<LiveEventDto>`, chosen over N `watchFamily` subscriptions.**
+- **One subscription.** One authorization check (`isTreeReadable`, the same rule as G1 and as `watchFamily`'s tree-reader branch; a live member always passes it), one retry/backoff loop in `ServerTimelineLive`, and one permanent-refusal path. N subscriptions mean N of each, plus resubscribing whenever the tree's family list changes.
+- **Channel.** `treeChannel(treeId) => 'tree:$treeId'`. `postLiveEvent(session, event, {required UuidValue treeId})` also posts to the tree channel, after the family and story channels. Every caller already holds the `Story`, so it passes `story.treeId`. `LiveEventDto` keeps `familyId`, so the client can tell which family changed.
+- **Family events (new `LiveKind.family`).** The tree's set of live families changes on `family.createBranch`, `family.softDelete` and `family.recover`; each posts, after commit and **only to the tree channel**, `LiveEventDto(familyId: <that family>, kind: family, deleted: <true for softDelete>)` through `postFamilyEvent(session, family, deleted:)`. The family channel never carries it, so today's `timelineEventMatters` is untouched. A repeated `softDelete` (the no-op path) posts nothing. `LiveKind` is a DTO enum with no column, so this is a model change without a migration.
+- **Same trust model as `watchFamily`.** Authorization happens once, at subscribe (`live_endpoint.dart:9-21`), with the same `forbidden('member only')`. Events are only hints; the refetch through G1 re-checks access. Writes to soft-deleted families are refused (D6b), so no story event comes from one.
+- **Cost of the alternative.** N subscriptions need no server change, but they carry the bookkeeping above and still can't see a new branch without a family event.
 
-**Tests** (each red first; they extend the business-rules cases):
-1. A member of root R reads the published stories of R and its live branch B, interleaved in timeline order; their own drafts are absent.
-2. A member of B only reads R's stories through `listPublishedInTree(B)`.
-3. Given R → M (soft-deleted) → C, a member of R sees R and C, not M (D8).
-4. A caller outside the tree gets `forbidden`. An anonymous caller is refused. A soft-deleted `familyId` gets `forbidden`.
-5. Another tree's stories are never returned.
-6. The migration creates `stories_tree_order_idx` (a `pg_indexes` query, as `constraints_test` does).
-7. `watchTree(R)`: a publish in B delivers an event with `familyId = B`.
-8. An edit to a draft in B delivers nothing.
-9. An event in another tree is not delivered.
-10. `watchTree` by a non-member gets `forbidden`; an anonymous caller is refused.
-11. `watchFamily` behaviour is unchanged (the existing cases stay green).
+**Client plumbing (no UI).**
+- `StoriesGateway.listPublishedInTree(String familyId) → Future<List<Story>>`; `StoriesApi` calls `_client.story.listPublishedInTree` through `_stories` (server errors mapped as for `listPublished`). `FakeStoriesGateway.listPublishedInTree` records the call and returns every published story in its store, sorted with `compareStories` (the fake's store stands for one tree).
+- `TimelineLive.watchTree({required String familyId, required void Function() onChange})`, a no-op default like `watchStory`. `ServerTimelineLive` opens a third `_LiveFeed` on `live.watchTree` (same 200 ms debounce, 1 s → 30 s backoff, permanent refusal on `AppException`/unauthorized/forbidden; one stream per family id; `dispose` closes it).
+- `treeEventMatters(event)`: like `timelineEventMatters` without the family filter. A story event that is not deleted and not published is dropped; every other event (published or deleted stories, photos, notes, family events) refreshes.
 
-**Done when:** `just check` passes with server `+425` plus the new cases, `just server-analyze` is clean, and the generated client is committed.
+### Task 1: G1 tree read and its index
+- [x] **Step 1 (red):** in `story_endpoint_test.dart`, group `tree timeline`:
+  1. Given R → B1 → C and R → B2, a member of B1 reads the published stories of R (parent), B2 (sibling), C (child) and B1, interleaved in timeline order; drafts in R and B1 (their own included) and another tree's stories are absent.
+  2. Given R → M (soft-deleted) → C, a member of R and a member of C both read R's and C's stories and not M's (D6b, D8).
+  3. Stories sharing a start across families come year, month, day, then createdAt: the result equals `timelineOrder` over the union of each family's `listPublished`.
+  4. A stranger and a member of another tree get `forbidden`; a member of a soft-deleted family asking for it gets `forbidden`; an anonymous caller is refused (`ServerpodUnauthenticatedException`).
+  5. `pg_indexes` has `stories_tree_order_idx` on `("treeId", status, "dateStart", "datePrecision", "createdAt", id)`.
+
+  Run `mise exec -- dart test test/integration/story_endpoint_test.dart` in `apps/server`: it fails to compile (no `listPublishedInTree`).
+- [x] **Step 2 (green):** the endpoint method and the index, `just server-generate`, `just server-migration tree-timeline`. Rerun: green.
+- [x] **Step 3:** `mise exec -- just server-analyze`, `just fmt-check`; commit `feat(server): story.listPublishedInTree with a tree timeline index (7.6S G1)`.
+
+### Task 2: G2 tree channel and family events
+- [x] **Step 1 (red):** in `live_endpoint_test.dart`, group `watchTree`:
+  1. A member of R watching `watchTree(R)` gets the event of a real publish in branch B (`story.publish`), with `familyId = B`.
+  2. A comment on a published story in B arrives on the tree channel (the note caller passes `treeId`).
+  3. An edit to a draft in B delivers nothing.
+  4. A comment in another tree delivers nothing (a comment in R, sent in the same window, does).
+  5. A member of R watching `watchTree(R)` hears `createBranch` under R (`kind = family`, the new id, `deleted = false`), then `softDelete` of that branch (`deleted = true`), then `recover` (`deleted = false`). A repeated `softDelete` posts nothing.
+  6. A stranger and a member of a soft-deleted family get `forbidden('member only')`; an anonymous caller is refused.
+  7. The existing `watchFamily` cases stay green, and a family event never reaches `family:<id>`.
+
+  Red: no `watchTree`, no `LiveKind.family`.
+- [x] **Step 2 (green):** `LiveKind.family`, `treeChannel`, `postLiveEvent(..., treeId:)` at the three callers, `postFamilyEvent` in `createBranch`/`softDelete`/`recover`, `LiveEndpoint.watchTree`; `just server-generate`. Rerun: green, and `story,note,photo,family` endpoint tests stay green.
+- [x] **Step 3:** analyze, format; commit `feat(server): live.watchTree on a tree channel with family events (7.6S G2)`.
+
+### Task 3: client plumbing
+- [x] **Step 1 (red):** `test/data/stories_api_test.dart`: `listPublishedInTree` calls `story.listPublishedInTree` with the family uuid and maps each `StoryDto`, in server order; a server `AppException` comes out mapped. `test/data/timeline_live_test.dart`: `treeEventMatters` (other families refresh; a draft story does not; deleted stories, photos, notes and family events do); `watchTree` subscribes to `live.watchTree`, debounces, reopens with backoff, stops on a refusal, and `dispose` closes it. Live (`test/live`): `stories_live_test` — a root member reads a branch story through `listPublishedInTree`; `server_timeline_live_test` — `watchTree(root)` fires on a branch publish.
+- [x] **Step 2 (green):** the gateway method, the fake, `TimelineLive.watchTree`, `ServerTimelineLive`, `treeEventMatters`, the three no-op fakes. `mise exec -- just test`, `mise exec -- just test-goldens` (unchanged).
+- [x] **Step 3:** commit `feat(app): tree read and tree live plumbing (7.6S)`.
+
+### Task 4: close
+- [x] `mise exec -- just check`; the live suite against a server built from this branch (`LIVE_SERVER_URL`, see "As landed"); fill "As landed" below and the Status row; commit `docs(plan): 7.6S as landed`.
+
+**Done when:** `just check` passes with the server count up by the new cases, `just test-goldens` is unchanged, the migration is new and named by the tool, the generated client is committed, and `git status --short` is clean.
+
+**As landed (7.6S, 2026-11-08, `feat/p7-6s-tree-reads`):**
+- **Commits:** `ef49b1e` plan; `11a2d07` G1 (`story.listPublishedInTree`, index, migration); `ed48c4c` G2 (`live.watchTree`, tree channel, `LiveKind.family`); `47e97d2` client plumbing; then this "As landed" commit.
+- **Endpoints:** `StoryEndpoint.listPublishedInTree(Session, UuidValue familyId) → Future<List<StoryDto>>`; `LiveEndpoint.watchTree(Session, UuidValue familyId) → Stream<LiveEventDto>`. Client: `client.story.listPublishedInTree(familyId)`, `client.live.watchTree(familyId)`.
+- **Authz:** `Authz.isTreeReadable(familyId)` for both (the family is live and the caller is a live member of some live family with the same `treeId`); G1 refuses through `_requireFamilyReader` with bare `forbidden`, G2 with `forbidden('member only')`, as `watchFamily`. No new `AppErrorCode`.
+- **Migration:** `20261108073545682-tree-timeline` (tool-named): `CREATE INDEX "stories_tree_order_idx" ON "stories" USING btree ("treeId", "status", "dateStart", "datePrecision", "createdAt", "id")`. `20261107133050788-init` untouched.
+- **Family events:** `createBranch`, `softDelete` (not the repeat) and `recover` post `LiveKind.family` to `tree:<treeId>` only. `recover` is included because it changes the tree's set of live families just as `softDelete` does; `rename`, `setOrigin`, membership changes and the purge post nothing.
+- **Gates:** `just check` passes: `fmt-check` `(0 changed)` ×2; `analyze: 6 issues (ceiling 6)`; app `+704 ~12` (10 new tests: 2 `stories_api`, 3 `treeEventMatters`, 5 `watchTree`); `server-analyze` no issues; server `+447` (15 new tests: 7 story, 8 live, including the review's deleted-family-member and exact-order cases). `just test-goldens` `+6`, no PNG changed.
+- **Live:** `just server` on :8080 runs the main checkout's older server, so the live suite ran against a server started from this worktree on other ports with its own data directory: `SERVERPOD_DATABASE_DATA_PATH=.serverpod/p76s/pgdata SERVERPOD_API_SERVER_PORT=8180 SERVERPOD_API_SERVER_PUBLIC_PORT=8180 SERVERPOD_INSIGHTS_SERVER_PORT=8181 SERVERPOD_INSIGHTS_SERVER_PUBLIC_PORT=8181 SERVERPOD_WEB_SERVER_PORT=8182 SERVERPOD_WEB_SERVER_PUBLIC_PORT=8182 SERVERPOD_DATABASE_PORT=8190 dart run bin/main.dart --apply-migrations` in `apps/server`, then `flutter test --tags live --run-skipped --dart-define=LIVE_SERVER_URL=http://127.0.0.1:8180 test/live`: `+29` (was `+27`; +2). The worktree's copied `.serverpod/development/pgdata` points at the main checkout's postmaster, hence the separate data path.
 
 ## 7.M iPad measurement (Q6; owner, on their iPad)
 
@@ -903,8 +936,7 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
 ## 7.7 Whole-tree page and treemap (Q2)
 
 **Owns:**
-- `lib/data/stories_api.dart` (`StoriesGateway.listPublishedInTree`, `StoriesApi` via `_client.story.listPublishedInTree`);
-- `lib/data/timeline_live.dart` (`TimelineLive.watchTree` with a no-op default, `ServerTimelineLive` on `live.watchTree` with the same 200 ms debounce and backoff, and `treeEventMatters`, which drops non-published story events and has no family filter);
+- uses the 7.6S plumbing as landed: `StoriesGateway.listPublishedInTree`, `TimelineLive.watchTree` and `treeEventMatters` (`lib/data/stories_api.dart`, `lib/data/timeline_live.dart`);
 - `lib/core/router/app_routes.dart` (`familyTree = '/family/:id/tree'`, `familyTreePath(id)`);
 - `lib/app/app_router.dart` (the route, beside `allStories` at `:183`);
 - `lib/ui/album/album_header.dart` (`AlbumHeaderPage.familyTree` and the entry point per O1);
@@ -929,7 +961,7 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
 - Port `treemap_test` (199 lines; layout and hit tests on `Story`/`TreeFamily`).
 - Page widget tests with fakes: load, live refresh, tile → reader route, family → timeline, the empty tree.
 - The router test for `/family/:id/tree`, the header entry test, and the iPad sweep.
-- Live: `listPublishedInTree` returns a branch's story, and `watchTree` fires on a branch publish (`test/live/stories_live_test.dart`, `server_timeline_live_test.dart`).
+- Live: covered by 7.6S (`test/live/stories_live_test.dart`, `server_timeline_live_test.dart`); 7.7 adds none unless the page needs a new gateway call.
 - Goldens `family_tree_treemap_{desktop,ipad_mini_portrait}`.
 
 **Stop:** screenshots signed off before merge (O1, O2, O5 and O6 are answered). Gates include `test-live` and e2e.

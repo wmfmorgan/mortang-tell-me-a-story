@@ -173,5 +173,6 @@ Future<void> _post(Session session, Story story, {bool deleted = false}) async {
       storyStatus: story.status,
       deleted: deleted,
     ),
+    treeId: story.treeId,
   );
 }

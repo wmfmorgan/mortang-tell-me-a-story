@@ -549,7 +549,8 @@ class EndpointFamily extends _isc.EndpointRef {
 
   /// Owner only. Only sets `deletedAt`; the purge (3f) removes the family
   /// after the recovery window. Repeating it as the owner of an already
-  /// deleted family is a no-op (business-rules.md §3.5).
+  /// deleted family is a no-op (business-rules.md §3.5). Posts a `family`
+  /// event (deleted) to the tree channel after commit.
   _ida.Future<void> softDelete(_isc.UuidValue familyId) =>
       caller.callServerEndpoint<void>(
         'family',
@@ -558,7 +559,8 @@ class EndpointFamily extends _isc.EndpointRef {
       );
 
   /// Owner or co-owner of the soft-deleted family, inside the recovery
-  /// window (recovery exception, D6b).
+  /// window (recovery exception, D6b). Posts a `family` event to the tree
+  /// channel after commit.
   _ida.Future<void> recover(_isc.UuidValue familyId) =>
       caller.callServerEndpoint<void>(
         'family',
@@ -594,6 +596,7 @@ class EndpointFamily extends _isc.EndpointRef {
   /// "Start a new timeline" (business-rules.md §3.2, in that check order).
   /// The owner and each picked linked member get a linked person in the tree
   /// (D6d). A lost race on `people_tree_user_uidx` reruns the write once.
+  /// Posts a `family` event to the tree channel after commit.
   _ida.Future<_isc.UuidValue> createBranch({
     required _isc.UuidValue parentFamilyId,
     required _isc.UuidValue originStoryId,
@@ -766,6 +769,21 @@ class EndpointLive extends _isc.EndpointRef {
         {},
       );
 
+  /// Events for every live family in [familyId]'s tree (`tree:<treeId>`):
+  /// story, photo and note events of each family, and a `family` event when
+  /// a family of the tree is created, soft-deleted or recovered. Tree readers
+  /// of live [familyId] (`isTreeReadable`, which every live member passes).
+  _ida.Stream<_iliy4w0g.LiveEventDto> watchTree(_isc.UuidValue familyId) =>
+      caller.callStreamingServerEndpoint<
+        _ida.Stream<_iliy4w0g.LiveEventDto>,
+        _iliy4w0g.LiveEventDto
+      >(
+        'live',
+        'watchTree',
+        {'familyId': familyId},
+        {},
+      );
+
   /// Events for [storyId]: whoever may read the story (`canReadStory`).
   _ida.Stream<_iliy4w0g.LiveEventDto> watchStory(_isc.UuidValue storyId) =>
       caller.callStreamingServerEndpoint<
@@ -797,6 +815,7 @@ class EndpointMedia extends _isc.EndpointRef {
         {'key': key},
       );
 
+  /// At most [mediaManyMaxKeys] keys per call, else VALIDATION.
   _ida.Future<Map<String, _idt.ByteData>> getMany(List<String> keys) =>
       caller.callServerEndpoint<Map<String, _idt.ByteData>>(
         'media',
@@ -1353,6 +1372,18 @@ class EndpointStory extends _isc.EndpointRef {
   ) => caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
     'story',
     'listPublished',
+    {'familyId': familyId},
+  );
+
+  /// Published stories of every live family in [familyId]'s tree, in
+  /// timeline order (G1). A soft-deleted family's stories are left out, and
+  /// it doesn't split the tree (D6b, D8). Tree readers of live [familyId]
+  /// only.
+  _ida.Future<List<_ilx6iivj.StoryDto>> listPublishedInTree(
+    _isc.UuidValue familyId,
+  ) => caller.callServerEndpoint<List<_ilx6iivj.StoryDto>>(
+    'story',
+    'listPublishedInTree',
     {'familyId': familyId},
   );
 

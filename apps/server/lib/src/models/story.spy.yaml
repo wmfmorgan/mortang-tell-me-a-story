@@ -26,6 +26,10 @@ indexes:
   ### (same tiebreak as client compareStories, stories_api.dart:796 and :663-665).
   stories_family_order_idx:
     fields: familyId, status, dateStart, datePrecision, createdAt, id
+  ### Tree timeline (listPublishedInTree): same column order as
+  ### stories_family_order_idx, led by treeId.
+  stories_tree_order_idx:
+    fields: treeId, status, dateStart, datePrecision, createdAt, id
   ### Drafts page (author's drafts).
   stories_author_status_idx:
     fields: authorId, status

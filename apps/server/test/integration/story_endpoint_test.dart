@@ -1123,6 +1123,237 @@ void main() {
       );
     });
 
+    group('tree timeline', () {
+      /// A story in [family] starting on [start] at [precision].
+      Future<Story> storyAt(
+        Family family,
+        DateTime start, {
+        DatePrecision precision = DatePrecision.year,
+        StoryStatus status = StoryStatus.published,
+        UuidValue? authorId,
+        DateTime? createdAt,
+      }) {
+        final dates = normalizeStoryDates(start, null, precision);
+        return Story.db.insertRow(
+          fx.s,
+          Story(
+            familyId: family.id!,
+            treeId: family.treeId,
+            authorId: authorId,
+            title: 'A story',
+            status: status,
+            dateStart: dates.start,
+            dateEnd: dates.end,
+            datePrecision: dates.precision,
+            publishedAt: status == StoryStatus.published
+                ? DateTime.now().toUtc()
+                : null,
+            createdAt: createdAt,
+          ),
+        );
+      }
+
+      Future<Family> child(Family parent, {String name = 'Branch'}) =>
+          fx.family(c.tree, parentId: parent.id, branchYear: 1980, name: name);
+
+      Future<List<UuidValue>> treeIds(UuidValue user, Family family) async => [
+        for (final story in await endpoints.story.listPublishedInTree(
+          by(user),
+          family.id!,
+        ))
+          story.id,
+      ];
+
+      test(
+        'when a branch member reads the tree then parent, sibling, child and '
+        'own stories come interleaved in timeline order, without drafts or '
+        'another tree',
+        () async {
+          final b1 = await c.branch();
+          final b2 = await child(c.family, name: 'Sibling');
+          final grandchild = await child(b1.family, name: 'Grandchild');
+          final r1960 = await storyAt(c.family, DateTime.utc(1960));
+          final b1y1940 = await storyAt(b1.family, DateTime.utc(1940));
+          final b2y1950 = await storyAt(b2, DateTime.utc(1950));
+          final cy1970 = await storyAt(grandchild, DateTime.utc(1970));
+          final r1930 = await storyAt(c.family, DateTime.utc(1930));
+          await storyAt(
+            c.family,
+            DateTime.utc(1945),
+            status: StoryStatus.draft,
+            authorId: c.author,
+          );
+          await storyAt(
+            b1.family,
+            DateTime.utc(1955),
+            status: StoryStatus.draft,
+            authorId: b1.member,
+          );
+          final other = await Clan.of(fx);
+          await other.published();
+
+          expect(await treeIds(b1.member, b1.family), [
+            r1930.id,
+            b1y1940.id,
+            b2y1950.id,
+            r1960.id,
+            cy1970.id,
+          ]);
+          expect(
+            (await endpoints.story.listPublishedInTree(
+              by(b1.member),
+              b1.family.id!,
+            )).map((s) => s.familyId),
+            [c.family.id, b1.family.id, b2.id, c.family.id, grandchild.id],
+          );
+          // Any live family of the tree names the same timeline.
+          expect(
+            await treeIds(c.member, c.family),
+            await treeIds(b1.member, b1.family),
+          );
+        },
+      );
+
+      // D6b, D8
+      test(
+        'when a middle family is soft-deleted then its stories are absent and '
+        'its parent and child still read each other',
+        () async {
+          final middle = await c.branch();
+          final grandchild = await child(middle.family, name: 'Grandchild');
+          final reader = await fx.user();
+          await fx.join(grandchild, reader);
+          final root = await storyAt(c.family, DateTime.utc(1930));
+          await storyAt(middle.family, DateTime.utc(1940));
+          final leaf = await storyAt(grandchild, DateTime.utc(1950));
+          await fx.softDelete(middle.family);
+
+          expect(await treeIds(c.member, c.family), [root.id, leaf.id]);
+          expect(await treeIds(reader, grandchild), [root.id, leaf.id]);
+        },
+      );
+
+      // BR 67 across families
+      test(
+        'when stories in different families share a start then the order is '
+        'timelineOrder over the union of every family\'s published list',
+        () async {
+          final branch = await c.branch();
+          final start = DateTime.utc(1950);
+          final day = await storyAt(
+            branch.family,
+            start,
+            precision: DatePrecision.day,
+            createdAt: DateTime.utc(2026, 1, 1, 0, 1),
+          );
+          final month = await storyAt(
+            c.family,
+            start,
+            precision: DatePrecision.month,
+            createdAt: DateTime.utc(2026, 1, 1, 0, 2),
+          );
+          final yearLater = await storyAt(
+            c.family,
+            start,
+            createdAt: DateTime.utc(2026, 1, 1, 0, 4),
+          );
+          final year = await storyAt(
+            branch.family,
+            start,
+            createdAt: DateTime.utc(2026, 1, 1, 0, 3),
+          );
+
+          expect(await treeIds(c.member, c.family), [
+            year.id,
+            yearLater.id,
+            month.id,
+            day.id,
+          ]);
+          // timelineOrder: dateStart, datePrecision, createdAt, id.
+          int timelineOrder(StoryDto a, StoryDto b) {
+            for (final order in [
+              a.dateStart!.compareTo(b.dateStart!),
+              a.datePrecision!.index.compareTo(b.datePrecision!.index),
+              a.createdAt.compareTo(b.createdAt),
+            ]) {
+              if (order != 0) return order;
+            }
+            return a.id.uuid.compareTo(b.id.uuid);
+          }
+
+          final union = [
+            ...await endpoints.story.listPublished(by(c.member), c.family.id!),
+            ...await endpoints.story.listPublished(
+              by(c.member),
+              branch.family.id!,
+            ),
+          ]..sort(timelineOrder);
+          expect(
+            await treeIds(c.member, c.family),
+            union.map((s) => s.id).toList(),
+          );
+        },
+      );
+
+      test(
+        'when a stranger, another tree\'s member or a member of a '
+        'soft-deleted family reads the tree then FORBIDDEN',
+        () async {
+          final other = await Clan.of(fx);
+          for (final user in [c.stranger, other.member]) {
+            await expectLater(
+              endpoints.story.listPublishedInTree(by(user), c.family.id!),
+              throwsAppError(AppErrorCode.forbidden),
+            );
+          }
+          await fx.softDelete(c.family);
+          await expectLater(
+            endpoints.story.listPublishedInTree(by(c.owner), c.family.id!),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+        },
+      );
+
+      // D6b: tree reads need the caller's own family to be live too.
+      test(
+        'when a member whose only family is soft-deleted reads a live family '
+        'of the same tree then FORBIDDEN',
+        () async {
+          final middle = await c.branch();
+          await fx.story(c.family);
+          await fx.softDelete(middle.family);
+
+          await expectLater(
+            endpoints.story.listPublishedInTree(
+              by(middle.member),
+              c.family.id!,
+            ),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+        },
+      );
+
+      test('when an anonymous caller reads the tree then refused', () async {
+        await expectLater(
+          endpoints.story.listPublishedInTree(sessionBuilder, c.family.id!),
+          throwsA(isA<ServerpodUnauthenticatedException>()),
+        );
+      });
+
+      test('the tree order index leads with treeId', () async {
+        final rows = await fx.s.db.unsafeQuery(
+          "SELECT indexdef FROM pg_indexes WHERE indexname = "
+          "'stories_tree_order_idx'",
+        );
+        expect(
+          rows.single.single,
+          contains(
+            '("treeId", status, "dateStart", "datePrecision", "createdAt", id)',
+          ),
+        );
+      });
+    });
+
     group('discard', () {
       test(
         'when the author discards a story then it, its photos, notes and tags '
