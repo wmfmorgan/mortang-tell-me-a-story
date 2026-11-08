@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:tell_me_a_story/core/navigation/unsaved_guard.dart';
+import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/core/theme/album_chrome.dart';
@@ -21,7 +21,7 @@ import 'package:tell_me_a_story/features/family/add_co_owner_dialog.dart';
 import 'package:tell_me_a_story/features/family/delete_family_dialog.dart';
 import 'package:tell_me_a_story/features/family/family_blur_dialog.dart';
 import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
-import 'package:tell_me_a_story/features/family/family_role.dart';
+import 'package:tell_me_a_story/ui/family/family_role.dart';
 import 'package:tell_me_a_story/features/family/transfer_ownership_dialog.dart';
 
 /// Stitch detail `1c097b0e40cd4703a76fb8b1baf1ebc7`.

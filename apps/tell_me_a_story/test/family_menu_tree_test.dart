@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/features/family/family_tree_order.dart';
+import 'package:tell_me_a_story/ui/family/family_tree_order.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 MemberFamily _family(

@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:tell_me_a_story/core/config/env.dart';
-import 'package:tell_me_a_story/core/navigation/unsaved_guard.dart';
+import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/ui/album/album_modal_frame.dart';
 import 'package:tell_me_a_story/core/theme/album_chrome.dart';

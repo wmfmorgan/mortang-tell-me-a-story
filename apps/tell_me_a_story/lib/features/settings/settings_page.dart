@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:tell_me_a_story/core/navigation/unsaved_guard.dart';
+import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/core/theme/album_chrome.dart';

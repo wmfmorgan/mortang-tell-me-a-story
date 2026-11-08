@@ -21,7 +21,7 @@ import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/ui/story/story_date.dart';
-import 'package:tell_me_a_story/features/family/family_role.dart';
+import 'package:tell_me_a_story/ui/family/family_role.dart';
 import 'package:tell_me_a_story/features/family/start_timeline_host.dart';
 
 /// Default home for a live family. Hero, then the Latest shelf.

@@ -9,8 +9,8 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
-import 'package:tell_me_a_story/features/family/family_role.dart';
-import 'package:tell_me_a_story/features/family/family_tree_order.dart';
+import 'package:tell_me_a_story/ui/family/family_role.dart';
+import 'package:tell_me_a_story/ui/family/family_tree_order.dart';
 import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 
 void main() {

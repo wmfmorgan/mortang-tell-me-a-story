@@ -16,8 +16,8 @@ import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/recovery_window.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
-import 'package:tell_me_a_story/features/family/family_role.dart';
-import 'package:tell_me_a_story/features/family/family_tree_order.dart';
+import 'package:tell_me_a_story/ui/family/family_role.dart';
+import 'package:tell_me_a_story/ui/family/family_tree_order.dart';
 import 'package:tell_me_a_story/features/family/start_family_dialog.dart';
 import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
 

@@ -1,6 +1,6 @@
 import 'dart:js_interop';
 
-import 'package:tell_me_a_story/core/navigation/unsaved_guard.dart';
+import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
 
 @JS('window')
 external JSObject get _window;

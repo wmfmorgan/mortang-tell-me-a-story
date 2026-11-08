@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:tell_me_a_story/core/navigation/leave_story_dialog.dart';
+import 'package:tell_me_a_story/ui/dialogs/leave_story_dialog.dart';
 
 /// Page-owned unsaved-input guard. The page supplies dirty, save, and discard.
 class UnsavedGuard extends ChangeNotifier {

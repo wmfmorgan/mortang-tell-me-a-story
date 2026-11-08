@@ -19,7 +19,7 @@ import 'package:tell_me_a_story/features/settings/settings_page.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
-import 'package:tell_me_a_story/core/navigation/unsaved_guard.dart';
+import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
 import 'package:tell_me_a_story/features/search/search_page.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_page.dart';
