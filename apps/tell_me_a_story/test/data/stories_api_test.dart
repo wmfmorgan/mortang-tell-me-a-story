@@ -2,8 +2,10 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+
+import '../support/fakes/fake_photos_gateway.dart';
+
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 final _storyId = server.UuidValue.fromString(
@@ -356,7 +358,7 @@ Story _storyWithPaths(List<String> paths, {String id = 's1'}) {
   );
 }
 
-class _RecordingPhotos implements PhotosGateway {
+class _RecordingPhotos extends FakePhotosGateway {
   _RecordingPhotos({required this.onDownload});
 
   final Future<Uint8List> Function(String path) onDownload;
@@ -364,26 +366,4 @@ class _RecordingPhotos implements PhotosGateway {
   @override
   Future<Uint8List> downloadBytes(String storagePath) =>
       onDownload(storagePath);
-
-  @override
-  Future<void> deletePhoto(Photo photo) async {}
-
-  @override
-  Future<List<Photo>> listPhotos(String storyId) async => const [];
-
-  @override
-  Future<void> setHeroPhoto({
-    required String storyId,
-    required String photoId,
-  }) async {}
-
-  @override
-  Future<Photo> uploadPhoto({
-    required String familyId,
-    required String storyId,
-    required Uint8List bytes,
-    required int sortOrder,
-  }) {
-    throw UnimplementedError();
-  }
 }

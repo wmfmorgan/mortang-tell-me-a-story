@@ -21,6 +21,7 @@ import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart'
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 
+import '../../support/fakes/fake_photos_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -231,28 +232,25 @@ class _StoryReload implements TimelineLive {
   void dispose() {}
 }
 
-class _FakePhotosApi implements PhotosGateway {
+class _FakePhotosApi extends FakePhotosGateway {
   _FakePhotosApi({
     List<Photo>? seed,
     this.failUpload = false,
     this.bytes = const [],
-  }) : rows = [...?seed];
+  }) : super(photos: seed ?? const []);
 
   final List<int> bytes;
-
-  final List<Photo> rows;
   var failUpload = false;
   var failDecode = false;
   var uploadCalls = 0;
   String? lastFamilyId;
   String? lastStoryId;
   int? lastSortOrder;
-  final List<Photo> deleted = [];
   final List<String> downloaded = [];
 
   @override
   Future<List<Photo>> listPhotos(String storyId) async {
-    return rows.where((p) => p.storyId == storyId).toList();
+    return photos.where((p) => p.storyId == storyId).toList();
   }
 
   @override
@@ -280,14 +278,8 @@ class _FakePhotosApi implements PhotosGateway {
       storagePath: '$familyId/$storyId/ph$uploadCalls.jpg',
       sortOrder: sortOrder,
     );
-    rows.add(photo);
+    photos.add(photo);
     return photo;
-  }
-
-  @override
-  Future<void> deletePhoto(Photo photo) async {
-    deleted.add(photo);
-    rows.removeWhere((p) => p.id == photo.id);
   }
 
   String? heroPhotoId;
@@ -298,8 +290,8 @@ class _FakePhotosApi implements PhotosGateway {
     required String photoId,
   }) async {
     heroPhotoId = photoId;
-    final next = photosWithHeroFirst(rows, photoId);
-    rows
+    final next = photosWithHeroFirst(photos, photoId);
+    photos
       ..clear()
       ..addAll(next);
   }
@@ -799,7 +791,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('story-hero-ph2')), findsOneWidget);
 
-    photos.rows
+    photos.photos
       ..clear()
       ..addAll([photo('ph2', 0), photo('ph1', 1)]);
     live.onStory?.call();

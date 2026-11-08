@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,13 +11,13 @@ import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_photos_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -154,34 +153,6 @@ class _StubMapboxSearch implements MapboxSearchGateway {
   @override
   Future<List<MapboxSearchHit>> search(String query, {int limit = 5}) async =>
       const [];
-}
-
-class _FakePhotosApi implements PhotosGateway {
-  @override
-  Future<List<Photo>> listPhotos(String storyId) async => const [];
-
-  @override
-  Future<Photo> uploadPhoto({
-    required String familyId,
-    required String storyId,
-    required Uint8List bytes,
-    required int sortOrder,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> deletePhoto(Photo photo) async {}
-
-  @override
-  @override
-  Future<void> setHeroPhoto({
-    required String storyId,
-    required String photoId,
-  }) async {}
-
-  @override
-  Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }
 
 Widget _drafts({required StoriesGateway stories, FamiliesGateway? families}) {
@@ -330,7 +301,7 @@ void main() {
       storiesApi: _FakeStoriesApi(
         drafts: [_draft(id: 's1', body: 'Jam')],
       ),
-      photosApi: _FakePhotosApi(),
+      photosApi: FakePhotosGateway(),
     );
 
     await tester.binding.setSurfaceSize(const Size(1200, 800));

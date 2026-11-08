@@ -16,6 +16,7 @@ import 'package:tell_me_a_story/features/search/search_page.dart';
 import 'package:tell_me_a_story/features/search/search_recents.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_photos_gateway.dart';
 
 const _family = 'family-1';
 
@@ -82,33 +83,10 @@ class _Search implements SearchGateway {
   }
 }
 
-class _Photos implements PhotosGateway {
+class _Photos extends FakePhotosGateway {
   _Photos(this.bytes);
 
   final Uint8List? bytes;
-
-  @override
-  Future<List<Photo>> listPhotos(String storyId) async => const [];
-
-  @override
-  Future<Photo> uploadPhoto({
-    required String familyId,
-    required String storyId,
-    required Uint8List bytes,
-    required int sortOrder,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> deletePhoto(Photo photo) async {}
-
-  @override
-  @override
-  Future<void> setHeroPhoto({
-    required String storyId,
-    required String photoId,
-  }) async {}
 
   @override
   Future<Uint8List> downloadBytes(String storagePath) async {

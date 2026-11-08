@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 // SemanticsNode.flagsCollection does not mirror toggled/selected in this SDK.
 // ignore_for_file: deprecated_member_use
@@ -14,12 +13,12 @@ import 'package:tell_me_a_story/ui/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_card.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_logic.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_page.dart';
 
+import '../../support/fakes/fake_photos_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
 
 const _family = 'fam-1';
@@ -683,7 +682,7 @@ GoRouter _router({
           familyId: state.pathParameters['id']!,
           storiesApi: stories,
           familiesApi: families,
-          photosApi: _Photos(),
+          photosApi: FakePhotosGateway(),
         ),
       ),
       GoRoute(
@@ -845,30 +844,4 @@ class _Families extends FamiliesGateway {
       ),
     ];
   }
-}
-
-class _Photos implements PhotosGateway {
-  @override
-  Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
-
-  @override
-  Future<List<Photo>> listPhotos(String storyId) async => const [];
-
-  @override
-  Future<Photo> uploadPhoto({
-    required String familyId,
-    required String storyId,
-    required Uint8List bytes,
-    required int sortOrder,
-  }) => Future<Photo>.error(UnimplementedError());
-
-  @override
-  Future<void> deletePhoto(Photo photo) =>
-      Future<void>.error(UnimplementedError());
-
-  @override
-  Future<void> setHeroPhoto({
-    required String storyId,
-    required String photoId,
-  }) => Future<void>.error(UnimplementedError());
 }

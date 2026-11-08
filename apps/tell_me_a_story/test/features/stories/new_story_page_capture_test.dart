@@ -15,6 +15,7 @@ import 'package:tell_me_a_story/ui/story/story_date_picker.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_photos_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -323,22 +324,20 @@ class _FakePicker {
   }
 }
 
-class _FakePhotosApi implements PhotosGateway {
+class _FakePhotosApi extends FakePhotosGateway {
   _FakePhotosApi({
     this.failUpload = false,
     this.failDecode = false,
     List<Photo>? seed,
-  }) : rows = [...?seed];
+  }) : super(photos: seed ?? const []);
 
   var failUpload = false;
   var failDecode = false;
   var uploadCalls = 0;
-  final List<Photo> rows;
-  final List<Photo> deleted = [];
 
   @override
   Future<List<Photo>> listPhotos(String storyId) async {
-    return rows.where((p) => p.storyId == storyId).toList();
+    return photos.where((p) => p.storyId == storyId).toList();
   }
 
   @override
@@ -363,14 +362,8 @@ class _FakePhotosApi implements PhotosGateway {
       storagePath: '$familyId/$storyId/ph$uploadCalls.jpg',
       sortOrder: sortOrder,
     );
-    rows.add(photo);
+    photos.add(photo);
     return photo;
-  }
-
-  @override
-  Future<void> deletePhoto(Photo photo) async {
-    deleted.add(photo);
-    rows.removeWhere((p) => p.id == photo.id);
   }
 
   String? heroPhotoId;
@@ -382,18 +375,15 @@ class _FakePhotosApi implements PhotosGateway {
   }) async {
     heroPhotoId = photoId;
     final next = photosWithHeroFirst(
-      rows.where((row) => row.storyId == storyId).toList(),
+      photos.where((row) => row.storyId == storyId).toList(),
       photoId,
     );
     final byId = {for (final row in next) row.id: row};
-    for (var i = 0; i < rows.length; i++) {
-      final updated = byId[rows[i].id];
-      if (updated != null) rows[i] = updated;
+    for (var i = 0; i < photos.length; i++) {
+      final updated = byId[photos[i].id];
+      if (updated != null) photos[i] = updated;
     }
   }
-
-  @override
-  Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }
 
 const _ada = Person(id: 'p1', familyId: _familyId, name: 'Ada');

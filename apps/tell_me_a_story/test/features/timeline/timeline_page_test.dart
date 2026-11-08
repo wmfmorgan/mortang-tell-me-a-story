@@ -24,6 +24,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_photos_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -281,7 +282,7 @@ Widget _timeline({
   );
 }
 
-class _FakePhotos implements PhotosGateway {
+class _FakePhotos extends FakePhotosGateway {
   _FakePhotos({Uint8List? bytes}) : bytes = bytes ?? _png;
 
   final Uint8List bytes;
@@ -357,30 +358,7 @@ class _FakePhotos implements PhotosGateway {
   ]);
 
   @override
-  @override
-  Future<void> setHeroPhoto({
-    required String storyId,
-    required String photoId,
-  }) async {}
-
-  @override
-  Future<void> deletePhoto(Photo photo) async {}
-
-  @override
   Future<Uint8List> downloadBytes(String storagePath) async => bytes;
-
-  @override
-  Future<List<Photo>> listPhotos(String storyId) async => const [];
-
-  @override
-  Future<Photo> uploadPhoto({
-    required String familyId,
-    required String storyId,
-    required Uint8List bytes,
-    required int sortOrder,
-  }) {
-    throw UnimplementedError();
-  }
 }
 
 Future<void> _openFullCards(WidgetTester tester, String storyId) async {

@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -8,12 +6,12 @@ import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_photos_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
 
 const _ada = 'ada';
@@ -79,7 +77,7 @@ Future<GoRouter> _mount(
           placesApi: _Places(),
           mapboxSearch: _Mapbox(),
           storiesApi: stories,
-          photosApi: _Photos(),
+          photosApi: FakePhotosGateway(),
           hasMapboxToken: false,
           mapBuilder: ({double? lat, double? lng}) => const SizedBox.shrink(),
           pickImageBytes: () async => null,
@@ -213,31 +211,4 @@ class _Mapbox implements MapboxSearchGateway {
   @override
   Future<List<MapboxSearchHit>> search(String query, {int limit = 5}) async =>
       const [];
-}
-
-class _Photos implements PhotosGateway {
-  @override
-  Future<List<Photo>> listPhotos(String storyId) async => const [];
-
-  @override
-  Future<Photo> uploadPhoto({
-    required String familyId,
-    required String storyId,
-    required Uint8List bytes,
-    required int sortOrder,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> deletePhoto(Photo photo) async {}
-
-  @override
-  Future<void> setHeroPhoto({
-    required String storyId,
-    required String photoId,
-  }) async {}
-
-  @override
-  Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }

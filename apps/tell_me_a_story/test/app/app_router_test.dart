@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -15,7 +13,6 @@ import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart'
     hide displayNameOrMember;
-import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/features/auth/sign_in_page.dart';
@@ -25,6 +22,7 @@ import 'package:tell_me_a_story/features/family/family_landing_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 import '../support/fakes/fake_invite_gateway.dart';
+import '../support/fakes/fake_photos_gateway.dart';
 import '../support/fakes/fake_stories_gateway.dart';
 
 class _StubPeopleApi extends PeopleGateway {
@@ -97,34 +95,6 @@ class _StubMapboxSearch implements MapboxSearchGateway {
       const [];
 }
 
-class _StubPhotosApi implements PhotosGateway {
-  @override
-  Future<List<Photo>> listPhotos(String storyId) async => const [];
-
-  @override
-  Future<Photo> uploadPhoto({
-    required String familyId,
-    required String storyId,
-    required Uint8List bytes,
-    required int sortOrder,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> deletePhoto(Photo photo) async {}
-
-  @override
-  @override
-  Future<void> setHeroPhoto({
-    required String storyId,
-    required String photoId,
-  }) async {}
-
-  @override
-  Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
-}
-
 class _StubCommentsApi implements CommentsGateway {
   @override
   Future<List<Comment>> listForStory(String storyId) async => const [];
@@ -180,7 +150,7 @@ GoRouter _router({required AuthRefresh auth}) {
     placesApi: _StubPlacesApi(),
     mapboxSearch: _StubMapboxSearch(),
     storiesApi: FakeStoriesGateway(),
-    photosApi: _StubPhotosApi(),
+    photosApi: FakePhotosGateway(),
     commentsApi: _StubCommentsApi(),
     perspectivesApi: _StubPerspectivesApi(),
   );
