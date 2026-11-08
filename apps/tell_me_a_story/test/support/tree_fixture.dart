@@ -57,6 +57,49 @@ abstract final class TreeFixture {
     ]),
   ];
 
+  /// [stories] plus six more Jenkins stories in the 1960s (eight there in
+  /// all), in timeline order, so the tree graph shows five and `+3`.
+  static final crowded = <Story>[
+    ...stories,
+    for (final year in const [1960, 1962, 1963, 1964, 1967, 1969])
+      story('x$year', jenkins, 'Sixties $year', DateTime(year, 2, 1), [tom]),
+  ]..sort((a, b) => a.publishedStart.compareTo(b.publishedStart));
+
+  /// [count] stories over five families (Jenkins → A, B; A → A1; B → B1),
+  /// 1900–2019, in timeline order. Every branch starts at the first story
+  /// of its parent.
+  static ({List<Story> stories, List<TreeFamily> tree}) synthetic(int count) {
+    const fams = ['root', 'a', 'b', 'a1', 'b1'];
+    final stories = <Story>[
+      for (var i = 0; i < count; i++)
+        story(
+          'syn$i',
+          fams[i % fams.length],
+          'Story $i',
+          DateTime(1900 + i * 120 ~/ count, 1 + i % 12, 1 + i % 28),
+          const [],
+        ),
+    ];
+    String originIn(String family) =>
+        stories.firstWhere((s) => s.familyId == family).id;
+    final tree = [
+      const TreeFamily(id: 'root', name: 'Jenkins'),
+      for (final (id, parent) in const [
+        ('a', 'root'),
+        ('b', 'root'),
+        ('a1', 'a'),
+        ('b1', 'b'),
+      ])
+        TreeFamily(
+          id: id,
+          name: id.toUpperCase(),
+          parentFamilyId: parent,
+          originStoryId: originIn(parent),
+        ),
+    ];
+    return (stories: stories, tree: tree);
+  }
+
   static Story story(
     String id,
     String familyId,
