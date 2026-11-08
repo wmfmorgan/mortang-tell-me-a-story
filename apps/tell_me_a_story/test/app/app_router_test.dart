@@ -18,6 +18,7 @@ import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/family/family_landing_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
+import 'package:tell_me_a_story/features/timeline/tree/family_tree_page.dart';
 
 import '../support/fakes/fake_invite_gateway.dart';
 import '../support/fakes/fake_mapbox_search.dart';
@@ -528,6 +529,67 @@ void main() {
     expect(find.byKey(const Key('add-perspective')), findsOneWidget);
     expect(find.byType(NewStoryPage), findsNothing);
     expect(find.byKey(const Key('story-reader')), findsNothing);
+
+    auth.dispose();
+  });
+
+  testWidgets('signed-in /family/<id>/tree shows the whole-tree page', (
+    tester,
+  ) async {
+    const familyId = '550e8400-e29b-41d4-a716-4466554400aa';
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: FakeInviteGateway(
+        createdFamilyId: 'family-1',
+        acceptedFamilyId: 'f',
+      ),
+      storiesApi: FakeStoriesGateway(),
+      familiesApi: _MemberOf([familyId]),
+    );
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.familyTreePath(familyId));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      '/family/$familyId/tree',
+    );
+    expect(find.byType(FamilyTreePage), findsOneWidget);
+    expect(
+      tester.widget<FamilyTreePage>(find.byType(FamilyTreePage)).familyId,
+      familyId,
+    );
+
+    auth.dispose();
+  });
+
+  testWidgets('signed-out user is redirected from the tree page to sign-in', (
+    tester,
+  ) async {
+    final auth = AuthRefresh(initiallySignedIn: false);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: FakeInviteGateway(
+        createdFamilyId: 'family-1',
+        acceptedFamilyId: 'f',
+      ),
+    );
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.familyTreePath('f'));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.signIn,
+    );
+    expect(find.byType(FamilyTreePage), findsNothing);
 
     auth.dispose();
   });

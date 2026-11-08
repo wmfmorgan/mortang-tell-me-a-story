@@ -29,6 +29,7 @@ import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 import 'package:tell_me_a_story/features/search/search_recents.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
+import 'package:tell_me_a_story/features/timeline/tree/family_tree_page.dart';
 import 'package:tell_me_a_story/data/search_api.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
@@ -187,6 +188,14 @@ GoRouter createAppRouter({
           storiesApi: storiesApi,
           familiesApi: familiesApi,
           photosApi: photosApi,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.familyTree,
+        builder: (context, state) => FamilyTreePage(
+          familyId: state.pathParameters['id']!,
+          storiesApi: storiesApi,
+          familiesApi: familiesApi,
         ),
       ),
       GoRoute(

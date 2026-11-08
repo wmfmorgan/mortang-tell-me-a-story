@@ -22,64 +22,70 @@ void main() {
 
   tearDown(FamilySelection.clear);
 
-  testWidgets('dropdown order: families, divider, invite, branch, Manage', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1400, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final families = [
-      MemberFamily(id: 'zed', name: 'Zed', createdAt: DateTime.utc(2022)),
-      MemberFamily(
-        id: 'amy',
-        name: 'The Amy',
-        parentFamilyId: 'ada',
-        branchYear: 1950,
-        createdAt: DateTime.utc(2021),
-      ),
-      MemberFamily(id: 'ada', name: 'Ada', createdAt: DateTime.utc(2020)),
-    ];
-    await tester.pumpWidget(
-      _header(
-        families: families,
-        currentId: 'ada',
-        familyName: 'Ada',
-        onStartTimeline: () {},
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('family-menu')));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'dropdown order: families, divider, tree, invite, branch, Manage',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final families = [
+        MemberFamily(id: 'zed', name: 'Zed', createdAt: DateTime.utc(2022)),
+        MemberFamily(
+          id: 'amy',
+          name: 'The Amy',
+          parentFamilyId: 'ada',
+          branchYear: 1950,
+          createdAt: DateTime.utc(2021),
+        ),
+        MemberFamily(id: 'ada', name: 'Ada', createdAt: DateTime.utc(2020)),
+      ];
+      await tester.pumpWidget(
+        _header(
+          families: families,
+          currentId: 'ada',
+          familyName: 'Ada',
+          onStartTimeline: () {},
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('family-menu')));
+      await tester.pumpAndSettle();
 
-    final rows = nestFamilies(families);
-    var previous = -1.0;
-    for (final row in rows) {
-      final y = tester
-          .getTopLeft(find.byKey(Key('family-menu-item-${row.family.id}')))
+      final rows = nestFamilies(families);
+      var previous = -1.0;
+      for (final row in rows) {
+        final y = tester
+            .getTopLeft(find.byKey(Key('family-menu-item-${row.family.id}')))
+            .dy;
+        expect(y, greaterThan(previous));
+        previous = y;
+      }
+      final dividerY = tester
+          .getTopLeft(find.byKey(const Key('family-menu-divider')))
           .dy;
-      expect(y, greaterThan(previous));
-      previous = y;
-    }
-    final dividerY = tester
-        .getTopLeft(find.byKey(const Key('family-menu-divider')))
-        .dy;
-    final inviteY = tester
-        .getTopLeft(find.byKey(const Key('family-menu-invite')))
-        .dy;
-    final branchY = tester
-        .getTopLeft(find.byKey(const Key('family-menu-start-timeline')))
-        .dy;
-    final manageY = tester
-        .getTopLeft(find.byKey(const Key('family-menu-manage')))
-        .dy;
-    expect(previous, lessThan(dividerY));
-    expect(dividerY, lessThan(inviteY));
-    expect(inviteY, lessThan(branchY));
-    expect(branchY, lessThan(manageY));
-    expect(find.text('Invite a family member to Ada'), findsOneWidget);
-    expect(find.text('Add a family branch to Ada'), findsOneWidget);
-    expect(find.byKey(const Key('family-menu-start')), findsNothing);
-    expect(find.text('Related families'), findsNothing);
-  });
+      final treeY = tester
+          .getTopLeft(find.byKey(const Key('family-menu-tree')))
+          .dy;
+      final inviteY = tester
+          .getTopLeft(find.byKey(const Key('family-menu-invite')))
+          .dy;
+      final branchY = tester
+          .getTopLeft(find.byKey(const Key('family-menu-start-timeline')))
+          .dy;
+      final manageY = tester
+          .getTopLeft(find.byKey(const Key('family-menu-manage')))
+          .dy;
+      expect(previous, lessThan(dividerY));
+      expect(dividerY, lessThan(treeY));
+      expect(treeY, lessThan(inviteY));
+      expect(inviteY, lessThan(branchY));
+      expect(branchY, lessThan(manageY));
+      expect(find.text('See the whole family tree'), findsOneWidget);
+      expect(find.text('Invite a family member to Ada'), findsOneWidget);
+      expect(find.text('Add a family branch to Ada'), findsOneWidget);
+      expect(find.byKey(const Key('family-menu-start')), findsNothing);
+      expect(find.text('Related families'), findsNothing);
+    },
+  );
 
   testWidgets('invite row hides when canWrite is false', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1400, 900));
@@ -112,6 +118,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('family-menu-invite')), findsNothing);
     expect(find.byKey(const Key('family-menu-start-timeline')), findsOneWidget);
+    expect(find.byKey(const Key('family-menu-tree')), findsOneWidget);
   });
 
   testWidgets('capture menu hides invite and still offers a branch', (
@@ -446,6 +453,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(FamilySelection.id, kid);
     expect(router.state.uri.path, AppRoutes.familyLanding);
+  });
+
+  testWidgets('the tree row opens the current family tree page', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final router = GoRouter(
+      initialLocation: AppRoutes.drafts,
+      routes: [
+        GoRoute(
+          path: AppRoutes.drafts,
+          builder: (context, state) => _switchScreen(
+            page: AlbumHeaderPage.drafts,
+            currentId: 'ada',
+            kid: 'kid',
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.familyTree,
+          builder: (context, state) =>
+              Text('tree-${state.pathParameters['id']}'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu-tree')));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, AppRoutes.familyTreePath('ada'));
+    expect(find.text('tree-ada'), findsOneWidget);
+  });
+
+  testWidgets('no current family, no tree row', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          appBar: AlbumHeader(
+            page: AlbumHeaderPage.drafts,
+            familyName: 'Family',
+            families: const [],
+            currentFamilyId: null,
+            onFamilySelected: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('family-menu-manage')), findsOneWidget);
+    expect(find.byKey(const Key('family-menu-tree')), findsNothing);
   });
 
   testWidgets(

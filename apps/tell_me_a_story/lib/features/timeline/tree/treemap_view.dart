@@ -497,7 +497,7 @@ class RenderTreemapLayout extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, TreemapParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, TreemapParentData> {
-  RenderTreemapLayout({required double gap}) : _gap = gap;
+  RenderTreemapLayout({required this._gap});
 
   double _gap;
   double get gap => _gap;
