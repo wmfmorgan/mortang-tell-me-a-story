@@ -79,3 +79,47 @@ server:
 # Backend integration tests (embedded Postgres)
 server-test:
     cd apps/server && dart test
+
+# dart format check: app and server (the generated client package is not checked)
+fmt-check:
+    cd apps/tell_me_a_story && dart format --output=none --set-exit-if-changed .
+    cd apps/server && dart format --output=none --set-exit-if-changed .
+
+# flutter analyze in apps/tell_me_a_story: any error fails, and at most `ceiling` other issues
+analyze ceiling="6":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    cd apps/tell_me_a_story
+    out="$(mktemp)"
+    trap 'rm -f "$out"' EXIT
+    flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee "$out"
+    rc=${PIPESTATUS[0]}
+    if grep -qF 'error •' "$out"; then
+        echo "analyze: errors found (exit $rc)" >&2
+        exit 1
+    fi
+    if grep -qF 'No issues found!' "$out"; then
+        count=0
+    else
+        count=$( { grep -vF '•' "$out" | grep -Eo '[0-9]+ issues? found\.' | tail -n 1 | grep -Eo '^[0-9]+'; } || true )
+    fi
+    if [ -z "$count" ]; then
+        echo "analyze: no issue count in the output (exit $rc)" >&2
+        exit 1
+    fi
+    echo "analyze: $count issues (ceiling {{ceiling}})"
+    if [ "$count" -gt {{ceiling}} ]; then
+        echo "analyze: $count issues is over the ceiling of {{ceiling}}" >&2
+        exit 1
+    fi
+    if [ "$rc" -ne 0 ]; then
+        echo "analyze: exit $rc with no error lines" >&2
+        exit 1
+    fi
+
+# dart analyze in apps/server; any issue fails
+server-analyze:
+    cd apps/server && dart analyze --fatal-infos
+
+# Every local gate: format, analyze, app tests, server analyze and server tests
+check: fmt-check analyze test server-analyze server-test
