@@ -213,6 +213,12 @@ abstract final class AlbumText {
   static TextStyle lane(TextTheme t) =>
       t.labelLarge!.copyWith(fontWeight: FontWeight.w600);
   static TextStyle group(TextTheme t) => t.titleSmall!;
+
+  /// Text on a painted ink pill (the tree graph's `+N`).
+  static TextStyle badge(TextTheme t) => t.labelSmall!.copyWith(
+    fontWeight: FontWeight.w700,
+    color: albumParchment,
+  );
 }
 
 /// Touch targets (Apple HIG: 44 pt minimum).

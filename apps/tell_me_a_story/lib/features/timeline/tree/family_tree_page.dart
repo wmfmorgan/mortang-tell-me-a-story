@@ -8,12 +8,22 @@ import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
+import 'package:tell_me_a_story/features/timeline/tree/tree_graph_view.dart';
 import 'package:tell_me_a_story/features/timeline/tree/tree_timeline_loader.dart';
 import 'package:tell_me_a_story/features/timeline/tree/treemap_view.dart';
 import 'package:tell_me_a_story/ui/album/album_header.dart';
 
-/// `/family/:id/tree`: every published story of the family's tree, as a
-/// treemap (Q2). Opened from the family menu (O1).
+/// The page's two views of the tree (Q2): C3, C4.
+enum FamilyTreeView { graph, overview }
+
+String familyTreeViewLabel(FamilyTreeView view) => switch (view) {
+  FamilyTreeView.graph => 'Family tree',
+  FamilyTreeView.overview => 'Overview',
+};
+
+/// `/family/:id/tree`: every published story of the family's tree, as the
+/// family tree graph or the treemap overview (Q2). Opened from the family
+/// menu (O1).
 class FamilyTreePage extends StatefulWidget {
   const FamilyTreePage({
     super.key,
@@ -44,6 +54,7 @@ class _FamilyTreePageState extends State<FamilyTreePage> {
   List<StewardFamily> _stewarded = const [];
   late bool _canWrite;
   var _loadGeneration = 0;
+  FamilyTreeView _view = FamilyTreeView.graph;
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
@@ -183,15 +194,51 @@ class _FamilyTreePageState extends State<FamilyTreePage> {
       body: switch (_phase) {
         _Phase.loading => const Center(child: CircularProgressIndicator()),
         _Phase.error => _error(),
-        _Phase.ready => TreemapView(
-          title: '${_rootName()} family tree',
-          stories: data!.stories,
-          tree: data.tree,
-          onStory: _openStory,
-          onFamily: _openFamily,
-        ),
+        _Phase.ready => _ready(data!),
       },
     );
+  }
+
+  Widget _ready(TreeTimelineData data) {
+    final title = '${_rootName()} family tree';
+    // An empty tree has nothing to switch between: C9 alone.
+    if (data.stories.isEmpty) {
+      return TreemapView(
+        title: title,
+        stories: data.stories,
+        tree: data.tree,
+        onStory: _openStory,
+        onFamily: _openFamily,
+      );
+    }
+    final viewSwitch = SegmentedButton<FamilyTreeView>(
+      key: const Key('family-tree-view'),
+      showSelectedIcon: false,
+      segments: [
+        for (final v in FamilyTreeView.values)
+          ButtonSegment(value: v, label: Text(familyTreeViewLabel(v))),
+      ],
+      selected: {_view},
+      onSelectionChanged: (s) => setState(() => _view = s.first),
+    );
+    return switch (_view) {
+      FamilyTreeView.graph => TreeGraphView(
+        title: title,
+        stories: data.stories,
+        tree: data.tree,
+        onStory: _openStory,
+        onFamily: _openFamily,
+        viewSwitch: viewSwitch,
+      ),
+      FamilyTreeView.overview => TreemapView(
+        title: title,
+        stories: data.stories,
+        tree: data.tree,
+        onStory: _openStory,
+        onFamily: _openFamily,
+        viewSwitch: viewSwitch,
+      ),
+    };
   }
 
   Widget _error() {

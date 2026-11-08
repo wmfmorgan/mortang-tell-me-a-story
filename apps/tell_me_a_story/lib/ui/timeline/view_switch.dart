@@ -14,6 +14,7 @@ class ViewSwitch<T> extends StatelessWidget {
     required this.labelOf,
     required this.selected,
     required this.onChanged,
+    this.leading = const [],
     this.trailing = const [],
   });
 
@@ -26,6 +27,9 @@ class ViewSwitch<T> extends StatelessWidget {
   final String Function(T) labelOf;
   final T selected;
   final ValueChanged<T> onChanged;
+
+  /// Shown before the label and segments (another switch sharing the row).
+  final List<Widget> leading;
   final List<Widget> trailing;
 
   @override
@@ -39,6 +43,7 @@ class ViewSwitch<T> extends StatelessWidget {
       ),
       child: Row(
         children: [
+          ...leading,
           if (label != null) ...[
             Text(label, style: AlbumText.lane(Theme.of(context).textTheme)),
             const SizedBox(width: AlbumSpace.m),

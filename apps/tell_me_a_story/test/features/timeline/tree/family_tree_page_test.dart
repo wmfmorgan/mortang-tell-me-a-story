@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -9,10 +10,12 @@ import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/timeline/tree/family_tree_page.dart';
+import 'package:tell_me_a_story/features/timeline/tree/tree_graph_view.dart';
 import 'package:tell_me_a_story/features/timeline/tree/treemap_view.dart';
 
 import '../../../support/fakes/fake_stories_gateway.dart';
 import '../../../support/tree_fixture.dart';
+import '../../../support/ipad.dart';
 
 class _Families extends FamiliesGateway {
   _Families({this.tree = TreeFixture.tree});
@@ -87,10 +90,15 @@ void main() {
     _Families? families,
     Size size = const Size(1280, 800),
     bool settle = true,
+    bool ipad = false,
   }) async {
-    tester.view.physicalSize = size;
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    if (ipad) {
+      setIpadView(tester, size);
+    } else {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
     router = GoRouter(
       initialLocation: AppRoutes.familyTreePath(familyId),
       routes: [
@@ -125,6 +133,37 @@ void main() {
     live = _Live();
   });
 
+  final viewSwitch = find.byKey(const Key('family-tree-view'));
+
+  SegmentedButton<FamilyTreeView> switchButton(WidgetTester tester) =>
+      tester.widget<SegmentedButton<FamilyTreeView>>(viewSwitch);
+
+  Future<void> openOverview(WidgetTester tester) async {
+    await tester.tap(find.text('Overview'));
+    await tester.pumpAndSettle();
+  }
+
+  /// Taps the graph node [id] with a mouse, after scrolling it on screen.
+  Future<void> tapGraphNode(WidgetTester tester, String id) async {
+    final canvas = find.byKey(const Key('tree-graph-canvas'));
+    final layout =
+        (tester.widget<CustomPaint>(canvas).painter! as TreeGraphPainter)
+            .layout;
+    final local =
+        layout.positions[layout.nodes.singleWhere((n) => n.id == id)]!;
+    final v = Scrollable.of(
+      tester.element(canvas),
+      axis: Axis.vertical,
+    ).position;
+    v.jumpTo((local.dy - 200).clamp(0, v.maxScrollExtent));
+    await tester.pump();
+    await tester.tapAt(
+      tester.getTopLeft(canvas) + local,
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('loads the whole tree under the root family heading', (
     tester,
   ) async {
@@ -134,17 +173,56 @@ void main() {
 
     expect(find.byKey(const Key('family-tree-page')), findsOneWidget);
     expect(find.text('Jenkins family tree'), findsOneWidget);
-    expect(find.byType(TreemapView), findsOneWidget);
-    for (final f in TreeFixture.tree) {
-      expect(find.byKey(Key('treemap-group-${f.id}')), findsOneWidget);
-    }
     expect(stories.calls, ['listPublishedInTree']);
     expect(live.watched, [TreeFixture.bea]);
     expect(FamilySelection.id, TreeFixture.bea);
   });
 
+  testWidgets('opens on Family tree: C3 · C4, no label, the graph shows', (
+    tester,
+  ) async {
+    await pump(tester);
+    expect(switchButton(tester).selected, {FamilyTreeView.graph});
+    expect(switchButton(tester).showSelectedIcon, isFalse);
+    expect(
+      [for (final s in switchButton(tester).segments) (s.label! as Text).data],
+      ['Family tree', 'Overview'],
+    );
+    expect(find.byType(TreeGraphView), findsOneWidget);
+    expect(find.byType(TreemapView), findsNothing);
+    expect(find.text('Jenkins family tree'), findsOneWidget);
+  });
+
+  testWidgets('Overview shows the treemap; the switch stays put', (
+    tester,
+  ) async {
+    await pump(tester);
+    final onGraph = tester.getTopLeft(viewSwitch);
+
+    await openOverview(tester);
+    expect(switchButton(tester).selected, {FamilyTreeView.overview});
+    expect(find.byType(TreemapView), findsOneWidget);
+    expect(find.byType(TreeGraphView), findsNothing);
+    for (final f in TreeFixture.tree) {
+      expect(find.byKey(Key('treemap-group-${f.id}')), findsOneWidget);
+    }
+    final onTreemap = tester.getTopLeft(viewSwitch);
+    expect(onTreemap.dx, closeTo(onGraph.dx, 1));
+    expect(onTreemap.dy, closeTo(onGraph.dy, 1));
+    // One row: the grouping switch follows the view switch.
+    final grouping = tester.getRect(find.byKey(const Key('treemap-by')));
+    expect(grouping.left, greaterThan(tester.getRect(viewSwitch).right));
+    expect(grouping.center.dy, closeTo(tester.getCenter(viewSwitch).dy, 1));
+
+    await tester.tap(find.text('Family tree'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TreeGraphView), findsOneWidget);
+    expect(find.byType(TreemapView), findsNothing);
+  });
+
   testWidgets('a live tree event refetches without a spinner', (tester) async {
     await pump(tester);
+    await openOverview(tester);
     expect(find.text('Cal · 2'), findsOneWidget);
 
     final added = TreeFixture.story(
@@ -161,12 +239,57 @@ void main() {
     expect(find.byType(TreemapView), findsOneWidget);
     await tester.pumpAndSettle();
 
+    // The reload keeps the selected view.
+    expect(switchButton(tester).selected, {FamilyTreeView.overview});
     expect(find.text('Cal · 3'), findsOneWidget);
     expect(stories.calls, ['listPublishedInTree', 'listPublishedInTree']);
   });
 
+  testWidgets('a live tree event redraws the graph', (tester) async {
+    await pump(tester);
+    stories.stories['c1995'] = TreeFixture.story(
+      'c1995',
+      TreeFixture.cal,
+      'Third shop',
+      DateTime(1995, 5, 5),
+      const [],
+    );
+    live.onTreeChange!();
+    await tester.pumpAndSettle();
+    expect(find.byType(TreeGraphView), findsOneWidget);
+    final layout =
+        (tester
+                    .widget<CustomPaint>(
+                      find.byKey(const Key('tree-graph-canvas')),
+                    )
+                    .painter!
+                as TreeGraphPainter)
+            .layout;
+    expect(layout.storyNodes, contains('c1995'));
+  });
+
+  testWidgets('a graph story opens the reader', (tester) async {
+    await pump(tester);
+    await tapGraphNode(tester, 's:b1977');
+    expect(router.state.uri.path, AppRoutes.storyPath('b1977'));
+    expect(find.text('reader-landed'), findsOneWidget);
+  });
+
+  testWidgets('a graph family, then C19, opens its timeline', (tester) async {
+    await pump(tester);
+    await tapGraphNode(tester, 'f-${TreeFixture.cal}');
+    expect(router.state.uri.path, AppRoutes.familyTreePath(TreeFixture.bea));
+    await tester.tap(find.text('Open Cal timeline'));
+    await tester.pumpAndSettle();
+
+    expect(FamilySelection.id, TreeFixture.cal);
+    expect(router.state.uri.path, AppRoutes.timeline);
+    expect(find.text('timeline-landed'), findsOneWidget);
+  });
+
   testWidgets('a story tile opens the reader', (tester) async {
     await pump(tester);
+    await openOverview(tester);
     await tester.tap(
       find.byKey(const Key('treemap-cell-${TreeFixture.bea}/1970')),
     );
@@ -182,6 +305,7 @@ void main() {
     tester,
   ) async {
     await pump(tester);
+    await openOverview(tester);
     await tester.tap(find.byKey(const Key('treemap-group-${TreeFixture.cal}')));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, AppRoutes.familyTreePath(TreeFixture.bea));
@@ -193,11 +317,12 @@ void main() {
     expect(find.text('timeline-landed'), findsOneWidget);
   });
 
-  testWidgets('an empty tree shows C9', (tester) async {
+  testWidgets('an empty tree shows C9 and no switch', (tester) async {
     stories = FakeStoriesGateway();
     await pump(tester);
     expect(find.text('No stories in this family tree yet.'), findsOneWidget);
     expect(find.text('Jenkins family tree'), findsOneWidget);
+    expect(viewSwitch, findsNothing);
   });
 
   testWidgets('a failed load offers Retry', (tester) async {
@@ -208,6 +333,7 @@ void main() {
     await pump(tester);
     expect(find.text("Couldn't load stories."), findsOneWidget);
     expect(find.byType(TreemapView), findsNothing);
+    expect(find.byType(TreeGraphView), findsNothing);
 
     stories.error = null;
     await tester.tap(find.byKey(const Key('family-tree-retry')));
@@ -228,29 +354,34 @@ void main() {
   });
 
   group('iPad sweep', () {
-    for (final size in const [
-      Size(744, 1133),
-      Size(1133, 744),
-      Size(1024, 1366),
-      Size(1366, 1024),
-      Size(320, 568),
-    ]) {
-      testWidgets('${size.width.toInt()} × ${size.height.toInt()}', (
-        tester,
-      ) async {
-        await pump(tester, size: size);
-        expect(tester.takeException(), isNull);
-        final map = tester.getRect(find.byType(TreemapLayout).first);
-        final switcher = tester.getRect(find.byKey(const Key('treemap-by')));
-        expect(map.top, greaterThan(switcher.bottom));
-        expect(map.bottom, closeTo(size.height - AlbumSpace.l, 1));
-        // On iPad the treemap takes over half the window; at 320 pt the
-        // header, heading, switch and colour key leave it over a third.
-        expect(
-          map.height,
-          greaterThan(size.height * (size.width < 700 ? 0.35 : 0.5)),
-        );
-      });
+    for (final MapEntry(key: name, value: size) in ipadSizes.entries) {
+      testWidgets('$name, both views', (tester) async {
+        stories = FakeStoriesGateway(stories: TreeFixture.crowded);
+        final errors = await collectFlutterErrors(() async {
+          await pump(tester, size: size, ipad: true);
+
+          // The graph: under the switch, down to the window bottom.
+          final pan = tester.getRect(find.byKey(const Key('tree-graph-pan')));
+          expect(
+            pan.top,
+            greaterThanOrEqualTo(tester.getRect(viewSwitch).bottom),
+          );
+          expect(pan.bottom, closeTo(size.height, 1));
+          expect(pan.height, greaterThan(size.height * 0.5));
+
+          await openOverview(tester);
+          final map = tester.getRect(find.byType(TreemapLayout).first);
+          final grouping = tester.getRect(find.byKey(const Key('treemap-by')));
+          expect(map.top, greaterThan(grouping.bottom));
+          expect(map.bottom, closeTo(size.height - AlbumSpace.l, 1));
+          // As 7.7: over half the window on iPad, over a third when narrow.
+          expect(
+            map.height,
+            greaterThan(size.height * (size.width < 700 ? 0.35 : 0.5)),
+          );
+        });
+        expect(errors, isEmpty);
+      }, variant: ios);
     }
   });
 }
