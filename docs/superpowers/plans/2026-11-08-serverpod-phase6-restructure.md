@@ -455,7 +455,7 @@ git grep -l -E "MagicLinkPage|AppRoutes\.magicLink|onMagicLink|static const magi
   - `/// Chrome-lock paths: magic-link entry (signed-out), …` → `/// Chrome-lock paths: sign-in entry (signed-out), …`;
   - `/// Where a signed-in session opens from the magic-link route.` → `/// Where a signed-in session opens from the sign-in route.`
 
-  In `test/router_test.dart`, change the five test names `… to magic-link'` → `… to sign-in'`, and `'signed-in user is redirected from magic-link to /family'` → `'signed-in user is redirected from sign-in to /family'`.
+  In `test/router_test.dart`, change the four test names `… to magic-link'` → `… to sign-in'`, and `'signed-in user is redirected from magic-link to /family'` → `'signed-in user is redirected from sign-in to /family'`.
 
 - [ ] **Step 3: Check.**
 

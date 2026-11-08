@@ -166,9 +166,9 @@ CustomTransitionPage<void> albumModalPage({
   );
 }
 
-/// Chrome-lock paths: magic-link entry (signed-out), `/family` (signed-in home).
+/// Chrome-lock paths: sign-in entry (signed-out), `/family` (signed-in home).
 abstract final class AppRoutes {
-  static const magicLink = '/';
+  static const signIn = '/';
   static const familyLanding = '/family';
   static const timeline = '/timeline';
   static const allStories = '/family/:id/stories';
@@ -196,7 +196,7 @@ abstract final class AppRoutes {
   static String storyPerspectivePath(String id) => '/stories/$id/perspective';
 }
 
-/// Where a signed-in session opens from the magic-link route.
+/// Where a signed-in session opens from the sign-in route.
 ///
 /// A live family lands on Family Landing. No live family, with a soft-deleted
 /// family the caller still owns or co-owns, lands on the manage hub. Neither
@@ -244,22 +244,22 @@ GoRouter createAppRouter({
   }
 
   return GoRouter(
-    initialLocation: AppRoutes.magicLink,
+    initialLocation: AppRoutes.signIn,
     refreshListenable: authRefresh,
     redirect: (BuildContext context, GoRouterState state) async {
       final signedIn = authRefresh.isSignedIn;
       final loc = state.matchedLocation;
-      final onMagicLink = loc == AppRoutes.magicLink;
+      final onSignIn = loc == AppRoutes.signIn;
       final onInvite = loc.startsWith('/invite/');
       final inviteToken = state.uri.queryParameters['invite'];
       if (inviteToken != null && inviteToken.isNotEmpty && !onInvite) {
         return AppRoutes.invitePath(inviteToken);
       }
 
-      if (!signedIn && !onMagicLink && !onInvite) {
-        return AppRoutes.magicLink;
+      if (!signedIn && !onSignIn && !onInvite) {
+        return AppRoutes.signIn;
       }
-      if (signedIn && onMagicLink) {
+      if (signedIn && onSignIn) {
         return appStartPath(familiesApi);
       }
       if (signedIn && loc == AppRoutes.newStory && familiesApi != null) {
@@ -303,8 +303,8 @@ GoRouter createAppRouter({
     },
     routes: [
       GoRoute(
-        path: AppRoutes.magicLink,
-        builder: (context, state) => const MagicLinkPage(),
+        path: AppRoutes.signIn,
+        builder: (context, state) => const SignInPage(),
       ),
       GoRoute(
         path: AppRoutes.familyLanding,

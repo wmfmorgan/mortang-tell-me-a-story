@@ -27,17 +27,17 @@ final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 bool isFullEmail(String email) => _emailPattern.hasMatch(email);
 
 /// Signed-out landing. Signed-in visitors are redirected by the router.
-class MagicLinkPage extends StatefulWidget {
-  const MagicLinkPage({super.key, this.otpSignIn});
+class SignInPage extends StatefulWidget {
+  const SignInPage({super.key, this.otpSignIn});
 
   /// Injectable for tests; defaults to [ServerOtpSignIn].
   final OtpSignIn? otpSignIn;
 
   @override
-  State<MagicLinkPage> createState() => _MagicLinkPageState();
+  State<SignInPage> createState() => _SignInPageState();
 }
 
-class _MagicLinkPageState extends State<MagicLinkPage> {
+class _SignInPageState extends State<SignInPage> {
   final _emailController = TextEditingController();
   late final OtpSignIn _otp = widget.otpSignIn ?? ServerOtpSignIn();
   var _sending = false;

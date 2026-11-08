@@ -299,7 +299,7 @@ GoRouter _router({required AuthRefresh auth}) {
 }
 
 void main() {
-  testWidgets('signed-out user is redirected from /timeline to magic-link', (
+  testWidgets('signed-out user is redirected from /timeline to sign-in', (
     tester,
   ) async {
     final auth = AuthRefresh(initiallySignedIn: false);
@@ -316,15 +316,15 @@ void main() {
 
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
-      AppRoutes.magicLink,
+      AppRoutes.signIn,
     );
-    expect(find.byType(MagicLinkPage), findsOneWidget);
+    expect(find.byType(SignInPage), findsOneWidget);
     expect(find.byType(TimelinePage), findsNothing);
 
     auth.dispose();
   });
 
-  testWidgets('signed-in user is redirected from magic-link to /family', (
+  testWidgets('signed-in user is redirected from sign-in to /family', (
     tester,
   ) async {
     final auth = AuthRefresh(initiallySignedIn: true);
@@ -341,7 +341,7 @@ void main() {
       AppRoutes.familyLanding,
     );
     expect(find.byType(FamilyLandingPage), findsOneWidget);
-    expect(find.byType(MagicLinkPage), findsNothing);
+    expect(find.byType(SignInPage), findsNothing);
 
     auth.dispose();
   });
@@ -358,7 +358,7 @@ void main() {
 
       await tester.pumpWidget(TellMeAStoryApp(router: router));
       await tester.pumpAndSettle();
-      expect(find.byType(MagicLinkPage), findsOneWidget);
+      expect(find.byType(SignInPage), findsOneWidget);
 
       info.value = AuthSuccess(
         authStrategy: 'session',
@@ -465,7 +465,7 @@ void main() {
     auth.dispose();
   });
 
-  testWidgets('signed-out user is redirected from /stories/new to magic-link', (
+  testWidgets('signed-out user is redirected from /stories/new to sign-in', (
     tester,
   ) async {
     final auth = AuthRefresh(initiallySignedIn: false);
@@ -485,9 +485,9 @@ void main() {
 
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
-      AppRoutes.magicLink,
+      AppRoutes.signIn,
     );
-    expect(find.byType(MagicLinkPage), findsOneWidget);
+    expect(find.byType(SignInPage), findsOneWidget);
     expect(find.byType(NewStoryPage), findsNothing);
 
     auth.dispose();
@@ -572,7 +572,7 @@ void main() {
     auth.dispose();
   });
 
-  testWidgets('signed-out user is redirected from /settings to magic-link', (
+  testWidgets('signed-out user is redirected from /settings to sign-in', (
     tester,
   ) async {
     final auth = AuthRefresh(initiallySignedIn: false);
@@ -586,14 +586,14 @@ void main() {
 
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
-      AppRoutes.magicLink,
+      AppRoutes.signIn,
     );
-    expect(find.byType(MagicLinkPage), findsOneWidget);
+    expect(find.byType(SignInPage), findsOneWidget);
 
     auth.dispose();
   });
 
-  testWidgets('signed-out user is redirected from /drafts to magic-link', (
+  testWidgets('signed-out user is redirected from /drafts to sign-in', (
     tester,
   ) async {
     final auth = AuthRefresh(initiallySignedIn: false);
@@ -607,9 +607,9 @@ void main() {
 
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
-      AppRoutes.magicLink,
+      AppRoutes.signIn,
     );
-    expect(find.byType(MagicLinkPage), findsOneWidget);
+    expect(find.byType(SignInPage), findsOneWidget);
     expect(find.byType(DraftsPage), findsNothing);
 
     auth.dispose();

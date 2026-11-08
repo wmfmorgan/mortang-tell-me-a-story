@@ -38,7 +38,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(MaterialApp(home: MagicLinkPage(otpSignIn: otp)));
+    await tester.pumpWidget(MaterialApp(home: SignInPage(otpSignIn: otp)));
     expect(find.text('Tell Me a Story'), findsOneWidget);
     expect(find.text(landingHeadline), findsOneWidget);
     expect(find.text(landingSubhead), findsOneWidget);
@@ -100,7 +100,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(MaterialApp(home: MagicLinkPage(otpSignIn: otp)));
+    await tester.pumpWidget(MaterialApp(home: SignInPage(otpSignIn: otp)));
     await tester.enterText(
       find.byKey(const Key('magic-link-email')),
       ' a@b.co ',
