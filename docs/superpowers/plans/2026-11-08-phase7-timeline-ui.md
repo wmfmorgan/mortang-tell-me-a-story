@@ -65,7 +65,7 @@
 | 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
 | 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | not started |
-| 7.7 Whole-tree page and treemap | this index, §7.7 | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | built, owner feedback 1 applied (`feat/p7-7-treemap`; app `+800 ~12`, goldens `+8`); awaiting sign-off of the v2 screenshots and C19 |
+| 7.7 Whole-tree page and treemap | this index, §7.7 | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | built; owner signed off v2 and C19 on 2026-11-08, colour key added after (`feat/p7-7-treemap`; app `+802 ~12`, goldens `+8`); ready to merge |
 | 7.8 Family tree graph | written at slice start | 7.7, **7.M pass** (O4 thresholds approved 2026-11-08); screenshots before merge | not started |
 | 7.z Close | this index, §7.z | all | not started |
 
@@ -951,7 +951,8 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
 - Reused app strings, no new copy: `Couldn't load stories.` + `Retry` (All Stories' load error), `No one tagged` (All Stories' person grouping, for stories with no tagged person), `1 story` / `{n} stories` (All Stories' `groupCountLabel`, in cell semantics), `Untitled` (`storyTitle`), story date labels (`storyDateLabelFor`), `{decade}s` and years.
 - Dropped lab copy: the `Group by` label (the switch has none), the `All` crumb (the C2 heading is the root crumb), the `›` separator (a `chevron_right` icon), the dim-mode `matched/total` counts (O6).
 - C8 (`{n} more stories`) belongs to the graph's `+N` chip and stays with 7.8; the treemap has no `+N`.
-- C19 `Open {Family} timeline` (owner feedback, 2026-11-08): **pending approval**, in one constant (`openFamilyTimelineLabel`).
+- C19 `Open {Family} timeline` (owner feedback, 2026-11-08): **approved 2026-11-08**, in one constant (`openFamilyTimelineLabel`).
+- The family colour key (owner, after v2 sign-off) adds no copy: only the family names.
 
 **Change:**
 - **Route.** `/family/:id/tree` → `FamilyTreePage(familyId:, storiesApi:, familiesApi:)` from `createAppRouter`, beside `allStories`. The router's existing auth redirect covers it.
@@ -963,6 +964,7 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
   - `buildTreemap(List<TimelineEntry>, List<TreeFamily>, TreemapBy)`: `family` → decade cells (group label = the family's name), `decade` → year cells (`1950s` → `1952`), `person` → decade cells over `Story.people` (a story counts once per tagged person; untagged stories go to `No one tagged`); groups and cells sorted by count, descending, ties in timeline order;
   - `TreemapLayout`/`TreemapSlot`/`RenderTreemapLayout` unchanged;
   - visual weight (owner feedback): every cell and story tile is tinted by family, cycling `albumSageTint`, `albumBlush`, `albumBlushPale`, `albumPillFill` in tree order (four families never share a tint; a family keeps its tint across groupings). In `By decade` and `By person` a cell takes its **dominant family's** tint (most stories; a tie goes to the earliest story's family). Group frames use `albumRuleStrong`; cells keep `albumModalBorder`. The count uses `AlbumText.count` in `albumInk` (the style's `albumDimInk` is 3.8:1 on the sage tint), sized at a fifth of the cell's shorter side between the base size and 32; the label is w600, at `AlbumText.group` size in cells ≥ 96 pt. Ink is ≥ 4.5:1 on every tint (tested). No new tokens. Shapes `albumContainerShape(AlbumRadius.group/tile)`;
+  - a family colour key (`treemap-family-key`) under the grouping switch in all three groupings: per family, in tree order, a 14 pt swatch with the cell tint (`albumRuleStrong` hairline, so `albumPillFill` still shows) and the family name; it wraps on narrow widths and ellipsizes a name wider than the row;
   - drill-down: overview (groups of cells) → tap a group header → that group's cells, large → tap a cell → one tile per story, in date order. The crumb row is the C2 heading (`treemap-crumb-root`, tappable once drilled) › group (`treemap-crumb-group`) › cell;
   - a **finger** tap on an overview cell under `AlbumTarget.min` (44 pt) in either axis opens its group instead (`isFingerLike`); mouse, trackpad and pencil open the cell;
   - switching grouping returns to the overview;
@@ -1070,7 +1072,7 @@ Send these through Main. Each answer is recorded here before the slice that depe
 | # | Answer |
 |---|---|
 | O1 | **(A)**: a family menu row opening `/family/:id/tree`. |
-| O2 | All 18 strings (C1–C18) approved as proposed; use them verbatim. |
+| O2 | All 18 strings (C1–C18) approved as proposed; use them verbatim. C19 (`Open {Family} timeline`, 7.7 owner feedback) approved 2026-11-08. |
 | O3 | The proposed token names in 7.2 approved, including `albumBlush` = `0xFFF5DED6` and `albumBlushPale` = `0xFFF5ECE9`. |
 | O4 | The proposed thresholds approved. |
 | O5 | All three treemap groupings (family, decade, person). |
@@ -1103,7 +1105,7 @@ Alternatives:
 | C16 | Status line | `{matched} of {total} stories match` |
 | C17 | No-match state + action | `No stories match these filters.` · `Clear filters` |
 | C18 | Decade header count while filtering | `{matched} of {total}` |
-| C19 | Treemap, drilled-in family action (7.7 owner feedback) | `Open {Family} timeline` — **pending approval** |
+| C19 | Treemap, drilled-in family action (7.7 owner feedback) | `Open {Family} timeline` (approved 2026-11-08) |
 
 **O3. Token names (blocks 7.2).**
 - Confirm the names in 7.2 for the lab's scales and tints. The values are the lab's, accepted under Q5.
@@ -1162,7 +1164,7 @@ Alternatives:
   - The C10 chooser title stays with 7.4, so `showStoryChooser` has no title row yet.
   - `just check` needs `dart pub get` in `apps/server` in a fresh worktree; otherwise `server-analyze` reports the missing `serverpod_cloud_storage_gcp`.
 
-**7.7 Whole-tree page and treemap** (`feat/p7-7-treemap`, from `feature/serverpod` `fd00bd4`; not merged: owner screenshot sign-off pending):
+**7.7 Whole-tree page and treemap** (`feat/p7-7-treemap`, from `feature/serverpod` `fd00bd4`; owner signed off the v2 screenshots and approved C19 on 2026-11-08):
 - **Commits:**
   - `ae4f404`: the §7.7 plan;
   - `6c14334`: treemap layout and view, optional `ViewSwitch.label` (+23 tests);
@@ -1179,5 +1181,6 @@ Alternatives:
 - **Plan fixes:**
   - Owns also `test/support/tree_fixture.dart` (the shared Jenkins/Bea/Cal tree for the layout, view, page and golden tests).
   - The server refuses to publish a story with no person (`person required`), so `No one tagged` in `By person` only shows for stories whose people all lack a name; it is kept because `Story.people` drops unnamed people.
-  - Owner feedback (2026-11-08), one commit each: `012bda7` family tints, `albumRuleStrong` group frames, scaled counts (+3 layout tests net, +4 view; both treemap goldens regenerated on purpose and re-inspected); `abe6212` the family header drills in, with the `Open {Family} timeline` action (C19, pending); `ce98cd3` the tree row is hidden on the new-story and tree pages (+1 test). The page title stays the root family. After the feedback: app `+800 ~12`, `just test-goldens` `+8` with the six rail PNGs unchanged. v2 screenshots: `/tmp/tmas-p7-7-shots/v2/`.
+  - Owner feedback (2026-11-08), one commit each: `012bda7` family tints, `albumRuleStrong` group frames, scaled counts (+3 layout tests net, +4 view; both treemap goldens regenerated on purpose and re-inspected); `abe6212` the family header drills in, with the `Open {Family} timeline` action (C19); `ce98cd3` the tree row is hidden on the new-story and tree pages (+1 test). The page title stays the root family. v2 screenshots: `/tmp/tmas-p7-7-shots/v2/`.
+  - **Sign-off (owner, 2026-11-08):** v2 screenshots approved; C19 approved; one addition, the family colour key: `6de01a9` (+2 view tests: every family with its tint in all three groupings, and wrapping with no overflow at 744 × 1133 and 320 × 568; both treemap goldens regenerated on purpose and re-inspected; screenshot `/tmp/tmas-p7-7-shots/v2/11-colour-key-desktop.png`). The page sweep's height floor became one half on iPad and a third at 320 pt, since the key row takes ~26 pt. Gates after it: `just check` passes (fmt 0 changed ×2, analyze 6, app `+802 ~12`, server `+447`), `just test-goldens` `+8` with the six rail PNGs unchanged.
   - `just check` in a fresh worktree also needs `just server-passwords` (the git-ignored `apps/server/config/passwords.yaml`); without it `server-test` stops after the unit tests.
