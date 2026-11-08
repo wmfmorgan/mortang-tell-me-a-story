@@ -133,4 +133,52 @@ void main() {
     );
     expect((await mine.getPublished(story.id))?.title, 'Kept');
   });
+
+  test('a root member reads a branch story through the tree read', () async {
+    final client = await signInLive(freshEmail('stories-tree'));
+    final family = await seedFamily(client);
+    final api = StoriesApi(client: client);
+    Future<Story> published(String familyId, int year, String title) async {
+      final draft = await api.createDraft(
+        familyId: familyId,
+        timeframeStart: DateTime(year),
+        timeframeEnd: DateTime(year, 12, 31),
+        datePrecision: 'year',
+        title: title,
+        body: 'Body',
+        placeId: family.placeId,
+        personIds: [family.personId],
+      );
+      return api.publish(draft.id);
+    }
+
+    final origin = await published(family.familyId, 1990, 'Root');
+    final branchId = await client.family.createBranch(
+      parentFamilyId: UuidValue.fromString(family.familyId),
+      originStoryId: UuidValue.fromString(origin.id),
+      name: 'Branch',
+      branchYear: 1995,
+      ownerUserId: client.auth.authInfo!.authUserId,
+      personIds: const [],
+    );
+    final branchStory = await published(branchId.toString(), 1950, 'Branch');
+
+    expect((await api.listPublishedInTree(family.familyId)).map((s) => s.id), [
+      branchStory.id,
+      origin.id,
+    ]);
+    expect(
+      (await api.listPublishedInTree(branchId.toString()))
+          .map((s) => s.familyId),
+      [branchId.toString(), family.familyId],
+    );
+
+    final stranger = StoriesApi(
+      client: await signInLive(freshEmail('stories-tree-stranger')),
+    );
+    await expectLater(
+      stranger.listPublishedInTree(family.familyId),
+      clientError(AppErrorCode.forbidden),
+    );
+  });
 }

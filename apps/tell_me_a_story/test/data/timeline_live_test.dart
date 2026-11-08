@@ -27,6 +27,7 @@ class _FakeLiveEndpoint extends server.EndpointLive {
 
   final families = <String>[];
   final stories = <String>[];
+  final trees = <String>[];
   final streams = <StreamController<server.LiveEventDto>>[];
 
   StreamController<server.LiveEventDto> get latest => streams.last;
@@ -40,6 +41,12 @@ class _FakeLiveEndpoint extends server.EndpointLive {
   @override
   Stream<server.LiveEventDto> watchStory(server.UuidValue storyId) {
     stories.add(storyId.toString());
+    return _open();
+  }
+
+  @override
+  Stream<server.LiveEventDto> watchTree(server.UuidValue familyId) {
+    trees.add(familyId.toString());
     return _open();
   }
 
@@ -80,6 +87,46 @@ void main() {
       );
       expect(matters(_event(kind: server.LiveKind.photo)), isTrue);
       expect(matters(_event(kind: server.LiveKind.note, status: null)), isTrue);
+    });
+  });
+
+  group('treeEventMatters', () {
+    test('any family of the tree refreshes', () {
+      expect(treeEventMatters(_event()), isTrue);
+      expect(treeEventMatters(_event(family: _otherFamily)), isTrue);
+    });
+
+    test('a draft story does not refresh', () {
+      expect(
+        treeEventMatters(_event(status: server.StoryStatus.draft)),
+        isFalse,
+      );
+    });
+
+    test('deleted stories, photos, notes and family changes refresh', () {
+      expect(
+        treeEventMatters(
+          _event(status: server.StoryStatus.draft, deleted: true),
+        ),
+        isTrue,
+      );
+      expect(treeEventMatters(_event(kind: server.LiveKind.photo)), isTrue);
+      expect(
+        treeEventMatters(_event(kind: server.LiveKind.note, status: null)),
+        isTrue,
+      );
+      for (final deleted in [false, true]) {
+        expect(
+          treeEventMatters(
+            server.LiveEventDto(
+              familyId: server.UuidValue.fromString(_otherFamily),
+              kind: server.LiveKind.family,
+              deleted: deleted,
+            ),
+          ),
+          isTrue,
+        );
+      }
     });
   });
 
@@ -250,6 +297,85 @@ void main() {
 
       expect(client.fake.stories, [_story]);
       expect(changes, 1);
+    });
+
+    group('watchTree', () {
+      void watchTree([String familyId = _family]) =>
+          live.watchTree(familyId: familyId, onChange: () => changes++);
+
+      testWidgets('events of any family in the tree refresh once, 200 ms '
+          'after the last; drafts do not', (tester) async {
+        watchTree();
+        client.fake.latest
+          ..add(_event(family: _otherFamily))
+          ..add(_event(status: server.StoryStatus.draft));
+        await tester.pump(const Duration(milliseconds: 100));
+        client.fake.latest.add(_event(kind: server.LiveKind.photo));
+        await tester.pump(const Duration(milliseconds: 199));
+        expect(changes, 0);
+
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(changes, 1);
+        expect(client.fake.trees, [_family]);
+        expect(client.fake.families, isEmpty);
+      });
+
+      testWidgets('a drop resubscribes with backoff', (tester) async {
+        watchTree();
+        client.fake.latest.addError(const server.WebSocketClosedException());
+        await tester.pump(const Duration(milliseconds: 999));
+        expect(client.fake.trees, hasLength(1));
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(client.fake.trees, hasLength(2));
+
+        client.fake.latest.addError(const server.WebSocketClosedException());
+        await tester.pump(const Duration(milliseconds: 1999));
+        expect(client.fake.trees, hasLength(2));
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(client.fake.trees, [_family, _family, _family]);
+      });
+
+      testWidgets('a refusal stops the tree feed for good', (tester) async {
+        watchTree();
+        client.fake.latest.addError(
+          server.AppException(
+            code: server.AppErrorCode.forbidden,
+            message: 'member only',
+          ),
+        );
+        await tester.pump(const Duration(minutes: 1));
+
+        expect(client.fake.trees, hasLength(1));
+        expect(changes, 0);
+      });
+
+      testWidgets('one stream per family; switching closes the old one', (
+        tester,
+      ) async {
+        watchTree();
+        watchTree();
+        expect(client.fake.trees, [_family]);
+        final first = client.fake.latest;
+
+        watchTree(_otherFamily);
+        await tester.pump();
+        expect(client.fake.trees, [_family, _otherFamily]);
+        expect(first.hasListener, isFalse);
+      });
+
+      testWidgets('dispose closes the tree feed with the others', (
+        tester,
+      ) async {
+        watchTree();
+        final first = client.fake.latest;
+        first.add(_event());
+        await tester.pump(const Duration(milliseconds: 50));
+        live.dispose();
+        await tester.pump(const Duration(minutes: 1));
+
+        expect(changes, 0);
+        expect(first.hasListener, isFalse);
+      });
     });
   });
 }

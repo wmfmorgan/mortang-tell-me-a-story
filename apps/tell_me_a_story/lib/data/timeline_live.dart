@@ -12,14 +12,17 @@ bool timelineEventMatters({
   required server.LiveEventDto event,
 }) {
   if (event.familyId.toString() != familyId) return false;
-  if (event.kind == server.LiveKind.story &&
-      !event.deleted &&
-      event.storyStatus != null &&
-      event.storyStatus != server.StoryStatus.published) {
-    return false;
-  }
-  return true;
+  return treeEventMatters(event);
 }
+
+/// Whether a tree-channel event should refresh a whole-tree view: any family
+/// of the tree counts (including a family created, soft-deleted or
+/// recovered); only a story that is still a draft does not.
+bool treeEventMatters(server.LiveEventDto event) =>
+    !(event.kind == server.LiveKind.story &&
+        !event.deleted &&
+        event.storyStatus != null &&
+        event.storyStatus != server.StoryStatus.published);
 
 abstract class TimelineLive {
   void watch({required String familyId, required void Function() onChange});
@@ -31,18 +34,25 @@ abstract class TimelineLive {
     required void Function() onChange,
   }) {}
 
+  /// Whole-tree feed: every live family in [familyId]'s tree. The default
+  /// does nothing, like [watchStory].
+  void watchTree({
+    required String familyId,
+    required void Function() onChange,
+  }) {}
+
   void dispose();
 }
 
 /// Live refreshes from the server's `live` streams: the timeline follows
-/// `watchFamily`, the reader `watchStory`. A change calls `onChange` after
-/// 200 ms without further events.
+/// `watchFamily`, the reader `watchStory`, a whole-tree view `watchTree`. A
+/// change calls `onChange` after 200 ms without further events.
 ///
 /// A stream that fails or ends never reaches the UI. A dropped WebSocket or
 /// an ended stream is reopened after 1 s, doubling up to 30 s while it keeps
 /// failing; any event resets the delay. A permanent refusal (the server's
 /// `AppException`, e.g. no longer a member or the family is deleted, or a
-/// refused sign-in) closes the feed for good. [dispose] stops both feeds.
+/// refused sign-in) closes the feed for good. [dispose] stops every feed.
 class ServerTimelineLive implements TimelineLive {
   ServerTimelineLive({server.Client? client}) : _injected = client;
 
@@ -54,6 +64,8 @@ class ServerTimelineLive implements TimelineLive {
   String? _familyId;
   _LiveFeed? _story;
   String? _storyId;
+  _LiveFeed? _tree;
+  String? _treeFamilyId;
 
   @override
   void watch({required String familyId, required void Function() onChange}) {
@@ -85,13 +97,31 @@ class ServerTimelineLive implements TimelineLive {
   }
 
   @override
+  void watchTree({
+    required String familyId,
+    required void Function() onChange,
+  }) {
+    if (_treeFamilyId == familyId && _tree != null) return;
+    _tree?.close();
+    _treeFamilyId = familyId;
+    _tree = _LiveFeed(
+      open: () => _client.live.watchTree(server.UuidValue.fromString(familyId)),
+      matters: treeEventMatters,
+      onChange: onChange,
+    );
+  }
+
+  @override
   void dispose() {
     _family?.close();
     _story?.close();
+    _tree?.close();
     _family = null;
     _story = null;
+    _tree = null;
     _familyId = null;
     _storyId = null;
+    _treeFamilyId = null;
   }
 }
 
