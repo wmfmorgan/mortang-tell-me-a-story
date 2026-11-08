@@ -18,8 +18,8 @@ import 'package:tell_me_a_story/ui/timeline/view_switch.dart';
 /// C9.
 const emptyTreeMessage = 'No stories in this family tree yet.';
 
-/// C19, pending owner approval: the drilled-in action of a family group in
-/// the By family grouping.
+/// C19 (approved 2026-11-08): the action that opens a family's timeline,
+/// after its treemap group or tree graph node is opened.
 String openFamilyTimelineLabel(String family) => 'Open $family timeline';
 
 /// C5–C7.
@@ -44,6 +44,7 @@ class TreemapView extends StatefulWidget {
     required this.tree,
     required this.onStory,
     required this.onFamily,
+    this.viewSwitch,
   });
 
   /// C2, the page heading. It is also the root crumb.
@@ -56,6 +57,10 @@ class TreemapView extends StatefulWidget {
 
   /// The drilled-in [openFamilyTimelineLabel] action (By family only).
   final ValueChanged<String> onFamily;
+
+  /// The page's view switch (C3/C4), shown before the grouping switch in
+  /// the same row. Null in the treemap's own tests.
+  final Widget? viewSwitch;
 
   @override
   State<TreemapView> createState() => _TreemapViewState();
@@ -124,6 +129,12 @@ class _TreemapViewState extends State<TreemapView> {
         _crumbs(context, group, cell),
         ViewSwitch<TreemapBy>(
           switchKey: const Key('treemap-by'),
+          leading: [
+            if (widget.viewSwitch case final viewSwitch?) ...[
+              viewSwitch,
+              const SizedBox(width: AlbumSpace.m),
+            ],
+          ],
           values: TreemapBy.values,
           labelOf: treemapByLabel,
           selected: _by,
@@ -155,18 +166,7 @@ class _TreemapViewState extends State<TreemapView> {
     final crumbStyle = Theme.of(context).textTheme.titleMedium
         ?.copyWith(color: albumInk);
     final link = crumbStyle?.copyWith(color: albumTerracotta);
-    final heading = Semantics(
-      header: true,
-      headingLevel: 1,
-      child: Text(
-        widget.title,
-        style: GoogleFonts.newsreader(
-          color: albumInk,
-          fontSize: 32,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
+    final heading = TreeHeading(widget.title);
     const chevron = Icon(Icons.chevron_right, size: 20, color: albumDimInk);
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -199,18 +199,57 @@ class _TreemapViewState extends State<TreemapView> {
           if (cell != null) ...[chevron, Text(cell.label, style: crumbStyle)],
           if (group != null && _by == TreemapBy.family) ...[
             const SizedBox(width: AlbumSpace.m),
-            TextButton.icon(
+            OpenFamilyTimelineAction(
               key: const Key('treemap-open-family'),
+              family: group.label,
               onPressed: () => widget.onFamily(group.id),
-              style: TextButton.styleFrom(foregroundColor: albumTerracotta),
-              icon: const Icon(Icons.arrow_forward, size: 18),
-              label: Text(openFamilyTimelineLabel(group.label)),
             ),
           ],
         ],
       ),
     );
   }
+}
+
+/// The C2 heading of the whole-tree views.
+class TreeHeading extends StatelessWidget {
+  const TreeHeading(this.title, {super.key});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    header: true,
+    headingLevel: 1,
+    child: Text(
+      title,
+      style: GoogleFonts.newsreader(
+        color: albumInk,
+        fontSize: 32,
+        fontWeight: FontWeight.w500,
+      ),
+    ),
+  );
+}
+
+/// The terracotta C19 action that opens [family]'s timeline.
+class OpenFamilyTimelineAction extends StatelessWidget {
+  const OpenFamilyTimelineAction({
+    super.key,
+    required this.family,
+    required this.onPressed,
+  });
+
+  final String family;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => TextButton.icon(
+    onPressed: onPressed,
+    style: TextButton.styleFrom(foregroundColor: albumTerracotta),
+    icon: const Icon(Icons.arrow_forward, size: 18),
+    label: Text(openFamilyTimelineLabel(family)),
+  );
 }
 
 /// Colour key: a swatch and the name of every family, in tree order, with

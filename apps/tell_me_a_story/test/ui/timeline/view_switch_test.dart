@@ -59,6 +59,30 @@ void main() {
     expect(children.single, isA<SegmentedButton<_View>>());
   });
 
+  testWidgets('leading widgets come before the segments', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: albumTheme(),
+        home: Scaffold(
+          body: ViewSwitch<_View>(
+            switchKey: const Key('view-switch'),
+            leading: const [Text('first', key: Key('lead'))],
+            values: _View.values,
+            labelOf: (v) => v.name,
+            selected: _View.graph,
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    expect(
+      tester.getTopRight(find.byKey(const Key('lead'))).dx,
+      lessThanOrEqualTo(
+        tester.getTopLeft(find.byKey(const Key('view-switch'))).dx,
+      ),
+    );
+  });
+
   testWidgets('scrolls sideways instead of overflowing when narrow', (
     tester,
   ) async {

@@ -91,6 +91,9 @@ void main() {
     expect(AlbumText.count(t).color, albumDimInk);
     expect(AlbumText.lane(t).fontWeight, FontWeight.w600);
     expect(AlbumText.group(t), t.titleSmall);
+    expect(AlbumText.badge(t).fontSize, t.labelSmall!.fontSize);
+    expect(AlbumText.badge(t).fontWeight, FontWeight.w700);
+    expect(AlbumText.badge(t).color, albumParchment);
   });
 
   test('containers have continuous corners', () {
