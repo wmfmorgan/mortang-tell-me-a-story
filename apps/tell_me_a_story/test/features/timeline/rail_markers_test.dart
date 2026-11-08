@@ -3,9 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/features/timeline/origin_banner.dart';
-import 'package:tell_me_a_story/features/timeline/rails/far_rail.dart';
-import 'package:tell_me_a_story/features/timeline/rails/full_card_rail.dart';
-import 'package:tell_me_a_story/features/timeline/rails/mid_rail.dart';
 import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
 
 import '../../support/timeline_fixture.dart';
@@ -193,17 +190,7 @@ void main() {
           find.descendant(of: spine, matching: find.byType(ColoredBox)),
         );
         expect(rect.width, AlbumStroke.mark);
-        // Centred on the rail, which starts after the filter sidebar (7.5).
-        final rail = tester.getRect(
-          find.ancestor(
-            of: spine,
-            matching: find.byWidgetPredicate(
-              (w) => w is FarRail || w is MidRail || w is FullCardRail,
-            ),
-          ),
-        );
-        expect(rect.center.dx, closeTo(rail.center.dx, 1));
-        expect(rail.right, _desktop.width);
+        expect(rect.center.dx, closeTo(_desktop.width / 2, 1));
         // It runs the full height of the rail, not a zero-height stub.
         expect(rect.height, greaterThan(_desktop.height / 2));
       });

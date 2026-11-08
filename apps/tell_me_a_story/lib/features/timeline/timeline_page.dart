@@ -88,6 +88,11 @@ class _TimelinePageState extends State<TimelinePage> {
   /// switch.
   var _filter = const TimelineFilter();
 
+  /// The docked filter sidebar at [AlbumBreakpoint.sidebar] and up. It
+  /// starts closed and stays as the user left it across zooms (owner,
+  /// 2026-11-08).
+  var _sidebarOpen = false;
+
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
 
@@ -631,15 +636,16 @@ class _TimelinePageState extends State<TimelinePage> {
     final family = _currentFamily;
     final bands = decadeBands(_published);
     final showRail = !_loadingFamily && !_loadingPublished && bands.isNotEmpty;
-    final sidebar =
+    final wide =
         showRail && MediaQuery.sizeOf(context).width >= AlbumBreakpoint.sidebar;
+    final sidebar = wide && _sidebarOpen;
     final dimmed = _dimmed;
     return Scaffold(
       backgroundColor: albumParchment,
       // The rails are not a form: the keyboard (a search field, a dialog)
       // floats over them instead of squeezing the viewport.
       resizeToAvoidBottomInset: false,
-      endDrawer: showRail && !sidebar
+      endDrawer: showRail && !wide
           ? Drawer(
               key: const Key('timeline-filter-drawer'),
               width: math.min(
@@ -700,7 +706,7 @@ class _TimelinePageState extends State<TimelinePage> {
                       child: Stack(
                         children: [
                           Positioned.fill(
-                            child: _body(bands, dimmed, sidebar: sidebar),
+                            child: _body(bands, dimmed, wide: wide),
                           ),
                           if (showRail &&
                               _filter.isActive &&
@@ -764,7 +770,7 @@ class _TimelinePageState extends State<TimelinePage> {
 
   void _setFilter(TimelineFilter filter) => setState(() => _filter = filter);
 
-  /// The filters, scrolling above the keyboard: the sidebar at
+  /// The filters, scrolling above the keyboard: the docked sidebar at
   /// [AlbumBreakpoint.sidebar] and up, the end drawer below.
   Widget _filterPanel(Set<String> dimmed) {
     return SingleChildScrollView(
@@ -779,12 +785,15 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 
-  /// Opens the end drawer; beside the zoom switch below the sidebar width.
-  Widget _filtersButton() {
+  /// Beside the zoom switch at every width: toggles the docked sidebar when
+  /// [wide], else opens the end drawer.
+  Widget _filtersButton({required bool wide}) {
     return Builder(
       builder: (context) => TextButton.icon(
         key: const Key('timeline-filters-open'),
-        onPressed: () => Scaffold.of(context).openEndDrawer(),
+        onPressed: wide
+            ? () => setState(() => _sidebarOpen = !_sidebarOpen)
+            : () => Scaffold.of(context).openEndDrawer(),
         icon: Icon(_filter.isActive ? Icons.filter_alt : Icons.tune),
         label: const Text('Filters'),
       ),
@@ -821,7 +830,7 @@ class _TimelinePageState extends State<TimelinePage> {
   Widget _body(
     List<DecadeBand> bands,
     Set<String> dimmed, {
-    required bool sidebar,
+    required bool wide,
   }) {
     if (_loadingFamily || _loadingPublished) {
       return const Center(child: CircularProgressIndicator());
@@ -862,7 +871,7 @@ class _TimelinePageState extends State<TimelinePage> {
         onFullCards: _openFullCards,
         dimmed: dimmed,
         filtering: _filter.isActive,
-        filterAction: sidebar ? null : _filtersButton(),
+        filterAction: _filtersButton(wide: wide),
       ),
       TimelineZoom.mid => MidRail(
         stories: dialStories(_published),
@@ -879,7 +888,7 @@ class _TimelinePageState extends State<TimelinePage> {
         onMacro: _fitAll,
         onFullCards: _zoomIn,
         dimmed: dimmed,
-        filterAction: sidebar ? null : _filtersButton(),
+        filterAction: _filtersButton(wide: wide),
       ),
       TimelineZoom.near => FullCardRail(
         stories: dialStories(_published),
@@ -903,7 +912,7 @@ class _TimelinePageState extends State<TimelinePage> {
         onMacro: _fitAll,
         onMid: () => setState(() => _zoom = TimelineZoom.mid),
         dimmed: dimmed,
-        filterAction: sidebar ? null : _filtersButton(),
+        filterAction: _filtersButton(wide: wide),
       ),
     };
   }

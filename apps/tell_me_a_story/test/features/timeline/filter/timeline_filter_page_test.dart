@@ -62,6 +62,17 @@ Future<void> _zoom(WidgetTester tester, String key) async {
   await tester.pumpAndSettle();
 }
 
+final _open = find.byKey(const Key('timeline-filters-open'));
+final _sidebar = find.byKey(const Key('timeline-filter-sidebar'));
+
+/// The varied fixture with the filters open: the sidebar on desktop.
+Future<void> _pumpWithFilters(WidgetTester tester, {String? zoomKey}) async {
+  await pumpFixtureTimeline(tester, stories: fixtureVaried, zoomKey: zoomKey);
+  await tester.tap(_open);
+  await tester.pumpAndSettle();
+  expect(_sidebar, findsOneWidget);
+}
+
 /// A story title, built on or off screen (Days builds every card).
 Finder _title(String title) => find.text(title, skipOffstage: false);
 
@@ -70,37 +81,60 @@ Color? _titleColor(WidgetTester tester, String title) =>
 
 void main() {
   group('placement', () {
-    testWidgets('at 900 pt the filters are a sidebar, with no button', (
-      tester,
-    ) async {
+    testWidgets('at 900 pt the sidebar starts closed; the Filters button '
+        'beside the zoom switch docks it and closes it', (tester) async {
       _setView(tester, const Size(900, 800));
       await pumpFixtureTimeline(tester, stories: fixtureVaried);
-      expect(find.byKey(const Key('timeline-filter-sidebar')), findsOneWidget);
-      expect(find.byKey(const Key('timeline-filters-open')), findsNothing);
-      // The sidebar sits left of the rail.
+      expect(_sidebar, findsNothing);
+      // Closed, the rail has the full width.
+      expect(tester.getRect(find.byType(FarRail)).left, 0);
+      expect(tester.getRect(find.byType(FarRail)).right, 900);
+      expect(_open, findsOneWidget);
       expect(
-        tester.getRect(find.byKey(const Key('timeline-filter-sidebar'))).right,
-        lessThanOrEqualTo(tester.getRect(find.byType(FarRail)).left),
-      );
-    });
-
-    testWidgets('at 899 pt a Filters button beside the zoom switch opens the '
-        'end drawer', (tester) async {
-      _setView(tester, const Size(899, 800));
-      await pumpFixtureTimeline(tester, stories: fixtureVaried);
-      expect(find.byKey(const Key('timeline-filter-sidebar')), findsNothing);
-      final button = find.byKey(const Key('timeline-filters-open'));
-      expect(button, findsOneWidget);
-      expect(
-        find.descendant(of: button, matching: find.text('Filters')),
+        find.descendant(of: _open, matching: find.text('Filters')),
         findsOneWidget,
       );
       final zoom = tester.getRect(find.byKey(const Key('timeline-zoom-mid')));
-      expect((tester.getCenter(button).dy - zoom.center.dy).abs(), lessThan(8));
-      expect(tester.getRect(button).right, lessThan(zoom.left));
+      expect((tester.getCenter(_open).dy - zoom.center.dy).abs(), lessThan(8));
+      expect(tester.getRect(_open).right, lessThan(zoom.left));
 
-      await tester.tap(button);
+      await tester.tap(_open);
       await tester.pumpAndSettle();
+      expect(_sidebar, findsOneWidget);
+      expect(find.byKey(const Key('timeline-filter-drawer')), findsNothing);
+      expect(tester.getSize(_sidebar).width, 360);
+      // Docked and non-modal: it sits left of the rail, and the rail still
+      // answers taps.
+      expect(
+        tester.getRect(_sidebar).right,
+        lessThanOrEqualTo(tester.getRect(find.byType(FarRail)).left),
+      );
+      await _zoom(tester, 'timeline-zoom-mid');
+      expect(find.byType(MidRail), findsOneWidget);
+      expect(_sidebar, findsOneWidget);
+      await _zoom(tester, 'timeline-zoom-full');
+      expect(_sidebar, findsOneWidget);
+
+      await tester.tap(_open);
+      await tester.pumpAndSettle();
+      expect(_sidebar, findsNothing);
+      expect(tester.getRect(find.byType(FullCardRail)).left, 0);
+    });
+
+    testWidgets('at 899 pt the Filters button opens the end drawer', (
+      tester,
+    ) async {
+      _setView(tester, const Size(899, 800));
+      await pumpFixtureTimeline(tester, stories: fixtureVaried);
+      expect(_sidebar, findsNothing);
+      expect(_open, findsOneWidget);
+      final zoom = tester.getRect(find.byKey(const Key('timeline-zoom-mid')));
+      expect((tester.getCenter(_open).dy - zoom.center.dy).abs(), lessThan(8));
+      expect(tester.getRect(_open).right, lessThan(zoom.left));
+
+      await tester.tap(_open);
+      await tester.pumpAndSettle();
+      expect(_sidebar, findsNothing);
       final drawer = find.byKey(const Key('timeline-filter-drawer'));
       expect(drawer, findsOneWidget);
       expect(
@@ -115,8 +149,8 @@ void main() {
       tester,
     ) async {
       _setView(tester, _desktop);
-      await pumpFixtureTimeline(tester, stories: fixtureVaried);
-      final panel = find.byKey(const Key('timeline-filter-sidebar'));
+      await _pumpWithFilters(tester);
+      final panel = _sidebar;
       for (final label in ['Filters', 'People', 'Places', 'Years']) {
         expect(
           find.descendant(of: panel, matching: find.text(label)),
@@ -147,11 +181,7 @@ void main() {
       testWidgets('a person filter keeps every dot and hollows the '
           'unmatched (${zoomKey ?? 'Decades'})', (tester) async {
         _setView(tester, _desktop);
-        await pumpFixtureTimeline(
-          tester,
-          stories: fixtureVaried,
-          zoomKey: zoomKey,
-        );
+        await _pumpWithFilters(tester, zoomKey: zoomKey);
         final before = _dots(tester, prefix);
         expect(before, isNotEmpty);
         expect(before.values, everyElement(isTrue));
@@ -173,11 +203,7 @@ void main() {
         tester,
       ) async {
         _setView(tester, _desktop);
-        await pumpFixtureTimeline(
-          tester,
-          stories: fixtureVaried,
-          zoomKey: zoomKey,
-        );
+        await _pumpWithFilters(tester, zoomKey: zoomKey);
         for (final title in _titles.values) {
           if (_title(title).evaluate().isEmpty) continue;
           expect(_titleColor(tester, title), isNot(albumDimInk));
@@ -205,7 +231,7 @@ void main() {
       tester,
     ) async {
       _setView(tester, _desktop);
-      await pumpFixtureTimeline(tester, stories: fixtureVaried);
+      await _pumpWithFilters(tester);
       Finder inRow(int decade, String text) => find.descendant(
         of: find.byKey(Key('timeline-decade-row-$decade')),
         matching: find.textContaining(text),
@@ -227,7 +253,7 @@ void main() {
 
     testWidgets('a query dims by title, body and people', (tester) async {
       _setView(tester, _desktop);
-      await pumpFixtureTimeline(tester, stories: fixtureVaried);
+      await _pumpWithFilters(tester);
       await tester.enterText(find.byKey(const Key('filter-search')), 'bea');
       await tester.pumpAndSettle();
       final dots = _dots(tester, 'timeline-dot-');
@@ -247,7 +273,7 @@ void main() {
       tester,
     ) async {
       _setView(tester, _desktop);
-      await pumpFixtureTimeline(tester, stories: fixtureVaried);
+      await _pumpWithFilters(tester);
       await tester.enterText(find.byKey(const Key('filter-search')), 'zzz');
       await tester.pumpAndSettle();
       expect(find.byType(FarRail), findsOneWidget);
@@ -271,7 +297,7 @@ void main() {
 
     testWidgets('the panel clears with Clear filters too', (tester) async {
       _setView(tester, _desktop);
-      await pumpFixtureTimeline(tester, stories: fixtureVaried);
+      await _pumpWithFilters(tester);
       await _tapChip(tester, 'filter-place-${fixtureMill.id}');
       expect(find.text('2 of 6 stories match'), findsOneWidget);
       await _tapChip(tester, 'filter-clear');
@@ -283,7 +309,7 @@ void main() {
   group('scope', () {
     testWidgets('the filter survives zoom changes', (tester) async {
       _setView(tester, _desktop);
-      await pumpFixtureTimeline(tester, stories: fixtureVaried);
+      await _pumpWithFilters(tester);
       await _tapChip(tester, 'filter-person-${fixtureTom.id}');
       await _zoom(tester, 'timeline-zoom-mid');
       expect(find.byType(MidRail), findsOneWidget);
@@ -306,7 +332,7 @@ void main() {
 
     testWidgets('the filter resets on a family switch', (tester) async {
       _setView(tester, _desktop);
-      await pumpFixtureTimeline(tester, stories: fixtureVaried);
+      await _pumpWithFilters(tester);
       await _tapChip(tester, 'filter-person-${fixtureTom.id}');
       expect(find.byKey(const Key('filter-status')), findsOneWidget);
       final callout = find.byKey(const Key('timeline-branch-callout-$beaId'));

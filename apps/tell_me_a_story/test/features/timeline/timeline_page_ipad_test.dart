@@ -45,19 +45,20 @@ void main() {
   });
 
   // 7.5: the same sweep with a filter active and the filters open: the
-  // sidebar at 900 pt and up, the end drawer below.
+  // docked sidebar at 900 pt and up, the end drawer below.
   group('no overflow with the filters open', () {
     Future<void> openFilters(WidgetTester tester, Size size) async {
-      if (size.width < AlbumBreakpoint.sidebar) {
-        await tester.tap(find.byKey(const Key('timeline-filters-open')));
-        await tester.pumpAndSettle();
-        expect(find.byKey(const Key('timeline-filter-drawer')), findsOneWidget);
-      } else {
-        expect(
-          find.byKey(const Key('timeline-filter-sidebar')),
-          findsOneWidget,
-        );
-      }
+      await tester.tap(find.byKey(const Key('timeline-filters-open')));
+      await tester.pumpAndSettle();
+      final wide = size.width >= AlbumBreakpoint.sidebar;
+      expect(
+        find.byKey(const Key('timeline-filter-sidebar')),
+        wide ? findsOneWidget : findsNothing,
+      );
+      expect(
+        find.byKey(const Key('timeline-filter-drawer')),
+        wide ? findsNothing : findsOneWidget,
+      );
       final chip = find.byKey(Key('filter-person-${fixtureTom.id}'));
       await tester.ensureVisible(chip);
       await tester.tap(chip);
