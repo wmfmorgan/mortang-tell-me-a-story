@@ -9,7 +9,6 @@ import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart'
     hide displayNameOrMember;
@@ -21,6 +20,7 @@ import 'package:tell_me_a_story/features/family/family_landing_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 import '../support/fakes/fake_invite_gateway.dart';
+import '../support/fakes/fake_mapbox_search.dart';
 import '../support/fakes/fake_photos_gateway.dart';
 import '../support/fakes/fake_places_gateway.dart';
 import '../support/fakes/fake_stories_gateway.dart';
@@ -40,12 +40,6 @@ class _StubPeopleApi extends PeopleGateway {
   }) async {
     throw UnimplementedError();
   }
-}
-
-class _StubMapboxSearch implements MapboxSearchGateway {
-  @override
-  Future<List<MapboxSearchHit>> search(String query, {int limit = 5}) async =>
-      const [];
 }
 
 class _StubCommentsApi implements CommentsGateway {
@@ -101,7 +95,7 @@ GoRouter _router({required AuthRefresh auth}) {
     ),
     peopleApi: _StubPeopleApi(),
     placesApi: FakePlacesGateway(),
-    mapboxSearch: _StubMapboxSearch(),
+    mapboxSearch: FakeMapboxSearch(),
     storiesApi: FakeStoriesGateway(),
     photosApi: FakePhotosGateway(),
     commentsApi: _StubCommentsApi(),
@@ -238,7 +232,7 @@ void main() {
       ),
       peopleApi: _StubPeopleApi(),
       placesApi: FakePlacesGateway(),
-      mapboxSearch: _StubMapboxSearch(),
+      mapboxSearch: FakeMapboxSearch(),
     );
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -275,7 +269,7 @@ void main() {
       familiesApi: _MemberOf(['ada']),
       peopleApi: _StubPeopleApi(),
       placesApi: FakePlacesGateway(),
-      mapboxSearch: _StubMapboxSearch(),
+      mapboxSearch: FakeMapboxSearch(),
     );
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -306,7 +300,7 @@ void main() {
       ),
       peopleApi: _StubPeopleApi(),
       placesApi: FakePlacesGateway(),
-      mapboxSearch: _StubMapboxSearch(),
+      mapboxSearch: FakeMapboxSearch(),
     );
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -336,7 +330,7 @@ void main() {
       familiesApi: _MemberOf(['family-1']),
       peopleApi: _StubPeopleApi(),
       placesApi: FakePlacesGateway(),
-      mapboxSearch: _StubMapboxSearch(),
+      mapboxSearch: FakeMapboxSearch(),
     );
 
     await tester.binding.setSurfaceSize(const Size(1200, 800));

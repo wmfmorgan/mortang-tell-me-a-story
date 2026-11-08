@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
@@ -15,6 +14,7 @@ import 'package:tell_me_a_story/ui/story/story_date_picker.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_mapbox_search.dart';
 import '../../support/fakes/fake_photos_gateway.dart';
 import '../../support/fakes/fake_places_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
@@ -65,12 +65,6 @@ class _FakePlacesApi extends FakePlacesGateway {
   Future<Place> markUsed(String placeId) async {
     return places.firstWhere((p) => p.id == placeId);
   }
-}
-
-class _FakeMapboxSearch implements MapboxSearchGateway {
-  @override
-  Future<List<MapboxSearchHit>> search(String query, {int limit = 5}) async =>
-      const [];
 }
 
 class _FakeStoriesApi extends FakeStoriesGateway {
@@ -376,7 +370,7 @@ Widget _captureShell({
       ),
       peopleApi: people ?? _FakePeopleApi(seed: const [_ada]),
       placesApi: places ?? _FakePlacesApi(seed: [_park]),
-      mapboxSearch: _FakeMapboxSearch(),
+      mapboxSearch: FakeMapboxSearch(),
       storiesApi: stories ?? _FakeStoriesApi(),
       photosApi: photos ?? _FakePhotosApi(),
       pickImageBytes: picker ?? (() async => null),
@@ -1023,7 +1017,7 @@ void main() {
             ),
             peopleApi: _FakePeopleApi(seed: const [_ada]),
             placesApi: _FakePlacesApi(seed: [_park]),
-            mapboxSearch: _FakeMapboxSearch(),
+            mapboxSearch: FakeMapboxSearch(),
             storiesApi: stories,
             photosApi: _FakePhotosApi(),
             hasMapboxToken: true,
@@ -1102,7 +1096,7 @@ void main() {
             ),
             peopleApi: _FakePeopleApi(seed: const [_ada]),
             placesApi: _FakePlacesApi(seed: [_park]),
-            mapboxSearch: _FakeMapboxSearch(),
+            mapboxSearch: FakeMapboxSearch(),
             storiesApi: stories,
             photosApi: _FakePhotosApi(),
             hasMapboxToken: true,
@@ -1158,7 +1152,7 @@ void main() {
             ),
             peopleApi: _FakePeopleApi(seed: const [_ada]),
             placesApi: _FakePlacesApi(seed: [_park]),
-            mapboxSearch: _FakeMapboxSearch(),
+            mapboxSearch: FakeMapboxSearch(),
             storiesApi: stories,
             photosApi: _FakePhotosApi(),
             hasMapboxToken: true,

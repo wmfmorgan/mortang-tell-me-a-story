@@ -9,13 +9,13 @@ import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_mapbox_search.dart';
 import '../../support/fakes/fake_photos_gateway.dart';
 import '../../support/fakes/fake_places_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
@@ -100,12 +100,6 @@ class _StubPeopleApi extends PeopleGateway {
   }) {
     throw UnimplementedError();
   }
-}
-
-class _StubMapboxSearch implements MapboxSearchGateway {
-  @override
-  Future<List<MapboxSearchHit>> search(String query, {int limit = 5}) async =>
-      const [];
 }
 
 Widget _drafts({required StoriesGateway stories, FamiliesGateway? families}) {
@@ -250,7 +244,7 @@ void main() {
       ),
       peopleApi: _StubPeopleApi(),
       placesApi: FakePlacesGateway(),
-      mapboxSearch: _StubMapboxSearch(),
+      mapboxSearch: FakeMapboxSearch(),
       storiesApi: _FakeStoriesApi(
         drafts: [_draft(id: 's1', body: 'Jam')],
       ),

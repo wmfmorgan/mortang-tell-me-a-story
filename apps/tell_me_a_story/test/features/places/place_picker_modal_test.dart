@@ -6,6 +6,7 @@ import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/features/places/place_map.dart';
 import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 
+import '../../support/fakes/fake_mapbox_search.dart';
 import '../../support/fakes/fake_places_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
@@ -107,25 +108,6 @@ class _FakePlacesGateway extends FakePlacesGateway {
   }
 }
 
-class _FakeSearchGateway implements MapboxSearchGateway {
-  _FakeSearchGateway({this.hits = const [], this.throwOnSearch = false});
-
-  final List<MapboxSearchHit> hits;
-  final bool throwOnSearch;
-  var searchCalls = 0;
-  String? lastQuery;
-
-  @override
-  Future<List<MapboxSearchHit>> search(String query, {int limit = 5}) async {
-    searchCalls++;
-    lastQuery = query;
-    if (throwOnSearch) {
-      throw MapboxSearchException('geocode failed', statusCode: 500);
-    }
-    return hits;
-  }
-}
-
 Widget _placeholderMap({double? lat, double? lng}) {
   return SizedBox(
     height: 120,
@@ -186,7 +168,7 @@ void main() {
         ),
       ],
     );
-    final search = _FakeSearchGateway();
+    final search = FakeMapboxSearch();
 
     await _openModal(
       tester,
@@ -209,7 +191,7 @@ void main() {
     tester,
   ) async {
     final places = _FakePlacesGateway();
-    final search = _FakeSearchGateway();
+    final search = FakeMapboxSearch();
 
     await _openModal(
       tester,
@@ -224,7 +206,8 @@ void main() {
 
   testWidgets('shows locked failure copy when search throws', (tester) async {
     final places = _FakePlacesGateway();
-    final search = _FakeSearchGateway(throwOnSearch: true);
+    final search = FakeMapboxSearch()
+      ..error = MapboxSearchException('geocode failed', statusCode: 500);
 
     await _openModal(
       tester,
@@ -242,7 +225,7 @@ void main() {
 
     expect(find.text(_mapFailureCopy), findsOneWidget);
     expect(find.text('Try again'), findsOneWidget);
-    expect(search.searchCalls, greaterThan(0));
+    expect(search.queries, isNotEmpty);
   });
 
   testWidgets('selecting a recent calls markUsed and pops Place', (
@@ -258,7 +241,7 @@ void main() {
         ),
       ],
     );
-    final search = _FakeSearchGateway();
+    final search = FakeMapboxSearch();
 
     Place? result;
     await tester.pumpWidget(
@@ -318,7 +301,7 @@ void main() {
         ),
       ],
     );
-    final search = _FakeSearchGateway();
+    final search = FakeMapboxSearch();
 
     Place? result;
     await tester.pumpWidget(
@@ -372,7 +355,7 @@ void main() {
         ),
       ],
     );
-    final search = _FakeSearchGateway(
+    final search = FakeMapboxSearch(
       hits: const [
         MapboxSearchHit(
           id: 'poi.123',
@@ -435,7 +418,7 @@ void main() {
     tester,
   ) async {
     final places = _FakePlacesGateway();
-    final search = _FakeSearchGateway(
+    final search = FakeMapboxSearch(
       hits: const [
         MapboxSearchHit(
           id: 'poi.new',
@@ -499,7 +482,7 @@ void main() {
     tester,
   ) async {
     final places = _FakePlacesGateway(throwOnCreate: true);
-    final search = _FakeSearchGateway(
+    final search = FakeMapboxSearch(
       hits: const [
         MapboxSearchHit(
           id: 'poi.fail',
@@ -537,7 +520,7 @@ void main() {
     tester,
   ) async {
     final places = _FakePlacesGateway();
-    final search = _FakeSearchGateway(
+    final search = FakeMapboxSearch(
       hits: const [
         MapboxSearchHit(
           id: 'poi.fav',
@@ -584,7 +567,7 @@ void main() {
     double? seenLat;
     double? seenLng;
     final places = _FakePlacesGateway();
-    final search = _FakeSearchGateway(
+    final search = FakeMapboxSearch(
       hits: const [
         MapboxSearchHit(
           id: 'poi.pin',

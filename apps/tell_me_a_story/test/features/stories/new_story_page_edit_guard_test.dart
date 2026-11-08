@@ -4,13 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
+import '../../support/fakes/fake_mapbox_search.dart';
 import '../../support/fakes/fake_photos_gateway.dart';
 import '../../support/fakes/fake_places_gateway.dart';
 import '../../support/fakes/fake_stories_gateway.dart';
@@ -221,7 +221,7 @@ Future<GoRouter> _mount(
     ),
     peopleApi: _People(),
     placesApi: _Places(),
-    mapboxSearch: _Mapbox(),
+    mapboxSearch: FakeMapboxSearch(),
     storiesApi: api,
     photosApi: FakePhotosGateway(),
     hasMapboxToken: true,
@@ -356,10 +356,4 @@ class _Places extends FakePlacesGateway {
 
   @override
   Future<Place> markUsed(String placeId) async => _park;
-}
-
-class _Mapbox implements MapboxSearchGateway {
-  @override
-  Future<List<MapboxSearchHit>> search(String query, {int limit = 5}) async =>
-      const [];
 }
