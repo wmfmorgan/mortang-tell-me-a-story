@@ -63,7 +63,7 @@
 | 7.3 Rail split at parity | written at slice start | 7.1, 7.2 | not started |
 | 7.4 Rail restyle and iPad | written at slice start | 7.3; owner screenshot sign-off before merge | not started |
 | 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approval (O2) and screenshots before merge | not started |
-| 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done on `feat/p7-6s-tree-reads` (not pushed); server `+445`, live `+29` |
+| 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | not started |
 | 7.7 Whole-tree page and treemap | written at slice start | 7.2, 7.6S; entry point (O1) and copy (O2) answered; screenshots before merge | not started |
 | 7.8 Family tree graph | written at slice start | 7.7, **7.M pass** (O4 thresholds); screenshots before merge | not started |
@@ -762,7 +762,7 @@ then `mise exec -- just server-generate` and `mise exec -- just server-migration
 - **Authz:** `Authz.isTreeReadable(familyId)` for both (the family is live and the caller is a live member of some live family with the same `treeId`); G1 refuses through `_requireFamilyReader` with bare `forbidden`, G2 with `forbidden('member only')`, as `watchFamily`. No new `AppErrorCode`.
 - **Migration:** `20261108073545682-tree-timeline` (tool-named): `CREATE INDEX "stories_tree_order_idx" ON "stories" USING btree ("treeId", "status", "dateStart", "datePrecision", "createdAt", "id")`. `20261107133050788-init` untouched.
 - **Family events:** `createBranch`, `softDelete` (not the repeat) and `recover` post `LiveKind.family` to `tree:<treeId>` only. `recover` is included because it changes the tree's set of live families just as `softDelete` does; `rename`, `setOrigin`, membership changes and the purge post nothing.
-- **Gates:** `just check` passes: `fmt-check` `(0 changed)` ×2; `analyze: 6 issues (ceiling 6)`; app `+704 ~12` (10 new tests: 2 `stories_api`, 3 `treeEventMatters`, 5 `watchTree`); `server-analyze` no issues; server `+445` (13 new tests: 6 story, 7 live). `just test-goldens` `+6`, no PNG changed.
+- **Gates:** `just check` passes: `fmt-check` `(0 changed)` ×2; `analyze: 6 issues (ceiling 6)`; app `+704 ~12` (10 new tests: 2 `stories_api`, 3 `treeEventMatters`, 5 `watchTree`); `server-analyze` no issues; server `+447` (15 new tests: 7 story, 8 live, including the review's deleted-family-member and exact-order cases). `just test-goldens` `+6`, no PNG changed.
 - **Live:** `just server` on :8080 runs the main checkout's older server, so the live suite ran against a server started from this worktree on other ports with its own data directory: `SERVERPOD_DATABASE_DATA_PATH=.serverpod/p76s/pgdata SERVERPOD_API_SERVER_PORT=8180 SERVERPOD_API_SERVER_PUBLIC_PORT=8180 SERVERPOD_INSIGHTS_SERVER_PORT=8181 SERVERPOD_INSIGHTS_SERVER_PUBLIC_PORT=8181 SERVERPOD_WEB_SERVER_PORT=8182 SERVERPOD_WEB_SERVER_PUBLIC_PORT=8182 SERVERPOD_DATABASE_PORT=8190 dart run bin/main.dart --apply-migrations` in `apps/server`, then `flutter test --tags live --run-skipped --dart-define=LIVE_SERVER_URL=http://127.0.0.1:8180 test/live`: `+29` (was `+27`; +2). The worktree's copied `.serverpod/development/pgdata` points at the main checkout's postmaster, hence the separate data path.
 
 ## 7.M iPad measurement (Q6; owner, on their iPad)
