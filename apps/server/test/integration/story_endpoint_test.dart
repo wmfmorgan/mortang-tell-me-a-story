@@ -1269,16 +1269,28 @@ void main() {
             month.id,
             day.id,
           ]);
+          // timelineOrder: dateStart, datePrecision, createdAt, id.
+          int timelineOrder(StoryDto a, StoryDto b) {
+            for (final order in [
+              a.dateStart!.compareTo(b.dateStart!),
+              a.datePrecision!.index.compareTo(b.datePrecision!.index),
+              a.createdAt.compareTo(b.createdAt),
+            ]) {
+              if (order != 0) return order;
+            }
+            return a.id.uuid.compareTo(b.id.uuid);
+          }
+
           final union = [
             ...await endpoints.story.listPublished(by(c.member), c.family.id!),
             ...await endpoints.story.listPublished(
               by(c.member),
               branch.family.id!,
             ),
-          ];
+          ]..sort(timelineOrder);
           expect(
             await treeIds(c.member, c.family),
-            unorderedEquals(union.map((s) => s.id)),
+            union.map((s) => s.id).toList(),
           );
         },
       );
@@ -1297,6 +1309,25 @@ void main() {
           await fx.softDelete(c.family);
           await expectLater(
             endpoints.story.listPublishedInTree(by(c.owner), c.family.id!),
+            throwsAppError(AppErrorCode.forbidden),
+          );
+        },
+      );
+
+      // D6b: tree reads need the caller's own family to be live too.
+      test(
+        'when a member whose only family is soft-deleted reads a live family '
+        'of the same tree then FORBIDDEN',
+        () async {
+          final middle = await c.branch();
+          await fx.story(c.family);
+          await fx.softDelete(middle.family);
+
+          await expectLater(
+            endpoints.story.listPublishedInTree(
+              by(middle.member),
+              c.family.id!,
+            ),
             throwsAppError(AppErrorCode.forbidden),
           );
         },

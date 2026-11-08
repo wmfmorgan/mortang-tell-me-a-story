@@ -358,6 +358,21 @@ void main() {
         },
       );
 
+      // D6b: watching needs the caller's own family to be live too.
+      test(
+        'when a member whose only family is soft-deleted watches a live family '
+        'of the same tree then FORBIDDEN at subscribe',
+        () async {
+          final middle = await c.branch();
+          await fx.softDelete(middle.family);
+
+          await expectLater(
+            tree(middle.member, c.family).first,
+            throwsAppError(AppErrorCode.forbidden, 'member only'),
+          );
+        },
+      );
+
       test('when an anonymous caller watches then unauthenticated', () async {
         await expectLater(
           endpoints.live.watchTree(sessionBuilder, c.family.id!).first,
