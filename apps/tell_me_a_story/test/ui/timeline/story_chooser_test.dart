@@ -67,4 +67,52 @@ void main() {
     await tester.pumpAndSettle();
     expect(chosen, 'b');
   });
+
+  testWidgets('heads the list with the C10 title, which picks nothing', (
+    tester,
+  ) async {
+    final stories = [
+      _story('a', 'Summer fair', DateTime(1962, 6, 3), StoryDatePrecision.day),
+      _story('b', 'First car', DateTime(1962, 6, 20), StoryDatePrecision.day),
+    ];
+    var resolved = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: albumTheme(),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: TextButton(
+                onPressed: () async {
+                  await showStoryChooser(
+                    context,
+                    globalPosition: const Offset(100, 100),
+                    stories: stories,
+                  );
+                  resolved = true;
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    final title = find.byKey(const Key('chooser-title'));
+    expect(title, findsOneWidget);
+    expect(
+      find.descendant(of: title, matching: find.text('Stories here')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(title).dy,
+      lessThan(tester.getTopLeft(find.byKey(const Key('chooser-a'))).dy),
+    );
+    await tester.tap(title);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('chooser-a')), findsOneWidget);
+    expect(resolved, isFalse);
+  });
 }
