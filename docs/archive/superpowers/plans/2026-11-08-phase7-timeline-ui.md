@@ -1313,7 +1313,7 @@ Alternatives:
 | 7.4 Rail restyle and iPad | #188 | `53967c3` |
 | Build robustness (no libsqlite3 download; CI caches embedded Postgres) | #189 | `5c4ba8a` |
 | 7.5 Timeline filters | #190 | `1954671` |
-| 7.8 Family tree graph | #191 | pending (not merged at 7.z) |
+| 7.8 Family tree graph | #191 | `3429aff` |
 
 - **Counts** (at `feat/p7-8-tree-graph` `83fe9bb`): app `+973 ~12` (Phase 6: `+689 ~12`), server `+447` (was `+425`), live `+29` (was `+27`), e2e 9/9, `just test-goldens` `+14`, `analyze: 6 issues (ceiling 6)`, colour skip list 17 → 16 (`timeline_page.dart` off it).
 - **7.M:** passed 2026-11-08 on the owner's verdict against the O4 thresholds. No numeric exports were recorded, so there is no iPad table (see "7.M iPad measurement" below).
