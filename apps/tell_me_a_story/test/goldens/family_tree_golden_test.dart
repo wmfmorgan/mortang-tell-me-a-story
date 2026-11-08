@@ -6,13 +6,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/timeline/tree/family_tree_page.dart';
 
 import '../support/fakes/fake_stories_gateway.dart';
 import '../support/tree_fixture.dart';
 
-// The whole-tree page (7.7): the treemap overview, By family. macOS only:
+// The whole-tree page: the family tree graph (7.8, with a `+3` on Jenkins'
+// 1960s) and the treemap overview, By family (7.7). macOS only:
 // `just test-goldens`.
 
 const _sizes = <String, Size>{
@@ -62,7 +64,7 @@ void main() {
   tearDown(FamilySelection.clear);
 
   for (final MapEntry(key: sizeName, value: size) in _sizes.entries) {
-    testWidgets('family tree treemap $sizeName', (tester) async {
+    Future<void> pumpPage(WidgetTester tester, List<Story> stories) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -73,12 +75,27 @@ void main() {
           theme: albumTheme(),
           home: FamilyTreePage(
             familyId: TreeFixture.jenkins,
-            storiesApi: FakeStoriesGateway(stories: TreeFixture.stories),
+            storiesApi: FakeStoriesGateway(stories: stories),
             familiesApi: _Families(),
             live: _Live(),
           ),
         ),
       );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('family tree graph $sizeName', (tester) async {
+      await pumpPage(tester, TreeFixture.crowded);
+
+      await expectLater(
+        find.byType(FamilyTreePage),
+        matchesGoldenFile('family_tree_graph_$sizeName.png'),
+      );
+    });
+
+    testWidgets('family tree treemap $sizeName', (tester) async {
+      await pumpPage(tester, TreeFixture.stories);
+      await tester.tap(find.text('Overview'));
       await tester.pumpAndSettle();
 
       await expectLater(
