@@ -16,6 +16,7 @@ class RailSpine extends StatelessWidget {
   Widget build(BuildContext context) {
     const line = SizedBox(
       width: AlbumStroke.mark,
+      height: double.infinity,
       child: ColoredBox(color: albumRule),
     );
     final at = left;

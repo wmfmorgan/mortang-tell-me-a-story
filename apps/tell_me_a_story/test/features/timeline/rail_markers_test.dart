@@ -191,6 +191,8 @@ void main() {
         );
         expect(rect.width, AlbumStroke.mark);
         expect(rect.center.dx, closeTo(_desktop.width / 2, 1));
+        // It runs the full height of the rail, not a zero-height stub.
+        expect(rect.height, greaterThan(_desktop.height / 2));
       });
     }
 
