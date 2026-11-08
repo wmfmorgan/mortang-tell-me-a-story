@@ -172,6 +172,12 @@ class _StoryReload implements TimelineLive {
   }
 
   @override
+  void watchTree({
+    required String familyId,
+    required void Function() onChange,
+  }) {}
+
+  @override
   void dispose() {}
 }
 

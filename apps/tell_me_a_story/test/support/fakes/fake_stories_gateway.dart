@@ -169,6 +169,17 @@ class FakeStoriesGateway implements StoriesGateway {
     return _published(familyId);
   }
 
+  /// The store stands for one tree: every published story, in timeline
+  /// order (`compareStories`).
+  @override
+  Future<List<Story>> listPublishedInTree(String familyId) async {
+    _record('listPublishedInTree');
+    return [
+      for (final story in stories.values)
+        if (story.status == StoryStatus.published) story,
+    ]..sort(compareStories);
+  }
+
   @override
   Future<Story?> getPublishedOrigin(String storyId) async {
     _record('getPublishedOrigin');

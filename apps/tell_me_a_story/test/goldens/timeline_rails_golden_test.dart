@@ -105,6 +105,12 @@ class _Live implements TimelineLive {
   }) {}
 
   @override
+  void watchTree({
+    required String familyId,
+    required void Function() onChange,
+  }) {}
+
+  @override
   void dispose() {}
 }
 

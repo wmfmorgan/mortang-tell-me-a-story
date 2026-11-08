@@ -1045,6 +1045,27 @@ class Endpoints extends _is.EndpointDispatch {
                 params['familyId'],
               ),
         ),
+        'watchTree': _is.MethodStreamConnector(
+          name: 'watchTree',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          streamParams: {},
+          returnType: _is.MethodStreamReturnType.streamType,
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+                Map<String, Stream> streamParams,
+              ) => (endpoints['live'] as _ixgr9pqx.LiveEndpoint).watchTree(
+                session,
+                params['familyId'],
+              ),
+        ),
         'watchStory': _is.MethodStreamConnector(
           name: 'watchStory',
           params: {
@@ -2093,6 +2114,25 @@ class Endpoints extends _is.EndpointDispatch {
                 Map<String, dynamic> params,
               ) async =>
                   (endpoints['story'] as _iiu4mi32.StoryEndpoint).listPublished(
+                    session,
+                    params['familyId'],
+                  ),
+        ),
+        'listPublishedInTree': _is.MethodConnector(
+          name: 'listPublishedInTree',
+          params: {
+            'familyId': _is.ParameterDescription(
+              name: 'familyId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['story'] as _iiu4mi32.StoryEndpoint)
+                  .listPublishedInTree(
                     session,
                     params['familyId'],
                   ),

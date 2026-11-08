@@ -14,7 +14,8 @@ import 'package:serverpod/serverpod.dart' as _is;
 import '../dto/live_kind.dart' as _iuy9h9wl;
 import '../story_status.dart' as _irz424ig;
 
-/// Posted after commit to family:<familyId> and, when storyId is set, story:<storyId>.
+/// Posted after commit to family:<familyId>, tree:<treeId> and, when storyId
+/// is set, story:<storyId>. A `family` event goes to tree:<treeId> only.
 abstract class LiveEventDto
     implements _is.SerializableModel, _is.ProtocolSerialization {
   LiveEventDto._({

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 
 import '../support/fakes/fake_photos_gateway.dart';
@@ -366,6 +367,51 @@ void main() {
       expect(thumbs['s19'], [1, 2, 3]);
     },
   );
+
+  group('listPublishedInTree', () {
+    test(
+      'asks the tree read for the family and keeps the server order',
+      () async {
+        final client = _StoryClient();
+        final later = server.UuidValue.fromString(
+          '0190d7a0-0000-7000-8000-0000000000bb',
+        );
+        client.recording.tree = [
+          _dto(dateStart: DateTime.utc(1990)).copyWith(id: later),
+          _dto(dateStart: DateTime.utc(1950)),
+        ];
+
+        final stories = await StoriesApi(client: client)
+            .listPublishedInTree(_familyId.toString());
+
+        expect(client.recording.treeCalls, [_familyId]);
+        expect(stories.map((s) => s.id), [
+          later.toString(),
+          _storyId.toString(),
+        ]);
+        expect(stories.first.timeframeStart, DateTime(1990));
+      },
+    );
+
+    test('a server refusal comes out as the app error', () async {
+      final client = _StoryClient();
+      client.recording.error = server.AppException(
+        code: server.AppErrorCode.forbidden,
+        message: 'forbidden',
+      );
+
+      await expectLater(
+        StoriesApi(client: client).listPublishedInTree(_familyId.toString()),
+        throwsA(
+          isA<AppException>().having(
+            (e) => e.code,
+            'code',
+            AppErrorCode.forbidden,
+          ),
+        ),
+      );
+    });
+  });
 }
 
 Story _storyWithPaths(List<String> paths, {String id = 's1'}) {
@@ -386,6 +432,33 @@ class _RecordingPhotos extends FakePhotosGateway {
   @override
   Future<Uint8List> downloadBytes(String storagePath) =>
       onDownload(storagePath);
+}
+
+class _RecordingStory extends server.EndpointStory {
+  _RecordingStory(super.caller);
+
+  var tree = <server.StoryDto>[];
+  final treeCalls = <server.UuidValue>[];
+  Object? error;
+
+  @override
+  Future<List<server.StoryDto>> listPublishedInTree(
+    server.UuidValue familyId,
+  ) async {
+    treeCalls.add(familyId);
+    final thrown = error;
+    if (thrown != null) throw thrown;
+    return tree;
+  }
+}
+
+class _StoryClient extends server.Client {
+  _StoryClient() : super('http://127.0.0.1:1/');
+
+  late final recording = _RecordingStory(this);
+
+  @override
+  server.EndpointStory get story => recording;
 }
 
 class _RecordingMedia extends server.EndpointMedia {

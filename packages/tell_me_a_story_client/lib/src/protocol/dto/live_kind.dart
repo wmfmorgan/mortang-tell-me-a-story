@@ -12,11 +12,13 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 
-/// What changed in a LiveEventDto.
+/// What changed in a LiveEventDto. `family`: a family of the tree was
+/// created, soft-deleted or recovered (tree channel only).
 enum LiveKind implements _isc.SerializableModel {
   story,
   photo,
-  note;
+  note,
+  family;
 
   static LiveKind fromJson(String name) {
     switch (name) {
@@ -26,6 +28,8 @@ enum LiveKind implements _isc.SerializableModel {
         return LiveKind.photo;
       case 'note':
         return LiveKind.note;
+      case 'family':
+        return LiveKind.family;
       default:
         throw ArgumentError('Value "$name" cannot be converted to "LiveKind"');
     }
