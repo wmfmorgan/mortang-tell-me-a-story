@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/timeline/tree/treemap_layout.dart';
 import 'package:tell_me_a_story/features/timeline/tree/treemap_view.dart';
@@ -310,6 +311,87 @@ void main() {
       ),
     );
     expect(label.style!.fontWeight, FontWeight.w600);
+  });
+
+  Color? swatchOf(WidgetTester tester, String familyId) {
+    final box = tester.widget<DecoratedBox>(
+      find
+          .descendant(
+            of: find.byKey(Key('treemap-key-$familyId')),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
+    );
+    return (box.decoration as ShapeDecoration).color;
+  }
+
+  testWidgets('the colour key lists every family with its tint', (
+    tester,
+  ) async {
+    await pump(tester);
+    final tints = treemapFamilyTints(TreeFixture.tree);
+    for (final by in TreemapBy.values) {
+      await groupBy(tester, by);
+      final key = find.byKey(const Key('treemap-family-key'));
+      expect(key, findsOneWidget);
+      expect(
+        tester.getTopLeft(key).dy,
+        greaterThan(
+          tester.getBottomLeft(find.byKey(const Key('treemap-by'))).dy,
+        ),
+      );
+      var previousX = -1.0;
+      for (final f in TreeFixture.tree) {
+        final item = find.byKey(Key('treemap-key-${f.id}'));
+        expect(
+          find.descendant(of: item, matching: find.text(f.name)),
+          findsOneWidget,
+        );
+        expect(swatchOf(tester, f.id), tints[f.id]);
+        final x = tester.getTopLeft(item).dx;
+        expect(x, greaterThan(previousX));
+        previousX = x;
+      }
+    }
+  });
+
+  testWidgets('the colour key wraps on iPad mini portrait and at 320 pt', (
+    tester,
+  ) async {
+    final many = [
+      for (var i = 0; i < 8; i++)
+        TreeFamily(id: 'f$i', name: 'The long family name $i'),
+    ];
+    for (final size in const [Size(744, 1133), Size(320, 568)]) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: albumTheme(),
+          home: Scaffold(
+            body: TreemapView(
+              title: 'Jenkins family tree',
+              stories: [
+                for (final f in many)
+                  TreeFixture.story('s${f.id}', f.id, 'Story', DateTime(1960), [
+                    TreeFixture.ada,
+                  ]),
+              ],
+              tree: many,
+              onStory: (_) {},
+              onFamily: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final first = tester.getRect(find.byKey(const Key('treemap-key-f0')));
+      final last = tester.getRect(find.byKey(const Key('treemap-key-f7')));
+      expect(last.top, greaterThan(first.top));
+      expect(last.right, lessThanOrEqualTo(size.width));
+    }
   });
 
   testWidgets('fits a 320 pt wide window without overflow', (tester) async {

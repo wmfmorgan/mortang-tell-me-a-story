@@ -244,8 +244,12 @@ void main() {
         final switcher = tester.getRect(find.byKey(const Key('treemap-by')));
         expect(map.top, greaterThan(switcher.bottom));
         expect(map.bottom, closeTo(size.height - AlbumSpace.l, 1));
-        // The treemap takes most of the window, even at 320 pt.
-        expect(map.height, greaterThan(size.height * 0.4));
+        // On iPad the treemap takes over half the window; at 320 pt the
+        // header, heading, switch and colour key leave it over a third.
+        expect(
+          map.height,
+          greaterThan(size.height * (size.width < 700 ? 0.35 : 0.5)),
+        );
       });
     }
   });

@@ -133,6 +133,7 @@ class _TreemapViewState extends State<TreemapView> {
             _cellId = null;
           }),
         ),
+        _FamilyKey(tree: widget.tree, tints: tints),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -206,6 +207,64 @@ class _TreemapViewState extends State<TreemapView> {
               label: Text(openFamilyTimelineLabel(group.label)),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Colour key: a swatch and the name of every family, in tree order, with
+/// the tint its cells use. Wraps on narrow widths.
+class _FamilyKey extends StatelessWidget {
+  const _FamilyKey({required this.tree, required this.tints});
+
+  final List<TreeFamily> tree;
+  final Map<String, Color> tints;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.labelMedium
+        ?.copyWith(color: albumInk);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AlbumSpace.l,
+        0,
+        AlbumSpace.l,
+        AlbumSpace.xs,
+      ),
+      child: Wrap(
+        key: const Key('treemap-family-key'),
+        spacing: AlbumSpace.m,
+        runSpacing: AlbumSpace.xs,
+        children: [
+          for (final f in tree)
+            Row(
+              key: Key('treemap-key-${f.id}'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox.square(
+                  dimension: 14,
+                  child: DecoratedBox(
+                    decoration: ShapeDecoration(
+                      color: tints[f.id],
+                      shape: albumContainerShape(
+                        AlbumRadius.tile,
+                        side: const BorderSide(color: albumRuleStrong),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AlbumSpace.xs),
+                Flexible(
+                  child: Text(
+                    f.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: style,
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
