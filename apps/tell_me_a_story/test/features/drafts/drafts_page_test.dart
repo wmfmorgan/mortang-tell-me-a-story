@@ -10,7 +10,6 @@ import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
@@ -19,35 +18,9 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
+import '../../support/fakes/fake_invite_gateway.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
-
-class _FakeInviteApi implements InviteGateway {
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => _familyId;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => _familyId;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
-}
 
 Story _draft({
   String id = 's1',
@@ -293,7 +266,11 @@ class _FakePhotosApi implements PhotosGateway {
 Widget _drafts({required StoriesGateway stories, FamiliesGateway? families}) {
   return MaterialApp(
     home: DraftsPage(
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
       storiesApi: stories,
       familiesApi: families,
     ),
@@ -421,7 +398,11 @@ void main() {
     addTearDown(auth.dispose);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
       peopleApi: _StubPeopleApi(),
       placesApi: _StubPlacesApi(),
       mapboxSearch: _StubMapboxSearch(),

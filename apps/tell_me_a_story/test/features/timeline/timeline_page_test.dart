@@ -13,7 +13,6 @@ import 'package:tell_me_a_story/ui/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
@@ -23,6 +22,8 @@ import 'package:tell_me_a_story/ui/story/photo_frame.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
+
+import '../../support/fakes/fake_invite_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -41,34 +42,6 @@ Uint8List _pngOf(int width, int height) {
   bytes[22] = (height >> 8) & 0xff;
   bytes[23] = height & 0xff;
   return bytes;
-}
-
-class _FakeInviteApi implements InviteGateway {
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => _familyId;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => _familyId;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
 }
 
 class _FakeStoriesApi implements StoriesGateway {
@@ -370,7 +343,11 @@ Widget _timeline({
     theme: theme,
     home: TimelinePage(
       key: pageKey,
-      api: _FakeInviteApi(),
+      api: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
       storiesApi: stories,
       familiesApi: families,
       live: live,
@@ -979,7 +956,11 @@ void main() {
         GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) => TimelinePage(
-            api: _FakeInviteApi(),
+            api: FakeInviteGateway(
+              familyId: _familyId,
+              createdFamilyId: _familyId,
+              acceptedFamilyId: 'f',
+            ),
             storiesApi: _FakeStoriesApi(published: []),
           ),
         ),
@@ -1024,7 +1005,11 @@ void main() {
         GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) => TimelinePage(
-            api: _FakeInviteApi(),
+            api: FakeInviteGateway(
+              familyId: _familyId,
+              createdFamilyId: _familyId,
+              acceptedFamilyId: 'f',
+            ),
             storiesApi: stories,
             familiesApi: _FakeFamilies([
               MemberFamily(
@@ -1083,7 +1068,11 @@ void main() {
           GoRoute(
             path: AppRoutes.timeline,
             builder: (context, state) => TimelinePage(
-              api: _FakeInviteApi(),
+              api: FakeInviteGateway(
+                familyId: _familyId,
+                createdFamilyId: _familyId,
+                acceptedFamilyId: 'f',
+              ),
               storiesApi: stories,
               familiesApi: families,
               live: _FakeLive(),
@@ -1118,7 +1107,11 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
       storiesApi: stories,
     );
 
@@ -1161,7 +1154,11 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
       storiesApi: _FakeStoriesApi(published: [story]),
     );
 
@@ -1259,7 +1256,11 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
       storiesApi: _FakeStoriesApi(published: [story]),
     );
     addTearDown(auth.dispose);
@@ -1832,7 +1833,11 @@ void main() {
         GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) => TimelinePage(
-            api: _FakeInviteApi(),
+            api: FakeInviteGateway(
+              familyId: _familyId,
+              createdFamilyId: _familyId,
+              acceptedFamilyId: 'f',
+            ),
             storiesApi: _FakeStoriesApi(published: [_published(title: 'Jam')]),
           ),
         ),
@@ -3005,7 +3010,11 @@ void main() {
     addTearDown(auth.dispose);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
       storiesApi: _FakeStoriesApi(published: [story]),
       familiesApi: _TreeFamilies(
         mine: [
@@ -3126,7 +3135,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: TimelinePage(
-          api: _FamilyInvite(bea),
+          api: FakeInviteGateway(
+            familyId: bea,
+            createdFamilyId: bea,
+            acceptedFamilyId: 'f',
+          ),
           storiesApi: _FakeStoriesApi(
             published: [_published(familyId: bea, title: 'Bea tale')],
           ),
@@ -4003,38 +4016,6 @@ Finder _branchMarks() {
     return key is ValueKey<String> &&
         key.value.startsWith('timeline-branch-mark-');
   });
-}
-
-class _FamilyInvite implements InviteGateway {
-  _FamilyInvite(this.familyId);
-
-  final String familyId;
-
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => familyId;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => familyId;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
 }
 
 class _TreeFamilies extends FamiliesGateway {

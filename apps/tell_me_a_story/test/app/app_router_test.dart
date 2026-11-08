@@ -11,7 +11,6 @@ import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart'
@@ -26,38 +25,7 @@ import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/family/family_landing_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
-class _StubInviteApi implements InviteGateway {
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => 'family-1';
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    return CreateInviteResult(
-      inviteId: 'i',
-      token: 't',
-      expiresAt: DateTime.utc(2099),
-      inviteUrl: 'http://127.0.0.1:3000/timeline?invite=t',
-    );
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => 'family-1';
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
-}
+import '../support/fakes/fake_invite_gateway.dart';
 
 class _StubPeopleApi extends PeopleGateway {
   @override
@@ -288,7 +256,10 @@ class _StubPerspectivesApi implements PerspectivesGateway {
 GoRouter _router({required AuthRefresh auth}) {
   return createAppRouter(
     authRefresh: auth,
-    inviteApi: _StubInviteApi(),
+    inviteApi: FakeInviteGateway(
+      createdFamilyId: 'family-1',
+      acceptedFamilyId: 'f',
+    ),
     peopleApi: _StubPeopleApi(),
     placesApi: _StubPlacesApi(),
     mapboxSearch: _StubMapboxSearch(),
@@ -306,7 +277,10 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: false);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _StubInviteApi(),
+      inviteApi: FakeInviteGateway(
+        createdFamilyId: 'family-1',
+        acceptedFamilyId: 'f',
+      ),
     );
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -331,7 +305,10 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _StubInviteApi(),
+      inviteApi: FakeInviteGateway(
+        createdFamilyId: 'family-1',
+        acceptedFamilyId: 'f',
+      ),
     );
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -354,7 +331,10 @@ void main() {
       final auth = AuthRefresh(authInfo: info);
       final router = createAppRouter(
         authRefresh: auth,
-        inviteApi: _StubInviteApi(),
+        inviteApi: FakeInviteGateway(
+          createdFamilyId: 'family-1',
+          acceptedFamilyId: 'f',
+        ),
       );
 
       await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -389,7 +369,10 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: false);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _StubInviteApi(),
+      inviteApi: FakeInviteGateway(
+        createdFamilyId: 'family-1',
+        acceptedFamilyId: 'f',
+      ),
     );
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -410,7 +393,10 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _StubInviteApi(),
+      inviteApi: FakeInviteGateway(
+        createdFamilyId: 'family-1',
+        acceptedFamilyId: 'f',
+      ),
       peopleApi: _StubPeopleApi(),
       placesApi: _StubPlacesApi(),
       mapboxSearch: _StubMapboxSearch(),
@@ -443,7 +429,10 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _StubInviteApi(),
+      inviteApi: FakeInviteGateway(
+        createdFamilyId: 'family-1',
+        acceptedFamilyId: 'f',
+      ),
       familiesApi: _MemberOf(['ada']),
       peopleApi: _StubPeopleApi(),
       placesApi: _StubPlacesApi(),
@@ -472,7 +461,10 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: false);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _StubInviteApi(),
+      inviteApi: FakeInviteGateway(
+        createdFamilyId: 'family-1',
+        acceptedFamilyId: 'f',
+      ),
       peopleApi: _StubPeopleApi(),
       placesApi: _StubPlacesApi(),
       mapboxSearch: _StubMapboxSearch(),
@@ -498,7 +490,10 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _StubInviteApi(),
+      inviteApi: FakeInviteGateway(
+        createdFamilyId: 'family-1',
+        acceptedFamilyId: 'f',
+      ),
       familiesApi: _MemberOf(['family-1']),
       peopleApi: _StubPeopleApi(),
       placesApi: _StubPlacesApi(),

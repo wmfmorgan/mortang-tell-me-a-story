@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
@@ -13,6 +12,8 @@ import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 import 'package:tell_me_a_story/features/people/edit_person_dialog.dart';
 import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
 import 'package:tell_me_a_story/features/settings/settings_page.dart';
+
+import '../../support/fakes/fake_invite_gateway.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -254,7 +255,14 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
-        home: SettingsPage(profileApi: profile, inviteApi: _Invites()),
+        home: SettingsPage(
+          profileApi: profile,
+          inviteApi: FakeInviteGateway(
+            familyId: _familyId,
+            createdFamilyId: _familyId,
+            acceptedFamilyId: _familyId,
+          ),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -380,7 +388,11 @@ void main() {
               onPressed: () => InviteModal.show(
                 context,
                 familyId: _familyId,
-                api: _Invites(),
+                api: FakeInviteGateway(
+                  familyId: _familyId,
+                  createdFamilyId: _familyId,
+                  acceptedFamilyId: _familyId,
+                ),
                 people: people,
               ),
               child: const Text('invite'),
@@ -578,39 +590,6 @@ class _Profile implements ProfileGateway {
     births.add((birthDate, birthPrecision));
     visibilities.add(birthVisibility);
   }
-}
-
-class _Invites implements InviteGateway {
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: _familyId);
-  }
-
-  @override
-  Future<String> createFamily(String name) async => _familyId;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    return CreateInviteResult(
-      inviteId: 'i',
-      token: 't',
-      expiresAt: DateTime.utc(2099),
-      inviteUrl: 'http://127.0.0.1:3000/invite/t',
-    );
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => _familyId;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
 }
 
 class _Session extends AppSession {

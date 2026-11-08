@@ -7,10 +7,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/features/settings/settings_page.dart';
+
+import '../../support/fakes/fake_invite_gateway.dart';
 
 const _ada = 'ada';
 const _bea = 'bea';
@@ -128,7 +129,11 @@ Future<GoRouter> _mount(
         builder: (_, _) => SettingsPage(
           profileApi: profile ?? _Profile(),
           familiesApi: _Families(),
-          inviteApi: _Invite(),
+          inviteApi: FakeInviteGateway(
+            familyId: _ada,
+            createdFamilyId: _ada,
+            acceptedFamilyId: _ada,
+          ),
           onLogout: onLogout,
         ),
       ),
@@ -196,32 +201,4 @@ class _Families extends FamiliesGateway {
   Future<List<StewardFamily>> listStewarded() async => const [
     StewardFamily(id: _ada, name: 'Ada', role: 'owner'),
   ];
-}
-
-class _Invite implements InviteGateway {
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: _ada);
-  }
-
-  @override
-  Future<String> createFamily(String name) async => _ada;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => _ada;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
 }

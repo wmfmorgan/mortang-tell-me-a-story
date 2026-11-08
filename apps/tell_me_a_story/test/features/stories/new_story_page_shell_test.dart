@@ -12,43 +12,9 @@ import 'package:tell_me_a_story/features/places/place_map.dart';
 import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
+import '../../support/fakes/fake_invite_gateway.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
-
-class _FakeInviteApi implements InviteGateway {
-  _FakeInviteApi({this.familyId = _familyId});
-
-  final String? familyId;
-  var createFamilyCalls = 0;
-
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f');
-  }
-
-  @override
-  Future<String> createFamily(String name) async {
-    createFamilyCalls++;
-    return _familyId;
-  }
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => familyId;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
-}
 
 class _FakePeopleApi extends PeopleGateway {
   _FakePeopleApi({List<Person>? seed}) : rows = [...?seed];
@@ -176,7 +142,13 @@ Widget _shell({
   return MaterialApp(
     home: NewStoryPage(
       key: key,
-      inviteApi: invite ?? _FakeInviteApi(),
+      inviteApi:
+          invite ??
+          FakeInviteGateway(
+            familyId: _familyId,
+            createdFamilyId: _familyId,
+            acceptedFamilyId: 'f',
+          ),
       peopleApi: people ?? _FakePeopleApi(),
       placesApi: places ?? _FakePlacesApi(),
       mapboxSearch: search ?? _FakeMapboxSearch(),
@@ -409,7 +381,11 @@ void main() {
   testWidgets('bootstraps family via createFamily when none exists', (
     tester,
   ) async {
-    final invite = _FakeInviteApi(familyId: null);
+    final invite = FakeInviteGateway(
+      familyId: null,
+      createdFamilyId: _familyId,
+      acceptedFamilyId: 'f',
+    );
     final people = _FakePeopleApi();
 
     await tester.pumpWidget(_shell(invite: invite, people: people));
@@ -419,7 +395,7 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Add person'));
     await tester.pumpAndSettle();
 
-    expect(invite.createFamilyCalls, 1);
+    expect(invite.createdFamilyNames, hasLength(1));
     expect(find.byKey(const Key('add-person-picker')), findsOneWidget);
   });
 
@@ -725,7 +701,11 @@ void main() {
         GoRoute(
           path: '/stories/:storyId/edit',
           builder: (context, state) => NewStoryPage(
-            inviteApi: _FakeInviteApi(),
+            inviteApi: FakeInviteGateway(
+              familyId: _familyId,
+              createdFamilyId: _familyId,
+              acceptedFamilyId: 'f',
+            ),
             peopleApi: _FakePeopleApi(),
             placesApi: _FakePlacesApi(),
             mapboxSearch: _FakeMapboxSearch(),

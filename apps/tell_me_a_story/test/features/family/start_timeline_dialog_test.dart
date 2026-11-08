@@ -11,7 +11,6 @@ import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart';
@@ -25,6 +24,8 @@ import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
+
+import '../../support/fakes/fake_invite_gateway.dart';
 
 const _parent = '00000000-0000-0000-0000-0000000000aa';
 const _me = '00000000-0000-0000-0000-0000000000b1';
@@ -191,38 +192,6 @@ class _Manage implements ManageFamiliesGateway {
 
   @override
   Future<void> revokeInvite(String inviteId) async {}
-}
-
-class _Invite implements InviteGateway {
-  _Invite(this.familyId);
-
-  final String? familyId;
-
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => _parent;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => familyId;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
 }
 
 class _Stories implements StoriesGateway {
@@ -647,7 +616,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: DraftsPage(
-          inviteApi: _Invite(_parent),
+          inviteApi: FakeInviteGateway(
+            familyId: _parent,
+            createdFamilyId: _parent,
+            acceptedFamilyId: 'f',
+          ),
           storiesApi: _Stories(published: const []),
           familiesApi: _Families(
             mine: [
@@ -704,7 +677,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: TimelinePage(
-          api: _Invite('bea'),
+          api: FakeInviteGateway(
+            familyId: 'bea',
+            createdFamilyId: _parent,
+            acceptedFamilyId: 'f',
+          ),
           storiesApi: _Stories(
             published: [_story(id: 'bea-story', familyId: 'bea', title: 'Bea')],
           ),
@@ -1048,7 +1025,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: TimelinePage(
-          api: _Invite(_parent),
+          api: FakeInviteGateway(
+            familyId: _parent,
+            createdFamilyId: _parent,
+            acceptedFamilyId: 'f',
+          ),
           storiesApi: stories,
           familiesApi: families,
           peopleApi: _People(const []),
@@ -1154,7 +1135,11 @@ void main() {
           GoRoute(
             path: AppRoutes.newStory,
             builder: (context, state) => NewStoryPage(
-              inviteApi: _Invite(_parent),
+              inviteApi: FakeInviteGateway(
+                familyId: _parent,
+                createdFamilyId: _parent,
+                acceptedFamilyId: 'f',
+              ),
               peopleApi: _People(const [
                 Person(id: 'p1', familyId: _parent, name: 'Ada'),
               ]),
@@ -1182,7 +1167,11 @@ void main() {
           GoRoute(
             path: AppRoutes.timeline,
             builder: (context, state) => TimelinePage(
-              api: _Invite(_parent),
+              api: FakeInviteGateway(
+                familyId: _parent,
+                createdFamilyId: _parent,
+                acceptedFamilyId: 'f',
+              ),
               storiesApi: stories,
               familiesApi: families,
               peopleApi: _People(const []),
@@ -1236,7 +1225,11 @@ void main() {
           GoRoute(
             path: AppRoutes.newStory,
             builder: (context, state) => NewStoryPage(
-              inviteApi: _Invite(_parent),
+              inviteApi: FakeInviteGateway(
+                familyId: _parent,
+                createdFamilyId: _parent,
+                acceptedFamilyId: 'f',
+              ),
               peopleApi: _People(const []),
               placesApi: _Places(const []),
               storiesApi: stories,
@@ -1315,7 +1308,11 @@ void main() {
         GoRoute(
           path: AppRoutes.newStory,
           builder: (context, state) => NewStoryPage(
-            inviteApi: _Invite(_parent),
+            inviteApi: FakeInviteGateway(
+              familyId: _parent,
+              createdFamilyId: _parent,
+              acceptedFamilyId: 'f',
+            ),
             peopleApi: _People(const [
               Person(id: 'p1', familyId: _parent, name: 'Ada'),
             ]),
@@ -1338,7 +1335,11 @@ void main() {
         GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) => TimelinePage(
-            api: _Invite(_parent),
+            api: FakeInviteGateway(
+              familyId: _parent,
+              createdFamilyId: _parent,
+              acceptedFamilyId: 'f',
+            ),
             storiesApi: stories,
             familiesApi: families,
             peopleApi: _People(const []),
@@ -1384,7 +1385,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: NewStoryPage(
-            inviteApi: _Invite(_parent),
+            inviteApi: FakeInviteGateway(
+              familyId: _parent,
+              createdFamilyId: _parent,
+              acceptedFamilyId: 'f',
+            ),
             storiesApi: stories,
             peopleApi: _People(const []),
             placesApi: _Places(const []),
@@ -1409,7 +1414,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: TimelinePage(
-          api: _Invite(_parent),
+          api: FakeInviteGateway(
+            familyId: _parent,
+            createdFamilyId: _parent,
+            acceptedFamilyId: 'f',
+          ),
           storiesApi: _Stories(
             published: [_story(year: 1984, title: 'Eighties')],
           ),
@@ -1484,7 +1493,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: TimelinePage(
-          api: _Invite(_parent),
+          api: FakeInviteGateway(
+            familyId: _parent,
+            createdFamilyId: _parent,
+            acceptedFamilyId: 'f',
+          ),
           storiesApi: _Stories(
             published: [_story(year: 1952, title: 'Fifties')],
           ),
@@ -1543,7 +1556,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: TimelinePage(
-          api: _Invite(_parent),
+          api: FakeInviteGateway(
+            familyId: _parent,
+            createdFamilyId: _parent,
+            acceptedFamilyId: 'f',
+          ),
           storiesApi: _Stories(
             published: [_story(year: 1984, title: 'Eighties')],
           ),

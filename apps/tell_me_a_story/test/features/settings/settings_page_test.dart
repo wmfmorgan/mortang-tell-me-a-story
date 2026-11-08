@@ -7,10 +7,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image/image.dart' as img;
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/ui/album/album_header.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/features/settings/settings_page.dart';
+
+import '../../support/fakes/fake_invite_gateway.dart';
 
 void main() {
   setUp(() {
@@ -288,7 +289,11 @@ Widget _app(
         path: AppRoutes.settings,
         builder: (context, state) => SettingsPage(
           profileApi: profile,
-          inviteApi: _Invite(),
+          inviteApi: FakeInviteGateway(
+            familyId: 'fam',
+            createdFamilyId: 'fam',
+            acceptedFamilyId: 'fam',
+          ),
           pickImageBytes: pick,
           onLogout: onLogout ?? () async {},
         ),
@@ -332,8 +337,14 @@ GoRouter _router(_Profile profile) {
       ),
       GoRoute(
         path: AppRoutes.settings,
-        builder: (context, state) =>
-            SettingsPage(profileApi: profile, inviteApi: _Invite()),
+        builder: (context, state) => SettingsPage(
+          profileApi: profile,
+          inviteApi: FakeInviteGateway(
+            familyId: 'fam',
+            createdFamilyId: 'fam',
+            acceptedFamilyId: 'fam',
+          ),
+        ),
       ),
       GoRoute(
         path: AppRoutes.drafts,
@@ -422,32 +433,4 @@ class _Profile implements ProfileGateway {
     births.add((birthDate, birthPrecision));
     abouts.add(about);
   }
-}
-
-class _Invite implements InviteGateway {
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'fam');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => 'fam';
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => 'fam';
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
 }

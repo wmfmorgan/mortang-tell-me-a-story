@@ -9,10 +9,11 @@ import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/ui/album/album_header.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/manage_family_page.dart';
+
+import '../../support/fakes/fake_invite_gateway.dart';
 
 void main() {
   setUp(() {
@@ -552,7 +553,11 @@ Future<String> _land(
   final auth = AuthRefresh(initiallySignedIn: true);
   final router = createAppRouter(
     authRefresh: auth,
-    inviteApi: _Invite(familyId),
+    inviteApi: FakeInviteGateway(
+      familyId: familyId,
+      createdFamilyId: 'created',
+      acceptedFamilyId: 'f',
+    ),
     familiesApi: families,
   );
   addTearDown(auth.dispose);
@@ -573,43 +578,6 @@ class _Families extends FamiliesGateway {
 
   @override
   Future<List<StewardFamily>> listStewarded() async => stewarded;
-}
-
-class _Invite implements InviteGateway {
-  _Invite(this.familyId);
-
-  final String? familyId;
-
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => 'created';
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    return CreateInviteResult(
-      inviteId: 'i',
-      token: 't',
-      expiresAt: DateTime.utc(2099),
-      inviteUrl: 'http://127.0.0.1/timeline?invite=t',
-    );
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => familyId;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
 }
 
 class _Directory implements FamilyDirectoryGateway {

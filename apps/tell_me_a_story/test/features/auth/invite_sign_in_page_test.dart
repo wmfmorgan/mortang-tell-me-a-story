@@ -12,6 +12,8 @@ import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/features/auth/invite_sign_in_page.dart';
 import 'package:tell_me_a_story/data/otp_sign_in.dart';
 
+import '../../support/fakes/fake_invite_gateway.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
@@ -212,7 +214,7 @@ void main() {
   testWidgets('signed-in invite that another account used stays dead', (
     tester,
   ) async {
-    final invites = _Invites()..acceptError = Exception('used');
+    final invites = _Invites()..acceptInviteError = Exception('used');
     await tester.pumpWidget(
       MaterialApp(
         home: InviteSignInPage(
@@ -284,36 +286,16 @@ class _Preview implements InviteLinkGateway {
   }
 }
 
-class _Invites implements InviteGateway {
+/// Counts every accept attempt, including ones that throw.
+class _Invites extends FakeInviteGateway {
+  _Invites()
+    : super(familyId: null, createdFamilyId: 'fam', acceptedFamilyId: 'fam');
+
   int accepts = 0;
-  Object? acceptError;
 
   @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
+  Future<AcceptInviteResult> acceptInvite({required String token}) {
     accepts++;
-    final error = acceptError;
-    if (error != null) throw error;
-    return const AcceptInviteResult(familyId: 'fam');
+    return super.acceptInvite(token: token);
   }
-
-  @override
-  Future<String?> currentFamilyId() async => null;
-
-  @override
-  Future<String> createFamily(String name) async => 'fam';
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
 }

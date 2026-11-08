@@ -9,6 +9,8 @@ import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
+import '../../support/fakes/fake_invite_gateway.dart';
+
 class _MemberOf extends FamiliesGateway {
   _MemberOf(this.id);
 
@@ -23,22 +25,15 @@ class _MemberOf extends FamiliesGateway {
   Future<List<StewardFamily>> listStewarded() async => const [];
 }
 
-class _StubInviteApi implements InviteGateway {
+/// Records every create attempt, including ones that throw, and numbers the
+/// tokens it hands out.
+class _StubInviteApi extends FakeInviteGateway {
+  _StubInviteApi() : super(createdFamilyId: 'family-1', acceptedFamilyId: 'f');
+
   int creates = 0;
-  final emails = <String>[];
-  final tokens = <String>[];
   final personIds = <String?>[];
   String? lastEmail;
   String? lastPersonId;
-  Object? createError;
-  Object? sendError;
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => 'family-1';
 
   @override
   Future<CreateInviteResult> createInvite({
@@ -50,7 +45,7 @@ class _StubInviteApi implements InviteGateway {
     lastEmail = email;
     lastPersonId = personId;
     personIds.add(personId);
-    final error = createError;
+    final error = createInviteError;
     if (error != null) throw error;
     return CreateInviteResult(
       inviteId: 'i',
@@ -58,20 +53,6 @@ class _StubInviteApi implements InviteGateway {
       expiresAt: DateTime.utc(2099),
       inviteUrl: 'http://127.0.0.1:3000/timeline?invite=t$creates',
     );
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => 'family-1';
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {
-    final error = sendError;
-    if (error != null) throw error;
-    emails.add(inviteId);
-    tokens.add(token);
   }
 }
 
@@ -123,7 +104,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(api.lastEmail, 'a@b.co');
-    expect(api.emails, ['i']);
+    expect(api.sentInvites.map((sent) => sent.inviteId), ['i']);
     expect(find.byType(InviteModal), findsNothing);
   });
 
@@ -227,7 +208,7 @@ void main() {
     tester,
   ) async {
     final api = _StubInviteApi()
-      ..createError = const AppException(
+      ..createInviteError = const AppException(
         code: AppErrorCode.validation,
         message: 'person is already linked',
       );
@@ -257,7 +238,7 @@ void main() {
     expect(find.text('person is already linked'), findsOneWidget);
     expect(find.byKey(const Key('not-invited-row-p-kim')), findsOneWidget);
     expect(api.creates, 1);
-    expect(api.emails, isEmpty);
+    expect(api.sentInvites, isEmpty);
   });
 
   testWidgets(
@@ -363,7 +344,7 @@ void main() {
     expect(find.text('Try again'), findsNothing);
     expect(find.byKey(const Key('not-invited-row-p-kim')), findsNothing);
     expect(api.creates, 1);
-    expect(api.emails, ['i']);
+    expect(api.sentInvites.map((sent) => sent.inviteId), ['i']);
   });
 
   testWidgets('invite on a saved email sends once and leaves the list', (
@@ -387,7 +368,7 @@ void main() {
     expect(api.creates, 1);
     expect(api.lastPersonId, 'p-baby');
     expect(api.lastEmail, 'baby@billy.com');
-    expect(api.emails, ['i']);
+    expect(api.sentInvites.map((sent) => sent.inviteId), ['i']);
     expect(find.byKey(const Key('not-invited-row-p-baby')), findsNothing);
     expect(find.text('Not invited yet'), findsNothing);
   });
@@ -396,7 +377,7 @@ void main() {
     tester,
   ) async {
     final api = _StubInviteApi()
-      ..sendError = const AppException(
+      ..sendInviteEmailError = const AppException(
         code: AppErrorCode.validation,
         message: 'Invite has no email address to send to',
       );
@@ -415,15 +396,15 @@ void main() {
     await tester.tap(invite);
     await tester.pump();
     expect(api.creates, 1);
-    expect(api.emails, isEmpty);
+    expect(api.sentInvites, isEmpty);
     expect(find.text('Invite has no email address to send to'), findsOneWidget);
 
-    api.sendError = null;
+    api.sendInviteEmailError = null;
     await tester.tap(invite);
     await tester.pump();
     expect(api.creates, 1);
-    expect(api.emails, ['i']);
-    expect(api.tokens, ['t1']);
+    expect(api.sentInvites.map((sent) => sent.inviteId), ['i']);
+    expect(api.sentInvites.map((sent) => sent.token), ['t1']);
     expect(find.byKey(const Key('not-invited-row-p-baby')), findsNothing);
   });
 }

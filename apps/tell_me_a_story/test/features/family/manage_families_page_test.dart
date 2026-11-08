@@ -8,11 +8,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
+
+import '../../support/fakes/fake_invite_gateway.dart';
 
 void main() {
   late _Directory directory;
@@ -144,7 +145,11 @@ void main() {
         home: ManageFamiliesPage(
           directoryApi: directory,
           manageApi: manage,
-          inviteApi: _HubInvite('fam-1'),
+          inviteApi: FakeInviteGateway(
+            familyId: 'fam-1',
+            createdFamilyId: 'fam-1',
+            acceptedFamilyId: 'fam-1',
+          ),
           familiesApi: _HubFamilies(directory),
         ),
       ),
@@ -956,41 +961,4 @@ class _HubFamilies extends FamiliesGateway {
           ),
     ];
   }
-}
-
-class _HubInvite implements InviteGateway {
-  _HubInvite(this.familyId);
-
-  final String familyId;
-
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'fam-1');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => familyId;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    return CreateInviteResult(
-      inviteId: 'i',
-      token: 't',
-      expiresAt: DateTime.utc(2099),
-      inviteUrl: 'http://127.0.0.1:3000/invite/t',
-    );
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => familyId;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
 }

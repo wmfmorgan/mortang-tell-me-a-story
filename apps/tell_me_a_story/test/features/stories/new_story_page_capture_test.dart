@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
@@ -15,37 +14,9 @@ import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/ui/story/story_date_picker.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 
+import '../../support/fakes/fake_invite_gateway.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
-
-class _FakeInviteApi implements InviteGateway {
-  final String? familyId = _familyId;
-
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => _familyId;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => familyId;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
-}
 
 class _FakePeopleApi extends PeopleGateway {
   _FakePeopleApi({List<Person>? seed, List<Person>? tree})
@@ -477,7 +448,11 @@ Widget _captureShell({
 }) {
   return MaterialApp(
     home: NewStoryPage(
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteGateway(
+        familyId: _familyId,
+        createdFamilyId: _familyId,
+        acceptedFamilyId: 'f',
+      ),
       peopleApi: people ?? _FakePeopleApi(seed: const [_ada]),
       placesApi: places ?? _FakePlacesApi(seed: [_park]),
       mapboxSearch: _FakeMapboxSearch(),
@@ -1120,7 +1095,11 @@ void main() {
         GoRoute(
           path: '/stories/:storyId/edit',
           builder: (context, state) => NewStoryPage(
-            inviteApi: _FakeInviteApi(),
+            inviteApi: FakeInviteGateway(
+              familyId: _familyId,
+              createdFamilyId: _familyId,
+              acceptedFamilyId: 'f',
+            ),
             peopleApi: _FakePeopleApi(seed: const [_ada]),
             placesApi: _FakePlacesApi(seed: [_park]),
             mapboxSearch: _FakeMapboxSearch(),
@@ -1195,7 +1174,11 @@ void main() {
         GoRoute(
           path: '/stories/:storyId/edit',
           builder: (context, state) => NewStoryPage(
-            inviteApi: _FakeInviteApi(),
+            inviteApi: FakeInviteGateway(
+              familyId: _familyId,
+              createdFamilyId: _familyId,
+              acceptedFamilyId: 'f',
+            ),
             peopleApi: _FakePeopleApi(seed: const [_ada]),
             placesApi: _FakePlacesApi(seed: [_park]),
             mapboxSearch: _FakeMapboxSearch(),
@@ -1247,7 +1230,11 @@ void main() {
         GoRoute(
           path: '/stories/:storyId/edit',
           builder: (context, state) => NewStoryPage(
-            inviteApi: _FakeInviteApi(),
+            inviteApi: FakeInviteGateway(
+              familyId: _familyId,
+              createdFamilyId: _familyId,
+              acceptedFamilyId: 'f',
+            ),
             peopleApi: _FakePeopleApi(seed: const [_ada]),
             placesApi: _FakePlacesApi(seed: [_park]),
             mapboxSearch: _FakeMapboxSearch(),

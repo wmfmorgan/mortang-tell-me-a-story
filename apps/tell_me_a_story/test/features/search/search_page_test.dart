@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/search_api.dart';
@@ -16,39 +15,13 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/search/search_page.dart';
 import 'package:tell_me_a_story/features/search/search_recents.dart';
 
+import '../../support/fakes/fake_invite_gateway.dart';
+
 const _family = 'family-1';
 
 final _png = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
 );
-
-class _Invite implements InviteGateway {
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String> createFamily(String name) async => _family;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => _family;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {}
-}
 
 class _People extends PeopleGateway {
   @override
@@ -187,7 +160,10 @@ Widget _app({
       GoRoute(
         path: AppRoutes.search,
         builder: (context, state) => SearchPage(
-          inviteApi: _Invite(),
+          inviteApi: FakeInviteGateway(
+            familyId: _family,
+            createdFamilyId: _family,
+          ),
           peopleApi: _People(),
           searchApi: search,
           photosApi: photos ?? _Photos(null),

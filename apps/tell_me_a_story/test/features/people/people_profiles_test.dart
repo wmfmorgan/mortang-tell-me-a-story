@@ -15,6 +15,8 @@ import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 import 'package:tell_me_a_story/features/people/edit_person_dialog.dart';
 import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
 
+import '../../support/fakes/fake_invite_gateway.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
 const _helper =
     'Year is required. Add the month or day only if you remember. Day unlocks after Month.';
@@ -75,7 +77,11 @@ void main() {
     tester,
   ) async {
     final api = _People();
-    final invites = _Invites();
+    final invites = FakeInviteGateway(
+      familyId: _familyId,
+      createdFamilyId: 'f',
+      acceptedFamilyId: 'f',
+    );
     await _openAdd(tester, api, invites: invites);
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
     await tester.enterText(
@@ -97,15 +103,19 @@ void main() {
     expect(api.createCalls, 1);
     expect(api.lastEmail, 'ada@example.com');
     expect(api.lastPassedAway, isTrue);
-    expect(invites.creates, 0);
-    expect(invites.sent, isEmpty);
+    expect(invites.createdInvites, isEmpty);
+    expect(invites.sentInvites, isEmpty);
   });
 
   testWidgets('Not now saves the email and does not create an invite', (
     tester,
   ) async {
     final api = _People();
-    final invites = _Invites();
+    final invites = FakeInviteGateway(
+      familyId: _familyId,
+      createdFamilyId: 'f',
+      acceptedFamilyId: 'f',
+    );
     await _openAdd(tester, api, invites: invites);
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
     await tester.enterText(
@@ -124,14 +134,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.lastEmail, 'ada@example.com');
-    expect(invites.creates, 0);
+    expect(invites.createdInvites, isEmpty);
   });
 
   testWidgets('Send invite saves, then create-invite, then send-invite-email', (
     tester,
   ) async {
     final api = _People();
-    final invites = _Invites();
+    final invites = FakeInviteGateway(
+      familyId: _familyId,
+      createdFamilyId: 'f',
+      acceptedFamilyId: 'f',
+    );
     await _openAdd(tester, api, invites: invites);
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
     await tester.enterText(
@@ -146,20 +160,27 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.lastEmail, 'ada@example.com');
-    expect(invites.personIds, ['p1']);
-    expect(invites.emails, ['ada@example.com']);
-    expect(invites.sent, ['i']);
+    expect(invites.createdInvites.map((invite) => invite.personId), ['p1']);
+    expect(invites.createdInvites.map((invite) => invite.email), [
+      'ada@example.com',
+    ]);
+    expect(invites.sentInvites.map((sent) => sent.inviteId), ['invite-1']);
   });
 
   testWidgets('a failed invite after saving keeps the save sentence', (
     tester,
   ) async {
     final api = _People();
-    final invites = _Invites()
-      ..createError = const AppException(
-        code: AppErrorCode.validation,
-        message: 'person is already linked',
-      );
+    final invites =
+        FakeInviteGateway(
+            familyId: _familyId,
+            createdFamilyId: 'f',
+            acceptedFamilyId: 'f',
+          )
+          ..createInviteError = const AppException(
+            code: AppErrorCode.validation,
+            message: 'person is already linked',
+          );
     await _openAdd(tester, api, invites: invites);
     await tester.enterText(find.byKey(const Key('add-person-name')), 'Ada');
     await tester.enterText(
@@ -176,7 +197,7 @@ void main() {
     expect(api.createCalls, 1);
     expect(find.text('Couldn’t save person. Try again.'), findsOneWidget);
     expect(find.text('person is already linked'), findsNothing);
-    expect(invites.sent, isEmpty);
+    expect(invites.sentInvites, isEmpty);
   });
 
   testWidgets(
@@ -354,7 +375,11 @@ void main() {
     tester,
   ) async {
     final people = _People();
-    final invites = _Invites();
+    final invites = FakeInviteGateway(
+      familyId: _familyId,
+      createdFamilyId: 'f',
+      acceptedFamilyId: 'f',
+    );
     final person = Person(
       id: 'p1',
       familyId: _familyId,
@@ -443,7 +468,7 @@ void main() {
     expect(people.updatedEmail, 'next@example.com');
     expect(people.wrotePassedAway, isTrue);
     expect(people.updatedPassedAway, isFalse);
-    expect(invites.creates, 0);
+    expect(invites.createdInvites, isEmpty);
   });
 
   testWidgets('edit adds or clears an unlinked picture', (tester) async {
@@ -855,52 +880,6 @@ class _People extends PeopleGateway {
     updatedPicture = pictureBytes;
     this.clearPicture = clearPicture;
     return Person(id: personId, familyId: _familyId, name: name, email: email);
-  }
-}
-
-class _Invites implements InviteGateway {
-  int creates = 0;
-  final personIds = <String?>[];
-  final emails = <String?>[];
-  final sent = <String>[];
-  Object? createError;
-
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => 'f';
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    creates++;
-    personIds.add(personId);
-    emails.add(email);
-    final error = createError;
-    if (error != null) throw error;
-    return CreateInviteResult(
-      inviteId: 'i',
-      token: 't',
-      expiresAt: DateTime.utc(2099),
-      inviteUrl: 'http://127.0.0.1:3000/invite/t',
-    );
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => _familyId;
-
-  @override
-  Future<void> sendInviteEmail({
-    required String inviteId,
-    required String token,
-  }) async {
-    sent.add(inviteId);
   }
 }
 
