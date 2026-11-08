@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // iPad window sizes and insets, from the timeline lab
-// (labs/timeline_lab/test/support/ipad.dart).
+// (the timeline lab's test/support/ipad.dart).
 
 /// Logical iPad window sizes in points. Split View and Slide Over widths are
 /// the iPadOS values for 11"–13" models.

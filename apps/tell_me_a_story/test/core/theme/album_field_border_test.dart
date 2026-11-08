@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 
-// Ported from labs/timeline_lab/test/field_border_test.dart. The app's
+// Ported from the timeline lab's field_border_test.dart. The app's
 // inputDecorationTheme keeps OutlineInputBorder until a slice adopts this.
 void main() {
   const rect = Rect.fromLTWH(0, 0, 240, 48);

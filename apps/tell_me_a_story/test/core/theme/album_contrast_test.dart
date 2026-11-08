@@ -4,7 +4,7 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 
 import '../../support/contrast.dart';
 
-// Ported from labs/timeline_lab/test/lab_theme_test.dart (Q5 visual system).
+// Ported from the timeline lab's lab_theme_test.dart (Q5 visual system).
 void main() {
   group('text contrast ≥ 4.5:1', () {
     final pairs = <String, (Color, Color)>{
