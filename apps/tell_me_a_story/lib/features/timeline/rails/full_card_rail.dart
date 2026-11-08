@@ -12,6 +12,8 @@ import 'package:tell_me_a_story/ui/story/story_date.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 import 'package:tell_me_a_story/features/timeline/rails/rail_scaffold.dart';
+import 'package:tell_me_a_story/features/timeline/rails/rail_spine.dart';
+import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
 
 class FullCardRail extends StatefulWidget {
   const FullCardRail({
@@ -111,25 +113,16 @@ class _FullCardRailState extends State<FullCardRail>
           return Stack(
             key: viewportKey,
             children: [
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Align(
-                    alignment: wide ? Alignment.center : Alignment.centerLeft,
-                    child: Padding(
-                      padding: EdgeInsets.only(left: wide ? 0 : 13),
-                      child: Container(
-                        key: const Key('timeline-spine'),
-                        width: 2,
-                        color: albumInk.withValues(alpha: 0.2),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              RailSpine(left: wide ? null : _narrowLeft + _narrowDotCenter),
               ListView(
                 controller: scroll,
                 scrollCacheExtent: const ScrollCacheExtent.pixels(100000),
-                padding: EdgeInsets.fromLTRB(wide ? 24 : 8, pad, 24, pad),
+                padding: EdgeInsets.fromLTRB(
+                  wide ? 24 : _narrowLeft,
+                  pad,
+                  24,
+                  pad,
+                ),
                 children: [
                   for (var i = 0; i < widget.stories.length; i++)
                     _FullCardRow(
@@ -179,6 +172,12 @@ class _FullCardRailState extends State<FullCardRail>
 }
 
 const _narrowFullDotColumn = 28.0;
+
+/// Narrow Days: the list's left inset, and the dot column's centre within a
+/// row. The spine, the plain dots and the branch dot all sit on
+/// `_narrowLeft + _narrowDotCenter`.
+const _narrowLeft = 8.0;
+const _narrowDotCenter = _narrowFullDotColumn / 2;
 
 /// Layout facts for the story card, written by [_DaysCardProbe] during its
 /// own layout. The row reads these fields instead of a descendant's size.
@@ -512,7 +511,7 @@ class _FullCardRow extends StatelessWidget {
     final dot = _FullCardDot(
       key: Key('timeline-full-dot-${story.id}'),
       focused: focused,
-      branched: frame.branchesStory,
+      ringed: !frame.branchesStory && frame.parent == null,
     );
     final placed = frame.branchesStory
         ? placeBranchCallout(
@@ -590,29 +589,37 @@ class _FullCardRow extends StatelessWidget {
           children: [
             Column(
               children: [
-                BranchCalloutTarget(
-                  frame: frame,
-                  onOpen: onOpenBranch,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: calloutHit,
-                        height: calloutHit,
-                        child: placed.ringHit,
-                      ),
-                      Expanded(child: placed.lane),
-                    ],
+                // Shift the ring so the dot sits on the spine, like the
+                // plain dots; the callout's own geometry is unchanged.
+                Transform.translate(
+                  offset: const Offset(_narrowDotCenter - calloutHit / 2, 0),
+                  child: BranchCalloutTarget(
+                    frame: frame,
+                    onOpen: onOpenBranch,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: calloutHit,
+                          height: calloutHit,
+                          child: placed.ringHit,
+                        ),
+                        Expanded(child: placed.lane),
+                      ],
+                    ),
                   ),
                 ),
                 Padding(
-                  padding: EdgeInsets.only(left: calloutHit + placed.push),
+                  // The card starts under the label, after the ring.
+                  padding: EdgeInsets.only(
+                    left: _narrowDotCenter + calloutHit / 2 + placed.push,
+                  ),
                   child: card,
                 ),
               ],
             ),
             Positioned(
-              left: 0,
+              left: _narrowDotCenter - calloutHit / 2,
               top: 0,
               width: calloutHit,
               height: calloutHit,
@@ -701,33 +708,23 @@ class _FullCardRow extends StatelessWidget {
   }
 }
 
+/// A Days story dot. A plain focused story takes the terracotta selected
+/// ring; a branch or parent-origin dot never does, so nothing covers the
+/// callout's moss ring and nothing glows (branch-callout.md Rules 1 and 8).
 class _FullCardDot extends StatelessWidget {
-  const _FullCardDot({
-    super.key,
-    required this.focused,
-    required this.branched,
-  });
+  const _FullCardDot({super.key, required this.focused, required this.ringed});
 
   final bool focused;
-  final bool branched;
+  final bool ringed;
 
   @override
   Widget build(BuildContext context) {
-    final size = focused ? fullDotFocusedDiameter : fullDotDiameter;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: focused ? albumTerracotta : albumParchment,
-        border: focused
-            ? null
-            : Border.all(color: albumInk.withValues(alpha: 0.4), width: 2),
-        boxShadow: focused && !branched
-            ? const [
-                BoxShadow(color: albumBlush, spreadRadius: 8, blurRadius: 0),
-              ]
-            : null,
+    return StoryDot(
+      reserveRings: false,
+      spec: MarkerSpec(
+        matched: true,
+        selected: focused && ringed,
+        diameter: focused ? fullDotFocusedDiameter : fullDotDiameter,
       ),
     );
   }
@@ -765,28 +762,29 @@ class _FullCard extends StatelessWidget {
               ? const <String>[]
               : [story.photoPaths.first])
         : story.photoPaths.take(2).toList();
+    final shape = albumContainerShape(
+      AlbumRadius.card,
+      side: BorderSide(
+        color: branched || (focused && parentOrigin)
+            ? branchMoss
+            : focused
+            ? albumTerracotta
+            : albumInk.withValues(alpha: 0.2),
+        width: branched ? 1 : (focused ? 2 : 1),
+      ),
+    );
     return Material(
       color: branched ? albumParchment : albumWhite,
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(albumCardRadius),
-        side: BorderSide(
-          color: branched || (focused && parentOrigin)
-              ? branchMoss
-              : focused
-              ? albumTerracotta
-              : albumInk.withValues(alpha: 0.2),
-          width: branched ? 1 : (focused ? 2 : 1),
-        ),
-      ),
+      shape: shape,
       child: InkWell(
         key: Key('timeline-card-${story.id}'),
         onTap: onOpen,
-        borderRadius: BorderRadius.circular(albumCardRadius),
+        customBorder: shape,
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(albumCardRadius),
-            boxShadow: branched || (focused && parentOrigin)
+          decoration: ShapeDecoration(
+            shape: albumContainerShape(AlbumRadius.card),
+            shadows: branched || (focused && parentOrigin)
                 ? null
                 : [
                     BoxShadow(

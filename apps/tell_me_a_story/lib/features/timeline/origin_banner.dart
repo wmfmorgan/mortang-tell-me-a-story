@@ -23,10 +23,12 @@ class OriginBanner extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       child: DecoratedBox(
         key: const Key('timeline-origin-banner'),
-        decoration: BoxDecoration(
+        decoration: ShapeDecoration(
           color: albumParchment,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: albumSage.withValues(alpha: 0.45)),
+          shape: albumContainerShape(
+            AlbumRadius.card,
+            side: BorderSide(color: albumSage.withValues(alpha: 0.45)),
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),

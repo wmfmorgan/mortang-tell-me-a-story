@@ -6,6 +6,8 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 import 'package:tell_me_a_story/features/timeline/rails/rail_scaffold.dart';
+import 'package:tell_me_a_story/features/timeline/rails/rail_spine.dart';
+import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
 
 class FarRail extends StatefulWidget {
   const FarRail({
@@ -115,7 +117,7 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
           originStoryId: widget.originStoryId,
           onOpenBranch: widget.onOpenBranch,
           focused: band.startYear == centerKey,
-          opacity: opacities[band.startYear] ?? 1,
+          opacity: opacityOf(band.startYear, unmeasured: 1),
           highlight: _highlight(band),
           onDot: widget.onDot,
           onYear: widget.onYear,
@@ -134,13 +136,7 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
       viewport: Stack(
         key: viewportKey,
         children: [
-          const Positioned.fill(
-            child: IgnorePointer(
-              child: Center(
-                child: SizedBox(width: 2, child: ColoredBox(color: albumRule)),
-              ),
-            ),
-          ),
+          const RailSpine(),
           LayoutBuilder(
             builder: (context, constraints) {
               final pad = constraints.maxHeight / 2;
@@ -246,14 +242,14 @@ class _FarDecadeRow extends StatelessWidget {
           _farBranch(context, frame, highlighted: highlighted, origin: origin),
         );
       } else {
-        final dot = _FarDot(
-          story: story,
-          highlighted: highlighted,
-          origin: origin,
-          onTap: () => onDot(story),
-        );
         plain.add(
-          origin ? _OriginDot(highlighted: highlighted, child: dot) : dot,
+          _FarDot(
+            story: story,
+            highlighted: highlighted,
+            origin: origin,
+            ringed: true,
+            onTap: () => onDot(story),
+          ),
         );
       }
     }
@@ -476,49 +472,24 @@ class _RenderCenterOnDot extends RenderShiftedBox {
   }
 }
 
-/// Moss ring for an origin story that has no callout of its own.
-class _OriginDot extends StatelessWidget {
-  const _OriginDot({required this.highlighted, required this.child});
-
-  final bool highlighted;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final diameter = highlighted ? farDotHighlightedDiameter : farDotDiameter;
-    final ring = diameter + 2 * calloutDotGap + 2 * calloutStroke;
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
-      children: [
-        IgnorePointer(
-          child: Container(
-            width: ring,
-            height: ring,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: branchMoss, width: calloutStroke),
-            ),
-          ),
-        ),
-        child,
-      ],
-    );
-  }
-}
-
+/// One Decades story dot. A plain dot carries its own rings: terracotta when
+/// highlighted, moss when it is an origin with no callout. A dot inside a
+/// branch callout is never [ringed]: the callout's moss ring is the only
+/// ring there (branch-callout.md Rule 1).
 class _FarDot extends StatelessWidget {
   const _FarDot({
     required this.story,
     required this.highlighted,
     required this.onTap,
     this.origin = false,
+    this.ringed = false,
   });
 
   final Story story;
   final bool highlighted;
   final VoidCallback onTap;
   final bool origin;
+  final bool ringed;
 
   @override
   Widget build(BuildContext context) {
@@ -527,15 +498,13 @@ class _FarDot extends StatelessWidget {
       onTap: onTap,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        child: Container(
-          width: highlighted ? farDotHighlightedDiameter : farDotDiameter,
-          height: highlighted ? farDotHighlightedDiameter : farDotDiameter,
-          decoration: BoxDecoration(
-            color: albumTerracotta,
-            shape: BoxShape.circle,
-            border: highlighted
-                ? Border.all(color: albumTerracotta, width: 2)
-                : null,
+        child: StoryDot(
+          reserveRings: false,
+          spec: MarkerSpec(
+            matched: true,
+            selected: ringed && highlighted,
+            origin: ringed && origin,
+            diameter: highlighted ? farDotHighlightedDiameter : farDotDiameter,
           ),
         ),
       ),
