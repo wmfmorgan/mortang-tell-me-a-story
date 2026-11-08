@@ -426,11 +426,11 @@ void main() {
   test('_pumpStory ignores only an album_header RenderFlex overflow', () {
     final headerOverflow = _pumpError(
       'A RenderFlex overflowed by 385 pixels on the right.',
-      'core/theme/album_header.dart',
+      'ui/album/album_header.dart',
     );
     final headerOther = _pumpError(
       'setState() called after dispose().',
-      'core/theme/album_header.dart',
+      'ui/album/album_header.dart',
     );
     final pageOverflow = _pumpError(
       'A RenderFlex overflowed by 12 pixels on the bottom.',

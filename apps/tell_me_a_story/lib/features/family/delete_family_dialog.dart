@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/features/family/family_blur_dialog.dart';
+import 'package:tell_me_a_story/ui/dialogs/family_blur_dialog.dart';
 
 /// Stitch `505fa619379b4ca797208e8087ccf630`. True when the name matches.
 Future<bool> showDeleteFamilyDialog(

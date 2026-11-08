@@ -13,9 +13,9 @@ import 'package:tell_me_a_story/ui/family/family_tree_order.dart';
 import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
-import 'package:tell_me_a_story/core/theme/album_chrome.dart';
+import 'package:tell_me_a_story/ui/album/album_chrome.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/theme/profile_avatar.dart';
+import 'package:tell_me_a_story/ui/avatar/profile_avatar.dart';
 
 /// Which signed-in screen is showing the shared bar.
 enum AlbumHeaderPage {

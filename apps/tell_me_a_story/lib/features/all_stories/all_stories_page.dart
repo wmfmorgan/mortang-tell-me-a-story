@@ -8,10 +8,10 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/theme/album_chrome.dart';
-import 'package:tell_me_a_story/core/theme/album_header.dart';
+import 'package:tell_me_a_story/ui/album/album_chrome.dart';
+import 'package:tell_me_a_story/ui/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/theme/profile_avatar.dart';
+import 'package:tell_me_a_story/ui/avatar/profile_avatar.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';

@@ -14,7 +14,7 @@ import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/auth/invite_sign_in_page.dart';
-import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
+import 'package:tell_me_a_story/features/auth/sign_in_page.dart';
 import 'package:tell_me_a_story/features/settings/settings_page.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';

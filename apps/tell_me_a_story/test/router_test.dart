@@ -20,7 +20,7 @@ import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
+import 'package:tell_me_a_story/features/auth/sign_in_page.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/family/family_landing_page.dart';

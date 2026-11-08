@@ -7,8 +7,8 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
-import 'package:tell_me_a_story/core/theme/album_chrome.dart';
-import 'package:tell_me_a_story/core/theme/album_header.dart';
+import 'package:tell_me_a_story/ui/album/album_chrome.dart';
+import 'package:tell_me_a_story/ui/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/families_api.dart';

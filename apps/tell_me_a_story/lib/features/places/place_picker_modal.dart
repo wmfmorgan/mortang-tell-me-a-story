@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:tell_me_a_story/core/config/env.dart';
-import 'package:tell_me_a_story/core/theme/album_chrome.dart';
+import 'package:tell_me_a_story/ui/album/album_chrome.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/places_api.dart';

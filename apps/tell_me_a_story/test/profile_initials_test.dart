@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/core/theme/profile_initials.dart';
+import 'package:tell_me_a_story/ui/avatar/profile_initials.dart';
 
 void main() {
   test('Sarah Morgan is SM', () {

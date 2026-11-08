@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/theme/profile_avatar.dart';
+import 'package:tell_me_a_story/ui/avatar/profile_avatar.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/features/family/family_blur_dialog.dart';
+import 'package:tell_me_a_story/ui/dialogs/family_blur_dialog.dart';
 import 'package:tell_me_a_story/ui/family/family_role.dart';
 
 class TransferChoice {

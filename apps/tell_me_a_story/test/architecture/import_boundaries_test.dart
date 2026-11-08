@@ -8,21 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 // Edges that break a rule today, as 'from -> to' (paths relative to lib/).
 // The list only shrinks: a step that fixes an edge removes it, and a step
 // that moves a file renames its entries. Never add an edge.
-const knownViolations = <String>{
-  'core/theme/album_chrome.dart -> features/family/family_blur_dialog.dart',
-  'core/theme/album_header.dart -> data/families_api.dart',
-  'core/theme/album_header.dart -> data/family_selection.dart',
-  'core/theme/album_header.dart -> data/manage_families_api.dart',
-  'core/theme/album_header.dart -> data/profile_session.dart',
-  'core/theme/album_header.dart -> ui/family/family_role.dart',
-  'core/theme/album_header.dart -> ui/family/family_tree_order.dart',
-  'core/theme/album_header.dart -> ui/navigation/unsaved_guard.dart',
-  'features/invites/invite_modal.dart -> features/family/family_blur_dialog.dart',
-  'features/people/add_person_modal.dart -> features/family/family_blur_dialog.dart',
-  'features/people/edit_person_dialog.dart -> features/family/family_blur_dialog.dart',
-  'features/people/person_profile_dialog.dart -> features/family/family_blur_dialog.dart',
-  'ui/dialogs/leave_story_dialog.dart -> features/family/family_blur_dialog.dart',
-};
+const knownViolations = <String>{};
 
 /// Features may import only features of a lower rank.
 const featureRank = <String, int>{

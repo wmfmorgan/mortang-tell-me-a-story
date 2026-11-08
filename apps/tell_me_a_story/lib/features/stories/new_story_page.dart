@@ -10,7 +10,7 @@ import 'package:tell_me_a_story/core/config/env.dart';
 import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/ui/album/album_modal_frame.dart';
-import 'package:tell_me_a_story/core/theme/album_chrome.dart';
+import 'package:tell_me_a_story/ui/album/album_chrome.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';

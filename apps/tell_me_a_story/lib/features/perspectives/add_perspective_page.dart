@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:tell_me_a_story/core/theme/album_chrome.dart';
+import 'package:tell_me_a_story/ui/album/album_chrome.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';

@@ -3,12 +3,12 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:tell_me_a_story/core/theme/album_chrome.dart';
+import 'package:tell_me_a_story/ui/album/album_chrome.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/features/family/family_blur_dialog.dart';
+import 'package:tell_me_a_story/ui/dialogs/family_blur_dialog.dart';
 
 /// People added from this modal, and whether the caller chose "Send invite".
 class AddPersonResult {

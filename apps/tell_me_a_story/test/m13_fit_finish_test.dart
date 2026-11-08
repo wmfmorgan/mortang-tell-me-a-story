@@ -8,13 +8,13 @@ import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     show EmailAccountRequestException, EmailAccountRequestExceptionReason;
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/data/auth_refresh.dart';
-import 'package:tell_me_a_story/core/theme/album_header.dart';
+import 'package:tell_me_a_story/ui/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/auth/invite_sign_in_page.dart';
-import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
+import 'package:tell_me_a_story/features/auth/sign_in_page.dart';
 import 'package:tell_me_a_story/data/otp_sign_in.dart';
 import 'package:tell_me_a_story/features/family/delete_family_dialog.dart';
 import 'package:tell_me_a_story/features/people/add_person_modal.dart';

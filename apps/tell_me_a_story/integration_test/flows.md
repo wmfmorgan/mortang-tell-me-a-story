@@ -12,4 +12,4 @@ Lock: `docs/archive/design-doc/e2e.md` (U1) and `docs/archive/design-doc/e2e-add
 | C6 | `C6 invite link lets a second user join and see the timeline` | US-2; M2; §8 accept-invite; `00-foundation.md` §5 | `features/invites/`, `features/auth/`, `features/timeline/`, `data/invite_api.dart` |
 | C7 | `C7 search by person, place and timeframe finds the story` | US-9; M7 | `features/search/`, `data/search_api.dart` |
 | C8 | `C8 user from another family sees no content on a story url` | §14 Automated #1; §13 | `features/stories/`, `core/router/`, `app/` |
-| C9 | `C9 sign out redirects guarded routes to the landing page` | router signed-out guard; M10 nav | `core/theme/album_header.dart`, `core/router/`, `app/` |
+| C9 | `C9 sign out redirects guarded routes to the landing page` | router signed-out guard; M10 nav | `ui/album/album_header.dart`, `core/router/`, `app/` |

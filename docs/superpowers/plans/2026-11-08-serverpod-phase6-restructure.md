@@ -937,7 +937,7 @@ ls lib/core/theme; mise exec -- dart format lib test
 
 Expected: `ls` prints only `album_theme.dart`.
 
-- [ ] **Step 3: Owning path.** In `integration_test/flows.md`, C9: replace `` `core/theme/album_header.dart` `` with `` `ui/album/album_header.dart` ``.
+- [ ] **Step 3: Owning path.** In `integration_test/flows.md`, C9: replace `` `core/theme/album_header.dart` `` with `` `ui/album/album_header.dart` ``. Also update the two `'core/theme/album_header.dart'` fixture strings in `test/new_story_shell_test.dart` (the `_pumpStory ignores only an album_header RenderFlex overflow` test; the matcher checks only the file name).
 - [ ] **Step 4: Allowlist.** Delete all 13 remaining entries. Expected size: **0**.
 - [ ] **Step 5: Gates.** Expected `+688 ~12`.
 - [ ] **Step 6: Commit.** `git add -A lib test integration_test && git commit -m "refactor(client): album chrome, header, avatar and blur dialog move to lib/ui; sign_in_page.dart"`
