@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -225,58 +227,78 @@ class _FarDecadeRow extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-            Text(
-              focused ? '$count preserved' : count,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: focused
-                    ? albumTerracotta
-                    : albumInk.withValues(alpha: 0.6),
-                fontWeight: focused ? FontWeight.w700 : FontWeight.w500,
+            Flexible(
+              child: Text(
+                focused ? '$count preserved' : count,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: focused
+                      ? albumTerracotta
+                      : albumInk.withValues(alpha: 0.6),
+                  fontWeight: focused ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
             ),
           ],
         ),
       ],
     );
-    final plain = <Widget>[];
-    final branched = <Widget>[];
-    for (final story in stories) {
-      final frame = branching.frameFor(story);
-      final highlighted = focused && story.id == highlight?.id;
-      final origin = story.id == originStoryId;
-      if (frame.parent != null) {
-        branched.add(
-          _farParent(context, frame, highlighted: highlighted, origin: origin),
-        );
-      } else if (frame.branchesStory) {
-        branched.add(
-          _farBranch(context, frame, highlighted: highlighted, origin: origin),
-        );
-      } else {
-        plain.add(
-          _FarDot(
-            story: story,
-            highlighted: highlighted,
-            origin: origin,
-            ringed: true,
-            anchor: dotKey(story.id),
-            onTap: () => onDot(story),
-          ),
-        );
+    // The dots half is narrow on Split View and Slide Over, so a branch
+    // label shortens (with an ellipsis) to fit it.
+    Widget dots(double width) {
+      final plain = <Widget>[];
+      final branched = <Widget>[];
+      for (final story in stories) {
+        final frame = branching.frameFor(story);
+        final highlighted = focused && story.id == highlight?.id;
+        final origin = story.id == originStoryId;
+        if (frame.parent != null) {
+          branched.add(
+            _farParent(
+              context,
+              frame,
+              highlighted: highlighted,
+              origin: origin,
+            ),
+          );
+        } else if (frame.branchesStory) {
+          branched.add(
+            _farBranch(
+              context,
+              frame,
+              highlighted: highlighted,
+              origin: origin,
+              width: width,
+            ),
+          );
+        } else {
+          plain.add(
+            _FarDot(
+              story: story,
+              highlighted: highlighted,
+              origin: origin,
+              ringed: true,
+              anchor: dotKey(story.id),
+              onTap: () => onDot(story),
+            ),
+          );
+        }
       }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [...plain, ...branched],
+          ),
+        ],
+      );
     }
-    final dots = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [...plain, ...branched],
-        ),
-      ],
-    );
+
     return Opacity(
       opacity: opacity,
       child: Padding(
@@ -336,7 +358,10 @@ class _FarDecadeRow extends StatelessWidget {
                 onTapUp: (details) => _onFingerTap(context, details),
                 child: Padding(
                   padding: const EdgeInsets.only(left: 16),
-                  child: dots,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) =>
+                        dots(constraints.maxWidth),
+                  ),
                 ),
               ),
             ),
@@ -409,9 +434,10 @@ class _FarDecadeRow extends StatelessWidget {
     StoryFrame frame, {
     required bool highlighted,
     required bool origin,
+    required double width,
   }) {
     final story = frame.story;
-    final placed = placeBranchCallout(
+    PlacedBranch place(double maxLabelWidth) => placeBranchCallout(
       context: context,
       frame: frame,
       side: CalloutSide.right,
@@ -424,9 +450,12 @@ class _FarDecadeRow extends StatelessWidget {
       ),
       dotDiameter: highlighted ? farDotHighlightedDiameter : farDotDiameter,
       centerToLane: calloutHit / 2,
-      maxLabelWidth: calloutLabelWidthFar,
+      maxLabelWidth: maxLabelWidth,
       onOpen: onOpenBranch,
     );
+    var placed = place(calloutLabelWidthFar);
+    final fit = width - calloutHit - placed.push;
+    if (fit < calloutLabelWidthFar) placed = place(math.max(0, fit));
     return _CenterOnDot(
       dotExtent: calloutHit,
       child: Stack(
