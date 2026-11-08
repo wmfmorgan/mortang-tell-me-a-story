@@ -163,6 +163,63 @@ void main() {
     expect(find.text('Open Jenkins timeline'), findsOneWidget);
   });
 
+  testWidgets('the whole family name chip selects the family', (tester) async {
+    await pump(tester);
+    final bea = node(tester, 'f-${TreeFixture.bea}');
+    final chip = painter(tester).familyChipRect(bea);
+    final anchor = painter(tester).layout.positions[bea]!;
+    // Every corner and the middle of the chip, each beyond the dot's
+    // precise radius, with a mouse and a finger.
+    final points = [
+      chip.topLeft + const Offset(1, 1),
+      chip.topRight + const Offset(-1, 1),
+      chip.bottomLeft + const Offset(1, -1),
+      chip.bottomRight + const Offset(-1, -1),
+      chip.center,
+    ];
+    for (final kind in [PointerDeviceKind.mouse, PointerDeviceKind.touch]) {
+      for (final at in points) {
+        await tapNode(tester, 'f-${TreeFixture.jenkins}');
+        expect(painter(tester).selectedFamilyId, TreeFixture.jenkins);
+        await tapNode(tester, bea.id, offset: at - anchor, kind: kind);
+        expect(
+          painter(tester).selectedFamilyId,
+          TreeFixture.bea,
+          reason: '$kind at ${at - anchor}',
+        );
+      }
+    }
+    expect(opened, isEmpty);
+    // Just outside the chip's right edge, level with its middle: nothing.
+    await tapNode(tester, 'f-${TreeFixture.jenkins}');
+    await tapNode(
+      tester,
+      bea.id,
+      offset: Offset(chip.right + 4, chip.center.dy) - anchor,
+    );
+    expect(painter(tester).selectedFamilyId, TreeFixture.jenkins);
+  });
+
+  testWidgets('VoiceOver: one node per family, covering dot and chip', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pump(tester);
+    final bea = node(tester, 'f-${TreeFixture.bea}');
+    final family = find.semantics.byLabel('Bea (1975), 3 stories');
+    expect(family, findsOne);
+    final rect = family.evaluate().single.rect;
+    final chip = painter(tester).familyChipRect(bea);
+    final dot = painter(tester).layout.rectOf(bea);
+    expect(rect, chip.expandToInclude(dot));
+    expect(find.semantics.byLabel('Bea (1975)'), findsNothing);
+
+    tester.semantics.tap(family);
+    await tester.pumpAndSettle();
+    expect(painter(tester).selectedFamilyId, TreeFixture.bea);
+    handle.dispose();
+  });
+
   testWidgets('families wear their treemap tints', (tester) async {
     await pump(tester);
     expect(painter(tester).tints, treemapFamilyTints(TreeFixture.tree));

@@ -347,14 +347,10 @@ class TreeGraphPainter extends CustomPainter {
           canvas.drawCircle(p, AlbumMarker.small / 2, groupDot);
           // The name sits above-right on a chip in the family's tint, so
           // the graph and the treemap share one colour per family.
-          final at =
-              p +
-              Offset(
-                8 + _chipPad.left,
-                -label.size.height - 1 - _chipPad.bottom,
-              );
+          final chipRect = familyChipRect(n);
+          final at = _chipPad.deflateRect(chipRect).topLeft;
           final chip = RRect.fromRectAndRadius(
-            _chipPad.inflateRect(at & label.size),
+            chipRect,
             const Radius.circular(AlbumRadius.tile),
           );
           canvas
@@ -404,16 +400,32 @@ class TreeGraphPainter extends CustomPainter {
     );
   }
 
-  /// The node nearest [p] within [radius] ([TreeLayout.hitTest]), else the
-  /// `+N` pill under [p]. Text labels are not targets.
+  /// The tinted name chip of family node [n], in canvas coordinates: above
+  /// and right of its dot.
+  Rect familyChipRect(TreeNode n) {
+    final p = layout.positions[n]!;
+    final label = _label(n);
+    final at =
+        p + Offset(8 + _chipPad.left, -label.size.height - 1 - _chipPad.bottom);
+    return _chipPad.inflateRect(at & label.size);
+  }
+
+  /// The painted box of [n] that is itself a target: the `+N` pill or a
+  /// family's name chip. Null for nodes that are only a dot.
+  Rect? targetBox(TreeNode n) => switch (n.kind) {
+    TreeNodeKind.overflow => overflowRect(n),
+    TreeNodeKind.family => familyChipRect(n),
+    _ => null,
+  };
+
+  /// The node whose `+N` pill or family chip contains [p], else the node
+  /// nearest [p] within [radius] ([TreeLayout.hitTest]). Other labels are
+  /// not targets.
   TreeNode? nodeAt(Offset p, {double radius = TreeLayout.hitRadius}) =>
-      layout.hitTest(p, radius: radius) ??
       layout.nodes
-          .where(
-            (n) =>
-                n.kind == TreeNodeKind.overflow && overflowRect(n).contains(p),
-          )
-          .firstOrNull;
+          .where((n) => targetBox(n)?.contains(p) ?? false)
+          .firstOrNull ??
+      layout.hitTest(p, radius: radius);
 
   /// `+N` as one ink pill holding its own text.
   void _paintOverflow(Canvas canvas, TreeNode n, CanvasLabel label, Offset p) {
@@ -451,9 +463,14 @@ class TreeGraphPainter extends CustomPainter {
       (size) => [
         for (final n in layout.nodes)
           CustomPainterSemantics(
-            rect: n.kind == TreeNodeKind.overflow
-                ? overflowRect(n)
-                : layout.rectOf(n),
+            // One node per family: its dot and its chip together.
+            rect: switch (n.kind) {
+              TreeNodeKind.overflow => overflowRect(n),
+              TreeNodeKind.family => familyChipRect(
+                n,
+              ).expandToInclude(layout.rectOf(n)),
+              _ => layout.rectOf(n),
+            },
             properties: SemanticsProperties(
               label: _semanticsLabel(n),
               button: _tappable(n),
