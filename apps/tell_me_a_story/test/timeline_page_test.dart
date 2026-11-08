@@ -45,7 +45,7 @@ Uint8List _pngOf(int width, int height) {
 class _FakeInviteApi implements InviteGateway {
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'f');
   }
 
   @override
@@ -64,7 +64,10 @@ class _FakeInviteApi implements InviteGateway {
   Future<String?> currentFamilyId() async => _familyId;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
 
 class _FakeStoriesApi implements StoriesGateway {
@@ -2208,39 +2211,6 @@ void main() {
     _expectZoom(tester, 'timeline-zoom-mid');
   });
 
-  test('other-family and draft events do not refresh the rail', () {
-    expect(
-      timelineEventMatters(
-        familyId: _familyId,
-        table: 'stories',
-        eventFamilyId: 'other',
-        status: 'published',
-        isDelete: false,
-      ),
-      isFalse,
-    );
-    expect(
-      timelineEventMatters(
-        familyId: _familyId,
-        table: 'stories',
-        eventFamilyId: _familyId,
-        status: 'draft',
-        isDelete: false,
-      ),
-      isFalse,
-    );
-    expect(
-      timelineEventMatters(
-        familyId: _familyId,
-        table: 'stories',
-        eventFamilyId: _familyId,
-        status: 'published',
-        isDelete: false,
-      ),
-      isTrue,
-    );
-  });
-
   test('related marks sort null years first, then year, then id', () {
     const ada = TreeFamily(id: 'b', name: 'Ada', branchYear: 1972);
     const bea = TreeFamily(id: 'a', name: 'Bea');
@@ -4041,7 +4011,7 @@ class _FamilyInvite implements InviteGateway {
 
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'f');
   }
 
   @override
@@ -4060,7 +4030,10 @@ class _FamilyInvite implements InviteGateway {
   Future<String?> currentFamilyId() async => familyId;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
 
 class _TreeFamilies extends FamiliesGateway {

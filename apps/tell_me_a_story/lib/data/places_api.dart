@@ -1,10 +1,13 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-/// Family-scoped place row (favorites + recents via [isFavorite] / [lastUsedAt]).
+import '../core/server/server_client.dart';
+import 'server/server_errors.dart';
+
+/// A place shared by the families of one tree (favorites + recents via
+/// [isFavorite] / [lastUsedAt]).
 class Place {
   const Place({
     required this.id,
-    required this.familyId,
     required this.label,
     required this.address,
     required this.lat,
@@ -15,7 +18,6 @@ class Place {
   });
 
   final String id;
-  final String familyId;
   final String label;
   final String address;
   final double lat;
@@ -24,21 +26,16 @@ class Place {
   final bool isFavorite;
   final DateTime? lastUsedAt;
 
-  factory Place.fromJson(Map<String, dynamic> json) {
-    return Place(
-      id: json['id'] as String,
-      familyId: json['family_id'] as String,
-      label: json['label'] as String,
-      address: json['address'] as String,
-      lat: (json['lat'] as num).toDouble(),
-      lng: (json['lng'] as num).toDouble(),
-      mapboxPlaceId: json['mapbox_place_id'] as String?,
-      isFavorite: json['is_favorite'] as bool? ?? false,
-      lastUsedAt: json['last_used_at'] != null
-          ? DateTime.parse(json['last_used_at'] as String)
-          : null,
-    );
-  }
+  factory Place.fromDto(server.PlaceDto dto) => Place(
+    id: dto.id.toString(),
+    label: dto.label,
+    address: dto.address,
+    lat: dto.lat,
+    lng: dto.lng,
+    mapboxPlaceId: dto.mapboxPlaceId,
+    isFavorite: dto.isFavorite,
+    lastUsedAt: dto.lastUsedAt,
+  );
 }
 
 /// Rejects empty / whitespace-only label or address before network.
@@ -51,28 +48,22 @@ void ensureValidPlaceCreate({required String label, required String address}) {
   }
 }
 
-/// Insert payload for `places`. Keeps [label] and [address] as separate columns.
-Map<String, dynamic> buildPlaceInsert({
-  required String familyId,
+/// Create payload for `place.create`. Keeps [label] and [address] separate.
+server.PlaceInputDto placeInput({
   required String label,
   required String address,
   required double lat,
   required double lng,
   String? mapboxPlaceId,
   bool isFavorite = false,
-  required DateTime lastUsedAt,
-}) {
-  return {
-    'family_id': familyId,
-    'label': label.trim(),
-    'address': address.trim(),
-    'lat': lat,
-    'lng': lng,
-    if (mapboxPlaceId != null) 'mapbox_place_id': mapboxPlaceId,
-    'is_favorite': isFavorite,
-    'last_used_at': lastUsedAt.toUtc().toIso8601String(),
-  };
-}
+}) => server.PlaceInputDto(
+  label: label.trim(),
+  address: address.trim(),
+  lat: lat,
+  lng: lng,
+  mapboxPlaceId: mapboxPlaceId,
+  isFavorite: isFavorite,
+);
 
 abstract class PlacesGateway {
   Future<List<Place>> listPlaces(String familyId);
@@ -96,47 +87,36 @@ abstract class PlacesGateway {
   Future<Place?> getPlace(String id);
 }
 
-/// PostgREST CRUD gateway for family-scoped `places` rows.
+/// Places of [familyId]'s tree through the `place` endpoint.
 class PlacesApi implements PlacesGateway {
-  PlacesApi({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+  PlacesApi({server.Client? client}) : _injected = client;
 
-  final SupabaseClient _client;
+  final server.Client? _injected;
 
-  static const _columns =
-      'id, family_id, label, address, lat, lng, mapbox_place_id, is_favorite, last_used_at';
+  server.Client get _client => _injected ?? serverClient;
 
   @override
   Future<List<Place>> listPlaces(String familyId) async {
-    final rows = await _client
-        .from('places')
-        .select(_columns)
-        .eq('family_id', familyId)
-        .order('label');
-    return rows.map(Place.fromJson).toList();
+    final rows = await withServerErrors(
+      () => _client.place.list(_uuid(familyId)),
+    );
+    return rows.map(Place.fromDto).toList();
   }
 
   @override
   Future<List<Place>> listFavorites(String familyId) async {
-    final rows = await _client
-        .from('places')
-        .select(_columns)
-        .eq('family_id', familyId)
-        .eq('is_favorite', true)
-        .order('label');
-    return rows.map(Place.fromJson).toList();
+    final rows = await withServerErrors(
+      () => _client.place.favorites(_uuid(familyId)),
+    );
+    return rows.map(Place.fromDto).toList();
   }
 
   @override
   Future<List<Place>> listRecents(String familyId, {int limit = 10}) async {
-    final rows = await _client
-        .from('places')
-        .select(_columns)
-        .eq('family_id', familyId)
-        .not('last_used_at', 'is', null)
-        .order('last_used_at', ascending: false)
-        .limit(limit);
-    return rows.map(Place.fromJson).toList();
+    final rows = await withServerErrors(
+      () => _client.place.recents(_uuid(familyId), limit: limit),
+    );
+    return rows.map(Place.fromDto).toList();
   }
 
   @override
@@ -150,33 +130,26 @@ class PlacesApi implements PlacesGateway {
     bool isFavorite = false,
   }) async {
     ensureValidPlaceCreate(label: label, address: address);
-    final payload = buildPlaceInsert(
-      familyId: familyId,
+    final input = placeInput(
       label: label,
       address: address,
       lat: lat,
       lng: lng,
       mapboxPlaceId: mapboxPlaceId,
       isFavorite: isFavorite,
-      lastUsedAt: DateTime.now().toUtc(),
     );
-    final row = await _client
-        .from('places')
-        .insert(payload)
-        .select(_columns)
-        .single();
-    return Place.fromJson(row);
+    final row = await withServerErrors(
+      () => _client.place.create(_uuid(familyId), input),
+    );
+    return Place.fromDto(row);
   }
 
   @override
   Future<Place> markUsed(String placeId) async {
-    final row = await _client
-        .from('places')
-        .update({'last_used_at': DateTime.now().toUtc().toIso8601String()})
-        .eq('id', placeId)
-        .select(_columns)
-        .single();
-    return Place.fromJson(row);
+    final row = await withServerErrors(
+      () => _client.place.markUsed(_uuid(placeId)),
+    );
+    return Place.fromDto(row);
   }
 
   @override
@@ -184,13 +157,10 @@ class PlacesApi implements PlacesGateway {
     required String placeId,
     required bool isFavorite,
   }) async {
-    final row = await _client
-        .from('places')
-        .update({'is_favorite': isFavorite})
-        .eq('id', placeId)
-        .select(_columns)
-        .single();
-    return Place.fromJson(row);
+    final row = await withServerErrors(
+      () => _client.place.setFavorite(_uuid(placeId), isFavorite),
+    );
+    return Place.fromDto(row);
   }
 
   @override
@@ -198,24 +168,17 @@ class PlacesApi implements PlacesGateway {
     String familyId,
     String mapboxPlaceId,
   ) async {
-    final row = await _client
-        .from('places')
-        .select(_columns)
-        .eq('family_id', familyId)
-        .eq('mapbox_place_id', mapboxPlaceId)
-        .maybeSingle();
-    if (row == null) return null;
-    return Place.fromJson(row);
+    final row = await withServerErrors(
+      () => _client.place.findByMapboxId(_uuid(familyId), mapboxPlaceId),
+    );
+    return row == null ? null : Place.fromDto(row);
   }
 
   @override
   Future<Place?> getPlace(String id) async {
-    final row = await _client
-        .from('places')
-        .select(_columns)
-        .eq('id', id)
-        .maybeSingle();
-    if (row == null) return null;
-    return Place.fromJson(row);
+    final row = await withServerErrors(() => _client.place.get(_uuid(id)));
+    return row == null ? null : Place.fromDto(row);
   }
 }
+
+server.UuidValue _uuid(String id) => server.UuidValue.fromString(id);

@@ -51,6 +51,7 @@ class _FakePerspectivesApi implements PerspectivesGateway {
       body: body.trim(),
       createdAt: DateTime.utc(2026, 9, 27),
       authorDisplayName: 'Me',
+      canDelete: true,
     );
   }
 

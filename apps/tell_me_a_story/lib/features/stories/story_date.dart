@@ -1,21 +1,14 @@
 import '../../data/stories_api.dart';
 
-/// A story date. [legacyDecade] is read from old rows. Capture never writes it.
+/// A story date: a year, optionally with a month, optionally with a day.
 class StoryDate {
-  const StoryDate({
-    required this.year,
-    this.month,
-    this.day,
-    this.legacyDecade = false,
-  });
+  const StoryDate({required this.year, this.month, this.day});
 
   final int year;
   final int? month;
   final int? day;
-  final bool legacyDecade;
 
   StoryDatePrecision get precision {
-    if (legacyDecade) return StoryDatePrecision.decade;
     if (month != null && day != null) return StoryDatePrecision.day;
     if (month != null) return StoryDatePrecision.month;
     return StoryDatePrecision.year;
@@ -29,8 +22,6 @@ class StoryDate {
     StoryDatePrecision precision,
   ) {
     switch (precision) {
-      case StoryDatePrecision.decade:
-        return StoryDate(year: start.year, legacyDecade: true);
       case StoryDatePrecision.year:
         return StoryDate(year: start.year);
       case StoryDatePrecision.month:
@@ -56,13 +47,6 @@ class StoryDate {
           end: DateTime(year, 12, 31),
           precision: kind,
         );
-      case StoryDatePrecision.decade:
-        final startYear = year - (year % 10);
-        return (
-          start: DateTime(startYear, 1, 1),
-          end: DateTime(startYear + 9, 12, 31),
-          precision: kind,
-        );
     }
   }
 }
@@ -84,9 +68,6 @@ const storyMonthNames = [
 
 String storyDateLabel(StoryDate date) {
   switch (date.precision) {
-    case StoryDatePrecision.decade:
-      final start = date.year - (date.year % 10);
-      return '${start}s';
     case StoryDatePrecision.year:
       return '${date.year}';
     case StoryDatePrecision.month:

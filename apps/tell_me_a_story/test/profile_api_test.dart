@@ -1,83 +1,72 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:image/image.dart' as img;
 import 'package:tell_me_a_story/data/profile_api.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
+
+const _userId = '0190d7a0-0000-7000-8000-000000000001';
 
 void main() {
-  test('avatar object path is {uid}/avatar.jpg', () {
-    expect(
-      avatarObjectPath('a1111111-1111-4111-8111-111111111111'),
-      'a1111111-1111-4111-8111-111111111111/avatar.jpg',
-    );
+  group('OwnProfile.fromDto', () {
+    test('maps the account, its birth and the avatar key', () {
+      final profile = OwnProfile.fromDto(
+        server.OwnProfileDto(
+          authUserId: server.UuidValue.fromString(_userId),
+          displayName: 'Ada',
+          email: 'ada@example.com',
+          avatarKey: 'users/ada.jpg',
+          birthDate: DateTime.utc(1990, 5),
+          birthPrecision: server.DatePrecision.month,
+          birthVisibility: server.BirthVisibility.yearMonth,
+          about: 'Hi',
+        ),
+      );
+
+      expect(profile.id, _userId);
+      expect(profile.displayName, 'Ada');
+      expect(profile.email, 'ada@example.com');
+      expect(profile.avatarPath, 'users/ada.jpg');
+      expect(profile.birthDate, DateTime(1990, 5));
+      expect(profile.birthPrecision, 'month');
+      expect(profile.birthVisibility, BirthVisibility.yearMonth);
+      expect(profile.about, 'Hi');
+    });
+
+    test('leaves an empty account empty', () {
+      final profile = OwnProfile.fromDto(
+        server.OwnProfileDto(
+          authUserId: server.UuidValue.fromString(_userId),
+          birthVisibility: server.BirthVisibility.hidden,
+        ),
+      );
+
+      expect(profile.displayName, isNull);
+      expect(profile.email, isNull);
+      expect(profile.avatarPath, isNull);
+      expect(profile.birthDate, isNull);
+      expect(profile.birthPrecision, isNull);
+      expect(profile.birthVisibility, BirthVisibility.hidden);
+    });
   });
 
-  test('saveName writes display_name and not email', () async {
-    final patches = <Map<String, dynamic>>[];
-    final api = ProfileApi(
-      userId: 'user-1',
-      updateProfile: (patch) async => patches.add(patch),
-    );
-
-    await api.saveName('Ada Lovelace');
-
-    expect(patches, [
-      {'display_name': 'Ada Lovelace'},
+  test('BirthVisibility maps to and from the server for every value', () {
+    expect(BirthVisibility.values.map((v) => v.toServer()), [
+      server.BirthVisibility.hidden,
+      server.BirthVisibility.year,
+      server.BirthVisibility.yearMonth,
+      server.BirthVisibility.full,
     ]);
+    for (final value in BirthVisibility.values) {
+      expect(BirthVisibility.fromServer(value.toServer()), value);
+    }
   });
 
-  test('saveAvatar uploads the jpeg and sets avatar_path', () async {
-    final uploads = <({String path, Uint8List bytes})>[];
-    final patches = <Map<String, dynamic>>[];
-    final api = ProfileApi(
-      userId: 'user-1',
-      uploadBinary: ({required path, required bytes}) async {
-        uploads.add((path: path, bytes: bytes));
-      },
-      updateProfile: (patch) async => patches.add(patch),
-    );
-    final source = img.Image(width: 8, height: 8);
-    img.fill(source, color: img.ColorRgb8(20, 40, 60));
-
-    final path = await api.saveAvatar(
-      Uint8List.fromList(img.encodeJpg(source)),
-    );
-
-    expect(path, 'user-1/avatar.jpg');
-    expect(uploads.single.path, 'user-1/avatar.jpg');
-    expect(uploads.single.bytes, isNotEmpty);
-    expect(patches, [
-      {'avatar_path': 'user-1/avatar.jpg'},
-    ]);
-  });
-
-  test('undecodable bytes do not upload', () async {
-    var uploads = 0;
-    final api = ProfileApi(
-      userId: 'user-1',
-      uploadBinary: ({required path, required bytes}) async => uploads++,
-      updateProfile: (patch) async {},
-    );
+  test('undecodable avatar bytes fail before any server call', () async {
+    final api = ProfileApi(client: server.Client('http://127.0.0.1:1/'));
 
     expect(
       () => api.saveAvatar(Uint8List.fromList([1, 2, 3])),
       throwsArgumentError,
     );
-    expect(uploads, 0);
-  });
-
-  test('updateEmail does not write the profile row', () async {
-    final emails = <String>[];
-    var patches = 0;
-    final api = ProfileApi(
-      userId: 'user-1',
-      updateEmail: (email) async => emails.add(email),
-      updateProfile: (patch) async => patches++,
-    );
-
-    await api.updateEmail('next@example.com');
-
-    expect(emails, ['next@example.com']);
-    expect(patches, 0);
   });
 }

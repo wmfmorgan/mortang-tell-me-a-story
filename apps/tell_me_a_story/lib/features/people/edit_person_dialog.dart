@@ -170,7 +170,10 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
             email: email,
             personId: person.id,
           );
-          await invites.sendInviteEmail(inviteId: created.inviteId);
+          await invites.sendInviteEmail(
+            inviteId: created.inviteId,
+            token: created.token,
+          );
         }
       }
       if (!mounted) return;

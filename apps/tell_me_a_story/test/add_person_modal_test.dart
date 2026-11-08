@@ -54,7 +54,6 @@ class _FakePeopleGateway extends PeopleGateway {
       name: name.trim(),
       email: trimmedEmail,
       about: about,
-      createdBy: 'u1',
     );
     rows.add(person);
     return person;
@@ -82,7 +81,6 @@ Person _dated({
     name: name,
     birthDate: DateTime(birthYear, 1, 1),
     passingDate: passingYear == null ? null : DateTime(passingYear, 1, 1),
-    createdBy: 'u1',
   );
 }
 
@@ -197,7 +195,6 @@ void main() {
 
     expect(session.result, isNotNull);
     expect(session.result!.person.name, 'Ada Lovelace');
-    expect(session.result!.person.relationship, isNull);
     expect(session.result!.sendInvite, isFalse);
     expect(api.createCalls, 1);
     expect(find.text('Add person'), findsNothing);
@@ -222,15 +219,7 @@ void main() {
 
   testWidgets('Cancel dismisses without returning a person', (tester) async {
     final api = _FakePeopleGateway(
-      seed: const [
-        Person(
-          id: 'p1',
-          familyId: _familyId,
-          name: 'Ada',
-          relationship: 'Aunt',
-          createdBy: 'u1',
-        ),
-      ],
+      seed: const [Person(id: 'p1', familyId: _familyId, name: 'Ada')],
     );
 
     final session = _ModalSession();
@@ -265,7 +254,6 @@ void main() {
           name: 'Cousin Ada',
           birthDate: DateTime(1920, 3, 1),
           passingDate: DateTime(1998, 6, 1),
-          createdBy: 'u1',
         ),
         Person(
           id: 'outsider',
@@ -273,7 +261,6 @@ void main() {
           name: 'Outside Bea',
           birthDate: DateTime(1910, 1, 1),
           passingDate: DateTime(1980, 1, 1),
-          createdBy: 'u9',
         ),
       ],
     );

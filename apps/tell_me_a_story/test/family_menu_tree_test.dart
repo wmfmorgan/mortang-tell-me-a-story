@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/features/family/family_tree_order.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 MemberFamily _family(
   String id,
@@ -20,21 +21,27 @@ MemberFamily _family(
 }
 
 void main() {
-  test('MemberFamily.fromJson reads branch_year and role', () {
-    final row = MemberFamily.fromJson({
-      'id': 'a',
-      'name': 'Ada',
-      'created_at': '2020-01-01T00:00:00.000Z',
-      'branch_year': 1987,
-    }, role: 'co_owner');
+  test('MemberFamily.fromDto reads branchYear and role', () {
+    final row = MemberFamily.fromDto(
+      server.MemberFamilyDto(
+        id: server.UuidValue.fromString('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+        name: 'Ada',
+        createdAt: DateTime.utc(2020),
+        branchYear: 1987,
+        role: server.MembershipRole.coOwner,
+      ),
+    );
     expect(row.branchYear, 1987);
     expect(row.role, 'co_owner');
 
-    final missing = MemberFamily.fromJson({
-      'id': 'b',
-      'name': 'Bea',
-      'created_at': '2020-01-01T00:00:00.000Z',
-    });
+    final missing = MemberFamily.fromDto(
+      server.MemberFamilyDto(
+        id: server.UuidValue.fromString('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
+        name: 'Bea',
+        createdAt: DateTime.utc(2020),
+        role: server.MembershipRole.member,
+      ),
+    );
     expect(missing.branchYear, isNull);
   });
 

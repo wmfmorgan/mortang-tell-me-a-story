@@ -16,11 +16,10 @@ import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 const _ada = 'ada';
 
-const _person = Person(id: 'p1', familyId: _ada, name: 'Ada', createdBy: 'u1');
+const _person = Person(id: 'p1', familyId: _ada, name: 'Ada');
 
 final _park = Place(
   id: 'pl1',
-  familyId: _ada,
   label: 'Central Park',
   address: 'New York, NY',
   lat: 40.78,
@@ -656,7 +655,7 @@ class _Photos implements PhotosGateway {
 class _Invite implements InviteGateway {
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: _ada, membershipId: 'm');
+    return const AcceptInviteResult(familyId: _ada);
   }
 
   @override
@@ -675,5 +674,8 @@ class _Invite implements InviteGateway {
   Future<String?> currentFamilyId() async => _ada;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }

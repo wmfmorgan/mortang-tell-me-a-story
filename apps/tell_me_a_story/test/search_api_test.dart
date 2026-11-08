@@ -1,203 +1,93 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/data/search_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-const _family = 'family-1';
-
-SearchRecord _record({
-  String id = 's1',
-  String familyId = _family,
-  String? title,
-  String? body,
-  DateTime? timeframeStart,
-  DateTime? timeframeEnd,
-  String? placeId,
-  String? placeLabel,
-  String? placeAddress,
-  List<String> personIds = const [],
-  List<String> personNames = const [],
-  StoryStatus status = StoryStatus.published,
-  DateTime? publishedAt,
-  String? authorDisplayName,
-}) {
-  return SearchRecord(
-    placeAddress: placeAddress,
-    story: Story(
-      id: id,
-      familyId: familyId,
-      authorId: 'author',
-      title: title,
-      body: body,
-      timeframeStart: timeframeStart ?? DateTime(1984, 6, 1),
-      timeframeEnd: timeframeEnd,
-      placeId: placeId,
-      placeLabel: placeLabel,
-      personIds: personIds,
-      personNames: personNames,
-      status: status,
-      publishedAt: publishedAt,
-      authorDisplayName: authorDisplayName,
-    ),
-  );
-}
+server.UuidValue _uuid(int n) => server.UuidValue.fromString(
+  '0190d7a0-0000-7000-8000-${n.toString().padLeft(12, '0')}',
+);
 
 void main() {
-  test('person, place, and decade chips are AND', () {
-    final rows = [
-      _record(
-        id: 'all',
-        title: 'Porch',
-        personIds: const ['clara', 'robert'],
-        placeId: 'porch',
-        timeframeStart: DateTime(1984, 1, 1),
-      ),
-      _record(
-        id: 'person-only',
-        personIds: const ['clara'],
-        placeId: 'mill',
-        timeframeStart: DateTime(1984, 1, 1),
-      ),
-      _record(
-        id: 'other-decade',
-        personIds: const ['clara'],
-        placeId: 'porch',
-        timeframeStart: DateTime(1972, 1, 1),
-      ),
-    ];
+  group('searchDto', () {
+    test('sends ids, the range as wire dates, decades and sort', () {
+      final dto = searchDto(
+        SearchRequest(
+          familyId: _uuid(1).toString(),
+          text: ' porch ',
+          personIds: [_uuid(2).toString(), _uuid(3).toString()],
+          placeId: _uuid(4).toString(),
+          rangeStart: DateTime(1980),
+          rangeEnd: DateTime(1989, 12, 31),
+          decades: const [1980, 1990],
+          sort: SearchSort.recentlyAdded,
+        ),
+      );
 
-    final matched = filterSearchRecords(
-      rows,
-      const SearchRequest(
-        familyId: _family,
-        personIds: ['clara'],
-        placeId: 'porch',
-        rangeStart: null,
-      ),
-    );
-    expect(matched.map((r) => r.story.id), ['all', 'other-decade']);
+      expect(dto.familyId, _uuid(1));
+      expect(dto.text, ' porch ');
+      expect(dto.personIds, [_uuid(2), _uuid(3)]);
+      expect(dto.placeId, _uuid(4));
+      expect(dto.rangeStart, DateTime.utc(1980));
+      expect(dto.rangeEnd, DateTime.utc(1989, 12, 31));
+      expect(dto.decades, [1980, 1990]);
+      expect(dto.sort, server.SearchSort.recentlyAdded);
+    });
 
-    final ranged = filterSearchRecords(
-      rows,
-      SearchRequest(
-        familyId: _family,
-        personIds: const ['clara'],
-        placeId: 'porch',
-        rangeStart: DateTime(1980, 1, 1),
-        rangeEnd: DateTime(1999, 12, 31),
-      ),
-    );
-    expect(ranged.map((r) => r.story.id), ['all']);
+    test('an empty request has no filters and sorts by relevance', () {
+      final dto = searchDto(SearchRequest(familyId: _uuid(1).toString()));
+
+      expect(dto.text, '');
+      expect(dto.personIds, isEmpty);
+      expect(dto.placeId, isNull);
+      expect(dto.rangeStart, isNull);
+      expect(dto.rangeEnd, isNull);
+      expect(dto.decades, isEmpty);
+      expect(dto.sort, server.SearchSort.relevant);
+    });
+
+    test('each sort maps to the server sort', () {
+      server.SearchSort sent(SearchSort sort) =>
+          searchDto(SearchRequest(familyId: _uuid(1).toString(), sort: sort))
+              .sort;
+
+      expect(sent(SearchSort.relevant), server.SearchSort.relevant);
+      expect(sent(SearchSort.chronological), server.SearchSort.chronological);
+      expect(sent(SearchSort.recentlyAdded), server.SearchSort.recentlyAdded);
+    });
   });
 
-  test('selected decades match the start year, not the span between chips', () {
-    final rows = [
-      _record(id: 'eighties', timeframeStart: DateTime(1984, 6, 1)),
-      _record(id: 'nineties', timeframeStart: DateTime(1995, 3, 1)),
-      _record(id: 'two-thousands', timeframeStart: DateTime(2002, 1, 1)),
-    ];
-    final matched = filterSearchRecords(
-      rows,
-      const SearchRequest(familyId: _family, decades: [1980, 2000]),
-    );
-    expect(matched.map((r) => r.story.id), ['two-thousands', 'eighties']);
-  });
-
-  test('text matches title, body, person, place, year, and decade', () {
-    final row = _record(
-      title: 'Lemonade',
-      body: 'cicadas in the elm',
-      personNames: const ['Clara'],
-      placeLabel: 'Back Porch',
-      placeAddress: '12 Lane',
-      timeframeStart: DateTime(1984, 7, 1),
-    );
-    expect(searchTextMatches(row, 'lemonade'), isTrue);
-    expect(searchTextMatches(row, 'elm'), isTrue);
-    expect(searchTextMatches(row, 'clara'), isTrue);
-    expect(searchTextMatches(row, 'porch'), isTrue);
-    expect(searchTextMatches(row, 'lane'), isTrue);
-    expect(searchTextMatches(row, '1984'), isTrue);
-    expect(searchTextMatches(row, '1980s'), isTrue);
-    expect(searchTextMatches(row, 'subway'), isFalse);
-  });
-
-  test('drafts and other families stay out', () {
-    final rows = [
-      _record(id: 'pub', title: 'Jam'),
-      _record(id: 'draft', title: 'Jam', status: StoryStatus.draft),
-      _record(id: 'other', title: 'Jam', familyId: 'family-2'),
-    ];
-    final matched = filterSearchRecords(
-      rows,
-      const SearchRequest(familyId: _family, text: 'Jam'),
-    );
-    expect(matched.map((r) => r.story.id), ['pub']);
-  });
-
-  test('sorts by relevance, chronology, and published time', () {
-    final rows = [
-      _record(
-        id: 'body',
-        title: 'Quiet',
-        body: 'porch',
-        timeframeStart: DateTime(1999),
-        publishedAt: DateTime(2020),
+  test('SearchFacets.fromDto keeps the server order', () {
+    final facets = SearchFacets.fromDto(
+      server.StoryFacetsDto(
+        decades: [
+          server.DecadeFacetDto(decade: 1960, storyCount: 1),
+          server.DecadeFacetDto(decade: 1980, storyCount: 3),
+        ],
+        people: [
+          server.PersonFacetDto(personId: _uuid(2), name: 'Ada', storyCount: 2),
+          server.PersonFacetDto(personId: _uuid(3), name: 'Bea', storyCount: 1),
+        ],
+        places: [
+          server.PlaceFacetDto(
+            placeId: _uuid(4),
+            label: 'Back Porch',
+            storyCount: 2,
+          ),
+        ],
       ),
-      _record(
-        id: 'title',
-        title: 'Porch story',
-        body: 'other',
-        timeframeStart: DateTime(1950),
-        publishedAt: DateTime(2010),
-      ),
-      _record(
-        id: 'late-publish',
-        title: 'Plain',
-        timeframeStart: DateTime(1960),
-        publishedAt: DateTime(2024),
-      ),
-      _record(
-        id: 'unpublished-time',
-        title: 'Plain',
-        timeframeStart: DateTime(1970),
-      ),
-    ];
-
-    final relevant = filterSearchRecords(
-      rows,
-      const SearchRequest(familyId: _family, text: 'porch'),
     );
-    expect(relevant.map((r) => r.story.id), ['title', 'body']);
 
-    final chronological = filterSearchRecords(
-      rows,
-      const SearchRequest(familyId: _family, sort: SearchSort.chronological),
-    );
-    expect(chronological.map((r) => r.story.id), [
-      'body',
-      'unpublished-time',
-      'late-publish',
-      'title',
+    expect(facets.decades, [1960, 1980]);
+    expect(facets.people, [
+      (id: _uuid(2).toString(), name: 'Ada'),
+      (id: _uuid(3).toString(), name: 'Bea'),
     ]);
-
-    final recent = filterSearchRecords(
-      rows,
-      const SearchRequest(familyId: _family, sort: SearchSort.recentlyAdded),
-    );
-    expect(recent.map((r) => r.story.id), [
-      'late-publish',
-      'body',
-      'title',
-      'unpublished-time',
-    ]);
+    expect(facets.places, [(id: _uuid(4).toString(), label: 'Back Porch')]);
   });
 
   test('decade chip label uses an en dash for a span', () {
     expect(decadeChipLabel(const [1980]), '1980s');
     expect(decadeChipLabel(const [1990, 1980]), '1980s–1990s');
-    final bounds = decadeBounds(const [1980, 1990]);
-    expect(bounds?.$1, DateTime(1980, 1, 1));
-    expect(bounds?.$2, DateTime(1999, 12, 31));
   });
 
   test('a blank title is stored as absent', () {

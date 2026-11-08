@@ -1,7 +1,6 @@
-/// Expected gateway failures, covering the codes the Supabase backend
-/// produces today. At the Phase 4 cutover this enum maps from the server's
-/// generated `AppErrorCode`
-/// (apps/server/lib/src/models/app_error_code.spy.yaml); see
+/// Expected gateway failures. `withServerErrors`
+/// (data/server/server_errors.dart) maps the server's generated `AppErrorCode`
+/// (apps/server/lib/src/models/app_error_code.spy.yaml) onto this enum; see
 /// docs/migration/endpoint-contract.md §2.1. [unauthenticated] corresponds
 /// to the server's `authRequired`.
 enum AppErrorCode {

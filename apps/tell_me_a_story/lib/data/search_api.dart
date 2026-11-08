@@ -1,5 +1,8 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
+import '../core/server/server_client.dart';
+import 'server/server_errors.dart';
+import 'server/wire.dart';
 import 'stories_api.dart';
 
 enum SearchSort { relevant, chronological, recentlyAdded }
@@ -26,23 +29,51 @@ class SearchRequest {
   final SearchSort sort;
 }
 
-class SearchRecord {
-  const SearchRecord({required this.story, this.placeAddress});
-
-  final Story story;
-  final String? placeAddress;
+/// [request] as the server's search query.
+server.StorySearchDto searchDto(SearchRequest request) {
+  final placeId = request.placeId;
+  return server.StorySearchDto(
+    familyId: server.UuidValue.fromString(request.familyId),
+    text: request.text,
+    personIds: [
+      for (final id in request.personIds) server.UuidValue.fromString(id),
+    ],
+    placeId: placeId == null ? null : server.UuidValue.fromString(placeId),
+    rangeStart: toWireDate(request.rangeStart),
+    rangeEnd: toWireDate(request.rangeEnd),
+    decades: request.decades,
+    sort: switch (request.sort) {
+      SearchSort.relevant => server.SearchSort.relevant,
+      SearchSort.chronological => server.SearchSort.chronological,
+      SearchSort.recentlyAdded => server.SearchSort.recentlyAdded,
+    },
+  );
 }
 
-/// Inclusive decade-start years on the capture chips in `timeframe_chips.dart`.
-const decadePickerFirstYear = 1900;
-const decadePickerLastYear = 2020;
+/// What a family's published stories can be filtered by. Each entry has at
+/// least one story: decade starts ascending, people by name, places by label.
+class SearchFacets {
+  const SearchFacets({
+    this.decades = const [],
+    this.people = const [],
+    this.places = const [],
+  });
 
-/// Decade label for a story start, matching [decadePickerFirstYear] through
-/// [decadePickerLastYear] on the capture chips.
-String? decadeLabelFor(DateTime start) {
-  final year = (start.year ~/ 10) * 10;
-  if (year < decadePickerFirstYear || year > decadePickerLastYear) return null;
-  return '${year}s';
+  factory SearchFacets.fromDto(server.StoryFacetsDto dto) => SearchFacets(
+    decades: [for (final facet in dto.decades) facet.decade],
+    people: [
+      for (final facet in dto.people)
+        (id: facet.personId.toString(), name: facet.name),
+    ],
+    places: [
+      for (final facet in dto.places)
+        (id: facet.placeId.toString(), label: facet.label),
+    ],
+  );
+
+  final List<int> decades;
+  final List<({String id, String name})> people;
+  final List<({String id, String label})> places;
 }
 
 /// Chip label for one decade or a span, using an en dash between the ends.
@@ -53,157 +84,35 @@ String decadeChipLabel(List<int> startYears) {
   return '${sorted.first}s–${sorted.last}s';
 }
 
-/// Inclusive overlap of the selected decade span.
-(DateTime, DateTime)? decadeBounds(List<int> startYears) {
-  if (startYears.isEmpty) return null;
-  final sorted = [...startYears]..sort();
-  return (DateTime(sorted.first, 1, 1), DateTime(sorted.last + 9, 12, 31));
-}
-
-SearchRecord searchRecordFromRow(Map<String, dynamic> json) {
-  final places = json['places'];
-  String? address;
-  if (places is Map) {
-    final raw = places['address'];
-    if (raw is String && raw.trim().isNotEmpty) address = raw.trim();
-  }
-  return SearchRecord(story: Story.fromJson(json), placeAddress: address);
-}
-
-bool searchTextMatches(SearchRecord record, String text) {
-  final needle = text.trim().toLowerCase();
-  if (needle.isEmpty) return true;
-  bool has(String? value) => (value ?? '').toLowerCase().contains(needle);
-  final story = record.story;
-  if (has(story.title) || has(story.body)) return true;
-  if (has(story.placeLabel) || has(record.placeAddress)) return true;
-  if (story.personNames.any((name) => name.toLowerCase().contains(needle))) {
-    return true;
-  }
-  if ('${story.publishedStart.year}'.contains(needle)) return true;
-  final decade = decadeLabelFor(story.publishedStart);
-  return decade != null && decade.toLowerCase().contains(needle);
-}
-
-bool _dateOnOrBefore(DateTime a, DateTime b) {
-  final left = DateTime(a.year, a.month, a.day);
-  final right = DateTime(b.year, b.month, b.day);
-  return !left.isAfter(right);
-}
-
-bool timeframeOverlaps(Story story, DateTime rangeStart, DateTime rangeEnd) {
-  final storyEnd = story.timeframeEnd ?? story.publishedStart;
-  return _dateOnOrBefore(story.publishedStart, rangeEnd) &&
-      _dateOnOrBefore(rangeStart, storyEnd);
-}
-
-int _relevanceTier(SearchRecord record, String needle) {
-  if (needle.isEmpty) return 0;
-  bool has(String? value) => (value ?? '').toLowerCase().contains(needle);
-  final story = record.story;
-  if (has(story.title)) return 3;
-  if (story.personNames.any((name) => name.toLowerCase().contains(needle)) ||
-      has(story.placeLabel) ||
-      has(record.placeAddress)) {
-    return 2;
-  }
-  if (has(story.body) || '${story.publishedStart.year}'.contains(needle)) {
-    return 1;
-  }
-  final decade = decadeLabelFor(story.publishedStart);
-  if (decade != null && decade.toLowerCase().contains(needle)) return 1;
-  return 0;
-}
-
-int _newestTimeframe(SearchRecord a, SearchRecord b) {
-  return compareStories(b.story, a.story);
-}
-
-/// Published stories in [familyId] that match every active chip and the text.
-List<SearchRecord> filterSearchRecords(
-  List<SearchRecord> records,
-  SearchRequest request,
-) {
-  final matched = records.where((record) {
-    final story = record.story;
-    if (story.status != StoryStatus.published) return false;
-    if (story.familyId != request.familyId) return false;
-    if (request.personIds.any((id) => !story.personIds.contains(id))) {
-      return false;
-    }
-    if (request.placeId != null && story.placeId != request.placeId) {
-      return false;
-    }
-    final start = request.rangeStart;
-    final end = request.rangeEnd;
-    if (request.decades.isNotEmpty &&
-        !request.decades.contains(decadeStartYear(story.publishedStart))) {
-      return false;
-    }
-    if (request.decades.isEmpty &&
-        start != null &&
-        end != null &&
-        !timeframeOverlaps(story, start, end)) {
-      return false;
-    }
-    return searchTextMatches(record, request.text);
-  }).toList();
-
-  final needle = request.text.trim().toLowerCase();
-  switch (request.sort) {
-    case SearchSort.relevant:
-      matched.sort((a, b) {
-        final tier = _relevanceTier(
-          b,
-          needle,
-        ).compareTo(_relevanceTier(a, needle));
-        if (tier != 0) return tier;
-        return _newestTimeframe(a, b);
-      });
-    case SearchSort.chronological:
-      matched.sort(_newestTimeframe);
-    case SearchSort.recentlyAdded:
-      matched.sort((a, b) {
-        final ap = a.story.publishedAt;
-        final bp = b.story.publishedAt;
-        if (ap == null && bp == null) return _newestTimeframe(a, b);
-        if (ap == null) return 1;
-        if (bp == null) return -1;
-        final byPublished = bp.compareTo(ap);
-        if (byPublished != 0) return byPublished;
-        return _newestTimeframe(a, b);
-      });
-  }
-  return matched;
-}
-
 abstract class SearchGateway {
-  Future<List<SearchRecord>> search(SearchRequest request);
+  /// Published stories of `request.familyId` matching every filter and the
+  /// text, in the requested order.
+  Future<List<Story>> search(SearchRequest request);
+
+  /// The decades, people and places of [familyId]'s published stories.
+  Future<SearchFacets> facets(String familyId);
 }
 
+/// Search on the server's `story.search` and `story.facets`.
 class SearchApi implements SearchGateway {
-  SearchApi({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+  SearchApi({server.Client? client}) : _injected = client;
 
-  final SupabaseClient _client;
+  final server.Client? _injected;
 
-  static const _select =
-      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, '
-      'date_precision, created_at, place_id, status, published_at, places(label, address), '
-      'story_people(person_id, people(name)), profiles!author_id(display_name), '
-      'photos(id, storage_path, edited_storage_path, edit_version, sort_order)';
+  server.Client get _client => _injected ?? serverClient;
 
   @override
-  Future<List<SearchRecord>> search(SearchRequest request) async {
-    final rows = await _client
-        .from('stories')
-        .select(_select)
-        .eq('family_id', request.familyId)
-        .eq('status', 'published');
-    final records = [
-      for (final row in rows)
-        searchRecordFromRow(Map<String, dynamic>.from(row)),
-    ];
-    return filterSearchRecords(records, request);
+  Future<List<Story>> search(SearchRequest request) async {
+    final rows = await withServerErrors(
+      () => _client.story.search(searchDto(request)),
+    );
+    return [for (final dto in rows) Story.fromDto(dto)];
   }
+
+  @override
+  Future<SearchFacets> facets(String familyId) async => SearchFacets.fromDto(
+    await withServerErrors(
+      () => _client.story.facets(server.UuidValue.fromString(familyId)),
+    ),
+  );
 }

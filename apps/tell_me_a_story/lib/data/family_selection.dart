@@ -36,26 +36,6 @@ class FamilySelection {
   }
 }
 
-/// Picks the family id without reading the network.
-///
-/// A signed-out user returns null and does not use [membershipIds] or
-/// [fallback]. A remembered id is returned only when [membershipIds] contains
-/// it. Otherwise the caller’s unordered `limit(1)` [fallback] is used.
-String? resolveCurrentFamilyId({
-  required String? userId,
-  required String? remembered,
-  List<String>? membershipIds,
-  String? fallback,
-}) {
-  if (userId == null) return null;
-  if (remembered != null &&
-      membershipIds != null &&
-      membershipIds.contains(remembered)) {
-    return remembered;
-  }
-  return fallback;
-}
-
 /// Families the signed-in user can write in, kept for this app session.
 ///
 /// Header pages read this on the first frame so New story does not wait

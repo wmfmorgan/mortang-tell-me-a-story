@@ -425,6 +425,14 @@ class LiveEndpoint extends Endpoint {
 ---
 
 ## 3. Client-side change list
+> **Done in Phase 4 (2026-11-07).** This list was the pre-Phase-2 estimate and its line anchors are stale. What actually landed is in `docs/superpowers/plans/2026-11-07-serverpod-phase4-client-cutover.md` and the per-slice plans `…-phase4a…` to `…-phase4f…`. Differences from this list:
+> - the lighter auth dependencies (`serverpod_auth_core_flutter` + `serverpod_auth_idp_client`, no `serverpod_flutter`);
+> - `sendEmail` takes the token;
+> - `AcceptInviteResult` has no `membershipId`;
+> - `SearchGateway.search` returns `List<Story>` and gains `facets`;
+> - `Person.relationship` and `Place.familyId` are removed;
+> - a storage wrapper replaces any `initServer` catch for unreadable sessions.
+
 LOC = lines changed (added + removed), estimated.
 
 ### New files
@@ -487,6 +495,8 @@ Total: about **−1 900 / +1 400** lines in `lib/`. The largest single items are
 ---
 
 ## 4. Tests that import `supabase_flutter` or build `SupabaseClient`
+> **Done in Phase 4 (2026-11-07).** No test, integration test or pubspec in `apps/tell_me_a_story` references Supabase any more. The live tests (`just test-live`) cover gateway behaviour against `just server`.
+
 Integration tests and other affected tests come last. Gateway fakes in widget tests implement the unchanged interfaces, so they don't change.
 
 | File | Supabase use | Becomes |

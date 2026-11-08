@@ -13,7 +13,6 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/stories/story_date_picker.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
-import 'package:tell_me_a_story/features/stories/timeframe_chips.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -22,7 +21,7 @@ class _FakeInviteApi implements InviteGateway {
 
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
+    return const AcceptInviteResult(familyId: 'f');
   }
 
   @override
@@ -41,7 +40,10 @@ class _FakeInviteApi implements InviteGateway {
   Future<String?> currentFamilyId() async => familyId;
 
   @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
+  Future<void> sendInviteEmail({
+    required String inviteId,
+    required String token,
+  }) async {}
 }
 
 class _FakePeopleApi extends PeopleGateway {
@@ -57,7 +59,7 @@ class _FakePeopleApi extends PeopleGateway {
   @override
   Future<List<Person>> listPeople(String familyId) async {
     if (throwOnList) throw StateError('people load failed');
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -88,20 +90,17 @@ class _FakePlacesApi implements PlacesGateway {
 
   @override
   Future<List<Place>> listFavorites(String familyId) async {
-    return rows.where((p) => p.familyId == familyId && p.isFavorite).toList();
+    return rows.where((p) => p.isFavorite).toList();
   }
 
   @override
   Future<List<Place>> listRecents(String familyId, {int limit = 10}) async {
-    return rows
-        .where((p) => p.familyId == familyId && p.lastUsedAt != null)
-        .take(limit)
-        .toList();
+    return rows.where((p) => p.lastUsedAt != null).take(limit).toList();
   }
 
   @override
   Future<List<Place>> listPlaces(String familyId) async {
-    return rows.where((p) => p.familyId == familyId).toList();
+    return rows.toList();
   }
 
   @override
@@ -443,13 +442,7 @@ class _FakePhotosApi implements PhotosGateway {
   Future<Uint8List> downloadBytes(String storagePath) async => Uint8List(0);
 }
 
-const _ada = Person(
-  id: 'p1',
-  familyId: _familyId,
-  name: 'Ada',
-  relationship: 'Aunt',
-  createdBy: 'u1',
-);
+const _ada = Person(id: 'p1', familyId: _familyId, name: 'Ada');
 
 const _parentFamilyId = '00000000-0000-0000-0000-000000000002';
 
@@ -457,26 +450,14 @@ const _will = Person(
   id: 'w1',
   familyId: _parentFamilyId,
   name: 'William F Morgan',
-  createdBy: 'u1',
 );
 
-const _tx = Person(
-  id: 'w2',
-  familyId: _parentFamilyId,
-  name: 'txmorgan',
-  createdBy: 'u1',
-);
+const _tx = Person(id: 'w2', familyId: _parentFamilyId, name: 'txmorgan');
 
-const _wren = Person(
-  id: 'w3',
-  familyId: _parentFamilyId,
-  name: 'Wren Morgan',
-  createdBy: 'u1',
-);
+const _wren = Person(id: 'w3', familyId: _parentFamilyId, name: 'Wren Morgan');
 
 final _park = Place(
   id: 'pl1',
-  familyId: _familyId,
   label: 'Central Park',
   address: 'New York, NY',
   lat: 40.78,
@@ -575,31 +556,6 @@ Future<void> _pumpUntil(
 }
 
 void main() {
-  test('1980s decade maps to 1980-01-01..1989-12-31', () {
-    const decade = DecadeRange(1980);
-    expect(decade.label, '1980s');
-    expect(decade.start, DateTime(1980, 1, 1));
-    expect(decade.end, DateTime(1989, 12, 31));
-  });
-
-  test('decadeChips span 1900s through 2020s', () {
-    expect(decadeChips.map((d) => d.startYear).toList(), [
-      1900,
-      1910,
-      1920,
-      1930,
-      1940,
-      1950,
-      1960,
-      1970,
-      1980,
-      1990,
-      2000,
-      2010,
-      2020,
-    ]);
-  });
-
   testWidgets('shows Save draft and Publish', (tester) async {
     await tester.pumpWidget(_captureShell());
     await tester.pumpAndSettle();
@@ -1143,33 +1099,6 @@ void main() {
     );
   });
 
-  testWidgets('legacy decade opens empty and cannot save', (tester) async {
-    final stories = _FakeStoriesApi(
-      story: Story(
-        id: 'legacy',
-        familyId: _familyId,
-        authorId: 'u1',
-        title: 'Old',
-        body: 'Body',
-        timeframeStart: DateTime(1980, 1, 1),
-        timeframeEnd: DateTime(1989, 12, 31),
-        datePrecision: StoryDatePrecision.decade,
-        status: StoryStatus.draft,
-      ),
-    );
-    await tester.pumpWidget(_captureShell(stories: stories, draftId: 'legacy'));
-    await tester.pumpAndSettle();
-    expect(find.text('1980s'), findsNothing);
-    final save = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'Save draft'),
-    );
-    expect(save.onPressed, isNull);
-    final year = tester.widget<TextField>(
-      find.byKey(const Key('story-date-year')),
-    );
-    expect(year.controller?.text, isEmpty);
-  });
-
   testWidgets('edit mode saves changes and cancel returns', (tester) async {
     final stories = _FakeStoriesApi(
       story: Story(
@@ -1243,7 +1172,7 @@ void main() {
     expect(find.text('timeline-marker'), findsOneWidget);
   });
 
-  testWidgets('published decade edit can save without replacing the date', (
+  testWidgets('a whole-year story opens with its year in the box', (
     tester,
   ) async {
     final stories = _FakeStoriesApi(
@@ -1254,8 +1183,8 @@ void main() {
         title: 'Jam',
         body: 'Porch',
         timeframeStart: DateTime(1980, 1, 1),
-        timeframeEnd: DateTime(1989, 12, 31),
-        datePrecision: StoryDatePrecision.decade,
+        timeframeEnd: DateTime(1980, 12, 31),
+        datePrecision: StoryDatePrecision.year,
         status: StoryStatus.published,
       ),
     );
@@ -1286,15 +1215,14 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('story-date-legacy')), findsNothing);
     final year = tester.widget<TextField>(
       find.byKey(const Key('story-date-year')),
     );
-    expect(year.controller?.text, '');
+    expect(year.controller?.text, '1980');
     final save = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Save changes'),
     );
-    expect(save.onPressed, isNull);
+    expect(save.onPressed, isNotNull);
     expect(stories.updateDraftCalls, 0);
   });
 
@@ -1307,8 +1235,8 @@ void main() {
         title: 'Jam',
         body: 'Porch',
         timeframeStart: DateTime(1980, 1, 1),
-        timeframeEnd: DateTime(1989, 12, 31),
-        datePrecision: StoryDatePrecision.decade,
+        timeframeEnd: DateTime(1980, 12, 31),
+        datePrecision: StoryDatePrecision.year,
         status: StoryStatus.published,
       ),
     );
@@ -1365,12 +1293,7 @@ void main() {
   testWidgets(
     'Edit story links each picked person once and keeps them on save',
     (tester) async {
-      const grace = Person(
-        id: 'p2',
-        familyId: _familyId,
-        name: 'Grace',
-        createdBy: 'u1',
-      );
+      const grace = Person(id: 'p2', familyId: _familyId, name: 'Grace');
       final stories = _FakeStoriesApi(
         story: Story(
           id: 's1',
