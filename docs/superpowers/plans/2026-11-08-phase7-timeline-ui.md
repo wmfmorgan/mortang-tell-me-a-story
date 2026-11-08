@@ -65,7 +65,7 @@
 | 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
 | 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | not started |
-| 7.7 Whole-tree page and treemap | this index, §7.7 | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | in progress (`feat/p7-7-treemap`) |
+| 7.7 Whole-tree page and treemap | this index, §7.7 | 7.2, 7.6S (O1, O2, O5, O6 answered 2026-11-08); screenshots before merge | built (`feat/p7-7-treemap`; app `+792 ~12`, goldens `+8`); awaiting owner screenshot sign-off |
 | 7.8 Family tree graph | written at slice start | 7.7, **7.M pass** (O4 thresholds approved 2026-11-08); screenshots before merge | not started |
 | 7.z Close | this index, §7.z | all | not started |
 
@@ -973,7 +973,7 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
 - **No view switch** until 7.8; the page shows the treemap alone.
 
 ### Task 1: Treemap layout (pure)
-- [ ] **Step 1 (red):** `test/features/timeline/tree/treemap_layout_test.dart`, ported from the lab's `treemap_test` (`squarify` group unchanged) with app `Story`/`TreeFamily` fixtures (Jenkins root, branches Bea and Cal, stories across 1950–1999, one untagged):
+- [x] **Step 1 (red):** `test/features/timeline/tree/treemap_layout_test.dart`, ported from the lab's `treemap_test` (`squarify` group unchanged) with app `Story`/`TreeFamily` fixtures (Jenkins root, branches Bea and Cal, stories across 1950–1999, one untagged):
   1. `squarify`: the lab's four proportional/no-overlap cases, the no-sliver case and the zero-total case.
   2. `By decade`: groups and cells add up to the story count, sort descending, each entry sits in its decade group and year cell.
   3. `By family`: group ids are exactly the families with stories, labels are the tree names, cells are `{decade}s`.
@@ -982,10 +982,10 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
   6. Ink on the strongest fill (`0.18` terracotta over parchment) is ≥ 4.5:1 (`test/support/contrast.dart`).
 
   Run `mise exec -- flutter test test/features/timeline/tree`: compile errors (no library).
-- [ ] **Step 2 (green):** `lib/features/timeline/tree/treemap_layout.dart`. Rerun: green.
+- [x] **Step 2 (green):** `lib/features/timeline/tree/treemap_layout.dart`. Rerun: green.
 
 ### Task 2: Treemap view
-- [ ] **Step 1 (red):** `treemap_view_test.dart` (1280 × 800, `albumTheme()`):
+- [x] **Step 1 (red):** `treemap_view_test.dart` (1280 × 800, `albumTheme()`):
   1. Overview shows one `treemap-group-<id>` per family and the C2 heading; the switch reads `By family` · `By decade` · `By person` with `By family` selected and no label.
   2. `By decade`: tap a group header → `treemap-crumb-group` appears; tap a cell → one `treemap-story-<id>` per story; tap a tile → `onStory(id)`; tap `treemap-crumb-root` → back to the overview.
   3. `By family`: tap the group header → `onFamily(id)`, no drill; tap a cell → its story tiles.
@@ -995,10 +995,10 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
   7. With no stories: C9 (`empty-timeline`), no switch.
 
   `test/ui/timeline/view_switch_test.dart`: with no `label`, only the `SegmentedButton` shows.
-- [ ] **Step 2 (green):** `treemap_view.dart` (`TreemapView({title, stories, tree, onStory, onFamily})`), the optional `ViewSwitch.label`. Rerun: green.
+- [x] **Step 2 (green):** `treemap_view.dart` (`TreemapView({title, stories, tree, onStory, onFamily})`), the optional `ViewSwitch.label`. Rerun: green.
 
 ### Task 3: Loader, page, route, header row
-- [ ] **Step 1 (red):**
+- [x] **Step 1 (red):**
   - `tree_timeline_loader_test.dart`: both calls run with the family id; a failing `listPublishedInTree` rethrows the gateway's `AppException`, not a `ParallelWaitError`.
   - `family_tree_page_test.dart` (fakes: `FakeStoriesGateway`, a `FamiliesGateway` with a three-family tree, a recording `TimelineLive`):
     1. load: the spinner, then `Jenkins family tree` and the treemap; `listPublishedInTree` called once; `watchTree` subscribed with the family id; `FamilySelection.id` is the family;
@@ -1010,15 +1010,15 @@ This is not a PR. It measures the lab's whole-tree renderers on real hardware be
     7. iPad sweep: 744 × 1133, 1133 × 744, 1024 × 1366, 1366 × 1024 and 320 × 568 render without a layout exception, and the treemap fills the space under the switch.
   - `app_router_test.dart`: signed-in `/family/<id>/tree` shows `FamilyTreePage`; signed-out is redirected to sign-in.
   - `album_header_family_menu_test.dart`: the dropdown order becomes families, divider, tree row, invite, branch, Manage, with C1 text; the row shows without write access; picking it from Drafts goes to `/family/<current>/tree`.
-- [ ] **Step 2 (green):** the routes, the page, the loader, `AlbumHeaderPage.familyTree` and the row. `mise exec -- just test`.
+- [x] **Step 2 (green):** the routes, the page, the loader, `AlbumHeaderPage.familyTree` and the row. `mise exec -- just test`.
 
 ### Task 4: Goldens
-- [ ] `test/goldens/family_tree_treemap_golden_test.dart` (`@Tags(['golden'])`): `FamilyTreePage` with the Task 3 fakes (Jenkins, Bea, Cal; stories across 1950–1999) at `desktop` 1280 × 800 and `ipad_mini_portrait` 744 × 1133, overview, `By family`. `mise exec -- just test-goldens --update-goldens`, open both PNGs, then `just test-goldens`: `+8`, the six rail PNGs unchanged (`git status --short test/goldens/timeline` empty).
+- [x] `test/goldens/family_tree_treemap_golden_test.dart` (`@Tags(['golden'])`): `FamilyTreePage` with the Task 3 fakes (Jenkins, Bea, Cal; stories across 1950–1999) at `desktop` 1280 × 800 and `ipad_mini_portrait` 744 × 1133, overview, `By family`. `mise exec -- just test-goldens --update-goldens`, open both PNGs, then `just test-goldens`: `+8`, the six rail PNGs unchanged (`git status --short test/goldens/timeline` empty).
 
 ### Task 5: Gates, live, e2e, screenshots
-- [ ] `mise exec -- just check`; the live suite against a server from this worktree (7.6S "As landed" env, own data dir); the e2e per README (9/9).
-- [ ] Screenshots (Conventions' sign-off, own server and web-server): the family menu with the row; the overview in each grouping; one drill-down; iPad mini portrait. To `/tmp/tmas-p7-7-shots/`.
-- [ ] Status row and "As landed"; commit.
+- [x] `mise exec -- just check`; the live suite against a server from this worktree (7.6S "As landed" env, own data dir); the e2e per README (9/9).
+- [x] Screenshots (Conventions' sign-off, own server and web-server): the family menu with the row; the overview in each grouping; one drill-down; iPad mini portrait. To `/tmp/tmas-p7-7-shots/`.
+- [x] Status row and "As landed"; commit.
 
 **Stop:** screenshots signed off before merge (O1, O2, O5 and O6 are answered). Gates include `test-live` and e2e.
 
@@ -1159,3 +1159,23 @@ Alternatives:
   - `albumCardRadius` (12) and `AlbumRadius.card` (12) both exist; merging them is left to a later slice.
   - The C10 chooser title stays with 7.4, so `showStoryChooser` has no title row yet.
   - `just check` needs `dart pub get` in `apps/server` in a fresh worktree; otherwise `server-analyze` reports the missing `serverpod_cloud_storage_gcp`.
+
+**7.7 Whole-tree page and treemap** (`feat/p7-7-treemap`, from `feature/serverpod` `fd00bd4`; not merged: owner screenshot sign-off pending):
+- **Commits:**
+  - `ae4f404`: the §7.7 plan;
+  - `6c14334`: treemap layout and view, optional `ViewSwitch.label` (+23 tests);
+  - `36758f7`: loader, page, route, header row (+18 tests);
+  - `2b84b0e`: the two goldens;
+  - then this "As landed" commit.
+- **Gates:**
+  - `just check` passes: fmt `(0 changed)` twice, `analyze: 6 issues (ceiling 6)`, app `+792 ~12` (from `+751 ~12`, so +41), `server-analyze` no issues, server `+447` (unchanged);
+  - the import, layout and colours guards pass; no colour hit in `lib/features/timeline/tree/`, skip list unchanged at 17;
+  - `just test-goldens` `+8`: the six rail PNGs unchanged, plus `family_tree_treemap_{desktop,ipad_mini_portrait}.png` (both opened and checked);
+  - live `+29` against a server from this worktree (the 7.6S env with ports 8380–8382, database port 8390 and `SERVERPOD_DATABASE_DATA_PATH=.serverpod/p77/pgdata`);
+  - e2e 9/9 (`flutter drive … -d web-server --web-port=3700 --driver-port=4544 --dart-define=SERVER_URL=http://127.0.0.1:8380`, with chromedriver 157.0.8103.38 fetched by `npx @puppeteer/browsers install chromedriver@157.0.8103.38` into `/tmp`; none is on PATH).
+- **Screenshots** (`/tmp/tmas-p7-7-shots/`, seeded through the API as `p7-shots@example.com`: Jenkins with 8 stories 1952–1999, branches Bea (from 1975, 3 stories) and Cal (from 1984, 2 stories)): `01-family-menu-desktop`, `02-treemap-by-family-desktop`, `03-treemap-by-decade-desktop`, `04-treemap-by-person-desktop`, `05-drill-group-1970s-desktop`, `06-drill-stories-jenkins-1950s-desktop`, `07-treemap-by-family-ipad-mini-portrait`, `08-family-menu-ipad-mini-portrait`. Also checked live: a story tile opens the reader, and the `Bea · 3` title opens Bea's timeline.
+- **Plan fixes:**
+  - Owns also `test/support/tree_fixture.dart` (the shared Jenkins/Bea/Cal tree for the layout, view, page and golden tests).
+  - The server refuses to publish a story with no person (`person required`), so `No one tagged` in `By person` only shows for stories whose people all lack a name; it is kept because `Story.people` drops unnamed people.
+  - The tree row also shows on the tree page itself, where picking it does nothing.
+  - `just check` in a fresh worktree also needs `just server-passwords` (the git-ignored `apps/server/config/passwords.yaml`); without it `server-test` stops after the unit tests.
