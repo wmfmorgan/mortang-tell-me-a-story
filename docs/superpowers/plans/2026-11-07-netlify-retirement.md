@@ -27,7 +27,7 @@ Netlify builds whatever lands on `main`. Once `feat/gcp-story-line` is merged, `
 - After step 3: `https://story-line-nra.web.app`, rebuilt with `MAPBOX_ACCESS_TOKEN=pk.… just deploy-web`, loads the map in the story place picker. This also unblocks the remaining two-tab live-notes smoke test.
 - After step 6: `curl -sI https://mortang-tellmeastory.netlify.app` returns 404 (or 301 to Firebase if you chose the redirect in step 4).
 - After step 7: repo Settings → Webhooks and Deploy keys list nothing Netlify-related, and new PRs get no Netlify bot comment.
-- After step 8: searching the repo for `netlify` (case-insensitive) finds only the historical `impl-spec.md:3084` line and this plan.
+- After step 8: a case-insensitive repo search for `netlify` finds only `impl-spec.md:1219` (until step 9's Spec amendment), the historical `impl-spec.md:3084`, the roadmap's Phase 5 row ("`netlify.toml` deleted"), and this plan.
 
 ## Out of scope
 - The hosted Supabase project and its auth redirect URLs (a separate Supabase retirement).
