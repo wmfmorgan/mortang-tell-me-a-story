@@ -69,7 +69,7 @@
 | `.gitignore`, `mise.toml` | Modify | 2 |
 | `justfile` | Modify | 2, 3 |
 | `.github/workflows/ci.yml` | Modify (Task 1), rewrite (Task 4) | 1, 2, 4 |
-| `docs/**` (77 tracked files) and `r1-shots/` (10) | Move to `docs/archive/` (except 3 active plans) | 6 |
+| `docs/**` (76 tracked files) and `r1-shots/` (10) | Move to `docs/archive/` (except 3 active plans) | 6 |
 | `docs/README.md` | Create | 6 |
 | `apps/tell_me_a_story/lib/data/app_exception.dart` | Comment path | 6 |
 | `docs/superpowers/plans/2026-11-06-serverpod-migration-roadmap.md` | Rows and links | 0, 6, 10 |
@@ -86,7 +86,7 @@
 
 - [ ] **Step 1: Check the branch and tree**
 
-Run: `git -C /Users/david/projects/mortang-tell-me-a-story status --short && git rev-parse --abbrev-ref HEAD`
+Run: `git status --short && git rev-parse --abbrev-ref HEAD` (in the checkout or worktree that holds `feat/p5-cleanup`)
 Expected: nothing, then `feat/p5-cleanup`. Anything else is the owner's work: stop and ask.
 
 - [ ] **Step 2: Record the baseline** (all from the repo root)
@@ -108,14 +108,14 @@ Expected:
 - App analyze: `6 issues found.`
 - Server analyze: `No issues found!`
 - `just test`: `+685 ~12: All tests passed!` (this count was measured at `de30ef5`; if yours differs, write yours down and use it below).
-- `just server-test`: `All tests passed!`; write down the `+N` count.
+- `just server-test`: `All tests passed!`; write down the `+N` count (measured `+425` at `501910b`).
 - `check_flows: 9 flows match (…)`.
 
 Every later "test count unchanged" check compares against these numbers.
 
 - [ ] **Step 3: Point the roadmap at the plans**
 
-In `docs/superpowers/plans/2026-11-06-serverpod-migration-roadmap.md`, replace the last cell of the `| 5. Cleanup |` row, `written at Phase 4 close`, with `` `2026-11-08-serverpod-phase5-cleanup.md` ``. Add this row after it:
+In `docs/superpowers/plans/2026-11-06-serverpod-migration-roadmap.md`, replace the last cell of the `| 5. Cleanup |` row, `written at Phase 4 close`, with `` `2026-11-08-serverpod-phase5-cleanup.md` ``. Add this row after it (already applied in `501910b`, together with both plans; then this step and Step 4 have nothing to add beyond these plan-text fixes):
 
 ```markdown
 | 6. Restructure | `lib/` gets `app/` and `ui/` layers with enforced import rules; `test/` mirrors `lib/`; hard-coded colours in the moved files become tokens; `MagicLinkPage` → `SignInPage`; shared test fakes | `2026-11-08-serverpod-phase6-restructure.md` |
@@ -400,7 +400,7 @@ supabase/.temp
 - [ ] **Step 6: Check that nothing outside docs still points at the old backend**
 
 Run: `git grep -n -i -E "supabase|deno|pgtap|splinter|advisors" -- . ':!docs'`
-Expected: matches only in `AGENTS.md`, `README.md` (Tasks 8 and 9 rewrite them) and `netlify.toml` line 3 (Task 7).
+Expected: matches only in `AGENTS.md`, `README.md` (Tasks 8 and 9 rewrite them) and `netlify.toml` line 3 (Task 7 skipped, so this one stays).
 
 - [ ] **Step 7: Gates**
 
@@ -414,7 +414,7 @@ Expected: `just --list` shows no `supabase-start`, `db-reset`, `db-test` or `fun
 - [ ] **Step 8: Commit**
 
 ```bash
-git add -A supabase scripts .github justfile mise.toml .gitignore
+git add -A .github justfile mise.toml .gitignore   # the git rm in Step 1 already staged supabase/ and scripts/; naming them here fails with "pathspec did not match"
 git commit -m "chore: remove Supabase backend, advisors and their CI, recipes and CLI"
 ```
 
@@ -524,9 +524,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/serverpod]
   push:
-    branches: [main]
+    branches: [main, feature/serverpod]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -720,6 +720,8 @@ git commit -m "ci: mise + just; app, server and e2e jobs"
 git push
 ```
 
+Not run in the 2026-11-07 execution (no push allowed); the first CI run happens when the owner pushes the branch. The triggers keep `feature/serverpod` (the plan first wrote `[main]` only, which would not have run CI on the Phase 5 PR).
+
 Expected on the PR checks:
 - `app`, `server` and `e2e` are green;
 - the `server` log shows the same `+N` as the Task 0 baseline.
@@ -761,14 +763,14 @@ mise exec -- flutter drive \
   --dart-define=SERVER_URL=http://127.0.0.1:8080
 ```
 
-Expected: `All tests passed!` with the 9 flows C1–C9. No commit.
+Expected: `All tests passed.` then `Application finished.` (flutter drive prints only the summary, not the flow names; the 9 flows C1–C9 are all the `testWidgets` in `e2e_test.dart`). No commit; the plan-text fix for this step lands with Task 6.
 
 ---
 
 ### Task 6: Archive every doc and fix the links that break
 
 **Files:**
-- Move: every tracked file under `docs/` (77) and `r1-shots/` (10), except the roadmap and the Phase 5/6 plans, to `docs/archive/`
+- Move: every tracked file under `docs/` (76) and `r1-shots/` (10), except the roadmap and the Phase 5/6 plans, to `docs/archive/`
 - Create: `docs/README.md`
 - Modify:
   - `apps/tell_me_a_story/integration_test/flows.md:3`;
@@ -823,7 +825,7 @@ Expected:
 - [ ] **Step 5: Check that no live link is left**
 
 Run: `git grep -n -E "docs/(design-doc|impl-spec|m14-review|migration|plans|ux)/|r1-shots/" -- . ':!docs/archive' ':!README.md' ':!AGENTS.md'`
-Expected: no output (`README.md` and `AGENTS.md` are rewritten in Tasks 8 and 9).
+Expected: matches only in this plan (`2026-11-08-serverpod-phase5-cleanup.md`), which describes the move (`README.md` and `AGENTS.md` are rewritten in Tasks 8 and 9).
 
 - [ ] **Step 6: Gates**
 
@@ -837,13 +839,17 @@ Expected: `(0 changed)` twice; `+686 ~12: All tests passed!`
 - [ ] **Step 7: Commit**
 
 ```bash
-git add -A docs r1-shots apps/tell_me_a_story/integration_test/flows.md apps/tell_me_a_story/lib/data/app_exception.dart
+git add -A docs apps/tell_me_a_story/integration_test/flows.md apps/tell_me_a_story/lib/data/app_exception.dart
 git commit -m "docs: archive every existing doc under docs/archive; fix live links"
 ```
+
+(`r1-shots` is not named: after the move it no longer exists and `git add` would fail on the pathspec; `git mv` already staged it.)
 
 ---
 
 ### Task 7: Hosting notes (`netlify.toml`)
+
+**Skipped (2026-11-07, Main):** hosting moves to GCP (Cloud Run + Firebase Hosting, Terraform in `infra/gcp`) on a separate branch. `netlify.toml` is not touched here, and README and `AGENTS.md` say only "Deployment: see the GCP hosting work (pending)". The steps below are kept for history and were not run.
 
 **Files:**
 - Rewrite: `netlify.toml`
@@ -988,9 +994,9 @@ just server-migration <tag>   # only when the database schema changed
 
 Never edit a migration that already exists.
 
-## Hosting
+## Deployment
 
-Netlify builds the web app (`netlify.toml`). The Serverpod server's production host is not chosen yet.
+Deployment: see the GCP hosting work (pending).
 ````
 
 - [ ] **Step 2: Replace `apps/tell_me_a_story/README.md`**
@@ -1086,13 +1092,14 @@ Run from the repo root and paste the output in the PR body.
 
 ## Off limits
 - No secrets in code, docs or chat. `apps/server/config/passwords.yaml` comes from `just server-passwords` and is git-ignored.
-- No production or hosted config changes (Netlify settings, server hosting, DNS, mail provider keys).
+- No production or hosted config changes (web and server hosting, DNS, mail provider keys).
+- Deployment: see the GCP hosting work (pending).
 ```
 
 - [ ] **Step 2: Check that nothing stale is left**
 
 Run: `git grep -n -i -E "supabase|deno|pgtap|notion|§15|impl spec|mapRpcError" -- AGENTS.md README.md .cursor`
-Expected: no output.
+Expected: one line, `AGENTS.md:8`, where the new text names "the old impl spec" as archived history. Nothing else.
 
 - [ ] **Step 3: Commit**
 
@@ -1130,7 +1137,7 @@ Expected:
 - [ ] **Step 2: Check nothing old is left**
 
 Run: `git grep -n -i -E "supabase|deno|pgtap|splinter|check_flows" -- . ':!docs'`
-Expected: no output. (Docs are excluded: the archive is history, and the active plans name what was deleted.)
+Expected: only `netlify.toml:3` (Task 7 skipped; the GCP hosting branch replaces that file). (Docs are excluded: the archive is history, and the active plans name what was deleted.)
 
 - [ ] **Step 3: Update the roadmap and this plan**
 
@@ -1152,3 +1159,34 @@ git commit -m "docs: Phase 5 landed"
 - Every pre-2026-11-08 doc is under `docs/archive/` with its old subpath. Outside the archive, no file links to an old `docs/…` path.
 - `AGENTS.md`, `README.md`, `apps/tell_me_a_story/README.md` and `netlify.toml` describe the Serverpod stack. The Netlify UI change is listed as an owner action.
 - `lib/` and `test/` are unchanged except the new `test/architecture/e2e_flow_manifest_test.dart` and one comment path in `app_exception.dart`.
+
+## As landed
+
+Executed 2026-11-07 in a worktree of `feat/p5-cleanup` (from `501910b`); not pushed.
+
+Commits (`git log --oneline 501910b..HEAD`, before this one):
+
+```
+34d5d7c docs: AGENTS.md for the Serverpod stack
+1e56bc5 docs: README for the Serverpod stack
+67ebfd4 docs: archive every existing doc under docs/archive; fix live links
+01cfce6 ci: mise + just; app, server and e2e jobs
+9bec113 chore(just): fmt-check, analyze (ceiling 6), server-analyze and check recipes
+b8fffda chore: remove Supabase backend, advisors and their CI, recipes and CLI
+4b61de2 test(client): e2e flow manifest check runs in flutter test; drop e2e/check_flows.sh
+0199a41 docs: Phase 5 plan baseline (Task 0)
+```
+
+Gates: format 0 changed (app and server); `just analyze` 6 issues (ceiling 6); `just test` `+686 ~12`; `just server-analyze` no issues; `just server-test` `+425`; `just check` passes; `just test-live` `+27`; `actionlint` clean; local e2e `All tests passed.` (9 flows).
+
+Differences from the plan (each fixed in this plan's text in the task's commit):
+- Task 0: Step 3's roadmap rows and both plans were already in `501910b`, so Task 0's commit only records the baseline (server `+425`) and the worktree-neutral status check.
+- Task 2: `git add -A supabase scripts …` fails after `git rm`; those paths are dropped from the add.
+- Task 4: the plan's triggers dropped `feature/serverpod`; kept as `[main, feature/serverpod]` so the Phase 5 PR runs CI. Not pushed, so the first CI run (mise Flutter install, embedded Postgres) is still unverified. No `labs/timeline_lab`, so no `lab` job.
+- Task 5: flutter drive prints `All tests passed.`, not flow names.
+- Task 6: its roadmap edit put the "Plans for Phases 1–4" sentence inside the phase table (after the Phase 5 row); moved below the table in the Task 10 commit.
+- Task 6: 76 docs + 10 shots (not 77 + 10; total 86 as planned); `r1-shots` dropped from `git add`; the live-link grep matches this plan.
+- Task 7: skipped (GCP hosting branch); README and `AGENTS.md` say "Deployment: see the GCP hosting work (pending)" instead of the Netlify text. `netlify.toml:3` still says `supabase-only`.
+- Task 7 Step 2 (not run): `tomllib` needs Python ≥ 3.11.
+- Task 9: the stale-word grep hits `AGENTS.md:8` ("the old impl spec" as archived history).
+

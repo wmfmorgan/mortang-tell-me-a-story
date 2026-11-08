@@ -12,7 +12,7 @@
 - Fresh start. Existing Supabase data is test data, so nothing is migrated and the hosted project gets retired.
 - iPad + web stay the targets. Login is a 6-digit email code typed in the app, so no deep links are needed.
 - Deno and Python are removed. Deno is already out of `mise.toml`; the Supabase CLI stays there only until Phase 5.
-- The repo's previous spec process (`AGENTS.md`, `docs/impl-spec`) does not govern this work. `AGENTS.md` is rewritten in Phase 5.
+- The repo's previous spec process (`AGENTS.md`, `docs/archive/impl-spec`) does not govern this work. `AGENTS.md` is rewritten in Phase 5.
 - Dev and test Postgres is Serverpod's **embedded Postgres** (`dataPath` in `config/*.yaml`; PG 16, fetched by Serverpod's build hooks). There is no Docker, no system Postgres and no extra mise tool; this was checked in a scratch 4.1.1 scaffold, where `dart test` passed against embedded PG 16. Prod uses managed Postgres ≥16.
 - Dev blob storage is Serverpod's `DatabaseCloudStorage` (with `maxRequestSize` raised). Prod is S3-compatible (`serverpod_cloud_storage_s3_compat`).
 - Sign-up stays open, as today. The 4.1.1 email IDP has only `onAfterAccountCreated` and no pre-create hook, so every data endpoint gates on membership or invite.
@@ -20,12 +20,12 @@
 - Cutover is **big-bang**. Supabase users and Serverpod auth users have separate ids, so gateways can't switch one at a time. The client is first given seams while still on Supabase, the server is built and tested standalone, and then a single phase switches every gateway.
 
 **Reference inputs** (produced by the 2026-11-06 audit):
-- `docs/migration/audit.md`: current-state audit
-- `docs/migration/business-rules.md`: authorization matrix, invariants and workflows to port
-- `docs/migration/schema-design.md`: new schema as Serverpod models
-- `docs/migration/data-model-review.md`: data-model review (2026-11-07) applied to the schema
-- `docs/migration/endpoint-contract.md`: gateway → endpoint map and client change list
-- `docs/migration/serverpod-notes.md`: Serverpod 4.1 APIs used by these plans
+- `docs/archive/migration/audit.md`: current-state audit
+- `docs/archive/migration/business-rules.md`: authorization matrix, invariants and workflows to port
+- `docs/archive/migration/schema-design.md`: new schema as Serverpod models
+- `docs/archive/migration/data-model-review.md`: data-model review (2026-11-07) applied to the schema
+- `docs/archive/migration/endpoint-contract.md`: gateway → endpoint map and client change list
+- `docs/archive/migration/serverpod-notes.md`: Serverpod 4.1 APIs used by these plans
 
 ---
 
@@ -41,8 +41,10 @@ Every phase ends green on `just test` (client) and `just server-test` (backend, 
 | 2. Client seams (still on Supabase) | One `AppSession` replaces direct `Supabase.instance` reads; one `AppException` client error; duplicate-key handling and story discard moved into gateways; image URLs become bytes; direct query removed from `add_perspective_page` | `2026-11-06-serverpod-phase2-client-seams.md` |
 | 3. Server endpoints (parallel slices) | 3a families/memberships/tree/origin/manage + places + profile; 3b people; 3c stories/drafts/story_people + search + notes; 3d photos + `MediaEndpoint`; 3e invites; 3f live streams + purge and blob-drain future calls. Shared foundation (3.0) lands first. Each slice ports its business-rules test cases. Decisions D2–D6 apply (invite email binding, live-family checks, moderation, person delete, full purge, branch person rows). | `2026-11-07-serverpod-phase3-server-endpoints.md` (index) and `2026-11-07-serverpod-phase3-0-foundation.md` |
 | 4. Client cutover | Every `*Api` body switched to the Serverpod client; 6-digit code login pages; `supabase_flutter` removed; tests updated. Settings email becomes read-only (D1); reader shows delete on others' comments/perspectives for stewards via `NoteDto.canDelete` (D4). 4.0 foundation first, then slices 4a–4f on `feat/p4-cutover`, then 4z merges the switch in one step. **Landed 2026-11-07:** app 685, live 27, server 425, local e2e 9/9 flows. | `2026-11-07-serverpod-phase4-client-cutover.md` (index) and `2026-11-07-serverpod-phase4-0-foundation.md` |
-| 5. Cleanup | Delete `supabase/`, `scripts/advisors/`, `e2e/`, the Supabase CLI from mise; CI on mise + just (`flutter test`, `server-test`); `AGENTS.md`, README and `netlify.toml` (or Serverpod web hosting) rewritten; e2e reads the dev OTP code; every existing doc archived to `docs/archive/` | `2026-11-08-serverpod-phase5-cleanup.md` |
+| 5. Cleanup | Delete `supabase/`, `scripts/advisors/`, `e2e/`, the Supabase CLI from mise; CI on mise + just (`flutter test`, `server-test`); `AGENTS.md`, README and `netlify.toml` (or Serverpod web hosting) rewritten; e2e reads the dev OTP code; every existing doc archived to `docs/archive/` **Landed 2026-11-07:** app 686, server 425, live 27, e2e 9/9; CI on mise + just (first CI run pending push); Task 7 (netlify.toml) skipped for the GCP hosting branch. | `2026-11-08-serverpod-phase5-cleanup.md` |
 | 6. Restructure | `lib/app` composition root, shared `lib/ui`, import-boundary guards, MagicLink → SignIn rename, colours fixed in skip-listed files before they move, tests mirror `lib/`, shared test fakes. Runs before the timeline UI rework. | `2026-11-08-serverpod-phase6-restructure.md` |
+
+Plans for Phases 1–4 are in `docs/archive/superpowers/plans/`.
 
 ## Product decisions (2026-11-07)
 

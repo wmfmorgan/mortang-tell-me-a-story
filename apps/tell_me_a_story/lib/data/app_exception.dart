@@ -1,8 +1,8 @@
 /// Expected gateway failures. `withServerErrors`
 /// (data/server/server_errors.dart) maps the server's generated `AppErrorCode`
 /// (apps/server/lib/src/models/app_error_code.spy.yaml) onto this enum; see
-/// docs/migration/endpoint-contract.md §2.1. [unauthenticated] corresponds
-/// to the server's `authRequired`.
+/// docs/archive/migration/endpoint-contract.md §2.1. [unauthenticated]
+/// corresponds to the server's `authRequired`.
 enum AppErrorCode {
   notFound,
   forbidden,
