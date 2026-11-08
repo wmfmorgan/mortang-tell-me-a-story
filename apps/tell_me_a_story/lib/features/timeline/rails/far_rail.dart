@@ -129,6 +129,7 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
           highlight: _highlight(band),
           onDot: widget.onDot,
           dotKey: _dotKey,
+          onEmpty: widget.onEmpty,
           onYear: widget.onYear,
         ),
     ];
@@ -173,6 +174,7 @@ class _FarDecadeRow extends StatelessWidget {
     this.originStoryId,
     required this.onDot,
     required this.dotKey,
+    required this.onEmpty,
     required this.onYear,
     required this.onOpenBranch,
   });
@@ -187,6 +189,9 @@ class _FarDecadeRow extends StatelessWidget {
 
   /// Finds each story's painted dot, so a finger tap can measure to it.
   final GlobalKey Function(String id) dotKey;
+
+  /// A finger tap that reaches no dot is an empty tap: it zooms out.
+  final VoidCallback onEmpty;
   final ValueChanged<int> onYear;
   final ValueChanged<String> onOpenBranch;
 
@@ -372,8 +377,9 @@ class _FarDecadeRow extends StatelessWidget {
   }
 
   /// A finger reaches every dot within [hitRadiusFor] of the tap. One dot
-  /// opens its story; several (a stacked year) open the chooser. Pointers
-  /// never get here: the dots answer them directly.
+  /// opens its story; several (a stacked year) open the chooser; none is an
+  /// empty tap, which zooms out (owner, 7.4 sign-off). Pointers never get
+  /// here: the dots answer them directly.
   Future<void> _onFingerTap(BuildContext context, TapUpDetails details) async {
     final covered = <Story>[];
     for (final story in band.stories) {
@@ -388,7 +394,7 @@ class _FarDecadeRow extends StatelessWidget {
         covered.add(story);
       }
     }
-    if (covered.isEmpty) return;
+    if (covered.isEmpty) return onEmpty();
     if (covered.length == 1) return onDot(covered.single);
     final id = await showStoryChooser(
       context,

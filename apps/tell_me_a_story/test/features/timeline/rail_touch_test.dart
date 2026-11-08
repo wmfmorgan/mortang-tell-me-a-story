@@ -1,6 +1,11 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/timeline/rails/far_rail.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
 import '../../support/timeline_fixture.dart';
 
@@ -93,5 +98,61 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('timeline-full-dot-s1984')), findsNothing);
+  });
+
+  group('Decades finger misses keep the empty-tap zoom-out', () {
+    late int empties;
+    late List<String> opened;
+
+    Future<void> pumpFar(WidgetTester tester) async {
+      _desktop(tester);
+      empties = 0;
+      opened = [];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: albumTheme(),
+          home: Scaffold(
+            body: FarRail(
+              bands: decadeBands(fixtureStacked),
+              focusedId: null,
+              branching: railBranching(
+                open: null,
+                tree: const [],
+                stories: fixtureStacked,
+              ),
+              onDot: (Story s) => opened.add(s.id),
+              onEmpty: () => empties++,
+              onYear: (_) {},
+              onFocus: (_) {},
+              onOpenBranch: (_) {},
+              onMid: () {},
+              onFullCards: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a finger far from every dot zooms out', (tester) async {
+      await pumpFar(tester);
+      await tester.tapAt(_dot(tester, 's1984') + const Offset(120, 0));
+      await tester.pumpAndSettle();
+      expect(empties, 1);
+      expect(opened, isEmpty);
+      expect(find.text('Stories here'), findsNothing);
+    });
+
+    testWidgets('a finger near stacked dots opens the chooser, not zoom-out', (
+      tester,
+    ) async {
+      await pumpFar(tester);
+      final a = _dot(tester, 's1961');
+      final b = _dot(tester, 's1961b');
+      await tester.tapAt(Offset.lerp(a, b, 0.5)!);
+      await tester.pumpAndSettle();
+      expect(find.text('Stories here'), findsOneWidget);
+      expect(empties, 0);
+    });
   });
 }

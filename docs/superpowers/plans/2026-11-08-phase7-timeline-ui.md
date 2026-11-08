@@ -61,7 +61,7 @@
 | 7.1 Golden harness and rail baselines | this index, §7.1 | — | done (`feat/p7-1-goldens`) |
 | 7.2 Tokens and shared primitives | this index, §7.2 | — (O3 answered 2026-11-08) | done (`feat/p7-2-tokens`; app `+741 ~12`) |
 | 7.3 Rail split at parity | this index, §7.3 | 7.1, 7.2 | done (`feat/p7-3-rail-split`; app `+741 ~12`, goldens unchanged) |
-| 7.4 Rail restyle and iPad | this index, §7.4 "TDD plan" | 7.3; owner screenshot sign-off before merge | done, awaiting owner screenshot sign-off (`feat/p7-4-restyle`; app `+815 ~12`, 6 goldens regenerated + 2 new) |
+| 7.4 Rail restyle and iPad | this index, §7.4 "TDD plan" | 7.3; owner screenshot sign-off before merge | done; owner signed off 2026-11-08 with one change (finger misses on Decades zoom out) (`feat/p7-4-restyle`; app `+817 ~12`, 6 goldens regenerated + 2 new) |
 | 7.5 Timeline filters (dim only) | written at slice start | 7.4; copy approved (O2, 2026-11-08); screenshots before merge | not started |
 | 7.6S Server: tree reads (G1, G2) | this index, §7.6S | — | done (#183); server `+447`, live `+29` |
 | 7.M iPad measurement (owner) | this index, §7.M | 7.0 (or the lab branch as it is) | not started |
@@ -1180,4 +1180,4 @@ Alternatives:
 - **Dots:** mid 12/14 and full 12/14 pt (were 16/22 and 14/20); far unchanged 12/14.
 - **Chip-label fade:** not reproduced on web (DPR 1.25) in `drafts_page`, `start_timeline_dialog`, `invite_modal`, `search_page` (incl. a selected chip) or `new_story_page`; nothing changed.
 - **Not folded:** the 7.3 review's `scrollDialStep`/`HangParentParentData` moves (lines not touched); far rail now uses `opacityOf(…, unmeasured: 1)`, matching the scaffold comment.
-- **Owner sign-off:** pending (screenshots in `/tmp/tmas-p7-4-shots/`).
+- **Owner sign-off (2026-11-08):** approved, with one change: keep the zoom-out. On Decades a finger tap in the dots area that reaches no dot (more than 22 pt from every dot) is an empty tap and calls the rail's `onEmpty` (`_zoomOut`), as other empty taps do; only taps within the finger radius of a dot open a story or the chooser. Fixed test-first in `rail_touch_test.dart` ("a finger far from every dot zooms out", "a finger near stacked dots opens the chooser, not zoom-out"); app `+817 ~12`, goldens unchanged.
