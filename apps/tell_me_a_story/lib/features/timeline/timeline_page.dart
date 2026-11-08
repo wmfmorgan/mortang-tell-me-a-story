@@ -1079,7 +1079,7 @@ class _FarRailState extends State<_FarRail> {
                         child: Center(
                           child: SizedBox(
                             width: 2,
-                            child: ColoredBox(color: Color(0x332C2416)),
+                            child: ColoredBox(color: albumRule),
                           ),
                         ),
                       ),
@@ -1270,7 +1270,7 @@ class _FarDecadeRow extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: focused
                             ? albumTerracotta.withValues(alpha: 0.2)
-                            : const Color(0xFFFFF8F6),
+                            : albumDialogSurface,
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: focused
@@ -1879,7 +1879,7 @@ class _ZoomSwitchState extends State<_ZoomSwitch>
   }
 
   Color _foreground(int index) {
-    const dim = Color(0xB32C2416);
+    final dim = albumInk.withAlpha(0xB3);
     final t = _fromIndex == _toIndex
         ? 1.0
         : Curves.easeOutCubic.transform(_controller.value);
@@ -1958,7 +1958,7 @@ class _ZoomSwitchState extends State<_ZoomSwitch>
                               : choices[i].onPressed,
                           style: TextButton.styleFrom(
                             visualDensity: VisualDensity.compact,
-                            backgroundColor: Colors.transparent,
+                            backgroundColor: albumBackdropClear,
                             foregroundColor: _foreground(i),
                             shape: const StadiumBorder(),
                           ),
@@ -2074,7 +2074,7 @@ class _DialRow extends StatelessWidget {
                 )
               : focused
               ? BoxDecoration(
-                  color: const Color(0xFFFFF8F6),
+                  color: albumDialogSurface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: frame.parent != null ? branchMoss : albumTerracotta,
@@ -2185,7 +2185,7 @@ class _DialRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: focused
             ? albumTerracotta.withValues(alpha: 0.22)
-            : const Color(0xFFFFF8F6),
+            : albumDialogSurface,
         shape: BoxShape.circle,
         border: Border.all(color: albumTerracotta, width: focused ? 2 : 1.5),
       ),
@@ -2759,7 +2759,7 @@ class _FullCardRailState extends State<_FullCardRail> {
                               ),
                           ],
                         ),
-                        const Positioned.fill(
+                        Positioned.fill(
                           child: IgnorePointer(
                             child: DecoratedBox(
                               decoration: BoxDecoration(
@@ -2768,11 +2768,11 @@ class _FullCardRailState extends State<_FullCardRail> {
                                   end: Alignment.bottomCenter,
                                   colors: [
                                     albumParchment,
-                                    Color(0x00FBF7F2),
-                                    Color(0x00FBF7F2),
+                                    albumParchment.withAlpha(0),
+                                    albumParchment.withAlpha(0),
                                     albumParchment,
                                   ],
-                                  stops: [0, 0.18, 0.82, 1],
+                                  stops: const [0, 0.18, 0.82, 1],
                                 ),
                               ),
                             ),
@@ -3338,11 +3338,7 @@ class _FullCardDot extends StatelessWidget {
             : Border.all(color: albumInk.withValues(alpha: 0.4), width: 2),
         boxShadow: focused && !branched
             ? const [
-                BoxShadow(
-                  color: Color(0xFFF5DED6),
-                  spreadRadius: 8,
-                  blurRadius: 0,
-                ),
+                BoxShadow(color: albumBlush, spreadRadius: 8, blurRadius: 0),
               ]
             : null,
       ),
@@ -3383,7 +3379,7 @@ class _FullCard extends StatelessWidget {
               : [story.photoPaths.first])
         : story.photoPaths.take(2).toList();
     return Material(
-      color: branched ? albumParchment : Colors.white,
+      color: branched ? albumParchment : albumWhite,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(albumCardRadius),
@@ -3413,7 +3409,7 @@ class _FullCard extends StatelessWidget {
                     ),
                     if (focused && !parentOrigin)
                       BoxShadow(
-                        color: const Color(0xFFF5DED6).withValues(alpha: 0.3),
+                        color: albumBlush.withValues(alpha: 0.3),
                         spreadRadius: 4,
                         blurRadius: 0,
                       ),
@@ -3560,7 +3556,7 @@ class _FullChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(
-        color: filled ? const Color(0xFFF5DED6) : const Color(0xFFF5ECE9),
+        color: filled ? albumBlush : albumBlushPale,
         borderRadius: BorderRadius.circular(999),
       ),
       child: LayoutBuilder(

@@ -19,11 +19,10 @@ const temporaryHardcodedColorSkipPaths = <String>{
   'features/stories/new_story_page.dart',
   'features/stories/photo_strip.dart',
   'features/stories/story_reader_page.dart',
-  'features/timeline/timeline_page.dart',
 };
 
 /// The skip list only shrinks: lower this when a file leaves the list.
-const _skipListCeiling = 17;
+const _skipListCeiling = 16;
 
 const _albumThemePath = 'core/theme/album_theme.dart';
 
