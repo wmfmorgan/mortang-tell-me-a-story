@@ -414,7 +414,7 @@ Expected: `just --list` shows no `supabase-start`, `db-reset`, `db-test` or `fun
 - [ ] **Step 8: Commit**
 
 ```bash
-git add -A supabase scripts .github justfile mise.toml .gitignore
+git add -A .github justfile mise.toml .gitignore   # the git rm in Step 1 already staged supabase/ and scripts/; naming them here fails with "pathspec did not match"
 git commit -m "chore: remove Supabase backend, advisors and their CI, recipes and CLI"
 ```
 

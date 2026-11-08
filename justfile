@@ -8,19 +8,6 @@ default:
 setup:
     mise install
 
-# supabase start
-supabase-start:
-    supabase start
-
-# supabase db reset (wipes the local database)
-db-reset:
-    @echo "supabase db reset wipes the local database."
-    supabase db reset
-
-# supabase test db
-db-test:
-    supabase test db
-
 # flutter test in apps/tell_me_a_story
 test:
     cd apps/tell_me_a_story && flutter test
@@ -28,10 +15,6 @@ test:
 # Live client tests against a running `just server` (start it first)
 test-live:
     cd apps/tell_me_a_story && flutter test --tags live --run-skipped test/live
-
-# supabase functions serve --env-file supabase/.env.local
-functions-serve:
-    supabase functions serve --env-file supabase/.env.local
 
 alias web := run
 
