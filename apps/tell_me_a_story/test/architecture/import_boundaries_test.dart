@@ -4,11 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 // Import rules for lib/. Layers: app (main.dart, app/), core, data, ui and
 // features/<name>. See AGENTS.md "Layout". Run from apps/tell_me_a_story.
-//
-// Edges that break a rule today, as 'from -> to' (paths relative to lib/).
-// The list only shrinks: a step that fixes an edge removes it, and a step
-// that moves a file renames its entries. Never add an edge.
-const knownViolations = <String>{};
 
 /// Features may import only features of a lower rank.
 const featureRank = <String, int>{
@@ -48,9 +43,7 @@ final _directive = RegExp(
 );
 
 String layerOf(String path) {
-  if (path == 'main.dart' || path == 'app.dart' || path.startsWith('app/')) {
-    return 'app';
-  }
+  if (path == 'main.dart' || path.startsWith('app/')) return 'app';
   final parts = path.split('/');
   switch (parts.first) {
     case 'core' || 'data' || 'ui':
@@ -107,14 +100,6 @@ void main() {
     );
 
     final found = <String>[];
-    final hits = {for (final edge in knownViolations) edge: 0};
-    void report(String edge) {
-      if (hits.containsKey(edge)) {
-        hits[edge] = hits[edge]! + 1;
-      } else {
-        found.add(edge);
-      }
-    }
 
     for (final entity in lib.listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
@@ -134,25 +119,20 @@ void main() {
             from != 'app' &&
             from != 'data' &&
             !file.startsWith('core/server/')) {
-          report('$file -> $target');
+          found.add('$file -> $target');
           continue;
         }
         if (from == 'data' && uiLibraries.contains(target)) {
-          report('$file -> $target');
+          found.add('$file -> $target');
           continue;
         }
         final path = libPath(file, target);
         if (path == null) continue;
-        if (!allowed(from, layerOf(path))) report('$file -> $path');
+        if (!allowed(from, layerOf(path))) found.add('$file -> $path');
       }
     }
 
-    final stale = [
-      for (final entry in hits.entries)
-        if (entry.value == 0) 'stale known violation: ${entry.key}',
-    ];
     found.sort();
-    final problems = [...stale..sort(), ...found];
-    expect(problems, isEmpty, reason: problems.join('\n'));
+    expect(found, isEmpty, reason: found.join('\n'));
   });
 }
