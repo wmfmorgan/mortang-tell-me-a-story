@@ -45,9 +45,10 @@ Run from the repo root as `mise exec -- just …` (or in a shell with mise activ
 ## Code rules
 - No swallowed errors. Every catch shows or returns a mapped message, or rethrows.
 - Server errors are `AppException` with an `AppErrorCode` (`apps/server/lib/src/models/app_error_code.spy.yaml`; shorthands in `apps/server/lib/src/errors.dart`). Messages are user-facing copy; never put raw database text in them. The client maps them in `lib/data/server/server_errors.dart`. A new code needs the owner's approval.
-- UI uses only `lib/core/theme/album_theme.dart` tokens. `test/theme/no_hardcoded_colors_test.dart` fails on `Color(0x` or `Colors.` anywhere else in `lib/`. Its skip list names files by exact path from `lib/` and only shrinks: never add a path. A new token needs the owner's approval.
+- UI uses only `lib/core/theme/album_theme.dart` tokens. `test/architecture/no_hardcoded_colors_test.dart` fails on `Color(0x` or `Colors.` anywhere else in `lib/`. Its skip list names files by exact path from `lib/` and only shrinks: never add a path. A new token needs the owner's approval.
 - No new user-facing copy without the owner's approval.
 - No new dependencies without approval. Pin majors; no drive-by upgrades.
+- `lib/` imports follow the layer rules in `test/architecture/import_boundaries_test.dart`. Its `knownViolations` list only shrinks during Phase 6; never add an edge.
 
 ## Off limits
 - No secrets in code, docs or chat. `apps/server/config/passwords.yaml` comes from `just server-passwords` and is git-ignored.

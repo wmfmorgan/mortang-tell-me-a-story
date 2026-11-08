@@ -28,9 +28,19 @@ const temporaryHardcodedColorSkipPaths = <String>{
   'features/timeline/timeline_page.dart',
 };
 
+/// The skip list only shrinks: lower this when a file leaves the list.
+const _skipListCeiling = 23;
+
 const _albumThemePath = 'core/theme/album_theme.dart';
 
 void main() {
+  test('the hardcoded-color skip list never grows', () {
+    expect(
+      temporaryHardcodedColorSkipPaths.length,
+      lessThanOrEqualTo(_skipListCeiling),
+    );
+  });
+
   test(
     'dart files under lib keep Color(0x and Colors. in album_theme.dart',
     () {
