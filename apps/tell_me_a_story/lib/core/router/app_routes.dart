@@ -19,6 +19,7 @@ void popOrGoTimeline(BuildContext context) {
 abstract final class AppRoutes {
   static const signIn = '/';
   static const familyLanding = '/family';
+  static const welcome = '/welcome';
   static const timeline = '/timeline';
   static const allStories = '/family/:id/stories';
 

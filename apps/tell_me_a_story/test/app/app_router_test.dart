@@ -12,8 +12,10 @@ import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart'
     hide displayNameOrMember;
+import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/features/auth/sign_in_page.dart';
+import 'package:tell_me_a_story/features/auth/welcome_page.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/family/family_landing_page.dart';
@@ -530,6 +532,86 @@ void main() {
     expect(find.byKey(const Key('story-reader')), findsNothing);
 
     auth.dispose();
+  });
+
+  group('welcome gate', () {
+    tearDown(() {
+      ProfileSession.loadOwn = null;
+      ProfileSession.instance.clear();
+      FamilySelection.clear();
+    });
+
+    testWidgets('signed-in user without a name lands on /welcome', (
+      tester,
+    ) async {
+      ProfileSession.loadOwn = () async => const OwnProfile(id: 'u');
+      ProfileSession.instance.bindUser('u');
+      final auth = AuthRefresh(initiallySignedIn: true);
+      addTearDown(auth.dispose);
+      final router = _router(auth: auth);
+
+      await tester.pumpWidget(TellMeAStoryApp(router: router));
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        AppRoutes.welcome,
+      );
+      expect(find.byType(WelcomePage), findsOneWidget);
+
+      router.go(AppRoutes.timeline);
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        AppRoutes.welcome,
+      );
+    });
+
+    testWidgets(
+      'signed-in user with a name is sent from /welcome to the start path',
+      (tester) async {
+        ProfileSession.loadOwn = () async =>
+            const OwnProfile(id: 'u', displayName: 'Ada');
+        ProfileSession.instance.bindUser('u');
+        final auth = AuthRefresh(initiallySignedIn: true);
+        addTearDown(auth.dispose);
+        final router = _router(auth: auth);
+
+        await tester.pumpWidget(TellMeAStoryApp(router: router));
+        await tester.pumpAndSettle();
+
+        router.go(AppRoutes.welcome);
+        await tester.pumpAndSettle();
+
+        expect(
+          router.routerDelegate.currentConfiguration.uri.path,
+          AppRoutes.familyLanding,
+        );
+      },
+    );
+
+    testWidgets('invite accept is not gated, then lands on /welcome', (
+      tester,
+    ) async {
+      ProfileSession.loadOwn = () async => const OwnProfile(id: 'u');
+      ProfileSession.instance.bindUser('u');
+      final auth = AuthRefresh(initiallySignedIn: true);
+      addTearDown(auth.dispose);
+      final router = _router(auth: auth);
+
+      await tester.pumpWidget(TellMeAStoryApp(router: router));
+      await tester.pumpAndSettle();
+
+      router.go('/invite/abc');
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        AppRoutes.welcome,
+      );
+      expect(FamilySelection.id, 'f');
+    });
   });
 }
 

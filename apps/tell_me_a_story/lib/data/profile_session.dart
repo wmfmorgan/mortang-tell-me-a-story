@@ -20,13 +20,20 @@ class ProfileSession extends ChangeNotifier {
   String? displayName;
   String? email;
   Uint8List? avatarBytes;
-  var _started = false;
+  Future<void>? _loading;
+  var _loaded = false;
 
-  /// A different signed-in user drops the previous profile.
+  /// True once the signed-in user's profile loaded successfully.
+  bool get loaded => _loaded;
+
+  /// A different signed-in user drops the previous profile. Any load made
+  /// before this user was bound (for example while signed out) no longer
+  /// counts.
   void bindUser(String userId) {
-    if (_userId != null && _userId != userId) {
-      clear();
-    }
+    if (_userId == userId) return;
+    if (_userId != null) clear();
+    _loading = null;
+    _loaded = false;
     _userId = userId;
   }
 
@@ -35,7 +42,8 @@ class ProfileSession extends ChangeNotifier {
     displayName = null;
     email = null;
     avatarBytes = null;
-    _started = false;
+    _loading = null;
+    _loaded = false;
     notifyListeners();
   }
 
@@ -51,26 +59,36 @@ class ProfileSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Loads once per signed-in user. A null [loadOwn] does nothing.
-  Future<void> ensureLoaded() async {
+  /// Loads once per signed-in user; concurrent callers share one request.
+  /// A null [loadOwn] does nothing.
+  Future<void> ensureLoaded() {
     final loader = loadOwn;
-    if (_started || loader == null) return;
-    _started = true;
+    if (loader == null) return Future<void>.value();
+    return _loading ??= _load(loader);
+  }
+
+  Future<void> _load(Future<OwnProfile?> Function() loader) async {
+    final userId = _userId;
     try {
       final profile = await loader();
+      if (_userId != userId) return;
       if (profile == null) return;
       Uint8List? bytes;
       final path = profile.avatarPath;
       final download = downloadAvatar;
       if (path != null && download != null) {
         bytes = await download(path);
+        if (_userId != userId) return;
       }
       displayName = profile.displayName;
       email = profile.email;
       avatarBytes = bytes;
+      _loaded = true;
       notifyListeners();
     } catch (_) {
-      _started = false;
+      // Not loaded: the header shows initials and the welcome gate stays
+      // open; the next call retries.
+      if (_userId == userId) _loading = null;
     }
   }
 }

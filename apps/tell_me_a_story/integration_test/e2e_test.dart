@@ -16,7 +16,9 @@ void main() {
 
   setUpAll(assertLocalServer);
 
-  testWidgets('C1 email-code sign-in lands on timeline', (tester) async {
+  testWidgets('C1 email-code sign-in asks for a name and lands on timeline', (
+    tester,
+  ) async {
     final email = e2eEmail(flow: 1, n: 1);
     final name = 'Ada $e2eRunId';
 
@@ -28,7 +30,14 @@ void main() {
       await _requestCode(tester, const Key('magic-link-email'), email);
     });
     await _c1Step('enter-code', () async {
-      await _enterCode(tester, find.byKey(const Key('header-avatar')));
+      await _enterCode(tester, find.byKey(const Key('welcome-name')));
+    });
+    await _c1Step('welcome', () async {
+      await _completeWelcome(
+        tester,
+        name,
+        find.byKey(const Key('header-avatar')),
+      );
     });
     await _c1Step('menu-settings', () async {
       await tester.tap(find.byKey(const Key('header-avatar')));
@@ -40,6 +49,7 @@ void main() {
     await _c1Step('settings-name', () async {
       await tester.tap(find.byKey(const Key('header-menu-settings')));
       await pumpUntilFound(tester, find.byKey(const Key('settings-name')));
+      await pumpUntilFound(tester, find.text(name));
     });
     await _c1Step('settings-email', () async {
       await pumpUntilFound(tester, find.text(email));
@@ -50,7 +60,7 @@ void main() {
       await tester.ensureVisible(nameField);
       await tester.tap(nameField);
       await tester.pump();
-      await tester.enterText(nameField, name);
+      await tester.enterText(nameField, '$name Lovelace');
       await tester.pump();
       final save = find.byKey(const Key('settings-save'));
       await tester.ensureVisible(save);
@@ -247,7 +257,14 @@ void main() {
       await pumpUntilFound(tester, find.byKey(const Key('invite-sent')));
     });
     await _step('C6', 'enter-code', () async {
-      await _enterCode(tester, find.byKey(const Key('family-landing')));
+      await _enterCode(tester, find.byKey(const Key('welcome-name')));
+    });
+    await _step('C6', 'welcome', () async {
+      await _completeWelcome(
+        tester,
+        'Guest $e2eRunId',
+        find.byKey(const Key('family-landing')),
+      );
     });
     await _step('C6', 'joined-timeline', () async {
       await pumpUntilFound(tester, find.text(family));
@@ -424,6 +441,19 @@ Future<void> _enterCode(WidgetTester tester, Finder landed) async {
   throw TestFailure('$landed not found within 45s (url: ${Uri.base})');
 }
 
+/// Enters [name] on the first-run welcome step and waits until [landed] shows.
+Future<void> _completeWelcome(
+  WidgetTester tester,
+  String name,
+  Finder landed,
+) async {
+  final field = find.byKey(const Key('welcome-name'));
+  await tester.enterText(field, name);
+  await tester.pump();
+  await tester.tap(find.byKey(const Key('welcome-continue')));
+  await pumpUntilFound(tester, landed);
+}
+
 Future<void> _signIn(WidgetTester tester, String flow, String email) async {
   await _step(flow, 'boot', () async {
     await _mountApp(tester);
@@ -433,7 +463,14 @@ Future<void> _signIn(WidgetTester tester, String flow, String email) async {
     await _requestCode(tester, const Key('magic-link-email'), email);
   });
   await _step(flow, 'enter-code', () async {
-    await _enterCode(tester, find.byKey(const Key('family-menu')));
+    await _enterCode(tester, find.byKey(const Key('welcome-name')));
+  });
+  await _step(flow, 'welcome', () async {
+    await _completeWelcome(
+      tester,
+      '$flow $e2eRunId',
+      find.byKey(const Key('family-menu')),
+    );
   });
 }
 

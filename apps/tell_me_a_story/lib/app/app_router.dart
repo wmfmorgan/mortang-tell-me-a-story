@@ -12,9 +12,11 @@ import 'package:tell_me_a_story/data/perspectives_api.dart'
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/profile_api.dart';
+import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/auth/invite_sign_in_page.dart';
 import 'package:tell_me_a_story/features/auth/sign_in_page.dart';
+import 'package:tell_me_a_story/features/auth/welcome_page.dart';
 import 'package:tell_me_a_story/features/settings/settings_page.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';
@@ -70,6 +72,14 @@ Future<String> appStartPath(FamiliesGateway? families) async {
   return AppRoutes.timeline;
 }
 
+/// Whether the signed-in user must pick a name first (owner decision A2).
+/// A profile that did not load (no loader, or the load failed) never gates.
+Future<bool> needsWelcome() async {
+  final profile = ProfileSession.instance;
+  await profile.ensureLoaded();
+  return profile.loaded && (profile.displayName?.trim() ?? '').isEmpty;
+}
+
 GoRouter createAppRouter({
   required AuthRefresh authRefresh,
   InviteGateway? inviteApi,
@@ -112,6 +122,11 @@ GoRouter createAppRouter({
 
       if (!signedIn && !onSignIn && !onInvite) {
         return AppRoutes.signIn;
+      }
+      if (signedIn && !onInvite) {
+        final onWelcome = loc == AppRoutes.welcome;
+        if (await needsWelcome()) return onWelcome ? null : AppRoutes.welcome;
+        if (onWelcome) return appStartPath(familiesApi);
       }
       if (signedIn && onSignIn) {
         return appStartPath(familiesApi);
@@ -169,6 +184,14 @@ GoRouter createAppRouter({
           photosApi: photosApi,
           peopleApi: peopleApi,
           manageApi: manageApi,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.welcome,
+        builder: (context, state) => WelcomePage(
+          startPath: () => appStartPath(familiesApi),
+          profileApi: profileApi,
+          onSignOut: onLogout,
         ),
       ),
       GoRoute(
