@@ -8,7 +8,7 @@ import 'package:tell_me_a_story/features/timeline/tree/treemap_layout.dart';
 import '../../../support/contrast.dart';
 import '../../../support/tree_fixture.dart';
 
-// Ported from labs/timeline_lab/test/tree_graph_test.dart, Family mode only.
+// Ported from the timeline lab's tree_graph_test.dart, Family mode only.
 
 List<TreeNode> _all(TreeNode n) => [n, for (final c in n.children) ..._all(c)];
 
