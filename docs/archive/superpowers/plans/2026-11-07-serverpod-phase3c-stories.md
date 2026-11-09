@@ -1,39 +1,39 @@
 # Phase 3c: Stories, Tags, Notes, Search Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans, task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement `StoryEndpoint` (all methods in endpoint-contract §2.2, including `search` and `facets`) and `NoteEndpoint` on Serverpod 4.1.1, tested against business-rules §7 cases 26–28 (story/comment/perspective part), 43–45, 62–77, 83 (comment/perspective part), 93, 94 and 137 (story part).
+**Goal:** Implement `StoryEndpoint` (all methods in endpoint-contract §2.2, incl. `search` + `facets`) and `NoteEndpoint` on Serverpod 4.1.1, tested against business-rules §7 cases 26–28 (story/comment/perspective part), 43–45, 62–77, 83 (comment/perspective part), 93, 94, 137 (story part).
 
-**Architecture:** Two endpoint classes under `apps/server/lib/src/endpoints/`, built on the landed 3.0 foundation (`Authz`, `errors.dart`, `queueBlobDeletions`, `postLiveEvent`, DTOs). Story-specific helpers live in `apps/server/lib/src/stories/`: date normalization (pure), `StoryDto` assembly with a fixed number of queries per call (no N+1), and the search/facet SQL. Writes run in one transaction under a story row lock; live events are posted after commit, only for published stories (and the publish transition).
+**Architecture:** Two endpoint classes under `apps/server/lib/src/endpoints/`, on landed 3.0 foundation (`Authz`, `errors.dart`, `queueBlobDeletions`, `postLiveEvent`, DTOs). Story helpers in `apps/server/lib/src/stories/`: date normalization (pure), `StoryDto` assembly w/ fixed query count per call (no N+1), search/facet SQL. Writes: one transaction under story row lock. Live events posted after commit, only for published stories (+ publish transition).
 
 **Tech Stack:** Dart 3.13.5, Serverpod 4.1.1, embedded Postgres 16, just.
 
-**Spec of record:** Phase 3 index row "3c" and §Conventions (`2026-11-07-serverpod-phase3-server-endpoints.md`); business-rules §2.5, §2.6, §2.8, §4.4, §4.8, §7; schema-design §0.5 (named orders), §3.2 (story locks, notes body-only, notes delete D4); endpoint-contract §2.1–§2.2 (signatures and search semantics); roadmap decisions D4, D6b, D9.
+**Spec of record:** Phase 3 index row "3c" + §Conventions (`2026-11-07-serverpod-phase3-server-endpoints.md`); business-rules §2.5, §2.6, §2.8, §4.4, §4.8, §7; schema-design §0.5 (named orders), §3.2 (story locks, notes body-only, notes delete D4); endpoint-contract §2.1–§2.2 (signatures, search semantics); roadmap decisions D4, D6b, D9.
 
-All commands run from the worktree root unless a step says otherwise.
+All commands run from worktree root unless step says otherwise.
 
 ---
 
 ## Decisions taken inside the slice
 
-These fill gaps the spec leaves open. None changes a schema, a DTO or another slice's endpoint.
+Fill gaps spec leaves open. None changes schema, DTO or other slice's endpoint.
 
 | Topic | Choice | Why |
 |---|---|---|
-| Unreadable or missing story on a **read** (`get`, `note.listForStory`) | `NOT_FOUND: story` for both | Same answer either way, so ids don't leak; `getPublished` returns null instead |
-| Unreadable or missing story on a **write** | `FORBIDDEN` (default message) for both | §Conventions: refuse missing like a stranger |
+| Unreadable or missing story on **read** (`get`, `note.listForStory`) | `NOT_FOUND: story` for both | Same answer either way, ids don't leak; `getPublished` returns null instead |
+| Unreadable or missing story on **write** | `FORBIDDEN` (default message) for both | §Conventions: refuse missing like stranger |
 | Family-scoped lists (`listMyDrafts`) | `requireLiveMember` → `FORBIDDEN: member only` | §Conventions D6b |
 | Published lists, search, facets | `Authz.isTreeReadable(familyId)` (live member or tree reader) else `FORBIDDEN` | business-rules §2.5 "Read published" |
-| `listForPerson` on a person outside the caller's tree | `NOT_FOUND: person` | matches `people.profile` (business-rules case 98) |
-| Date shape violations (business-rules §4.4) | `VALIDATION: invalid date` | §5.2 has no string; the old app surfaced the raw CHECK failure as "Try again" |
-| `decade` precision (case 66) | Gone from `DatePrecision` (D9); a decade-wide span with year precision is refused as `invalid date` | the case's intent: decade can't be stored |
-| `publish` readiness | Server runs the app's `publishReadiness` (title, body, date, ≥1 person, place). Date first: `date required` (§4.4); then `title required`, `body required`, `person required`, `place required` | endpoint-contract: "server checks readiness → VALIDATION" |
+| `listForPerson` on person outside caller's tree | `NOT_FOUND: person` | matches `people.profile` (business-rules case 98) |
+| Date shape violations (business-rules §4.4) | `VALIDATION: invalid date` | §5.2 has no string; old app surfaced raw CHECK failure as "Try again" |
+| `decade` precision (case 66) | Gone from `DatePrecision` (D9); decade-wide span w/ year precision refused as `invalid date` | case intent: decade can't be stored |
+| `publish` readiness | Server runs app's `publishReadiness` (title, body, date, ≥1 person, place). Date first: `date required` (§4.4); then `title required`, `body required`, `person required`, `place required` | endpoint-contract: "server checks readiness → VALIDATION" |
 | Non-author editor calls `publish` | `FORBIDDEN: field is locked` (case 72) | business-rules §2.5 |
 | Note body | trimmed; blank → `VALIDATION: body is required` | DB CHECK `story_notes_body_not_blank`; no catalogue string |
-| Tagging a person / using a place outside the story's tree (or missing) | `FORBIDDEN` | business-rules §2.6: same tree is an authorization rule |
-| Unpublish | No endpoint method exists (contract §2.2 has none, the app has no caller). Tests that need an unpublished story set the row directly | contract wins |
-| Defaulted named parameters (`allowUndated = false`, `withinDays = 7`, `limit = 3`) | Server signatures match the contract exactly, but Serverpod 4.1.1 generates them as `required` named parameters in the client and test tools, so tests (and Phase 4 callers) pass them explicitly | generator behaviour, not a contract change |
-| Locked columns (cases 72, 73, 94) | Structural: `StoryWriteDto` and `note.update` carry no author/family/status/createdAt; tests assert they are unchanged after edits | there is no API to send them |
+| Tagging person / using place outside story's tree (or missing) | `FORBIDDEN` | business-rules §2.6: same tree = authorization rule |
+| Unpublish | No endpoint method (contract §2.2 has none, app has no caller). Tests needing unpublished story set row directly | contract wins |
+| Defaulted named params (`allowUndated = false`, `withinDays = 7`, `limit = 3`) | Server signatures match contract exactly, but Serverpod 4.1.1 generates them as `required` named params in client + test tools, so tests (and Phase 4 callers) pass explicitly | generator behaviour, not contract change |
+| Locked columns (cases 72, 73, 94) | Structural: `StoryWriteDto` and `note.update` carry no author/family/status/createdAt; tests assert unchanged after edits | no API to send them |
 
 ## File map
 
@@ -41,9 +41,9 @@ These fill gaps the spec leaves open. None changes a schema, a DTO or another sl
 |---|---|
 | `apps/server/lib/src/stories/story_dates.dart` | `normalizeStoryDates`: client dates → stored shape (business-rules §4.4) |
 | `apps/server/lib/src/stories/story_dtos.dart` | `storyDtos`: `Story` rows → `StoryDto`s in 6 queries (tags+people, photos, places, authors, note counts) |
-| `apps/server/lib/src/stories/story_search.dart` | `searchStoryIds` and `storyFacets`: parameterized SQL for endpoint-contract search semantics |
+| `apps/server/lib/src/stories/story_search.dart` | `searchStoryIds` + `storyFacets`: parameterized SQL for endpoint-contract search semantics |
 | `apps/server/lib/src/endpoints/story_endpoint.dart` | `StoryEndpoint` (14 methods) |
-| `apps/server/lib/src/endpoints/note_endpoint.dart` | `NoteEndpoint` (4 methods) with `NoteDto.canDelete` (D4) |
+| `apps/server/lib/src/endpoints/note_endpoint.dart` | `NoteEndpoint` (4 methods) w/ `NoteDto.canDelete` (D4) |
 | `apps/server/test/unit/story_dates_test.dart` | Date normalization cases 62, 64–66 |
 | `apps/server/test/integration/support/stories_fixtures.dart` | Slice builders: `StoryFx` (notes, photos, origin, status, soft delete, profile), `Clan`, `Branch`, `write`, `liveEvents`, `settle` |
 | `apps/server/test/integration/story_dtos_test.dart` | `storyDtos` field coverage |
@@ -51,7 +51,7 @@ These fill gaps the spec leaves open. None changes a schema, a DTO or another sl
 | `apps/server/test/integration/note_endpoint_test.dart` | `NoteEndpoint` behaviour |
 | generated: `lib/src/generated/endpoints.dart`, `test/integration/test_tools/serverpod_test_tools.dart`, `packages/tell_me_a_story_client/lib/src/protocol/client.dart` | `just server-generate` output |
 
-Code blocks are annotated with an HTML comment saying where they go: `create` (new file), `import` (after the last import line), `class` (before the class's closing `}`, which is the last `}` line of the file before any top-level functions marked `// ── helpers`), `top` (end of file), `tests` (before the final `  }, rollbackDatabase: RollbackDatabase.disabled);` line).
+Code blocks annotated w/ HTML comment saying where they go: `create` (new file), `import` (after last import line), `class` (before class's closing `}` — last `}` line of file before any top-level functions marked `// ── helpers`), `top` (end of file), `tests` (before final `  }, rollbackDatabase: RollbackDatabase.disabled);` line).
 
 ---
 
@@ -179,7 +179,7 @@ void main() {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/unit/story_dates_test.dart`
-Expected: FAIL to load: `story_dates.dart` doesn't exist.
+Expected: FAIL to load: `story_dates.dart` missing.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -568,7 +568,7 @@ void main() {
 - [ ] **Step 3: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/story_dtos_test.dart`
-Expected: FAIL to load: `story_dtos.dart` doesn't exist.
+Expected: FAIL to load: `story_dtos.dart` missing.
 
 - [ ] **Step 4: Write the implementation**
 
@@ -711,7 +711,7 @@ git commit -m "feat(server): story DTO assembly without per-story queries"
 
 ### Task 3: StoryEndpoint drafting, editing and tags
 
-`createDraft`, `updateDraft`, `autosaveDraft`, `get`, `linkPerson`. Covers BR 62, 64–66 (through the endpoint), 71, 72 (locked columns), 73, 75–77 and the live-event rule for edits.
+`createDraft`, `updateDraft`, `autosaveDraft`, `get`, `linkPerson`. Covers BR 62, 64–66 (via endpoint), 71, 72 (locked columns), 73, 75–77 + live-event rule for edits.
 
 **Files:**
 - Create: `apps/server/lib/src/endpoints/story_endpoint.dart`
@@ -1398,7 +1398,7 @@ void main() {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/story_endpoint_test.dart`
-Expected: FAIL to load: `endpoints.story` isn't defined.
+Expected: FAIL to load: `endpoints.story` not defined.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -2155,7 +2155,7 @@ git commit -m "feat(server): StoryEndpoint drafting, editing and tags"
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/story_endpoint_test.dart`
-Expected: FAIL to load: `publish`, `getPublished`, `listMyDrafts`, `listPublished`, `listLatestPublished`, `listForPerson` aren't defined on the endpoint.
+Expected: FAIL to load: `publish`, `getPublished`, `listMyDrafts`, `listPublished`, `listLatestPublished`, `listForPerson` not defined on endpoint.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -2347,7 +2347,7 @@ git commit -m "feat(server): StoryEndpoint publish and story reads"
 
 ### Task 5: Discard
 
-Covers the discard path (photo keys queued, D4: owners can't delete others' stories) and BR 137 (story part).
+Covers discard path (photo keys queued; D4: owners can't delete others' stories) + BR 137 (story part).
 
 **Files:**
 - Modify: `apps/server/lib/src/endpoints/story_endpoint.dart`
@@ -2460,7 +2460,7 @@ Covers the discard path (photo keys queued, D4: owners can't delete others' stor
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/story_endpoint_test.dart`
-Expected: FAIL to load: `discard` isn't defined.
+Expected: FAIL to load: `discard` not defined.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -2524,7 +2524,7 @@ git commit -m "feat(server): StoryEndpoint discard queues photo blobs"
 
 ### Task 6: Search and facets
 
-Endpoint-contract §2.2 search semantics: scope, AND people, exact place, decades over range, escaped ILIKE text over title/body/place/people/year/decade label, relevance tiers and the three sorts; facets over the same scope.
+Endpoint-contract §2.2 search semantics: scope, AND people, exact place, decades over range, escaped ILIKE text over title/body/place/people/year/decade label, relevance tiers, three sorts; facets over same scope.
 
 **Files:**
 - Create: `apps/server/lib/src/stories/story_search.dart`
@@ -2772,7 +2772,7 @@ Endpoint-contract §2.2 search semantics: scope, AND people, exact place, decade
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/story_endpoint_test.dart`
-Expected: FAIL to load: `search` and `facets` aren't defined.
+Expected: FAIL to load: `search` + `facets` not defined.
 
 - [ ] **Step 3: Write the search SQL**
 
@@ -2963,7 +2963,7 @@ git commit -m "feat(server): story search and facets"
 
 ### Task 7: NoteEndpoint
 
-`listForStory`, `create`, `update`, `delete`, with `NoteDto.canDelete` (D4). Covers BR 26–28 (comment/perspective part), 43–45, 68 and 69 (comment/perspective part), 74 (notes), 83 (comment/perspective part), 93, 94, and the note live events.
+`listForStory`, `create`, `update`, `delete`, w/ `NoteDto.canDelete` (D4). Covers BR 26–28 (comment/perspective part), 43–45, 68 + 69 (comment/perspective part), 74 (notes), 83 (comment/perspective part), 93, 94, + note live events.
 
 **Files:**
 - Create: `apps/server/lib/src/endpoints/note_endpoint.dart`
@@ -3439,7 +3439,7 @@ void main() {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/note_endpoint_test.dart`
-Expected: FAIL to load: `endpoints.note` isn't defined.
+Expected: FAIL to load: `endpoints.note` not defined.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -3643,12 +3643,12 @@ git commit -m "feat(server): NoteEndpoint with steward moderation (D4)"
 - [ ] **Step 1: Format**
 
 Run: `mise exec -- dart format apps/server/lib apps/server/test && mise exec -- dart format --output=none --set-exit-if-changed apps/server/lib apps/server/test`
-Expected: `Formatted N files (0 changed)` on the second command.
+Expected: `Formatted N files (0 changed)` on second command.
 
 - [ ] **Step 2: Analyze**
 
 Run: `cd apps/server && mise exec -- dart analyze lib test && cd ../../packages/tell_me_a_story_client && mise exec -- dart pub get && mise exec -- dart analyze`
-(A fresh worktree needs the `pub get` in the client package, or analyze reports `uri_does_not_exist` for `serverpod_client`.)
+(Fresh worktree needs `pub get` in client package, else analyze reports `uri_does_not_exist` for `serverpod_client`.)
 Expected: `No issues found!` twice.
 
 - [ ] **Step 3: Test**
@@ -3668,17 +3668,17 @@ git commit -m "style(server): format Phase 3c"
 | §7 case | Test |
 |---|---|
 | 26 | `story_endpoint_test` reading "parent member reads a child family"; `note_endpoint_test` tree reading "parent member reads a child published story" |
-| 27 | `note_endpoint_test` "parent member comments on a child story" (photo part is 3d) |
+| 27 | `note_endpoint_test` "parent member comments on a child story" (photo part = 3d) |
 | 28 | `story_endpoint_test` "stranger reads a child published story"; `note_endpoint_test` "stranger or a member of an unrelated family lists notes"; anonymous: one test per endpoint class |
-| 43, 44, 45 | `note_endpoint_test` origin contributors (photo/blob parts are 3d) |
-| 62, 64, 65, 66 | `story_dates_test` and `story_endpoint_test` creating drafts |
+| 43, 44, 45 | `note_endpoint_test` origin contributors (photo/blob parts = 3d) |
+| 62, 64, 65, 66 | `story_dates_test` + `story_endpoint_test` creating drafts |
 | 63 | `story_endpoint_test` publish "dateless draft" |
 | 67 | `story_endpoint_test` reading "stories share a start" |
-| 68, 69 | `story_endpoint_test` reading "only its author reads it"; `note_endpoint_test` drafts (photo/blob parts are 3d) |
+| 68, 69 | `story_endpoint_test` reading "only its author reads it"; `note_endpoint_test` drafts (photo/blob parts = 3d) |
 | 70 | `story_endpoint_test` reading "author publishes" |
 | 71 | `story_endpoint_test` editing (5 tests) |
-| 72 | `story_endpoint_test` publish "owner publishes the author's story" and editing "author, family, status … unchanged" |
-| 73 | `story_endpoint_test` editing "plain member, a stranger …" and "unchanged" (no API moves a story) |
+| 72 | `story_endpoint_test` publish "owner publishes the author's story" + editing "author, family, status … unchanged" |
+| 73 | `story_endpoint_test` editing "plain member, a stranger …" + "unchanged" (no API moves story) |
 | 74 | `story_endpoint_test` reading "family A reads family B"; `note_endpoint_test` "member of an unrelated family" |
 | 75, 76, 77 | `story_endpoint_test` tags |
 | 83 | `note_endpoint_test` drafts "story D reverts to draft" |

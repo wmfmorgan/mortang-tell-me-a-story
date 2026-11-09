@@ -1,10 +1,10 @@
 # Phase 3b: People Endpoint Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** `PeopleEndpoint` with `listFamily`, `listTree`, `create`, `forEdit`, `profile`, `update`, `listUnlinked`, `isHomeFamilySteward`, `markPassedAway` and `delete`, covered by business-rules §7 cases 26 and 28 (people part), 95–100, 102–105, 116, 120 and 136.
+**Goal:** `PeopleEndpoint` with `listFamily`, `listTree`, `create`, `forEdit`, `profile`, `update`, `listUnlinked`, `isHomeFamilySteward`, `markPassedAway`, `delete`. Covered by business-rules §7 cases 26 and 28 (people part), 95–100, 102–105, 116, 120, 136.
 
-**Architecture:** One endpoint class on top of the landed 3.0 foundation (`Authz`, `errors.dart`, `blob_keys.dart`, `blob_outbox.dart`, the DTOs, `Fx`). People are tree-scoped: reads and unlinked edits check `Authz.isTreeMemberOf(person.treeId)`, never the home family, so a soft-deleted home family does not hide a person (D8). Steward-only actions (`markPassedAway`, `delete`) check the **live** home family (D5, D6b). Pure write and DOB rules live in `lib/src/people/person_rules.dart` and are unit-tested. Pictures are stored inline under a fresh `personAvatarKey`; replaced, cleared and deleted keys go to `blob_deletions` in the write transaction. No live events.
+**Architecture:** One endpoint class on landed 3.0 foundation (`Authz`, `errors.dart`, `blob_keys.dart`, `blob_outbox.dart`, DTOs, `Fx`). People tree-scoped: reads + unlinked edits check `Authz.isTreeMemberOf(person.treeId)`, never home family, so soft-deleted home family doesn't hide person (D8). Steward-only actions (`markPassedAway`, `delete`) check **live** home family (D5, D6b). Pure write + DOB rules in `lib/src/people/person_rules.dart`, unit-tested. Pictures stored inline under fresh `personAvatarKey`; replaced/cleared/deleted keys go to `blob_deletions` in write transaction. No live events.
 
 **Tech Stack:** Dart 3.13, Serverpod 4.1.1, embedded Postgres 16, just, mise.
 
@@ -14,22 +14,22 @@
 
 ## Decisions taken at slice start (approved by Main, 2026-11-07)
 
-- **`forEdit` access.** The contract comment says "steward/self only", but business-rules §2.3 (read row = tree member; unlinked edit = any tree member, case 97) and the client (`person_profile_dialog.dart` reads `forEdit().userId` to show Edit) need tree-member access. `forEdit` returns the row to any tree member and null for a missing person or an outsider. The contract comment is to be fixed by Main.
-- **Duplicate email.** The contract says `update` maps a duplicate email to `CONFLICT 'That email is already used'`, but the schema has no unique index on `people.email`, so the path cannot occur. Not implemented.
-- **BR 101** (`my_profile`) belongs to `ProfileEndpoint.me` (3a); the people part (the linked self sees the raw birth) is under BR 100. **BR 102** is ported as: `DatePrecision` has no `decade`, and a new account's `birthVisibility` is `hidden`.
-- **BR 108** (linking an existing person takes the profile name) is invite accept (3e). Not ported here.
-- **BR 99** read part (outsider cannot read the avatar) is `MediaEndpoint` (3d); here the upload part is ported, and an outsider cannot get the key (profile NOT_FOUND, forEdit null).
-- **BR 105** invite-targeting part (a passed-away person cannot be invited) is invite create (3e); here the unlinked-list part is ported.
-- **Error choices.** Not-found messages are `'person not found'` and `'family not found'` (agreed with 3e for the catalogue's bare NOT_FOUND). Writes on a missing or out-of-tree person are `FORBIDDEN` like a stranger (ids don't leak); `profile` and `markPassedAway` are `NOT_FOUND` per §4.3/§7; `forEdit` returns null; `listUnlinked` is `NOT_FOUND 'family not found'` (BR 120). The bare catalogue FORBIDDEN uses `forbidden()`'s default text.
-- **Write flags on create.** `create` honours the `write*` flags like `update`; an unset group keeps the default (null / false).
-- **New VALIDATION texts** (no catalogue entry existed; the old DB checks surfaced as "Try again"): `about must be at most 500 characters`, `picture must be a JPEG image`, `picture is too large`, `<birth|death> date and precision must both be set`, `<birth|death> year must be between 1000 and 9999`, `death date needs passed away`, `death is before birth`. `birth date comes from the account` is schema-design §3.2's text.
+- **`forEdit` access.** Contract comment says "steward/self only", but business-rules §2.3 (read row = tree member; unlinked edit = any tree member, case 97) and client (`person_profile_dialog.dart` reads `forEdit().userId` to show Edit) need tree-member access. `forEdit` returns row to any tree member; null for missing person or outsider. Main fixes contract comment.
+- **Duplicate email.** Contract says `update` maps duplicate email to `CONFLICT 'That email is already used'`, but schema has no unique index on `people.email` → path can't occur. Not implemented.
+- **BR 101** (`my_profile`) belongs to `ProfileEndpoint.me` (3a); people part (linked self sees raw birth) under BR 100. **BR 102** ported as: `DatePrecision` has no `decade`, new account's `birthVisibility` is `hidden`.
+- **BR 108** (linking existing person takes profile name) is invite accept (3e). Not ported here.
+- **BR 99** read part (outsider can't read avatar) is `MediaEndpoint` (3d); here upload part ported, and outsider can't get key (profile NOT_FOUND, forEdit null).
+- **BR 105** invite-targeting part (passed-away person can't be invited) is invite create (3e); here unlinked-list part ported.
+- **Error choices.** Not-found messages `'person not found'` and `'family not found'` (agreed with 3e for catalogue's bare NOT_FOUND). Writes on missing or out-of-tree person → `FORBIDDEN` like stranger (ids don't leak); `profile` and `markPassedAway` → `NOT_FOUND` per §4.3/§7; `forEdit` returns null; `listUnlinked` → `NOT_FOUND 'family not found'` (BR 120). Bare catalogue FORBIDDEN uses `forbidden()`'s default text.
+- **Write flags on create.** `create` honours `write*` flags like `update`; unset group keeps default (null / false).
+- **New VALIDATION texts** (no catalogue entry; old DB checks surfaced as "Try again"): `about must be at most 500 characters`, `picture must be a JPEG image`, `picture is too large`, `<birth|death> date and precision must both be set`, `<birth|death> year must be between 1000 and 9999`, `death date needs passed away`, `death is before birth`. `birth date comes from the account` is schema-design §3.2's text.
 
 ## File map
 
 | File | Responsibility |
 |---|---|
 | Create `apps/server/lib/src/people/person_rules.dart` | Pure rules: `normalizeLifeDate`, `shownBirth` (§4.6 coarsening), `applyPersonWrite` (field groups, trimming, life-date rules) |
-| Create `apps/server/test/unit/person_rules_test.dart` | Unit tests for the rules (BR 96 about length, 100 coarsening table, 102 no decade) |
+| Create `apps/server/test/unit/person_rules_test.dart` | Rule unit tests (BR 96 about length, 100 coarsening table, 102 no decade) |
 | Create `apps/server/lib/src/endpoints/people_endpoint.dart` | `PeopleEndpoint` |
 | Create `apps/server/test/integration/support/people_fixtures.dart` | `personWrite(...)`, `jpegBytes()`, `pngBytes()`, `PeopleFx` (`account`, `reload`, `queued`) |
 | Create `apps/server/test/integration/people_endpoint_test.dart` | Integration tests, one group per task |
@@ -37,9 +37,9 @@
 
 ## Notes
 
-- Run everything through `mise exec --`. Format after each step: `mise exec -- dart format apps/server/lib apps/server/test`.
-- `just server-generate` with serverpod_cli 4.1.1 rewrites every client protocol file with a blank line after the first import, unlike the committed 3.0 output. Only `client.dart` changes because of this slice, so the other client files are restored after generating.
-- The integration tests share one database (`RollbackDatabase.disabled`); `setUp` builds a fresh tree: `parent` (owner, coOwner, member), `child` branch (childMember as owner), and a `stranger` who owns a family in another tree.
+- Run everything via `mise exec --`. Format after each step: `mise exec -- dart format apps/server/lib apps/server/test`.
+- `just server-generate` with serverpod_cli 4.1.1 rewrites every client protocol file with blank line after first import, unlike committed 3.0 output. Only `client.dart` changes from this slice → restore other client files after generating.
+- Integration tests share one DB (`RollbackDatabase.disabled`); `setUp` builds fresh tree: `parent` (owner, coOwner, member), `child` branch (childMember as owner), and `stranger` owning family in another tree.
 
 ---
 
@@ -346,7 +346,7 @@ void main() {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/unit/person_rules_test.dart`
-Expected: compile error, `person_rules.dart` doesn't exist.
+Expected: compile error, `person_rules.dart` missing.
 
 - [ ] **Step 3: Implement**
 
@@ -587,7 +587,7 @@ extension PeopleFx on Fx {
 }
 ```
 
-`people_endpoint_test.dart` (the anonymous test plus the `reads` group; later tasks add groups before the closing `}, rollbackDatabase: …`):
+`people_endpoint_test.dart` (anonymous test + `reads` group; later tasks add groups before closing `}, rollbackDatabase: …`):
 
 ```dart
 import 'package:serverpod/serverpod.dart';
@@ -964,7 +964,7 @@ void main() {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/people_endpoint_test.dart`
-Expected: compile error, `endpoints.people` doesn't exist.
+Expected: compile error, `endpoints.people` missing.
 
 - [ ] **Step 3: Implement the endpoint with the read methods and shared helpers**
 
@@ -1127,7 +1127,7 @@ Then generate:
 mise exec -- just server-generate
 git checkout -- $(git diff --name-only packages | grep -v 'lib/src/protocol/client.dart')
 ```
-The second line drops generator-only drift (a blank line after the first import) in client files this task doesn't change; see Notes.
+Second line drops generator-only drift (blank line after first import) in client files this task doesn't change; see Notes.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1147,7 +1147,7 @@ git commit -m "feat(server): people reads with tree scope and birth coarsening"
 - Modify: `apps/server/lib/src/endpoints/people_endpoint.dart`
 - Test: `apps/server/test/integration/people_endpoint_test.dart`
 
-- [ ] **Step 1: Write the failing test** — add `import 'dart:async';` and `import 'package:tell_me_a_story_server/src/media/blob_keys.dart';`, and this group after `reads`:
+- [ ] **Step 1: Write the failing test** — add `import 'dart:async';` and `import 'package:tell_me_a_story_server/src/media/blob_keys.dart';`, plus this group after `reads`:
 
 ```dart
     group('writes', () {
@@ -1537,9 +1537,9 @@ git commit -m "feat(server): people reads with tree scope and birth coarsening"
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/people_endpoint_test.dart`
-Expected: compile error, `create`/`update` don't exist.
+Expected: compile error, `create`/`update` missing.
 
-- [ ] **Step 3: Implement** — add `import 'dart:typed_data';`, `import '../media/blob_keys.dart';`, `import '../media/blob_outbox.dart';`, `create` after `listTree`, `update` and its `_checkLinkedWrite` helper after `profile`, and the picture helpers at the end of the class:
+- [ ] **Step 3: Implement** — add `import 'dart:typed_data';`, `import '../media/blob_keys.dart';`, `import '../media/blob_outbox.dart';`; `create` after `listTree`; `update` + its `_checkLinkedWrite` helper after `profile`; picture helpers at end of class:
 
 ```dart
   /// Adds an unlinked person with [familyId] as home. A [picture] (JPEG,
@@ -1788,7 +1788,7 @@ git commit -m "feat(server): people create and update with inline pictures"
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/people_endpoint_test.dart`
-Expected: compile error, `markPassedAway` doesn't exist.
+Expected: compile error, `markPassedAway` missing.
 
 - [ ] **Step 3: Implement** — add after `update`:
 
@@ -1985,7 +1985,7 @@ git commit -m "feat(server): steward marks a linked person passed away"
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/people_endpoint_test.dart`
-Expected: compile error, `listUnlinked`/`isHomeFamilySteward` don't exist.
+Expected: compile error, `listUnlinked`/`isHomeFamilySteward` missing.
 
 - [ ] **Step 3: Implement** — add before `markPassedAway`:
 
@@ -2159,7 +2159,7 @@ git commit -m "feat(server): unlinked person picker and home steward check"
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/people_endpoint_test.dart`
-Expected: compile error, `delete` doesn't exist.
+Expected: compile error, `delete` missing.
 
 - [ ] **Step 3: Implement** — add after `markPassedAway`:
 
@@ -2220,14 +2220,14 @@ git commit -m "feat(server): stewards delete unlinked people"
 | 28 (people part) | reads: "when a stranger reads then no people come back" |
 | 95 | reads: "when a tree member in the child or the parent reads a person …" (+ anonymous test) |
 | 96 | unit: about > 500; writes: about > 500, picture key shape on create |
-| 97 | writes: "when a tree member edits an unlinked person …"; "when the person is linked to someone else while an edit waits for the row lock …" (linked-row rules are rechecked on the locked row) |
+| 97 | writes: "when a tree member edits an unlinked person …"; "when the person is linked to someone else while an edit waits for the row lock …" (linked-row rules rechecked on locked row) |
 | 98 | reads: two profile tests |
 | 99 | writes: avatar upload test (read part is 3d) |
-| 100 | unit: coarsening table; reads: year-visible, hidden, and own-row birth ignored while linked |
+| 100 | unit: coarsening table; reads: year-visible, hidden, own-row birth ignored while linked |
 | 102 | unit: no decade precision; reads: default visibility hidden |
 | 103 | markPassedAway: both BR 103 tests |
 | 104 | writes: linked user changes own passedAway |
-| 105 | writes: flag/unflag; picker: leaves and returns to the unlinked list |
+| 105 | writes: flag/unflag; picker: leaves + returns to unlinked list |
 | 116 | reads: passedAway across families, out-of-tree refused |
 | 120 | picker: whole live tree, exclusions, NOT_FOUND |
-| 136 | delete: four tests (incl. an invite keeps a null personId) |
+| 136 | delete: four tests (incl. invite keeps null personId) |

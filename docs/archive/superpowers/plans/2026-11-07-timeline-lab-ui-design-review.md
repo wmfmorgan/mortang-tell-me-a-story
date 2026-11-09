@@ -1,15 +1,15 @@
 # Timeline Lab UI Design Review Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Simplify the lab's visual system and bring its graphic style in line with the Memory Album brand. That means one time scale, one axis look, one marker vocabulary, fewer shell controls, and token-driven type, spacing and color. Everything stays scoped to `apps/timeline_lab/`.
+**Goal:** Simplify lab visual system, align graphic style with Memory Album brand. One time scale, one axis look, one marker vocabulary, fewer shell controls, token-driven type/spacing/color. All scoped to `apps/timeline_lab/`.
 
 **Architecture:** Three phases.
-- **Phase 1** extracts shared primitives (`TimeScale`, `CanvasLabel`, cursor/camera helpers, one story colour) and consolidates the shell controls. Tasks 2–4 are golden-neutral refactors.
-- **Phase 2** adds design tokens (`LabSpace`, `LabRadius`, `LabStroke`, `LabMarker`, `LabText`, rule/sage tints) to `lab_theme.dart`. It also fixes component themes, restyles `StoryCard` and introduces one marker primitive.
-- **Phase 3** restyles each renderer on top of those: a shared axis painter, zoom bubbles, tree edges and labels, treemap shading, list and lane text roles, and an empty state.
+- **Phase 1** extracts shared primitives (`TimeScale`, `CanvasLabel`, cursor/camera helpers, one story colour), consolidates shell controls. Tasks 2–4 golden-neutral refactors.
+- **Phase 2** adds design tokens (`LabSpace`, `LabRadius`, `LabStroke`, `LabMarker`, `LabText`, rule/sage tints) to `lab_theme.dart`. Fixes component themes, restyles `StoryCard`, introduces one marker primitive.
+- **Phase 3** restyles each renderer on top: shared axis painter, zoom bubbles, tree edges + labels, treemap shading, list + lane text roles, empty state.
 
-**Tech Stack:** Flutter 3.47.7 / Dart 3.13.5 (pinned in `mise.toml`), `google_fonts` only, `flutter_test` goldens. No new dependencies.
+**Tech Stack:** Flutter 3.47.7 / Dart 3.13.5 (pinned in `mise.toml`), `google_fonts` only, `flutter_test` goldens. No new deps.
 
 All commands run from `apps/timeline_lab` unless noted.
 
@@ -19,26 +19,26 @@ All commands run from `apps/timeline_lab` unless noted.
 
 ## Findings
 
-The findings are ranked by user impact. Evidence uses `file:line` in `apps/timeline_lab/` at `bdd128d`, plus golden names in `test/goldens/`. Contrast ratios were computed with the WCAG 2.x formula from the token hex values. Golden pixels were sampled with PIL.
+Ranked by user impact. Evidence uses `file:line` in `apps/timeline_lab/` at `bdd128d`, plus golden names in `test/goldens/`. Contrast ratios computed with WCAG 2.x formula from token hex. Golden pixels sampled with PIL.
 
 1. **High · a11y/brand. Selected segmented buttons fail text contrast everywhere.**
-   - Every selected segment renders a parchment label on sage, which is **3.41:1** (below 4.5:1). This covers Hide/Dim, Sweep/Steps, People/Families, Time/Family and Decade/Family/Person.
-   - Cause: `lib/theme/lab_theme.dart:54-65` sets no `secondaryContainer`, so M3 `SegmentedButton` falls back to `secondary` (sage) and `onSecondary` (parchment).
-   - Evidence: the selected "Dim" segment in `sliverList_all.png` samples to `(122,139,116)`, which is exactly `labSage`.
-   - The product lock is a filled **terracotta** pill with a parchment label (`docs/ux/80-all-stories.md:64`), which is 5.18:1.
-2. **High · legibility. Dimmed markers almost vanish, and colour/opacity is the only signal.**
-   - Dimming multiplies dot alpha by `labDimOpacity` 0.35 (`lib/renderers/story_marker.dart:18`). The same pattern appears in `painter_rail_renderer.dart:357`, `sliver_list_renderer.dart:176`, `zoom_canvas_renderer.dart:375`, `swimlanes_renderer.dart:357` and `tree_graph_renderer.dart:298`.
-   - Against parchment that gives **1.62:1** (terracotta), **1.45:1** (sage) and **1.55:1** (moss), below the 3:1 non-text minimum.
-   - Visible in `painterRail_dim.png` (a dim dot samples to `(212,193,184)`) and `treeGraph_dim.png`.
-   - Dimmed *text* is correct everywhere. Sampled glyphs in the sliver, RenderBox, swimlane, tree and treemap `_dim` goldens are exactly `#6A6358` (5.56:1), which meets the floor in `docs/ux/80-all-stories.md:79`.
-3. **High · colour system. The family palette is ambiguous and spends the product's reserved green.**
-   - Terracotta, sage and moss differ by only 1.20–1.52:1 in luminance.
-   - In a Machado deuteranopia simulation, terracotta and moss are 18.8 RGB units apart (60.7 with normal vision).
-   - `lib/renderers/story_marker.dart:8-12` makes moss the Okafor family colour, and moss is also the origin ring (`painter_rail_renderer.dart:360`, `tree_graph_renderer.dart:303`). An Okafor origin story is therefore a moss ring around a moss dot.
-   - The product reserves branch green for the origin ring and callout ("One green", `docs/ux/branch-callout.md:42-43`). Story dots stay terracotta (`docs/ux/branch-callout.md:23`).
-4. **High · simplification. Core primitives are duplicated across renderers.**
-   - **Year→px mappings (4):** `painter_rail_renderer.dart:94-97`; `zoom_canvas_renderer.dart:79-80`, re-derived inline at `:543`, `:557` and `:342`; `render_box_layout_renderer.dart:307`; `swimlanes_renderer.dart:99-101` and `:114-115`.
-   - **Axis/tick painters (3), each with its own look:**
+   - Every selected segment = parchment label on sage, **3.41:1** (below 4.5:1). Covers Hide/Dim, Sweep/Steps, People/Families, Time/Family, Decade/Family/Person.
+   - Cause: `lib/theme/lab_theme.dart:54-65` sets no `secondaryContainer`, so M3 `SegmentedButton` falls back to `secondary` (sage) + `onSecondary` (parchment).
+   - Evidence: selected "Dim" segment in `sliverList_all.png` samples `(122,139,116)`, exactly `labSage`.
+   - Product lock = filled **terracotta** pill, parchment label (`docs/ux/80-all-stories.md:64`), 5.18:1.
+2. **High · legibility. Dimmed markers near-vanish; colour/opacity only signal.**
+   - Dimming multiplies dot alpha by `labDimOpacity` 0.35 (`lib/renderers/story_marker.dart:18`). Same pattern in `painter_rail_renderer.dart:357`, `sliver_list_renderer.dart:176`, `zoom_canvas_renderer.dart:375`, `swimlanes_renderer.dart:357`, `tree_graph_renderer.dart:298`.
+   - On parchment: **1.62:1** (terracotta), **1.45:1** (sage), **1.55:1** (moss), below 3:1 non-text min.
+   - Visible in `painterRail_dim.png` (dim dot samples `(212,193,184)`) and `treeGraph_dim.png`.
+   - Dimmed *text* correct everywhere. Sampled glyphs in sliver, RenderBox, swimlane, tree, treemap `_dim` goldens exactly `#6A6358` (5.56:1), meets floor in `docs/ux/80-all-stories.md:79`.
+3. **High · colour system. Family palette ambiguous, spends product's reserved green.**
+   - Terracotta, sage, moss differ only 1.20–1.52:1 luminance.
+   - Machado deuteranopia sim: terracotta vs moss 18.8 RGB units apart (60.7 normal vision).
+   - `lib/renderers/story_marker.dart:8-12` makes moss Okafor family colour; moss also origin ring (`painter_rail_renderer.dart:360`, `tree_graph_renderer.dart:303`). Okafor origin story = moss ring around moss dot.
+   - Product reserves branch green for origin ring + callout ("One green", `docs/ux/branch-callout.md:42-43`). Story dots stay terracotta (`docs/ux/branch-callout.md:23`).
+4. **High · simplification. Core primitives duplicated across renderers.**
+   - **Year→px mappings (4):** `painter_rail_renderer.dart:94-97`; `zoom_canvas_renderer.dart:79-80`, re-derived inline at `:543`, `:557`, `:342`; `render_box_layout_renderer.dart:307`; `swimlanes_renderer.dart:99-101` and `:114-115`.
+   - **Axis/tick painters (3), each own look:**
      - `painter_rail_renderer.dart:314-332`: ink 60%, 10/4 px ticks.
      - `render_box_layout_renderer.dart:362-381` and `:418-440`: full ink 2 px spine, 16/6 px ticks, pill labels.
      - `zoom_canvas_renderer.dart:537-565`: ink 60%, 12/6/3 px ticks.
@@ -47,95 +47,95 @@ The findings are ranked by user impact. Evidence uses `file:line` in `apps/timel
    - **"Follow at 65%" copies (3):** `painter_rail_renderer.dart:219-224`, `swimlanes_renderer.dart:118-126`, `zoom_canvas_renderer.dart:151-163`.
    - **"Open at newest" post-frame jumps (5):** `painter_rail_renderer.dart:191-195`, `render_box_layout_renderer.dart:40-45`, `swimlanes_renderer.dart:95-102`, `tree_graph_renderer.dart:39-42`, `zoom_canvas_renderer.dart:113-127`.
    - **Family→colour maps (3):** `story_marker.dart:8-12`; `tree_graph_renderer.dart:227-235`; `treemap_layout.dart:109-119` plus `treemap_renderer.dart:130-134`.
-5. **Medium · consistency. There are four marker, selection and badge vocabularies.**
-   - **Dot sizes:** 12 px (`sliver_list_renderer.dart:168`), 10 px (`painter_rail_renderer.dart:358`, `zoom_canvas_renderer.dart:368`), 8 px (`swimlanes_renderer.dart:403`, tree leaves at `tree_graph_renderer.dart:299`) and 12 px tree groups.
+5. **Medium · consistency. Four marker, selection, badge vocabularies.**
+   - **Dot sizes:** 12 px (`sliver_list_renderer.dart:168`), 10 px (`painter_rail_renderer.dart:358`, `zoom_canvas_renderer.dart:368`), 8 px (`swimlanes_renderer.dart:403`, tree leaves `tree_graph_renderer.dart:299`), 12 px tree groups.
    - **Selection styles:**
      - terracotta ring r8 (rail, tree);
      - **ink** 2 px border (`zoom_canvas_renderer.dart:376-378`);
-     - left bar plus fill (`swimlanes_renderer.dart:380-386`);
+     - left bar + fill (`swimlanes_renderer.dart:380-386`);
      - card border (sliver).
-   - **Ring collision:** the origin ring (r7) and the selected ring (r8) are both 2 px wide. They merge into one blob when an origin story is selected (`painter_rail_renderer.dart:359-366`, `tree_graph_renderer.dart:302-309`). The zoom canvas has no origin mark at all.
+   - **Ring collision:** origin ring (r7) + selected ring (r8) both 2 px wide. Merge into one blob when origin story selected (`painter_rail_renderer.dart:359-366`, `tree_graph_renderer.dart:302-309`). Zoom canvas has no origin mark.
    - **`+N` badges, four styles:**
-     - 22×12 ink pill with **8 px** text (`painter_rail_renderer.dart:376-393`);
+     - 22×12 ink pill, **8 px** text (`painter_rail_renderer.dart:376-393`);
      - 16×12 box with external "+N more" (`tree_graph_renderer.dart:276-290`);
      - radius-12 chip (`zoom_canvas_renderer.dart:478-485`);
      - plain text (`swimlanes_renderer.dart:360-363`).
-6. **Medium · shell. Too many controls, a clipped app bar, and two status lines.**
-   - **Control count:** 3 app-bar controls, 25 filter-panel controls (search, Hide/Dim, era, 21 chips, Clear), up to 8 playback controls, and 3 per-renderer switches.
-   - **Inconsistent switch vocabulary:** "People/Families" (`swimlanes_renderer.dart:154-155`), "Time/Family" (`tree_graph_renderer.dart:131-132`) and "Decade/Family/Person" (`treemap_renderer.dart:84-86`).
-   - **Clipped labels:** the floating labels of the two `DropdownMenu`s ("Renderer", "Stories", `lib/lab_app.dart:98-124`) are cut by the app-bar top edge in **every** shell golden (an ink pixel at row 0 in `sliverList_all.png`).
-   - **Wrong font in the live app:** `[observed in the live web build at :8099]` the dropdown values render in Literata (body serif), not the UI sans.
-   - **Two status lines:** the caption row (`lib/widgets/playback_bar.dart:132-144`) and the status bar (`lib/lab_app.dart:215-227`) are two stacked text lines describing related state.
+6. **Medium · shell. Too many controls, clipped app bar, two status lines.**
+   - **Control count:** 3 app-bar controls, 25 filter-panel controls (search, Hide/Dim, era, 21 chips, Clear), up to 8 playback controls, 3 per-renderer switches.
+   - **Inconsistent switch vocabulary:** "People/Families" (`swimlanes_renderer.dart:154-155`), "Time/Family" (`tree_graph_renderer.dart:131-132`), "Decade/Family/Person" (`treemap_renderer.dart:84-86`).
+   - **Clipped labels:** floating labels of two `DropdownMenu`s ("Renderer", "Stories", `lib/lab_app.dart:98-124`) cut by app-bar top edge in **every** shell golden (ink pixel at row 0 in `sliverList_all.png`).
+   - **Wrong font in live app:** `[observed in the live web build at :8099]` dropdown values render in Literata (body serif), not UI sans.
+   - **Two status lines:** caption row (`lib/widgets/playback_bar.dart:132-144`) + status bar (`lib/lab_app.dart:215-227`) = two stacked lines for related state.
 7. **Medium · type and brand drift.**
-   - **Tiny type:** the rail badge is 8 px (`painter_rail_renderer.dart:388`). Axis labels are 11 px `labelSmall` (`painter_rail_renderer.dart:241`, `render_box_layout_renderer.dart:98`, `zoom_canvas_renderer.dart:214`), as are swimlane titles (`swimlanes_renderer.dart:341`) and tree leaves (`tree_graph_renderer.dart:165`). The brand is iPad-first and asks for large targets for elders (`docs/ux/uxd-handoff.md:105`, `docs/ux/80-all-stories.md:123`).
-   - **Sans titles on compact cards:** compact cards switch the title to `titleSmall` sans (`lib/widgets/story_card.dart:78`), but product titles are always Newsreader (`docs/ux/80-all-stories.md:45`). RenderBox and zoom cards read sans while sliver cards read serif (`renderBoxLayout_all.png` vs `sliverList_all.png`).
-   - **Card fill:** cards use `labSurface` #FFF8F6, the dialog surface (`story_card.dart:49`). It reads pink on parchment (`zoomCanvas_lod_cards.png`). Product cards are parchment with a sage 45% border (`apps/tell_me_a_story/lib/core/theme/album_theme.dart:86-93`).
-   - **Filter chips:** the lab uses pill fill/border with a beige selection (`lab_theme.dart:77-84`). The product uses parchment, a sage 35% selection, a sage border and radius 8 (`album_theme.dart:94-100`).
-   - **Place line:** product cards show a sage `location_on` icon before the place (`docs/ux/80-all-stories.md:45`). Lab cards show text only.
-8. **Medium · redundancy. The painter rail duplicates two other renderers.**
-   - Its picture is the zoom canvas's *years* level of detail: family lanes of dots on a horizontal axis (compare `painterRail_all.png` with `zoomCanvas_lod_years.png`).
-   - Its technique (one `CustomPainter`, manual hit testing, `CustomPainterSemantics`) is also exercised by the tree graph (`tree_graph_renderer.dart:153-170`, `:338-362`).
-   - It also has unique defects:
-     - Lane labels are painted at x=4 inside the horizontal scroll (`painter_rail_renderer.dart:343`), so they are off-screen in all four `painterRail_*.png` (it opens at the newest story).
-     - The rail uses about 280 px of a 630 px viewport.
-9. **Medium · treemap shading carries no information until a filter dims.**
-   - Shade is `0.12 + 0.5 × matchedShare` (`lib/renderers/treemap_layout.dart:216`). With no filter every share is 1, so `treemap_all.png` and `treemap_hide.png` are a wall of identical 62% terracotta.
-   - The continuous ramp in `treemap_dim.png` is hard to bucket by eye.
-   - Groups are ordered by count (`treemap_layout.dart:121`, `:198`), so decades read 2000s, 2020s, 1970s, 1930s. See Decision D5.
-10. **Medium · the tree graph is ink-heavy and its labels collide.**
-    - Group nodes are solid ink 12 px dots (`tree_graph_renderer.dart:299`).
-    - Edges are ink 35%, and dimmed edges fall to ink 12% (1.27:1) (`:250-252`).
-    - Group labels sit above-right on top of incoming edges with no knockout (`:315-317`). See the "1999" and "2000" labels in `treeGraph_dim.png`.
+   - **Tiny type:** rail badge 8 px (`painter_rail_renderer.dart:388`). Axis labels 11 px `labelSmall` (`painter_rail_renderer.dart:241`, `render_box_layout_renderer.dart:98`, `zoom_canvas_renderer.dart:214`), same for swimlane titles (`swimlanes_renderer.dart:341`) and tree leaves (`tree_graph_renderer.dart:165`). Brand iPad-first, wants large targets for elders (`docs/ux/uxd-handoff.md:105`, `docs/ux/80-all-stories.md:123`).
+   - **Sans titles on compact cards:** compact cards switch title to `titleSmall` sans (`lib/widgets/story_card.dart:78`), but product titles always Newsreader (`docs/ux/80-all-stories.md:45`). RenderBox + zoom cards read sans, sliver cards serif (`renderBoxLayout_all.png` vs `sliverList_all.png`).
+   - **Card fill:** cards use `labSurface` #FFF8F6, dialog surface (`story_card.dart:49`). Reads pink on parchment (`zoomCanvas_lod_cards.png`). Product cards = parchment + sage 45% border (`apps/tell_me_a_story/lib/core/theme/album_theme.dart:86-93`).
+   - **Filter chips:** lab uses pill fill/border, beige selection (`lab_theme.dart:77-84`). Product uses parchment, sage 35% selection, sage border, radius 8 (`album_theme.dart:94-100`).
+   - **Place line:** product cards show sage `location_on` icon before place (`docs/ux/80-all-stories.md:45`). Lab cards text only.
+8. **Medium · redundancy. Painter rail duplicates two other renderers.**
+   - Picture = zoom canvas *years* LOD: family lanes of dots on horizontal axis (compare `painterRail_all.png` with `zoomCanvas_lod_years.png`).
+   - Technique (one `CustomPainter`, manual hit testing, `CustomPainterSemantics`) also exercised by tree graph (`tree_graph_renderer.dart:153-170`, `:338-362`).
+   - Unique defects:
+     - Lane labels painted at x=4 inside horizontal scroll (`painter_rail_renderer.dart:343`), so off-screen in all four `painterRail_*.png` (opens at newest story).
+     - Rail uses ~280 px of 630 px viewport.
+9. **Medium · treemap shading carries no info until filter dims.**
+   - Shade = `0.12 + 0.5 × matchedShare` (`lib/renderers/treemap_layout.dart:216`). No filter → every share 1, so `treemap_all.png` and `treemap_hide.png` = wall of identical 62% terracotta.
+   - Continuous ramp in `treemap_dim.png` hard to bucket by eye.
+   - Groups ordered by count (`treemap_layout.dart:121`, `:198`), so decades read 2000s, 2020s, 1970s, 1930s. See Decision D5.
+10. **Medium · tree graph ink-heavy, labels collide.**
+    - Group nodes solid ink 12 px dots (`tree_graph_renderer.dart:299`).
+    - Edges ink 35%; dimmed edges ink 12% (1.27:1) (`:250-252`).
+    - Group labels above-right on top of incoming edges, no knockout (`:315-317`). See "1999" and "2000" in `treeGraph_dim.png`.
 11. **Low · watermark layering.**
-    - The year watermark is stacked *after* the renderer (`lib/lab_app.dart:162-166`), even though its doc comment says "behind the renderer" (`lib/widgets/playback_bar.dart:152`).
-    - It draws over tiles in `treemap_playback.png` and over the 1986 card in `renderBoxLayout_playback.png`.
+    - Year watermark stacked *after* renderer (`lib/lab_app.dart:162-166`), though doc comment says "behind the renderer" (`lib/widgets/playback_bar.dart:152`).
+    - Draws over tiles in `treemap_playback.png` and over 1986 card in `renderBoxLayout_playback.png`.
 12. **Low · empty states.**
-    - Only the tree (`tree_graph_renderer.dart:144`) and the treemap (`treemap_renderer.dart:40`) have one, each in a different style.
-    - The other five renderers show blank chrome in Hide mode with zero matches. No golden covers this state.
+    - Only tree (`tree_graph_renderer.dart:144`) and treemap (`treemap_renderer.dart:40`) have one, different styles.
+    - Other five renderers show blank chrome in Hide mode with zero matches. No golden covers it.
 13. **Low · spacing has no scale.**
-    - Ad-hoc values: 2, 4, 6, 8, 12, 16 and 24 px (for example `swimlanes_renderer.dart:378`, `sliver_list_renderer.dart:157`, `filter_panel.dart:45`, `:102-103`).
-    - Filter chips are spaced 4 px apart. At 800 px tall, Families falls below the fold (`sliverList_all.png`). The brand asks for "forms that breathe" (`docs/ux/uxd-handoff.md:118`).
+    - Ad-hoc: 2, 4, 6, 8, 12, 16, 24 px (e.g. `swimlanes_renderer.dart:378`, `sliver_list_renderer.dart:157`, `filter_panel.dart:45`, `:102-103`).
+    - Filter chips 4 px apart. At 800 px tall, Families below fold (`sliverList_all.png`). Brand wants "forms that breathe" (`docs/ux/uxd-handoff.md:118`).
 
 ## Decisions for the user
 
-**Decided 2026-11-07:** D1 drop the rail · D2 all-terracotta dots · D3 consolidate · D4 segmented switch · D6 hollow rings. D5 was not raised; the recommendation (keep the treemap) stands. Every task below runs as written.
+**Decided 2026-11-07:** D1 drop the rail · D2 all-terracotta dots · D3 consolidate · D4 segmented switch · D6 hollow rings. D5 not raised; recommendation (keep treemap) stands. Every task below runs as written.
 
-Each decision has a recommendation. **The tasks implement the recommended option**, and each task says what changes if you pick otherwise.
+Each decision has recommendation. **Tasks implement recommended option**; each task says what changes if otherwise.
 
 | # | Decision | Recommendation | If you choose otherwise |
 |---|---|---|---|
-| D1 | Drop the **painter rail**? (Finding 8) | **Drop it.** It is visually covered by the zoom canvas's years level and technically covered by the tree graph. Fold its README a11y notes into the tree graph row. | Skip Task 1. The rail gets the same treatment as the zoom canvas in Tasks 2–5, 10 and 11. The rail sub-steps are written inline, marked *(only if D1 = keep)*. |
-| D2 | How do markers encode **family**? (Finding 3) | **(a)** Every story dot is terracotta, as in the product. Family is shown by lanes and labels, and moss is reserved for origin rings. | **(b)** Keep three family colours but make Okafor `labInk` instead of moss. The variant code is in Task 5. |
-| D3 | **Consolidate shell controls** (Finding 6)? | **Yes:** Sweep/Steps and speed go into one options menu labelled with the current state (`Sweep · 1×`). Dataset size and the performance overlay go into one bench menu. Hide/Dim and the playback caption move into the status row. | Skip the matching steps in Task 6. Fix only the clipped dropdown labels with `toolbarHeight: 72`. |
-| D4 | Renderer picker as a **segmented switch** instead of a dropdown? | **Yes.** Switching renderer is the lab's core action, and a switch makes it one tap. It also matches the product's "one quiet row" zoom switch (`docs/ux/uxd-handoff.md:171`). | Keep the `DropdownMenu` and add `toolbarHeight: 72` so its label is not clipped. |
-| D5 | **Treemap**: keep it, and keep count order? | **Keep it** as the only area-encoding overview, restyled in Task 14. Keep squarified count order, because a chronological order needs a different layout algorithm (out of scope). | Dropping it means repeating Task 1 for `treemap*` files. |
-| D6 | **Dimmed marker = hollow ring** instead of 35% opacity? (Finding 2) | **Yes.** Filled means match and hollow means dimmed. The terracotta stroke stays at 5.18:1, and the signal no longer relies on colour or opacity alone. | Keep `labDimOpacity` on markers. In Task 10, make `paintStoryMarker` draw `color.withValues(alpha: labDimOpacity)` filled instead of the hollow ring, and delete the hollow-radius test. |
+| D1 | Drop **painter rail**? (Finding 8) | **Drop.** Visually covered by zoom canvas years LOD, technically by tree graph. Fold README a11y notes into tree graph row. | Skip Task 1. Rail gets same treatment as zoom canvas in Tasks 2–5, 10, 11. Rail sub-steps inline, marked *(only if D1 = keep)*. |
+| D2 | How markers encode **family**? (Finding 3) | **(a)** Every story dot terracotta, as product. Family via lanes + labels; moss reserved for origin rings. | **(b)** Keep three family colours, Okafor `labInk` not moss. Variant code in Task 5. |
+| D3 | **Consolidate shell controls** (Finding 6)? | **Yes:** Sweep/Steps + speed into one options menu labelled with state (`Sweep · 1×`). Dataset size + perf overlay into one bench menu. Hide/Dim + playback caption into status row. | Skip matching steps in Task 6. Fix only clipped dropdown labels with `toolbarHeight: 72`. |
+| D4 | Renderer picker as **segmented switch** not dropdown? | **Yes.** Switching renderer = lab's core action; switch makes it one tap. Matches product "one quiet row" zoom switch (`docs/ux/uxd-handoff.md:171`). | Keep `DropdownMenu`, add `toolbarHeight: 72` so label not clipped. |
+| D5 | **Treemap**: keep, keep count order? | **Keep** as only area-encoding overview, restyled in Task 14. Keep squarified count order; chronological needs different layout algorithm (out of scope). | Dropping = repeat Task 1 for `treemap*` files. |
+| D6 | **Dimmed marker = hollow ring** instead of 35% opacity? (Finding 2) | **Yes.** Filled = match, hollow = dimmed. Terracotta stroke stays 5.18:1; signal no longer relies on colour/opacity alone. | Keep `labDimOpacity` on markers. In Task 10, `paintStoryMarker` draws `color.withValues(alpha: labDimOpacity)` filled instead of hollow ring; delete hollow-radius test. |
 
 ## Coordination with the iPad plan
 
-The iPad plan is written in parallel and saved alongside this file in `docs/superpowers/plans/`. The two plans were aligned through a direct exchange.
+iPad plan written in parallel, saved beside this file in `docs/superpowers/plans/`. Plans aligned via direct exchange.
 
 **Ownership.**
-- **This plan** owns colours, type, spacing, radii, strokes, markers, axis styling, and which controls exist and how they merge.
-- **The iPad plan** owns breakpoints, filter placement (sidebar or sheet), card and column widths, hit radii and gesture handling, keyboard shortcuts, SafeArea, orientation and the selected-panel max height.
+- **This plan** owns colours, type, spacing, radii, strokes, markers, axis styling, which controls exist + how they merge.
+- **iPad plan** owns breakpoints, filter placement (sidebar or sheet), card + column widths, hit radii + gestures, keyboard shortcuts, SafeArea, orientation, selected-panel max height.
 
-**Order.** Design Tasks 1–10 (phases 1–2), then the iPad plan, then design Tasks 11–17 (phase 3).
+**Order.** Design Tasks 1–10 (phases 1–2), then iPad plan, then design Tasks 11–17 (phase 3).
 
-**Stable keys** that the iPad plan addresses: `renderer-picker`, `dataset-size`, `playback-design`, `playback-bar`, `playback-caption`, `status-bar`, `selected-panel`, `filter-search`, `filter-era`, `filter-mode`, `playback-play`, `playback-prev`, `playback-next`, `playback-stop`, `playback-scrubber`.
-- Task 6 keeps all of them.
+**Stable keys** iPad plan addresses: `renderer-picker`, `dataset-size`, `playback-design`, `playback-bar`, `playback-caption`, `status-bar`, `selected-panel`, `filter-search`, `filter-era`, `filter-mode`, `playback-play`, `playback-prev`, `playback-next`, `playback-stop`, `playback-scrubber`.
+- Task 6 keeps all.
 - `filter-mode` and `playback-caption` move inside `status-bar`.
-- `playback-speed` is **removed**. Speed now lives in the `playback-design` menu as `playback-speed-<value>` items.
+- `playback-speed` **removed**. Speed now in `playback-design` menu as `playback-speed-<value>` items.
 
-**Tokens.** Task 8 creates the `abstract final class Lab*` token pattern in `lib/theme/lab_theme.dart`. The iPad plan adds `abstract final class LabTarget { static const min = 44.0; static const touchSlop = 22.0; }` in the same file and style. There must be no second token convention.
+**Tokens.** Task 8 creates `abstract final class Lab*` token pattern in `lib/theme/lab_theme.dart`. iPad plan adds `abstract final class LabTarget { static const min = 44.0; static const touchSlop = 22.0; }` in same file + style. No second token convention.
 
 **Shared files.**
-- **`lib/lab_app.dart`:** this plan edits the AppBar (Task 6), the status row (Task 6) and the renderer slot (Task 16). The iPad plan edits the body layout (breakpoint, sheet, SafeArea, Shortcuts) and does not touch AppBar contents. Task 6 fixes the app-bar overflow the iPad plan measured at 320–375 px wide. The iPad plan then adds a 320-px no-overflow test.
-- **`painter_rail_renderer.dart`:** if D1 = drop (Task 1), the iPad plan's rail hit-test tasks are void.
-- **`zoom_canvas_renderer.dart`, `tree_graph_layout.dart`, `swimlanes_renderer.dart` (`LaneCell`):** the iPad plan edits hit-testing. This plan edits paint and styling only.
-  - Task 10's `StoryDot` grows the zoom year-dot widget from 10 px to 26 px, which also enlarges its tap area. The iPad plan's minimum-target work should measure after Task 10.
-- **Goldens:** both plans regenerate them. Run each plan's golden update only after its own tasks. Then check `git status --short test/goldens/` against the task's list.
+- **`lib/lab_app.dart`:** this plan edits AppBar (Task 6), status row (Task 6), renderer slot (Task 16). iPad plan edits body layout (breakpoint, sheet, SafeArea, Shortcuts), not AppBar contents. Task 6 fixes app-bar overflow iPad plan measured at 320–375 px wide. iPad plan then adds 320-px no-overflow test.
+- **`painter_rail_renderer.dart`:** if D1 = drop (Task 1), iPad plan's rail hit-test tasks void.
+- **`zoom_canvas_renderer.dart`, `tree_graph_layout.dart`, `swimlanes_renderer.dart` (`LaneCell`):** iPad plan edits hit-testing. This plan edits paint + styling only.
+  - Task 10's `StoryDot` grows zoom year-dot widget 10 px → 26 px, enlarging tap area. iPad min-target work should measure after Task 10.
+- **Goldens:** both plans regenerate. Run each plan's golden update only after own tasks. Then check `git status --short test/goldens/` against task's list.
 
-**Scratch files.** `test/zz_ipad_scratch_test.dart` and `test/zz_ipad2_scratch_test.dart` belong to the iPad planner and are deleted by it. If they still exist when this plan runs, delete them before Task 1, because they reference `painter_rail_renderer.dart` and `playback-speed`.
+**Scratch files.** `test/zz_ipad_scratch_test.dart` and `test/zz_ipad2_scratch_test.dart` belong to iPad planner, deleted by it. If still present when this plan runs, delete before Task 1 — they reference `painter_rail_renderer.dart` and `playback-speed`.
 
 ## File structure
 
@@ -143,27 +143,27 @@ Created:
 
 | File | Responsibility |
 |---|---|
-| `lib/renderers/time_scale.dart` | `TimeScale`: the only fractional-year ↔ px mapping, plus year/decade/month ticks. |
+| `lib/renderers/time_scale.dart` | `TimeScale`: only fractional-year ↔ px mapping, plus year/decade/month ticks. |
 | `lib/renderers/canvas_label.dart` | `CanvasLabel` / `paintLabel`: one-line canvas text with anchor maths. |
-| `lib/renderers/time_axis_painter.dart` | `timeAxisMarks` (pure), `paintTimeAxis`, `paintSpineLabels`: the one axis look. |
-| `lib/widgets/view_switch.dart` | `ViewSwitch<T>`: the one in-renderer "group by" switch. |
-| `lib/widgets/empty_timeline.dart` | `EmptyTimeline`: the one empty state, with Clear filters. |
-| `test/time_scale_test.dart`, `test/canvas_label_test.dart`, `test/camera_follow_test.dart`, `test/lab_theme_test.dart`, `test/story_card_test.dart`, `test/story_marker_test.dart`, `test/time_axis_painter_test.dart` | Unit and widget tests for the above. |
-| `test/support/contrast.dart` | WCAG contrast helper shared by the theme and treemap tests. |
-| `test/goldens/sliverList_empty.png` | Visual record of the empty state. |
+| `lib/renderers/time_axis_painter.dart` | `timeAxisMarks` (pure), `paintTimeAxis`, `paintSpineLabels`: one axis look. |
+| `lib/widgets/view_switch.dart` | `ViewSwitch<T>`: one in-renderer "group by" switch. |
+| `lib/widgets/empty_timeline.dart` | `EmptyTimeline`: one empty state, with Clear filters. |
+| `test/time_scale_test.dart`, `test/canvas_label_test.dart`, `test/camera_follow_test.dart`, `test/lab_theme_test.dart`, `test/story_card_test.dart`, `test/story_marker_test.dart`, `test/time_axis_painter_test.dart` | Unit + widget tests for above. |
+| `test/support/contrast.dart` | WCAG contrast helper shared by theme + treemap tests. |
+| `test/goldens/sliverList_empty.png` | Visual record of empty state. |
 
 Modified:
 
 | File | Change |
 |---|---|
-| `lib/theme/lab_theme.dart` | Token classes, rule/sage tints, component themes (segmented, chip, input, menu, text button). `labCardRadius` is replaced by `LabRadius.card`. |
-| `lib/renderers/story_marker.dart` | `MarkerSpec`, `paintStoryMarker`, `StoryDot`. `markerColor` and `entryOpacity` are deleted. |
+| `lib/theme/lab_theme.dart` | Token classes, rule/sage tints, component themes (segmented, chip, input, menu, text button). `labCardRadius` replaced by `LabRadius.card`. |
+| `lib/renderers/story_marker.dart` | `MarkerSpec`, `paintStoryMarker`, `StoryDot`. `markerColor` + `entryOpacity` deleted. |
 | `lib/playback/reveal.dart` | `kFollowAt`, `kFocusAlignment`, `scrollOffsetToPlace`, `paintPlaybackCursor`. |
 | `lib/renderers/renderer_contract.dart` | Drop `painterRail` (D1). Add `TimelineViewData.anyDimmed`. |
-| `lib/renderers/{zoom_canvas,render_box_layout,swimlanes,tree_graph,treemap,sliver_list}_renderer.dart`, `treemap_layout.dart`, `tree_graph_layout.dart` | Use the shared primitives and tokens. |
-| `lib/lab_app.dart`, `lib/widgets/playback_bar.dart`, `lib/widgets/filter_panel.dart`, `lib/widgets/story_card.dart` | Shell consolidation and the card restyle. |
+| `lib/renderers/{zoom_canvas,render_box_layout,swimlanes,tree_graph,treemap,sliver_list}_renderer.dart`, `treemap_layout.dart`, `tree_graph_layout.dart` | Use shared primitives + tokens. |
+| `lib/lab_app.dart`, `lib/widgets/playback_bar.dart`, `lib/widgets/filter_panel.dart`, `lib/widgets/story_card.dart` | Shell consolidation + card restyle. |
 | `lib/playback/playback_controller.dart` | Drop `painterRail` from `defaultDesignFor` (D1). |
-| `test/golden_test.dart`, `test/lab_app_test.dart`, `test/playback_controller_test.dart`, `test/tree_graph_test.dart`, `test/treemap_test.dart`, `test/zoom_canvas_test.dart` | Follow the changes. |
+| `test/golden_test.dart`, `test/lab_app_test.dart`, `test/playback_controller_test.dart`, `test/tree_graph_test.dart`, `test/treemap_test.dart`, `test/zoom_canvas_test.dart` | Follow changes. |
 | `README.md` | Renderer list, controls, visual system, LOC column. |
 
 Deleted (D1): `lib/renderers/painter_rail_renderer.dart`, `test/painter_rail_test.dart`, `test/goldens/painterRail_{all,dim,hide,playback}.png`.
@@ -174,13 +174,13 @@ Deleted (D1): `lib/renderers/painter_rail_renderer.dart`, `test/painter_rail_tes
 
 ### Task 1: Drop the painter rail (D1)
 
-*Skip this task if D1 = keep.*
+*Skip if D1 = keep.*
 
 **Files:**
 - Delete: `lib/renderers/painter_rail_renderer.dart`, `test/painter_rail_test.dart`, `test/goldens/painterRail_all.png`, `painterRail_dim.png`, `painterRail_hide.png`, `painterRail_playback.png`
 - Modify: `lib/renderers/renderer_contract.dart:6,16,25,73`, `lib/playback/playback_controller.dart:33-41`, `test/lab_app_test.dart:6,84-107,193`, `test/playback_controller_test.dart:107`, `README.md:3-4,37,41,56,61,68-69,95,136,143,154`
 
-- [ ] **Step 1: Write the failing test.** In `test/lab_app_test.dart`, delete the import on line 6 (`painter_rail_renderer.dart`). Replace the `roots` map in the "renderer picker switches the renderer" test (lines 86-94) with the following, and add the length expectation right after it:
+- [ ] **Step 1: Write the failing test.** In `test/lab_app_test.dart`, delete import line 6 (`painter_rail_renderer.dart`). Replace `roots` map in "renderer picker switches the renderer" test (lines 86-94) with below; add length expectation right after:
 
 ```dart
     const roots = {
@@ -194,9 +194,9 @@ Deleted (D1): `lib/renderers/painter_rail_renderer.dart`, `test/painter_rail_tes
     expect(RendererKind.values, hasLength(roots.length));
 ```
 
-  On line 193, change `c.setRenderer(RendererKind.painterRail);` to `c.setRenderer(RendererKind.zoomCanvas);`.
+  Line 193: `c.setRenderer(RendererKind.painterRail);` → `c.setRenderer(RendererKind.zoomCanvas);`.
 
-  In `test/playback_controller_test.dart:107`, change `lab.setRenderer(RendererKind.painterRail);` to `lab.setRenderer(RendererKind.zoomCanvas);`.
+  `test/playback_controller_test.dart:107`: `lab.setRenderer(RendererKind.painterRail);` → `lab.setRenderer(RendererKind.zoomCanvas);`.
 
 - [ ] **Step 2: Run it and check it fails.**
   - Run: `flutter test test/lab_app_test.dart --plain-name "renderer picker"`
@@ -210,7 +210,7 @@ git rm lib/renderers/painter_rail_renderer.dart test/painter_rail_test.dart \
   test/goldens/painterRail_hide.png test/goldens/painterRail_playback.png
 ```
 
-  In `lib/renderers/renderer_contract.dart`, delete line 6 (`import 'painter_rail_renderer.dart';`), line 16 (`painterRail,`), line 25 (`painterRail => 'Painter rail',`) and line 73 (`RendererKind.painterRail => PainterRailTimeline(data: data),`).
+  In `lib/renderers/renderer_contract.dart`, delete line 6 (`import 'painter_rail_renderer.dart';`), line 16 (`painterRail,`), line 25 (`painterRail => 'Painter rail',`), line 73 (`RendererKind.painterRail => PainterRailTimeline(data: data),`).
 
   In `lib/playback/playback_controller.dart`, replace lines 33-41 with:
 
@@ -226,16 +226,16 @@ git rm lib/renderers/painter_rail_renderer.dart test/painter_rail_test.dart \
 ```
 
 - [ ] **Step 4: Update `README.md`.**
-  - **Lines 3-4:** replace "seven renderers (five timelines, a tree graph and a treemap)" with "six renderers (four timelines, a tree graph and a treemap)".
-  - **Line 37:** replace "(default for the painter rail, zoom canvas, swimlanes, tree graph" with "(default for the zoom canvas, swimlanes, tree graph".
-  - **Line 41:** replace "a line (rail, zoom)" with "a line (zoom)".
-  - **Line 56:** replace "The rail's `+N`, the swimlane `+N`" with "The swimlane `+N`".
-  - **Line 61:** replace "the rail and the RenderBox axis only" with "the RenderBox axis only".
-  - **Lines 68-69:** replace "The painter rail's semantics list every story at all times; playback is visual only there." with "The tree graph's semantics list every node at all times; playback is visual only there."
-  - **Line 95:** delete the "Painter rail" golden-index row.
+  - **Lines 3-4:** "seven renderers (five timelines, a tree graph and a treemap)" → "six renderers (four timelines, a tree graph and a treemap)".
+  - **Line 37:** "(default for the painter rail, zoom canvas, swimlanes, tree graph" → "(default for the zoom canvas, swimlanes, tree graph".
+  - **Line 41:** "a line (rail, zoom)" → "a line (zoom)".
+  - **Line 56:** "The rail's `+N`, the swimlane `+N`" → "The swimlane `+N`".
+  - **Line 61:** "the rail and the RenderBox axis only" → "the RenderBox axis only".
+  - **Lines 68-69:** "The painter rail's semantics list every story at all times; playback is visual only there." → "The tree graph's semantics list every node at all times; playback is visual only there."
+  - **Line 95:** delete "Painter rail" golden-index row.
   - **Line 136:** delete "`painter_rail_test.dart`, ".
-  - **Line 143:** delete the "B. Painter rail" comparison row, and add one sentence to the end of the F (tree graph) row's "Text & a11y" cell: "This is the lab's only `CustomPainterSemantics` renderer since the painter rail was removed (it duplicated the zoom canvas's years level)."
-  - **Line 154:** replace "(B, C, D)" with "(C, D)".
+  - **Line 143:** delete "B. Painter rail" comparison row; append one sentence to F (tree graph) row's "Text & a11y" cell: "This is the lab's only `CustomPainterSemantics` renderer since the painter rail was removed (it duplicated the zoom canvas's years level)."
+  - **Line 154:** "(B, C, D)" → "(C, D)".
 
 - [ ] **Step 5: Run the tests and check they pass.**
   - Run: `flutter test test/lab_app_test.dart test/playback_controller_test.dart`
@@ -243,9 +243,9 @@ git rm lib/renderers/painter_rail_renderer.dart test/painter_rail_test.dart \
 
 - [ ] **Step 6: Run the Gate.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
-  - Expected: `No issues found!`, exit 0, `All tests passed!` with 104 − 9 = 95 tests (5 rail unit tests and 4 rail goldens removed).
+  - Expected: `No issues found!`, exit 0, `All tests passed!` with 104 − 9 = 95 tests (5 rail unit tests + 4 rail goldens removed).
   - Run: `git status --short test/goldens/`
-  - Expected: only the four `D test/goldens/painterRail_*.png` lines.
+  - Expected: only four `D test/goldens/painterRail_*.png` lines.
 
 - [ ] **Step 7: Commit.**
 
@@ -330,7 +330,7 @@ void main() {
 
 - [ ] **Step 2: Run it and check it fails.**
   - Run: `flutter test test/time_scale_test.dart`
-  - Expected: FAIL to compile, with `Target of URI doesn't exist: 'package:timeline_lab/renderers/time_scale.dart'`.
+  - Expected: FAIL to compile, `Target of URI doesn't exist: 'package:timeline_lab/renderers/time_scale.dart'`.
 
 - [ ] **Step 3: Implement** `lib/renderers/time_scale.dart`:
 
@@ -427,14 +427,14 @@ class TimeTick {
   double get worldWidth => _scale.span;
 ```
 
-  Then make these replacements:
-  - Replace every remaining `_xFor(` with `_scale.toPx(`. That covers lines 117, 137, 160, 217, 294, 359 and 400.
-  - Delete `_yearAt` (line 342), and replace its two calls (lines 348-349) with `_scale.toYear(`.
-  - In the `_ZoomAxisPainter(...)` call (lines 207-218), replace `minYear: minYear,` and `maxYear: maxYear,` with `timeScale: _scale,`.
+  Then:
+  - Every remaining `_xFor(` → `_scale.toPx(`. Covers lines 117, 137, 160, 217, 294, 359, 400.
+  - Delete `_yearAt` (line 342); its two calls (lines 348-349) → `_scale.toYear(`.
+  - In `_ZoomAxisPainter(...)` call (lines 207-218), replace `minYear: minYear,` and `maxYear: maxYear,` with `timeScale: _scale,`.
 
   In `_ZoomAxisPainter`:
-  - Replace the fields `final int minYear;` and `final int maxYear;` with `final TimeScale timeScale;`, and update the constructor parameters to match.
-  - In `shouldRepaint`, replace `old.minYear != minYear || old.maxYear != maxYear ||` with `old.timeScale != timeScale ||`.
+  - Fields `final int minYear;` and `final int maxYear;` → `final TimeScale timeScale;`; update constructor params to match.
+  - In `shouldRepaint`, `old.minYear != minYear || old.maxYear != maxYear ||` → `old.timeScale != timeScale ||`.
   - Replace lines 542-565 with:
 
 ```dart
@@ -482,10 +482,10 @@ class TimeTick {
   );
 ```
 
-  Then make these replacements:
-  - Replace `_yFor(` with `_scale.toPx(` at lines 340, 366 and 406.
-  - Replace `(maxYear - minYear + 1) * pxPerYear` at line 354 with `_scale.span`.
-  - Replace the tick loop at lines 372-381 with:
+  Then:
+  - `_yFor(` → `_scale.toPx(` at lines 340, 366, 406.
+  - `(maxYear - minYear + 1) * pxPerYear` at line 354 → `_scale.span`.
+  - Tick loop at lines 372-381 → :
 
 ```dart
     for (final t in _scale.yearTicks()) {
@@ -498,7 +498,7 @@ class TimeTick {
     }
 ```
 
-  - Replace the decade loop header at lines 422-424 (`firstDecade`, `for (var y = firstDecade; …)`, `final ty = _yFor(…)`) with the following. In the loop body, use `'${t.year}'` for the text and `t.px` in place of `ty`.
+  - Decade loop header at lines 422-424 (`firstDecade`, `for (var y = firstDecade; …)`, `final ty = _yFor(…)`) → below. In loop body, use `'${t.year}'` for text and `t.px` in place of `ty`.
 
 ```dart
     for (final t in _scale.yearTicks()) {
@@ -507,7 +507,7 @@ class TimeTick {
 
 - [ ] **Step 7: Migrate the swimlanes.**
 
-  In `lib/renderers/swimlanes_renderer.dart`, add `import 'time_scale.dart';` and add this getter to `_SwimlanesTimelineState`:
+  In `lib/renderers/swimlanes_renderer.dart`, add `import 'time_scale.dart';` and this getter to `_SwimlanesTimelineState`:
 
 ```dart
   TimeScale get _scale => TimeScale(
@@ -517,18 +517,18 @@ class TimeTick {
   );
 ```
 
-  Then make these replacements:
-  - Replace lines 99-100 (`final right = …`) with `final right = _scale.toPx(newest.start.year + 1.0);`.
+  Then:
+  - Lines 99-100 (`final right = …`) → `final right = _scale.toPx(newest.start.year + 1.0);`.
   - Delete `_cursorX` (lines 114-115).
-  - In `_follow`, replace `_cursorX(year)` with `_scale.toPx(year)`.
-  - At line 242, replace `xForYear: _cursorX,` with `xForYear: (y) => _scale.toPx(y),`.
+  - In `_follow`, `_cursorX(year)` → `_scale.toPx(year)`.
+  - Line 242: `xForYear: _cursorX,` → `xForYear: (y) => _scale.toPx(y),`.
 
-  *(Only if D1 = keep)* In `painter_rail_renderer.dart`, add `late final TimeScale scale = TimeScale(minYear: minYear, maxYear: maxYear, pxPerYear: pxPerYear, leading: leftPad);` to `PainterRailGeometry`. Replace the body of `xForYear` with `scale.toPx(fractionalYear)`, and replace the axis loop at lines 323-332 with `for (final t in g.scale.yearTicks())`, using `t.px` and `t.kind == TickKind.decade`.
+  *(Only if D1 = keep)* In `painter_rail_renderer.dart`, add `late final TimeScale scale = TimeScale(minYear: minYear, maxYear: maxYear, pxPerYear: pxPerYear, leading: leftPad);` to `PainterRailGeometry`. `xForYear` body → `scale.toPx(fractionalYear)`; axis loop at lines 323-332 → `for (final t in g.scale.yearTicks())`, using `t.px` and `t.kind == TickKind.decade`.
 
 - [ ] **Step 8: Run the tests and the unchanged goldens.**
   - Run: `flutter test test/time_scale_test.dart test/zoom_canvas_test.dart test/render_box_layout_test.dart test/swimlanes_test.dart test/golden_test.dart`
-  - Expected: PASS with **no golden diffs**. The arithmetic is the same, apart from floating-point reordering in the month ticks.
-  - If `zoomCanvas_lod_cards` fails, inspect `test/failures/` (the diff must be invisible). Then regenerate only that file with `flutter test --update-goldens test/golden_test.dart --plain-name "zoomCanvas_lod_cards"`.
+  - Expected: PASS, **no golden diffs**. Arithmetic same, except floating-point reordering in month ticks.
+  - If `zoomCanvas_lod_cards` fails, inspect `test/failures/` (diff must be invisible). Then regenerate only that file: `flutter test --update-goldens test/golden_test.dart --plain-name "zoomCanvas_lod_cards"`.
 
 - [ ] **Step 9: Run the Gate.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -666,7 +666,7 @@ Rect paintLabel(
   - Run: `flutter test test/canvas_label_test.dart`
   - Expected: PASS (3 tests).
 
-- [ ] **Step 5: Migrate the zoom axis label.** In `lib/renderers/zoom_canvas_renderer.dart`, add `import 'canvas_label.dart';` and replace `_label` (lines 522-534) with:
+- [ ] **Step 5: Migrate the zoom axis label.** In `lib/renderers/zoom_canvas_renderer.dart`, add `import 'canvas_label.dart';`, replace `_label` (lines 522-534) with:
 
 ```dart
   void _label(Canvas canvas, String text, Offset at) {
@@ -685,7 +685,7 @@ Rect paintLabel(
   }
 ```
 
-- [ ] **Step 6: Migrate the RenderBox decade pills.** In `lib/renderers/render_box_layout_renderer.dart`, add `import 'canvas_label.dart';`. Replace the body of the decade loop (the `TextPainter … tp.dispose();` block written in Task 2) with:
+- [ ] **Step 6: Migrate the RenderBox decade pills.** In `lib/renderers/render_box_layout_renderer.dart`, add `import 'canvas_label.dart';`. Replace decade loop body (`TextPainter … tp.dispose();` block from Task 2) with:
 
 ```dart
       final label = CanvasLabel('${t.year}', labelStyle);
@@ -703,8 +703,8 @@ Rect paintLabel(
 ```
 
 - [ ] **Step 7: Migrate the tree labels.** In `lib/renderers/tree_graph_renderer.dart`, add `import 'canvas_label.dart';`.
-  - Change `final Map<TreeNode, TextPainter> _labels = {};` (line 202) to `final Map<TreeNode, CanvasLabel> _labels = {};`.
-  - Change the return type of `_label` to `CanvasLabel`, and replace its `return TextPainter(…)..layout(…);` with:
+  - `final Map<TreeNode, TextPainter> _labels = {};` (line 202) → `final Map<TreeNode, CanvasLabel> _labels = {};`.
+  - `_label` return type → `CanvasLabel`; replace its `return TextPainter(…)..layout(…);` with:
 
 ```dart
     return CanvasLabel(
@@ -714,7 +714,7 @@ Rect paintLabel(
     );
 ```
 
-  - Replace the overflow text block (lines 282-290, from `final tp = TextPainter(` to `tp.dispose();`) with:
+  - Overflow text block (lines 282-290, `final tp = TextPainter(` to `tp.dispose();`) → :
 
 ```dart
         paintLabel(
@@ -726,11 +726,11 @@ Rect paintLabel(
         );
 ```
 
-  - In the label placement (lines 315-317), replace `label.height` with `label.size.height`. `label.paint(canvas, at)` and `at & label.size` keep working unchanged.
+  - Label placement (lines 315-317): `label.height` → `label.size.height`. `label.paint(canvas, at)` and `at & label.size` work unchanged.
 
   *(Only if D1 = keep)* In `painter_rail_renderer.dart`:
-  - Replace `_text(...)` calls with `paintLabel(canvas, s, labelStyle, at)` and delete `_text`.
-  - Replace the badge `TextPainter` block (lines 385-393) with `paintLabel(canvas, '+$shown', labelStyle.copyWith(color: labParchment, fontSize: 8), b.at, anchor: Alignment.center);`.
+  - `_text(...)` calls → `paintLabel(canvas, s, labelStyle, at)`; delete `_text`.
+  - Badge `TextPainter` block (lines 385-393) → `paintLabel(canvas, '+$shown', labelStyle.copyWith(color: labParchment, fontSize: 8), b.at, anchor: Alignment.center);`.
 
 - [ ] **Step 8: Run the affected tests and the unchanged goldens.**
   - Run: `flutter test test/canvas_label_test.dart test/tree_graph_test.dart test/zoom_canvas_test.dart test/golden_test.dart`
@@ -788,7 +788,7 @@ void main() {
   - Run: `flutter test test/camera_follow_test.dart`
   - Expected: FAIL, `Undefined name 'scrollOffsetToPlace'`.
 
-- [ ] **Step 3: Implement.** In `lib/playback/reveal.dart`, replace lines 1-3 with the block below. Then at line 159, replace `alignment: 0.4,` with `alignment: kFocusAlignment,`.
+- [ ] **Step 3: Implement.** In `lib/playback/reveal.dart`, replace lines 1-3 with block below. Then line 159: `alignment: 0.4,` → `alignment: kFocusAlignment,`.
 
 ```dart
 import 'package:flutter/widgets.dart';
@@ -833,18 +833,18 @@ void paintPlaybackCursor(
 
 - [ ] **Step 5: Migrate the call sites.**
 
-  **Swimlanes:** In `swimlanes_renderer.dart`, replace the open-at-newest jump (lines 98-101) with:
+  **Swimlanes:** In `swimlanes_renderer.dart`, replace open-at-newest jump (lines 98-101) with:
 
 ```dart
       final right = _scale.toPx(newest.start.year + 1.0);
       _hCtl.jumpTo(scrollOffsetToPlace(right, _hCtl.position, 1));
 ```
 
-  Replace the body of `_follow` after the guard (lines 122-125) with `_hCtl.jumpTo(scrollOffsetToPlace(_scale.toPx(year), _hCtl.position, kFollowAt));`. In `_CursorPainter.paint`, replace the `canvas.drawLine(…)` (lines 278-284) with `paintPlaybackCursor(canvas, Offset(x, 0), Offset(x, size.height));`.
+  `_follow` body after guard (lines 122-125) → `_hCtl.jumpTo(scrollOffsetToPlace(_scale.toPx(year), _hCtl.position, kFollowAt));`. In `_CursorPainter.paint`, `canvas.drawLine(…)` (lines 278-284) → `paintPlaybackCursor(canvas, Offset(x, 0), Offset(x, size.height));`.
 
-  **Zoom canvas:** In `zoom_canvas_renderer.dart`, add `import '../playback/reveal.dart';`. Make these replacements:
-  - Line 160: `_viewport.width * 0.65` becomes `_viewport.width * kFollowAt`.
-  - Lines 566-575: the cursor block becomes the following.
+  **Zoom canvas:** In `zoom_canvas_renderer.dart`, add `import '../playback/reveal.dart';`. Then:
+  - Line 160: `_viewport.width * 0.65` → `_viewport.width * kFollowAt`.
+  - Lines 566-575: cursor block → :
 
 ```dart
     final cx = cursorX;
@@ -858,9 +858,9 @@ void paintPlaybackCursor(
     }
 ```
 
-  **RenderBox:** In `render_box_layout_renderer.dart`, replace the cursor `canvas.drawLine(…)` (lines 407-413) with `paintPlaybackCursor(canvas, offset + Offset(0, cy), offset + Offset(size.width, cy));`.
+  **RenderBox:** In `render_box_layout_renderer.dart`, cursor `canvas.drawLine(…)` (lines 407-413) → `paintPlaybackCursor(canvas, offset + Offset(0, cy), offset + Offset(size.width, cy));`.
 
-  **Tree graph:** In `tree_graph_renderer.dart`, replace the `_vCtl.jumpTo(…)` in `_scrollToStory` (lines 76-81) with:
+  **Tree graph:** In `tree_graph_renderer.dart`, `_vCtl.jumpTo(…)` in `_scrollToStory` (lines 76-81) → :
 
 ```dart
     _vCtl.jumpTo(
@@ -873,9 +873,9 @@ void paintPlaybackCursor(
 ```
 
   *(Only if D1 = keep)* In `painter_rail_renderer.dart`:
-  - The body of `_scrollTo` becomes `_hCtl.jumpTo(scrollOffsetToPlace(x, _hCtl.position, fraction));`.
+  - `_scrollTo` body → `_hCtl.jumpTo(scrollOffsetToPlace(x, _hCtl.position, fraction));`.
   - `_follow` uses `kFollowAt`.
-  - The cursor (lines 396-406) becomes `paintPlaybackCursor(canvas, Offset(x, baseY - 4), Offset(x, size.height));`.
+  - Cursor (lines 396-406) → `paintPlaybackCursor(canvas, Offset(x, baseY - 4), Offset(x, size.height));`.
 
 - [ ] **Step 6: Run the affected tests and the unchanged goldens.**
   - Run: `flutter test test/camera_follow_test.dart test/lab_app_test.dart test/tree_graph_test.dart test/golden_test.dart`
@@ -894,12 +894,12 @@ git commit -m "refactor(lab): one playback cursor and one follow/focus rule"
 
 ### Task 5: One story colour (D2)
 
-**Goldens expected to change (D2 = a):** `sliverList_{all,dim,hide,playback,narrow}`, `swimlanes_{all,dim,hide,playback}`, `treeGraph_{all,dim,hide,playback}`, `zoomCanvas_lod_years` (14 files). The sage and moss story dots become terracotta. **Guard:** `flutter analyze` (no reference to `markerColor` or `TreemapColor` survives) and the goldens. No new unit test: this task deletes a mapping.
+**Goldens expected to change (D2 = a):** `sliverList_{all,dim,hide,playback,narrow}`, `swimlanes_{all,dim,hide,playback}`, `treeGraph_{all,dim,hide,playback}`, `zoomCanvas_lod_years` (14 files). Sage + moss story dots become terracotta. **Guard:** `flutter analyze` (no `markerColor` or `TreemapColor` reference survives) + goldens. No new unit test: task deletes a mapping.
 
 **Files:**
 - Modify: `lib/renderers/story_marker.dart:7-12`, `lib/renderers/sliver_list_renderer.dart:173-176`, `lib/renderers/zoom_canvas_renderer.dart:372-375`, `lib/renderers/swimlanes_renderer.dart:334,356,395-411`, `lib/renderers/tree_graph_renderer.dart:227-235`, `lib/renderers/treemap_layout.dart:94-119,136-192`, `lib/renderers/treemap_renderer.dart:130-134,207-221,229-263,347-350`
 
-- [ ] **Step 1: Delete `markerColor`.** Delete lines 7-12 of `story_marker.dart`. In their place (above `isOrigin`'s own doc comment, separated by a blank line), write this plain comment:
+- [ ] **Step 1: Delete `markerColor`.** Delete lines 7-12 of `story_marker.dart`. In their place (above `isOrigin`'s doc comment, blank line between), write plain comment:
 
 ```dart
 // Story dots are terracotta in every renderer; family shows through lanes
@@ -908,12 +908,12 @@ git commit -m "refactor(lab): one playback cursor and one follow/focus rule"
 ```
 
 - [ ] **Step 2: Replace the call sites with `labTerracotta`.**
-  - `sliver_list_renderer.dart:173-176`: `color: markerColor(s, data.dataset).withValues(alpha: entryOpacity(entry)),` becomes `color: labTerracotta.withValues(alpha: entryOpacity(entry)),`.
-  - `zoom_canvas_renderer.dart:372-375`: `color: markerColor(e.story, data.dataset).withValues(alpha: entryOpacity(e)),` becomes `color: labTerracotta.withValues(alpha: entryOpacity(e)),`.
+  - `sliver_list_renderer.dart:173-176`: `color: markerColor(s, data.dataset).withValues(alpha: entryOpacity(entry)),` → `color: labTerracotta.withValues(alpha: entryOpacity(entry)),`.
+  - `zoom_canvas_renderer.dart:372-375`: `color: markerColor(e.story, data.dataset).withValues(alpha: entryOpacity(e)),` → `color: labTerracotta.withValues(alpha: entryOpacity(e)),`.
   - `swimlanes_renderer.dart`:
-    - Delete the `color` field and parameter from `_Dot` (lines 395-411). Its decoration colour becomes `labTerracotta.withValues(alpha: alpha)`.
-    - The calls at 334 and 356 become `_Dot(alpha: …)`.
-  - `tree_graph_renderer.dart:227-235`: `_nodeColor` becomes:
+    - Delete `color` field + param from `_Dot` (lines 395-411). Decoration colour → `labTerracotta.withValues(alpha: alpha)`.
+    - Calls at 334 and 356 → `_Dot(alpha: …)`.
+  - `tree_graph_renderer.dart:227-235`: `_nodeColor` → :
 
 ```dart
   Color _nodeColor(TreeNode n) =>
@@ -922,16 +922,16 @@ git commit -m "refactor(lab): one playback cursor and one follow/focus rule"
 
 - [ ] **Step 3: Remove the treemap colour plumbing.**
   - In `treemap_layout.dart`:
-    - Delete the `color` parameter and field from `TreemapGroup` (lines 96 and 101-102), the `TreemapColor` enum (lines 109-111) and `_familyColor` (lines 115-119).
-    - Delete the `TreemapColor color,` parameter of `add(...)` (line 139) and its use at line 146. The result is `() => TreemapGroup(id: groupId, label: groupLabel),`.
-    - Delete the three colour arguments at lines 164, 174 and 185.
+    - Delete `color` param + field from `TreemapGroup` (lines 96, 101-102), `TreemapColor` enum (lines 109-111), `_familyColor` (lines 115-119).
+    - Delete `TreemapColor color,` param of `add(...)` (line 139) and its use at line 146. Result: `() => TreemapGroup(id: groupId, label: groupLabel),`.
+    - Delete three colour args at lines 164, 174, 185.
   - In `treemap_renderer.dart`:
     - Delete `_tokenColor` (lines 130-134).
-    - Delete `color: _tokenColor(group.color),` (line 216) and the `color` field and parameter of `TreemapCellTile` (lines 233 and 240).
-    - Replace the two remaining `color.withValues(` in `_build` (lines 263 and 276) with `labTerracotta.withValues(`.
-    - Lines 347-350: `color: markerColor(e.story, data.dataset).withValues(alpha: e.matched ? 0.18 : 0.06),` becomes `color: labTerracotta.withValues(alpha: e.matched ? 0.18 : 0.06),`.
+    - Delete `color: _tokenColor(group.color),` (line 216) and `color` field + param of `TreemapCellTile` (lines 233, 240).
+    - Two remaining `color.withValues(` in `_build` (lines 263, 276) → `labTerracotta.withValues(`.
+    - Lines 347-350: `color: markerColor(e.story, data.dataset).withValues(alpha: e.matched ? 0.18 : 0.06),` → `color: labTerracotta.withValues(alpha: e.matched ? 0.18 : 0.06),`.
 
-  *(If D2 = b instead)* Keep one mapping in `story_marker.dart` and call it everywhere `labTerracotta` was written above. Keep `TreemapGroup` but replace `color` with `final String? familyId;`, set only in family mode. Add `final String? familyId;` to `TreeNode`, set at `tree_graph_layout.dart:235`.
+  *(If D2 = b instead)* Keep one mapping in `story_marker.dart`, call it everywhere `labTerracotta` written above. Keep `TreemapGroup` but replace `color` with `final String? familyId;`, set only in family mode. Add `final String? familyId;` to `TreeNode`, set at `tree_graph_layout.dart:235`.
 
 ```dart
 /// The only family → colour map. Okafor is ink so moss stays the origin
@@ -949,9 +949,9 @@ Color familyColor(String? familyId) => switch (familyId) {
 
 - [ ] **Step 5: Update the goldens.**
   - Run: `flutter test --update-goldens test/golden_test.dart`
-  - Then run `git status --short test/goldens/`.
-  - Expected: exactly the 14 files listed above show `M`.
-  - Open `test/goldens/swimlanes_all.png` and `test/goldens/treeGraph_all.png` with an image viewer. Every story dot should now be terracotta.
+  - Then `git status --short test/goldens/`.
+  - Expected: exactly 14 files above show `M`.
+  - Open `test/goldens/swimlanes_all.png` and `test/goldens/treeGraph_all.png` in image viewer. Every story dot terracotta.
 
 - [ ] **Step 6: Run the Gate.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -966,14 +966,14 @@ git commit -m "refactor(lab): one story colour; moss reserved for origin rings"
 
 ### Task 6: Shell consolidation (D3, D4) and the watermark behind content
 
-**Goldens expected to change:** every shell golden, which is all `*_all|dim|hide|playback` plus `sliverList_narrow` (25 files, D1 applied). The app bar, playback bar and status row all change. `zoomCanvas_lod_*` are unchanged. **Guards:** four new tests in `test/lab_app_test.dart`, plus the updated renderer-picker test.
+**Goldens expected to change:** every shell golden = all `*_all|dim|hide|playback` plus `sliverList_narrow` (25 files, D1 applied). App bar, playback bar, status row all change. `zoomCanvas_lod_*` unchanged. **Guards:** four new tests in `test/lab_app_test.dart` + updated renderer-picker test.
 
 **Files:**
-- Modify: `lib/lab_app.dart` (whole file below), `lib/widgets/playback_bar.dart` (whole file below), `lib/widgets/filter_panel.dart:61-71`, `test/lab_app_test.dart:95-106` plus the new tests, `README.md:20-29`
+- Modify: `lib/lab_app.dart` (whole file below), `lib/widgets/playback_bar.dart` (whole file below), `lib/widgets/filter_panel.dart:61-71`, `test/lab_app_test.dart:95-106` plus new tests, `README.md:20-29`
 
 - [ ] **Step 1: Write the failing tests.**
 
-  In `test/lab_app_test.dart`, add `import 'package:timeline_lab/playback/playback_schedule.dart';` and `import 'package:timeline_lab/widgets/playback_bar.dart';`. Replace the loop body of "renderer picker switches the renderer" (lines 99-102) with:
+  In `test/lab_app_test.dart`, add `import 'package:timeline_lab/playback/playback_schedule.dart';` and `import 'package:timeline_lab/widgets/playback_bar.dart';`. Replace loop body of "renderer picker switches the renderer" (lines 99-102) with:
 
 ```dart
       final segment = find.descendant(
@@ -985,7 +985,7 @@ git commit -m "refactor(lab): one story colour; moss reserved for origin rings"
       await tester.pumpAndSettle();
 ```
 
-  Then add these tests inside `main()`:
+  Add these tests inside `main()`:
 
 ```dart
   testWidgets('bench menu sets the dataset size', (tester) async {
@@ -1048,7 +1048,7 @@ git commit -m "refactor(lab): one story colour; moss reserved for origin rings"
 
 - [ ] **Step 2: Run them and check they fail.**
   - Run: `flutter test test/lab_app_test.dart`
-  - Expected: FAIL. Bench: `dataset-size-1000` is not found. Options: `playback-design-sweep` is not found. Status row: `filter-mode` is not in `status-bar`. Watermark: `isA<PlaybackWatermark>` fails. The renderer picker fails because the segment text is not under the key.
+  - Expected: FAIL. Bench: `dataset-size-1000` not found. Options: `playback-design-sweep` not found. Status row: `filter-mode` not in `status-bar`. Watermark: `isA<PlaybackWatermark>` fails. Renderer picker fails: segment text not under key.
 
 - [ ] **Step 3: Replace `lib/widgets/playback_bar.dart`** with:
 
@@ -1249,7 +1249,7 @@ class PlaybackWatermark extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 4: Replace `LabHome` and `_LabAppState.build` in `lib/lab_app.dart`.** Keep lines 1-37 (imports, `LabApp`, the state fields and `dispose`), and add `import 'filter/timeline_filter.dart';` if it is missing. Replace everything from line 38 to the end with:
+- [ ] **Step 4: Replace `LabHome` and `_LabAppState.build` in `lib/lab_app.dart`.** Keep lines 1-37 (imports, `LabApp`, state fields, `dispose`); add `import 'filter/timeline_filter.dart';` if missing. Replace line 38 to end with:
 
 ```dart
   @override
@@ -1529,13 +1529,13 @@ class _StatusRow extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 5: Remove Hide/Dim from the filter panel.** In `lib/widgets/filter_panel.dart`, delete lines 61-71: the `SegmentedButton<FilterMode>` and the `SizedBox(height: 16)` after it. The `SizedBox(height: 16)` at line 60 now separates search from the era label.
+- [ ] **Step 5: Remove Hide/Dim from the filter panel.** In `lib/widgets/filter_panel.dart`, delete lines 61-71: `SegmentedButton<FilterMode>` + following `SizedBox(height: 16)`. `SizedBox(height: 16)` at line 60 now separates search from era label.
 
 - [ ] **Step 6: Run the tests and check they pass.**
   - Run: `flutter test test/lab_app_test.dart`
   - Expected: PASS (+4 tests).
 
-- [ ] **Step 7: Update the `README.md` "Run" section.** Replace lines 20-29 (from "The top bar has three controls:" to "picks the filter mode.") with:
+- [ ] **Step 7: Update the `README.md` "Run" section.** Replace lines 20-29 ("The top bar has three controls:" to "picks the filter mode.") with:
 
 ```markdown
 The top bar has two controls:
@@ -1554,8 +1554,8 @@ bottom shows the match count, the playback caption and the per-session
 
 - [ ] **Step 8: Update the goldens.**
   - Run: `flutter test --update-goldens test/golden_test.dart`, then `git status --short test/goldens/`.
-  - Expected: the 25 shell goldens show `M`, and `zoomCanvas_lod_*` do not.
-  - Open `sliverList_all.png`. The app bar must show no clipped label. It should show the renderer switch on its own row with Sliver list selected, and one status row with "120 stories · Press play… · Hide | Dim".
+  - Expected: 25 shell goldens `M`; `zoomCanvas_lod_*` not.
+  - Open `sliverList_all.png`. App bar: no clipped label. Renderer switch on own row, Sliver list selected; one status row "120 stories · Press play… · Hide | Dim".
 
 - [ ] **Step 9: Run the Gate.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -1570,13 +1570,13 @@ git commit -m "feat(lab): consolidate shell controls; watermark behind content"
 
 ### Task 7: One in-renderer view switch
 
-**Goldens expected to change:** `swimlanes_*`, `treeGraph_*`, `treemap_*` (12 files). **Guard:** a new test in `test/lab_app_test.dart`.
+**Goldens expected to change:** `swimlanes_*`, `treeGraph_*`, `treemap_*` (12 files). **Guard:** new test in `test/lab_app_test.dart`.
 
 **Files:**
 - Create: `lib/widgets/view_switch.dart`
 - Modify: `lib/renderers/swimlanes_renderer.dart:149-160`, `lib/renderers/tree_graph_renderer.dart:126-141`, `lib/renderers/treemap_renderer.dart:73-121`, `test/lab_app_test.dart:157`
 
-- [ ] **Step 1: Write the failing test.** Add the following to `test/lab_app_test.dart`. Then change line 157 `find.text('Families')` to `find.text('Family')`.
+- [ ] **Step 1: Write the failing test.** Add below to `test/lab_app_test.dart`. Then line 157 `find.text('Families')` → `find.text('Family')`.
 
 ```dart
   testWidgets('renderer view switches use singular segment names', (
@@ -1666,7 +1666,7 @@ class ViewSwitch<T> extends StatelessWidget {
 
 - [ ] **Step 4: Use it in the three renderers.**
 
-  In `swimlanes_renderer.dart`, add `import '../widgets/view_switch.dart';` and replace lines 149-160 with:
+  In `swimlanes_renderer.dart`, add `import '../widgets/view_switch.dart';`, replace lines 149-160 with:
 
 ```dart
         ViewSwitch<LaneBy>(
@@ -1682,7 +1682,7 @@ class ViewSwitch<T> extends StatelessWidget {
         ),
 ```
 
-  In `tree_graph_renderer.dart`, add the import and replace lines 126-141 with:
+  In `tree_graph_renderer.dart`, add import, replace lines 126-141 with:
 
 ```dart
         ViewSwitch<TreeBy>(
@@ -1702,7 +1702,7 @@ class ViewSwitch<T> extends StatelessWidget {
         ),
 ```
 
-  In `treemap_renderer.dart`, add the import and replace lines 77-121 (the `Padding(…Row(…))` header) with:
+  In `treemap_renderer.dart`, add import, replace lines 77-121 (`Padding(…Row(…))` header) with:
 
 ```dart
         ViewSwitch<TreemapBy>(
@@ -1755,7 +1755,7 @@ class ViewSwitch<T> extends StatelessWidget {
 
 - [ ] **Step 6: Update the goldens.**
   - Run: `flutter test --update-goldens test/golden_test.dart && git status --short test/goldens/`
-  - Expected: only `swimlanes_*`, `treeGraph_*` and `treemap_*` show `M` (12 files).
+  - Expected: only `swimlanes_*`, `treeGraph_*`, `treemap_*` show `M` (12 files).
 
 - [ ] **Step 7: Run the Gate, then commit.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -1772,7 +1772,7 @@ git commit -m "refactor(lab): one view switch with singular names in every rende
 
 ### Task 8: Design tokens and component themes in `lab_theme.dart`
 
-**Goldens expected to change:** the 25 shell goldens (segment, chip and field colours; filter chip spacing). `zoomCanvas_lod_*` are unchanged. **Guards:** `test/lab_theme_test.dart` (contrast and segmented-theme tests) and `test/support/contrast.dart`.
+**Goldens expected to change:** 25 shell goldens (segment, chip, field colours; filter chip spacing). `zoomCanvas_lod_*` unchanged. **Guards:** `test/lab_theme_test.dart` (contrast + segmented-theme tests) and `test/support/contrast.dart`.
 
 **Files:**
 - Create: `test/support/contrast.dart`, `test/lab_theme_test.dart`
@@ -2036,15 +2036,15 @@ ThemeData labTheme({required bool useGoogleFonts}) {
 ```
 
 - [ ] **Step 5: Migrate the token users.**
-  - `labCardRadius` is gone, so replace it with `LabRadius.card` at `story_card.dart:51` and `zoom_canvas_renderer.dart:482`. At `treemap_renderer.dart:357`, `labCardRadius / 2` becomes `LabRadius.tile`.
-  - `sliver_list_renderer.dart:167`: `labInk.withValues(alpha: 0.2)` becomes `labRule`.
-  - `playback_bar.dart`, `PlaybackWatermark`: `color: labInk.withValues(alpha: 0.12)` becomes `color: labWatermark`.
+  - `labCardRadius` gone: replace with `LabRadius.card` at `story_card.dart:51` and `zoom_canvas_renderer.dart:482`. At `treemap_renderer.dart:357`, `labCardRadius / 2` → `LabRadius.tile`.
+  - `sliver_list_renderer.dart:167`: `labInk.withValues(alpha: 0.2)` → `labRule`.
+  - `playback_bar.dart`, `PlaybackWatermark`: `color: labInk.withValues(alpha: 0.12)` → `color: labWatermark`.
   - `filter_panel.dart`:
     - Add `import '../theme/lab_theme.dart';`.
-    - In the `TextField` decoration (lines 52-57), delete `border: OutlineInputBorder(),` and `isDense: true,`, because the theme now provides them.
-    - Replace `padding: const EdgeInsets.all(16)` with `padding: const EdgeInsets.all(LabSpace.l)`.
-    - In the three chip `Wrap`s, replace `spacing: 4, runSpacing: 4,` with `spacing: LabSpace.s, runSpacing: LabSpace.s,`.
-    - Replace each `SizedBox(height: 16)` with `SizedBox(height: LabSpace.l)`, each `SizedBox(height: 8)` with `SizedBox(height: LabSpace.s)`, and each `SizedBox(height: 4)` with `SizedBox(height: LabSpace.xs)`.
+    - In `TextField` decoration (lines 52-57), delete `border: OutlineInputBorder(),` and `isDense: true,` — theme provides them.
+    - `padding: const EdgeInsets.all(16)` → `padding: const EdgeInsets.all(LabSpace.l)`.
+    - In three chip `Wrap`s, `spacing: 4, runSpacing: 4,` → `spacing: LabSpace.s, runSpacing: LabSpace.s,`.
+    - Each `SizedBox(height: 16)` → `SizedBox(height: LabSpace.l)`, each `SizedBox(height: 8)` → `SizedBox(height: LabSpace.s)`, each `SizedBox(height: 4)` → `SizedBox(height: LabSpace.xs)`.
 
 - [ ] **Step 6: Run the tests and check they pass.**
   - Run: `flutter test test/lab_theme_test.dart`
@@ -2052,8 +2052,8 @@ ThemeData labTheme({required bool useGoogleFonts}) {
 
 - [ ] **Step 7: Update the goldens.**
   - Run: `flutter test --update-goldens test/golden_test.dart && git status --short test/goldens/`
-  - Expected: the 25 shell goldens show `M`.
-  - Open `sliverList_dim.png`. The selected "Dim" and "Sliver list" segments are terracotta with parchment text, the selected person chips have a sage tint, and the chips are 8 px apart.
+  - Expected: 25 shell goldens `M`.
+  - Open `sliverList_dim.png`. Selected "Dim" + "Sliver list" segments terracotta with parchment text, selected person chips sage tint, chips 8 px apart.
 
 - [ ] **Step 8: Run the Gate, then commit.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -2066,7 +2066,7 @@ git commit -m "feat(lab): design tokens and album-aligned component themes"
 
 ### Task 9: Restyle `StoryCard` to the album card
 
-**Goldens expected to change:** `sliverList_*` (5), `renderBoxLayout_*` (4), `zoomCanvas_lod_cards` (10 files). The changes are a parchment fill, a sage border, serif compact titles, a place icon and an Origin pill. **Guard:** `test/story_card_test.dart`.
+**Goldens expected to change:** `sliverList_*` (5), `renderBoxLayout_*` (4), `zoomCanvas_lod_cards` (10 files). Changes: parchment fill, sage border, serif compact titles, place icon, Origin pill. **Guard:** `test/story_card_test.dart`.
 
 **Files:**
 - Create: `test/story_card_test.dart`
@@ -2156,7 +2156,7 @@ void main() {
 
 - [ ] **Step 2: Run it and check it fails.**
   - Run: `flutter test test/story_card_test.dart`
-  - Expected: FAIL in "compact titles" (14 vs 16) and in "Origin pill" (zero widgets found).
+  - Expected: FAIL in "compact titles" (14 vs 16) and "Origin pill" (zero widgets found).
 
 - [ ] **Step 3: Implement.** In `lib/widgets/story_card.dart`, replace `build` (lines 32-123) and `_Pill` (lines 126-148) with:
 
@@ -2301,16 +2301,16 @@ class _Pill extends StatelessWidget {
 }
 ```
 
-  Also update the class doc comment (lines 7-12) to say "Album card (album_theme.dart CardTheme): parchment fill, sage border, Newsreader title."
+  Also update class doc comment (lines 7-12) to "Album card (album_theme.dart CardTheme): parchment fill, sage border, Newsreader title."
 
 - [ ] **Step 4: Run the tests and check they pass.**
   - Run: `flutter test test/story_card_test.dart test/lab_app_test.dart test/render_box_layout_test.dart test/zoom_canvas_test.dart`
-  - Expected: PASS (+3 tests). The RenderBox overlap test still holds because card heights only grow, which pushes cards apart.
+  - Expected: PASS (+3 tests). RenderBox overlap test still holds: card heights only grow, pushing cards apart.
 
 - [ ] **Step 5: Update the goldens.**
   - Run: `flutter test --update-goldens test/golden_test.dart && git status --short test/goldens/`
-  - Expected: the 10 files listed above, and no others.
-  - Open `renderBoxLayout_all.png`. The titles should match the sliver cards' size and weight.
+  - Expected: 10 files above, no others.
+  - Open `renderBoxLayout_all.png`. Titles match sliver cards' size + weight.
 
 - [ ] **Step 6: Run the Gate, then commit.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -2323,7 +2323,7 @@ git commit -m "feat(lab): album story card: parchment, sage border, serif titles
 
 ### Task 10: One story-marker primitive (D6)
 
-**Goldens expected to change:** `sliverList_*` (5), `swimlanes_*` (4), `treeGraph_*` (4), `zoomCanvas_lod_years` (14 files). Dimmed dots become hollow rings. **Guards:** `test/story_marker_test.dart`, plus 2 marker-contrast tests in `test/lab_theme_test.dart`.
+**Goldens expected to change:** `sliverList_*` (5), `swimlanes_*` (4), `treeGraph_*` (4), `zoomCanvas_lod_years` (14 files). Dimmed dots → hollow rings. **Guards:** `test/story_marker_test.dart` + 2 marker-contrast tests in `test/lab_theme_test.dart`.
 
 **Files:**
 - Create: `test/story_marker_test.dart`
@@ -2370,7 +2370,7 @@ void main() {
 }
 ```
 
-  Then add the following to `test/lab_theme_test.dart`, inside `main()`:
+  Then add below to `test/lab_theme_test.dart`, inside `main()`:
 
 ```dart
   group('marker graphics ≥ 3:1 on parchment', () {
@@ -2520,7 +2520,7 @@ class _StoryDotPainter extends CustomPainter {
 
 - [ ] **Step 4: Migrate the renderers.**
 
-  **Sliver list.** In `sliver_list_renderer.dart`, replace the 12 px `Container` dot (lines 168-178) with:
+  **Sliver list.** In `sliver_list_renderer.dart`, replace 12 px `Container` dot (lines 168-178) with:
 
 ```dart
                   StoryDot(
@@ -2532,7 +2532,7 @@ class _StoryDotPainter extends CustomPainter {
                   ),
 ```
 
-  **Zoom canvas.** In `zoom_canvas_renderer.dart`, `_yearDots`, replace the `GestureDetector`'s `child: Container(…)` (lines 367-380) with:
+  **Zoom canvas.** In `zoom_canvas_renderer.dart`, `_yearDots`, replace `GestureDetector`'s `child: Container(…)` (lines 367-380) with:
 
 ```dart
               child: StoryDot(
@@ -2544,7 +2544,7 @@ class _StoryDotPainter extends CustomPainter {
               ),
 ```
 
-  **Swimlanes.** In `swimlanes_renderer.dart`, delete `_Dot` (lines 395-411). In the single-entry branch, replace `_Dot(alpha: …)` with:
+  **Swimlanes.** In `swimlanes_renderer.dart`, delete `_Dot` (lines 395-411). Single-entry branch: replace `_Dot(alpha: …)` with:
 
 ```dart
             Padding(
@@ -2556,7 +2556,7 @@ class _StoryDotPainter extends CustomPainter {
             ),
 ```
 
-  In the multi-entry branch, replace `_Dot(alpha: entryOpacity(e) * reveal(e))` with:
+  Multi-entry branch: replace `_Dot(alpha: entryOpacity(e) * reveal(e))` with:
 
 ```dart
             Opacity(
@@ -2575,9 +2575,9 @@ class _StoryDotPainter extends CustomPainter {
 ```
 
   **Tree graph.** In `tree_graph_renderer.dart`, in `paint`:
-  - Delete the `ring` paint (lines 263-265).
-  - Replace lines 298-310 (the `fill.color …` dot and the two rings) with the block below.
-  - In the label placement, change the story-label offset `p + Offset(10, …)` to `p + Offset(MarkerSpec.extent(LabMarker.small) / 2 + 2, -label.size.height / 2)`.
+  - Delete `ring` paint (lines 263-265).
+  - Replace lines 298-310 (`fill.color …` dot + two rings) with block below.
+  - In label placement, story-label offset `p + Offset(10, …)` → `p + Offset(MarkerSpec.extent(LabMarker.small) / 2 + 2, -label.size.height / 2)`.
 
 ```dart
       if (n.kind == TreeNodeKind.story) {
@@ -2598,7 +2598,7 @@ class _StoryDotPainter extends CustomPainter {
       }
 ```
 
-  Delete `isLeafLike`, which is now unused. `entryOpacity` has no callers left after this task (it was removed in Step 3).
+  Delete `isLeafLike`, now unused. `entryOpacity` has no callers left after this task (removed in Step 3).
 
 - [ ] **Step 5: Run the tests and check they pass.**
   - Run: `flutter test test/story_marker_test.dart test/lab_theme_test.dart test/swimlanes_test.dart test/zoom_canvas_test.dart test/tree_graph_test.dart test/lab_app_test.dart`
@@ -2606,8 +2606,8 @@ class _StoryDotPainter extends CustomPainter {
 
 - [ ] **Step 6: Update the goldens.**
   - Run: `flutter test --update-goldens test/golden_test.dart && git status --short test/goldens/`
-  - Expected: the 14 files listed above.
-  - Open `swimlanes_dim.png` and `treeGraph_dim.png`. Dimmed stories should show hollow terracotta rings and matches filled dots.
+  - Expected: 14 files above.
+  - Open `swimlanes_dim.png` and `treeGraph_dim.png`. Dimmed stories = hollow terracotta rings, matches = filled dots.
 
 - [ ] **Step 7: Run the Gate, then commit.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -2622,11 +2622,11 @@ git commit -m "feat(lab): one story marker: filled=match, hollow=dimmed, nested 
 
 # Phase 3 — Per-renderer restyle
 
-*Run this phase after the iPad plan lands (see Coordination). Re-read each file before you edit it: line numbers below are relative to the end of Phase 2. If the iPad plan moved code, locate it by the symbol named in each step.*
+*Run after iPad plan lands (see Coordination). Re-read each file before editing: line numbers below relative to end of Phase 2. If iPad plan moved code, locate by symbol named in each step.*
 
 ### Task 11: One time-axis look (RenderBox layout, zoom canvas)
 
-**Goldens expected to change:** `renderBoxLayout_*` (4) and `zoomCanvas_*` (all/dim/hide/playback plus the three `lod_*`, 7 files), 11 in total. **Guard:** `test/time_axis_painter_test.dart`.
+**Goldens expected to change:** `renderBoxLayout_*` (4) and `zoomCanvas_*` (all/dim/hide/playback + three `lod_*`, 7 files), 11 total. **Guard:** `test/time_axis_painter_test.dart`.
 
 **Files:**
 - Create: `lib/renderers/time_axis_painter.dart`, `test/time_axis_painter_test.dart`
@@ -2802,8 +2802,8 @@ void paintSpineLabels(
 
 - [ ] **Step 5: Migrate the zoom canvas.** In `zoom_canvas_renderer.dart`:
   - Add `import 'time_axis_painter.dart';`.
-  - In the `_ZoomAxisPainter(...)` call, pass `labelStyle: LabText.axis(Theme.of(context).textTheme),`.
-  - Delete `_label`, and replace `_ZoomAxisPainter.paint` with:
+  - In `_ZoomAxisPainter(...)` call, pass `labelStyle: LabText.axis(Theme.of(context).textTheme),`.
+  - Delete `_label`; replace `_ZoomAxisPainter.paint` with:
 
 ```dart
   @override
@@ -2836,11 +2836,11 @@ void paintSpineLabels(
   }
 ```
 
-  `canvas_label.dart` is no longer imported by the zoom canvas, so remove that import.
+  Zoom canvas no longer uses `canvas_label.dart`; remove that import.
 
 - [ ] **Step 6: Migrate the RenderBox layout.** In `render_box_layout_renderer.dart`:
-  - Delete the `axisColor` field, its constructor parameter, the `createRenderObject` and `updateRenderObject` lines, and the `RenderTimeAxisLayout` `_axisColor` field and setter. In `RenderBoxTimeline.build`, delete `axisColor: labInk,`, and change `labelStyle:` to `LabText.axis(Theme.of(context).textTheme)`.
-  - Add `import 'time_axis_painter.dart';`, and drop `import 'canvas_label.dart';`.
+  - Delete `axisColor` field, its constructor param, `createRenderObject` + `updateRenderObject` lines, `RenderTimeAxisLayout` `_axisColor` field + setter. In `RenderBoxTimeline.build`, delete `axisColor: labInk,`, change `labelStyle:` to `LabText.axis(Theme.of(context).textTheme)`.
+  - Add `import 'time_axis_painter.dart';`, drop `import 'canvas_label.dart';`.
   - Replace `paint` with:
 
 ```dart
@@ -2909,8 +2909,8 @@ void paintSpineLabels(
 
 - [ ] **Step 8: Update the goldens.**
   - Run: `flutter test --update-goldens test/golden_test.dart && git status --short test/goldens/`
-  - Expected: the 11 files listed above.
-  - Open `renderBoxLayout_all.png` and `zoomCanvas_lod_years.png`. The spine should be ink 60%, the ticks 10/4 px, and the year labels 12 px semibold with tabular figures.
+  - Expected: 11 files above.
+  - Open `renderBoxLayout_all.png` and `zoomCanvas_lod_years.png`. Spine ink 60%, ticks 10/4 px, year labels 12 px semibold tabular figures.
 
 - [ ] **Step 9: Run the Gate, then commit.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -2923,12 +2923,12 @@ git commit -m "feat(lab): one time-axis look for the RenderBox and zoom canvases
 
 ### Task 12: Zoom canvas: decade bubbles, chips and lane labels
 
-**Goldens expected to change:** `zoomCanvas_{all,dim,hide,playback}`, `zoomCanvas_lod_decades`, `zoomCanvas_lod_cards` (6 files). **Guard:** a new test in `test/zoom_canvas_test.dart`.
+**Goldens expected to change:** `zoomCanvas_{all,dim,hide,playback}`, `zoomCanvas_lod_decades`, `zoomCanvas_lod_cards` (6 files). **Guard:** new test in `test/zoom_canvas_test.dart`.
 
 **Files:**
 - Modify: `lib/renderers/zoom_canvas_renderer.dart` (`_laneLabels`, `_decadeBubbles`, the overflow chip in `_cards`), `test/zoom_canvas_test.dart`
 
-- [ ] **Step 1: Write the failing test.** Append the following to `test/zoom_canvas_test.dart`, and add any imports it is missing (`package:timeline_lab/filter/timeline_filter.dart`, `lab_controller.dart`, `theme/lab_theme.dart`, `renderers/renderer_contract.dart`).
+- [ ] **Step 1: Write the failing test.** Append below to `test/zoom_canvas_test.dart`; add missing imports (`package:timeline_lab/filter/timeline_filter.dart`, `lab_controller.dart`, `theme/lab_theme.dart`, `renderers/renderer_contract.dart`).
 
 ```dart
   testWidgets('a decade with no matches draws a hollow bubble', (
@@ -2974,11 +2974,11 @@ git commit -m "feat(lab): one time-axis look for the RenderBox and zoom canvases
 
 - [ ] **Step 2: Run it and check it fails.**
   - Run: `flutter test test/zoom_canvas_test.dart --plain-name "hollow bubble"`
-  - Expected: FAIL. The 2020 bubble colour is terracotta at 35% alpha, not null.
+  - Expected: FAIL. 2020 bubble colour = terracotta at 35% alpha, not null.
 
 - [ ] **Step 3: Implement.**
 
-  In `_decadeBubbles`, replace `final style = …` and the `Column(children: [...])` with:
+  In `_decadeBubbles`, replace `final style = …` and `Column(children: [...])` with:
 
 ```dart
     final theme = Theme.of(context).textTheme;
@@ -3013,11 +3013,11 @@ git commit -m "feat(lab): one time-axis look for the RenderBox and zoom canvases
             ),
 ```
 
-  In `_laneLabels`, change `final style = Theme.of(context).textTheme.labelMedium;` to `final style = LabText.lane(Theme.of(context).textTheme);`.
+  In `_laneLabels`, `final style = Theme.of(context).textTheme.labelMedium;` → `final style = LabText.lane(Theme.of(context).textTheme);`.
 
   In `_cards`:
-  - Change `final chipStyle = Theme.of(context).textTheme.labelMedium?.copyWith(color: labParchment);` to `final chipStyle = LabText.badge(Theme.of(context).textTheme);`.
-  - Change the chip's `borderRadius: BorderRadius.circular(LabRadius.card)` to `BorderRadius.circular(LabRadius.pill)`.
+  - `final chipStyle = Theme.of(context).textTheme.labelMedium?.copyWith(color: labParchment);` → `final chipStyle = LabText.badge(Theme.of(context).textTheme);`.
+  - Chip's `borderRadius: BorderRadius.circular(LabRadius.card)` → `BorderRadius.circular(LabRadius.pill)`.
 
   `labDimOpacity` no longer appears in this file.
 
@@ -3027,7 +3027,7 @@ git commit -m "feat(lab): one time-axis look for the RenderBox and zoom canvases
 
 - [ ] **Step 5: Update the goldens.**
   - Run: `flutter test --update-goldens test/golden_test.dart && git status --short test/goldens/`
-  - Expected: the 6 files listed above.
+  - Expected: 6 files above.
 
 - [ ] **Step 6: Run the Gate, then commit.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -3045,7 +3045,7 @@ git commit -m "feat(lab): zoom canvas bubbles, chips and lane labels on the toke
 **Files:**
 - Modify: `lib/renderers/renderer_contract.dart` (`TimelineViewData`), `lib/renderers/tree_graph_renderer.dart` (`build`, `TreePainter`), `test/tree_graph_test.dart`
 
-- [ ] **Step 1: Write the failing tests.** Append the following to `test/tree_graph_test.dart`, adding imports for `theme/lab_theme.dart`, `renderers/renderer_contract.dart`, `filter/timeline_filter.dart` and `model/seed.dart` if they are missing:
+- [ ] **Step 1: Write the failing tests.** Append below to `test/tree_graph_test.dart`; add imports for `theme/lab_theme.dart`, `renderers/renderer_contract.dart`, `filter/timeline_filter.dart`, `model/seed.dart` if missing:
 
 ```dart
   test('edges into matches are strong only while something is dimmed', () {
@@ -3075,7 +3075,7 @@ git commit -m "feat(lab): zoom canvas bubbles, chips and lane labels on the toke
 
 - [ ] **Step 2: Run them and check they fail.**
   - Run: `flutter test test/tree_graph_test.dart`
-  - Expected: FAIL to compile (`treeEdgeColor` and `anyDimmed` are undefined).
+  - Expected: FAIL to compile (`treeEdgeColor` and `anyDimmed` undefined).
 
 - [ ] **Step 3: Implement.**
 
@@ -3087,7 +3087,7 @@ git commit -m "feat(lab): zoom canvas bubbles, chips and lane labels on the toke
   bool get anyDimmed => entries.any((e) => !e.matched);
 ```
 
-  In `tree_graph_renderer.dart`, add `import 'canvas_label.dart';` if it is missing, and add this top-level function:
+  In `tree_graph_renderer.dart`, add `import 'canvas_label.dart';` if missing, plus top-level function:
 
 ```dart
 /// Edges into matched nodes read as the path only while something is
@@ -3096,7 +3096,7 @@ Color treeEdgeColor({required bool childMatched, required bool dimming}) =>
     dimming && childMatched ? labRuleStrong : labRule;
 ```
 
-  In `_TreeGraphTimelineState.build`, pass the following to `TreePainter(...)`:
+  In `_TreeGraphTimelineState.build`, pass to `TreePainter(...)`:
 
 ```dart
                             headingStyle: LabText.group(theme),
@@ -3105,10 +3105,10 @@ Color treeEdgeColor({required bool childMatched, required bool dimming}) =>
 ```
 
   In `TreePainter`:
-  - Add the fields `final TextStyle badgeStyle;` and `final bool dimming;` with `required this.badgeStyle, required this.dimming,` in the constructor.
+  - Add fields `final TextStyle badgeStyle;` and `final bool dimming;` with `required this.badgeStyle, required this.dimming,` in constructor.
   - Add `old.dimming != dimming ||` to `shouldRepaint`.
   - Delete `_nodeColor`.
-  - Replace `paint` with the code below and add `_paintOverflow`.
+  - Replace `paint` with code below; add `_paintOverflow`.
 
 ```dart
   @override
@@ -3228,12 +3228,12 @@ Color treeEdgeColor({required bool childMatched, required bool dimming}) =>
 
 - [ ] **Step 4: Run the tests and check they pass.**
   - Run: `flutter test test/tree_graph_test.dart`
-  - Expected: PASS (+2 tests). The existing tap tests use `layout.hitTest`, which is unchanged.
+  - Expected: PASS (+2 tests). Existing tap tests use `layout.hitTest`, unchanged.
 
 - [ ] **Step 5: Update the goldens.**
   - Run: `flutter test --update-goldens test/golden_test.dart && git status --short test/goldens/`
   - Expected: `treeGraph_*` only (4 files).
-  - Open `treeGraph_dim.png`. The "1999" and "2000" labels should sit on parchment with no edge crossing them, the matched paths should be darker, and the dimmed groups hollow.
+  - Open `treeGraph_dim.png`. "1999" and "2000" labels on parchment, no edge crossing; matched paths darker; dimmed groups hollow.
 
 - [ ] **Step 6: Run the Gate, then commit.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -3278,7 +3278,7 @@ git commit -m "feat(lab): tree graph calm edges, hollow groups, label knockouts"
 
 - [ ] **Step 2: Run them and check they fail.**
   - Run: `flutter test test/treemap_test.dart`
-  - Expected: FAIL to compile (`treemapShade` is undefined).
+  - Expected: FAIL to compile (`treemapShade` undefined).
 
 - [ ] **Step 3: Implement.**
 
@@ -3299,8 +3299,8 @@ double treemapShade(double matchedShare, {required bool dimming}) {
 
   In `treemap_renderer.dart`:
   - In `_TreemapTimelineState.build`, compute `final dimming = data.anyDimmed;`.
-  - Thread a `required this.dimming` `bool` field through `_GroupTile`, `_CellGrid` and `TreemapCellTile`. The field is constructed at each `_CellGrid(...)` and `TreemapCellTile(...)` call, including the drill-down `_CellGrid(..., large: true)`.
-  - In `TreemapCellTile._build`, replace the lines `final fill = …` and `color: labTerracotta.withValues(alpha: 0.05),` with:
+  - Thread `required this.dimming` `bool` field through `_GroupTile`, `_CellGrid`, `TreemapCellTile`. Construct at each `_CellGrid(...)` and `TreemapCellTile(...)` call, incl. drill-down `_CellGrid(..., large: true)`.
+  - In `TreemapCellTile._build`, replace `final fill = …` and `color: labTerracotta.withValues(alpha: 0.05),` with:
 
 ```dart
     final fill = labTerracotta.withValues(
@@ -3318,7 +3318,7 @@ double treemapShade(double matchedShare, {required bool dimming}) {
             ),
 ```
 
-  Then change the label colour to `share > 0 || !dimming ? labInk : labDimmedInk`.
+  Then label colour → `share > 0 || !dimming ? labInk : labDimmedInk`.
 
 - [ ] **Step 4: Run the tests and check they pass.**
   - Run: `flutter test test/treemap_test.dart`
@@ -3327,7 +3327,7 @@ double treemapShade(double matchedShare, {required bool dimming}) {
 - [ ] **Step 5: Update the goldens.**
   - Run: `flutter test --update-goldens test/golden_test.dart && git status --short test/goldens/`
   - Expected: `treemap_*` only.
-  - Open `treemap_all.png`. Tiles should be a light, even tint, not 62% terracotta. In `treemap_dim.png`, four distinct steps should be visible.
+  - Open `treemap_all.png`. Tiles light even tint, not 62% terracotta. `treemap_dim.png`: four distinct steps visible.
 
 - [ ] **Step 6: Run the Gate, then commit.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -3340,12 +3340,12 @@ git commit -m "feat(lab): treemap quiet by default, stepped ramp while dimming"
 
 ### Task 15: Sliver list and swimlanes text roles
 
-**Goldens expected to change:** `sliverList_*` (5) and `swimlanes_*` (4), 9 files in total. **Guard:** a new test in `test/lab_app_test.dart`.
+**Goldens expected to change:** `sliverList_*` (5) and `swimlanes_*` (4), 9 total. **Guard:** new test in `test/lab_app_test.dart`.
 
 **Files:**
 - Modify: `lib/renderers/sliver_list_renderer.dart` (`_DecadeHeader`), `lib/renderers/swimlanes_renderer.dart` (year strip, lane labels, `LaneCell`), `test/lab_app_test.dart`
 
-- [ ] **Step 1: Write the failing test.** Append the following to `test/lab_app_test.dart`:
+- [ ] **Step 1: Write the failing test.** Append to `test/lab_app_test.dart`:
 
 ```dart
   testWidgets('decade header count reads as quiet copy', (tester) async {
@@ -3363,7 +3363,7 @@ git commit -m "feat(lab): treemap quiet by default, stepped ramp while dimming"
 
 - [ ] **Step 2: Run it and check it fails.**
   - Run: `flutter test test/lab_app_test.dart --plain-name "quiet copy"`
-  - Expected: FAIL (the header reads `12 of 12`).
+  - Expected: FAIL (header reads `12 of 12`).
 
 - [ ] **Step 3: Implement.**
 
@@ -3377,12 +3377,12 @@ git commit -m "feat(lab): treemap quiet by default, stepped ramp while dimming"
 ```
 
   **Swimlanes.** In `swimlanes_renderer.dart`:
-  - In `build`, replace `final labelStyle = Theme.of(context).textTheme.labelMedium;` with `final theme = Theme.of(context).textTheme;`.
-  - The year strip uses `style: LabText.axis(theme)`, and the lane names use `style: LabText.lane(theme)`.
+  - In `build`, `final labelStyle = Theme.of(context).textTheme.labelMedium;` → `final theme = Theme.of(context).textTheme;`.
+  - Year strip uses `style: LabText.axis(theme)`; lane names use `style: LabText.lane(theme)`.
   - In `LaneCell._build`:
-    - The single title style becomes `Theme.of(context).textTheme.labelMedium?.copyWith(color: e.matched ? labInk : labDimmedInk)`.
-    - The `+N` text style becomes `LabText.count(Theme.of(context).textTheme)`.
-    - `padding: const EdgeInsets.all(6)` becomes `padding: const EdgeInsets.all(LabSpace.s)`.
+    - Single title style → `Theme.of(context).textTheme.labelMedium?.copyWith(color: e.matched ? labInk : labDimmedInk)`.
+    - `+N` text style → `LabText.count(Theme.of(context).textTheme)`.
+    - `padding: const EdgeInsets.all(6)` → `padding: const EdgeInsets.all(LabSpace.s)`.
 
 - [ ] **Step 4: Run the tests and check they pass.**
   - Run: `flutter test test/lab_app_test.dart test/swimlanes_test.dart`
@@ -3390,7 +3390,7 @@ git commit -m "feat(lab): treemap quiet by default, stepped ramp while dimming"
 
 - [ ] **Step 5: Update the goldens.**
   - Run: `flutter test --update-goldens test/golden_test.dart && git status --short test/goldens/`
-  - Expected: the 9 files listed above.
+  - Expected: 9 files above.
 
 - [ ] **Step 6: Run the Gate, then commit.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
@@ -3403,13 +3403,13 @@ git commit -m "feat(lab): list and lane text roles from LabText"
 
 ### Task 16: One empty state
 
-**Goldens expected to change:** none existing. **Added:** `sliverList_empty.png`. **Guard:** a new test in `test/lab_app_test.dart`.
+**Goldens expected to change:** none existing. **Added:** `sliverList_empty.png`. **Guard:** new test in `test/lab_app_test.dart`.
 
 **Files:**
 - Create: `lib/widgets/empty_timeline.dart`, `test/goldens/sliverList_empty.png` (generated)
 - Modify: `lib/lab_app.dart` (the `renderer` local in `LabHome._build`), `lib/widgets/filter_panel.dart` (search sync), `lib/renderers/tree_graph_renderer.dart` (`layout == null` branch), `lib/renderers/treemap_renderer.dart:39-40`, `test/lab_app_test.dart`, `test/golden_test.dart`
 
-- [ ] **Step 1: Write the failing test.** Append the following to `test/lab_app_test.dart`:
+- [ ] **Step 1: Write the failing test.** Append to `test/lab_app_test.dart`:
 
 ```dart
   testWidgets('no matches in Hide mode shows the empty state; Clear restores', (
@@ -3439,7 +3439,7 @@ git commit -m "feat(lab): list and lane text roles from LabText"
 
 - [ ] **Step 2: Run it and check it fails.**
   - Run: `flutter test test/lab_app_test.dart --plain-name "empty state"`
-  - Expected: FAIL (`empty-timeline` is not found).
+  - Expected: FAIL (`empty-timeline` not found).
 
 - [ ] **Step 3: Implement** `lib/widgets/empty_timeline.dart`:
 
@@ -3476,7 +3476,7 @@ class EmptyTimeline extends StatelessWidget {
 }
 ```
 
-  In `lib/lab_app.dart`, add `import 'widgets/empty_timeline.dart';`. In `LabHome._build`, change `final renderer = KeyedSubtree(` to the following, and close the extra parenthesis after the `KeyedSubtree(...)`:
+  In `lib/lab_app.dart`, add `import 'widgets/empty_timeline.dart';`. In `LabHome._build`, change `final renderer = KeyedSubtree(` to below; close extra paren after `KeyedSubtree(...)`:
 
 ```dart
     final renderer = c.entries.isEmpty
@@ -3486,7 +3486,7 @@ class EmptyTimeline extends StatelessWidget {
         : KeyedSubtree(
 ```
 
-  In `lib/widgets/filter_panel.dart`, keep the search box in sync with the controller, so that any clear (this one or the panel's own) empties it. In `_FilterPanelState`, add the following and change `dispose` to:
+  In `lib/widgets/filter_panel.dart`, keep search box synced with controller so any clear (this one or panel's own) empties it. In `_FilterPanelState`, add below and change `dispose` to:
 
 ```dart
   @override
@@ -3511,13 +3511,13 @@ class EmptyTimeline extends StatelessWidget {
   }
 ```
 
-  Then delete `_search.clear();` from the Clear button's `onPressed`, because the listener now does it.
+  Then delete `_search.clear();` from Clear button's `onPressed` — listener does it now.
 
-  Delete the duplicate empty states, which the shell now covers:
-  - In `tree_graph_renderer.dart`, change `layout == null ? Center(child: Text('No stories', style: theme.bodyMedium))` to `layout == null ? const SizedBox.shrink()`.
-  - In `treemap_renderer.dart:39-40`, change `body = const Center(child: Text('No stories'));` to `body = const SizedBox.shrink();`.
+  Delete duplicate empty states, now covered by shell:
+  - `tree_graph_renderer.dart`: `layout == null ? Center(child: Text('No stories', style: theme.bodyMedium))` → `layout == null ? const SizedBox.shrink()`.
+  - `treemap_renderer.dart:39-40`: `body = const Center(child: Text('No stories'));` → `body = const SizedBox.shrink();`.
 
-  Add this golden to `test/golden_test.dart`, after `sliverList_narrow`:
+  Add golden to `test/golden_test.dart`, after `sliverList_narrow`:
 
 ```dart
   testWidgets('golden sliverList_empty', (tester) async {
@@ -3543,11 +3543,11 @@ class EmptyTimeline extends StatelessWidget {
 - [ ] **Step 5: Generate the new golden.**
   - Run: `flutter test --update-goldens test/golden_test.dart --plain-name "sliverList_empty" && git status --short test/goldens/`
   - Expected: only `?? test/goldens/sliverList_empty.png`.
-  - Open it. It should show the centred serif line and a "Clear filters" button.
+  - Open it. Centred serif line + "Clear filters" button.
 
 - [ ] **Step 6: Run the Gate, then commit.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
-  - Expected: clean (+2 tests including the golden).
+  - Expected: clean (+2 tests incl. golden).
 
 ```bash
 git add lib/widgets/empty_timeline.dart lib/lab_app.dart lib/widgets/filter_panel.dart lib/renderers/tree_graph_renderer.dart lib/renderers/treemap_renderer.dart test/lab_app_test.dart test/golden_test.dart test/goldens/sliverList_empty.png
@@ -3557,9 +3557,9 @@ git commit -m "feat(lab): one empty state with Clear filters"
 ### Task 17: README visual-system notes, LOC refresh and final verification
 
 **Files:**
-- Modify: `README.md` (new "Visual system" section after "Tests and goldens"; LOC column of the comparison table; goldens index gains `sliverList_empty`)
+- Modify: `README.md` (new "Visual system" section after "Tests and goldens"; LOC column of comparison table; goldens index gains `sliverList_empty`)
 
-- [ ] **Step 1: Add the section** after the "Tests and goldens" section:
+- [ ] **Step 1: Add the section** after "Tests and goldens":
 
 ```markdown
 ## Visual system
@@ -3582,18 +3582,18 @@ Colours, spacing, radii, strokes, marker sizes and text roles live in
 - `ViewSwitch` and `EmptyTimeline` (`lib/widgets/`).
 ```
 
-  Add `sliverList_empty` to the goldens index.
+  Add `sliverList_empty` to goldens index.
 
 - [ ] **Step 2: Refresh the LOC column.**
   - Run: `wc -l lib/renderers/*.dart`
-  - Replace each renderer's "Implementation cost (LOC)" cell with the new count for its renderer file. For the tree graph, add `tree_graph_layout.dart`; for the treemap, add `treemap_layout.dart`. Shared primitives are not counted per renderer.
+  - Replace each renderer's "Implementation cost (LOC)" cell with new count for its renderer file. Tree graph: add `tree_graph_layout.dart`; treemap: add `treemap_layout.dart`. Shared primitives not counted per renderer.
 
 - [ ] **Step 3: Run the full verification.**
   - Run: `flutter analyze && dart format --output=none --set-exit-if-changed . && flutter test`
   - Expected: `No issues found!`, exit 0, `All tests passed!`.
-  - `[UNVERIFIED]` expected count: 104 − 9 (Task 1) + 6 + 3 + 2 + 4 + 1 + 7 + 3 + 5 + 4 + 1 + 2 + 3 + 1 + 2 = **139**. If D1 = keep, it is 148.
+  - `[UNVERIFIED]` expected count: 104 − 9 (Task 1) + 6 + 3 + 2 + 4 + 1 + 7 + 3 + 5 + 4 + 1 + 2 + 3 + 1 + 2 = **139**. If D1 = keep, 148.
 - [ ] **Step 4: Check the repo state.**
-  - Run from the repo root: `git status --short` and `cd apps/tell_me_a_story && git diff --quiet -- . && echo untouched`.
+  - Run from repo root: `git status --short` and `cd apps/tell_me_a_story && git diff --quiet -- . && echo untouched`.
   - Expected: only `apps/timeline_lab/` paths, and `untouched`.
 
 - [ ] **Step 5: Commit.**
@@ -3616,7 +3616,7 @@ git commit -m "docs(lab): visual system notes and refreshed LOC"
 | Shell control count | Finding 6 → Tasks 6, 7 (D3, D4) |
 | Redundant renderers | Finding 8 → Task 1 (D1), D5 |
 | Type hierarchy | Finding 7 → Tasks 8 (`LabText`), 9, 11, 15 |
-| Colour, dim and contrast | Findings 1–3 → Tasks 5, 8, 10, 14, with contrast tests in `lab_theme_test`/`treemap_test` |
+| Colour, dim and contrast | Findings 1–3 → Tasks 5, 8, 10, 14, contrast tests in `lab_theme_test`/`treemap_test` |
 | Spacing | Finding 13 → Task 8 (`LabSpace`, chip spacing) |
 | Cards and chips | Task 8 (chip theme), Task 9 (card) |
 | Axis, ticks and labels | Task 11 |
@@ -3626,17 +3626,17 @@ git commit -m "docs(lab): visual system notes and refreshed LOC"
 | Empty states | Task 16 |
 | Cross-renderer consistency | Tasks 7, 10, 11 |
 | Brand alignment | Tasks 5, 8, 9 |
-| Golden lists | Every task names its goldens and its guard tests. |
+| Golden lists | Every task names goldens + guard tests. |
 | Coordination and file structure | Present. |
-| User decisions | D1–D6, each with a recommendation. |
+| User decisions | D1–D6, each with recommendation. |
 
-**Placeholder scan.** There are no TBDs. Every code step shows its code. The phase 3 line numbers are explicitly symbol-anchored, because the iPad plan runs in between.
+**Placeholder scan.** No TBDs. Every code step shows code. Phase 3 line numbers explicitly symbol-anchored, since iPad plan runs between.
 
 **Type consistency.**
 - `TimeScale.toPx/toYear/span/yearTicks/monthTicks`, `TickKind`, `TimeTick.year/px/kind`: Task 2, used in Tasks 11–12.
-- `CanvasLabel(text, style, {maxWidth})`, `.size`, `.paint(canvas, at, {anchor})`, `.originFor`, `paintLabel`: Task 3, used in Tasks 11 and 13.
+- `CanvasLabel(text, style, {maxWidth})`, `.size`, `.paint(canvas, at, {anchor})`, `.originFor`, `paintLabel`: Task 3, used in Tasks 11, 13.
 - `scrollOffsetToPlace`, `kFollowAt`, `kFocusAlignment`, `paintPlaybackCursor(canvas, from, to, {zoom})`: Task 4, used in Task 11.
 - `MarkerSpec({matched, origin, selected, diameter})`, `.extent`, `paintStoryMarker(canvas, c, spec, {reveal})`, `StoryDot({spec, reserveRings})`: Task 10, used in Task 13.
 - `LabText.axis/badge/count/lane/group(TextTheme)`: Task 8, used in Tasks 11–15.
 - `TimelineViewData.anyDimmed`: Task 13, used in Task 14.
-- `treemapShade(share, {dimming})` replaces `treemapFillAlpha` everywhere (its only caller is `TreemapCellTile`).
+- `treemapShade(share, {dimming})` replaces `treemapFillAlpha` everywhere (only caller `TreemapCellTile`).

@@ -2,63 +2,63 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` after human approval. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
-> **Gate:** Plan-only until human approves. Do not write application code until approval.
+> **Gate:** Plan-only until human approves. No app code before approval.
 >
-> **On approval:** Copy this plan to `docs/superpowers/plans/2026-09-27-m4-stories-drafts-photos.md` in the implementation PR (or first commit). Isolated worktree: `.worktrees/feat-m04-stories-drafts-photos` on `feat/m04-stories-drafts-photos`.
+> **On approval:** Copy plan to `docs/superpowers/plans/2026-09-27-m4-stories-drafts-photos.md` in impl PR (or first commit). Isolated worktree: `.worktrees/feat-m04-stories-drafts-photos` on `feat/m04-stories-drafts-photos`.
 
 **Goal:** Deliver Impl Spec §15 M4 — story capture (timeframe, people, place, text, photos), client compress/upload to private `story-photos`, Save draft / Publish, drafts list, ~20 photo cap — against **local** Supabase. Exit = Bill local smoke.
 
-**Architecture:** Reuse M1 `stories` / `story_people` / `photos` DDL + RLS and M1 `story-photos` bucket (do not alter photos RLS). Reuse M3 people/place pickers already hosted on `/stories/new`. Add PostgREST gateways under `lib/data/`, persist drafts online-only, upload compressed images to `{family_id}/{story_id}/{photo_id}.(jpg|jpeg|png|webp)`, and add Mugatu Drafts list at `/drafts`. No new Edge Functions. No schema invention.
+**Architecture:** Reuse M1 `stories` / `story_people` / `photos` DDL + RLS and M1 `story-photos` bucket (no photos RLS change). Reuse M3 people/place pickers on `/stories/new`. Add PostgREST gateways under `lib/data/`, drafts online-only, upload compressed images to `{family_id}/{story_id}/{photo_id}.(jpg|jpeg|png|webp)`, add Mugatu Drafts list at `/drafts`. No new Edge Functions. No schema invention.
 
-**Tech Stack (locked):** Flutter 3.x, `supabase_flutter` PostgREST + Storage + RLS, `image_picker`, `image` (decode/resize/JPEG), `uuid`. Secrets remain `--dart-define` only (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`).
+**Tech Stack (locked):** Flutter 3.x, `supabase_flutter` PostgREST + Storage + RLS, `image_picker`, `image` (decode/resize/JPEG), `uuid`. Secrets `--dart-define` only (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_ACCESS_TOKEN`).
 
 ## Approaches (locked recommendation)
 
-1. **Recommended — extend the M3 capture shell (Approach A).** Keep `/stories/new` as the only capture surface. Create/update `stories` + `story_people` via PostgREST. Resume a draft with `/stories/new?draft=<storyId>` (query, not a new route). Photos upload only after a story row exists. Drafts list is `/drafts`, author-filtered. Timeline stays a stub except smoke-only published titles so Bill can see publish land.
-2. **Use `/stories/:storyId` as the editor.** That path is locked as the **published reader** (M5). Using it for drafts collides with the reader.
-3. **Autosave on every keystroke, hide Save draft.** Mugatu locks explicit **Save draft** (secondary) and **Publish** (primary). Autosave-only would drop that chrome.
+1. **Recommended — extend M3 capture shell (Approach A).** `/stories/new` sole capture surface. Create/update `stories` + `story_people` via PostgREST. Resume draft via `/stories/new?draft=<storyId>` (query, not new route). Photos upload only after story row exists. Drafts list `/drafts`, author-filtered. Timeline stays stub except smoke-only published titles so Bill sees publish land.
+2. **Use `/stories/:storyId` as editor.** Path locked as **published reader** (M5). Drafts there collide with reader.
+3. **Autosave every keystroke, hide Save draft.** Mugatu locks explicit **Save draft** (secondary) + **Publish** (primary). Autosave-only drops that chrome.
 
-Pick **Approach A** only. Do not ship Approaches 2–3. Do not add an edit route. Do not add “on behalf of” / dictated / deceased capture chrome (US-3 is story content, not extra UI).
+Approach A only. No Approaches 2–3. No edit route. No "on behalf of" / dictated / deceased capture chrome (US-3 = story content, not extra UI).
 
 ## Approval stamps (2026-09-27)
 
-- **Photos RLS:** INSERT stays M1 `member + uploader_id = uid`. Do **not** change M1 photos policies. Author attach on capture = M4; any-member attach on a published story = M5. pgTAP (`story_author_and_photos.sql`) still asserts a **member** can INSERT a photo with `uploader_id = uid`.
+- **Photos RLS:** INSERT stays M1 `member + uploader_id = uid`. Do **not** change M1 photos policies. Author attach on capture = M4; any-member attach on published story = M5. pgTAP (`story_author_and_photos.sql`) still asserts **member** can INSERT photo with `uploader_id = uid`.
 - **Publish write:** `publish()` sets **both** `status = 'published'` and `published_at = now()` (column already in Design Doc).
-- **Storage allowlist:** path extension and bucket MIME are `.jpg` / `.jpeg` / `.png` / `.webp` only (M1 bucket already lists jpeg/png/webp).
-- **Publish UX:** required-field gate + banner `Finish the highlighted fields to publish.` + terracotta `#8B5E4B` ring. **Save draft** is secondary; **Publish story** is primary.
+- **Storage allowlist:** path ext + bucket MIME `.jpg` / `.jpeg` / `.png` / `.webp` only (M1 bucket lists jpeg/png/webp).
+- **Publish UX:** required-field gate + banner `Finish the highlighted fields to publish.` + terracotta `#8B5E4B` ring. **Save draft** secondary; **Publish story** primary.
 - **Drafts:** author-only `status = draft`; locked empty `No drafts yet. Stories you’re still writing will show up here.`; loading `Loading drafts…`; row actions `Continue writing` / `Discard`.
-- **Save draft:** blocked until a decade chip is selected (`timeframe_start` NOT NULL).
+- **Save draft:** blocked until decade chip selected (`timeframe_start` NOT NULL).
 - **Capture:** section order Timeframe → People → Place + mini map → Story text → photo strip. No title field. `stories.title` stays null.
 - **Timeline smoke:** AppBar `Drafts` → `/drafts`; empty archive `No stories yet. Capture the first one for this family.`
-- **Reuse / out:** M1 schema/RLS/bucket; client compress; ~20 cap; no Edge; no schema invention; M5–M7 / SMS / offline / video stay out.
+- **Reuse / out:** M1 schema/RLS/bucket; client compress; ~20 cap; no Edge; no schema invention; M5–M7 / SMS / offline / video out.
 
 ## Global Constraints
 
 - **SoT precedence:** PRD must/must-not → Mugatu screens/copy → SAD names → Design Doc DDL/RLS/Storage → Impl Spec §10 routes/behavior → Client copy & chrome locks for strings.
 - **M4 scope only (§15):** Capture; compress/upload to `story-photos`; publish; drafts list; ~20 cap. First 10 **#9 Flutter half** (upload spike).
-- **Host decision (locked this plan):** Extend existing `/stories/new` (replace M3 “Capture fields arrive in M4.”). Resume via `?draft=<id>`. Do **not** add `/stories/:storyId/edit`.
-- **Host decision (locked):** `timeframe_start` is `date not null` in Design Doc DDL. **Save draft is blocked until a timeframe is chosen.** Do not null the column. Do not invent a sentinel date.
-- **Host decision (locked):** Drafts list shows **the current author’s** `status = draft` rows (`author_id = uid`). Family-wide `stories` SELECT stays as Design Doc; “private until published” means **not on the timeline**, not a new RLS policy.
-- **Host decision (locked):** Timeline AppBar gets a smoke-only **Drafts** action → `/drafts` (same pattern as M3 **New story**). No Stitch/Memory Album timeline chrome. Body of `/timeline`: locked empty copy when no published stories; otherwise a **smoke-only** title/preview list of `status = published` (no far/mid/near zoom — that is M6).
+- **Host decision (locked this plan):** Extend `/stories/new` (replace M3 "Capture fields arrive in M4."). Resume via `?draft=<id>`. Do **not** add `/stories/:storyId/edit`.
+- **Host decision (locked):** `timeframe_start` is `date not null` in Design Doc DDL. **Save draft blocked until timeframe chosen.** Don't null column. No sentinel date.
+- **Host decision (locked):** Drafts list shows **current author's** `status = draft` rows (`author_id = uid`). Family-wide `stories` SELECT stays per Design Doc; "private until published" = **not on timeline**, not new RLS policy.
+- **Host decision (locked):** Timeline AppBar gets smoke-only **Drafts** action → `/drafts` (same pattern as M3 **New story**). No Stitch/Memory Album timeline chrome. `/timeline` body: locked empty copy when no published stories; else **smoke-only** title/preview list of `status = published` (no far/mid/near zoom — M6).
 - **Host decision (locked):** No title field on capture (Mugatu sections: Timeframe, People, Place + mini map, Story text, photo strip). `stories.title` stays null.
-- **Host decision (locked):** Timeframe UI = decade chips writing calendar ranges (`1980s` → `1980-01-01`..`1989-12-31`). Chip set **1900s–2020s**. Single-day (`timeframe_end` null) is not a v1 capture control in this milestone.
-- **Host decision (locked):** Author photo attach during capture is M4. **Any-member attach to a published story** (US-4 remainder) waits for **M5 reader**. Upload helpers must be reusable. Photos INSERT policy remains M1 `member + uploader_id = uid` — do not add or rewrite photos RLS.
-- **Repo map §3:** `features/stories/`, `features/drafts/`. No new Edge Functions. No migrations unless a **blocking** Design Doc mismatch is found — then stop and report CONFLICT.
+- **Host decision (locked):** Timeframe UI = decade chips writing calendar ranges (`1980s` → `1980-01-01`..`1989-12-31`). Chip set **1900s–2020s**. Single-day (`timeframe_end` null) not v1 capture control this milestone.
+- **Host decision (locked):** Author photo attach during capture = M4. **Any-member attach to published story** (US-4 remainder) waits for **M5 reader**. Upload helpers must be reusable. Photos INSERT policy stays M1 `member + uploader_id = uid` — no add/rewrite photos RLS.
+- **Repo map §3:** `features/stories/`, `features/drafts/`. No new Edge Functions. No migrations unless **blocking** Design Doc mismatch — then stop, report CONFLICT.
 - **Out of M4:** Story reader, comments, perspectives (M5); timeline zoom + Realtime (M6); search (M7); Resend/cloud staging (Bill / Staging MS); SMS; offline drafts; video; public buckets.
-- **Secrets:** Never commit `.env` or service-role keys. Photo bytes go to Storage via the user JWT.
-- **Git:** Branch `feat/m04-stories-drafts-photos` from latest `main` in `.worktrees/feat-m04-stories-drafts-photos`. Open PR; do not merge. No `--no-verify`, no force-push.
-- **Env rule (Bill 2026-09-26):** Feature MS exit = local smoke. Staging MS is separate and late.
+- **Secrets:** Never commit `.env` or service-role keys. Photo bytes go to Storage via user JWT.
+- **Git:** Branch `feat/m04-stories-drafts-photos` from latest `main` in `.worktrees/feat-m04-stories-drafts-photos`. Open PR; don't merge. No `--no-verify`, no force-push.
+- **Env rule (Bill 2026-09-26):** Feature MS exit = local smoke. Staging MS separate, late.
 
 ## Preconditions / blockers
 
 | Item | Status at plan time |
 |------|---------------------|
 | `main` includes M1–M3 (auth, family/invites, people/places, `/stories/new` shell) | Yes — M3 PRs #7+#8 merged; Bill local smoke passed 2026-09-27 |
-| `stories` / `story_people` / `photos` tables + RLS | Already in M1 migrations |
-| Private `story-photos` bucket + path-prefix policies | Already in M1 (`20260923000005_storage.sql`) |
+| `stories` / `story_people` / `photos` tables + RLS | In M1 migrations |
+| Private `story-photos` bucket + path-prefix policies | In M1 (`20260923000005_storage.sql`) |
 | Flutter SDK | Present (`3.47.x`) |
 | Local Supabase ports `5732x` | Per local-dev memory / README |
-| Mapbox public token | Soft; needed only for place pin smoke (already M3) |
+| Mapbox public token | Soft; only for place pin smoke (already M3) |
 | Cloud staging | Deferred to Staging MS — local only |
 
 ## Spec match (M4)
@@ -72,7 +72,7 @@ Pick **Approach A** only. Do not ship Approaches 2–3. Do not add an edit route
 | Drafts list missing-field chips / Discard | `/drafts` | Agent closes |
 | Checks (§14 slice) | `flutter test`; `supabase test db` + new author/photo pgTAP | Agent closes on local |
 
-**PR title/body stance:** `feat(m04): Stories, drafts, and photos` — do not claim Bill smoke closed until Bill runs it.
+**PR title/body stance:** `feat(m04): Stories, drafts, and photos` — don't claim Bill smoke closed until Bill runs it.
 
 ## Files to touch
 
@@ -90,18 +90,18 @@ Pick **Approach A** only. Do not ship Approaches 2–3. Do not add an edit route
 | `apps/tell_me_a_story/test/new_story_capture_test.dart` | Save draft / Publish chrome + blocked banner |
 | `apps/tell_me_a_story/test/drafts_page_test.dart` | Empty/loading copy, chips, Continue/Discard |
 | `supabase/tests/story_author_and_photos.sql` | §14 author rules + member photo INSERT (`uploader_id = uid`); **no RLS migration** |
-| `docs/superpowers/plans/2026-09-27-m4-stories-drafts-photos.md` | In-repo copy of this plan |
+| `docs/superpowers/plans/2026-09-27-m4-stories-drafts-photos.md` | In-repo copy of plan |
 
 ### Modify
 
 | Path | Change |
 |------|--------|
-| `apps/tell_me_a_story/lib/features/stories/new_story_page.dart` | Full capture in Mugatu order (Timeframe → People → Place + map → Story text → photos); persist; no title field; remove M3 placeholder |
-| `apps/tell_me_a_story/lib/core/router/app_router.dart` | `AppRoutes.drafts = '/drafts'`; signed-in only; pass `draft` query into `NewStoryPage`; inject `StoriesGateway` / `PhotosGateway` like existing people/places |
-| `apps/tell_me_a_story/lib/app.dart` | Thread stories/photos gateways into `createAppRouter` if that is how M3 injects fakes |
+| `apps/tell_me_a_story/lib/features/stories/new_story_page.dart` | Full capture in Mugatu order (Timeframe → People → Place + map → Story text → photos); persist; no title field; drop M3 placeholder |
+| `apps/tell_me_a_story/lib/core/router/app_router.dart` | `AppRoutes.drafts = '/drafts'`; signed-in only; pass `draft` query into `NewStoryPage`; inject `StoriesGateway` / `PhotosGateway` like people/places |
+| `apps/tell_me_a_story/lib/app.dart` | Thread stories/photos gateways into `createAppRouter` if M3 injects fakes that way |
 | `apps/tell_me_a_story/lib/features/timeline/timeline_page.dart` | AppBar `Drafts` → `/drafts`; smoke published list; locked empty archive copy |
-| `apps/tell_me_a_story/test/new_story_shell_test.dart` | Drop “Capture fields arrive in M4.” / “no Save draft” assertions; keep people/place modal tests |
-| `apps/tell_me_a_story/test/router_test.dart` | `/drafts` reachable when signed-in; signed-out redirect to magic-link; Timeline `Drafts` action |
+| `apps/tell_me_a_story/test/new_story_shell_test.dart` | Drop "Capture fields arrive in M4." / "no Save draft" asserts; keep people/place modal tests |
+| `apps/tell_me_a_story/test/router_test.dart` | `/drafts` reachable signed-in; signed-out redirect to magic-link; Timeline `Drafts` action |
 | `apps/tell_me_a_story/test/timeline_page_test.dart` | Create if missing: empty archive copy + published preview |
 | `apps/tell_me_a_story/pubspec.yaml` | Pin `image_picker`, `image`, `uuid` |
 | `README.md` | M4 smoke path |
@@ -123,9 +123,9 @@ Pick **Approach A** only. Do not ship Approaches 2–3. Do not add an edit route
 
 **`photos`:** `id`, `story_id`, `family_id`, `uploader_id`, `storage_path`, `sort_order`. App enforces max **20**/story.
 
-**Storage:** bucket `story-photos` (private, 50 MiB, `image/jpeg`\|`image/png`\|`image/webp`). Path `{family_id}/{story_id}/{photo_id}.(jpg|jpeg|png|webp)`.
+**Storage:** bucket `story-photos` (private, 50 MiB, `image/jpeg`\|`image/png`\|`image/webp`). Path `{family_id}/{story_id}/{photo_id}.(jpg|jpeg|png|webp)`.
 
-**RLS (do not change — no M4 migration):** stories SELECT member; INSERT member + `author_id = uid`; UPDATE/DELETE author + member. Photos INSERT **member + `uploader_id = uid`** (M1); UPDATE/DELETE uploader or story author + member.
+**RLS (no change — no M4 migration):** stories SELECT member; INSERT member + `author_id = uid`; UPDATE/DELETE author + member. Photos INSERT **member + `uploader_id = uid`** (M1); UPDATE/DELETE uploader or story author + member.
 
 ## UI chrome locks (M4 surfaces)
 
@@ -143,7 +143,7 @@ Pick **Approach A** only. Do not ship Approaches 2–3. Do not add an edit route
 | Photo retry | Button `Try again`. Inferred EN (OPEN Mugatu): `Couldn’t upload the photo. Check your connection and try again.` |
 | Draft saved toast | Inferred EN (OPEN Mugatu): `Draft saved` |
 | Routes | `/stories/new`, `/drafts`; signed-in home `/timeline` |
-| EN only | Do not invent extra languages |
+| EN only | No invented extra languages |
 
 ---
 
@@ -169,7 +169,7 @@ git worktree add .worktrees/feat-m04-stories-drafts-photos -b feat/m04-stories-d
 
 - [ ] **Step 2: Copy approved plan into the worktree docs path**
 
-Write `docs/superpowers/plans/2026-09-27-m4-stories-drafts-photos.md` from the approved session plan.
+Write `docs/superpowers/plans/2026-09-27-m4-stories-drafts-photos.md` from approved session plan.
 
 - [ ] **Step 3: Commit plan doc**
 
@@ -381,9 +381,9 @@ Future<Story> createDraft({...}) async {
 
 `publish`: if `!publishReadiness(...).canPublish` throw `ArgumentError` with message code `VALIDATION`; else update **both** `{status: 'published', published_at: <utc now iso>}`. Never publish with `published_at` null.
 
-`_replacePeople`: delete existing `story_people` for `storyId`, then insert `{story_id, person_id}` for each id.
+`_replacePeople`: delete existing `story_people` for `storyId`, then insert `{story_id, person_id}` per id.
 
-`discard`: `from('stories').delete().eq('id', storyId)` (cascades `story_people` + `photos` rows). Caller in Task 3 also removes Storage objects.
+`discard`: `from('stories').delete().eq('id', storyId)` (cascades `story_people` + `photos` rows). Task 3 caller also removes Storage objects.
 
 Date helper writes `YYYY-MM-DD` only (column is `date`).
 
@@ -513,7 +513,7 @@ test('uploadPhoto refuses a 21st image', () async {
 });
 ```
 
-For the cap test, put the count check in a package-visible function:
+For cap test, put count check in package-visible function:
 
 ```dart
 void ensurePhotoCap(int currentCount) {
@@ -540,7 +540,7 @@ Upload sequence (STORAGE_FAILED — no orphan `photos` row):
 3. `compressed = compressStoryPhoto(bytes)`
 4. `path = storyPhotoStoragePath(..., ext: compressed.extension)`
 5. `storage.from(storyPhotosBucket).uploadBinary(path, compressed.bytes, fileOptions: FileOptions(contentType: compressed.mimeType, upsert: false))`
-6. On storage throw: map to a small `StorageFailedException(code: 'STORAGE_FAILED')`; **do not** insert `photos`
+6. On storage throw: map to small `StorageFailedException(code: 'STORAGE_FAILED')`; **do not** insert `photos`
 7. Insert `photos` `{id: photoId, story_id, family_id, uploader_id: uid, storage_path: path, sort_order}`
 8. If insert throws: `storage.from(bucket).remove([path])` then rethrow
 
@@ -584,7 +584,7 @@ select * from finish();
 rollback;
 ```
 
-Use two users in **one** family for author vs member photo insert. Create family as A; insert B’s membership with `set role none` / table owner (the isolation test already inserts `auth.users`; for membership insert, use `reset role` then insert as postgres, matching how Edge would). If inserting membership as postgres is awkward, have A create family, then run a `security definer` test helper **only if already present**. Prefer: A creates family; B creates own family; **do not** weaken policies. For “member can INSERT photo”, add B to A’s family via:
+Two users in **one** family for author vs member photo insert. A creates family; insert B's membership with `set role none` / table owner (isolation test already inserts `auth.users`; for membership, `reset role` then insert as postgres, matching Edge). If postgres membership insert awkward, use `security definer` test helper **only if already present**. Prefer: A creates family; B creates own family; **do not** weaken policies. For "member can INSERT photo", add B to A's family via:
 
 ```sql
 reset role;
@@ -592,7 +592,7 @@ insert into public.memberships (family_id, user_id, role)
 select family_a, user_b, 'member' from test_ctx;
 ```
 
-That is test-harness only (postgres), same spirit as seeding.
+Test-harness only (postgres), same spirit as seeding.
 
 - [ ] **Step 2: Run**
 
@@ -600,7 +600,7 @@ That is test-harness only (postgres), same spirit as seeding.
 supabase test db
 ```
 
-Expected: existing tests still PASS; new file PASS.
+Expected: existing tests PASS; new file PASS.
 
 - [ ] **Step 3: Commit**
 
@@ -684,7 +684,7 @@ testWidgets('Save draft with timeframe calls createDraft', (tester) async {
 });
 ```
 
-Inject `StoriesGateway` on `NewStoryPage` the same way people/places are injected.
+Inject `StoriesGateway` on `NewStoryPage` same way as people/places.
 
 - [ ] **Step 2: Run — expect FAIL** (`Save draft` missing)
 
@@ -697,13 +697,13 @@ flutter test test/new_story_capture_test.dart test/new_story_shell_test.dart
 Layout order (Mugatu): Timeframe chips → People (existing) → Place + mini map (existing) → Story `TextField` (multiline, label `Story`) → photo strip placeholder (empty until Task 6) → AppBar/actions **Save draft** + **Publish story**.
 
 Behavior:
-- Selecting a decade sets `_timeframeStart/_timeframeEnd`.
-- Save draft: `createDraft` or `updateDraft` if `_storyId != null`; SnackBar `Draft saved`.
-- Publish: compute `publishReadiness`; if `!canPublish` set `_showPublishBanner = true` and wrap missing sections with a terracotta (`Color(0xFF8B5E4B)`) border; **do not** navigate. If ready: save then `publish(id)` then `context.go(AppRoutes.timeline)`.
-- If query `draft` is present, `getStory` and hydrate people/place/body/timeframe (people via `listPeople` filtered by ids).
+- Decade select sets `_timeframeStart/_timeframeEnd`.
+- Save draft: `createDraft`, or `updateDraft` if `_storyId != null`; SnackBar `Draft saved`.
+- Publish: compute `publishReadiness`; if `!canPublish` set `_showPublishBanner = true`, wrap missing sections in terracotta (`Color(0xFF8B5E4B)`) border; **no** navigate. If ready: save → `publish(id)` → `context.go(AppRoutes.timeline)`.
+- If query `draft` present, `getStory` and hydrate people/place/body/timeframe (people via `listPeople` filtered by ids).
 - When `canPublish`, show chip `Ready to publish`.
 
-Update `new_story_shell_test.dart`: remove assertions that Save draft / Publish are absent and that the M3 placeholder is present. Keep modal tests.
+Update `new_story_shell_test.dart`: remove asserts that Save draft / Publish absent and M3 placeholder present. Keep modal tests.
 
 - [ ] **Step 4: Tests PASS + commit**
 
@@ -727,7 +727,7 @@ EOF
 
 **Interfaces:**
 - Consumes: `PhotosGateway`, `StoriesGateway` (auto-save draft before first upload)
-- Produces: add / remove / retry on the strip
+- Produces: add / remove / retry on strip
 
 ```dart
 class PhotoStrip extends StatelessWidget {
@@ -780,12 +780,12 @@ testWidgets('upload failure shows retry copy', (tester) async {
 });
 ```
 
-Inject a `Future<Uint8List?> Function()` picker on `NewStoryPage` so widget tests never open the real gallery.
+Inject `Future<Uint8List?> Function()` picker on `NewStoryPage` so widget tests never open real gallery.
 
 - [ ] **Step 2: Implement**
 
 On add:
-1. If no timeframe, treat like blocked publish for timeframe only (terracotta on Timeframe). Do not open picker.
+1. No timeframe → treat like blocked publish for timeframe only (terracotta on Timeframe). Don't open picker.
 2. Else `createDraft`/`updateDraft` so `_storyId` exists.
 3. `picker()` → if null, return.
 4. `photos.uploadPhoto(...)`. On `StorageFailedException`, set `_photoError = true`.
@@ -793,7 +793,7 @@ On add:
 
 On remove: `deletePhoto` then drop from local list (author is uploader).
 
-Production picker: `ImagePicker().pickImage(source: ImageSource.gallery)` then `readAsBytes()`. iOS + web.
+Prod picker: `ImagePicker().pickImage(source: ImageSource.gallery)` then `readAsBytes()`. iOS + web.
 
 - [ ] **Step 3: Tests PASS + commit**
 
@@ -871,7 +871,7 @@ static const drafts = '/drafts';
 
 AppBar title `Drafts`. Filter chips (functional EN, list OPEN if Stitch differs): `All`, `Missing text`, `Missing people`, `Missing place`, `Missing photos`, `Ready to publish`.
 
-Row: timeframe label (`1980s` if range is a full decade, else `YYYY-MM-DD`) + body preview or `Untitled`; missing chips; `Continue writing` → `context.push('${AppRoutes.newStory}?draft=${story.id}')`; `Discard` → `deleteAllForStory` then `discard(id)` then refresh.
+Row: timeframe label (`1980s` if full decade, else `YYYY-MM-DD`) + body preview or `Untitled`; missing chips; `Continue writing` → `context.push('${AppRoutes.newStory}?draft=${story.id}')`; `Discard` → `deleteAllForStory` → `discard(id)` → refresh.
 
 - [ ] **Step 3: Tests PASS + commit**
 
@@ -890,7 +890,7 @@ EOF
 **Files:**
 - Modify: `apps/tell_me_a_story/lib/features/timeline/timeline_page.dart`
 - Modify: `apps/tell_me_a_story/test/router_test.dart`
-- Add widget coverage in existing timeline tests or `test/timeline_page_test.dart` if none exists
+- Add widget coverage in existing timeline tests or `test/timeline_page_test.dart` if none
 
 **Interfaces:**
 - Consumes: `StoriesGateway.listPublished`
@@ -918,7 +918,7 @@ testWidgets('published story preview appears after listPublished', (tester) asyn
 
 AppBar actions order: `New story` | `Drafts` | `+ Invite`.
 
-Body: if loading published, small progress; if empty, centered locked empty copy; else `ListView` of published rows (timeframe label + body preview). **No** zoom controls, **no** Memory Album redesign. Row tap is a no-op in M4 (reader is M5) — do not invent `/stories/:id` navigation.
+Body: loading published → small progress; empty → centered locked empty copy; else `ListView` of published rows (timeframe label + body preview). **No** zoom controls, **no** Memory Album redesign. Row tap no-op in M4 (reader is M5) — no invented `/stories/:id` nav.
 
 - [ ] **Step 3: Commit**
 
@@ -941,11 +941,11 @@ EOF
 
 After M3 people/place steps:
 
-1. Pick a decade chip
+1. Pick decade chip
 2. Enter story text
 3. **Save draft** → toast `Draft saved`
 4. Open **Drafts** → row with missing-field chips → **Continue writing** resumes
-5. Add a photo (≤20); kill network / fail Storage → photo retry copy + `Try again`
+5. Add photo (≤20); kill network / fail Storage → photo retry copy + `Try again`
 6. Fill people + place + text → **Publish story**
 7. Land on `/timeline`; draft gone from Drafts; preview listed
 8. Blocked Publish (missing fields) stays on form with `Finish the highlighted fields to publish.`
@@ -991,13 +991,13 @@ PR body must include:
 | Online-only (no Hive/SQLite drafts) | Global |
 | No reader / zoom / search / SMS | Global |
 
-**Placeholder scan:** Named OPENs only — Mugatu strings for draft toast, photo error sentence, drafts filter labels. Mapbox token remains prior OPEN (M3). Resend remains Bill OPEN (not M4).
+**Placeholder scan:** Named OPENs only — Mugatu strings for draft toast, photo error sentence, drafts filter labels. Mapbox token = prior OPEN (M3). Resend = Bill OPEN (not M4).
 
 **Type consistency:** `StoriesGateway.createDraft/updateDraft/publish/listMyDrafts/listPublished/discard`; `PhotosGateway.uploadPhoto/deletePhoto/deleteAllForStory`; `PublishReadiness.canPublish`; `maxPhotosPerStory = 20`; `storyPhotoStoragePath`; route `AppRoutes.drafts`.
 
 ## Execution handoff (after approval)
 
-Plan complete for review. After you approve:
+Plan ready for review. After approval:
 
 1. **Subagent-Driven (recommended)** — fresh subagent per task + review between tasks
 2. **Inline Execution** — execute in this session with checkpoints

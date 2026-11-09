@@ -1,28 +1,28 @@
 # Phase 4.0: Client Cutover — Shared Foundation Implementation Plan
 
-> Executes on `feat/serverpod-migration` before the cutover branch exists. Everything here is additive: the app still runs on Supabase afterwards.
+> Runs on `feat/serverpod-migration` before cutover branch exists. All additive: app still runs on Supabase after.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give the Phase 4 slices one shared way to reach the Serverpod server from the Flutter app. That means the dependencies, `Env.serverUrl`, a single `serverClient`, server-to-client error mapping, wire helpers for dates, roles and precision, and a live-test harness that runs gateway tests against `just server`.
+**Goal:** One shared path from Flutter app to Serverpod server for Phase 4 slices: dependencies, `Env.serverUrl`, single `serverClient`, server→client error mapping, wire helpers (dates, roles, precision), live-test harness running gateway tests against `just server`.
 
-**Architecture:** New files only, under `apps/tell_me_a_story/lib/core/server/` and `lib/data/server/`, plus `test/server/` and `test/live/`. No gateway changes yet. Live tests are tagged `live`: plain `flutter test` skips them, and `just test-live` runs them against a running `just server`.
+**Architecture:** New files only, under `apps/tell_me_a_story/lib/core/server/` and `lib/data/server/`, plus `test/server/` and `test/live/`. No gateway changes yet. Live tests tagged `live`: plain `flutter test` skips, `just test-live` runs against running `just server`.
 
-**Tech Stack:** Flutter 3.47.7 / Dart 3.13.5, the generated `tell_me_a_story_client` (Serverpod 4.1.1), `serverpod_auth_core_flutter` 4.1.1, `serverpod_auth_idp_client` 4.1.1, just.
+**Tech Stack:** Flutter 3.47.7 / Dart 3.13.5, generated `tell_me_a_story_client` (Serverpod 4.1.1), `serverpod_auth_core_flutter` 4.1.1, `serverpod_auth_idp_client` 4.1.1, just.
 
-**Verified:** every file below was written and run on 2026-11-07 in a scratch worktree of `feat/serverpod-migration`.
-- `flutter analyze` stayed at the 23-issue baseline.
-- `flutter test` gave 723/723 (708 before), with the `live` tests skipped.
-- `just test-live` passed 2/2 against `just server`, including a cold start where the tests began before the server was up.
-- A throwaway smoke test, later deleted, ran the whole path against the real server: code login, a persisted and restored session, `profile.me`, `family.createRoot`/`listMine`, a refusal mapped to the client `forbidden`, and `unauthenticated` after sign-out. That smoke test found the missing server auth handler, fixed in `f203a6d`.
+**Verified:** every file below written and run 2026-11-07 in scratch worktree of `feat/serverpod-migration`.
+- `flutter analyze` stayed at 23-issue baseline.
+- `flutter test` 723/723 (708 before), `live` tests skipped.
+- `just test-live` 2/2 against `just server`, incl. cold start (tests began before server up).
+- Throwaway smoke test (deleted) ran full path against real server: code login, session persisted + restored, `profile.me`, `family.createRoot`/`listMine`, refusal mapped to client `forbidden`, `unauthenticated` after sign-out. Found missing server auth handler, fixed in `f203a6d`.
 
-**Dependencies:** `tell_me_a_story_client` (path), `serverpod_auth_core_flutter` and `serverpod_auth_idp_client` are the endpoint-contract §3 set, made lighter:
-- `serverpod_auth_core_flutter` replaces `serverpod_auth_idp_flutter`, which would pull in Google and Apple sign-in, `pinput` and more.
-- `serverpod_auth_idp_client` is needed directly for `EmailAccountRequestException` (slice 4a).
-- `serverpod_flutter` is not needed: `Env.serverUrl` replaces its `getServerUrl`.
-- All three are added here once, so slices never conflict on `pubspec.lock`.
+**Dependencies:** `tell_me_a_story_client` (path), `serverpod_auth_core_flutter`, `serverpod_auth_idp_client` = endpoint-contract §3 set, lighter:
+- `serverpod_auth_core_flutter` replaces `serverpod_auth_idp_flutter` (would pull Google + Apple sign-in, `pinput`, more).
+- `serverpod_auth_idp_client` needed directly for `EmailAccountRequestException` (slice 4a).
+- `serverpod_flutter` not needed: `Env.serverUrl` replaces its `getServerUrl`.
+- All three added here once → slices never conflict on `pubspec.lock`.
 
-All commands run from the repo root unless a step says otherwise.
+All commands from repo root unless step says otherwise.
 
 ---
 
@@ -30,11 +30,11 @@ All commands run from the repo root unless a step says otherwise.
 
 | Path | Responsibility |
 |---|---|
-| `apps/tell_me_a_story/pubspec.yaml`, `pubspec.lock` | Client package and auth dependencies |
+| `apps/tell_me_a_story/pubspec.yaml`, `pubspec.lock` | Client package + auth deps |
 | `apps/tell_me_a_story/lib/core/config/env.dart` | `Env.serverUrl` (`SERVER_URL`) |
 | `apps/tell_me_a_story/lib/core/server/server_client.dart` | `serverClient`, `initServer`, `serverHost` |
 | `apps/tell_me_a_story/lib/data/server/server_errors.dart` | `withServerErrors`, `clientError` |
-| `apps/tell_me_a_story/lib/data/server/wire.dart` | date-only, role and precision conversions |
+| `apps/tell_me_a_story/lib/data/server/wire.dart` | date-only, role, precision conversions |
 | `apps/tell_me_a_story/dart_test.yaml` | `live` tag skipped by default |
 | `apps/tell_me_a_story/test/live/support/live_server.dart` | `waitForLiveServer`, `signInLive`, `freshEmail`, `MemoryAuthStorage` |
 | `justfile` | `test-live` recipe |
@@ -44,7 +44,7 @@ All commands run from the repo root unless a step says otherwise.
 ### Task 1: Dependencies and `Env.serverUrl`
 
 **Files:**
-- Modify: `apps/tell_me_a_story/pubspec.yaml` (dependencies), `pubspec.lock` (by `flutter pub add`)
+- Modify: `apps/tell_me_a_story/pubspec.yaml` (deps), `pubspec.lock` (via `flutter pub add`)
 - Modify: `apps/tell_me_a_story/lib/core/config/env.dart` (after `supabaseAnonKey`)
 
 - [ ] **Step 1: Add the dependencies**
@@ -73,7 +73,7 @@ Expected: `Changed … dependencies!`. `pubspec.yaml` gains:
 - [ ] **Step 3: Check nothing broke**
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter analyze && mise exec -- flutter test`
-Expected: `23 issues found.` (the baseline) and `+708: All tests passed!`
+Expected: `23 issues found.` (baseline) and `+708: All tests passed!`
 
 - [ ] **Step 4: Commit**
 
@@ -86,7 +86,7 @@ git commit -m "chore(client): add the Serverpod client and SERVER_URL"
 
 ### Task 2: `serverClient` and `initServer`
 
-One client for the whole app, holding a persisted `FlutterAuthSessionManager`. Tests and live tests pass in-memory storage. Gateways read `serverClient` lazily (Phase 4 index §Conventions), so building a gateway in a widget test never touches it.
+One client for whole app, holds persisted `FlutterAuthSessionManager`. Tests + live tests pass in-memory storage. Gateways read `serverClient` lazily (Phase 4 index §Conventions) → building gateway in widget test never touches it.
 
 **Files:**
 - Create: `apps/tell_me_a_story/lib/core/server/server_client.dart`
@@ -132,7 +132,7 @@ String serverHost(String url) => url.endsWith('/') ? url : '$url/';
 Run: `cd apps/tell_me_a_story && mise exec -- flutter analyze`
 Expected: `23 issues found.`
 
-It has no test of its own: `test/live/server_errors_live_test.dart` (Task 5) builds a real client through `initServer`.
+No own test: `test/live/server_errors_live_test.dart` (Task 5) builds real client via `initServer`.
 
 - [ ] **Step 3: Commit**
 
@@ -145,7 +145,7 @@ git commit -m "feat(client): serverClient and initServer"
 
 ### Task 3: Server errors become client errors
 
-Features keep catching the client `AppException` and the photo exceptions. Every gateway call goes through `withServerErrors`.
+Features keep catching client `AppException` + photo exceptions. Every gateway call goes through `withServerErrors`.
 
 **Files:**
 - Create: `apps/tell_me_a_story/lib/data/server/server_errors.dart`
@@ -332,7 +332,7 @@ git commit -m "feat(client): map server errors to client errors"
 
 ### Task 4: Wire helpers
 
-Date-only values travel as UTC midnight and come back as the same local calendar day. Roles keep the client strings (`co_owner`). `decade` is refused (D9).
+Date-only values travel as UTC midnight, return as same local calendar day. Roles keep client strings (`co_owner`). `decade` refused (D9).
 
 **Files:**
 - Create: `apps/tell_me_a_story/lib/data/server/wire.dart`
@@ -463,13 +463,13 @@ git commit -m "feat(client): wire helpers for dates, roles and precision"
 
 ### Task 5: Live-test harness
 
-Flutter tests use fakes and cannot see server behaviour. The missing auth handler (`f203a6d`) passed every server test and failed the first real call. So every slice proves its gateway against `just server` with tests tagged `live`. The server port opens before requests are served, so each live file waits in `setUpAll`.
+Flutter tests use fakes, can't see server behaviour. Missing auth handler (`f203a6d`) passed every server test, failed first real call. So every slice proves its gateway against `just server` with `live`-tagged tests. Server port opens before requests served → each live file waits in `setUpAll`.
 
 **Files:**
 - Create: `apps/tell_me_a_story/dart_test.yaml`
 - Create: `apps/tell_me_a_story/test/live/support/live_server.dart`
 - Create: `apps/tell_me_a_story/test/live/server_errors_live_test.dart`
-- Modify: `justfile` (after the `test` recipe)
+- Modify: `justfile` (after `test` recipe)
 
 - [ ] **Step 1: Skip `live` by default** in `apps/tell_me_a_story/dart_test.yaml`:
 
@@ -555,7 +555,7 @@ Future<Client> signInLive(String email) async {
 }
 ```
 
-- [ ] **Step 3: The live test** (server errors over the real wire, and the harness end to end):
+- [ ] **Step 3: The live test** (server errors over real wire + harness end to end):
 
 ```dart
 @Tags(['live'])
@@ -613,9 +613,9 @@ test-live:
 - [ ] **Step 5: Run both ways**
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter test` (no server needed)
-Expected: `+723 ~1: All tests passed!` (the `live` file is skipped as one entry)
+Expected: `+723 ~1: All tests passed!` (`live` file skipped as one entry)
 
-Then, in one shell, run `mise exec -- just server`. In another: `mise exec -- just test-live`
+Then shell 1: `mise exec -- just server`. Shell 2: `mise exec -- just test-live`
 Expected: `+2: All tests passed!`
 
 - [ ] **Step 6: Commit**
@@ -644,4 +644,4 @@ Expected:
 - server: `+425`;
 - live: `+2`.
 
-- [ ] **Step 2:** In `docs/superpowers/plans/2026-11-07-serverpod-phase4-client-cutover.md`, set the 4.0 status to `landed`, then commit `docs: Phase 4.0 foundation landed`.
+- [ ] **Step 2:** In `docs/superpowers/plans/2026-11-07-serverpod-phase4-client-cutover.md`, set 4.0 status to `landed`, commit `docs: Phase 4.0 foundation landed`.
