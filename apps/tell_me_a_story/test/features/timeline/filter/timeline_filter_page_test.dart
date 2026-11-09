@@ -4,6 +4,7 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/features/timeline/rails/far_rail.dart';
 import 'package:tell_me_a_story/features/timeline/rails/full_card_rail.dart';
 import 'package:tell_me_a_story/features/timeline/rails/mid_rail.dart';
+import 'package:tell_me_a_story/ui/controls/album_chip.dart';
 import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
 
 import '../../../support/timeline_fixture.dart';
@@ -345,7 +346,7 @@ void main() {
       expect(find.text('2 of 6 stories match'), findsOneWidget);
       expect(
         tester
-            .widget<FilterChip>(
+            .widget<AlbumChip>(
               find.byKey(Key('filter-person-${fixtureTom.id}')),
             )
             .selected,

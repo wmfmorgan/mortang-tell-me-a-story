@@ -14,6 +14,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 import 'package:tell_me_a_story/features/timeline/rails/rail_scaffold.dart';
 import 'package:tell_me_a_story/features/timeline/rails/rail_spine.dart';
 import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
+import 'package:tell_me_a_story/ui/controls/album_chip.dart';
 
 class FullCardRail extends StatefulWidget {
   const FullCardRail({
@@ -121,9 +122,11 @@ class _FullCardRailState extends State<FullCardRail>
       notice: widget.notice,
       viewport: LayoutBuilder(
         builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 800;
+          final wide = constraints.maxWidth >= AlbumBreakpoint.sidebar;
           final pad = constraints.maxHeight / 2;
-          final gap = constraints.maxWidth < 720 ? 32.0 : 80.0;
+          final gap = constraints.maxWidth < AlbumBreakpoint.sidebar
+              ? AlbumSpace.xl
+              : AlbumSpace.xl * 3;
           return Stack(
             key: viewportKey,
             children: [
@@ -799,7 +802,7 @@ class _FullCard extends StatelessWidget {
             ? branchMoss
             : focused
             ? albumTerracotta
-            : albumInk.withValues(alpha: 0.2),
+            : albumRule,
         width: branched ? 1 : (focused ? 2 : 1),
       ),
     );
@@ -831,29 +834,28 @@ class _FullCard extends StatelessWidget {
                   ],
           ),
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AlbumSpace.xl),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Wrap(
                   alignment: WrapAlignment.spaceBetween,
                   crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 4,
+                  spacing: AlbumSpace.s,
+                  runSpacing: AlbumSpace.xs,
                   children: [
                     Text(
                       storyDateLabelFor(story),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: dimmed ? albumDimInk : albumTerracotta,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2,
-                        fontSize: 12,
                       ),
                     ),
                     Wrap(
                       alignment: WrapAlignment.end,
                       spacing: 6,
-                      runSpacing: 4,
+                      runSpacing: AlbumSpace.xs,
                       children: [
                         for (final person
                             in story.people.isNotEmpty
@@ -869,25 +871,41 @@ class _FullCard extends StatelessWidget {
                             onTap: person.id.isEmpty || onPerson == null
                                 ? null
                                 : () => onPerson!(person),
-                            child: _FullChip(
-                              icon: Icons.person,
+                            child: AlbumChip(
+                              avatar: Icon(
+                                Icons.person,
+                                size: 12,
+                                color: dimmed
+                                    ? albumDimInk
+                                    : albumInk.withValues(
+                                        alpha: focused ? 0.85 : 0.7,
+                                      ),
+                              ),
                               label: person.name,
-                              filled: focused,
+                              selected: focused,
                               dimmed: dimmed,
                             ),
                           ),
                         if ((story.placeLabel ?? '').isNotEmpty)
-                          _FullChip(
-                            icon: Icons.location_on,
+                          AlbumChip(
+                            avatar: Icon(
+                              Icons.location_on,
+                              size: 12,
+                              color: dimmed
+                                  ? albumDimInk
+                                  : albumInk.withValues(
+                                      alpha: focused ? 0.85 : 0.7,
+                                    ),
+                            ),
                             label: story.placeLabel!,
-                            filled: focused,
+                            selected: focused,
                             dimmed: dimmed,
                           ),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AlbumSpace.s),
                 if (originTag != null)
                   Text(
                     originTag!,
@@ -901,7 +919,6 @@ class _FullCard extends StatelessWidget {
                   story.title ?? '',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    fontSize: 24,
                     height: 1.15,
                     color: dimmed ? albumDimInk : null,
                   ),
@@ -909,27 +926,22 @@ class _FullCard extends StatelessWidget {
                 if (paths.isNotEmpty && photos != null)
                   _CardPhotos(paths: paths, photos: photos!, focused: focused),
                 if (focused) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AlbumSpace.m),
                   DecoratedBox(
                     decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(
-                          color: albumInk.withValues(alpha: 0.12),
-                        ),
-                      ),
+                      border: Border(top: BorderSide(color: albumRule)),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.only(top: AlbumSpace.s),
                       child: Wrap(
                         alignment: WrapAlignment.spaceBetween,
-                        spacing: 8,
-                        runSpacing: 4,
+                        spacing: AlbumSpace.s,
+                        runSpacing: AlbumSpace.xs,
                         children: [
                           Text(
                             'Added by $author',
-                            style: Theme.of(context).textTheme.labelSmall
+                            style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(
-                                  fontSize: 12,
                                   color: dimmed
                                       ? albumDimInk
                                       : albumInk.withValues(alpha: 0.7),
@@ -937,9 +949,8 @@ class _FullCard extends StatelessWidget {
                           ),
                           Text(
                             '${countWord(story.photoCount, 'photo', 'photos')} · ${countWord(notes, 'note', 'notes')}',
-                            style: Theme.of(context).textTheme.labelSmall
+                            style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(
-                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: dimmed ? albumDimInk : albumTerracotta,
                                 ),
@@ -953,66 +964,6 @@ class _FullCard extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _FullChip extends StatelessWidget {
-  const _FullChip({
-    required this.icon,
-    required this.label,
-    required this.filled,
-    required this.dimmed,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool filled;
-  final bool dimmed;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
-      fontSize: 12,
-      color: dimmed ? albumDimInk : albumInk.withValues(alpha: 0.75),
-    );
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-      decoration: BoxDecoration(
-        color: filled ? albumBlush : albumBlushPale,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final textMax = constraints.maxWidth.isFinite
-              ? (constraints.maxWidth - 26)
-                    .clamp(0.0, constraints.maxWidth)
-                    .toDouble()
-              : double.infinity;
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 12,
-                color: dimmed
-                    ? albumDimInk
-                    : albumInk.withValues(alpha: filled ? 0.85 : 0.7),
-              ),
-              const SizedBox(width: 4),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: textMax),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: style,
-                ),
-              ),
-            ],
-          );
-        },
       ),
     );
   }
@@ -1067,7 +1018,7 @@ class _CardPhotosState extends State<_CardPhotos> {
     if (ready.isEmpty) return const SizedBox.shrink();
     final shared = ready.length > 1;
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: AlbumSpace.m),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final gaps = 12.0 * (ready.length - 1);
@@ -1089,9 +1040,9 @@ class _CardPhotosState extends State<_CardPhotos> {
                 for (var i = 0; i < ready.length; i++)
                   Expanded(
                     child: Padding(
-                      padding: EdgeInsets.only(left: i == 0 ? 0 : 12),
+                      padding: EdgeInsets.only(left: i == 0 ? 0 : AlbumSpace.m),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AlbumRadius.group),
                         child: ColoredBox(
                           color: albumParchment,
                           child: Image.memory(

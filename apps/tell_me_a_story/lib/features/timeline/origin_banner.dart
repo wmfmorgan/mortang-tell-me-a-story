@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 
@@ -20,18 +21,28 @@ class OriginBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final parent = parentName;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AlbumSpace.xl,
+        AlbumSpace.l,
+        AlbumSpace.xl,
+        0,
+      ),
       child: DecoratedBox(
         key: const Key('timeline-origin-banner'),
         decoration: ShapeDecoration(
           color: albumParchment,
           shape: albumContainerShape(
             AlbumRadius.card,
-            side: BorderSide(color: albumSage.withValues(alpha: 0.45)),
+            side: const BorderSide(color: albumSageLine),
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          padding: const EdgeInsets.fromLTRB(
+            AlbumSpace.l,
+            AlbumSpace.m,
+            AlbumSpace.s,
+            AlbumSpace.m,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -46,17 +57,13 @@ class OriginBanner extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AlbumSpace.s),
                     if (parent != null)
-                      TextButton(
+                      FButton(
                         key: const Key('timeline-origin-choose'),
-                        onPressed: onChoose,
-                        style: TextButton.styleFrom(
-                          foregroundColor: albumSage,
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(0, 36),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
+                        variant: FButtonVariant.primary,
+                        mainAxisSize: MainAxisSize.min,
+                        onPress: onChoose,
                         child: Text('Choose from $parent'),
                       )
                     else

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tell_me_a_story/core/router/app_routes.dart';
@@ -707,10 +708,11 @@ class _TimelinePageState extends State<TimelinePage> {
                       Padding(
                         // Clear the home indicator on iPad and iPhone.
                         padding: EdgeInsets.fromLTRB(
-                          16,
-                          8,
-                          16,
-                          12 + MediaQuery.viewPaddingOf(context).bottom,
+                          AlbumSpace.l,
+                          AlbumSpace.s,
+                          AlbumSpace.l,
+                          AlbumSpace.m +
+                              MediaQuery.viewPaddingOf(context).bottom,
                         ),
                         child: Text(
                           farFooter(familyName: family?.name ?? 'Family'),
@@ -720,7 +722,7 @@ class _TimelinePageState extends State<TimelinePage> {
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 fontStyle: FontStyle.italic,
-                                color: albumInk.withValues(alpha: 0.55),
+                                color: albumDimInk,
                               ),
                         ),
                       ),
@@ -773,17 +775,37 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 
-  /// Beside the zoom switch at every width: toggles the docked sidebar when
-  /// [wide], else opens the end drawer.
-  Widget _filtersButton({required bool wide}) {
+  /// Beside the zoom switch at every width: Family tree (once a family is
+  /// open) and Filters, which toggles the docked sidebar when [wide], else
+  /// opens the end drawer.
+  Widget _toolbar({required bool wide}) {
+    final familyId = _familyId;
     return Builder(
-      builder: (context) => TextButton.icon(
-        key: const Key('timeline-filters-open'),
-        onPressed: wide
-            ? () => setState(() => _sidebarOpen = !_sidebarOpen)
-            : () => Scaffold.of(context).openEndDrawer(),
-        icon: Icon(_filter.isActive ? Icons.filter_alt : Icons.tune),
-        label: const Text('Filters'),
+      builder: (context) => Wrap(
+        spacing: AlbumSpace.s,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (familyId != null)
+            FButton(
+              key: const Key('timeline-open-tree'),
+              variant: FButtonVariant.ghost,
+              mainAxisSize: MainAxisSize.min,
+              prefix: const Icon(Icons.account_tree_outlined),
+              onPress: () =>
+                  GoRouter.of(context).go(AppRoutes.familyTreePath(familyId)),
+              child: const Text('Family tree'),
+            ),
+          FButton(
+            key: const Key('timeline-filters-open'),
+            variant: FButtonVariant.ghost,
+            mainAxisSize: MainAxisSize.min,
+            prefix: Icon(_filter.isActive ? Icons.filter_alt : Icons.tune),
+            onPress: wide
+                ? () => setState(() => _sidebarOpen = !_sidebarOpen)
+                : () => Scaffold.of(context).openEndDrawer(),
+            child: const Text('Filters'),
+          ),
+        ],
       ),
     );
   }
@@ -825,13 +847,10 @@ class _TimelinePageState extends State<TimelinePage> {
       return const Center(child: CircularProgressIndicator());
     }
     if (bands.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'No stories yet. Capture the first one for this family.',
-            textAlign: TextAlign.center,
-          ),
+      return const Padding(
+        padding: EdgeInsets.all(AlbumSpace.xl),
+        child: EmptyTimeline(
+          message: 'No stories yet. Capture the first one for this family.',
         ),
       );
     }
@@ -860,7 +879,7 @@ class _TimelinePageState extends State<TimelinePage> {
         onFullCards: _openFullCards,
         dimmed: dimmed,
         filtering: _filter.isActive,
-        toolbar: _filtersButton(wide: wide),
+        toolbar: _toolbar(wide: wide),
         notice: _noMatch(dimmed),
       ),
       TimelineZoom.mid => MidRail(
@@ -878,7 +897,7 @@ class _TimelinePageState extends State<TimelinePage> {
         onMacro: _fitAll,
         onFullCards: _zoomIn,
         dimmed: dimmed,
-        toolbar: _filtersButton(wide: wide),
+        toolbar: _toolbar(wide: wide),
         notice: _noMatch(dimmed),
       ),
       TimelineZoom.near => FullCardRail(
@@ -903,7 +922,7 @@ class _TimelinePageState extends State<TimelinePage> {
         onMacro: _fitAll,
         onMid: () => setState(() => _zoom = TimelineZoom.mid),
         dimmed: dimmed,
-        toolbar: _filtersButton(wide: wide),
+        toolbar: _toolbar(wide: wide),
         notice: _noMatch(dimmed),
       ),
     };

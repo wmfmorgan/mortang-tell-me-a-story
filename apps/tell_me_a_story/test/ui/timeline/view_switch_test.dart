@@ -119,4 +119,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('selected segment is terracotta with on-accent text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ViewSwitch<_View>(
+          values: _View.values,
+          labelOf: (v) => v.name,
+          selected: _View.graph,
+          onChanged: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final pill = tester.widget<DecoratedBox>(
+      find.byKey(const Key('view-switch-pill')),
+    );
+    expect((pill.decoration as ShapeDecoration).color, albumTerracotta);
+    expect(tester.widget<Text>(find.text('graph')).style?.color, albumOnAccent);
+    expect(tester.widget<Text>(find.text('overview')).style?.color, albumInk);
+  });
 }

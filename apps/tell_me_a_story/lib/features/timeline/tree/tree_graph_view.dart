@@ -164,17 +164,7 @@ class _TreeGraphViewState extends State<TreeGraphView> {
         if (layout == null)
           const Expanded(child: EmptyTimeline(message: emptyTreeMessage))
         else ...[
-          if (viewSwitch != null)
-            // The same row as `ViewSwitch`, so the switch sits where it
-            // does on the treemap.
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AlbumSpace.l,
-                vertical: AlbumSpace.s,
-              ),
-              child: Row(children: [viewSwitch]),
-            ),
+          ?viewSwitch,
           Expanded(child: _graph(context, layout)),
         ],
       ],

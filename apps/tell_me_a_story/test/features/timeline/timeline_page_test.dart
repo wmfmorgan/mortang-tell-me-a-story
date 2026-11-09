@@ -23,6 +23,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
+import 'package:tell_me_a_story/ui/timeline/view_switch.dart';
 
 import '../../support/fakes/fake_invite_gateway.dart';
 import '../../support/fakes/fake_manage_families_gateway.dart';
@@ -211,6 +212,7 @@ Widget _timeline({
 }) {
   return MaterialApp(
     theme: theme,
+    builder: albumAppBuilder,
     home: TimelinePage(
       key: pageKey,
       api: FakeInviteGateway(
@@ -480,12 +482,21 @@ void _expectMossCard(
   );
 }
 
+/// The zoom switch marks [key]'s segment, and only it, selected.
 void _expectZoom(WidgetTester tester, String key) {
-  final button = tester.widget<TextButton>(find.byKey(Key(key)));
-  expect(
-    button.style?.foregroundColor?.resolve(const <WidgetState>{}),
-    albumParchment,
-  );
+  final handle = tester.ensureSemantics();
+  for (final id in const [
+    'timeline-zoom-macro',
+    'timeline-zoom-mid',
+    'timeline-zoom-full',
+  ]) {
+    expect(
+      tester.getSemantics(find.byKey(Key(id))),
+      isSemantics(isSelected: id == key),
+      reason: id,
+    );
+  }
+  handle.dispose();
 }
 
 void main() {
@@ -833,7 +844,9 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+      MaterialApp.router(builder: albumAppBuilder, routerConfig: router),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Draft Stories'));
@@ -890,7 +903,9 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+      MaterialApp.router(builder: albumAppBuilder, routerConfig: router),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Ada'), findsWidgets);
     expect(_tooltipFor(tester, 'old'), contains('Old'));
@@ -941,7 +956,9 @@ void main() {
         ],
       );
       addTearDown(router.dispose);
-      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpWidget(
+        MaterialApp.router(builder: albumAppBuilder, routerConfig: router),
+      );
       await tester.pumpAndSettle();
       expect(
         find.text('No stories yet. Capture the first one for this family.'),
@@ -1261,30 +1278,37 @@ void main() {
     await tester.pumpAndSettle();
 
     double leftOf(Key key) => tester.getTopLeft(find.byKey(key)).dx;
-    final pill = const Key('timeline-zoom-pill');
+    double pillLeft() => tester
+        .getTopLeft(
+          find.descendant(
+            of: find.byType(ViewSwitch<TimelineZoom>),
+            matching: find.byKey(const Key('view-switch-pill')),
+          ),
+        )
+        .dx;
     final macro = const Key('timeline-zoom-macro');
     final mid = const Key('timeline-zoom-mid');
     final full = const Key('timeline-zoom-full');
 
-    expect(leftOf(pill), closeTo(leftOf(macro), 1));
+    expect(pillLeft(), closeTo(leftOf(macro), 1));
 
     await tester.tap(find.byKey(mid));
     await tester.pump();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
-    expect(leftOf(pill), greaterThan(leftOf(macro) + 8));
-    expect(leftOf(pill), lessThan(leftOf(mid)));
+    expect(pillLeft(), greaterThan(leftOf(macro) + 8));
+    expect(pillLeft(), lessThan(leftOf(mid)));
     await tester.pumpAndSettle();
-    expect(leftOf(pill), closeTo(leftOf(mid), 1));
+    expect(pillLeft(), closeTo(leftOf(mid), 1));
 
     await tester.tap(find.byKey(full));
     await tester.pump();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
-    expect(leftOf(pill), greaterThan(leftOf(mid) + 8));
-    expect(leftOf(pill), lessThan(leftOf(full)));
+    expect(pillLeft(), greaterThan(leftOf(mid) + 8));
+    expect(pillLeft(), lessThan(leftOf(full)));
     await tester.pumpAndSettle();
-    expect(leftOf(pill), closeTo(leftOf(full), 1));
+    expect(pillLeft(), closeTo(leftOf(full), 1));
   });
 
   testWidgets('mid dial keeps the center year sharp and fades the edges', (
@@ -1737,6 +1761,50 @@ void main() {
     await openAndBack();
   });
 
+  testWidgets('the Family tree button opens the family tree', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final router = GoRouter(
+      initialLocation: AppRoutes.timeline,
+      routes: [
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) => TimelinePage(
+            api: FakeInviteGateway(
+              familyId: _familyId,
+              createdFamilyId: _familyId,
+              acceptedFamilyId: 'f',
+            ),
+            storiesApi: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.familyTree,
+          builder: (context, state) =>
+              Text('tree-screen ${state.pathParameters['id']}'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      MaterialApp.router(
+        theme: albumTheme(),
+        builder: albumAppBuilder,
+        routerConfig: router,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('timeline-open-tree')));
+    await tester.pumpAndSettle();
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.familyTreePath(_familyId),
+    );
+    expect(find.text('tree-screen $_familyId'), findsOneWidget);
+  });
+
   testWidgets('a published live event adds a dot', (tester) async {
     final stories = _FakeStoriesApi(published: []);
     final live = _FakeLive();
@@ -2187,7 +2255,7 @@ void main() {
     expect(
       tester.getBottomLeft(find.byKey(Key('timeline-branch-callout-$bea'))).dy,
       lessThanOrEqualTo(
-        tester.getTopLeft(find.byKey(const Key('timeline-stub-s1'))).dy,
+        tester.getTopLeft(find.byKey(const Key('timeline-stub-s1'))).dy + 1e-6,
       ),
     );
     final semanticsHandle = tester.ensureSemantics();
@@ -3007,6 +3075,7 @@ void main() {
     const bea = '00000000-0000-0000-0000-0000000000be';
     await tester.pumpWidget(
       MaterialApp(
+        builder: albumAppBuilder,
         home: TimelinePage(
           api: FakeInviteGateway(
             familyId: bea,

@@ -370,9 +370,7 @@ class _FarDecadeRow extends StatelessWidget {
                             : albumDialogSurface,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: focused
-                              ? albumTerracotta
-                              : albumInk.withValues(alpha: 0.35),
+                          color: focused ? albumTerracotta : albumRuleStrong,
                           width: focused ? 1.5 : 2,
                         ),
                       ),

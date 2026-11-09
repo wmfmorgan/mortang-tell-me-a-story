@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/features/timeline/filter/timeline_filter.dart';
+import 'package:tell_me_a_story/ui/controls/album_chip.dart';
 
 /// The timeline filters (Q4, copy C11–C17): a search field, People, Places
 /// and a decade range. Every control reports a new [TimelineFilter] through
@@ -102,13 +104,17 @@ class _FilterPanelState extends State<FilterPanel> {
             section('People', [
               chips([
                 for (final person in options.people)
-                  FilterChip(
+                  AlbumChip(
                     key: Key('filter-person-${person.id}'),
-                    label: _ChipLabel(person.name),
+                    label: person.name,
                     selected: filter.personIds.contains(person.id),
-                    onSelected: (on) => widget.onChanged(
+                    onTap: () => widget.onChanged(
                       filter.copyWith(
-                        personIds: toggled(filter.personIds, person.id, on),
+                        personIds: toggled(
+                          filter.personIds,
+                          person.id,
+                          !filter.personIds.contains(person.id),
+                        ),
                       ),
                     ),
                   ),
@@ -118,13 +124,17 @@ class _FilterPanelState extends State<FilterPanel> {
             section('Places', [
               chips([
                 for (final place in options.places)
-                  FilterChip(
+                  AlbumChip(
                     key: Key('filter-place-${place.id}'),
-                    label: _ChipLabel(place.label),
+                    label: place.label,
                     selected: filter.placeIds.contains(place.id),
-                    onSelected: (on) => widget.onChanged(
+                    onTap: () => widget.onChanged(
                       filter.copyWith(
-                        placeIds: toggled(filter.placeIds, place.id, on),
+                        placeIds: toggled(
+                          filter.placeIds,
+                          place.id,
+                          !filter.placeIds.contains(place.id),
+                        ),
                       ),
                     ),
                   ),
@@ -136,9 +146,11 @@ class _FilterPanelState extends State<FilterPanel> {
             const SizedBox(height: AlbumSpace.l),
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton(
+              child: FButton(
                 key: const Key('filter-clear'),
-                onPressed: () => widget.onChanged(const TimelineFilter()),
+                variant: FButtonVariant.ghost,
+                mainAxisSize: MainAxisSize.min,
+                onPress: () => widget.onChanged(const TimelineFilter()),
                 child: const Text('Clear filters'),
               ),
             ),
@@ -195,16 +207,4 @@ class _FilterPanelState extends State<FilterPanel> {
       ],
     );
   }
-}
-
-/// A chip label that never fades: an explicit single-line ellipsis instead
-/// of `RawChip`'s fade (the lab's web fix, handoff §2.1).
-class _ChipLabel extends StatelessWidget {
-  const _ChipLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) =>
-      Text(text, maxLines: 1, overflow: TextOverflow.ellipsis);
 }

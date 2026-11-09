@@ -5,6 +5,7 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 
 /// A pill chip: sage tint when selected, pale blush otherwise. Tappable
 /// chips are at least [AlbumTarget.min] tall; static ones size to content.
+/// [dimmed] draws the label in [albumDimInk] (a filter non-match).
 class AlbumChip extends StatelessWidget {
   const AlbumChip({
     super.key,
@@ -12,6 +13,7 @@ class AlbumChip extends StatelessWidget {
     this.selected = false,
     this.onTap,
     this.avatar,
+    this.dimmed = false,
   });
 
   final String label;
@@ -20,6 +22,7 @@ class AlbumChip extends StatelessWidget {
 
   /// Shown before the label.
   final Widget? avatar;
+  final bool dimmed;
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +49,15 @@ class AlbumChip extends StatelessWidget {
                 avatar,
                 const SizedBox(width: AlbumSpace.s),
               ],
-              Text(label, style: Theme.of(context).textTheme.labelLarge),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge
+                      ?.copyWith(color: dimmed ? albumDimInk : null),
+                ),
+              ),
             ],
           ),
         ),

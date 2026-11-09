@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/timeline/rails/far_rail.dart';
@@ -111,6 +112,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: albumTheme(),
+          builder: albumAppBuilder,
           home: Scaffold(
             body: FarRail(
               bands: decadeBands(fixtureStacked),

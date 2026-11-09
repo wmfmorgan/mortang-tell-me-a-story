@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 
@@ -32,10 +33,13 @@ class EmptyTimeline extends StatelessWidget {
           ),
           if (label != null) ...[
             const SizedBox(height: AlbumSpace.s),
-            TextButton(
+            FButton(
               key: const Key('empty-action'),
-              onPressed: onAction,
-              child: Text(label),
+              variant: FButtonVariant.ghost,
+              mainAxisSize: MainAxisSize.min,
+              onPress: onAction,
+              // FButton lays its child in a Row: let a long label wrap.
+              child: Flexible(child: Text(label, textAlign: TextAlign.center)),
             ),
           ],
         ],

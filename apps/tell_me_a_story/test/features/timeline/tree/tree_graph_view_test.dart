@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
@@ -32,6 +33,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: albumTheme(),
+        builder: albumAppBuilder,
         home: Scaffold(
           body: TreeGraphView(
             title: 'Jenkins family tree',

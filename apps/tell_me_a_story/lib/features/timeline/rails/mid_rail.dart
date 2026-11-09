@@ -284,7 +284,7 @@ class _DialRow extends StatelessWidget {
                   : CrossAxisAlignment.start,
               children: [
                 Wrap(
-                  spacing: 8,
+                  spacing: AlbumSpace.s,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   alignment: cardOnLeft
                       ? WrapAlignment.end
@@ -292,14 +292,12 @@ class _DialRow extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
+                        horizontal: AlbumSpace.s,
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: lit
-                            ? albumTerracotta
-                            : albumInk.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(4),
+                        color: lit ? albumTerracotta : albumWatermark,
+                        borderRadius: BorderRadius.circular(AlbumRadius.tile),
                       ),
                       child: Text(
                         year,
@@ -338,7 +336,7 @@ class _DialRow extends StatelessWidget {
                                 ? albumTerracotta
                                 : albumInk.withValues(alpha: 0.45),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: AlbumSpace.xs),
                           Text(
                             photos,
                             style: Theme.of(context).textTheme.labelSmall

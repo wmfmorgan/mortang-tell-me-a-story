@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:forui/forui.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
@@ -59,7 +59,8 @@ class TreemapView extends StatefulWidget {
   final ValueChanged<String> onFamily;
 
   /// The page's view switch (C3/C4), shown before the grouping switch in
-  /// the same row. Null in the treemap's own tests.
+  /// the same row (wrapping on narrow widths). Null in the treemap's own
+  /// tests.
   final Widget? viewSwitch;
 
   @override
@@ -123,27 +124,29 @@ class _TreemapViewState extends State<TreemapView> {
       );
     }
 
+    final bySwitch = ViewSwitch<TreemapBy>(
+      key: const Key('treemap-by'),
+      values: TreemapBy.values,
+      labelOf: treemapByLabel,
+      selected: _by,
+      onChanged: (v) => setState(() {
+        _by = v;
+        _groupId = null;
+        _cellId = null;
+      }),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _crumbs(context, group, cell),
-        ViewSwitch<TreemapBy>(
-          key: const Key('treemap-by'),
-          leading: [
-            if (widget.viewSwitch case final viewSwitch?) ...[
-              viewSwitch,
-              const SizedBox(width: AlbumSpace.m),
-            ],
-          ],
-          values: TreemapBy.values,
-          labelOf: treemapByLabel,
-          selected: _by,
-          onChanged: (v) => setState(() {
-            _by = v;
-            _groupId = null;
-            _cellId = null;
-          }),
-        ),
+        if (widget.viewSwitch case final viewSwitch?)
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [viewSwitch, bySwitch],
+          )
+        else
+          bySwitch,
         _FamilyKey(tree: widget.tree, tints: tints),
         Expanded(
           child: Padding(
@@ -190,9 +193,11 @@ class _TreemapViewState extends State<TreemapView> {
             ),
           if (group != null) ...[
             chevron,
-            TextButton(
+            FButton(
               key: const Key('treemap-crumb-group'),
-              onPressed: cell == null ? null : () => _open(group: group.id),
+              variant: FButtonVariant.ghost,
+              mainAxisSize: MainAxisSize.min,
+              onPress: cell == null ? null : () => _open(group: group.id),
               child: Text(group.label, style: cell == null ? crumbStyle : link),
             ),
           ],
@@ -221,14 +226,7 @@ class TreeHeading extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     header: true,
     headingLevel: 1,
-    child: Text(
-      title,
-      style: GoogleFonts.newsreader(
-        color: albumInk,
-        fontSize: 32,
-        fontWeight: FontWeight.w500,
-      ),
-    ),
+    child: Text(title, style: Theme.of(context).textTheme.headlineLarge),
   );
 }
 
@@ -244,11 +242,15 @@ class OpenFamilyTimelineAction extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => TextButton.icon(
-    onPressed: onPressed,
-    style: TextButton.styleFrom(foregroundColor: albumTerracotta),
-    icon: const Icon(Icons.arrow_forward, size: 18),
-    label: Text(openFamilyTimelineLabel(family)),
+  Widget build(BuildContext context) => FButton(
+    variant: FButtonVariant.ghost,
+    mainAxisSize: MainAxisSize.min,
+    onPress: onPressed,
+    prefix: const Icon(Icons.arrow_forward, size: 18, color: albumTerracotta),
+    child: Text(
+      openFamilyTimelineLabel(family),
+      style: const TextStyle(color: albumTerracotta),
+    ),
   );
 }
 

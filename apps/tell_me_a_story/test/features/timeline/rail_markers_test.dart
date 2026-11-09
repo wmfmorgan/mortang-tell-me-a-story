@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/features/timeline/origin_banner.dart';
 import 'package:tell_me_a_story/ui/timeline/story_marker.dart';
@@ -151,6 +152,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: albumTheme(),
+          builder: albumAppBuilder,
           home: Scaffold(
             body: OriginBanner(
               familyName: 'Bea',

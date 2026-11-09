@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app/app.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
+import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/ui/album/album_header.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
@@ -534,6 +535,7 @@ void main() {
   testWidgets('a tree-read open family hides the timeline row', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        builder: albumAppBuilder,
         home: TimelinePage(
           api: FakeInviteGateway(
             familyId: 'bea',
@@ -882,6 +884,7 @@ void main() {
     final stories = _Stories(published: [_story(title: 'The beginning')]);
     await tester.pumpWidget(
       MaterialApp(
+        builder: albumAppBuilder,
         home: TimelinePage(
           api: FakeInviteGateway(
             familyId: _parent,
@@ -1271,6 +1274,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
+        builder: albumAppBuilder,
         home: TimelinePage(
           api: FakeInviteGateway(
             familyId: _parent,
@@ -1350,6 +1354,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
+        builder: albumAppBuilder,
         home: TimelinePage(
           api: FakeInviteGateway(
             familyId: _parent,
@@ -1413,6 +1418,7 @@ void main() {
     FamilySelection.remember(_parent);
     await tester.pumpWidget(
       MaterialApp(
+        builder: albumAppBuilder,
         home: TimelinePage(
           api: FakeInviteGateway(
             familyId: _parent,

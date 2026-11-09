@@ -369,23 +369,5 @@ ThemeData albumTheme() {
     progressIndicatorTheme: const ProgressIndicatorThemeData(
       color: albumTerracotta,
     ),
-    // docs/archive/ux/80-all-stories.md Rule 4: selected = terracotta pill
-    // with a parchment label (5.18:1); others ink on the pill fill.
-    segmentedButtonTheme: SegmentedButtonThemeData(
-      style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected)
-              ? albumTerracotta
-              : albumPillFill,
-        ),
-        foregroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? albumParchment : albumInk,
-        ),
-        side: const WidgetStatePropertyAll(BorderSide(color: albumSageLine)),
-        textStyle: WidgetStatePropertyAll(
-          GoogleFonts.sourceSans3(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-      ),
-    ),
   );
 }

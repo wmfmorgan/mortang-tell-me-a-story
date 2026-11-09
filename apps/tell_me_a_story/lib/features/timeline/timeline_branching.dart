@@ -918,7 +918,7 @@ class _FocusOutline extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         shape: circle ? BoxShape.circle : BoxShape.rectangle,
-        borderRadius: circle ? null : BorderRadius.circular(4),
+        borderRadius: circle ? null : BorderRadius.circular(AlbumRadius.tile),
         border: Border.all(color: branchMoss, width: calloutStroke),
       ),
       child: child,

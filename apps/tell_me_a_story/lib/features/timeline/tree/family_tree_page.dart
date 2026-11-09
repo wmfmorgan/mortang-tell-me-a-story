@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
@@ -12,6 +11,8 @@ import 'package:tell_me_a_story/features/timeline/tree/tree_graph_view.dart';
 import 'package:tell_me_a_story/features/timeline/tree/tree_timeline_loader.dart';
 import 'package:tell_me_a_story/features/timeline/tree/treemap_view.dart';
 import 'package:tell_me_a_story/ui/album/album_header.dart';
+import 'package:tell_me_a_story/ui/timeline/empty_timeline.dart';
+import 'package:tell_me_a_story/ui/timeline/view_switch.dart';
 
 /// The page's two views of the tree (Q2): C3, C4.
 enum FamilyTreeView { graph, overview }
@@ -211,15 +212,12 @@ class _FamilyTreePageState extends State<FamilyTreePage> {
         onFamily: _openFamily,
       );
     }
-    final viewSwitch = SegmentedButton<FamilyTreeView>(
+    final viewSwitch = ViewSwitch<FamilyTreeView>(
       key: const Key('family-tree-view'),
-      showSelectedIcon: false,
-      segments: [
-        for (final v in FamilyTreeView.values)
-          ButtonSegment(value: v, label: Text(familyTreeViewLabel(v))),
-      ],
-      selected: {_view},
-      onSelectionChanged: (s) => setState(() => _view = s.first),
+      values: FamilyTreeView.values,
+      labelOf: familyTreeViewLabel,
+      selected: _view,
+      onChanged: (v) => setState(() => _view = v),
     );
     return switch (_view) {
       FamilyTreeView.graph => TreeGraphView(
@@ -242,32 +240,10 @@ class _FamilyTreePageState extends State<FamilyTreePage> {
   }
 
   Widget _error() {
-    return Padding(
-      padding: const EdgeInsets.all(AlbumSpace.xl),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: AlbumSpace.m,
-        children: [
-          Text(
-            "Couldn't load stories.",
-            style: Theme.of(context).textTheme.bodyLarge
-                ?.copyWith(color: Theme.of(context).colorScheme.error),
-          ),
-          TextButton(
-            key: const Key('family-tree-retry'),
-            onPressed: () => _load(showLoading: true),
-            style: TextButton.styleFrom(foregroundColor: albumTerracotta),
-            child: Text(
-              'Retry',
-              style: GoogleFonts.sourceSans3(
-                color: albumTerracotta,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return EmptyTimeline(
+      message: "Couldn't load stories.",
+      actionLabel: 'Retry',
+      onAction: () => _load(showLoading: true),
     );
   }
 }

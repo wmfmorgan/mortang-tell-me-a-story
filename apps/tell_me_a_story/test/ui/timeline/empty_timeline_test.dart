@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/ui/timeline/empty_timeline.dart';
 
@@ -7,6 +8,7 @@ Future<void> _pump(WidgetTester tester, EmptyTimeline child) =>
     tester.pumpWidget(
       MaterialApp(
         theme: albumTheme(),
+        builder: albumAppBuilder,
         home: Scaffold(body: child),
       ),
     );
@@ -25,6 +27,7 @@ void main() {
     expect(find.byKey(const Key('empty-timeline')), findsOneWidget);
     expect(find.text('No stories match these filters.'), findsOneWidget);
     await tester.tap(find.byKey(const Key('empty-action')));
+    await tester.pumpAndSettle();
     expect(cleared, 1);
   });
 

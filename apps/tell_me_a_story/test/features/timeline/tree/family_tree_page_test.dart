@@ -13,6 +13,7 @@ import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/timeline/tree/family_tree_page.dart';
 import 'package:tell_me_a_story/features/timeline/tree/tree_graph_view.dart';
 import 'package:tell_me_a_story/features/timeline/tree/treemap_view.dart';
+import 'package:tell_me_a_story/ui/timeline/view_switch.dart';
 
 import '../../../support/fakes/fake_stories_gateway.dart';
 import '../../../support/tree_fixture.dart';
@@ -140,8 +141,8 @@ void main() {
 
   final viewSwitch = find.byKey(const Key('family-tree-view'));
 
-  SegmentedButton<FamilyTreeView> switchButton(WidgetTester tester) =>
-      tester.widget<SegmentedButton<FamilyTreeView>>(viewSwitch);
+  ViewSwitch<FamilyTreeView> switchButton(WidgetTester tester) =>
+      tester.widget<ViewSwitch<FamilyTreeView>>(viewSwitch);
 
   Future<void> openOverview(WidgetTester tester) async {
     await tester.tap(find.text('Overview'));
@@ -187,10 +188,13 @@ void main() {
     tester,
   ) async {
     await pump(tester);
-    expect(switchButton(tester).selected, {FamilyTreeView.graph});
-    expect(switchButton(tester).showSelectedIcon, isFalse);
+    expect(switchButton(tester).selected, FamilyTreeView.graph);
+    expect(switchButton(tester).label, isNull);
     expect(
-      [for (final s in switchButton(tester).segments) (s.label! as Text).data],
+      [
+        for (final v in switchButton(tester).values)
+          switchButton(tester).labelOf(v),
+      ],
       ['Family tree', 'Overview'],
     );
     expect(find.byType(TreeGraphView), findsOneWidget);
@@ -205,7 +209,7 @@ void main() {
     final onGraph = tester.getTopLeft(viewSwitch);
 
     await openOverview(tester);
-    expect(switchButton(tester).selected, {FamilyTreeView.overview});
+    expect(switchButton(tester).selected, FamilyTreeView.overview);
     expect(find.byType(TreemapView), findsOneWidget);
     expect(find.byType(TreeGraphView), findsNothing);
     for (final f in TreeFixture.tree) {
@@ -216,7 +220,10 @@ void main() {
     expect(onTreemap.dy, closeTo(onGraph.dy, 1));
     // One row: the grouping switch follows the view switch.
     final grouping = tester.getRect(find.byKey(const Key('treemap-by')));
-    expect(grouping.left, greaterThan(tester.getRect(viewSwitch).right));
+    expect(
+      grouping.left,
+      greaterThanOrEqualTo(tester.getRect(viewSwitch).right),
+    );
     expect(grouping.center.dy, closeTo(tester.getCenter(viewSwitch).dy, 1));
 
     await tester.tap(find.text('Family tree'));
@@ -245,7 +252,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // The reload keeps the selected view.
-    expect(switchButton(tester).selected, {FamilyTreeView.overview});
+    expect(switchButton(tester).selected, FamilyTreeView.overview);
     expect(find.text('Cal · 3'), findsOneWidget);
     expect(stories.calls, ['listPublishedInTree', 'listPublishedInTree']);
   });
@@ -341,7 +348,7 @@ void main() {
     expect(find.byType(TreeGraphView), findsNothing);
 
     stories.error = null;
-    await tester.tap(find.byKey(const Key('family-tree-retry')));
+    await tester.tap(find.byKey(const Key('empty-action')));
     await tester.pumpAndSettle();
     expect(find.text("Couldn't load stories."), findsNothing);
     expect(find.text('Jenkins family tree'), findsOneWidget);

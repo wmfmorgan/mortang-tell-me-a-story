@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/config/env.dart';
+import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
@@ -68,6 +69,7 @@ void main() {
   testWidgets('timeline header shows Invite and New story', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        builder: albumAppBuilder,
         home: TimelinePage(
           api: _StubInviteApi(),
           familiesApi: _MemberOf('family-1'),

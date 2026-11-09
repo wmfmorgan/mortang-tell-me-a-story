@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 import 'package:tell_me_a_story/features/timeline/zoom_switch.dart';
 
@@ -209,7 +210,12 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            padding: const EdgeInsets.fromLTRB(
+              AlbumSpace.xl,
+              AlbumSpace.xl,
+              AlbumSpace.xl,
+              0,
+            ),
             child: DialSubheader(
               selected: selected,
               onMacro: onMacro,
@@ -220,7 +226,12 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
           ),
           if (notice != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              padding: const EdgeInsets.fromLTRB(
+                AlbumSpace.xl,
+                0,
+                AlbumSpace.xl,
+                AlbumSpace.l,
+              ),
               child: notice,
             ),
           Expanded(
