@@ -427,7 +427,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
         familyId: familyId,
         api: _people,
         invites: _invite,
-        storyId: _storyId,
+        // Link only an inserted draft. Before the first insert the minted id
+        // is not a story yet; the picked people ride along on the insert.
+        storyId: _autosaveInserted ? _storyId : null,
         linkedPersonIds: {
           for (final person in _selectedPeople) person.id,
           ..._unloadedPersonIds,

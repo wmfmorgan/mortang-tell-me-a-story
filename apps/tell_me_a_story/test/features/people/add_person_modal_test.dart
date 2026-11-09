@@ -431,7 +431,8 @@ void main() {
     await _tapSave(tester);
 
     expect(find.byType(SnackBar), findsOneWidget);
-    expect(find.text('Already on this story'), findsOneWidget);
+    // Above the dialog's blur, not hidden under it (UX-13).
+    expect(find.text('Already on this story').hitTestable(), findsOneWidget);
     expect(find.textContaining('VALIDATION:'), findsNothing);
     expect(find.byKey(const Key('add-person-error')), findsNothing);
     expect(find.text('Try again'), findsNothing);
@@ -504,8 +505,8 @@ void main() {
 
     expect(api.createCalls, 1);
     expect(linkCalls, 2);
-    expect(find.byType(SnackBar), findsOneWidget);
-    expect(find.text('Already on this story'), findsOneWidget);
+    // The first failure's SnackBar lived on the modal and closed with it.
+    expect(find.byType(SnackBar), findsNothing);
     expect(session.result, isNotNull);
     expect(session.result!.person.id, 'p1');
     expect(session.result!.person.name, 'Grace Hopper');
