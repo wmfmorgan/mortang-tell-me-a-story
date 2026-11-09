@@ -1,90 +1,84 @@
 import 'dart:async';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
-const timelineLiveTables = ['stories', 'photos', 'comments', 'perspectives'];
+import 'package:tell_me_a_story/core/server/server_client.dart';
 
-/// Whether a realtime row should refresh the open family timeline.
+/// Whether a live event should refresh the open family timeline.
 ///
-/// Draft inserts and other families stay off the published rail.
+/// Other families and draft stories stay off the published rail.
 bool timelineEventMatters({
   required String familyId,
-  required String table,
-  required String? eventFamilyId,
-  required String? status,
-  required bool isDelete,
+  required server.LiveEventDto event,
 }) {
-  if (eventFamilyId != null && eventFamilyId != familyId) return false;
-  if (table == 'stories' &&
-      !isDelete &&
-      status != null &&
-      status != 'published') {
-    return false;
-  }
-  return true;
+  if (event.familyId.toString() != familyId) return false;
+  return treeEventMatters(event);
 }
+
+/// Whether a tree-channel event should refresh a whole-tree view: any family
+/// of the tree counts (including a family created, soft-deleted or
+/// recovered); only a story that is still a draft does not.
+bool treeEventMatters(server.LiveEventDto event) =>
+    !(event.kind == server.LiveKind.story &&
+        !event.deleted &&
+        event.storyStatus != null &&
+        event.storyStatus != server.StoryStatus.published);
 
 abstract class TimelineLive {
   void watch({required String familyId, required void Function() onChange});
 
   /// Reader feed for one story. The default does nothing so existing fakes
-  /// keep compiling. The timeline [watch] stays on `family_id`.
+  /// keep compiling. The timeline [watch] stays on the family.
   void watchStory({
     required String storyId,
+    required void Function() onChange,
+  }) {}
+
+  /// Whole-tree feed: every live family in [familyId]'s tree. The default
+  /// does nothing, like [watchStory].
+  void watchTree({
+    required String familyId,
     required void Function() onChange,
   }) {}
 
   void dispose();
 }
 
-class SupabaseTimelineLive implements TimelineLive {
-  SupabaseTimelineLive({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+/// Live refreshes from the server's `live` streams: the timeline follows
+/// `watchFamily`, the reader `watchStory`, a whole-tree view `watchTree`. A
+/// change calls `onChange` after 200 ms without further events.
+///
+/// A stream that fails or ends never reaches the UI. A dropped WebSocket or
+/// an ended stream is reopened after 1 s, doubling up to 30 s while it keeps
+/// failing; any event resets the delay. A permanent refusal (the server's
+/// `AppException`, e.g. no longer a member or the family is deleted, or a
+/// refused sign-in) closes the feed for good. [dispose] stops every feed.
+class ServerTimelineLive implements TimelineLive {
+  ServerTimelineLive({server.Client? client}) : _injected = client;
 
-  final SupabaseClient _client;
-  RealtimeChannel? _channel;
-  RealtimeChannel? _storyChannel;
-  Timer? _debounce;
-  Timer? _storyDebounce;
+  final server.Client? _injected;
+
+  server.Client get _client => _injected ?? serverClient;
+
+  _LiveFeed? _family;
   String? _familyId;
+  _LiveFeed? _story;
   String? _storyId;
+  _LiveFeed? _tree;
+  String? _treeFamilyId;
 
   @override
   void watch({required String familyId, required void Function() onChange}) {
-    if (_familyId == familyId && _channel != null) return;
-    _stop();
+    if (_familyId == familyId && _family != null) return;
+    _family?.close();
     _familyId = familyId;
-    // Topic is the table, not an app channel name (Design Doc §7).
-    final channel = _client.channel('public:stories');
-    for (final table in timelineLiveTables) {
-      channel.onPostgresChanges(
-        event: PostgresChangeEvent.all,
-        schema: 'public',
-        table: table,
-        filter: PostgresChangeFilter(
-          type: PostgresChangeFilterType.eq,
-          column: 'family_id',
-          value: familyId,
-        ),
-        callback: (payload) {
-          final record = payload.newRecord.isNotEmpty
-              ? payload.newRecord
-              : payload.oldRecord;
-          final matters = timelineEventMatters(
-            familyId: familyId,
-            table: table,
-            eventFamilyId: record['family_id'] as String?,
-            status: record['status'] as String?,
-            isDelete: payload.eventType == PostgresChangeEvent.delete,
-          );
-          if (!matters) return;
-          _debounce?.cancel();
-          _debounce = Timer(const Duration(milliseconds: 200), onChange);
-        },
-      );
-    }
-    channel.subscribe();
-    _channel = channel;
+    _family = _LiveFeed(
+      open: () =>
+          _client.live.watchFamily(server.UuidValue.fromString(familyId)),
+      matters: (event) =>
+          timelineEventMatters(familyId: familyId, event: event),
+      onChange: onChange,
+    );
   }
 
   @override
@@ -92,55 +86,121 @@ class SupabaseTimelineLive implements TimelineLive {
     required String storyId,
     required void Function() onChange,
   }) {
-    if (_storyId == storyId && _storyChannel != null) return;
-    _stopStory();
+    if (_storyId == storyId && _story != null) return;
+    _story?.close();
     _storyId = storyId;
-    final channel = _client.channel('story:$storyId');
-    for (final table in const ['comments', 'perspectives', 'photos']) {
-      channel.onPostgresChanges(
-        event: PostgresChangeEvent.all,
-        schema: 'public',
-        table: table,
-        filter: PostgresChangeFilter(
-          type: PostgresChangeFilterType.eq,
-          column: 'story_id',
-          value: storyId,
-        ),
-        callback: (_) {
-          _storyDebounce?.cancel();
-          _storyDebounce = Timer(const Duration(milliseconds: 200), onChange);
-        },
-      );
-    }
-    channel.subscribe();
-    _storyChannel = channel;
+    _story = _LiveFeed(
+      open: () => _client.live.watchStory(server.UuidValue.fromString(storyId)),
+      matters: (_) => true,
+      onChange: onChange,
+    );
   }
 
-  void _stopStory() {
-    _storyDebounce?.cancel();
-    _storyDebounce = null;
-    final channel = _storyChannel;
-    _storyChannel = null;
-    if (channel != null) {
-      _client.removeChannel(channel);
-    }
-  }
-
-  void _stop() {
-    _debounce?.cancel();
-    _debounce = null;
-    final channel = _channel;
-    _channel = null;
-    if (channel != null) {
-      _client.removeChannel(channel);
-    }
+  @override
+  void watchTree({
+    required String familyId,
+    required void Function() onChange,
+  }) {
+    if (_treeFamilyId == familyId && _tree != null) return;
+    _tree?.close();
+    _treeFamilyId = familyId;
+    _tree = _LiveFeed(
+      open: () => _client.live.watchTree(server.UuidValue.fromString(familyId)),
+      matters: treeEventMatters,
+      onChange: onChange,
+    );
   }
 
   @override
   void dispose() {
+    _family?.close();
+    _story?.close();
+    _tree?.close();
+    _family = null;
+    _story = null;
+    _tree = null;
     _familyId = null;
     _storyId = null;
-    _stop();
-    _stopStory();
+    _treeFamilyId = null;
+  }
+}
+
+/// One live subscription that reopens itself until [close].
+class _LiveFeed {
+  _LiveFeed({
+    required this.open,
+    required this.matters,
+    required this.onChange,
+  }) {
+    _subscribe();
+  }
+
+  static const _quiet = Duration(milliseconds: 200);
+  static const _firstRetry = Duration(seconds: 1);
+  static const _maxRetry = Duration(seconds: 30);
+
+  final Stream<server.LiveEventDto> Function() open;
+  final bool Function(server.LiveEventDto event) matters;
+  final void Function() onChange;
+
+  StreamSubscription<server.LiveEventDto>? _subscription;
+  Timer? _debounce;
+  Timer? _retry;
+  var _retryDelay = _firstRetry;
+  var _closed = false;
+
+  void _subscribe() {
+    try {
+      _subscription = open().listen(
+        _onEvent,
+        onError: _onError,
+        onDone: _reopen,
+        cancelOnError: true,
+      );
+    } catch (_) {
+      // No client yet, or the call could not start: retry like a drop.
+      _reopen();
+    }
+  }
+
+  void _onError(Object error) {
+    if (_isRefusal(error)) {
+      // Retrying cannot help: stay closed.
+      _subscription = null;
+      _closed = true;
+      return;
+    }
+    _reopen();
+  }
+
+  /// The server's own `AppException` (forbidden, notFound, …) and a refused
+  /// sign-in are permanent; anything else is treated as a dropped connection.
+  static bool _isRefusal(Object error) =>
+      error is server.AppException ||
+      error is server.ServerpodClientUnauthorized ||
+      error is server.ServerpodClientForbidden;
+
+  void _onEvent(server.LiveEventDto event) {
+    _retryDelay = _firstRetry;
+    if (!matters(event)) return;
+    _debounce?.cancel();
+    _debounce = Timer(_quiet, onChange);
+  }
+
+  void _reopen() {
+    _subscription = null;
+    if (_closed) return;
+    _retry?.cancel();
+    _retry = Timer(_retryDelay, _subscribe);
+    final next = _retryDelay * 2;
+    _retryDelay = next > _maxRetry ? _maxRetry : next;
+  }
+
+  void close() {
+    _closed = true;
+    _debounce?.cancel();
+    _retry?.cancel();
+    unawaited(_subscription?.cancel());
+    _subscription = null;
   }
 }

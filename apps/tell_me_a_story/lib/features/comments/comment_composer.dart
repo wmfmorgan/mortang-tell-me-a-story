@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/album_theme.dart';
-import '../../data/comments_api.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/comments_api.dart';
 
 /// Inline short comment field + Post. Empty/whitespace Post is a no-op.
 class CommentComposer extends StatefulWidget {
@@ -140,7 +140,8 @@ class _CommentComposerState extends State<CommentComposer> {
   }
 }
 
-/// Comment body + author. Overflow Edit and Delete only when [canDelete].
+/// Comment body + author. The overflow shows Edit when [onEdit] is passed and
+/// Delete when [canDelete] is true.
 class CommentTile extends StatelessWidget {
   const CommentTile({
     super.key,
@@ -236,7 +237,7 @@ class CommentTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (canDelete && !editing)
+              if ((canDelete || onEdit != null) && !editing)
                 PopupMenuButton<String>(
                   key: Key('comment-menu-${comment.id}'),
                   tooltip: 'Comment actions',
@@ -245,16 +246,18 @@ class CommentTile extends StatelessWidget {
                     if (value == 'delete') onDelete?.call();
                   },
                   itemBuilder: (context) => [
-                    PopupMenuItem<String>(
-                      key: Key('comment-edit-${comment.id}'),
-                      value: 'edit',
-                      child: const Text('Edit'),
-                    ),
-                    PopupMenuItem<String>(
-                      key: Key('comment-delete-${comment.id}'),
-                      value: 'delete',
-                      child: const Text('Delete'),
-                    ),
+                    if (onEdit != null)
+                      PopupMenuItem<String>(
+                        key: Key('comment-edit-${comment.id}'),
+                        value: 'edit',
+                        child: const Text('Edit'),
+                      ),
+                    if (canDelete)
+                      PopupMenuItem<String>(
+                        key: Key('comment-delete-${comment.id}'),
+                        value: 'delete',
+                        child: const Text('Delete'),
+                      ),
                   ],
                 ),
             ],

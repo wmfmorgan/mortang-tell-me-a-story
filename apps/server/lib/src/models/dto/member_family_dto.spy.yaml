@@ -1,0 +1,10 @@
+### A family the caller belongs to (FamilyEndpoint.listMine).
+class: MemberFamilyDto
+fields:
+  id: UuidValue
+  name: String
+  parentId: UuidValue?
+  branchYear: int?
+  createdAt: DateTime
+  role: MembershipRole
+  coverKey: String?

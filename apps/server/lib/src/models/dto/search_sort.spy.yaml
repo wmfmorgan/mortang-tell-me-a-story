@@ -1,0 +1,7 @@
+### StorySearchDto.sort.
+enum: SearchSort
+serialized: byName
+values:
+  - relevant
+  - chronological
+  - recentlyAdded

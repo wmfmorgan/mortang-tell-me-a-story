@@ -1,0 +1,7 @@
+### Groups a root family and all its branches. Every family has exactly one tree;
+### "same tree" checks become an equality on treeId (no recursive parent walk).
+class: Tree
+table: trees
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  createdAt: DateTime, default=now

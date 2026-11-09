@@ -1,0 +1,6 @@
+### Search facet: a place and its story count.
+class: PlaceFacetDto
+fields:
+  placeId: UuidValue
+  label: String
+  storyCount: int

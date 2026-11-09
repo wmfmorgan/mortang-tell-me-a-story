@@ -1,0 +1,7 @@
+### Role of a user in one family. Stored by name (text).
+enum: MembershipRole
+serialized: byName
+values:
+  - owner
+  - coOwner
+  - member

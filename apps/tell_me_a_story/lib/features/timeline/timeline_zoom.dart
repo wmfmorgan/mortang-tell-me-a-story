@@ -1,6 +1,7 @@
-import '../../data/families_api.dart';
-import '../../data/stories_api.dart';
-import '../stories/story_date.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
+import 'package:tell_me_a_story/ui/story/story_title.dart';
 
 enum TimelineZoom { far, mid, near }
 
@@ -50,11 +51,6 @@ List<Story> decadeOldestFirst(Iterable<Story> stories, int startYear) {
 /// Newest story first, for the near rail.
 List<Story> decadeNewestFirst(Iterable<Story> stories, int startYear) {
   return decadeOldestFirst(stories, startYear).reversed.toList();
-}
-
-String storyTitle(Story story) {
-  final title = story.title?.trim() ?? '';
-  return title.isEmpty ? 'Untitled' : title;
 }
 
 String dotTooltip(Story story, {bool origin = false}) {

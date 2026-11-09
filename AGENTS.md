@@ -1,66 +1,59 @@
-# AGENTS.md — Mortang · Tell Me a Story (cloud agent repo rules)
+# AGENTS.md: Mortang · Tell Me a Story
 
-Rules for any coding agent (Cursor cloud agents) working in this repo.
-Source: Grok Build CLI Contract + Impl Spec §0 / §15 (Notion). If this file and Notion diverge, prefer Notion and report it.
+Rules for any coding agent working in this repo. `.cursor/rules/mortang-contract.mdc` points here.
 
-## Instruction hierarchy
-1. APPROVED Impl Spec — Spec §0 is app law. Your task is one §15 item.
-2. Contract (this file) — shared PR / TDD / gate rules.
-3. Design Doc wins on SQL, RLS, Storage, Edge contracts and error codes. UXD / Stitch wins on look and copy (the written copy rule beats the mocks).
-4. Chat is never a lock.
+## What governs a task
+1. The task's plan in `docs/superpowers/plans/` and the product decisions it cites (roadmap, "Product decisions").
+2. This file: layout, gates and code rules.
+3. `docs/archive/` is history (the old impl spec, design doc, UX notes, migration specs and earlier plans). Read it for background; a current plan wins.
 
-Work under pstack in poteto-mode; the contract gates below still win.
+If the code and the plan disagree, stop and report the difference; don't reconcile silently. Chat is never a lock.
 
-## Contract
-- Only build the user-facing behavior listed in the PRD and that milestone's section of the impl spec (§15). Don't add or remove a feature on your own. If it's unclear, stop and ask.
-- Implement **only** what the §15 item lists. Match names, paths, schemas and Stitch ids exactly. Never rename components, tables, or routes.
-- Do **not** "improve" auth, schema, or API shape beyond the Spec / SAD / Design Doc. Do not invent screens, APIs, tables, auth, or stack.
-- One §15 milestone per PR, on a `feat/mN-…` branch off `main`. No direct push to `main`.
-- If an OPEN blocks a file, skip it, do the unblocked work, and report the OPEN.
-- If code and the Spec disagree, **stop and report the diff**. Do not silently reconcile.
-- Migrations: add new files in `supabase/migrations/` that sort after the latest one. **Never edit an earlier migration.**
-- Local DB: `supabase migration up --local` only. **Never** `supabase db reset`, `supabase db pull` or `supabase migration down`. If a fix is needed locally, re-run only the changed statements.
+## Layout
+- `apps/tell_me_a_story/`: Flutter client (iPad + web).
+  - `lib/app`: router and app widget.
+  - `lib/core`: config, route paths, server connection, theme tokens.
+  - `lib/data`: gateways and session state.
+  - `lib/ui`: widgets used by several features.
+  - `lib/features/<feature>`: screens.
+  - `test/` mirrors `lib/`; `test/architecture` holds the guards; `test/support/fakes` holds the shared gateway fakes; `test/live` (tag `live`); `test/goldens` (tag `golden`, macOS only, own `flutter_test_config.dart`; run by `just test-goldens`, excluded from `just test` and CI); `integration_test/` (e2e).
+- `apps/server/`: Serverpod 4.1.1 server. Endpoints are in `lib/src/endpoints`, rules in `lib/src/<domain>`, models in `lib/src/models/*.spy.yaml`, migrations in `migrations/`.
+- `packages/tell_me_a_story_client/`: generated; never edit by hand.
 
-## TDD (pstack / poteto-mode: plan, TDD, prove it works)
-1. Plan from the §15 item before writing code.
-2. Write the failing test first and **commit it**.
-3. Make it pass.
-4. Refactor with the tests green.
-5. Prove it works: run the gates below and paste the output.
+## Work rules
+- Build only what the plan lists. Don't add or remove a feature, screen, endpoint, table or dependency on your own; if it's unclear, stop and ask.
+- No direct push to `main`. Don't merge into `main`.
+- TDD: write the failing test, make it pass, then refactor with the tests green.
+- Server models change only in `*.spy.yaml`, followed by `just server-generate`. A schema change gets a new migration (`just server-migration <tag>`). Never edit an existing migration.
 
-## Gates before opening the PR
-The §15 item's own gates override these baselines. Otherwise, no regressions, and add new tests:
+## Gates
+Run from the repo root as `mise exec -- just …` (or in a shell with mise activated) and paste the output in the PR body.
 
 | Gate | Command | Baseline |
 |---|---|---|
-| Analyze | `cd apps/tell_me_a_story && flutter analyze` | ≤ 27 issues (current count) |
-| Flutter | `cd apps/tell_me_a_story && flutter test` | all passing, ≥ 415, 0 failing |
-| pgTAP | `supabase test db` (repo root, local Supabase running) | all passing, ≥ 530 |
-| Deno | `deno test --allow-env supabase/functions` | all passing, ≥ 41 |
+| All local gates | `just check` | passes |
+| …format | `just fmt-check` | 0 changed |
+| …app analyze | `just analyze` | ≤ 6 issues, no errors |
+| …app tests | `just test` | all passing; never fewer tests |
+| …server analyze | `just server-analyze` | no issues |
+| …server tests | `just server-test` | all passing |
+| Live client tests | `just server`, then `just test-live` | all passing |
+| Goldens (macOS) | `just test-goldens` | all passing; regenerate only on purpose (`just test-goldens --update-goldens`) and open every changed PNG |
+| e2e | `flutter drive` per README | 9/9 flows |
 
-- Policy count is asserted by `supabase/tests/fit_and_finish.sql:611` and runs in `supabase test db`; it changes only when the Design Doc changes it (47 today).
+- `just test` includes `test/architecture/e2e_flow_manifest_test.dart`, which fails if `integration_test/flows.md` and `e2e_test.dart` disagree.
+- The analyze ceiling lives in `justfile` (`analyze ceiling="6"`). Lower it when you fix issues; never raise it.
+- CI runs the same recipes (`app`, `server` and `e2e` jobs).
 
-- CI runs `dart format`, analyze, flutter test, Deno and pgTAP, and Supabase advisors (splinter) against a baseline on every PR. Local `supabase test db` is still how you check a migration before pushing. **The PR body is the evidence**: paste fresh counts and command output from the PR's head commit.
-- PR body / completion note: commands run, counts, Spec-allowed fills, OPENs left, and screenshots of each locked screen touched.
-
-## Code quality
-- No swallowed errors. Every catch shows or returns a mapped message or rethrows.
-- UI uses only `album_theme.dart` tokens (`apps/tell_me_a_story/lib/core/theme/album_theme.dart`), no hardcoded colors; build from the Stitch screen of record, and the written UXD rules win over quirks in the mock.
-- Enforced by a Flutter test (added in the AGENTS.md PR, runs in `flutter test`): it fails on any `Color(0x` or `Colors.` in `lib/` outside `album_theme.dart`. Temporary skip list: the 23 files that had hardcoded colors on 2026-10-15 (`lib/features/settings/settings_page.dart` plus the 22 in Dinesh's PR #31 review), each listed by exact path from `lib/`, never by bare file name; the `album_theme.dart` exemption is also an exact-path match. Each follow-up PR that fixes a file removes it from the list. The list only shrinks: never add a path to it.
-- No new user-facing copy without approval. Copy comes from the UXD copy rule only.
-- Errors use the shared `mapRpcError` (`supabase/functions/_shared/manage.ts`) with exactly four prefixes: `VALIDATION:`, `NOT_FOUND:`, `FORBIDDEN:`, `INVITE_INVALID:`. A new prefix goes to Gilfoyle first. Never return raw Postgres error text to the client; log it server-side.
-- Definer functions: `set search_path = ''`, schema-qualified names, `(select auth.uid())`, and a null uid fails closed.
-- No new dependencies without approval. Pin majors; no drive-by upgrades mid-milestone.
-- a11y / i18n / analytics / observability only if the PRD or Spec opts in.
+## Code rules
+- No swallowed errors. Every catch shows or returns a mapped message, or rethrows.
+- Server errors are `AppException` with an `AppErrorCode` (`apps/server/lib/src/models/app_error_code.spy.yaml`; shorthands in `apps/server/lib/src/errors.dart`). Messages are user-facing copy; never put raw database text in them. The client maps them in `lib/data/server/server_errors.dart`. A new code needs the owner's approval.
+- UI uses only `lib/core/theme/album_theme.dart` tokens. `test/architecture/no_hardcoded_colors_test.dart` fails on `Color(0x` or `Colors.` anywhere else in `lib/`. Its skip list names files by exact path from `lib/` and only shrinks: never add a path. A new token needs the owner's approval.
+- No new user-facing copy without the owner's approval.
+- No new dependencies without approval. Pin majors; no drive-by upgrades.
+- `lib/` layers: `app/` (composition root) may import anything; `core/` imports `core/`; `data/` imports `core/` and `data/`; `ui/` imports `core/`, `data/` and `ui/`; `features/<f>/` imports those plus lower-rank features (`featureRank` in `test/architecture/import_boundaries_test.dart`). Only `app/` (with `main.dart`), `data/` and `core/server/` import the generated client or `serverpod*`. The test enforces this; change a rank only with the owner's approval.
 
 ## Off limits
-- No secrets in code, Notion or chat. `.env.example` only.
-- No production or hosted config changes (hosted Supabase, auth redirects, Edge secrets).
-- No merging. **Stop after opening the PR.**
-- Do not stamp the Spec READY or CLOSED.
-
-## After the PR (for reference)
-Lane reviews: Gilfoyle (architecture), Big Head (spec), Mugatu (visual vs Stitch screenshots), Dinesh (code quality). Jared only if product scope drifted. Bill merges and smokes locally. Big Head stamps §15 CLOSED. A failed smoke means revert.
-
-## Doesn't fit
-Build stops → report → owner amends (Jared / Mugatu / Gilfoyle) → Spec update → Bill APPROVES → resume from the Spec only.
+- No secrets in code, docs or chat. `apps/server/config/passwords.yaml` comes from `just server-passwords` and is git-ignored.
+- No production or hosted config changes (web and server hosting, DNS, mail provider keys).
+- Deployment (README "Deployment"; needs terraform from `mise.toml`, gcloud and firebase): once `BILLING_ACCOUNT=… RESEND_API_KEY=… RESEND_FROM=… just gcp-bootstrap`, then `just gcp-infra` → `just deploy-server` → `just deploy-web`. These change hosted resources, so run them only when the owner asks.

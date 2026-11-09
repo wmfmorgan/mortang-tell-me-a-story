@@ -1,0 +1,5 @@
+### Returned by FamilyEndpoint.startCoverUpload.
+class: CoverUploadTicketDto
+fields:
+  key: String
+  uploadDescription: String

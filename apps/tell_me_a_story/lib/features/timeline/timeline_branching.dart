@@ -3,10 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../../core/theme/album_theme.dart';
-import '../../data/families_api.dart';
-import '../../data/stories_api.dart';
-import 'timeline_zoom.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
 const calloutStroke = 2.0;
 const calloutDotGap = 2.0;
@@ -40,10 +40,10 @@ const calloutLabelWidthDial = 460.0;
 
 const farDotDiameter = 12.0;
 const farDotHighlightedDiameter = 14.0;
-const midDotDiameter = 16.0;
-const midDotFocusedDiameter = 22.0;
-const fullDotDiameter = 14.0;
-const fullDotFocusedDiameter = 20.0;
+const midDotDiameter = 12.0;
+const midDotFocusedDiameter = 14.0;
+const fullDotDiameter = 12.0;
+const fullDotFocusedDiameter = 14.0;
 
 /// Padding inside a Years branch card so the chip and title clear the border.
 const calloutCardPadding = 16.0;

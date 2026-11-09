@@ -1,189 +1,101 @@
 # Tell Me a Story
 
-Private family storytelling app (Mortang). Specs in Notion are law — see Impl Spec §0 / §15.
+Private family storytelling app (Mortang): a Flutter client for iPad and web on a Serverpod (Dart) server with PostgreSQL.
 
-## Monorepo layout (repo map §3)
+## Layout
 
-- `apps/tell_me_a_story/` — Flutter client (iOS/iPad + web)
-  - `lib/core/` — env, supabase init, router
-  - `lib/features/auth/` — magic-link entry
-  - `lib/features/stories/` — `/stories/new` capture; published reader `/stories/:storyId`
-  - `lib/features/comments/` — reader comment composer
-  - `lib/features/perspectives/` — Add Perspective overlay
-  - `lib/features/drafts/` — `/drafts` author-only list
-  - `lib/features/timeline/` — `/timeline` smoke list of published stories (tap → reader)
-  - `lib/data/` — PostgREST gateways (people, places, stories, photos, comments, perspectives, invites)
-- `supabase/` — migrations, config, RLS/pgTAP tests
-- `docs/superpowers/plans/` — implementation plans
+- `apps/tell_me_a_story/`: Flutter client (iPad + web).
+  - `lib/app`: router and app widget.
+  - `lib/core`: config, route paths, server connection, theme tokens.
+  - `lib/data`: gateways and session state.
+  - `lib/ui`: widgets used by several features.
+  - `lib/features/<feature>`: screens.
+  - `test/` mirrors `lib/`; `test/architecture` holds the guards; `test/support/fakes` holds the shared gateway fakes; `test/live` (tag `live`); `integration_test/` (e2e).
+- `apps/server/`: Serverpod 4.1.1 server.
+  - Endpoints: `lib/src/endpoints`.
+  - Rules: `lib/src/<domain>`.
+  - Models: `lib/src/models/*.spy.yaml`.
+  - Migrations: `migrations/`.
+  - Tests: `test/unit`, `test/integration`.
+- `packages/tell_me_a_story_client/`: generated client (`just server-generate`); never edit by hand.
+- `docs/`: `superpowers/plans/` holds current plans; `archive/` holds history.
 
-M1–M4.5 merged. This branch is **M5** Reader / comments / perspectives. M6 zoom/Realtime. M7 Search.
+## Setup
 
-## Secrets (forbidden in git)
-
-Inject via `--dart-define`, locally or at deploy time only — **never commit**. CI injects no dart-defines and no secrets. Defines:
-
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `MAPBOX_ACCESS_TOKEN` (M3+)
-
-Edge-only (never in Flutter): `RESEND_API_KEY`, Supabase **service role**.
-
-Do not commit `.env*`, service role keys, or Resend keys.
-
-## Local data plane (M1 agent)
-
-Local `supabase start` is the **agent data plane** for migrations, RLS tests, and magic-link verification.
-
-Ports are remapped to **5732x** in `supabase/config.toml` (avoids collisions with default 5432x):
-
-| Service | Port |
-|---------|------|
-| API / Project URL | `57321` |
-| Postgres | `57322` |
-| Studio | `57323` |
-| Mailpit (magic-link inbox) | `57324` |
-| Pooler | `57329` |
-| Shadow DB | `57320` |
-| Analytics | `57327` |
+Needs [mise](https://mise.jdx.dev). From the repo root:
 
 ```bash
-# From repo root
-supabase start
-supabase db reset
-supabase status -o env   # copy API_URL / ANON_KEY for dart-define (do not commit)
+mise install            # Flutter 3.47.7, just 1.46.0 and Terraform 1.14.5 from mise.toml
+just server-setup       # serverpod_cli 4.1.1, server and client packages, local passwords
+(cd apps/tell_me_a_story && flutter pub get)
 ```
 
-**OPEN (Bill):** Cloud staging project + Email magic link enabled there. Local does **not** close First 10 #2 / §15 staging. Do **not** claim full §15 M1 complete until staging exists (or Bill waives in writing).
+Commands below assume mise is activated in your shell (`mise activate`); otherwise prefix each with `mise exec --`, e.g. `mise exec -- just check`.
 
-## Flutter run (dart-define example)
+`just server-passwords` writes `apps/server/config/passwords.yaml` with random local secrets. It is git-ignored; never commit it.
 
-Auth `site_url` is pinned to **`http://127.0.0.1:3000`**. Serve the app on that port so magic-link `redirect_to` lands on a live origin.
-
-### Recommended for magic-link testing: `web-server`
-
-`flutter run -d chrome` ties the debug app to the Chrome window Flutter launched. Mailpit opens the verify redirect in a **new tab**, which loads the DWDS debug assets without that tooling connection and stays a **white blank page**. Use **`web-server`** so any tab can run the app:
+## Run locally
 
 ```bash
-# From repo root — copy real values (never paste literal "..." placeholders):
-supabase status -o env | rg '^(API_URL|ANON_KEY)='
+just server   # API on http://127.0.0.1:8080; embedded Postgres; migrations applied
+just run      # web app on http://127.0.0.1:3000 (alias: just web)
+```
 
+Sign in with any email. A local server does not send mail: the sign-in code is always `111111`. For the map and place search, pass a public Mapbox token: `MAPBOX_ACCESS_TOKEN=pk... just run`.
+
+App defines (`--dart-define`): `SERVER_URL` (required), `INVITE_APP_ORIGIN` (default `http://127.0.0.1:3000`), `MAPBOX_ACCESS_TOKEN` (optional).
+
+## Tests and gates
+
+```bash
+just check       # fmt-check, analyze (ceiling 6), test, server-analyze, server-test
+just test        # app unit and widget tests (includes the e2e flow manifest check)
+just server-test # server unit and integration tests (embedded Postgres)
+just test-live   # app gateways against a running `just server`
+```
+
+End-to-end tests: start `just server`, start a `chromedriver --port=4444` that matches your Chrome, then:
+
+```bash
 cd apps/tell_me_a_story
-
-flutter run -d web-server --web-hostname=127.0.0.1 --web-port=3000 \
-  --dart-define=SUPABASE_URL=http://127.0.0.1:57321 \
-  --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0 \
-  --dart-define=INVITE_APP_ORIGIN=http://127.0.0.1:3000 \
-  --dart-define=MAPBOX_ACCESS_TOKEN=<public-token>
+flutter drive --driver=test_driver/integration_test.dart \
+  --target=integration_test/e2e_test.dart \
+  -d web-server --web-port=3000 --web-hostname=127.0.0.1 \
+  --browser-name=chrome --driver-port=4444 \
+  --dart-define=SERVER_URL=http://127.0.0.1:8080
 ```
 
-From the repo root, `make help` lists the local commands. `make run` serves this web-server smoke on port 3000. `MAPBOX_ACCESS_TOKEN=... make run` passes the optional Mapbox token.
+`integration_test/flows.md` lists the flows. `just test` fails if it and `e2e_test.dart` disagree.
 
-Local demo `ANON_KEY` above is the standard Supabase local key from `supabase status` (safe for local only). If your ports differ, use your `API_URL` / `ANON_KEY` from status.
+## Server changes
 
-`INVITE_APP_ORIGIN` defaults to `http://127.0.0.1:3000`. Invite links are `{INVITE_APP_ORIGIN}/timeline?invite=<token>`. Later MS: change only this define/env to the shareable host — do not invent a second invite system.
-
-**OPEN (Bill):** `MAPBOX_ACCESS_TOKEN` — restricted public token. App startup does **not** require it (`Env.hasMapboxToken` is soft). Without a real token, place-picker map smoke shows the locked failure UX (`Couldn’t load the map…` / `Try again`). Do not paste README `<public-token>` / `...` placeholders into dart-define.
-
-Then open **http://127.0.0.1:3000/** in Chrome yourself.
-
-1. Enter email → **Send magic link**
-2. Open Mailpit: http://127.0.0.1:57324  
-3. Click the link (new tab is OK with `web-server`)
-4. You should land on port **3000** with `?code=...`, then redirect to `/timeline`
-5. On Timeline, **+ Invite** opens Email / Link modal (no SMS). Link copy / email send use locked toasts.
-
-### M3 people + places smoke (local)
-
-After magic-link → `/timeline`:
-
-1. Tap **New story** → `/stories/new`
-2. **Add person** — pick existing or create (relationship required; email optional)
-3. **Choose place** — favorites/recents + Mapbox search; pin uses Mapbox streets tiles
-4. Without `MAPBOX_ACCESS_TOKEN`, map shows locked failure copy + **Try again**
-
-### M4 stories + drafts + photos smoke (local)
-
-After the people/place steps above (or continue on the same `/stories/new` form):
-
-1. Pick a **decade chip** (required before Save draft; `timeframe_start` is NOT NULL)
-2. Enter **story text**
-3. **Save draft** → toast `Draft saved` (**OPEN (Mugatu)** exact toast)
-4. Timeline AppBar **Drafts** → `/drafts` (author-only `status = draft`). Row shows missing-field chips. **Continue writing** resumes via `/stories/new?draft=<id>`
-5. Add a photo (≤20). Kill network / fail Storage → photo retry copy + **Try again** (retry label locked; failure sentence **OPEN (Mugatu)**)
-6. Fill people + place + text → **Publish story** (sets `status = published` **and** `published_at`)
-7. Land on `/timeline`; draft gone from Drafts; smoke preview listed (row tap opens the reader in M5)
-8. Blocked Publish (missing fields) stays on the form with `Finish the highlighted fields to publish.`
-
-Do **not** claim Bill local smoke closed until Bill runs this path.
-
-Photos RLS is unchanged from M1 (`member + uploader_id = uid`). Author attach on capture is M4; any-member attach on a published story is **M5** (this PR). Drafts are online-only (no Hive/SQLite).
-
-### M4.5 Memory Album visual skin (local)
-
-After M4 smoke, check **chrome only** on these surfaces (no new routes/features):
-
-1. `/timeline` — parchment background, ink title, **soft story cards** (or locked empty copy). No Far/Mid/Near zoom.
-2. `/stories/new` — Newsreader section titles, Literata body, Source Sans 3 labels; **Save draft** secondary; **Publish story** terracotta primary; decade chips terracotta when selected.
-3. `/drafts` — album cards + missing-field chips (sage accent); empty `No drafts yet. Stories you’re still writing will show up here.`
-4. Add person / Choose place sheets — parchment, not cold Material white.
-
-Do **not** claim Mugatu PASS or Bill M4.5 smoke until they sign.
-
-### M5 reader + comments + perspectives smoke (local)
-
-Local smoke (two magic-link users in one family if possible; single user still proves author path). After M4 publish:
-
-1. Publish a story from `/stories/new` (M4 path).
-2. Timeline card → reader; body, people, place, photos visible.
-3. Add a comment; it lists under **Comments** with display name or `Member`.
-4. `+ Add your perspective` → overlay → `Publish perspective` → listed under **Perspectives** (not in Comments).
-5. `Add photos` on reader attaches another image (≤20).
-6. Open `/stories/<draft-id>` → not-found.
-
-Do **not** claim Bill local smoke closed until Bill runs this path.
-
-Any-member attach on a published story is **M5** (this PR). Photos INSERT policy is unchanged from M1 (`member + uploader_id = uid`). Nested `profiles.display_name` via co-member SELECT; null/empty → `Member`. `/stories/:storyId` is published-only (draft or missing → not-found). Stitch “Edit story” is out of M5.
-
-### Edge functions (M2 invites) — local only
+Edit models in `apps/server/lib/src/models/*.spy.yaml` or endpoints, then:
 
 ```bash
-# From repo root (Docker required)
-supabase start
-supabase functions serve --env-file supabase/.env.local
-# Optional in .env.local (never commit secrets):
-# INVITE_APP_ORIGIN=http://127.0.0.1:3000
-# RESEND_API_KEY=...   # OPEN (Bill). Local only: MAILPIT_URL in supabase/functions/.env.example. Without either, send returns 503.
+just server-generate          # regenerates server protocol, client package, test tools
+just server-migration <tag>   # only when the database schema changed
 ```
 
-Family create is **data/API** (`create_family` RPC) — no Create Family screen in M2. First invite may bootstrap a family via API when none exists. Joining is via invite accept on `/timeline?invite=`.
+Never edit a migration that already exists.
 
-If you change Auth redirect settings in `supabase/config.toml`, restart local Supabase (`supabase stop && supabase start`).
+## Deployment
 
-### Troubleshooting
+Production runs on Google Cloud project `story-line-app` (`infra/gcp`): the API on Cloud Run, Postgres on Cloud SQL, photos, covers and avatars in a private Cloud Storage bucket, and the web app on Firebase Hosting (`https://story-line-app.web.app`).
 
-| Symptom | Cause | Fix |
-|---------|--------|-----|
-| “This site can’t be reached” | Nothing on port 3000 | Use `--web-port=3000` and confirm `supabase` + Flutter are running |
-| White blank page after clicking the email link | Opened against `flutter run -d chrome` DWDS from a new tab | Switch to `-d web-server` as above; request a **new** magic link |
-| Link works but stays signed out | PKCE code verifier missing / old link reused | Request OTP from the same origin (`127.0.0.1:3000`), click a fresh Mailpit message |
-| Console `otp_expired` / `access_denied` on load | Browser URL still has auth error/code params from an old Mailpit click | Open a clean `http://127.0.0.1:3000/` (no query string), then request a **new** magic link |
-
-iOS sim: same dart-defines (`-d ios`). **OPEN (tooling):** full Xcode required for iOS compile; CLT-only machines can use `flutter test` + `flutter build web`.
-
-## Tests
+Needs `terraform` (pinned in `mise.toml`), plus `gcloud` and `firebase` signed in to an account that may create projects and link billing (`gcloud auth login`, `gcloud auth application-default login`, `firebase login`). From the repo root:
 
 ```bash
-# From repo root — local Supabase must be running
-supabase db reset
-supabase test db
-
-cd apps/tell_me_a_story && flutter test
+# 1. Once: project, billing, APIs, Terraform state bucket, Resend secrets, Firebase
+BILLING_ACCOUNT=XXXXXX-XXXXXX-XXXXXX RESEND_API_KEY=... \
+  RESEND_FROM='Story Line <no-reply@your-domain>' just gcp-bootstrap
+# 2. Infrastructure (Cloud SQL, Cloud Run service, bucket, secrets, IAM): terraform init + apply
+just gcp-infra
+# 3. Server: Cloud Build image tagged with the commit, rolled out to Cloud Run
+just deploy-server
+# 4. Web: Flutter release build against the Cloud Run API, deployed to Firebase Hosting
+just deploy-web
 ```
 
-## Auth chrome (M1)
+`just deploy-server` refuses to run while `apps/server` has uncommitted changes. Steps 3 and 4 are the routine deploy; rerun step 2 after changing `infra/gcp`.
 
-- Signed-out → magic-link entry (`/`)
-- Signed-in → `/timeline` stub
-- Matches chrome locks redirects / no redesign
-
-**OPEN (Mugatu):** exact auth chrome label strings; M1 uses minimal functional labels only.
+`just deploy-web` uses a public Mapbox token for the place picker: `MAPBOX_ACCESS_TOKEN` if that is set, and otherwise the Secret Manager secret `story-line-mapbox-token`. Without a token it deploys anyway, with a warning, and the place picker is off. Create the secret once with `printf %s 'pk…' | gcloud secrets create story-line-mapbox-token --data-file=- --project story-line-app`. In the Mapbox account, restrict the token's URLs to `https://story-line-app.web.app` and `https://story-line-app.firebaseapp.com`.

@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/router/app_router.dart';
-import '../../data/invite_api.dart';
+import 'package:tell_me_a_story/core/router/app_routes.dart';
+import 'package:tell_me_a_story/data/invite_api.dart';
 
 /// After session exists, accept `?invite=` token and land on Family Landing.
 Future<void> acceptInviteFromUriIfPresent({

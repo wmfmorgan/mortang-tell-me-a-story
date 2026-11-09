@@ -1,0 +1,105 @@
+emailIdp:
+  - startOtpLogin:
+  - verifyOtpLoginCode:
+  - finishOtpLogin:
+  - finishOtpRegistration:
+  - login:
+  - startRegistration:
+  - verifyRegistrationCode:
+  - finishRegistration:
+  - startPasswordReset:
+  - verifyPasswordResetCode:
+  - finishPasswordReset:
+  - hasAccount:
+jwtRefresh:
+  - refreshAccessToken:
+family:
+  - createRoot:
+  - listMine:
+  - listStewarded:
+  - listTree:
+  - listMembers:
+  - directory:
+  - detail:
+  - rename:
+  - addCoOwner:
+  - removeCoOwner:
+  - transferOwnership:
+  - removeMember:
+  - softDelete:
+  - recover:
+  - setOrigin:
+  - listOriginDependents:
+  - createBranch:
+  - startCoverUpload:
+  - finishCoverUpload:
+  - clearCover:
+invite:
+  - create:
+  - sendEmail:
+  - accept:
+  - resend:
+  - revoke:
+invitePublic:
+  - preview:
+live:
+  - watchFamily:
+  - watchTree:
+  - watchStory:
+media:
+  - get:
+  - getMany:
+note:
+  - listForStory:
+  - create:
+  - update:
+  - delete:
+people:
+  - listFamily:
+  - listTree:
+  - create:
+  - forEdit:
+  - profile:
+  - update:
+  - listUnlinked:
+  - isHomeFamilySteward:
+  - markPassedAway:
+  - setDeathDate:
+  - delete:
+photo:
+  - list:
+  - startUpload:
+  - finishUpload:
+  - delete:
+  - setHero:
+place:
+  - list:
+  - favorites:
+  - recents:
+  - create:
+  - markUsed:
+  - setFavorite:
+  - findByMapboxId:
+  - get:
+profile:
+  - me:
+  - saveName:
+  - saveAccount:
+  - saveAvatar:
+  - clearAvatar:
+story:
+  - createDraft:
+  - updateDraft:
+  - autosaveDraft:
+  - get:
+  - linkPerson:
+  - publish:
+  - getPublished:
+  - listMyDrafts:
+  - listPublished:
+  - listPublishedInTree:
+  - listLatestPublished:
+  - listForPerson:
+  - discard:
+  - search:
+  - facets:

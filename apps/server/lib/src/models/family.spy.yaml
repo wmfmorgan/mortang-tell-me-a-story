@@ -1,0 +1,32 @@
+class: Family
+table: families
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  ### Immutable. Tree rows are deleted by the purge job only when empty.
+  treeId: UuidValue, relation(parent=trees, onDelete=Restrict)
+  ### Branch parent; same tree enforced by raw FK families_parent_same_tree_fk.
+  parentId: UuidValue?, relation(parent=families, onDelete=SetNull)
+  name: String
+  ### Attach year, 1000..9999 (CHECK families_branch_year_1000_9999). Null for roots.
+  branchYear: int?
+  ### Origin story: published, in the parent family (branch) or this family (root). Set at branch creation, changeable by stewards (setOrigin). Same tree enforced by families_origin_tree_fk; the effective origin is derived (§3.5).
+  originStoryId: UuidValue?, relation(parent=stories, onDelete=SetNull)
+  ### Blob key, see §4. families/{familyId}/cover/{blobId}.{jpg|png|webp}
+  coverKey: String?
+  createdById: UuidValue?, relation(parent=serverpod_auth_core_user, onDelete=SetNull)
+  createdAt: DateTime, default=now
+  ### Soft delete; purged 60 days later by a future call.
+  deletedAt: DateTime?
+indexes:
+  families_tree_idx:
+    fields: treeId
+  ### Target of the composite FKs (stories, people, invites, parent) in constraintsSql.
+  families_id_tree_uidx:
+    fields: id, treeId
+    unique: true
+  families_parent_idx:
+    fields: parentId
+  families_origin_story_idx:
+    fields: originStoryId
+  families_deleted_at_idx:
+    fields: deletedAt

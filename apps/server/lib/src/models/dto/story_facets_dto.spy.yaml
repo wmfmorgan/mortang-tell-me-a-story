@@ -1,0 +1,6 @@
+### StoryEndpoint.facets result.
+class: StoryFacetsDto
+fields:
+  decades: List<DecadeFacetDto>
+  people: List<PersonFacetDto>
+  places: List<PlaceFacetDto>
