@@ -44,3 +44,9 @@ infra/gcp/tfplan
 
 # Firebase CLI deploy cache
 .firebase/
+
+# Local agent scratch
+PLAN.md
+TODO.md
+NOTES.md
+SCRATCH.md

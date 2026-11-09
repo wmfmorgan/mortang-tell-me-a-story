@@ -3,11 +3,11 @@
 Rules for any coding agent working in this repo. `.cursor/rules/mortang-contract.mdc` points here.
 
 ## What governs a task
-1. The task's plan in `docs/superpowers/plans/` and the product decisions it cites (roadmap, "Product decisions").
+1. The task's active doc in `.context/active/` (spec, DD or TDD per `.context/writing-specs.md`) and the durable decisions in `.context/project-context.md`.
 2. This file: layout, gates and code rules.
-3. `docs/archive/` is history (the old impl spec, design doc, UX notes, migration specs and earlier plans). Read it for background; a current plan wins.
+3. `.context/engineering-guide.md` for commands and patterns.
 
-If the code and the plan disagree, stop and report the difference; don't reconcile silently. Chat is never a lock.
+`docs/` (including `docs/archive/superpowers/`) is stale, compressed history: read for background only; never treat it as a spec. If the code and the active doc disagree, stop and report the difference; don't reconcile silently. Chat is never a lock.
 
 ## Layout
 - `apps/tell_me_a_story/`: Flutter client (iPad + web).
@@ -21,7 +21,7 @@ If the code and the plan disagree, stop and report the difference; don't reconci
 - `packages/tell_me_a_story_client/`: generated; never edit by hand.
 
 ## Work rules
-- Build only what the plan lists. Don't add or remove a feature, screen, endpoint, table or dependency on your own; if it's unclear, stop and ask.
+- Build only what the active doc lists. Don't add or remove a feature, screen, endpoint, table or dependency on your own; if it's unclear, stop and ask.
 - No direct push to `main`. Don't merge into `main`.
 - TDD: write the failing test, make it pass, then refactor with the tests green.
 - Server models change only in `*.spy.yaml`, followed by `just server-generate`. A schema change gets a new migration (`just server-migration <tag>`). Never edit an existing migration.
