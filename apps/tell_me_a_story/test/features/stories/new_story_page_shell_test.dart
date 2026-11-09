@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
@@ -424,6 +425,38 @@ void main() {
     expect(stories.updateIds, isEmpty);
   });
 
+  testWidgets('Add person before the draft exists saves them with the draft', (
+    tester,
+  ) async {
+    final stories = _AutosaveStories();
+    final people = _FakePeopleApi(
+      seed: const [Person(id: 'p1', familyId: _familyId, name: 'Ada')],
+    );
+    await tester.pumpWidget(_shell(stories: stories, people: people));
+    await tester.pumpAndSettle();
+
+    // The first keystroke mints the draft id; the insert waits for the pause.
+    await tester.enterText(find.byKey(const Key('story-title')), 'J');
+    await tester.pump();
+    expect(stories.createIds, isEmpty);
+
+    await tester.ensureVisible(find.widgetWithText(TextButton, 'Add person'));
+    await tester.tap(find.widgetWithText(TextButton, 'Add person'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ada'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Add person'));
+    await tester.pumpAndSettle();
+
+    expect(stories.linkErrors, isEmpty);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.widgetWithText(Chip, 'Ada'), findsOneWidget);
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+    expect(stories.createIds, hasLength(1));
+    expect(stories.story!.personIds, ['p1']);
+  });
+
   testWidgets('a typing pause saves and leaving saves with no prompt', (
     tester,
   ) async {
@@ -739,6 +772,8 @@ class _AutosaveStories extends FakeStoriesGateway {
   final List<bool> createAllowUndated = [];
   final List<String> updateIds = [];
   final List<String> autosaveIds = [];
+  final List<List<String>> createPersonIds = [];
+  final List<String> linkErrors = [];
   var publishCalls = 0;
   Story? story;
 
@@ -776,6 +811,7 @@ class _AutosaveStories extends FakeStoriesGateway {
     createStatuses.add('draft');
     createStarts.add(timeframeStart);
     createAllowUndated.add(allowUndated);
+    createPersonIds.add(personIds);
     if (createError != null) throw createError!;
     story = Story(
       id: id ?? 'server-id',
@@ -872,5 +908,14 @@ class _AutosaveStories extends FakeStoriesGateway {
   Future<void> linkPerson({
     required String storyId,
     required String personId,
-  }) async {}
+  }) async {
+    // Like the server: a story that was never inserted is not yours.
+    if (story?.id != storyId) {
+      linkErrors.add(storyId);
+      throw const AppException(
+        code: AppErrorCode.forbidden,
+        message: 'You don’t have access to that.',
+      );
+    }
+  }
 }

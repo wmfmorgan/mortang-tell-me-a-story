@@ -14,10 +14,15 @@ Widget familyBlurShell({required Widget child}) {
 }
 
 /// Full-viewport blur with a centered card. Dropdowns stay on their own routes.
+///
+/// [scopedMessages] gives the card its own [ScaffoldMessenger], so a SnackBar
+/// it shows draws above the blur instead of under it on the page. Only for
+/// cards that stay open after showing one: the SnackBar leaves with the card.
 Future<T?> showBlurredCard<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   bool barrierDismissible = true,
+  bool scopedMessages = false,
 }) {
   return showGeneralDialog<T>(
     context: context,
@@ -26,13 +31,22 @@ Future<T?> showBlurredCard<T>({
     barrierColor: albumBackdropClear,
     transitionDuration: const Duration(milliseconds: 200),
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
-      return familyBlurShell(
+      final shell = familyBlurShell(
         child: GestureDetector(
           onTap: barrierDismissible ? () => Navigator.pop(dialogContext) : null,
           behavior: HitTestBehavior.opaque,
           child: Center(
             child: GestureDetector(onTap: () {}, child: builder(dialogContext)),
           ),
+        ),
+      );
+      if (!scopedMessages) return shell;
+      return ScaffoldMessenger(
+        child: Scaffold(
+          backgroundColor: albumBackdropClear,
+          // The card pads for the keyboard itself.
+          resizeToAvoidBottomInset: false,
+          body: shell,
         ),
       );
     },

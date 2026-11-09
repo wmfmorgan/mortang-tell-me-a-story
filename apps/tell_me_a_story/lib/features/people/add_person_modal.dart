@@ -59,6 +59,8 @@ class AddPersonModal extends StatefulWidget {
   }) {
     return showAlbumDialog<AddPersonResult>(
       context: context,
+      // Errors keep the modal open; show them above its blur (UX-13).
+      scopedMessages: true,
       maxWidth: 580,
       builder: (ctx) => AddPersonModal(
         familyId: familyId,

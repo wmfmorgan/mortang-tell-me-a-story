@@ -196,13 +196,16 @@ class PlusLabel extends StatelessWidget {
 
 /// Centered parchment dialog on the sigma-4 blur shell.
 /// Callers keep their existing [show] signatures. Menus do not use this.
+/// [scopedMessages]: see [showBlurredCard].
 Future<T?> showAlbumDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   double maxWidth = 640,
+  bool scopedMessages = false,
 }) {
   return showBlurredCard<T>(
     context: context,
+    scopedMessages: scopedMessages,
     builder: (ctx) {
       final height = MediaQuery.sizeOf(ctx).height;
       return ConstrainedBox(
