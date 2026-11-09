@@ -10,6 +10,7 @@ import 'package:tell_me_a_story/app/app_router.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/ui/album/album_header.dart';
+import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
@@ -683,8 +684,8 @@ void main() {
     expect(find.text('Family'), findsOneWidget);
     expect(find.byKey(const Key('timeline-search')), findsOneWidget);
     expect(find.byKey(const Key('header-avatar')), findsOneWidget);
-    expect(find.byKey(const Key('header-underline-decades')), findsOneWidget);
-    expect(find.byKey(const Key('header-underline-timeline')), findsNothing);
+    expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-stories')), findsNothing);
     expect(find.text('Save draft'), findsNothing);
     expect(find.text('Publish'), findsNothing);
     expect(find.text('Timeline'), findsOneWidget);
@@ -1232,9 +1233,11 @@ void main() {
     final timeline = tester.getTopLeft(
       find.byKey(const Key('header-nav-timeline')),
     );
-    final stories = tester.getTopLeft(find.byKey(const Key('timeline-nav')));
+    final stories = tester.getTopLeft(
+      find.byKey(const Key('header-nav-stories')),
+    );
     expect(stories.dx, lessThan(timeline.dx));
-    expect(find.byKey(const Key('header-underline-decades')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
@@ -1706,7 +1709,11 @@ void main() {
       ],
     );
     await tester.pumpWidget(
-      MaterialApp.router(theme: albumTheme(), routerConfig: router),
+      MaterialApp.router(
+        theme: albumTheme(),
+        builder: albumAppBuilder,
+        routerConfig: router,
+      ),
     );
     await tester.pumpAndSettle();
 

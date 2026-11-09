@@ -30,7 +30,7 @@ class FarRail extends StatefulWidget {
     required this.onFullCards,
     this.dimmed = const {},
     this.filtering = false,
-    this.filterAction,
+    this.toolbar,
     this.notice,
   });
 
@@ -52,8 +52,8 @@ class FarRail extends StatefulWidget {
   /// A filter is active: decade counts read "matched of total" (C18).
   final bool filtering;
 
-  /// Beside the zoom switch (the Filters button below the sidebar width).
-  final Widget? filterAction;
+  /// Beside the zoom switch: the subheader's action buttons.
+  final Widget? toolbar;
 
   /// Pinned above the rows (the C17 no-match card).
   final Widget? notice;
@@ -162,7 +162,7 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
       onMid: widget.onMid,
       onFullCards: widget.onFullCards,
       onEmpty: widget.onEmpty,
-      action: widget.filterAction,
+      action: widget.toolbar,
       notice: widget.notice,
       viewport: Stack(
         key: viewportKey,

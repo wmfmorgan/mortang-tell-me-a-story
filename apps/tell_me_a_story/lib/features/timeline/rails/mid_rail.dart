@@ -31,7 +31,7 @@ class MidRail extends StatefulWidget {
     required this.onMacro,
     required this.onFullCards,
     this.dimmed = const {},
-    this.filterAction,
+    this.toolbar,
     this.notice,
   });
 
@@ -52,8 +52,8 @@ class MidRail extends StatefulWidget {
   /// Stories that miss the filter: dim ink and a hollow node (Q4).
   final Set<String> dimmed;
 
-  /// Beside the zoom switch (the Filters button below the sidebar width).
-  final Widget? filterAction;
+  /// Beside the zoom switch: the subheader's action buttons.
+  final Widget? toolbar;
 
   /// Pinned above the rows (the C17 no-match card).
   final Widget? notice;
@@ -123,7 +123,7 @@ class _MidRailState extends State<MidRail> with RailScaffold<MidRail, String> {
       onMid: () {},
       onFullCards: widget.onFullCards,
       onEmpty: widget.onEmpty,
-      action: widget.filterAction,
+      action: widget.toolbar,
       notice: widget.notice,
       viewport: Stack(
         key: viewportKey,

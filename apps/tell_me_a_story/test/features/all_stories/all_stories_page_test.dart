@@ -50,27 +50,27 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('header-underline-timeline')), findsNothing);
+    expect(find.byKey(const Key('header-underline-stories')), findsNothing);
 
-    await tester.tap(find.byKey(const Key('timeline-nav')));
+    await tester.tap(find.byKey(const Key('header-nav-stories')));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/family/$_family/stories');
-    expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-stories')), findsOneWidget);
 
     router.go(AppRoutes.timeline);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('header-underline-decades')), findsOneWidget);
-    expect(find.byKey(const Key('header-underline-timeline')), findsNothing);
-    await tester.tap(find.byKey(const Key('timeline-nav')));
+    expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-stories')), findsNothing);
+    await tester.tap(find.byKey(const Key('header-nav-stories')));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/family/$_family/stories');
-    expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-stories')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('header-nav-timeline')));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, AppRoutes.timeline);
     expect(router.state.uri.queryParameters['view'], 'decades');
-    expect(find.byKey(const Key('header-underline-decades')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
   });
 
   testWidgets('W-03 the header search icon still opens Search', (tester) async {
@@ -526,7 +526,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('header-nav-timeline')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('timeline-nav')));
+    await tester.tap(find.byKey(const Key('header-nav-stories')));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/family/$_family/stories');
     expect(

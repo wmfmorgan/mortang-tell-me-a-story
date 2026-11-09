@@ -2,11 +2,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/timeline/tree/treemap_layout.dart';
 import 'package:tell_me_a_story/features/timeline/tree/treemap_view.dart';
+import 'package:tell_me_a_story/ui/timeline/view_switch.dart';
 
 import '../../../support/tree_fixture.dart';
 
@@ -29,6 +31,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: albumTheme(),
+        builder: albumAppBuilder,
         home: Scaffold(
           body: TreemapView(
             title: 'Jenkins family tree',
@@ -43,8 +46,8 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  SegmentedButton<TreemapBy> switcher(WidgetTester tester) => tester
-      .widget<SegmentedButton<TreemapBy>>(find.byKey(const Key('treemap-by')));
+  ViewSwitch<TreemapBy> switcher(WidgetTester tester) =>
+      tester.widget<ViewSwitch<TreemapBy>>(find.byKey(const Key('treemap-by')));
 
   Future<void> groupBy(WidgetTester tester, TreemapBy by) async {
     final segment = find.text(treemapByLabel(by));
@@ -79,7 +82,7 @@ void main() {
       tester.getTopLeft(find.text('By decade')).dx,
       lessThan(tester.getTopLeft(find.text('By person')).dx),
     );
-    expect(switcher(tester).selected, {TreemapBy.family});
+    expect(switcher(tester).selected, TreemapBy.family);
     expect(find.text('Group by'), findsNothing);
     expect(find.byKey(const Key('treemap-crumb-group')), findsNothing);
     expect(storyTiles(), findsNothing);
@@ -90,7 +93,7 @@ void main() {
   ) async {
     await pump(tester);
     await groupBy(tester, TreemapBy.decade);
-    expect(switcher(tester).selected, {TreemapBy.decade});
+    expect(switcher(tester).selected, TreemapBy.decade);
 
     await tester.tap(find.byKey(const Key('treemap-group-1970')));
     await tester.pumpAndSettle();
@@ -336,7 +339,7 @@ void main() {
       expect(key, findsOneWidget);
       expect(
         tester.getTopLeft(key).dy,
-        greaterThan(
+        greaterThanOrEqualTo(
           tester.getBottomLeft(find.byKey(const Key('treemap-by'))).dy,
         ),
       );
@@ -369,6 +372,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: albumTheme(),
+          builder: albumAppBuilder,
           home: Scaffold(
             body: TreemapView(
               title: 'Jenkins family tree',

@@ -20,7 +20,7 @@ void main() {
   tearDown(FamilySelection.clear);
 
   testWidgets(
-    'a different family goes to /family from Drafts, Settings, New, Edit, Manage, and Timeline',
+    'a different family goes to /family from Drafts, Settings, New, Edit, Manage',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -31,7 +31,6 @@ void main() {
         (AlbumHeaderPage.capture, '/stories/s1/edit'),
         (AlbumHeaderPage.manageFamilies, '/manage-families'),
         (AlbumHeaderPage.manageFamilies, '/manage-families/ada'),
-        (AlbumHeaderPage.timeline, '/timeline'),
         (AlbumHeaderPage.familyLanding, '/family'),
       ];
       for (final (page, location) in cases) {
@@ -89,8 +88,92 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: timeline));
     await tester.pumpAndSettle();
     await _pick(tester, const Key('family-menu-item-$_related'));
-    expect(timeline.state.uri.path, '/family');
+    expect(timeline.state.uri.path, '/timeline');
     expect(fromTimeline, [_related]);
+  });
+
+  testWidgets('a different family on Timeline stays on /timeline', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final selected = <String>[];
+    final router = _router(
+      page: AlbumHeaderPage.timeline,
+      location: '/timeline',
+      onSelected: selected.add,
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await _pick(tester, const Key('family-menu-item-$_bea'));
+    expect(router.state.uri.path, '/timeline');
+    expect(selected, [_bea]);
+    expect(FamilySelection.id, _bea);
+  });
+
+  testWidgets('a different family on the tree goes to that family tree', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final selected = <String>[];
+    final router = _router(
+      page: AlbumHeaderPage.familyTree,
+      location: '/family/$_ada/tree',
+      onSelected: selected.add,
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await _pick(tester, const Key('family-menu-item-$_bea'));
+    expect(router.state.uri.path, '/family/$_bea/tree');
+    expect(selected, [_bea]);
+  });
+
+  testWidgets('a different family on All stories goes to its stories', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final selected = <String>[];
+    final router = _router(
+      page: AlbumHeaderPage.allStories,
+      location: '/family/$_ada/stories',
+      onSelected: selected.add,
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    await _pick(tester, const Key('family-menu-item-$_bea'));
+    expect(router.state.uri.path, '/family/$_bea/stories');
+    expect(selected, [_bea]);
+  });
+
+  testWidgets('picking the current family on Timeline, tree or stories stays', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const cases = <(AlbumHeaderPage, String)>[
+      (AlbumHeaderPage.timeline, '/timeline'),
+      (AlbumHeaderPage.familyTree, '/family/$_ada/tree'),
+      (AlbumHeaderPage.allStories, '/family/$_ada/stories'),
+    ];
+    for (final (page, location) in cases) {
+      final selected = <String>[];
+      final router = _router(
+        page: page,
+        location: location,
+        onSelected: selected.add,
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+      await _pick(tester, const Key('family-menu-item-$_ada'));
+      expect(selected, isEmpty, reason: location);
+      expect(router.state.uri.path, location, reason: location);
+    }
   });
 
   testWidgets(
@@ -105,7 +188,6 @@ void main() {
         (AlbumHeaderPage.capture, '/stories/s1/edit'),
         (AlbumHeaderPage.manageFamilies, '/manage-families'),
         (AlbumHeaderPage.manageFamilies, '/manage-families/ada'),
-        (AlbumHeaderPage.timeline, '/timeline'),
       ];
       for (final (page, location) in cases) {
         FamilySelection.remember('keep');
@@ -141,7 +223,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final home = tester.getTopLeft(find.byKey(const Key('header-nav-home')));
-    final stories = tester.getTopLeft(find.byKey(const Key('timeline-nav')));
+    final stories = tester.getTopLeft(
+      find.byKey(const Key('header-nav-stories')),
+    );
     final timeline = tester.getTopLeft(
       find.byKey(const Key('header-nav-timeline')),
     );
@@ -240,6 +324,8 @@ GoRouter _router({
     initialLocation: location,
     routes: [
       GoRoute(path: '/family', builder: (_, _) => screen()),
+      GoRoute(path: '/family/:familyId/tree', builder: (_, _) => screen()),
+      GoRoute(path: '/family/:familyId/stories', builder: (_, _) => screen()),
       GoRoute(path: '/timeline', builder: (_, _) => screen()),
       GoRoute(path: '/drafts', builder: (_, _) => screen()),
       GoRoute(path: '/settings', builder: (_, _) => screen()),

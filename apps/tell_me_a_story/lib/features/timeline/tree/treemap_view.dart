@@ -128,7 +128,7 @@ class _TreemapViewState extends State<TreemapView> {
       children: [
         _crumbs(context, group, cell),
         ViewSwitch<TreemapBy>(
-          switchKey: const Key('treemap-by'),
+          key: const Key('treemap-by'),
           leading: [
             if (widget.viewSwitch case final viewSwitch?) ...[
               viewSwitch,

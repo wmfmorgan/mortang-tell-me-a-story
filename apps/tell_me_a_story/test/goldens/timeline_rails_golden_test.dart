@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
@@ -44,6 +45,7 @@ void main() {
         MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: albumTheme(),
+          builder: albumAppBuilder,
           home: fixturePage(fixturePublished),
         ),
       );
@@ -76,6 +78,7 @@ void main() {
         MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: albumTheme(),
+          builder: albumAppBuilder,
           home: fixturePage(fixtureVaried),
         ),
       );

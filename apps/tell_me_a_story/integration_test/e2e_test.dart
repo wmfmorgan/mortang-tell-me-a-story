@@ -62,11 +62,11 @@ void main() {
       );
     });
 
-    await _c1Step('timeline-nav', () async {
-      await tester.tap(find.byKey(const Key('timeline-nav')));
+    await _c1Step('header-nav-stories', () async {
+      await tester.tap(find.byKey(const Key('header-nav-stories')));
       await pumpUntilFound(
         tester,
-        find.byKey(const Key('header-underline-decades')),
+        find.byKey(const Key('header-underline-timeline')),
       );
     });
     await _c1Step('empty-state', () async {
@@ -161,7 +161,7 @@ void main() {
       final empty = find.text('No stories yet.');
       // Closing capture returns to family landing. Stories opens All Stories.
       if (empty.evaluate().isEmpty) {
-        final nav = find.byKey(const Key('timeline-nav'));
+        final nav = find.byKey(const Key('header-nav-stories'));
         await tester.ensureVisible(nav);
         await tester.tap(nav);
       }
@@ -254,7 +254,7 @@ void main() {
       await tester.tap(find.byKey(const Key('header-nav-timeline')));
       await pumpUntilFound(
         tester,
-        find.byKey(const Key('header-underline-decades')),
+        find.byKey(const Key('header-underline-timeline')),
       );
       expect(find.byKey(const Key('invite-email')), findsNothing);
     });
@@ -734,12 +734,12 @@ Future<void> _publish(
     await tester.ensureVisible(close);
     await tester.tap(close);
     await pumpUntilGone(tester, reader);
-    final finder = find.byKey(const Key('header-underline-timeline'));
+    final finder = find.byKey(const Key('header-underline-stories'));
     // Publish replaces the capture route, which was pushed over family
     // landing. Stories opens All Stories; the timeline button opens the
     // timeline.
     if (finder.evaluate().isEmpty) {
-      final nav = find.byKey(const Key('timeline-nav'));
+      final nav = find.byKey(const Key('header-nav-stories'));
       await tester.ensureVisible(nav);
       await tester.tap(nav);
     }

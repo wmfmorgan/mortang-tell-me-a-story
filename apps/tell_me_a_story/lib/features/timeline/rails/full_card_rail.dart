@@ -33,7 +33,7 @@ class FullCardRail extends StatefulWidget {
     required this.onMid,
     this.onPerson,
     this.dimmed = const {},
-    this.filterAction,
+    this.toolbar,
     this.notice,
   });
 
@@ -55,8 +55,8 @@ class FullCardRail extends StatefulWidget {
   /// Stories that miss the filter: dim ink and a hollow dot (Q4).
   final Set<String> dimmed;
 
-  /// Beside the zoom switch (the Filters button below the sidebar width).
-  final Widget? filterAction;
+  /// Beside the zoom switch: the subheader's action buttons.
+  final Widget? toolbar;
 
   /// Pinned above the rows (the C17 no-match card).
   final Widget? notice;
@@ -117,7 +117,7 @@ class _FullCardRailState extends State<FullCardRail>
       onMid: widget.onMid,
       onFullCards: () {},
       onEmpty: widget.onEmpty,
-      action: widget.filterAction,
+      action: widget.toolbar,
       notice: widget.notice,
       viewport: LayoutBuilder(
         builder: (context, constraints) {

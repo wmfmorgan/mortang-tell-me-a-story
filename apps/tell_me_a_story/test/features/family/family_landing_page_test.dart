@@ -34,17 +34,17 @@ void main() {
     expect(find.text('Featured'), findsNothing);
     expect(find.text('Oldest'), findsNothing);
     expect(find.text('Untitled'), findsNothing);
-    expect(find.byKey(const Key('header-underline-timeline')), findsNothing);
+    expect(find.byKey(const Key('header-underline-stories')), findsNothing);
   });
 
   testWidgets('Stories from Landing opens the timeline underlined', (
     tester,
   ) async {
     await _pump(tester, role: 'member', stories: const []);
-    await tester.tap(find.byKey(const Key('timeline-nav')));
+    await tester.tap(find.byKey(const Key('header-nav-stories')));
     await tester.pumpAndSettle();
     expect(find.text('all-stories-page'), findsOneWidget);
-    expect(find.byKey(const Key('header-underline-timeline')), findsOneWidget);
+    expect(find.byKey(const Key('header-underline-stories')), findsOneWidget);
   });
 
   testWidgets('owner and co-owner see the camera; a member does not', (

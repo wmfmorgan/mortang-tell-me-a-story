@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
@@ -208,6 +209,7 @@ Future<void> pumpFixtureTimeline(
     MaterialApp.router(
       debugShowCheckedModeBanner: false,
       theme: albumTheme(),
+      builder: albumAppBuilder,
       routerConfig: router,
     ),
   );

@@ -125,8 +125,8 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               onLogout: onLogout,
               onStartTimeline: onStartTimeline,
               onHome: () => _openHome(context),
-              onDecades: () => _openDecades(context),
-              onTimeline: () => _openTimeline(context),
+              onTimeline: () => _openDecades(context),
+              onStories: () => _openTimeline(context),
               onDrafts: () {
                 unawaited(_openDrafts(context));
               },
@@ -206,8 +206,8 @@ class _HeaderBar extends StatelessWidget {
     required this.onLogout,
     required this.onStartTimeline,
     required this.onHome,
-    required this.onDecades,
     required this.onTimeline,
+    required this.onStories,
     required this.onDrafts,
     required this.onNewStory,
     required this.metrics,
@@ -228,8 +228,8 @@ class _HeaderBar extends StatelessWidget {
   final Future<void> Function()? onLogout;
   final VoidCallback? onStartTimeline;
   final VoidCallback onHome;
-  final VoidCallback onDecades;
   final VoidCallback onTimeline;
+  final VoidCallback onStories;
   final VoidCallback onDrafts;
   final VoidCallback onNewStory;
   final _HeaderMetrics metrics;
@@ -345,19 +345,19 @@ class _HeaderBar extends StatelessWidget {
           _HomeNav(onTap: onHome),
           SizedBox(width: metrics.gaps[3]),
           _NavItem(
-            key: const Key('timeline-nav'),
+            key: const Key('header-nav-stories'),
             label: 'Stories',
             active: page == AlbumHeaderPage.allStories,
-            underlineKey: const Key('header-underline-timeline'),
-            onTap: onTimeline,
+            underlineKey: const Key('header-underline-stories'),
+            onTap: onStories,
           ),
           SizedBox(width: metrics.gaps[4]),
           _NavItem(
             key: const Key('header-nav-timeline'),
             label: 'Timeline',
             active: page == AlbumHeaderPage.timeline,
-            underlineKey: const Key('header-underline-decades'),
-            onTap: onDecades,
+            underlineKey: const Key('header-underline-timeline'),
+            onTap: onTimeline,
           ),
           SizedBox(width: metrics.gaps[5]),
           _NavItem(
@@ -689,13 +689,27 @@ class _FamilyMenu extends StatelessWidget {
   }
 
   Future<void> _pickFamily(BuildContext context, String value) async {
-    if (value != currentFamilyId) {
+    final switching = value != currentFamilyId;
+    if (switching) {
       final leave = await _confirmFamilySwitch(context, _nameFor(value));
       if (!leave || !context.mounted) return;
       onSelected(value);
     }
-    if (page == AlbumHeaderPage.familyLanding) return;
-    GoRouter.maybeOf(context)?.go(AppRoutes.familyLanding);
+    final router = GoRouter.maybeOf(context);
+    switch (page) {
+      case AlbumHeaderPage.timeline:
+        return;
+      case AlbumHeaderPage.familyTree:
+        if (switching) router?.go(AppRoutes.familyTreePath(value));
+        return;
+      case AlbumHeaderPage.allStories:
+        if (switching) router?.go(AppRoutes.allStoriesPath(value));
+        return;
+      case AlbumHeaderPage.familyLanding:
+        return;
+      default:
+        router?.go(AppRoutes.familyLanding);
+    }
   }
 
   List<PopupMenuEntry<String>> _menuItems() {

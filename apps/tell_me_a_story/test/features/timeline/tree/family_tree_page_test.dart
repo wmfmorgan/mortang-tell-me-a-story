@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
+import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
@@ -123,7 +124,11 @@ void main() {
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
-      MaterialApp.router(theme: albumTheme(), routerConfig: router),
+      MaterialApp.router(
+        theme: albumTheme(),
+        builder: albumAppBuilder,
+        routerConfig: router,
+      ),
     );
     if (settle) await tester.pumpAndSettle();
   }

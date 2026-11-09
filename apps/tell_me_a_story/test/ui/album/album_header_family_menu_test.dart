@@ -182,7 +182,9 @@ void main() {
       expect(paragraph.size.width, greaterThan(40));
       expect(find.byTooltip(name), findsWidgets);
       final menuRect = tester.getRect(find.byKey(const Key('family-menu')));
-      final navRect = tester.getRect(find.byKey(const Key('timeline-nav')));
+      final navRect = tester.getRect(
+        find.byKey(const Key('header-nav-stories')),
+      );
       expect(menuRect.right, lessThanOrEqualTo(navRect.left));
       expect(menuRect.width, greaterThan(80));
       final search = tester.getSize(find.byKey(const Key('timeline-search')));
@@ -236,7 +238,7 @@ void main() {
       findsNothing,
     );
     final menuRect = tester.getRect(menu);
-    final navRect = tester.getRect(find.byKey(const Key('timeline-nav')));
+    final navRect = tester.getRect(find.byKey(const Key('header-nav-stories')));
     expect(navRect.left - menuRect.right, greaterThan(80));
     final label = tester.widget<Text>(find.text('Ada'));
     expect(label.maxLines, 1);
@@ -269,7 +271,7 @@ void main() {
     expect(paragraph.size.width, greaterThan(40));
     expect(paragraph.didExceedMaxLines, isTrue);
     final menuRect = tester.getRect(find.byKey(const Key('family-menu')));
-    final navRect = tester.getRect(find.byKey(const Key('timeline-nav')));
+    final navRect = tester.getRect(find.byKey(const Key('header-nav-stories')));
     expect(menuRect.right, lessThanOrEqualTo(navRect.left));
     expect(find.byTooltip(huge), findsWidgets);
   });

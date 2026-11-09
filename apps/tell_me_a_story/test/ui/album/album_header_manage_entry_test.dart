@@ -244,10 +244,7 @@ void main() {
           find.byKey(const Key('header-underline-family')),
           findsOneWidget,
         );
-        expect(
-          find.byKey(const Key('header-underline-timeline')),
-          findsNothing,
-        );
+        expect(find.byKey(const Key('header-underline-stories')), findsNothing);
         expect(find.byKey(const Key('header-underline-drafts')), findsNothing);
       }
 

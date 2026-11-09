@@ -860,7 +860,7 @@ class _TimelinePageState extends State<TimelinePage> {
         onFullCards: _openFullCards,
         dimmed: dimmed,
         filtering: _filter.isActive,
-        filterAction: _filtersButton(wide: wide),
+        toolbar: _filtersButton(wide: wide),
         notice: _noMatch(dimmed),
       ),
       TimelineZoom.mid => MidRail(
@@ -878,7 +878,7 @@ class _TimelinePageState extends State<TimelinePage> {
         onMacro: _fitAll,
         onFullCards: _zoomIn,
         dimmed: dimmed,
-        filterAction: _filtersButton(wide: wide),
+        toolbar: _filtersButton(wide: wide),
         notice: _noMatch(dimmed),
       ),
       TimelineZoom.near => FullCardRail(
@@ -903,7 +903,7 @@ class _TimelinePageState extends State<TimelinePage> {
         onMacro: _fitAll,
         onMid: () => setState(() => _zoom = TimelineZoom.mid),
         dimmed: dimmed,
-        filterAction: _filtersButton(wide: wide),
+        toolbar: _filtersButton(wide: wide),
         notice: _noMatch(dimmed),
       ),
     };

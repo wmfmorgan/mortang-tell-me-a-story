@@ -370,8 +370,7 @@ ThemeData albumTheme() {
       color: albumTerracotta,
     ),
     // docs/archive/ux/80-all-stories.md Rule 4: selected = terracotta pill
-    // with a parchment label (5.18:1); others ink on the pill fill. Only the
-    // timeline's ViewSwitch uses SegmentedButton.
+    // with a parchment label (5.18:1); others ink on the pill fill.
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.resolveWith(
