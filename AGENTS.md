@@ -1,6 +1,6 @@
 # AGENTS.md: Mortang · Tell Me a Story
 
-Rules for any coding agent working in this repo. This file is the only rule text. `.cursor/rules/mortang-contract.mdc` always applies and only points here. `.cursor/rules/architecture.mdc` and `.cursor/rules/coding.mdc` only point at sections of this file. They add no rules and hold no gates.
+Rules for any coding agent working in this repo. This file is the rule text. `.cursor/rules/mortang-contract.mdc` always applies and only points here. `.cursor/rules/architecture.mdc` and `.cursor/rules/coding.mdc` only point at sections of this file. They add no rules and hold no gates. `.cursor/rules/pstack-models.mdc` always applies the Bill-approved medium pstack budget; it is not a pointer and isn't restated here.
 
 ## What governs a task
 1. The one section of the task's plan in `docs/superpowers/plans/`, or the one Notion spec section the task links, and the product decisions that section cites (roadmap, "Product decisions"). § Build contract item 1 is the intake rule.
