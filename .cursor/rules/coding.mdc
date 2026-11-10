@@ -1,0 +1,6 @@
+---
+description: Coding rules and build contract (extends AGENTS.md § Build contract)
+globs: "apps/tell_me_a_story/**/*.dart, apps/server/**/*.dart, apps/**/pubspec.yaml, apps/server/lib/src/models/**/*.spy.yaml, mise.toml"
+alwaysApply: false
+---
+Follow `AGENTS.md` § Build contract, with § Work rules, § Gates and § Code rules. This file adds no rules. If it and `AGENTS.md` ever differ, `AGENTS.md` wins.
