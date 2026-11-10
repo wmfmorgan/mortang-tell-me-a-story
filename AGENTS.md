@@ -99,7 +99,7 @@ Check: The PR body names **Milestone** and **Lane**. `git diff --stat main...HEA
 2. Give each new file one public top-level type, and name the file after that type in snake_case. Generated code and `*.spy.yaml` models are exempt.
 3. Pass gateways in. Do not construct them in the widget. New code in `lib/ui/` and `lib/features/` receives gateways (`lib/data/*_api.dart`) through a constructor or the existing composition in `app/`. Follow the pattern already used in that folder.
 4. When behavior varies by kind, use a Dart `sealed` class and an exhaustive `switch`. Do not add a chain of `is` checks, `runtimeType` checks, or a string-keyed `if` ladder.
-5. Do not add a state-management, dependency-injection, error-handling, or result library, and do not add a new error or result pattern. That is a dependency (item 6) and an architecture question. Stop and report. A 'new error pattern' now means anything other than the four rules in the Typed errors section.
+5. Do not add a state-management, dependency-injection, error-handling, or result library, and do not add a new error or result pattern. That is a dependency (item 6) and an architecture question. Stop and report. A 'new error pattern' now means anything other than the four rules in Client gateway errors.
 Check: Function bodies and parameter lists in the diff stay within these limits, or the PR body names each exception and the reason. The diff adds no `XxxApi(` constructor call under `lib/ui/` or `lib/features/`. The diff adds no new `is` or `runtimeType` dispatch chain.
 
 ### Which skill when
@@ -177,11 +177,11 @@ Check: The diff pairs each changed source file with a test change. It removes or
 11. Add a nested `AGENTS.md`, a `CLAUDE.md`, or a `.cursorrules`.
 Check: None of these appear in the diff or the PR body.
 
-### Typed errors
+### Client gateway errors
 
 There is no client-side typed failure at `lib/data`.
 
-1. `lib/data` gateways let `AppException` pass through unchanged. They never catch and re-wrap it, and never turn a failure into null, false or an empty result. The one exception is a method whose locked spec says not-found and unreadable look the same.
+1. `lib/data` gateways let `AppException` pass through unchanged. Gateways map only through `server_errors.dart`, and never catch, re-wrap, or swallow it again. They never turn a failure into null, false or an empty result. The one exception is a method whose locked spec says not-found and unreadable look the same.
 2. Mapping from `AppErrorCode` to user copy lives only in `lib/data/server/server_errors.dart`. Callers branch on `AppErrorCode`, never on error text.
 3. A client-only failure that doesn't map cleanly through `server_errors.dart` (for example a signed-PUT upload to GCS failing, or the network dropping) is a Stop-and-report to Gilfoyle. Don't invent a type.
 4. A new failure kind means a new `AppErrorCode`, which needs the owner's approval as the Code rules already require. Never add a client-side enum.
