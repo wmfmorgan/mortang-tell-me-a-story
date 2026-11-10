@@ -1,6 +1,6 @@
 # AGENTS.md: Mortang · Tell Me a Story
 
-Rules for any coding agent working in this repo. `.cursor/rules/mortang-contract.mdc` is the only rule set. `.cursor/rules/architecture.mdc` and `.cursor/rules/coding.mdc` only point at sections of this file. They add no rules and hold no gates.
+Rules for any coding agent working in this repo. This file is the only rule text. `.cursor/rules/mortang-contract.mdc` always applies and only points here. `.cursor/rules/architecture.mdc` and `.cursor/rules/coding.mdc` only point at sections of this file. They add no rules and hold no gates.
 
 ## What governs a task
 1. The one section of the task's plan in `docs/superpowers/plans/`, or the one Notion spec section the task links, and the product decisions that section cites (roadmap, "Product decisions"). § Build contract item 1 is the intake rule.
@@ -39,7 +39,7 @@ Run from the repo root as `mise exec -- just …` (or in a shell with mise activ
 | …server analyze | `just server-analyze` | no issues |
 | …server tests | `just server-test` | all passing |
 | Live client tests | `just server`, then `just test-live` | all passing |
-| Goldens (macOS) | `just test-goldens` | all passing; regenerate only on purpose (`just test-goldens --update-goldens`) and open every changed PNG |
+| Goldens (macOS) | `just test-goldens` | Required only when the diff touches UI, theme, or golden files, and only on macOS. Otherwise the PR body carries the exact not-run line from § Build contract item 4: `Goldens: not run (OS: <os>). Needs a macOS run.` or `Goldens: not run (no UI, theme, or golden changes).` When run, all passing. Regenerate only on purpose (`just test-goldens --update-goldens`) and list every changed PNG. |
 | e2e | `flutter drive` per README | 9/9 flows |
 
 - `just test` includes `test/architecture/e2e_flow_manifest_test.dart`, which fails if `integration_test/flows.md` and `e2e_test.dart` disagree.
@@ -55,11 +55,11 @@ Run from the repo root as `mise exec -- just …` (or in a shell with mise activ
 - UI uses only `lib/core/theme/album_theme.dart` tokens. `test/architecture/no_hardcoded_colors_test.dart` fails on `Color(0x` or `Colors.` anywhere else in `lib/`. Its skip list names files by exact path from `lib/` and only shrinks: never add a path. A new token needs the owner's approval.
 - No new user-facing copy without the owner's approval.
 - No new dependencies without approval. Pin majors; no drive-by upgrades. An approved dependency also needs the dependency note in § Build contract item 6. Approval is Bill's. A note never stands in for it.
-- `lib/` layers: `app/` (composition root) may import anything; `core/` imports `core/`; `data/` imports `core/` and `data/`; `ui/` imports `core/`, `data/` and `ui/`; `features/<f>/` imports those plus lower-rank features (`featureRank` in `test/architecture/import_boundaries_test.dart`). Only `app/` (with `main.dart`), `data/` and `core/server/` import the generated client or `serverpod*`. The test enforces this; change a rank only with the owner's approval.
+- `lib/` layer rules are only in § Architecture and layers item 1. Follow that item.
 
 ## Architecture and layers
 
-Extends Layout, Work rules, Gates, and the `lib/` layers bullet under Code rules. `.cursor/rules/architecture.mdc` points here and adds no rules.
+Extends Layout, Work rules, and Gates. Item 1 is the only statement of the `lib/` layer rules. `.cursor/rules/architecture.mdc` points here and adds no rules.
 
 1. Honor `apps/tell_me_a_story/test/architecture/import_boundaries_test.dart`. `app/` and `main.dart` may import anything. `core/` imports `core/` only, except `core/server/` may import `package:tell_me_a_story_client/` and `serverpod*`. `data/` imports `core/`, `data/`, and those server packages, and never imports Flutter UI libraries, `ui/`, or `features/`. `ui/` imports `core/`, `data/`, and `ui/`, and never imports the generated client. `features/<f>/` imports those plus lower-rank features only (`featureRank` in the test). There is no `lib/state/`. Session state lives in `lib/data/`. Server layer imports are convention only. There is no server import-boundary test. Do not invent one.
 2. Only `app/`, `data/`, and `core/server/` import the generated client (`packages/tell_me_a_story_client/`) or `serverpod*`. Never edit that package or `apps/server/lib/src/generated/` by hand.
@@ -89,8 +89,8 @@ Check: The PR body has **Spec** with one path and heading and the acceptance che
 1. One PR is one milestone of one plan, and one lane. Branch from current `main`. Never push to `main` or merge into `main`.
 2. Touch only files the milestone needs. No drive-by refactors, renames, reformatting of untouched files, or upgrades.
 3. Generated output (`just server-generate`) and a new migration (`just server-migration <tag>`) are in scope only when the milestone changes `*.spy.yaml` or endpoints.
-4. A lane is the path set the milestone declares. The lanes are the client at `apps/tell_me_a_story/`, the server at `apps/server/` with its generated client at `packages/tell_me_a_story_client/`, and infra at `infra/gcp/`.
-5. Name the branch `<lane>/<milestone>-<slug>`.
+4. A lane is the path set the milestone declares. The lanes are the client at `apps/tell_me_a_story/`, the server at `apps/server/` with its generated client at `packages/tell_me_a_story_client/`, infra at `infra/gcp/`, and docs at `AGENTS.md`, `.cursor/`, and `docs/`.
+5. Name the branch `<lane>/<milestone>-<slug>`. Name a docs branch `docs/<slug>`, with no milestone.
 6. Keep the PR to about 400 changed lines. Do not count generated code, migrations, or golden PNGs. Split the work when it is larger than that.
 Check: The PR body names **Milestone** and **Lane**. `git diff --stat main...HEAD` lists only files in that lane and milestone. The diff has no unrelated hunks and stays within the size cap.
 
