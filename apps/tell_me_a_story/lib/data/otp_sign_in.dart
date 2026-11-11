@@ -11,6 +11,7 @@ const signInCodeExpired = 'That code has expired. Send a new one.';
 const signInTooManyTries =
     'Too many tries. Wait a few minutes, then send a new code.';
 const signInRequestFailed = 'Request failed';
+const invalidEmailMessage = 'Please enter a full email address.';
 
 /// Email-code sign-in. Tests inject this instead of the server.
 abstract class OtpSignIn {
@@ -72,5 +73,9 @@ String signInErrorMessage(Object error) => switch (error) {
     reason: EmailAccountRequestExceptionReason.tooManyAttempts,
   ) =>
     signInTooManyTries,
+  EmailAccountRequestException(
+    reason: EmailAccountRequestExceptionReason.policyViolation,
+  ) =>
+    invalidEmailMessage,
   _ => signInRequestFailed,
 };

@@ -534,13 +534,12 @@ List<Order> _timelineOrder(StoryTable t) => [
   t.id.asc(),
 ];
 
-/// The app's publish readiness (`publishReadiness`, stories_api.dart:314),
-/// now on the server. The date comes first: it is the business-rules §4.4
-/// rule.
+/// The app's publish readiness (`publishReadiness` in stories_api.dart), on
+/// the server. The date comes first: it is the business-rules §4.4 rule. A
+/// place is optional.
 void _requireReady(Story story, int tagCount) {
   if (story.dateStart == null) throw validation('date required');
   if ((story.title ?? '').trim().isEmpty) throw validation('title required');
   if ((story.body ?? '').trim().isEmpty) throw validation('body required');
   if (tagCount == 0) throw validation('person required');
-  if (story.placeId == null) throw validation('place required');
 }

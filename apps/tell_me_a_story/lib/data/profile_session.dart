@@ -58,7 +58,10 @@ class ProfileSession extends ChangeNotifier {
     _started = true;
     try {
       final profile = await loader();
-      if (profile == null) return;
+      if (profile == null) {
+        _started = false;
+        return;
+      }
       Uint8List? bytes;
       final path = profile.avatarPath;
       final download = downloadAvatar;
@@ -69,8 +72,15 @@ class ProfileSession extends ChangeNotifier {
       email = profile.email;
       avatarBytes = bytes;
       notifyListeners();
-    } catch (_) {
+    } catch (error, stack) {
       _started = false;
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'profile session',
+        ),
+      );
     }
   }
 }

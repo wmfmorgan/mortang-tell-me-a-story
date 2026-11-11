@@ -199,9 +199,10 @@ class PublishReadiness {
   final bool hasBody;
   final bool hasTimeframe;
   final bool hasPerson;
+
+  /// Shown as a Drafts hint; a story publishes without a place.
   final bool hasPlace;
-  bool get canPublish =>
-      hasTitle && hasBody && hasTimeframe && hasPerson && hasPlace;
+  bool get canPublish => hasTitle && hasBody && hasTimeframe && hasPerson;
 }
 
 PublishReadiness publishReadiness({

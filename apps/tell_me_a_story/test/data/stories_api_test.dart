@@ -187,7 +187,7 @@ void main() {
     );
   });
 
-  test('publishReadiness requires title, body, timeframe, person, place', () {
+  test('publishReadiness requires title, body, timeframe and person', () {
     final r = publishReadiness(
       title: '  ',
       body: '  ',
@@ -211,6 +211,16 @@ void main() {
     );
     expect(ready.canPublish, isTrue);
     expect(ready.hasTitle, isTrue);
+
+    final placeless = publishReadiness(
+      title: 'Making Blackberry Jam on the Back Porch',
+      body: 'We made jam.',
+      timeframeStart: DateTime(1980, 1, 1),
+      personIds: const ['p1'],
+      placeId: null,
+    );
+    expect(placeless.hasPlace, isFalse);
+    expect(placeless.canPublish, isTrue);
   });
 
   test('compareStories sorts a null date last', () {

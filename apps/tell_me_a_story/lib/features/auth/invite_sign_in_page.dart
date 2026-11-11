@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:tell_me_a_story/core/router/app_routes.dart';
+import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/auth_refresh.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
@@ -20,6 +22,7 @@ const _inviteOnPrimary = Color(0xFFFFFFFF);
 
 const inviteDeadLink =
     'This invite link no longer works. Ask your family for a new one.';
+const inviteRetryLabel = 'Try again';
 
 /// Public `/invite/:token` sign-in. Accepts once when a session is present.
 class InviteSignInPage extends StatefulWidget {
@@ -59,6 +62,12 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
   String? _requestId;
   String? _sentTo;
 
+  /// Shown instead of the card when accepting or loading failed.
+  String? _failureMessage;
+
+  /// Whether [_failureMessage] came from a network failure worth retrying.
+  var _failureRetry = false;
+
   bool get _isSignedIn => widget.signedIn?.call() ?? false;
 
   @override
@@ -82,9 +91,10 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
   Future<void> _load() async {
     // A session is enough to join. Validate first would hide a repeat open
     // of an invite this person already accepted behind the dead-link copy.
-    if (_isSignedIn && widget.inviteApi != null) {
+    if (_isSignedIn) {
       await _accept();
-      if (!mounted || _accepted) return;
+      if (mounted && !_accepted) setState(() => _loading = false);
+      return;
     }
     try {
       final api = widget.previewApi ?? InviteLinkApi();
@@ -94,11 +104,16 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
         _preview = preview.valid ? preview : const InvitePreview(valid: false);
         _loading = false;
       });
-      if (preview.valid && _isSignedIn) await _accept();
-    } catch (_) {
+    } catch (error, stack) {
+      if (error is! AppException) _report(error, stack);
       if (!mounted) return;
       setState(() {
-        _preview = const InvitePreview(valid: false);
+        if (error is AppException) {
+          _preview = const InvitePreview(valid: false);
+        } else {
+          _failureMessage = signInRequestFailed;
+          _failureRetry = true;
+        }
         _loading = false;
       });
     }
@@ -118,11 +133,57 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       if (!mounted) return;
       FamilySelection.remember(result.familyId);
       context.go(AppRoutes.familyLanding);
-    } catch (_) {
+    } catch (error, stack) {
       _accepting = false;
+      if (error is! AppException) _report(error, stack);
       if (!mounted) return;
-      setState(() => _preview = const InvitePreview(valid: false));
+      setState(() {
+        if (error is AppException) {
+          _failureMessage = error.message;
+          _failureRetry = false;
+        } else {
+          _failureMessage = signInRequestFailed;
+          _failureRetry = true;
+        }
+        _loading = false;
+      });
     }
+  }
+
+  void _report(Object error, StackTrace stack) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'invite sign-in',
+      ),
+    );
+  }
+
+  void _retry() {
+    setState(() {
+      _failureMessage = null;
+      _failureRetry = false;
+      _loading = true;
+    });
+    _load();
+  }
+
+  /// Signs out the account the invite refused, then shows the email form.
+  Future<void> _switchAccount() async {
+    await AppSession.instance.signOut();
+    if (!mounted) return;
+    setState(() {
+      _failureMessage = null;
+      _failureRetry = false;
+      _accepted = false;
+      _preview = null;
+      _requestId = null;
+      _sentTo = null;
+      _error = null;
+      _loading = true;
+    });
+    await _load();
   }
 
   Future<void> _sendCode() async {
@@ -263,6 +324,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
   }
 
   Widget _card() {
+    if (_failureMessage != null) return _shell(child: _failureView());
     final preview = _preview;
     if (preview == null || !preview.valid) {
       return _shell(
@@ -361,6 +423,47 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
           else
             _form(),
         ],
+      ),
+    );
+  }
+
+  Widget _failureView() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _failureMessage!,
+          key: const Key('invite-failure'),
+          textAlign: TextAlign.center,
+          style: GoogleFonts.literata(
+            color: albumInk.withValues(alpha: 0.8),
+            fontSize: 14,
+            height: 1.625,
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_failureRetry)
+          _textAction(inviteRetryLabel, _retry, const Key('invite-retry'))
+        else if (_isSignedIn)
+          _textAction(
+            useDifferentEmailLabel,
+            _switchAccount,
+            const Key('invite-switch-account'),
+          ),
+      ],
+    );
+  }
+
+  Widget _textAction(String label, VoidCallback onPressed, Key key) {
+    return TextButton(
+      key: key,
+      onPressed: onPressed,
+      child: Text(
+        label,
+        style: GoogleFonts.sourceSans3(
+          color: albumTerracotta,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
