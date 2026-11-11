@@ -379,8 +379,12 @@ Future<void> _mountApp(WidgetTester tester) async {
     _mounted = tester.widget<ProviderScope>(find.byType(ProviderScope));
     return;
   }
-  await resetAppState(_container(tester));
+  // The previous flow's tree (and its container) is gone: remount main()'s
+  // ProviderScope, which starts a fresh container, then sign out on it.
   await tester.pumpWidget(mounted);
+  await tester.pump();
+  await resetAppState(_container(tester));
+  await tester.pump();
 }
 
 /// The fixed code a local `just server` accepts (apps/server auth_config.dart).
