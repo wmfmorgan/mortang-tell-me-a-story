@@ -5,12 +5,10 @@ Private family storytelling app (Mortang): a Flutter client for iPad and web on 
 ## Layout
 
 - `apps/tell_me_a_story/`: Flutter client (iPad + web).
-  - `lib/app`: router and app widget.
-  - `lib/core`: config, route paths, server connection, theme tokens.
-  - `lib/data`: gateways and session state.
-  - `lib/ui`: widgets used by several features.
-  - `lib/features/<feature>`: screens.
-  - `test/` mirrors `lib/`; `test/architecture` holds the guards; `test/support/fakes` holds the shared gateway fakes; `test/goldens` (tag `golden`, macOS only); `test/live` (tag `live`); `integration_test/` (e2e).
+  - `lib/main.dart`: bootstrap and composition root (`ProviderScope` overrides every repository provider); `lib/app.dart`: app widget (`MaterialApp.router`).
+  - `lib/core`: env, router, theme tokens, server connection, shared domain models and repositories, session state, and widgets used by several features (`core/widgets`).
+  - `lib/features/<feature>/{data,domain,presentation}`: feature-only repositories, models and repository providers, and screens with their providers.
+  - `test/` mirrors `lib/`; `test/architecture` holds the guards; `test/support/pump_app.dart` pumps widgets with provider overrides; `test/support/fakes` holds the shared repository fakes; `test/goldens` (tag `golden`, macOS only); `test/live` (tag `live`); `integration_test/` (e2e).
 - `apps/server/`: Serverpod 4.1.1 server.
   - Endpoints: `lib/src/endpoints`.
   - Rules: `lib/src/<domain>`.
@@ -29,6 +27,7 @@ Needs [mise](https://mise.jdx.dev). From the repo root:
 mise install            # Flutter 3.47.7, just 1.46.0 and Terraform 1.14.5 from mise.toml
 just server-setup       # serverpod_cli 4.1.1, server and client packages, local passwords
 (cd apps/tell_me_a_story && flutter pub get)
+just codegen            # build_runner: freezed, riverpod_generator, json_serializable (outputs are gitignored)
 ```
 
 Commands below assume mise is activated in your shell (`mise activate`); otherwise prefix each with `mise exec --`, e.g. `mise exec -- just check`.
@@ -48,19 +47,20 @@ App defines (`--dart-define`): `SERVER_URL` (required), `INVITE_APP_ORIGIN` (def
 
 ## UI system
 
-Tokens live in `apps/tell_me_a_story/lib/core/theme/album_theme.dart`. Components come from [forui](https://forui.dev), themed by `albumForuiTheme()` in `lib/core/theme/album_forui_theme.dart`. Shared app widgets live in `lib/ui/`. The Material theme (`albumTheme()`) still styles screens not yet migrated.
+Tokens live in `apps/tell_me_a_story/lib/core/theme/album_theme.dart`. Components come from [forui](https://forui.dev), themed by `albumForuiTheme()` in `lib/core/theme/album_forui_theme.dart`. Shared app widgets live in `lib/core/widgets/`. The Material theme (`albumTheme()`) still styles screens not yet migrated.
 
 ## Tests and gates
 
 ```bash
-just check       # fmt-check, analyze (ceiling 6), test, server-analyze, server-test
+just check       # fmt-check, analyze (ceiling 0), test, server-analyze, server-test
+just codegen     # build_runner codegen; analyze, test, test-goldens, test-live and run run it first
 just test        # app unit and widget tests (includes the e2e flow manifest check)
 just server-test # server unit and integration tests (embedded Postgres)
-just test-live   # app gateways against a running `just server`
+just test-live   # app repositories against a running `just server`
 just test-goldens   # golden images, macOS only; --update-goldens to regenerate
 ```
 
-End-to-end tests: start `just server`, start a `chromedriver --port=4444` that matches your Chrome, then:
+End-to-end tests: run `just codegen`, start `just server`, start a `chromedriver --port=4444` that matches your Chrome, then:
 
 ```bash
 cd apps/tell_me_a_story
