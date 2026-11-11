@@ -48,6 +48,7 @@ class ServerMapboxSearchRepository implements MapboxSearchRepository {
     if (decoded is! Map) {
       throw MapboxSearchException('Unexpected Mapbox geocoding response');
     }
+    // dynamic: decoded Mapbox JSON boundary.
     return parseMapboxFeatureCollection(Map<String, dynamic>.from(decoded));
   }
 }

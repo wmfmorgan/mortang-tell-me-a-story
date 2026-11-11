@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/features/comments/presentation/comment_composer.dart';
 
+import '../../../support/pump_app.dart';
+
 Finder _field() => find.byType(TextField);
 Finder _post() => find.widgetWithText(FilledButton, 'Post');
 
@@ -10,11 +12,10 @@ Future<void> _pump(
   required Future<void> Function(String body) onPost,
   FocusNode? focusNode,
 }) async {
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: CommentComposer(onPost: onPost, focusNode: focusNode),
-      ),
+  await pumpApp(
+    tester,
+    Scaffold(
+      body: CommentComposer(onPost: onPost, focusNode: focusNode),
     ),
   );
 }
@@ -79,16 +80,15 @@ void main() {
   ) async {
     final posted = <String>[];
     var cancelled = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: CommentComposer(
-            initialText: 'My note',
-            actionLabel: 'Save',
-            onCancel: () => cancelled++,
-            onPost: (body) async => posted.add(body),
-            composerKey: const Key('comment-edit-field'),
-          ),
+    await pumpApp(
+      tester,
+      Scaffold(
+        body: CommentComposer(
+          initialText: 'My note',
+          actionLabel: 'Save',
+          onCancel: () => cancelled++,
+          onPost: (body) async => posted.add(body),
+          composerKey: const Key('comment-edit-field'),
         ),
       ),
     );

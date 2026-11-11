@@ -2,58 +2,60 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/photo.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/place.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
+import 'package:tell_me_a_story/core/domain/publish_readiness.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_date_precision.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
 import 'package:tell_me_a_story/core/env.dart';
-import 'package:tell_me_a_story/core/widgets/navigation/unsaved_guard.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/widgets/album/album_modal_frame.dart';
-import 'package:tell_me_a_story/core/widgets/album/album_chrome.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/invite_repository.dart';
-import 'package:tell_me_a_story/core/data/mapbox_search_repository.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
-import 'package:tell_me_a_story/core/data/places_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/widgets/album/album_chrome.dart';
+import 'package:tell_me_a_story/core/widgets/album/album_modal_frame.dart';
+import 'package:tell_me_a_story/core/widgets/navigation/unsaved_guard.dart';
+import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
+import 'package:tell_me_a_story/core/widgets/story/story_date_picker.dart';
 import 'package:tell_me_a_story/features/people/presentation/add_person_modal.dart';
 import 'package:tell_me_a_story/features/people/presentation/person_profile_dialog.dart';
 import 'package:tell_me_a_story/features/places/presentation/place_map.dart';
 import 'package:tell_me_a_story/features/places/presentation/place_picker_modal.dart';
 import 'package:tell_me_a_story/features/stories/presentation/photo_strip.dart';
-import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
-import 'package:tell_me_a_story/core/widgets/story/story_date_picker.dart';
+
+part 'new_story_page_cards.dart';
 
 const _storyCardGap = 20.0;
 
 /// Pause after the last keystroke before an autosave. Leaving the page does not wait.
 const kAutosavePause = Duration(seconds: 2);
 
+typedef _DraftRange = ({
+  DateTime start,
+  DateTime end,
+  StoryDatePrecision precision,
+});
+
 /// Capture form for `/stories/new` — timeframe, people, place, title, body, persist.
-class NewStoryPage extends StatefulWidget {
+class NewStoryPage extends ConsumerStatefulWidget {
   const NewStoryPage({
     super.key,
-    this.inviteApi,
-    this.peopleApi,
-    this.placesApi,
-    this.mapboxSearch,
-    this.storiesApi,
-    this.photosApi,
     this.pickImageBytes,
     this.hasMapboxToken,
     this.mapBuilder,
     this.draftId,
     this.editStoryId,
   });
-
-  final InviteRepository? inviteApi;
-  final PeopleRepository? peopleApi;
-  final PlacesRepository? placesApi;
-  final MapboxSearchRepository? mapboxSearch;
-  final StoriesRepository? storiesApi;
-  final PhotosRepository? photosApi;
 
   /// Gallery picker override so widget tests never open the system picker.
   final Future<Uint8List?> Function()? pickImageBytes;
@@ -71,16 +73,16 @@ class NewStoryPage extends StatefulWidget {
   final String? editStoryId;
 
   @override
-  State<NewStoryPage> createState() => _NewStoryPageState();
+  ConsumerState<NewStoryPage> createState() => _NewStoryPageState();
 }
 
-class _NewStoryPageState extends State<NewStoryPage> {
+class _NewStoryPageState extends ConsumerState<NewStoryPage> {
+  // Read once in initState: the leave-page autosave in dispose still needs them.
   late final InviteRepository _invite;
   late final PeopleRepository _people;
   late final PlacesRepository _places;
-  late final MapboxSearchRepository _search;
-  StoriesRepository? _storiesOverride;
-  PhotosRepository? _photosOverride;
+  late final StoriesRepository _stories;
+  late final PhotosRepository _photos;
 
   final _title = TextEditingController();
   final _body = TextEditingController();
@@ -123,12 +125,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   bool get _tokenOk => widget.hasMapboxToken ?? Env.hasMapboxToken;
 
-  StoriesRepository get _stories =>
-      widget.storiesApi ?? (_storiesOverride ??= ServerStoriesRepository());
-
-  PhotosRepository get _photos =>
-      widget.photosApi ?? (_photosOverride ??= ServerPhotosRepository());
-
   bool get _editing => widget.editStoryId != null;
 
   StoryDate? get _storyDate =>
@@ -155,10 +151,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
   @override
   void initState() {
     super.initState();
-    _invite = widget.inviteApi ?? ServerInviteRepository();
-    _people = widget.peopleApi ?? ServerPeopleRepository();
-    _places = widget.placesApi ?? ServerPlacesRepository();
-    _search = widget.mapboxSearch ?? ServerMapboxSearchRepository();
+    _invite = ref.read(inviteRepositoryProvider);
+    _people = ref.read(peopleRepositoryProvider);
+    _places = ref.read(placesRepositoryProvider);
+    _stories = ref.read(storiesRepositoryProvider);
+    _photos = ref.read(photosRepositoryProvider);
     _shellMapFailed = !_tokenOk;
     _guard = UnsavedGuard(
       exitPrompts: true,
@@ -177,8 +174,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
     super.didChangeDependencies();
     if (GoRouter.maybeOf(context) == null) return;
     final key = GoRouterState.of(context).pageKey;
-    if (_pageKey == key) return;
-    if (_pageKey != null) UnsavedGuards.unregister(_pageKey!, _guard);
+    final previous = _pageKey;
+    if (previous == key) return;
+    if (previous != null) UnsavedGuards.unregister(previous, _guard);
     _pageKey = key;
     UnsavedGuards.register(key, _guard);
   }
@@ -196,7 +194,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
     if (!_editing && !_autosaveStopped && _autosaveDirty && _storyId != null) {
       unawaited(_runAutosave());
     }
-    if (_pageKey != null) UnsavedGuards.unregister(_pageKey!, _guard);
+    final pageKey = _pageKey;
+    if (pageKey != null) UnsavedGuards.unregister(pageKey, _guard);
     _guard.dispose();
     _title.dispose();
     _body.dispose();
@@ -227,54 +226,47 @@ class _NewStoryPageState extends State<NewStoryPage> {
     if (!_autosaveDirty || _storyId == null) return;
     _autosaveInFlight = true;
     // Read the fields before the first await so dispose can still save.
-    final title = _title.text;
-    final body = _body.text;
-    final yearText = _year.text;
-    final month = _month;
-    final day = _day;
-    final people = List<Person>.from(_selectedPeople);
-    final place = _selectedPlace;
+    final form = _captureSnapshot();
     final range = _storyDate?.toRange();
     final personIds = _personIdsToWrite;
-    final placeId = _selectedPlace?.id ?? _placeId;
     try {
       final story = await _persistDraft(
         autosave: true,
-        title: title,
-        body: body,
+        title: form.title,
+        body: form.body,
         range: range,
         personIds: personIds,
-        placeId: placeId,
+        placeId: form.placeId,
       );
-      if (_autosaveStopped) {
-        if (mounted) setState(() => _autosaveLabel = null);
-        return;
-      }
-      if (story != null && mounted) {
-        _snapshot = _FormSnapshot(
-          title: title,
-          body: body,
-          year: yearText,
-          month: month,
-          day: day,
-          placeId: placeId,
-          place: place,
-          people: people,
-        );
-        setState(() => _autosaveLabel = 'Saved');
-      }
+      _autosaveSucceeded(story, form);
     } catch (_) {
+      // Mapped to the "Not saved" label; the next edit retries.
       _autosaveDirty = true;
       if (mounted) setState(() => _autosaveLabel = 'Not saved');
     } finally {
-      _autosaveInFlight = false;
-      if (_autosaveStopped || _disposed) {
-        _autosaveCoalesce = false;
-      } else if (_autosaveCoalesce) {
-        _autosaveCoalesce = false;
-        _autosaveDirty = true;
-        unawaited(_runAutosave());
-      }
+      _finishAutosave();
+    }
+  }
+
+  void _autosaveSucceeded(Story? story, _FormSnapshot form) {
+    if (_autosaveStopped) {
+      if (mounted) setState(() => _autosaveLabel = null);
+      return;
+    }
+    if (story != null && mounted) {
+      _snapshot = form;
+      setState(() => _autosaveLabel = 'Saved');
+    }
+  }
+
+  void _finishAutosave() {
+    _autosaveInFlight = false;
+    if (_autosaveStopped || _disposed) {
+      _autosaveCoalesce = false;
+    } else if (_autosaveCoalesce) {
+      _autosaveCoalesce = false;
+      _autosaveDirty = true;
+      unawaited(_runAutosave());
     }
   }
 
@@ -298,18 +290,37 @@ class _NewStoryPageState extends State<NewStoryPage> {
   }
 
   Future<void> _hydrateDraft(String draftId) async {
-    final Story story;
-    try {
-      story = await _stories.getStory(draftId);
-    } catch (_) {
+    final story = await _loadStory(draftId);
+    if (story == null || !mounted) return;
+    _applyStory(story);
+    await _hydratePeople(story);
+    if (!mounted) return;
+    final placeId = story.placeId;
+    if (placeId != null && placeId.isNotEmpty) {
+      await _hydratePlace(story.familyId, placeId);
       if (!mounted) return;
+    }
+    await _hydratePhotos(draftId);
+    if (!mounted) return;
+    _autosaveDirty = false;
+    _autosaveCoalesce = false;
+    _snapshot = _captureSnapshot();
+  }
+
+  Future<Story?> _loadStory(String draftId) async {
+    try {
+      return await _stories.getStory(draftId);
+    } catch (_) {
+      // Mapped to the load-failure snackbar.
+      if (!mounted) return null;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t load draft. Try again.')),
       );
-      return;
+      return null;
     }
-    if (!mounted) return;
-    final familyId = story.familyId;
+  }
+
+  void _applyStory(Story story) {
     final start = story.timeframeStart;
     final parsed = start == null
         ? null
@@ -318,7 +329,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
     _autosaveInserted = true;
     setState(() {
       _storyId = story.id;
-      _familyId = familyId;
+      _familyId = story.familyId;
       _month = parsed?.month;
       _day = parsed?.day;
       _title.text = story.title ?? '';
@@ -329,9 +340,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
         ..addAll(story.personIds);
       _shellMapFailed = !_tokenOk;
     });
+  }
 
+  Future<void> _hydratePeople(Story story) async {
     try {
-      final people = await _people.listTreePeople(familyId);
+      final people = await _people.listTreePeople(story.familyId);
       if (!mounted) return;
       final shown = people
           .where((p) => story.personIds.contains(p.id))
@@ -354,28 +367,29 @@ class _NewStoryPageState extends State<NewStoryPage> {
           ..addAll(story.personIds);
       });
     }
+  }
 
-    final placeId = story.placeId;
-    if (placeId != null && placeId.isNotEmpty) {
-      try {
-        final favorites = await _places.listFavorites(familyId);
-        final recents = await _places.listRecents(familyId);
-        Place? place;
-        for (final candidate in [...favorites, ...recents]) {
-          if (candidate.id == placeId) {
-            place = candidate;
-            break;
-          }
+  Future<void> _hydratePlace(String familyId, String placeId) async {
+    try {
+      final favorites = await _places.listFavorites(familyId);
+      final recents = await _places.listRecents(familyId);
+      Place? place;
+      for (final candidate in [...favorites, ...recents]) {
+        if (candidate.id == placeId) {
+          place = candidate;
+          break;
         }
-        if (!mounted) return;
-        if (place != null) {
-          setState(() => _selectedPlace = place);
-        }
-      } catch (_) {
-        // Keep placeId even if favorites/recents lookup fails.
       }
+      if (!mounted) return;
+      if (place != null) {
+        setState(() => _selectedPlace = place);
+      }
+    } catch (_) {
+      // Keep placeId even if favorites/recents lookup fails.
     }
+  }
 
+  Future<void> _hydratePhotos(String draftId) async {
     try {
       final listed = await _photos.listPhotos(draftId);
       if (!mounted) return;
@@ -401,10 +415,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
     } catch (_) {
       // Story fields already applied; photo strip stays empty.
     }
-    if (!mounted) return;
-    _autosaveDirty = false;
-    _autosaveCoalesce = false;
-    _snapshot = _captureSnapshot();
   }
 
   Future<String?> _ensureFamilyId() async {
@@ -425,8 +435,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
       final added = await AddPersonModal.show(
         context,
         familyId: familyId,
-        api: _people,
-        invites: _invite,
         // Link only an inserted draft. Before the first insert the minted id
         // is not a story yet; the picked people ride along on the insert.
         storyId: _autosaveInserted ? _storyId : null,
@@ -434,8 +442,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
           for (final person in _selectedPeople) person.id,
           ..._unloadedPersonIds,
         },
-        linkPerson: ({required storyId, required personId}) =>
-            _stories.linkPerson(storyId: storyId, personId: personId),
       );
       if (!mounted || added == null) return;
       setState(() {
@@ -461,8 +467,6 @@ class _NewStoryPageState extends State<NewStoryPage> {
       final place = await PlacePickerModal.show(
         context,
         familyId: familyId,
-        places: _places,
-        search: _search,
         hasMapboxToken: widget.hasMapboxToken,
         mapBuilder: widget.mapBuilder,
       );
@@ -485,6 +489,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
     setState(() => _shellMapFailed = !_tokenOk);
   }
 
+  void _onShellMapFailed() {
+    if (!mounted) return;
+    setState(() => _shellMapFailed = true);
+  }
+
   void _onMonth(int? month) {
     setState(() {
       _month = month;
@@ -502,6 +511,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
 
   void _onYearChanged() {
     setState(() => _highlightTimeframeForPhoto = false);
+  }
+
+  void _onTextChanged(String _) {
+    setState(() {});
+    _scheduleAutosave();
   }
 
   Future<Uint8List?> _pickFromGallery() async {
@@ -546,6 +560,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       }
       await _uploadPending();
     } catch (_) {
+      // Mapped to the photo strip's upload-failed state.
       if (mounted) setState(() => _photoError = true);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -565,6 +580,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       }
       await _uploadPending();
     } catch (_) {
+      // Mapped to the photo strip's upload-failed state.
       if (mounted) setState(() => _photoError = true);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -591,6 +607,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         _pendingPhotoBytes = null;
       });
     } catch (_) {
+      // Mapped to the photo strip's upload-failed state.
       if (!mounted) return;
       setState(() => _photoError = true);
     }
@@ -615,6 +632,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           ..addAll(updated);
       });
     } catch (_) {
+      // Mapped to the photo strip's upload-failed state.
       if (!mounted) return;
       setState(() => _photoError = true);
     } finally {
@@ -641,7 +659,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
     bool autosave = false,
     String? title,
     String? body,
-    ({DateTime start, DateTime end, StoryDatePrecision precision})? range,
+    _DraftRange? range,
     List<String>? personIds,
     String? placeId,
   }) async {
@@ -679,51 +697,13 @@ class _NewStoryPageState extends State<NewStoryPage> {
   }) async {
     if (!_autosaveInserted) {
       if (!autosave && snapshot.start == null) return null;
-      final created = await _stories.createDraft(
-        id: snapshot.id,
-        allowUndated: autosave,
-        familyId: snapshot.familyId,
-        timeframeStart: snapshot.start,
-        timeframeEnd: snapshot.end,
-        datePrecision: snapshot.precision,
-        title: snapshot.title,
-        body: snapshot.body,
-        placeId: snapshot.placeId,
-        personIds: snapshot.personIds ?? const [],
-      );
-      _autosaveInserted = true;
-      _storyId = created.id;
-      return created;
+      return _insertDraft(snapshot, autosave: autosave);
     }
-    if (autosave) {
-      final wrote = await _stories.autosaveDraft(
-        storyId: _storyId!,
-        timeframeStart: snapshot.start,
-        timeframeEnd: snapshot.end,
-        datePrecision: snapshot.precision,
-        title: snapshot.title,
-        body: snapshot.body,
-        placeId: snapshot.placeId,
-        personIds: snapshot.personIds,
-      );
-      if (!wrote) {
-        _autosaveStopped = true;
-        _autosaveTimer?.cancel();
-        return null;
-      }
-      return Story(
-        id: _storyId!,
-        familyId: snapshot.familyId,
-        authorId: '',
-        title: snapshot.title,
-        body: snapshot.body,
-        timeframeStart: snapshot.start,
-        status: StoryStatus.draft,
-        personIds: snapshot.personIds ?? const [],
-      );
-    }
+    // Non-null: _autosaveInserted is only set together with _storyId.
+    final storyId = _storyId!;
+    if (autosave) return _autosaveExisting(storyId, snapshot);
     final updated = await _stories.updateDraft(
-      storyId: _storyId!,
+      storyId: storyId,
       timeframeStart: snapshot.start,
       timeframeEnd: snapshot.end,
       datePrecision: snapshot.precision,
@@ -736,6 +716,58 @@ class _NewStoryPageState extends State<NewStoryPage> {
     return updated;
   }
 
+  Future<Story> _insertDraft(
+    _DraftSnapshot snapshot, {
+    required bool autosave,
+  }) async {
+    final created = await _stories.createDraft(
+      id: snapshot.id,
+      allowUndated: autosave,
+      familyId: snapshot.familyId,
+      timeframeStart: snapshot.start,
+      timeframeEnd: snapshot.end,
+      datePrecision: snapshot.precision,
+      title: snapshot.title,
+      body: snapshot.body,
+      placeId: snapshot.placeId,
+      personIds: snapshot.personIds ?? const [],
+    );
+    _autosaveInserted = true;
+    _storyId = created.id;
+    return created;
+  }
+
+  Future<Story?> _autosaveExisting(
+    String storyId,
+    _DraftSnapshot snapshot,
+  ) async {
+    final wrote = await _stories.autosaveDraft(
+      storyId: storyId,
+      timeframeStart: snapshot.start,
+      timeframeEnd: snapshot.end,
+      datePrecision: snapshot.precision,
+      title: snapshot.title,
+      body: snapshot.body,
+      placeId: snapshot.placeId,
+      personIds: snapshot.personIds,
+    );
+    if (!wrote) {
+      _autosaveStopped = true;
+      _autosaveTimer?.cancel();
+      return null;
+    }
+    return Story(
+      id: storyId,
+      familyId: snapshot.familyId,
+      authorId: '',
+      title: snapshot.title,
+      body: snapshot.body,
+      timeframeStart: snapshot.start,
+      status: StoryStatus.draft,
+      personIds: snapshot.personIds ?? const [],
+    );
+  }
+
   Future<bool> _saveDraftCore() async {
     if (!_canSaveDraft) return false;
     _autosaveTimer?.cancel();
@@ -743,22 +775,31 @@ class _NewStoryPageState extends State<NewStoryPage> {
     try {
       final story = await _persistDraft();
       if (!mounted || story == null) return false;
-      _autosaveDirty = false;
-      _autosaveCoalesce = false;
-      _snapshot = _captureSnapshot();
+      _markSaved();
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Draft saved')));
       _clearNewTimelineFrom();
       return true;
     } catch (_) {
+      // Mapped to the save-failure snackbar.
       if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t save draft. Try again.')),
-      );
+      _showSaveFailed();
       return false;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _markSaved() {
+    _autosaveDirty = false;
+    _autosaveCoalesce = false;
+    _snapshot = _captureSnapshot();
+  }
+
+  void _showSaveFailed() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Couldn’t save draft. Try again.')),
+    );
   }
 
   Future<void> _onSaveDraft() async {
@@ -808,15 +849,12 @@ class _NewStoryPageState extends State<NewStoryPage> {
     try {
       final story = await _persistDraft();
       if (!mounted || story == null) return false;
-      _autosaveDirty = false;
-      _autosaveCoalesce = false;
-      _snapshot = _captureSnapshot();
+      _markSaved();
       return true;
     } catch (_) {
+      // Mapped to the save-failure snackbar.
       if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t save draft. Try again.')),
-      );
+      _showSaveFailed();
       return false;
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -844,19 +882,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
       if (!mounted || story == null) return;
       await _stories.publish(story.id);
       if (!mounted) return;
-      final router = GoRouter.maybeOf(context);
-      if (router != null) {
-        _guard.skipNextPrompt();
-        final from = GoRouterState.of(context)
-            .uri
-            .queryParameters['newTimelineFrom'];
-        if (from != null && from.isNotEmpty) {
-          context.go('${AppRoutes.timeline}?newTimelineOrigin=${story.id}');
-        } else {
-          context.pushReplacement(AppRoutes.storyPath(story.id));
-        }
-      }
+      _leaveAfterPublish(story.id);
     } catch (_) {
+      // Mapped to the publish-failure snackbar.
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t publish story. Try again.')),
@@ -866,96 +894,57 @@ class _NewStoryPageState extends State<NewStoryPage> {
     }
   }
 
+  void _leaveAfterPublish(String storyId) {
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return;
+    _guard.skipNextPrompt();
+    final from = GoRouterState.of(context)
+        .uri
+        .queryParameters['newTimelineFrom'];
+    if (from != null && from.isNotEmpty) {
+      context.go('${AppRoutes.timeline}?newTimelineOrigin=$storyId');
+    } else {
+      context.pushReplacement(AppRoutes.storyPath(storyId));
+    }
+  }
+
+  VoidCallback? get _primaryAction {
+    if (!_actionsEnabled) return null;
+    if (!_editing) return _onPublish;
+    return _canSaveChanges ? _onSaveChanges : null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final place = _selectedPlace;
-
     return UnsavedGuardScope(
       guard: _guard,
       child: ListenableBuilder(
         listenable: _guard,
-        builder: (context, _) {
-          return PopScope(
-            canPop: !_formDirty(),
-            onPopInvokedWithResult: (didPop, _) {
-              if (didPop) return;
-              unawaited(_confirmBlockedPop());
-            },
-            child: AlbumModalFrame(
-              frameKey: const Key('story-capture-modal'),
-              label: _editing ? 'EDIT' : 'STORY',
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (!_editing && _autosaveLabel != null) ...[
-                    Text(
-                      _autosaveLabel!,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: albumInk.withValues(alpha: 0.55),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  if (!_editing)
-                    TextButton(
-                      onPressed: !_actionsEnabled || !_canSaveDraft
-                          ? null
-                          : _onSaveDraft,
-                      child: const Text('Save draft'),
-                    ),
-                  FilledButton(
-                    onPressed: !_actionsEnabled
-                        ? null
-                        : (_editing
-                              ? (_canSaveChanges ? _onSaveChanges : null)
-                              : _onPublish),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: albumTerracotta,
-                      foregroundColor: albumParchment,
-                    ),
-                    child: Text(_editing ? 'Save changes' : 'Publish story'),
-                  ),
-                  IconButton(
-                    key: const Key('story-capture-close'),
-                    onPressed: () => popOrGoTimeline(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: AlbumColumn(
-                  maxWidth: 720,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (_editing) ...[
-                          Text(
-                            'Edit story',
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        if (_showPublishBanner) ...[
-                          const Text(
-                            'Finish the highlighted fields to publish.',
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        _storyColumn(),
-                        const SizedBox(height: _storyCardGap),
-                        _contextColumn(place),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+        builder: (context, _) => PopScope(
+          canPop: !_formDirty(),
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            unawaited(_confirmBlockedPop());
+          },
+          child: AlbumModalFrame(
+            frameKey: const Key('story-capture-modal'),
+            label: _editing ? 'EDIT' : 'STORY',
+            trailing: _CaptureActions(
+              editing: _editing,
+              autosaveLabel: _autosaveLabel,
+              onSaveDraft: !_actionsEnabled || !_canSaveDraft
+                  ? null
+                  : _onSaveDraft,
+              onPrimary: _primaryAction,
             ),
-          );
-        },
+            child: _CaptureBody(
+              editing: _editing,
+              showPublishBanner: _showPublishBanner,
+              story: _storyColumn(),
+              details: _contextColumn(),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1018,355 +1007,58 @@ class _NewStoryPageState extends State<NewStoryPage> {
     });
   }
 
-  Widget _storyColumn() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFFFF),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x142C2416),
-                blurRadius: 24,
-                offset: Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _highlightIfMissing(
-                  missing: _showPublishBanner && !_readiness.hasTitle,
-                  child: TextField(
-                    key: const Key('story-title'),
-                    controller: _title,
-                    minLines: 1,
-                    maxLines: 3,
-                    textCapitalization: TextCapitalization.sentences,
-                    cursorColor: albumTerracotta,
-                    onChanged: (_) {
-                      setState(() {});
-                      _scheduleAutosave();
-                    },
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontSize: 30,
-                      height: 1.2,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Give your memory a title...',
-                      hintStyle: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            fontSize: 30,
-                            height: 1.2,
-                            fontWeight: FontWeight.w700,
-                            color: albumInk.withValues(alpha: 0.38),
-                          ),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: albumTerracotta),
-                      ),
-                      disabledBorder: InputBorder.none,
-                      errorBorder: InputBorder.none,
-                      focusedErrorBorder: InputBorder.none,
-                      filled: false,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _highlightIfMissing(
-                  missing: _showPublishBanner && !_readiness.hasBody,
-                  child: TextField(
-                    key: const Key('story-body'),
-                    controller: _body,
-                    minLines: 8,
-                    maxLines: null,
-                    cursorColor: albumTerracotta,
-                    onChanged: (_) {
-                      setState(() {});
-                      _scheduleAutosave();
-                    },
-                    style: Theme.of(context).textTheme.bodyLarge
-                        ?.copyWith(fontSize: 22, height: 1.55),
-                    decoration: InputDecoration(
-                      hintText: 'Write the story',
-                      hintStyle: Theme.of(context).textTheme.bodyLarge
-                          ?.copyWith(
-                            fontSize: 22,
-                            height: 1.55,
-                            color: albumInk.withValues(alpha: 0.38),
-                          ),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
-                      errorBorder: InputBorder.none,
-                      focusedErrorBorder: InputBorder.none,
-                      filled: false,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: _storyCardGap),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFFFF),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x142C2416),
-                blurRadius: 24,
-                offset: Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.photo_library_outlined,
-                      color: albumTerracotta,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Photos & Keepsakes',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                    ),
-                    Text(
-                      '${_storyPhotos.length} of $maxPhotosPerStory added',
-                      style: Theme.of(context).textTheme.labelSmall
-                          ?.copyWith(color: albumInk.withValues(alpha: 0.55)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                PhotoStrip(
-                  photos: _storyPhotos,
-                  previews: _photoPreviews,
-                  onAdd: _onAddPhoto,
-                  onRemove: _onRemovePhoto,
-                  onToggleHero: _onToggleHero,
-                  onRetry: _onRetryPhoto,
-                  uploadFailed: _photoError,
-                  canAdd: _storyPhotos.length < maxPhotosPerStory,
-                  columns: 3,
-                  addLabel: 'Add photo',
-                  addHint: 'Up to $maxPhotosPerStory photos',
-                  addEnabled: _storyDate != null,
-                ),
-                if (_highlightTimeframeForPhoto && _storyDate == null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'A Timeframe is required before adding a photo.',
-                    style: Theme.of(context).textTheme.labelSmall
-                        ?.copyWith(color: albumTerracotta),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _contextColumn(Place? place) {
+  _StoryColumn _storyColumn() {
     final readiness = _readiness;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _highlightIfMissing(
-          missing:
-              (_showPublishBanner && !readiness.hasTimeframe) ||
-              (_highlightTimeframeForPhoto && _storyDate == null),
-          child: _paperCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Timeframe',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                const SizedBox(height: 8),
-                StoryDatePicker(
-                  year: _year,
-                  month: _month,
-                  day: _day,
-                  onMonth: _onMonth,
-                  onDay: _onDay,
-                  onYearChanged: _onYearChanged,
-                ),
-              ],
-            ),
-          ),
-        ),
-        _highlightIfMissing(
-          missing: _showPublishBanner && !readiness.hasPerson,
-          child: _paperCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'People',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                    ),
-                    Text(
-                      '${_selectedPeople.length}',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final person in _selectedPeople)
-                      PersonNamePill(
-                        personId: person.id,
-                        name: person.name,
-                        people: _people,
-                        invites: _invite,
-                        child: Chip(
-                          label: Text(person.name),
-                          labelStyle: Theme.of(context).textTheme.titleMedium,
-                          labelPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          onDeleted: _unloadedPersonIds.isEmpty
-                              ? () => _removePerson(person)
-                              : null,
-                        ),
-                      ),
-                    TextButton(
-                      onPressed: _actionsEnabled ? _openAddPerson : null,
-                      child: const PlusLabel(label: 'Add person'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        _highlightIfMissing(
-          missing: _showPublishBanner && !readiness.hasPlace,
-          child: _placeCard(place),
-        ),
-      ],
-    );
-  }
-
-  Widget _paperCard({required Widget child}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: _storyCardGap),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFFFFF),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x142C2416),
-              blurRadius: 24,
-              offset: Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: child,
-        ),
+    return _StoryColumn(
+      title: _title,
+      body: _body,
+      titleMissing: _showPublishBanner && !readiness.hasTitle,
+      bodyMissing: _showPublishBanner && !readiness.hasBody,
+      onTextChanged: _onTextChanged,
+      photos: _PhotosCard(
+        photos: _storyPhotos,
+        previews: _photoPreviews,
+        uploadFailed: _photoError,
+        dated: _storyDate != null,
+        showTimeframeHint: _highlightTimeframeForPhoto && _storyDate == null,
+        onAdd: _onAddPhoto,
+        onRemove: _onRemovePhoto,
+        onToggleHero: _onToggleHero,
+        onRetry: _onRetryPhoto,
       ),
     );
   }
 
-  Widget _placeCard(Place? place) {
-    return _paperCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Place', style: Theme.of(context).textTheme.titleSmall),
-          if (place != null) ...[
-            const SizedBox(height: 8),
-            Text(place.label, style: Theme.of(context).textTheme.titleSmall),
-            Text(place.address, style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 8),
-            _buildSelectedPlaceMap(place),
-          ],
-          TextButton(
-            onPressed: _actionsEnabled ? _openChoosePlace : null,
-            child: const Text('Choose place'),
-          ),
-        ],
+  _ContextColumn _contextColumn() {
+    final readiness = _readiness;
+    return _ContextColumn(
+      timeframeMissing:
+          (_showPublishBanner && !readiness.hasTimeframe) ||
+          (_highlightTimeframeForPhoto && _storyDate == null),
+      peopleMissing: _showPublishBanner && !readiness.hasPerson,
+      placeMissing: _showPublishBanner && !readiness.hasPlace,
+      timeframe: StoryDatePicker(
+        year: _year,
+        month: _month,
+        day: _day,
+        onMonth: _onMonth,
+        onDay: _onDay,
+        onYearChanged: _onYearChanged,
       ),
-    );
-  }
-
-  Widget _highlightIfMissing({required bool missing, required Widget child}) {
-    if (!missing) return child;
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: albumTerracotta, width: 2),
-        borderRadius: BorderRadius.circular(8),
+      people: _PeopleCardBody(
+        people: _selectedPeople,
+        canRemove: _unloadedPersonIds.isEmpty,
+        onRemove: _removePerson,
+        onAdd: _actionsEnabled ? _openAddPerson : null,
       ),
-      padding: const EdgeInsets.all(8),
-      child: child,
-    );
-  }
-
-  Widget _buildSelectedPlaceMap(Place place) {
-    if (_shellMapFailed || !_tokenOk) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(placeMapFailureCopy),
-          TextButton(
-            onPressed: _retryShellMap,
-            child: const Text(placeMapRetryLabel),
-          ),
-        ],
-      );
-    }
-
-    final builder = widget.mapBuilder;
-    if (builder != null) {
-      return builder(lat: place.lat, lng: place.lng);
-    }
-    return PlaceMap(
-      lat: place.lat,
-      lng: place.lng,
-      height: 200,
-      onTileError: (error, stackTrace) {
-        if (!mounted) return;
-        setState(() => _shellMapFailed = true);
-      },
+      place: _PlaceCardBody(
+        place: _selectedPlace,
+        mapFailed: _shellMapFailed || !_tokenOk,
+        mapBuilder: widget.mapBuilder,
+        onRetryMap: _retryShellMap,
+        onMapFailed: _onShellMapFailed,
+        onChoose: _actionsEnabled ? _openChoosePlace : null,
+      ),
     );
   }
 }

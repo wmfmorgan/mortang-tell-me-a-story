@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'package:tell_me_a_story/core/domain/person_story_card.dart';
 import 'package:tell_me_a_story/core/domain/story.dart';
 
 part 'stories_repository.g.dart';
@@ -73,4 +74,8 @@ abstract class StoriesRepository {
   /// Tags [personId] on the story. Does not replace the story's other
   /// people; a repeat is a no-op.
   Future<void> linkPerson({required String storyId, required String personId});
+
+  /// Published stories that tag [personId], newest first, with thumbs.
+  Future<List<PersonStoryCard>> storiesForPerson(String personId) async =>
+      const [];
 }

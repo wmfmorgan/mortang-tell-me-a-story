@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/comments_repository.dart';
+import 'package:tell_me_a_story/core/domain/comment.dart';
 
 /// Inline short comment field + Post. Empty/whitespace Post is a no-op.
 class CommentComposer extends StatefulWidget {
@@ -73,57 +73,13 @@ class _CommentComposerState extends State<CommentComposer> {
   @override
   Widget build(BuildContext context) {
     final enabled = widget.enabled && !_busy;
-    final field = Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              focusNode: widget.focusNode,
-              enabled: enabled,
-              minLines: 1,
-              maxLines: 4,
-              textInputAction: TextInputAction.newline,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFE7DECE)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFE7DECE)),
-                ),
-              ),
-            ),
-          ),
-          if (widget.onCancel != null) ...[
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: enabled ? widget.onCancel : null,
-              child: const Text('Cancel'),
-            ),
-          ],
-          const SizedBox(width: 8),
-          FilledButton(
-            onPressed: enabled ? _submit : null,
-            style: FilledButton.styleFrom(
-              backgroundColor: albumTerracotta,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 44),
-            ),
-            child: Text(widget.actionLabel),
-          ),
-        ],
-      ),
+    final field = _ComposerField(
+      controller: _controller,
+      focusNode: widget.focusNode,
+      enabled: enabled,
+      actionLabel: widget.actionLabel,
+      onCancel: widget.onCancel,
+      onSubmit: _submit,
     );
     if (!widget.chrome) {
       return KeyedSubtree(key: widget.composerKey, child: field);
@@ -133,9 +89,106 @@ class _CommentComposerState extends State<CommentComposer> {
       decoration: BoxDecoration(
         color: const Color(0xFFF6F1EB),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE7DECE)),
+        border: Border.all(color: _line),
       ),
       child: field,
+    );
+  }
+}
+
+const _line = Color(0xFFE7DECE);
+
+OutlineInputBorder _composerBorder() => OutlineInputBorder(
+  borderRadius: BorderRadius.circular(12),
+  borderSide: const BorderSide(color: _line),
+);
+
+class _ComposerField extends StatelessWidget {
+  const _ComposerField({
+    required this.controller,
+    required this.focusNode,
+    required this.enabled,
+    required this.actionLabel,
+    required this.onCancel,
+    required this.onSubmit,
+  });
+
+  final TextEditingController controller;
+  final FocusNode? focusNode;
+  final bool enabled;
+  final String actionLabel;
+  final VoidCallback? onCancel;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final cancel = onCancel;
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _ComposerInput(
+              controller: controller,
+              focusNode: focusNode,
+              enabled: enabled,
+            ),
+          ),
+          if (cancel != null) ...[
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: enabled ? cancel : null,
+              child: const Text('Cancel'),
+            ),
+          ],
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: enabled ? onSubmit : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: albumTerracotta,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 44),
+            ),
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComposerInput extends StatelessWidget {
+  const _ComposerInput({
+    required this.controller,
+    required this.focusNode,
+    required this.enabled,
+  });
+
+  final TextEditingController controller;
+  final FocusNode? focusNode;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      enabled: enabled,
+      minLines: 1,
+      maxLines: 4,
+      textInputAction: TextInputAction.newline,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.white,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        border: _composerBorder(),
+        enabledBorder: _composerBorder(),
+      ),
     );
   }
 }
@@ -166,30 +219,13 @@ class CommentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final when = comment.createdAt.toLocal();
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final date = '${months[when.month - 1]} ${when.day}, ${when.year}';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFFF6F1EB),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE7DECE)),
+          border: Border.all(color: _line),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 4, 12),
@@ -201,69 +237,108 @@ class CommentTile extends StatelessWidget {
                 child: _CommentInitials(comment.authorLabel),
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          comment.authorLabel,
-                          style: theme.textTheme.titleSmall,
-                        ),
-                        Text(
-                          '• $date',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: const Color(0xFF6B5E55),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    if (editing && onSave != null)
-                      CommentComposer(
-                        onPost: onSave!,
-                        focusNode: editFocus,
-                        initialText: comment.body,
-                        actionLabel: 'Save',
-                        onCancel: onCancelEdit,
-                        composerKey: Key('comment-edit-field-${comment.id}'),
-                        chrome: false,
-                      )
-                    else
-                      Text(comment.body, style: theme.textTheme.bodyMedium),
-                  ],
-                ),
-              ),
+              Expanded(child: _CommentBody(tile: this)),
               if ((canDelete || onEdit != null) && !editing)
-                PopupMenuButton<String>(
-                  key: Key('comment-menu-${comment.id}'),
-                  tooltip: 'Comment actions',
-                  onSelected: (value) {
-                    if (value == 'edit') onEdit?.call();
-                    if (value == 'delete') onDelete?.call();
-                  },
-                  itemBuilder: (context) => [
-                    if (onEdit != null)
-                      PopupMenuItem<String>(
-                        key: Key('comment-edit-${comment.id}'),
-                        value: 'edit',
-                        child: const Text('Edit'),
-                      ),
-                    if (canDelete)
-                      PopupMenuItem<String>(
-                        key: Key('comment-delete-${comment.id}'),
-                        value: 'delete',
-                        child: const Text('Delete'),
-                      ),
-                  ],
-                ),
+                _CommentMenu(tile: this),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+const _months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+class _CommentBody extends StatelessWidget {
+  const _CommentBody({required this.tile});
+
+  final CommentTile tile;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final comment = tile.comment;
+    final when = comment.createdAt.toLocal();
+    final date = '${_months[when.month - 1]} ${when.day}, ${when.year}';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(comment.authorLabel, style: theme.textTheme.titleSmall),
+            Text(
+              '• $date',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: const Color(0xFF6B5E55),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        if (tile.onSave case final save? when tile.editing)
+          CommentComposer(
+            onPost: save,
+            focusNode: tile.editFocus,
+            initialText: comment.body,
+            actionLabel: 'Save',
+            onCancel: tile.onCancelEdit,
+            composerKey: Key('comment-edit-field-${comment.id}'),
+            chrome: false,
+          )
+        else
+          Text(comment.body, style: theme.textTheme.bodyMedium),
+      ],
+    );
+  }
+}
+
+enum _CommentAction { edit, delete }
+
+class _CommentMenu extends StatelessWidget {
+  const _CommentMenu({required this.tile});
+
+  final CommentTile tile;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = tile.comment.id;
+    return PopupMenuButton<_CommentAction>(
+      key: Key('comment-menu-$id'),
+      tooltip: 'Comment actions',
+      onSelected: (action) => switch (action) {
+        _CommentAction.edit => tile.onEdit?.call(),
+        _CommentAction.delete => tile.onDelete?.call(),
+      },
+      itemBuilder: (context) => [
+        if (tile.onEdit != null)
+          PopupMenuItem<_CommentAction>(
+            key: Key('comment-edit-$id'),
+            value: _CommentAction.edit,
+            child: const Text('Edit'),
+          ),
+        if (tile.canDelete)
+          PopupMenuItem<_CommentAction>(
+            key: Key('comment-delete-$id'),
+            value: _CommentAction.delete,
+            child: const Text('Delete'),
+          ),
+      ],
     );
   }
 }

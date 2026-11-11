@@ -4,7 +4,7 @@ import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/compressed_photo.dart';
 import 'package:tell_me_a_story/core/data/server/server_errors.dart';
 import 'package:tell_me_a_story/core/data/server/wire.dart';
 import 'package:tell_me_a_story/core/domain/birth_visibility.dart';
@@ -34,9 +34,10 @@ OwnProfile ownProfileFromDto(server.OwnProfileDto dto) => OwnProfile(
   email: dto.email,
   avatarPath: dto.avatarKey,
   birthDate: fromWireDate(dto.birthDate),
-  birthPrecision: dto.birthPrecision == null
-      ? null
-      : precisionName(dto.birthPrecision!),
+  birthPrecision: switch (dto.birthPrecision) {
+    final precision? => precisionName(precision),
+    null => null,
+  },
   birthVisibility: birthVisibilityFromServer(dto.birthVisibility),
   about: dto.about,
 );

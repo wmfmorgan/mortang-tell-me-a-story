@@ -1,19 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/domain/comment.dart';
+import 'package:tell_me_a_story/core/domain/comments_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_detail.dart';
+import 'package:tell_me_a_story/core/domain/family_directory.dart';
+import 'package:tell_me_a_story/core/domain/family_directory_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_person.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/perspective.dart';
+import 'package:tell_me_a_story/core/domain/perspectives_repository.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/place.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
+import 'package:tell_me_a_story/core/domain/story_thumbs.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
+import 'package:tell_me_a_story/core/session/family_selection.dart';
 import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
-import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/comments_repository.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
-import 'package:tell_me_a_story/core/data/perspectives_repository.dart';
-import 'package:tell_me_a_story/core/data/places_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
 import 'package:tell_me_a_story/features/drafts/presentation/drafts_page.dart';
 import 'package:tell_me_a_story/features/family/presentation/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/presentation/start_timeline_dialog.dart';
@@ -27,6 +47,7 @@ import '../../../support/fakes/fake_manage_families_repository.dart';
 import '../../../support/fakes/fake_photos_repository.dart';
 import '../../../support/fakes/fake_places_repository.dart';
 import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _parent = '00000000-0000-0000-0000-0000000000aa';
 const _me = '00000000-0000-0000-0000-0000000000b1';
@@ -75,6 +96,19 @@ class _People extends PeopleRepository {
   }) {
     throw UnimplementedError();
   }
+}
+
+/// The editor's tree people are [rows]; the family roster (timeline and
+/// branch form) is empty, as when each page had its own people fake.
+class _EditorPeople extends _People {
+  _EditorPeople(super.rows);
+
+  @override
+  Future<List<Person>> listPeople(String familyId) async => const [];
+
+  @override
+  Future<List<Person>> listTreePeople(String familyId) =>
+      super.listPeople(familyId);
 }
 
 class _Families extends FamiliesRepository {
@@ -308,6 +342,70 @@ FamilyPerson _member(String id, {String? name}) {
   return FamilyPerson(userId: id, role: 'member', displayName: name);
 }
 
+/// Repository overrides for one test. Unset repositories get quiet fakes.
+List<Override> _repos({
+  InviteRepository? invite,
+  StoriesRepository? stories,
+  FamiliesRepository? families,
+  PeopleRepository? people,
+  PlacesRepository? places,
+  PhotosRepository? photos,
+  ManageFamiliesRepository? manage,
+  FamilyDirectoryRepository? directory,
+}) {
+  return [
+    inviteRepositoryProvider.overrideWithValue(
+      invite ??
+          FakeInviteRepository(
+            familyId: _parent,
+            createdFamilyId: _parent,
+            acceptedFamilyId: 'f',
+          ),
+    ),
+    storiesRepositoryProvider.overrideWithValue(stories ?? _Stories()),
+    familiesRepositoryProvider.overrideWithValue(
+      families ?? _Families(mine: const []),
+    ),
+    peopleRepositoryProvider.overrideWithValue(people ?? _People(const [])),
+    placesRepositoryProvider.overrideWithValue(places ?? _Places(const [])),
+    photosRepositoryProvider.overrideWithValue(
+      photos ?? FakePhotosRepository(),
+    ),
+    commentsRepositoryProvider.overrideWithValue(_Comments()),
+    perspectivesRepositoryProvider.overrideWithValue(_Perspectives()),
+    manageFamiliesRepositoryProvider.overrideWithValue(manage ?? _Manage()),
+    familyDirectoryRepositoryProvider.overrideWithValue(
+      directory ?? _EmptyDirectory(),
+    ),
+    storyThumbsLoaderProvider.overrideWithValue((_) async => const {}),
+  ];
+}
+
+/// A container with [defaultTestOverrides] then [overrides], disposed at
+/// the end of the test. [selected] seeds the remembered family.
+ProviderContainer _container(List<Override> overrides, {String? selected}) {
+  final replaced = {for (final override in overrides) override.origin};
+  final container = ProviderContainer(
+    overrides: [
+      for (final override in defaultTestOverrides)
+        if (!replaced.contains(override.origin)) override,
+      ...overrides,
+    ],
+  );
+  addTearDown(container.dispose);
+  if (selected != null) {
+    container.read(familySelectionProvider.notifier).remember(selected);
+  }
+  return container;
+}
+
+/// [child] inside [container].
+Widget _scoped(ProviderContainer container, Widget child) =>
+    UncontrolledProviderScope(container: container, child: child);
+
+/// The app shell on [router], like `App` in production.
+Widget _app(ProviderContainer container) => _scoped(container, const App());
+
 Future<void> _openForm(
   WidgetTester tester, {
   Story? origin,
@@ -318,30 +416,33 @@ Future<void> _openForm(
   required _Manage manage,
   VoidCallback? onWriteStory,
 }) async {
+  final container = _container(
+    _repos(families: families, people: people, manage: manage),
+  );
   await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) {
-            return TextButton(
-              onPressed: () {
-                showStartTimelineDialog(
-                  context,
-                  parentId: _parent,
-                  parentName: 'Parent',
-                  stories: stories,
-                  familiesApi: families,
-                  peopleApi: people,
-                  manageApi: manage,
-                  currentUserId: _me,
-                  origin: origin,
-                  allowChange: allowChange,
-                  onWriteStory: onWriteStory,
-                );
-              },
-              child: const Text('open'),
-            );
-          },
+    _scoped(
+      container,
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return TextButton(
+                onPressed: () {
+                  showStartTimelineDialog(
+                    context,
+                    parentId: _parent,
+                    parentName: 'Parent',
+                    stories: stories,
+                    currentUserId: _me,
+                    origin: origin,
+                    allowChange: allowChange,
+                    onWriteStory: onWriteStory,
+                  );
+                },
+                child: const Text('open'),
+              );
+            },
+          ),
         ),
       ),
     ),
@@ -361,10 +462,7 @@ Future<void> _tapCreate(WidgetTester tester) async {
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
   });
-
-  tearDown(FamilySelection.clear);
 
   testWidgets('the reader item is only for a member of that story family', (
     tester,
@@ -381,7 +479,7 @@ void main() {
       members: [_member(_me, name: 'Bill')],
     );
     await tester.pumpWidget(
-      _reader(story: _story(), families: families, manage: _Manage()),
+      _reader(story: _story(), families: families, manage: _Manage()).widget,
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('reader-overflow')));
@@ -415,7 +513,7 @@ void main() {
         ),
         manage: _Manage(),
         publishedLookup: false,
-      ),
+      ).widget,
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('reader-start-timeline')), findsNothing);
@@ -447,14 +545,16 @@ void main() {
           ],
         ),
         manage: _Manage(),
-      ),
+      ).widget,
     );
     await tester.pumpAndSettle();
     expect(find.text('Add a family branch from this story'), findsNothing);
   });
 
   testWidgets('the family menu branch row sits above Manage', (tester) async {
-    await tester.pumpWidget(_header(onStart: () {}));
+    await tester.pumpWidget(
+      _scoped(_container(_repos()), _header(onStart: () {})),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
@@ -472,26 +572,22 @@ void main() {
   testWidgets('the drafts header shows the branch row for a member family', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: DraftsPage(
-          inviteApi: FakeInviteRepository(
-            familyId: _parent,
-            createdFamilyId: _parent,
-            acceptedFamilyId: 'f',
-          ),
-          storiesApi: _Stories(published: const []),
-          familiesApi: _Families(
-            mine: [
-              MemberFamily(
-                id: _parent,
-                name: 'Parent',
-                createdAt: DateTime.utc(1970),
-              ),
-            ],
-          ),
+    final container = _container(
+      _repos(
+        stories: _Stories(published: const []),
+        families: _Families(
+          mine: [
+            MemberFamily(
+              id: _parent,
+              name: 'Parent',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
         ),
       ),
+    );
+    await tester.pumpWidget(
+      _scoped(container, const MaterialApp(home: DraftsPage())),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu')));
@@ -505,24 +601,24 @@ void main() {
   testWidgets('Manage families shows the branch row for the header family', (
     tester,
   ) async {
-    FamilySelection.remember(_parent);
-    addTearDown(FamilySelection.clear);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ManageFamiliesPage(
-          directoryApi: _EmptyDirectory(),
-          familiesApi: _Families(
-            mine: [
-              MemberFamily(
-                id: _parent,
-                name: 'Parent',
-                createdAt: DateTime.utc(1970),
-              ),
-            ],
-          ),
-          manageApi: _Manage(),
+    final container = _container(
+      _repos(
+        directory: _EmptyDirectory(),
+        families: _Families(
+          mine: [
+            MemberFamily(
+              id: _parent,
+              name: 'Parent',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
         ),
+        manage: _Manage(),
       ),
+      selected: _parent,
+    );
+    await tester.pumpWidget(
+      _scoped(container, const MaterialApp(home: ManageFamiliesPage())),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu')));
@@ -533,35 +629,40 @@ void main() {
   });
 
   testWidgets('a tree-read open family hides the timeline row', (tester) async {
+    final container = _container(
+      _repos(
+        invite: FakeInviteRepository(
+          familyId: 'bea',
+          createdFamilyId: _parent,
+          acceptedFamilyId: 'f',
+        ),
+        stories: _Stories(
+          published: [_story(id: 'bea-story', familyId: 'bea', title: 'Bea')],
+        ),
+        families: _Families(
+          mine: [
+            MemberFamily(
+              id: _parent,
+              name: 'Parent',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _parent, name: 'Parent'),
+            TreeFamily(id: 'bea', name: 'Bea'),
+          ],
+          stewarded: [
+            const StewardFamily(id: _parent, name: 'Parent', role: 'owner'),
+          ],
+        ),
+      ),
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        builder: albumAppBuilder,
-        home: TimelinePage(
-          api: FakeInviteRepository(
-            familyId: 'bea',
-            createdFamilyId: _parent,
-            acceptedFamilyId: 'f',
-          ),
-          storiesApi: _Stories(
-            published: [_story(id: 'bea-story', familyId: 'bea', title: 'Bea')],
-          ),
-          familiesApi: _Families(
-            mine: [
-              MemberFamily(
-                id: _parent,
-                name: 'Parent',
-                createdAt: DateTime.utc(1970),
-              ),
-            ],
-            tree: const [
-              TreeFamily(id: _parent, name: 'Parent'),
-              TreeFamily(id: 'bea', name: 'Bea'),
-            ],
-            stewarded: [
-              const StewardFamily(id: _parent, name: 'Parent', role: 'owner'),
-            ],
-          ),
-          currentUserId: _me,
+      _scoped(
+        container,
+        const MaterialApp(
+          builder: albumAppBuilder,
+          home: TimelinePage(currentUserId: _me),
         ),
       ),
     );
@@ -865,7 +966,6 @@ void main() {
   testWidgets('create stays on the parent timeline and toasts the name', (
     tester,
   ) async {
-    FamilySelection.remember(_parent);
     final families = _Families(
       mine: [
         MemberFamily(
@@ -882,20 +982,26 @@ void main() {
     );
     final manage = _Manage();
     final stories = _Stories(published: [_story(title: 'The beginning')]);
+    final container = _container(
+      _repos(
+        invite: FakeInviteRepository(
+          familyId: _parent,
+          createdFamilyId: _parent,
+          acceptedFamilyId: 'f',
+        ),
+        stories: stories,
+        families: families,
+        people: _People(const []),
+        manage: manage,
+      ),
+      selected: _parent,
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        builder: albumAppBuilder,
-        home: TimelinePage(
-          api: FakeInviteRepository(
-            familyId: _parent,
-            createdFamilyId: _parent,
-            acceptedFamilyId: 'f',
-          ),
-          storiesApi: stories,
-          familiesApi: families,
-          peopleApi: _People(const []),
-          manageApi: manage,
-          currentUserId: _me,
+      _scoped(
+        container,
+        const MaterialApp(
+          builder: albumAppBuilder,
+          home: TimelinePage(currentUserId: _me),
         ),
       ),
     );
@@ -922,15 +1028,15 @@ void main() {
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text('Side line timeline created'), findsOneWidget);
-    expect(FamilySelection.id, _parent);
+    expect(container.read(familySelectionProvider), _parent);
     expect(families.treeLoads, greaterThan(loadsBefore));
     expect(find.text('Origin · from Parent'), findsNothing);
   });
 
   testWidgets('the reader toasts and does not leave the story', (tester) async {
-    FamilySelection.remember(_parent);
     final manage = _Manage();
-    final router = _readerRouter(
+    final reader = _reader(
+      selected: _parent,
       story: _story(),
       families: _Families(
         mine: [
@@ -945,7 +1051,9 @@ void main() {
       ),
       manage: manage,
     );
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    final container = reader.container;
+    final router = reader.router;
+    await tester.pumpWidget(reader.widget);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('reader-overflow')));
     await tester.pumpAndSettle();
@@ -959,7 +1067,7 @@ void main() {
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(find.text('Side line timeline created'), findsOneWidget);
-    expect(FamilySelection.id, _parent);
+    expect(container.read(familySelectionProvider), _parent);
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
       '/stories/origin',
@@ -996,26 +1104,6 @@ void main() {
           GoRoute(
             path: AppRoutes.newStory,
             builder: (context, state) => NewStoryPage(
-              inviteApi: FakeInviteRepository(
-                familyId: _parent,
-                createdFamilyId: _parent,
-                acceptedFamilyId: 'f',
-              ),
-              peopleApi: _People(const [
-                Person(id: 'p1', familyId: _parent, name: 'Ada'),
-              ]),
-              placesApi: _Places(const [
-                Place(
-                  id: 'pl1',
-                  label: 'Park',
-                  address: 'Town',
-                  lat: 1,
-                  lng: 2,
-                  isFavorite: true,
-                ),
-              ]),
-              storiesApi: stories,
-              photosApi: FakePhotosRepository(),
               hasMapboxToken: false,
               draftId: state.uri.queryParameters['draft'],
             ),
@@ -1027,23 +1115,32 @@ void main() {
           ),
           GoRoute(
             path: AppRoutes.timeline,
-            builder: (context, state) => TimelinePage(
-              api: FakeInviteRepository(
-                familyId: _parent,
-                createdFamilyId: _parent,
-                acceptedFamilyId: 'f',
-              ),
-              storiesApi: stories,
-              familiesApi: families,
-              peopleApi: _People(const []),
-              manageApi: manage,
-              currentUserId: _me,
-            ),
+            builder: (context, state) => const TimelinePage(currentUserId: _me),
           ),
         ],
       );
-      addTearDown(router.dispose);
-      await tester.pumpWidget(TellMeAStoryApp(router: router));
+      final container = _container([
+        ..._repos(
+          stories: stories,
+          families: families,
+          manage: manage,
+          people: _EditorPeople(const [
+            Person(id: 'p1', familyId: _parent, name: 'Ada'),
+          ]),
+          places: _Places(const [
+            Place(
+              id: 'pl1',
+              label: 'Park',
+              address: 'Town',
+              lat: 1,
+              lng: 2,
+              isFavorite: true,
+            ),
+          ]),
+        ),
+        appRouterProvider.overrideWithValue(router),
+      ]);
+      await tester.pumpWidget(_app(container));
       await tester.pumpAndSettle();
       expect(find.text('Cancel'), findsNothing);
 
@@ -1086,23 +1183,17 @@ void main() {
           GoRoute(
             path: AppRoutes.newStory,
             builder: (context, state) => NewStoryPage(
-              inviteApi: FakeInviteRepository(
-                familyId: _parent,
-                createdFamilyId: _parent,
-                acceptedFamilyId: 'f',
-              ),
-              peopleApi: _People(const []),
-              placesApi: _Places(const []),
-              storiesApi: stories,
-              photosApi: FakePhotosRepository(),
               hasMapboxToken: false,
               draftId: state.uri.queryParameters['draft'],
             ),
           ),
         ],
       );
-      addTearDown(router.dispose);
-      await tester.pumpWidget(TellMeAStoryApp(router: router));
+      final container = _container([
+        ..._repos(stories: stories),
+        appRouterProvider.overrideWithValue(router),
+      ]);
+      await tester.pumpWidget(_app(container));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byKey(const Key('story-date-year')), '1980');
@@ -1169,49 +1260,38 @@ void main() {
         GoRoute(
           path: AppRoutes.newStory,
           builder: (context, state) => NewStoryPage(
-            inviteApi: FakeInviteRepository(
-              familyId: _parent,
-              createdFamilyId: _parent,
-              acceptedFamilyId: 'f',
-            ),
-            peopleApi: _People(const [
-              Person(id: 'p1', familyId: _parent, name: 'Ada'),
-            ]),
-            placesApi: _Places(const [
-              Place(
-                id: 'pl1',
-                label: 'Park',
-                address: 'Town',
-                lat: 1,
-                lng: 2,
-                isFavorite: true,
-              ),
-            ]),
-            storiesApi: stories,
-            photosApi: FakePhotosRepository(),
             hasMapboxToken: false,
             draftId: state.uri.queryParameters['draft'],
           ),
         ),
         GoRoute(
           path: AppRoutes.timeline,
-          builder: (context, state) => TimelinePage(
-            api: FakeInviteRepository(
-              familyId: _parent,
-              createdFamilyId: _parent,
-              acceptedFamilyId: 'f',
-            ),
-            storiesApi: stories,
-            familiesApi: families,
-            peopleApi: _People(const []),
-            manageApi: manage,
-            currentUserId: _me,
-          ),
+          builder: (context, state) => const TimelinePage(currentUserId: _me),
         ),
       ],
     );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    final container = _container([
+      ..._repos(
+        stories: stories,
+        families: families,
+        manage: manage,
+        people: _EditorPeople(const [
+          Person(id: 'p1', familyId: _parent, name: 'Ada'),
+        ]),
+        places: _Places(const [
+          Place(
+            id: 'pl1',
+            label: 'Park',
+            address: 'Town',
+            lat: 1,
+            lng: 2,
+            isFavorite: true,
+          ),
+        ]),
+      ),
+      appRouterProvider.overrideWithValue(router),
+    ]);
+    await tester.pumpWidget(_app(container));
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(FilledButton, 'Publish story'));
@@ -1243,20 +1323,11 @@ void main() {
     (tester) async {
       final manage = _Manage();
       final stories = _Stories();
+      final container = _container(_repos(stories: stories, manage: manage));
       await tester.pumpWidget(
-        MaterialApp(
-          home: NewStoryPage(
-            inviteApi: FakeInviteRepository(
-              familyId: _parent,
-              createdFamilyId: _parent,
-              acceptedFamilyId: 'f',
-            ),
-            storiesApi: stories,
-            peopleApi: _People(const []),
-            placesApi: _Places(const []),
-            photosApi: FakePhotosRepository(),
-            hasMapboxToken: false,
-          ),
+        _scoped(
+          container,
+          const MaterialApp(home: NewStoryPage(hasMapboxToken: false)),
         ),
       );
       await tester.pumpAndSettle();
@@ -1272,38 +1343,41 @@ void main() {
     const side = '00000000-0000-0000-0000-0000000000dd';
     await tester.binding.setSurfaceSize(const Size(900, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = _container(
+      _repos(
+        invite: FakeInviteRepository(
+          familyId: _parent,
+          createdFamilyId: _parent,
+          acceptedFamilyId: 'f',
+        ),
+        stories: _Stories(published: [_story(year: 1984, title: 'Eighties')]),
+        families: _Families(
+          mine: [
+            MemberFamily(
+              id: _parent,
+              name: 'Parent',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _parent, name: 'Parent'),
+            TreeFamily(
+              id: side,
+              name: 'A very long family name that should ellipsize inside the dial slot',
+              parentFamilyId: _parent,
+              originStoryId: 'origin',
+              branchYear: 1955,
+            ),
+          ],
+        ),
+      ),
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        builder: albumAppBuilder,
-        home: TimelinePage(
-          api: FakeInviteRepository(
-            familyId: _parent,
-            createdFamilyId: _parent,
-            acceptedFamilyId: 'f',
-          ),
-          storiesApi: _Stories(
-            published: [_story(year: 1984, title: 'Eighties')],
-          ),
-          familiesApi: _Families(
-            mine: [
-              MemberFamily(
-                id: _parent,
-                name: 'Parent',
-                createdAt: DateTime.utc(1970),
-              ),
-            ],
-            tree: const [
-              TreeFamily(id: _parent, name: 'Parent'),
-              TreeFamily(
-                id: side,
-                name: 'A very long family name that should ellipsize inside the dial slot',
-                parentFamilyId: _parent,
-                originStoryId: 'origin',
-                branchYear: 1955,
-              ),
-            ],
-          ),
-          currentUserId: _me,
+      _scoped(
+        container,
+        const MaterialApp(
+          builder: albumAppBuilder,
+          home: TimelinePage(currentUserId: _me),
         ),
       ),
     );
@@ -1352,38 +1426,41 @@ void main() {
     const later = '00000000-0000-0000-0000-0000000000ee';
     await tester.binding.setSurfaceSize(const Size(900, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = _container(
+      _repos(
+        invite: FakeInviteRepository(
+          familyId: _parent,
+          createdFamilyId: _parent,
+          acceptedFamilyId: 'f',
+        ),
+        stories: _Stories(published: [_story(year: 1952, title: 'Fifties')]),
+        families: _Families(
+          mine: [
+            MemberFamily(
+              id: _parent,
+              name: 'Parent',
+              createdAt: DateTime.utc(1970),
+            ),
+          ],
+          tree: const [
+            TreeFamily(id: _parent, name: 'Parent'),
+            TreeFamily(
+              id: later,
+              name: 'Later line',
+              parentFamilyId: _parent,
+              originStoryId: 'origin',
+              branchYear: 1990,
+            ),
+          ],
+        ),
+      ),
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        builder: albumAppBuilder,
-        home: TimelinePage(
-          api: FakeInviteRepository(
-            familyId: _parent,
-            createdFamilyId: _parent,
-            acceptedFamilyId: 'f',
-          ),
-          storiesApi: _Stories(
-            published: [_story(year: 1952, title: 'Fifties')],
-          ),
-          familiesApi: _Families(
-            mine: [
-              MemberFamily(
-                id: _parent,
-                name: 'Parent',
-                createdAt: DateTime.utc(1970),
-              ),
-            ],
-            tree: const [
-              TreeFamily(id: _parent, name: 'Parent'),
-              TreeFamily(
-                id: later,
-                name: 'Later line',
-                parentFamilyId: _parent,
-                originStoryId: 'origin',
-                branchYear: 1990,
-              ),
-            ],
-          ),
-          currentUserId: _me,
+      _scoped(
+        container,
+        const MaterialApp(
+          builder: albumAppBuilder,
+          home: TimelinePage(currentUserId: _me),
         ),
       ),
     );
@@ -1414,45 +1491,43 @@ void main() {
     const side = '00000000-0000-0000-0000-0000000000ff';
     await tester.binding.setSurfaceSize(const Size(900, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    addTearDown(FamilySelection.clear);
-    FamilySelection.remember(_parent);
+    final container = _container(
+      _repos(
+        invite: FakeInviteRepository(
+          familyId: _parent,
+          createdFamilyId: _parent,
+          acceptedFamilyId: 'f',
+        ),
+        stories: _Stories(published: [_story(year: 1984, title: 'Eighties')]),
+        families: _Families(
+          mine: [
+            MemberFamily(
+              id: _parent,
+              name: 'Parent',
+              createdAt: DateTime.utc(1970),
+            ),
+            MemberFamily(id: side, name: 'Side', createdAt: DateTime.utc(1990)),
+          ],
+          tree: const [
+            TreeFamily(id: _parent, name: 'Parent'),
+            TreeFamily(
+              id: side,
+              name: 'Side',
+              parentFamilyId: _parent,
+              originStoryId: 'origin',
+              branchYear: 1955,
+            ),
+          ],
+        ),
+      ),
+      selected: _parent,
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        builder: albumAppBuilder,
-        home: TimelinePage(
-          api: FakeInviteRepository(
-            familyId: _parent,
-            createdFamilyId: _parent,
-            acceptedFamilyId: 'f',
-          ),
-          storiesApi: _Stories(
-            published: [_story(year: 1984, title: 'Eighties')],
-          ),
-          familiesApi: _Families(
-            mine: [
-              MemberFamily(
-                id: _parent,
-                name: 'Parent',
-                createdAt: DateTime.utc(1970),
-              ),
-              MemberFamily(
-                id: side,
-                name: 'Side',
-                createdAt: DateTime.utc(1990),
-              ),
-            ],
-            tree: const [
-              TreeFamily(id: _parent, name: 'Parent'),
-              TreeFamily(
-                id: side,
-                name: 'Side',
-                parentFamilyId: _parent,
-                originStoryId: 'origin',
-                branchYear: 1955,
-              ),
-            ],
-          ),
-          currentUserId: _me,
+      _scoped(
+        container,
+        const MaterialApp(
+          builder: albumAppBuilder,
+          home: TimelinePage(currentUserId: _me),
         ),
       ),
     );
@@ -1481,11 +1556,11 @@ void main() {
     expect(labelRect.right, lessThan(rowRect.right - 8));
     await tester.tapAt(Offset(rowRect.right - 4, labelRect.center.dy));
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, _parent);
+    expect(container.read(familySelectionProvider), _parent);
 
     await tester.tap(label);
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, side);
+    expect(container.read(familySelectionProvider), side);
   });
 
   testWidgets('the dialog form title reads Add a family branch to the parent', (
@@ -1535,29 +1610,25 @@ Widget _header({
   );
 }
 
-Widget _reader({
-  required Story story,
-  required _Families families,
-  required _Manage manage,
-  bool publishedLookup = true,
-}) {
-  return TellMeAStoryApp(
-    router: _readerRouter(
-      story: story,
-      families: families,
-      manage: manage,
-      publishedLookup: publishedLookup,
-    ),
-  );
+/// The reader on its own router inside a scoped app.
+class _ReaderApp {
+  _ReaderApp(this.container);
+
+  final ProviderContainer container;
+
+  GoRouter get router => container.read(appRouterProvider);
+
+  Widget get widget => _app(container);
 }
 
-GoRouter _readerRouter({
+_ReaderApp _reader({
   required Story story,
   required _Families families,
   required _Manage manage,
   bool publishedLookup = true,
+  String? selected,
 }) {
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: '/stories/${story.id}',
     routes: [
       GoRoute(
@@ -1566,20 +1637,20 @@ GoRouter _readerRouter({
       ),
       GoRoute(
         path: '/stories/:storyId',
-        builder: (context, state) => StoryReaderPage(
-          storyId: story.id,
-          storiesApi: _ReaderStories(story, honorStatus: publishedLookup),
-          peopleApi: _People(const []),
-          placesApi: _Places(const []),
-          photosApi: FakePhotosRepository(),
-          commentsApi: _Comments(),
-          perspectivesApi: _Perspectives(),
-          familiesApi: families,
-          manageApi: manage,
-          currentUserId: _me,
-        ),
+        builder: (context, state) =>
+            StoryReaderPage(storyId: story.id, currentUserId: _me),
       ),
     ],
+  );
+  return _ReaderApp(
+    _container([
+      ..._repos(
+        stories: _ReaderStories(story, honorStatus: publishedLookup),
+        families: families,
+        manage: manage,
+      ),
+      appRouterProvider.overrideWithValue(router),
+    ], selected: selected),
   );
 }
 

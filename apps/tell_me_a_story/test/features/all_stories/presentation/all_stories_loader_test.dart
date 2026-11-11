@@ -1,6 +1,13 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
+import 'package:tell_me_a_story/features/all_stories/presentation/all_stories_logic.dart';
 import 'package:tell_me_a_story/features/all_stories/presentation/all_stories_loader.dart';
 
 import '../../../support/fakes/fake_stories_repository.dart';
@@ -10,10 +17,7 @@ void main() {
     final origin = _story('origin');
     final stories = _Stories(published: [origin, _story('other')]);
     final families = _Families([_tree('F', name: 'Morgans', origin: 'origin')]);
-    final data = await AllStoriesLoader(
-      stories: stories,
-      families: families,
-    ).load('F');
+    final data = await _load(stories, families);
 
     expect(stories.calls, ['listPublished']);
     expect(families.calls, ['listFamilyTree']);
@@ -29,10 +33,7 @@ void main() {
       _tree('parent', name: 'Hart'),
       _tree('F', name: 'Morgans', parent: 'parent', origin: 'origin'),
     ]);
-    final data = await AllStoriesLoader(
-      stories: stories,
-      families: families,
-    ).load('F');
+    final data = await _load(stories, families);
 
     expect(stories.originIds, ['origin']);
     expect(data.stories.map((story) => story.id), ['own', 'origin']);
@@ -41,19 +42,13 @@ void main() {
   test('L-03 listPublished throws', () async {
     final stories = _Stories(publishedError: StateError('a1'));
     final families = _Families([_tree('F', name: 'Morgans')]);
-    await expectLater(
-      () => AllStoriesLoader(stories: stories, families: families).load('F'),
-      throwsStateError,
-    );
+    await expectLater(() => _load(stories, families), throwsStateError);
   });
 
   test('L-04 listFamilyTree throws', () async {
     final stories = _Stories(published: [_story('own')]);
     final families = _Families([], error: StateError('a2'));
-    await expectLater(
-      () => AllStoriesLoader(stories: stories, families: families).load('F'),
-      throwsStateError,
-    );
+    await expectLater(() => _load(stories, families), throwsStateError);
   });
 
   test(
@@ -61,20 +56,14 @@ void main() {
     () async {
       final missing = _Stories(published: [_story('own')]);
       final families = _Families([_tree('F', name: 'Morgans', origin: 'gone')]);
-      final omitted = await AllStoriesLoader(
-        stories: missing,
-        families: families,
-      ).load('F');
+      final omitted = await _load(missing, families);
       expect(omitted.stories.map((story) => story.id), ['own']);
 
       final broken = _Stories(
         published: [_story('own')],
         originError: StateError('a3'),
       );
-      await expectLater(
-        () => AllStoriesLoader(stories: broken, families: families).load('F'),
-        throwsStateError,
-      );
+      await expectLater(() => _load(broken, families), throwsStateError);
     },
   );
 
@@ -87,10 +76,27 @@ void main() {
       _tree('parent', name: 'Hart'),
       _tree('F', name: 'Morgans', parent: 'parent', origin: 'origin'),
     ]);
-    await AllStoriesLoader(stories: stories, families: families).load('F');
+    await _load(stories, families);
     expect(stories.calls, ['listPublished', 'getPublishedOrigin']);
     expect(families.calls, ['listFamilyTree']);
   });
+}
+
+/// A1–A3 through [allStoriesDataProvider] with [stories] and [families].
+Future<AllStoriesData> _load(
+  FakeStoriesRepository stories,
+  FamiliesRepository families,
+) {
+  final container = ProviderContainer(
+    overrides: [
+      storiesRepositoryProvider.overrideWithValue(stories),
+      familiesRepositoryProvider.overrideWithValue(families),
+    ],
+  );
+  addTearDown(container.dispose);
+  final subscription = container.listen(allStoriesDataProvider('F'), (_, _) {});
+  addTearDown(subscription.close);
+  return container.read(allStoriesDataProvider('F').future);
 }
 
 Story _story(String id, {String familyId = 'F'}) {

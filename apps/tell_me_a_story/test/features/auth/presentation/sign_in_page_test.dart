@@ -3,10 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
-    show EmailAccountRequestException, EmailAccountRequestExceptionReason;
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/features/auth/domain/otp_sign_in.dart';
 import 'package:tell_me_a_story/features/auth/presentation/sign_in_page.dart';
-import 'package:tell_me_a_story/features/auth/data/otp_sign_in.dart';
+
+import '../../../support/pump_app.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +21,11 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(MaterialApp(home: SignInPage(otpSignIn: otp)));
+    await pumpApp(
+      tester,
+      const SignInPage(),
+      overrides: [otpSignInProvider.overrideWithValue(otp)],
+    );
     expect(find.text('Tell Me a Story'), findsOneWidget);
     expect(find.text(landingHeadline), findsOneWidget);
     expect(find.text(landingSubhead), findsOneWidget);
@@ -50,7 +55,7 @@ void main() {
     expect(find.text('Please enter a full email address.'), findsOneWidget);
     expect(otp.sent, isEmpty);
 
-    otp.sendError = Exception('offline');
+    otp.sendError = _refusal('Request failed');
     await tester.enterText(find.byKey(const Key('magic-link-email')), 'a@b.co');
     await _tapText(tester, 'Email me a sign-in code');
     expect(find.text('Request failed'), findsOneWidget);
@@ -82,7 +87,11 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(MaterialApp(home: SignInPage(otpSignIn: otp)));
+    await pumpApp(
+      tester,
+      const SignInPage(),
+      overrides: [otpSignInProvider.overrideWithValue(otp)],
+    );
     await tester.enterText(
       find.byKey(const Key('magic-link-email')),
       ' a@b.co ',
@@ -90,21 +99,12 @@ void main() {
     await _tapText(tester, 'Email me a sign-in code');
     expect(otp.sent, ['a@b.co']);
 
-    for (final (reason, copy) in [
-      (
-        EmailAccountRequestExceptionReason.invalid,
-        "That code isn't right. Check it and try again.",
-      ),
-      (
-        EmailAccountRequestExceptionReason.expired,
-        'That code has expired. Send a new one.',
-      ),
-      (
-        EmailAccountRequestExceptionReason.tooManyAttempts,
-        'Too many tries. Wait a few minutes, then send a new code.',
-      ),
+    for (final copy in [
+      "That code isn't right. Check it and try again.",
+      'That code has expired. Send a new one.',
+      'Too many tries. Wait a few minutes, then send a new code.',
     ]) {
-      otp.signInError = EmailAccountRequestException(reason: reason);
+      otp.signInError = _refusal(copy);
       await _enterCode(tester, '123456');
       expect(find.text(copy), findsOneWidget);
     }
@@ -145,6 +145,10 @@ Future<void> _enterCode(WidgetTester tester, String code) async {
   await tester.tap(submit);
   await tester.pumpAndSettle();
 }
+
+/// What `ServerOtpSignIn` throws for a refused send or sign-in.
+AppException _refusal(String copy) =>
+    AppException(code: AppErrorCode.validation, message: copy);
 
 class _Otp implements OtpSignIn {
   final sent = <String>[];

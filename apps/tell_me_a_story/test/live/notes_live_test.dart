@@ -3,8 +3,8 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/comments_repository.dart';
-import 'package:tell_me_a_story/core/data/perspectives_repository.dart';
+import 'package:tell_me_a_story/core/data/server_comments_repository.dart';
+import 'package:tell_me_a_story/core/data/server_perspectives_repository.dart';
 
 import 'support/live_server.dart';
 import 'support/story_fixture.dart';

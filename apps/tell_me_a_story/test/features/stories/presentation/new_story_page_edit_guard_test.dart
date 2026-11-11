@@ -2,11 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_repository.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/place.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_date_precision.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
 import 'package:tell_me_a_story/core/widgets/navigation/unsaved_guard.dart';
-import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
-import 'package:tell_me_a_story/core/data/places_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
 import 'package:tell_me_a_story/features/stories/presentation/new_story_page.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
@@ -14,6 +21,7 @@ import '../../../support/fakes/fake_mapbox_search.dart';
 import '../../../support/fakes/fake_photos_repository.dart';
 import '../../../support/fakes/fake_places_repository.dart';
 import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _ada = 'ada';
 
@@ -31,10 +39,7 @@ final _park = const Place(
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
   });
-
-  tearDown(FamilySelection.clear);
 
   testWidgets('any field change prompts', (tester) async {
     await _surface(tester);
@@ -214,16 +219,6 @@ Future<GoRouter> _mount(
   previous?.dispose();
   final api = stories ?? _Stories(story ?? _dated());
   final page = NewStoryPage(
-    inviteApi: FakeInviteRepository(
-      familyId: _ada,
-      createdFamilyId: _ada,
-      acceptedFamilyId: _ada,
-    ),
-    peopleApi: _People(),
-    placesApi: _Places(),
-    mapboxSearch: FakeMapboxSearch(),
-    storiesApi: api,
-    photosApi: FakePhotosRepository(),
     hasMapboxToken: true,
     mapBuilder: ({double? lat, double? lng}) => const SizedBox.shrink(),
     pickImageBytes: () async => null,
@@ -255,7 +250,24 @@ Future<GoRouter> _mount(
       router.dispose();
     }
   });
-  await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+  await pumpRouterApp(
+    tester,
+    router,
+    overrides: [
+      inviteRepositoryProvider.overrideWithValue(
+        FakeInviteRepository(
+          familyId: _ada,
+          createdFamilyId: _ada,
+          acceptedFamilyId: _ada,
+        ),
+      ),
+      peopleRepositoryProvider.overrideWithValue(_People()),
+      placesRepositoryProvider.overrideWithValue(_Places()),
+      mapboxSearchRepositoryProvider.overrideWithValue(FakeMapboxSearch()),
+      storiesRepositoryProvider.overrideWithValue(api),
+      photosRepositoryProvider.overrideWithValue(FakePhotosRepository()),
+    ],
+  );
   await tester.pumpAndSettle();
   if (pushed) {
     router.push('/stories/s1/edit');

@@ -2,14 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_detail.dart';
+import 'package:tell_me_a_story/core/domain/family_directory.dart';
+import 'package:tell_me_a_story/core/domain/family_directory_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/session/family_selection.dart';
 import 'package:tell_me_a_story/features/family/presentation/manage_family_page.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
 import '../../../support/fakes/fake_manage_families_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _ada = 'ada';
 const _bea = 'bea';
@@ -17,15 +25,12 @@ const _bea = 'bea';
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
   });
-
-  tearDown(FamilySelection.clear);
 
   testWidgets('a changed rename + family switch prompts', (tester) async {
     await _surface(tester);
-    FamilySelection.remember('keep');
     final router = await _mount(tester);
+    _remember(tester, 'keep');
     await tester.ensureVisible(find.byKey(const Key('manage-family-name')));
     await tester.enterText(
       find.byKey(const Key('manage-family-name')),
@@ -44,13 +49,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(router.state.uri.path, '/manage-families/ada');
     expect(_name(tester), 'Ada renamed');
-    expect(FamilySelection.id, 'keep');
+    expect(_remembered(tester), 'keep');
   });
 
   testWidgets('Rename failure stays with the snack', (tester) async {
     await _surface(tester);
-    FamilySelection.remember('keep');
     final router = await _mount(tester, failRename: true);
+    _remember(tester, 'keep');
     await tester.ensureVisible(find.byKey(const Key('manage-family-name')));
     await tester.enterText(
       find.byKey(const Key('manage-family-name')),
@@ -69,16 +74,25 @@ void main() {
     expect(find.text('Rename failed'), findsOneWidget);
     expect(find.text('Leave this story?'), findsNothing);
     expect(router.state.uri.path, '/manage-families/ada');
-    expect(FamilySelection.id, 'keep');
+    expect(_remembered(tester), 'keep');
     expect(_name(tester), 'Ada renamed');
   });
 }
 
+/// Seeds the remembered family. The page's session family comes from the
+/// invite repository, so seeding after mount matches seeding before it.
+void _remember(WidgetTester tester, String familyId) {
+  containerOf(tester).read(familySelectionProvider.notifier).remember(familyId);
+}
+
+String? _remembered(WidgetTester tester) =>
+    containerOf(tester).read(familySelectionProvider);
+
 String _name(WidgetTester tester) {
-  return tester
-      .widget<TextField>(find.byKey(const Key('manage-family-name')))
-      .controller!
-      .text;
+  final field = tester.widget<TextField>(
+    find.byKey(const Key('manage-family-name')),
+  );
+  return field.controller?.text ?? '';
 }
 
 Future<void> _surface(WidgetTester tester) async {
@@ -97,17 +111,8 @@ Future<GoRouter> _mount(WidgetTester tester, {bool failRename = false}) async {
     routes: [
       GoRoute(
         path: AppRoutes.manageFamily,
-        builder: (_, state) => ManageFamilyPage(
-          familyId: state.pathParameters['familyId']!,
-          directoryApi: _Directory(),
-          familiesApi: _Families(),
-          manageApi: _Manage(failRename: failRename),
-          inviteApi: FakeInviteRepository(
-            familyId: _ada,
-            createdFamilyId: _ada,
-            acceptedFamilyId: _ada,
-          ),
-        ),
+        builder: (_, state) =>
+            ManageFamilyPage(familyId: state.pathParameters['familyId'] ?? ''),
       ),
       GoRoute(
         path: AppRoutes.timeline,
@@ -122,7 +127,24 @@ Future<GoRouter> _mount(WidgetTester tester, {bool failRename = false}) async {
       router.dispose();
     }
   });
-  await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+  await pumpRouterApp(
+    tester,
+    router,
+    overrides: [
+      familyDirectoryRepositoryProvider.overrideWithValue(_Directory()),
+      familiesRepositoryProvider.overrideWithValue(_Families()),
+      manageFamiliesRepositoryProvider.overrideWithValue(
+        _Manage(failRename: failRename),
+      ),
+      inviteRepositoryProvider.overrideWithValue(
+        FakeInviteRepository(
+          familyId: _ada,
+          createdFamilyId: _ada,
+          acceptedFamilyId: _ada,
+        ),
+      ),
+    ],
+  );
   await tester.pumpAndSettle();
   return router;
 }

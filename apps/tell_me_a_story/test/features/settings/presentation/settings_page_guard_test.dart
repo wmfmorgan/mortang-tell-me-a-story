@@ -4,14 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/core/domain/birth_visibility.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/own_profile.dart';
+import 'package:tell_me_a_story/core/domain/profile_repository.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/profile_repository.dart';
-import 'package:tell_me_a_story/core/session/profile_session.dart';
 import 'package:tell_me_a_story/features/settings/presentation/settings_page.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _ada = 'ada';
 const _bea = 'bea';
@@ -19,12 +23,6 @@ const _bea = 'bea';
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
-  });
-
-  tearDown(() {
-    FamilySelection.clear();
-    ProfileSession.instance.clear();
   });
 
   testWidgets('dirty + family switch prompts', (tester) async {
@@ -126,16 +124,7 @@ Future<GoRouter> _mount(
     routes: [
       GoRoute(
         path: AppRoutes.settings,
-        builder: (_, _) => SettingsPage(
-          profileApi: profile ?? _Profile(),
-          familiesApi: _Families(),
-          inviteApi: FakeInviteRepository(
-            familyId: _ada,
-            createdFamilyId: _ada,
-            acceptedFamilyId: _ada,
-          ),
-          onLogout: onLogout,
-        ),
+        builder: (_, _) => SettingsPage(onLogout: onLogout),
       ),
       GoRoute(
         path: AppRoutes.familyLanding,
@@ -158,7 +147,21 @@ Future<GoRouter> _mount(
       router.dispose();
     }
   });
-  await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+  await pumpRouterApp(
+    tester,
+    router,
+    overrides: [
+      profileRepositoryProvider.overrideWithValue(profile ?? _Profile()),
+      familiesRepositoryProvider.overrideWithValue(_Families()),
+      inviteRepositoryProvider.overrideWithValue(
+        FakeInviteRepository(
+          familyId: _ada,
+          createdFamilyId: _ada,
+          acceptedFamilyId: _ada,
+        ),
+      ),
+    ],
+  );
   await tester.pumpAndSettle();
   return router;
 }

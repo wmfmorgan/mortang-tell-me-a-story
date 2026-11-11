@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
 import 'package:tell_me_a_story/features/search/data/server_search_repository.dart';
 import 'package:tell_me_a_story/features/search/domain/search_request.dart';
 import 'package:tell_me_a_story/features/search/domain/search_sort.dart';

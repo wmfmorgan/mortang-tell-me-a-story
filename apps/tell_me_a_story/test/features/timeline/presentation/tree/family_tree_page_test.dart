@@ -4,10 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/core/session/family_selection.dart';
 import 'package:tell_me_a_story/core/session/timeline_live.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/tree/family_tree_page.dart';
@@ -16,6 +19,7 @@ import 'package:tell_me_a_story/features/timeline/presentation/tree/treemap_view
 import 'package:tell_me_a_story/core/widgets/timeline/view_switch.dart';
 
 import '../../../../support/fakes/fake_stories_repository.dart';
+import '../../../../support/pump_app.dart';
 import '../../../../support/tree_fixture.dart';
 import '../../../../support/ipad.dart';
 
@@ -78,9 +82,10 @@ class _Live implements TimelineLive {
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
   });
-  tearDown(FamilySelection.clear);
+
+  String? selectedFamily(WidgetTester tester) =>
+      containerOf(tester).read(familySelectionProvider);
 
   late FakeStoriesRepository stories;
   late _Live live;
@@ -106,12 +111,8 @@ void main() {
       routes: [
         GoRoute(
           path: AppRoutes.familyTree,
-          builder: (context, state) => FamilyTreePage(
-            familyId: state.pathParameters['id']!,
-            storiesApi: stories,
-            familiesApi: families ?? _Families(),
-            live: live,
-          ),
+          builder: (context, state) =>
+              FamilyTreePage(familyId: state.pathParameters['id'] ?? ''),
         ),
         GoRoute(
           path: AppRoutes.story,
@@ -124,12 +125,14 @@ void main() {
       ],
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(
-      MaterialApp.router(
-        theme: albumTheme(),
-        builder: albumAppBuilder,
-        routerConfig: router,
-      ),
+    await pumpRouterApp(
+      tester,
+      router,
+      overrides: [
+        storiesRepositoryProvider.overrideWithValue(stories),
+        familiesRepositoryProvider.overrideWithValue(families ?? _Families()),
+        timelineLiveProvider.overrideWithValue(live),
+      ],
     );
     if (settle) await tester.pumpAndSettle();
   }
@@ -181,7 +184,7 @@ void main() {
     expect(find.text('Jenkins family tree'), findsOneWidget);
     expect(stories.calls, ['listPublishedInTree']);
     expect(live.watched, [TreeFixture.bea]);
-    expect(FamilySelection.id, TreeFixture.bea);
+    expect(selectedFamily(tester), TreeFixture.bea);
   });
 
   testWidgets('opens on Family tree: C3 · C4, no label, the graph shows', (
@@ -294,7 +297,7 @@ void main() {
     await tester.tap(find.text('Open Cal timeline'));
     await tester.pumpAndSettle();
 
-    expect(FamilySelection.id, TreeFixture.cal);
+    expect(selectedFamily(tester), TreeFixture.cal);
     expect(router.state.uri.path, AppRoutes.timeline);
     expect(find.text('timeline-landed'), findsOneWidget);
   });
@@ -324,7 +327,7 @@ void main() {
     await tester.tap(find.text('Open Cal timeline'));
     await tester.pumpAndSettle();
 
-    expect(FamilySelection.id, TreeFixture.cal);
+    expect(selectedFamily(tester), TreeFixture.cal);
     expect(router.state.uri.path, AppRoutes.timeline);
     expect(find.text('timeline-landed'), findsOneWidget);
   });

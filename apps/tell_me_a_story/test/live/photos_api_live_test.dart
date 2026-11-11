@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
+import 'package:tell_me_a_story/core/data/server_photos_repository.dart';
 
 import 'support/live_server.dart';
 import 'support/story_fixture.dart';

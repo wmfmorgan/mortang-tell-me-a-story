@@ -88,144 +88,26 @@ class _LeaveStoryDialogState extends State<_LeaveStoryDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final narrow = MediaQuery.sizeOf(context).width < 640;
-    final stay = TextButton(
-      onPressed: _saving ? null : _stay,
-      style: TextButton.styleFrom(
-        foregroundColor: albumInk,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: GoogleFonts.sourceSans3(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      child: const Text(_stayLabel),
-    );
-    final discard = OutlinedButton(
-      onPressed: _saving ? null : _onDiscard,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: albumInk,
-        side: const BorderSide(color: albumSage),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: GoogleFonts.sourceSans3(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      child: const Text(_discardLabel),
-    );
-    final save = FilledButton(
-      onPressed: _saving ? null : _onSave,
-      style: FilledButton.styleFrom(
-        backgroundColor: albumTerracotta,
-        foregroundColor: albumParchment,
-        disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.4),
-        disabledForegroundColor: albumParchment,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: GoogleFonts.sourceSans3(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      child: const Text(_saveLabel),
-    );
-    final buttons = narrow
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              save,
-              const SizedBox(height: 8),
-              discard,
-              const SizedBox(height: 8),
-              stay,
-            ],
-          )
-        : Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              stay,
-              const SizedBox(width: 12),
-              discard,
-              const SizedBox(width: 12),
-              save,
-            ],
-          );
     return PopScope(
       canPop: !_saving,
       child: CallbackShortcuts(
         bindings: {const SingleActivator(LogicalKeyboardKey.escape): _stay},
         child: Focus(
           autofocus: true,
-          child: familyBlurShell(
+          child: FamilyBlurShell(
             child: GestureDetector(
               onTap: _stay,
               behavior: HitTestBehavior.opaque,
               child: Center(
                 child: GestureDetector(
                   onTap: () {},
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 440),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: albumDialogSurface,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: albumInk.withValues(alpha: 0.1),
-                            blurRadius: 25,
-                            offset: const Offset(0, 20),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        type: MaterialType.transparency,
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Stack(
-                            children: [
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text(
-                                    _leaveTitle,
-                                    style: GoogleFonts.newsreader(
-                                      color: albumInk,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.25,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    widget.body,
-                                    style: GoogleFonts.literata(
-                                      color: albumInk,
-                                      fontSize: 14,
-                                      height: 1.45,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  buttons,
-                                ],
-                              ),
-                              Positioned(
-                                top: -12,
-                                right: -12,
-                                child: IconButton(
-                                  onPressed: _saving ? null : _stay,
-                                  icon: const Icon(Icons.close, size: 20),
-                                  color: albumInk,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                  child: _LeaveCard(
+                    body: widget.body,
+                    onStay: _saving ? null : _stay,
+                    buttons: _LeaveButtons(
+                      onStay: _saving ? null : _stay,
+                      onDiscard: _saving ? null : _onDiscard,
+                      onSave: _saving ? null : _onSave,
                     ),
                   ),
                 ),
@@ -234,6 +116,188 @@ class _LeaveStoryDialogState extends State<_LeaveStoryDialog> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LeaveCard extends StatelessWidget {
+  const _LeaveCard({
+    required this.body,
+    required this.onStay,
+    required this.buttons,
+  });
+
+  final String body;
+  final VoidCallback? onStay;
+  final Widget buttons;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 440),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: albumDialogSurface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: albumInk.withValues(alpha: 0.1),
+              blurRadius: 25,
+              offset: const Offset(0, 20),
+            ),
+          ],
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Stack(
+              children: [
+                _LeaveContent(body: body, buttons: buttons),
+                CornerCloseButton(onPressed: onStay),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaveContent extends StatelessWidget {
+  const _LeaveContent({required this.body, required this.buttons});
+
+  final String body;
+  final Widget buttons;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          _leaveTitle,
+          style: GoogleFonts.newsreader(
+            color: albumInk,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          body,
+          style: GoogleFonts.literata(
+            color: albumInk,
+            fontSize: 14,
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 24),
+        buttons,
+      ],
+    );
+  }
+}
+
+class _LeaveButtons extends StatelessWidget {
+  const _LeaveButtons({
+    required this.onStay,
+    required this.onDiscard,
+    required this.onSave,
+  });
+
+  final VoidCallback? onStay;
+  final VoidCallback? onDiscard;
+  final VoidCallback? onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    const padding = _buttonPadding;
+    final shape = _buttonShape;
+    final textStyle = _buttonText;
+    final stay = TextButton(
+      onPressed: onStay,
+      style: TextButton.styleFrom(
+        foregroundColor: albumInk,
+        padding: padding,
+        shape: shape,
+        textStyle: textStyle,
+      ),
+      child: const Text(_stayLabel),
+    );
+    final discard = OutlinedButton(
+      onPressed: onDiscard,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: albumInk,
+        side: const BorderSide(color: albumSage),
+        padding: padding,
+        shape: shape,
+        textStyle: textStyle,
+      ),
+      child: const Text(_discardLabel),
+    );
+    final save = FilledButton(
+      onPressed: onSave,
+      style: FilledButton.styleFrom(
+        backgroundColor: albumTerracotta,
+        foregroundColor: albumParchment,
+        disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.4),
+        disabledForegroundColor: albumParchment,
+        elevation: 0,
+        padding: padding,
+        shape: shape,
+        textStyle: textStyle,
+      ),
+      child: const Text(_saveLabel),
+    );
+    return _LeaveButtonLayout(stay: stay, discard: discard, save: save);
+  }
+}
+
+const _buttonPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+
+RoundedRectangleBorder get _buttonShape =>
+    RoundedRectangleBorder(borderRadius: BorderRadius.circular(12));
+
+TextStyle get _buttonText =>
+    GoogleFonts.sourceSans3(fontSize: 14, fontWeight: FontWeight.w500);
+
+class _LeaveButtonLayout extends StatelessWidget {
+  const _LeaveButtonLayout({
+    required this.stay,
+    required this.discard,
+    required this.save,
+  });
+
+  final Widget stay;
+  final Widget discard;
+  final Widget save;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.sizeOf(context).width < 640) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          save,
+          const SizedBox(height: 8),
+          discard,
+          const SizedBox(height: 8),
+          stay,
+        ],
+      );
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        stay,
+        const SizedBox(width: 12),
+        discard,
+        const SizedBox(width: 12),
+        save,
+      ],
     );
   }
 }

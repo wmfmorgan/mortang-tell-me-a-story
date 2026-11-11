@@ -3,10 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/features/people/presentation/add_person_modal.dart';
+
+import '../../../support/fakes/fake_invite_repository.dart';
+import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -60,6 +67,27 @@ class _FakePeopleRepository extends PeopleRepository {
   }
 }
 
+/// Inserts one `story_people` row for a person the picker just chose.
+typedef LinkStoryPerson = Future<void> Function({
+  required String storyId,
+  required String personId,
+});
+
+/// Routes [StoriesRepository.linkPerson] to the test's [link]; no-op if null.
+class _LinkingStories extends FakeStoriesRepository {
+  _LinkingStories(this.link);
+
+  final LinkStoryPerson? link;
+
+  @override
+  Future<void> linkPerson({
+    required String storyId,
+    required String personId,
+  }) async {
+    await link?.call(storyId: storyId, personId: personId);
+  }
+}
+
 const _pickerKey = Key('add-person-picker');
 const _searchKey = Key('add-person-search');
 const _saveError = 'Couldn’t save person. Try again.';
@@ -92,30 +120,32 @@ Future<void> _openModal(
   LinkStoryPerson? linkPerson,
   _ModalSession? session,
 }) async {
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: TextButton(
-            onPressed: () async {
-              final picked = await AddPersonModal.show(
-                context,
-                familyId: _familyId,
-                api: api,
-                storyId: storyId,
-                linkedPersonIds: linkedPersonIds,
-                linkPerson: linkPerson,
-              );
-              final target = session;
-              if (target == null) return;
-              target.result = picked;
-              target.completed = true;
-            },
-            child: const Text('open'),
-          ),
+  await pumpApp(
+    tester,
+    Builder(
+      builder: (context) => Scaffold(
+        body: TextButton(
+          onPressed: () async {
+            final picked = await AddPersonModal.show(
+              context,
+              familyId: _familyId,
+              storyId: storyId,
+              linkedPersonIds: linkedPersonIds,
+            );
+            final target = session;
+            if (target == null) return;
+            target.result = picked;
+            target.completed = true;
+          },
+          child: const Text('open'),
         ),
       ),
     ),
+    overrides: [
+      peopleRepositoryProvider.overrideWithValue(api),
+      storiesRepositoryProvider.overrideWithValue(_LinkingStories(linkPerson)),
+      inviteRepositoryProvider.overrideWithValue(FakeInviteRepository()),
+    ],
   );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();

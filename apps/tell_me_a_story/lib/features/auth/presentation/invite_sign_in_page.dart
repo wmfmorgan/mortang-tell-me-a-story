@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/session/auth_refresh.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/invite_repository.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/core/widgets/family/family_role.dart';
-import 'package:tell_me_a_story/features/auth/presentation/sign_in_page.dart';
-import 'package:tell_me_a_story/features/auth/data/otp_sign_in.dart';
+import 'package:tell_me_a_story/features/auth/domain/otp_sign_in.dart';
+import 'package:tell_me_a_story/features/auth/presentation/invite_preview_provider.dart';
 import 'package:tell_me_a_story/features/auth/presentation/sign_in_code_form.dart';
+import 'package:tell_me_a_story/features/auth/presentation/sign_in_page.dart';
 
 const _inviteSage = Color(0xFF7A8B74);
 const _inviteOutline = albumSage;
@@ -22,35 +25,20 @@ const inviteDeadLink =
     'This invite link no longer works. Ask your family for a new one.';
 
 /// Public `/invite/:token` sign-in. Accepts once when a session is present.
-class InviteSignInPage extends StatefulWidget {
-  const InviteSignInPage({
-    super.key,
-    required this.token,
-    this.previewApi,
-    this.inviteApi,
-    this.otpSignIn,
-    this.authRefresh,
-    this.signedIn,
-  });
+class InviteSignInPage extends ConsumerStatefulWidget {
+  const InviteSignInPage({super.key, required this.token});
 
   final String token;
-  final InviteLinkRepository? previewApi;
-  final InviteRepository? inviteApi;
-
-  /// Injectable for tests; defaults to [ServerOtpSignIn].
-  final OtpSignIn? otpSignIn;
-  final AuthRefresh? authRefresh;
-  final bool Function()? signedIn;
 
   @override
-  State<InviteSignInPage> createState() => _InviteSignInPageState();
+  ConsumerState<InviteSignInPage> createState() => _InviteSignInPageState();
 }
 
-class _InviteSignInPageState extends State<InviteSignInPage> {
+class _InviteSignInPageState extends ConsumerState<InviteSignInPage> {
   final _email = TextEditingController();
-  late final OtpSignIn _otp = widget.otpSignIn ?? ServerOtpSignIn();
-  InvitePreview? _preview;
-  var _loading = true;
+  late final AuthRefresh _auth = ref.read(authRefreshProvider);
+  var _sessionChecked = false;
+  var _dead = false;
   var _sending = false;
   var _signingIn = false;
   var _accepting = false;
@@ -59,18 +47,18 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
   String? _requestId;
   String? _sentTo;
 
-  bool get _isSignedIn => widget.signedIn?.call() ?? false;
+  bool get _isSignedIn => _auth.isSignedIn;
 
   @override
   void initState() {
     super.initState();
-    widget.authRefresh?.addListener(_onAuth);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _auth.addListener(_onAuth);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _start());
   }
 
   @override
   void dispose() {
-    widget.authRefresh?.removeListener(_onAuth);
+    _auth.removeListener(_onAuth);
     _email.dispose();
     super.dispose();
   }
@@ -79,49 +67,40 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
     if (_isSignedIn) _accept();
   }
 
-  Future<void> _load() async {
+  Future<void> _start() async {
     // A session is enough to join. Validate first would hide a repeat open
     // of an invite this person already accepted behind the dead-link copy.
-    if (_isSignedIn && widget.inviteApi != null) {
+    if (_isSignedIn) {
       await _accept();
       if (!mounted || _accepted) return;
     }
-    try {
-      final api = widget.previewApi ?? ServerInviteLinkRepository();
-      final preview = await api.validateInviteToken(widget.token);
-      if (!mounted) return;
-      setState(() {
-        _preview = preview.valid ? preview : const InvitePreview(valid: false);
-        _loading = false;
-      });
-      if (preview.valid && _isSignedIn) await _accept();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _preview = const InvitePreview(valid: false);
-        _loading = false;
-      });
-    }
+    ref.listenManual(invitePreviewProvider(widget.token), (_, next) {
+      final valid = next.value?.valid ?? false;
+      if (valid && _isSignedIn) _accept();
+    });
+    // The preview decides what shows; an early accept failure is not final.
+    setState(() {
+      _dead = false;
+      _sessionChecked = true;
+    });
   }
 
   Future<void> _accept() async {
     if (_accepting || _accepted) return;
-    final invites = widget.inviteApi;
-    if (invites == null) {
-      setState(() => _preview = const InvitePreview(valid: false));
-      return;
-    }
     _accepting = true;
     try {
-      final result = await invites.acceptInvite(token: widget.token);
+      final result = await ref
+          .read(inviteRepositoryProvider)
+          .acceptInvite(token: widget.token);
       _accepted = true;
       if (!mounted) return;
-      FamilySelection.remember(result.familyId);
+      ref.read(familySelectionProvider.notifier).remember(result.familyId);
       context.go(AppRoutes.familyLanding);
     } catch (_) {
+      // Boundary: any refusal shows the dead-link copy.
       _accepting = false;
       if (!mounted) return;
-      setState(() => _preview = const InvitePreview(valid: false));
+      setState(() => _dead = true);
     }
   }
 
@@ -136,15 +115,15 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       _error = null;
     });
     try {
-      final requestId = await _otp.sendCode(email);
+      final requestId = await ref.read(otpSignInProvider).sendCode(email);
       if (!mounted) return;
       setState(() {
         _requestId = requestId;
         _sentTo = email;
       });
-    } catch (e) {
+    } on AppException catch (e) {
       if (!mounted) return;
-      setState(() => _error = signInErrorMessage(e));
+      setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -159,10 +138,12 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       _error = null;
     });
     try {
-      await _otp.signIn(requestId: requestId, code: code);
-    } catch (e) {
+      await ref
+          .read(otpSignInProvider)
+          .signIn(requestId: requestId, code: code);
+    } on AppException catch (e) {
       if (!mounted) return;
-      setState(() => _error = signInErrorMessage(e));
+      setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _signingIn = false);
     }
@@ -178,61 +159,101 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
 
   @override
   Widget build(BuildContext context) {
+    final card = _sessionChecked
+        ? _PreviewCard(
+            token: widget.token,
+            dead: _dead,
+            actionBuilder: (familyLabel) => _InviteAction(
+              familyLabel: familyLabel,
+              signedIn: _isSignedIn,
+              requestId: _requestId,
+              sentTo: _sentTo,
+              email: _email,
+              sending: _sending,
+              signingIn: _signingIn,
+              error: _error,
+              onSend: _sendCode,
+              onSubmit: _signIn,
+              onUseDifferentEmail: _useDifferentEmail,
+            ),
+          )
+        : const _Spinner();
+    return _InviteScaffold(card: card);
+  }
+}
+
+class _Spinner extends StatelessWidget {
+  const _Spinner();
+
+  @override
+  Widget build(BuildContext context) {
+    return const CircularProgressIndicator(color: albumTerracotta);
+  }
+}
+
+class _InviteScaffold extends StatelessWidget {
+  const _InviteScaffold({required this.card});
+
+  final Widget card;
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: albumParchment,
       body: SafeArea(
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 768;
-            final gutter = wide ? 40.0 : 24.0;
-            final cardWidth = (constraints.maxWidth - gutter * 2).clamp(
-              0.0,
-              420.0,
-            );
-            return SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: SizedBox(
-                  width: constraints.maxWidth,
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      gutter,
-                      gutter,
-                      gutter,
-                      gutter,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _wordmark(),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 48),
-                          child: Center(
-                            child: SizedBox(
-                              width: cardWidth,
-                              child: _loading
-                                  ? const CircularProgressIndicator(
-                                      color: albumTerracotta,
-                                    )
-                                  : _card(),
-                            ),
-                          ),
-                        ),
-                        _footer(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
+          builder: (context, constraints) =>
+              _InviteLayout(constraints: constraints, card: card),
         ),
       ),
     );
   }
+}
 
-  Widget _wordmark() {
+class _InviteLayout extends StatelessWidget {
+  const _InviteLayout({required this.constraints, required this.card});
+
+  final BoxConstraints constraints;
+  final Widget card;
+
+  @override
+  Widget build(BuildContext context) {
+    final wide = constraints.maxWidth >= 768;
+    final gutter = wide ? 40.0 : 24.0;
+    final cardWidth = (constraints.maxWidth - gutter * 2).clamp(0.0, 420.0);
+    return SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+        child: SizedBox(
+          width: constraints.maxWidth,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(gutter, gutter, gutter, gutter),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const _Wordmark(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48),
+                  child: Center(
+                    child: SizedBox(width: cardWidth, child: card),
+                  ),
+                ),
+                const _Footer(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Wordmark extends StatelessWidget {
+  const _Wordmark();
+
+  @override
+  Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.center,
       child: ConstrainedBox(
@@ -253,119 +274,64 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       ),
     );
   }
+}
 
-  Widget _footer() {
+class _Footer extends StatelessWidget {
+  const _Footer();
+
+  @override
+  Widget build(BuildContext context) {
     return Text(
       'Private to your family. Stories stay inside the family you share them with.',
       textAlign: TextAlign.center,
       style: GoogleFonts.literata(color: _inviteOutline, fontSize: 12),
     );
   }
+}
 
-  Widget _card() {
-    final preview = _preview;
-    if (preview == null || !preview.valid) {
-      return _shell(
-        child: Text(
-          inviteDeadLink,
-          key: const Key('invite-dead'),
-          textAlign: TextAlign.center,
-          style: GoogleFonts.literata(
-            color: albumInk.withValues(alpha: 0.8),
-            fontSize: 14,
-            height: 1.625,
-          ),
-        ),
-      );
-    }
-    final family = (preview.familyName ?? '').trim();
-    final familyLabel = family.isEmpty ? 'this family' : family;
-    final inviter = (preview.inviterName ?? '').trim();
-    return _shell(
-      child: Column(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: albumTerracotta.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              familyMonogram(familyLabel),
-              style: GoogleFonts.newsreader(
-                color: albumTerracotta,
-                fontSize: 24,
-                fontStyle: FontStyle.italic,
-                fontWeight: FontWeight.w700,
-                height: 1,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'YOU’RE INVITED',
-            style: GoogleFonts.sourceSans3(
-              color: _inviteSage,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Join $familyLabel',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.newsreader(
-              color: albumInk,
-              fontSize: 30,
-              fontWeight: FontWeight.w700,
-              height: 1.25,
-            ),
-          ),
-          if (inviter.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              '$inviter invited you to $familyLabel.',
-              key: const Key('invite-inviter'),
-              textAlign: TextAlign.center,
-              style: GoogleFonts.literata(color: albumTerracotta, fontSize: 16),
-            ),
-          ],
-          const SizedBox(height: 24),
-          Text(
-            '$familyLabel keeps its stories on Tell Me a Story. Sign in with your email to read them and add your own.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.literata(
-              color: albumInk.withValues(alpha: 0.8),
-              fontSize: 14,
-              height: 1.625,
-            ),
-          ),
-          const SizedBox(height: 32),
-          if (_isSignedIn)
-            const CircularProgressIndicator(color: albumTerracotta)
-          else if (_requestId != null)
-            SignInCodeForm(
-              message:
-                  'We sent a code to $_sentTo. Enter it to join $familyLabel.',
-              messageKey: const Key('invite-sent'),
-              signingIn: _signingIn,
-              sending: _sending,
-              error: _error,
-              onSubmit: _signIn,
-              onResend: _sendCode,
-              onUseDifferentEmail: _useDifferentEmail,
-            )
-          else
-            _form(),
-        ],
-      ),
-    );
+/// The preview card: loading, dead link, or the live invite.
+class _PreviewCard extends ConsumerWidget {
+  const _PreviewCard({
+    required this.token,
+    required this.dead,
+    required this.actionBuilder,
+  });
+
+  final String token;
+  final bool dead;
+
+  /// Builds the sign-in action for the family's display label.
+  final Widget Function(String familyLabel) actionBuilder;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (dead) return const _DeadCard();
+    return ref
+        .watch(invitePreviewProvider(token))
+        .when(
+          loading: () => const _Spinner(),
+          error: (_, _) => const _DeadCard(),
+          data: (preview) {
+            if (!preview.valid) return const _DeadCard();
+            final family = (preview.familyName ?? '').trim();
+            final familyLabel = family.isEmpty ? 'this family' : family;
+            return _LiveCard(
+              familyLabel: familyLabel,
+              inviter: (preview.inviterName ?? '').trim(),
+              action: actionBuilder(familyLabel),
+            );
+          },
+        );
   }
+}
 
-  Widget _shell({required Widget child}) {
+class _Shell extends StatelessWidget {
+  const _Shell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 420),
       child: DecoratedBox(
@@ -388,8 +354,205 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       ),
     );
   }
+}
 
-  Widget _form() {
+class _DeadCard extends StatelessWidget {
+  const _DeadCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Shell(
+      child: Text(
+        inviteDeadLink,
+        key: const Key('invite-dead'),
+        textAlign: TextAlign.center,
+        style: GoogleFonts.literata(
+          color: albumInk.withValues(alpha: 0.8),
+          fontSize: 14,
+          height: 1.625,
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveCard extends StatelessWidget {
+  const _LiveCard({
+    required this.familyLabel,
+    required this.inviter,
+    required this.action,
+  });
+
+  final String familyLabel;
+  final String inviter;
+  final Widget action;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Shell(
+      child: Column(
+        children: [
+          _Monogram(familyLabel: familyLabel),
+          const SizedBox(height: 24),
+          _InviteHeading(familyLabel: familyLabel),
+          if (inviter.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              '$inviter invited you to $familyLabel.',
+              key: const Key('invite-inviter'),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.literata(color: albumTerracotta, fontSize: 16),
+            ),
+          ],
+          const SizedBox(height: 24),
+          Text(
+            '$familyLabel keeps its stories on Tell Me a Story. Sign in with your email to read them and add your own.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.literata(
+              color: albumInk.withValues(alpha: 0.8),
+              fontSize: 14,
+              height: 1.625,
+            ),
+          ),
+          const SizedBox(height: 32),
+          action,
+        ],
+      ),
+    );
+  }
+}
+
+class _Monogram extends StatelessWidget {
+  const _Monogram({required this.familyLabel});
+
+  final String familyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56,
+      height: 56,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: albumTerracotta.withValues(alpha: 0.1),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        familyMonogram(familyLabel),
+        style: GoogleFonts.newsreader(
+          color: albumTerracotta,
+          fontSize: 24,
+          fontStyle: FontStyle.italic,
+          fontWeight: FontWeight.w700,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _InviteHeading extends StatelessWidget {
+  const _InviteHeading({required this.familyLabel});
+
+  final String familyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          'YOU’RE INVITED',
+          style: GoogleFonts.sourceSans3(
+            color: _inviteSage,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Join $familyLabel',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            color: albumInk,
+            fontSize: 30,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Spinner while joining, the code step, or the email step.
+class _InviteAction extends StatelessWidget {
+  const _InviteAction({
+    required this.familyLabel,
+    required this.signedIn,
+    required this.requestId,
+    required this.sentTo,
+    required this.email,
+    required this.sending,
+    required this.signingIn,
+    required this.error,
+    required this.onSend,
+    required this.onSubmit,
+    required this.onUseDifferentEmail,
+  });
+
+  final String familyLabel;
+  final bool signedIn;
+  final String? requestId;
+  final String? sentTo;
+  final TextEditingController email;
+  final bool sending;
+  final bool signingIn;
+  final String? error;
+  final VoidCallback onSend;
+  final void Function(String code) onSubmit;
+  final VoidCallback onUseDifferentEmail;
+
+  @override
+  Widget build(BuildContext context) {
+    if (signedIn) return const _Spinner();
+    if (requestId != null) {
+      return SignInCodeForm(
+        message: 'We sent a code to $sentTo. Enter it to join $familyLabel.',
+        messageKey: const Key('invite-sent'),
+        signingIn: signingIn,
+        sending: sending,
+        error: error,
+        onSubmit: onSubmit,
+        onResend: onSend,
+        onUseDifferentEmail: onUseDifferentEmail,
+      );
+    }
+    return _EmailForm(
+      controller: email,
+      sending: sending,
+      error: error,
+      onSend: onSend,
+    );
+  }
+}
+
+class _EmailForm extends StatelessWidget {
+  const _EmailForm({
+    required this.controller,
+    required this.sending,
+    required this.error,
+    required this.onSend,
+  });
+
+  final TextEditingController controller;
+  final bool sending;
+  final String? error;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    final error = this.error;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -405,77 +568,16 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          key: const Key('invite-email'),
-          controller: _email,
-          keyboardType: TextInputType.emailAddress,
-          autofillHints: const [AutofillHints.email],
-          enabled: !_sending,
-          onSubmitted: (_) => _sendCode(),
-          style: GoogleFonts.literata(color: albumInk, fontSize: 14),
-          cursorColor: albumTerracotta,
-          decoration: InputDecoration(
-            hintText: 'you@example.com',
-            hintStyle: GoogleFonts.literata(
-              color: _inviteOutline.withValues(alpha: 0.6),
-              fontSize: 14,
-            ),
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.8),
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            border: _fieldBorder(1),
-            enabledBorder: _fieldBorder(1),
-            focusedBorder: _fieldBorder(2, albumTerracotta),
-            disabledBorder: _fieldBorder(1),
-          ),
-        ),
-        if (_error != null) ...[
+        _EmailField(controller: controller, sending: sending, onSend: onSend),
+        if (error != null) ...[
           const SizedBox(height: 12),
           Text(
-            _error!,
+            error,
             style: GoogleFonts.literata(color: albumTerracotta, fontSize: 14),
           ),
         ],
         const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _sending ? null : _sendCode,
-          style: FilledButton.styleFrom(
-            backgroundColor: albumTerracotta,
-            foregroundColor: _inviteOnPrimary,
-            disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.55),
-            disabledForegroundColor: _inviteOnPrimary,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _sending ? sendingCodeLabel : sendCodeLabel,
-                  style: GoogleFonts.sourceSans3(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _inviteOnPrimary,
-                  ),
-                ),
-                if (!_sending) ...[
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward, size: 16),
-                ],
-              ],
-            ),
-          ),
-        ),
+        _SendButton(sending: sending, onSend: onSend),
         const SizedBox(height: 16),
         Text(
           landingPasswordNote,
@@ -485,14 +587,102 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       ],
     );
   }
+}
 
-  OutlineInputBorder _fieldBorder(double width, [Color? color]) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(
-        color: color ?? _inviteLine.withValues(alpha: 0.5),
-        width: width,
+class _EmailField extends StatelessWidget {
+  const _EmailField({
+    required this.controller,
+    required this.sending,
+    required this.onSend,
+  });
+
+  final TextEditingController controller;
+  final bool sending;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: const Key('invite-email'),
+      controller: controller,
+      keyboardType: TextInputType.emailAddress,
+      autofillHints: const [AutofillHints.email],
+      enabled: !sending,
+      onSubmitted: (_) => onSend(),
+      style: GoogleFonts.literata(color: albumInk, fontSize: 14),
+      cursorColor: albumTerracotta,
+      decoration: InputDecoration(
+        hintText: 'you@example.com',
+        hintStyle: GoogleFonts.literata(
+          color: _inviteOutline.withValues(alpha: 0.6),
+          fontSize: 14,
+        ),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.8),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+        border: _fieldBorder(1),
+        enabledBorder: _fieldBorder(1),
+        focusedBorder: _fieldBorder(2, albumTerracotta),
+        disabledBorder: _fieldBorder(1),
       ),
     );
   }
+}
+
+class _SendButton extends StatelessWidget {
+  const _SendButton({required this.sending, required this.onSend});
+
+  final bool sending;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      onPressed: sending ? null : onSend,
+      style: FilledButton.styleFrom(
+        backgroundColor: albumTerracotta,
+        foregroundColor: _inviteOnPrimary,
+        disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.55),
+        disabledForegroundColor: _inviteOnPrimary,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              sending ? sendingCodeLabel : sendCodeLabel,
+              style: GoogleFonts.sourceSans3(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: _inviteOnPrimary,
+              ),
+            ),
+            if (!sending) ...[
+              const SizedBox(width: 8),
+              const Icon(Icons.arrow_forward, size: 16),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+OutlineInputBorder _fieldBorder(double width, [Color? color]) {
+  return OutlineInputBorder(
+    borderRadius: BorderRadius.circular(8),
+    borderSide: BorderSide(
+      color: color ?? _inviteLine.withValues(alpha: 0.5),
+      width: width,
+    ),
+  );
 }

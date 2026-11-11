@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
 import 'package:tell_me_a_story/features/family/presentation/delete_family_dialog.dart';
 import 'package:tell_me_a_story/features/people/presentation/add_person_modal.dart';
+
+import '../../../support/pump_app.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -13,31 +15,26 @@ void main() {
   testWidgets('listed confirms use a blur shell and not AlertDialog', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: albumTheme(),
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: Column(
-              children: [
-                TextButton(
-                  onPressed: () =>
-                      showDeleteFamilyDialog(context, familyName: 'Ada'),
-                  child: const Text('open-delete'),
-                ),
-                TextButton(
-                  onPressed: () => AddPersonModal.show(
-                    context,
-                    familyId: 'fam',
-                    api: _People(),
-                  ),
-                  child: const Text('open-person'),
-                ),
-              ],
-            ),
+    await pumpApp(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: Column(
+            children: [
+              TextButton(
+                onPressed: () =>
+                    showDeleteFamilyDialog(context, familyName: 'Ada'),
+                child: const Text('open-delete'),
+              ),
+              TextButton(
+                onPressed: () => AddPersonModal.show(context, familyId: 'fam'),
+                child: const Text('open-person'),
+              ),
+            ],
           ),
         ),
       ),
+      overrides: [peopleRepositoryProvider.overrideWithValue(_People())],
     );
     await tester.tap(find.text('open-delete'));
     await tester.pumpAndSettle();

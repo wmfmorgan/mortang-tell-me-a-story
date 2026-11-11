@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/tree/tree_graph_layout.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/tree/treemap_layout.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/tree/treemap_view.dart';
@@ -96,12 +96,14 @@ class _TreeGraphViewState extends State<TreeGraphView> {
   void _onTap(TreeNode node) {
     switch (node.kind) {
       case TreeNodeKind.story:
-        widget.onStory(node.storyId!);
+        if (node.storyId case final storyId?) widget.onStory(storyId);
       case TreeNodeKind.overflow:
-        setState(() {
-          _expanded.add(node.parent!.id);
-          _rebuild();
-        });
+        if (node.parent case final parent?) {
+          setState(() {
+            _expanded.add(parent.id);
+            _rebuild();
+          });
+        }
       case TreeNodeKind.family:
         setState(() => _selectedFamilyId = node.familyId);
       case TreeNodeKind.decade when _expanded.contains(node.id):
@@ -132,104 +134,180 @@ class _TreeGraphViewState extends State<TreeGraphView> {
   @override
   Widget build(BuildContext context) {
     final layout = _layout;
-    final selectedName = _familyName(_selectedFamilyId);
+    final selectedId = _selectedFamilyId;
+    final selectedName = _familyName(selectedId);
     final viewSwitch = widget.viewSwitch;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AlbumSpace.l,
-            AlbumSpace.xl,
-            AlbumSpace.l,
-            AlbumSpace.xs,
-          ),
-          child: Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: AlbumSpace.xs,
-            runSpacing: AlbumSpace.xs,
-            children: [
-              TreeHeading(widget.title),
-              if (selectedName != null) ...[
-                const SizedBox(width: AlbumSpace.m),
-                OpenFamilyTimelineAction(
-                  key: const Key('tree-graph-open-family'),
-                  family: selectedName,
-                  onPressed: () => widget.onFamily(_selectedFamilyId!),
-                ),
-              ],
-            ],
-          ),
+        _GraphHeading(
+          title: widget.title,
+          selected: selectedId != null && selectedName != null
+              ? (id: selectedId, name: selectedName)
+              : null,
+          onFamily: widget.onFamily,
         ),
         if (layout == null)
           const Expanded(child: EmptyTimeline(message: emptyTreeMessage))
         else ...[
           ?viewSwitch,
-          Expanded(child: _graph(context, layout)),
+          Expanded(
+            child: _TreeGraphCanvas(
+              painter: _painter(context, layout),
+              vertical: _vCtl,
+              horizontal: _hCtl,
+              hoverTarget: _hoverTarget,
+              onTap: _onTap,
+            ),
+          ),
         ],
       ],
     );
   }
 
-  Widget _graph(BuildContext context, TreeLayout layout) {
+  TreeGraphPainter _painter(BuildContext context, TreeLayout layout) {
     final theme = Theme.of(context).textTheme;
-    final painter = TreeGraphPainter(
+    // albumTheme() always sets labelSmall.
+    final labelSmall = theme.labelSmall ?? const TextStyle();
+    return TreeGraphPainter(
       layout: layout,
       stories: _storyById,
       tree: widget.tree,
       tints: treemapFamilyTints(widget.tree),
       selectedFamilyId: _selectedFamilyId,
-      labelStyle: theme.labelSmall!.copyWith(color: albumInk),
+      labelStyle: labelSmall.copyWith(color: albumInk),
       headingStyle: AlbumText.group(theme).copyWith(color: albumInk),
       badgeStyle: AlbumText.badge(theme),
       onTapNode: _onTap,
     );
+  }
+}
+
+/// C2, then the C19 action of the selected family.
+class _GraphHeading extends StatelessWidget {
+  const _GraphHeading({
+    required this.title,
+    required this.selected,
+    required this.onFamily,
+  });
+
+  final String title;
+  final ({String id, String name})? selected;
+  final ValueChanged<String> onFamily;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = this.selected;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AlbumSpace.l,
+        AlbumSpace.xl,
+        AlbumSpace.l,
+        AlbumSpace.xs,
+      ),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AlbumSpace.xs,
+        runSpacing: AlbumSpace.xs,
+        children: [
+          TreeHeading(title),
+          if (selected != null) ...[
+            const SizedBox(width: AlbumSpace.m),
+            OpenFamilyTimelineAction(
+              key: const Key('tree-graph-open-family'),
+              family: selected.name,
+              onPressed: () => onFamily(selected.id),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The pannable graph canvas: scrolls both ways, a pointer cursor over a
+/// node, taps hit-tested with the pointer's radius.
+class _TreeGraphCanvas extends StatelessWidget {
+  const _TreeGraphCanvas({
+    required this.painter,
+    required this.vertical,
+    required this.horizontal,
+    required this.hoverTarget,
+    required this.onTap,
+  });
+
+  final TreeGraphPainter painter;
+  final ScrollController vertical;
+  final ScrollController horizontal;
+  final ValueNotifier<bool> hoverTarget;
+  final ValueChanged<TreeNode> onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return LayoutBuilder(
       key: const Key('tree-graph-pan'),
       builder: (context, box) => SingleChildScrollView(
-        controller: _vCtl,
+        controller: vertical,
         child: ConstrainedBox(
           // A short tree still pans anywhere in the viewport.
           constraints: BoxConstraints(minHeight: box.maxHeight),
           child: SingleChildScrollView(
-            controller: _hCtl,
+            controller: horizontal,
             scrollDirection: Axis.horizontal,
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: box.maxHeight),
               child: Align(
                 alignment: Alignment.topLeft,
-                child: ValueListenableBuilder<bool>(
-                  valueListenable: _hoverTarget,
-                  // Only the cursor rebuilds; the painter and its laid-out
-                  // labels are reused.
-                  builder: (context, over, child) => MouseRegion(
-                    cursor: over ? SystemMouseCursors.click : MouseCursor.defer,
-                    onHover: (e) => _hoverTarget.value =
-                        painter.nodeAt(e.localPosition) != null,
-                    onExit: (_) => _hoverTarget.value = false,
-                    child: child,
-                  ),
-                  child: GestureDetector(
-                    onTapUp: (details) {
-                      final hit = painter.nodeAt(
-                        details.localPosition,
-                        radius: hitRadiusFor(
-                          details.kind,
-                          precise: TreeLayout.hitRadius,
-                        ),
-                      );
-                      if (hit != null) _onTap(hit);
-                    },
-                    child: CustomPaint(
-                      key: const Key('tree-graph-canvas'),
-                      size: layout.size,
-                      painter: painter,
-                    ),
-                  ),
+                child: _HoverCanvas(
+                  painter: painter,
+                  hoverTarget: hoverTarget,
+                  onTap: onTap,
                 ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HoverCanvas extends StatelessWidget {
+  const _HoverCanvas({
+    required this.painter,
+    required this.hoverTarget,
+    required this.onTap,
+  });
+
+  final TreeGraphPainter painter;
+  final ValueNotifier<bool> hoverTarget;
+  final ValueChanged<TreeNode> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: hoverTarget,
+      // Only the cursor rebuilds; the painter and its laid-out labels are
+      // reused.
+      builder: (context, over, child) => MouseRegion(
+        cursor: over ? SystemMouseCursors.click : MouseCursor.defer,
+        onHover: (e) =>
+            hoverTarget.value = painter.nodeAt(e.localPosition) != null,
+        onExit: (_) => hoverTarget.value = false,
+        child: child,
+      ),
+      child: GestureDetector(
+        onTapUp: (details) {
+          final hit = painter.nodeAt(
+            details.localPosition,
+            radius: hitRadiusFor(details.kind, precise: TreeLayout.hitRadius),
+          );
+          if (hit != null) onTap(hit);
+        },
+        child: CustomPaint(
+          key: const Key('tree-graph-canvas'),
+          size: painter.layout.size,
+          painter: painter,
         ),
       ),
     );
@@ -285,17 +363,41 @@ class TreeGraphPainter extends CustomPainter {
     };
   });
 
+  /// Knocks edges out behind group labels and family chips.
+  static final _knockout = Paint()..color = albumParchment;
+
+  /// The dot of a family, decade or root node.
+  static final _groupDot = Paint()..color = albumInk;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final pos = layout.positions;
+    _paintEdges(canvas);
+    for (final n in layout.nodes) {
+      final p = layout.positionOf(n);
+      final label = _label(n);
+      switch (n.kind) {
+        case TreeNodeKind.overflow:
+          _paintOverflow(canvas, n, label, p);
+        case TreeNodeKind.story:
+          _paintStory(canvas, n, label, p);
+        case TreeNodeKind.family:
+          _paintFamily(canvas, n, label, p);
+        case TreeNodeKind.decade || TreeNodeKind.root:
+          _paintGroup(canvas, label, p);
+      }
+    }
+  }
+
+  /// One curve from every node to each of its children.
+  void _paintEdges(Canvas canvas) {
     final edge = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = AlbumStroke.rule
       ..color = albumRule;
     for (final n in layout.nodes) {
-      final from = pos[n]!;
+      final from = layout.positionOf(n);
       for (final c in n.children) {
-        final to = pos[c]!;
+        final to = layout.positionOf(c);
         final midX = (from.dx + to.dx) / 2;
         canvas.drawPath(
           Path()
@@ -305,82 +407,76 @@ class TreeGraphPainter extends CustomPainter {
         );
       }
     }
+  }
 
-    final knockout = Paint()..color = albumParchment;
-    final groupDot = Paint()..color = albumInk;
-    for (final n in layout.nodes) {
-      final p = pos[n]!;
-      final label = _label(n);
-      switch (n.kind) {
-        case TreeNodeKind.overflow:
-          _paintOverflow(canvas, n, label, p);
-        case TreeNodeKind.story:
-          final story = stories[n.storyId];
-          paintStoryMarker(
-            canvas,
-            p,
-            MarkerSpec(
-              matched: true,
-              origin: story != null && isOrigin(story, tree),
-              diameter: AlbumMarker.small,
-            ),
-          );
-          label.paint(
-            canvas,
-            p +
-                Offset(
-                  MarkerSpec.extent(AlbumMarker.small) / 2 + 2,
-                  -label.size.height / 2,
-                ),
-          );
-        case TreeNodeKind.family:
-          canvas.drawCircle(p, AlbumMarker.small / 2, groupDot);
-          // The name sits above-right on a chip in the family's tint, so
-          // the graph and the treemap share one colour per family.
-          final chipRect = familyChipRect(n);
-          final at = _chipPad.deflateRect(chipRect).topLeft;
-          final chip = RRect.fromRectAndRadius(
-            chipRect,
-            const Radius.circular(AlbumRadius.tile),
-          );
-          canvas
-            ..drawRRect(chip, knockout)
-            ..drawRRect(
-              chip,
-              Paint()..color = tints[n.familyId] ?? albumPillFill,
-            )
-            ..drawRRect(
-              chip,
-              Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = AlbumStroke.hairline
-                ..color = albumRuleStrong,
-            );
-          if (n.familyId == selectedFamilyId) {
-            canvas.drawRRect(
-              chip.inflate(AlbumMarker.gap + AlbumMarker.ring / 2),
-              Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = AlbumMarker.ring
-                ..color = albumTerracotta,
-            );
-          }
-          label.paint(canvas, at);
-        case TreeNodeKind.decade || TreeNodeKind.root:
-          canvas.drawCircle(p, AlbumMarker.small / 2, groupDot);
-          // Above-right, inside the node's own row band; group labels sit
-          // where incoming edges run, so knock the edges out.
-          final at = p + Offset(8, -label.size.height - 1);
-          canvas.drawRect((at & label.size).inflate(2), knockout);
-          label.paint(canvas, at);
-      }
+  /// A story marker with its title to the right.
+  void _paintStory(Canvas canvas, TreeNode n, CanvasLabel label, Offset p) {
+    final story = stories[n.storyId];
+    paintStoryMarker(
+      canvas,
+      p,
+      MarkerSpec(
+        matched: true,
+        origin: story != null && isOrigin(story, tree),
+        diameter: AlbumMarker.small,
+      ),
+    );
+    label.paint(
+      canvas,
+      p +
+          Offset(
+            MarkerSpec.extent(AlbumMarker.small) / 2 + 2,
+            -label.size.height / 2,
+          ),
+    );
+  }
+
+  /// A family dot. The name sits above-right on a chip in the family's
+  /// tint, so the graph and the treemap share one colour per family.
+  void _paintFamily(Canvas canvas, TreeNode n, CanvasLabel label, Offset p) {
+    canvas.drawCircle(p, AlbumMarker.small / 2, _groupDot);
+    final chipRect = familyChipRect(n);
+    final at = _chipPad.deflateRect(chipRect).topLeft;
+    final chip = RRect.fromRectAndRadius(
+      chipRect,
+      const Radius.circular(AlbumRadius.tile),
+    );
+    canvas
+      ..drawRRect(chip, _knockout)
+      ..drawRRect(chip, Paint()..color = tints[n.familyId] ?? albumPillFill)
+      ..drawRRect(
+        chip,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = AlbumStroke.hairline
+          ..color = albumRuleStrong,
+      );
+    if (n.familyId == selectedFamilyId) {
+      canvas.drawRRect(
+        chip.inflate(AlbumMarker.gap + AlbumMarker.ring / 2),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = AlbumMarker.ring
+          ..color = albumTerracotta,
+      );
     }
+    label.paint(canvas, at);
+  }
+
+  /// A decade or root dot. Its label sits above-right, inside the node's own
+  /// row band; group labels sit where incoming edges run, so knock the edges
+  /// out.
+  void _paintGroup(Canvas canvas, CanvasLabel label, Offset p) {
+    canvas.drawCircle(p, AlbumMarker.small / 2, _groupDot);
+    final at = p + Offset(8, -label.size.height - 1);
+    canvas.drawRect((at & label.size).inflate(2), _knockout);
+    label.paint(canvas, at);
   }
 
   /// The `+N` pill of overflow node [n], in canvas coordinates. The whole
   /// pill is a target: it is the node, not a label beside it.
   Rect overflowRect(TreeNode n) {
-    final p = layout.positions[n]!;
+    final p = layout.positionOf(n);
     final label = _label(n);
     return Rect.fromLTWH(
       p.dx - AlbumSpace.xs,
@@ -393,7 +489,7 @@ class TreeGraphPainter extends CustomPainter {
   /// The tinted name chip of family node [n], in canvas coordinates: above
   /// and right of its dot.
   Rect familyChipRect(TreeNode n) {
-    final p = layout.positions[n]!;
+    final p = layout.positionOf(n);
     final label = _label(n);
     final at =
         p + Offset(8 + _chipPad.left, -label.size.height - 1 - _chipPad.bottom);

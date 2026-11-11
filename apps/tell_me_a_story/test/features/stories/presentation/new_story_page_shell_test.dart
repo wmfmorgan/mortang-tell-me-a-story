@@ -4,19 +4,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/invite_repository.dart';
-import 'package:tell_me_a_story/core/data/mapbox_search_repository.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
-import 'package:tell_me_a_story/core/data/places_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_repository.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/place.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_date_precision.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
 import 'package:tell_me_a_story/features/places/presentation/place_map.dart';
 import 'package:tell_me_a_story/features/places/presentation/place_picker_modal.dart';
 import 'package:tell_me_a_story/features/stories/presentation/new_story_page.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
 import '../../../support/fakes/fake_mapbox_search.dart';
+import '../../../support/fakes/fake_photos_repository.dart';
 import '../../../support/fakes/fake_places_repository.dart';
 import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -61,6 +71,34 @@ class _FakePlacesApi extends FakePlacesRepository {
   }
 }
 
+List<Override> _overrides({
+  InviteRepository? invite,
+  PeopleRepository? people,
+  PlacesRepository? places,
+  MapboxSearchRepository? search,
+  StoriesRepository? stories,
+}) {
+  return [
+    inviteRepositoryProvider.overrideWithValue(
+      invite ??
+          FakeInviteRepository(
+            familyId: _familyId,
+            createdFamilyId: _familyId,
+            acceptedFamilyId: 'f',
+          ),
+    ),
+    peopleRepositoryProvider.overrideWithValue(people ?? _FakePeopleApi()),
+    placesRepositoryProvider.overrideWithValue(places ?? _FakePlacesApi()),
+    mapboxSearchRepositoryProvider.overrideWithValue(
+      search ?? FakeMapboxSearch(),
+    ),
+    storiesRepositoryProvider.overrideWithValue(
+      stories ?? FakeStoriesRepository(),
+    ),
+    photosRepositoryProvider.overrideWithValue(FakePhotosRepository()),
+  ];
+}
+
 Widget _shell({
   Key? key,
   InviteRepository? invite,
@@ -71,22 +109,24 @@ Widget _shell({
   bool hasMapboxToken = true,
   PlaceMapBuilder? mapBuilder = _defaultStubMap,
 }) {
-  return MaterialApp(
-    home: NewStoryPage(
-      key: key,
-      inviteApi:
-          invite ??
-          FakeInviteRepository(
-            familyId: _familyId,
-            createdFamilyId: _familyId,
-            acceptedFamilyId: 'f',
-          ),
-      peopleApi: people ?? _FakePeopleApi(),
-      placesApi: places ?? _FakePlacesApi(),
-      mapboxSearch: search ?? FakeMapboxSearch(),
-      storiesApi: stories,
-      hasMapboxToken: hasMapboxToken,
-      mapBuilder: mapBuilder,
+  return ProviderScope(
+    key: key,
+    overrides: [
+      ...defaultTestOverrides,
+      ..._overrides(
+        invite: invite,
+        people: people,
+        places: places,
+        search: search,
+        stories: stories,
+      ),
+    ],
+    child: MaterialApp(
+      home: NewStoryPage(
+        key: key,
+        hasMapboxToken: hasMapboxToken,
+        mapBuilder: mapBuilder,
+      ),
     ),
   );
 }
@@ -664,16 +704,7 @@ void main() {
       routes: [
         GoRoute(
           path: '/stories/:storyId/edit',
-          builder: (context, state) => NewStoryPage(
-            inviteApi: FakeInviteRepository(
-              familyId: _familyId,
-              createdFamilyId: _familyId,
-              acceptedFamilyId: 'f',
-            ),
-            peopleApi: _FakePeopleApi(),
-            placesApi: _FakePlacesApi(),
-            mapboxSearch: FakeMapboxSearch(),
-            storiesApi: stories,
+          builder: (context, state) => const NewStoryPage(
             hasMapboxToken: true,
             mapBuilder: _defaultStubMap,
             editStoryId: 's1',
@@ -687,7 +718,11 @@ void main() {
       ],
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpRouterApp(
+      tester,
+      router,
+      overrides: _overrides(stories: stories),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('story-title')), 'Jam revised');
     await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));

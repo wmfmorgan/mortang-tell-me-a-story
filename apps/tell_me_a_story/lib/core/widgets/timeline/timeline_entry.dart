@@ -1,4 +1,4 @@
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
 import 'package:tell_me_a_story/core/widgets/timeline/time_scale.dart';
 
 /// A published story as the timeline views draw it: the app's [Story] plus

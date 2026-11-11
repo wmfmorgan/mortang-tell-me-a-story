@@ -50,28 +50,7 @@ class _DeleteFamilyDialogState extends State<_DeleteFamilyDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Delete ${widget.familyName}?',
-                      style: GoogleFonts.newsreader(
-                        color: albumInk,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              Text(
-                'Hidden for 60 days, then permanently removed. Owner/co-owner can Recover from Manage families. Story tags stay if people are tagged elsewhere.',
-                style: GoogleFonts.literata(color: albumInk, fontSize: 16),
-              ),
+              _Heading(familyName: widget.familyName),
               const SizedBox(height: 16),
               Text(
                 'Type ${widget.familyName} to confirm',
@@ -83,27 +62,76 @@ class _DeleteFamilyDialogState extends State<_DeleteFamilyDialog> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    key: const Key('delete-family-submit'),
-                    onPressed: matches
-                        ? () => Navigator.pop(context, true)
-                        : null,
-                    child: const Text('Confirm delete'),
-                  ),
-                ],
+              _Actions(
+                onConfirm: matches ? () => Navigator.pop(context, true) : null,
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _Heading extends StatelessWidget {
+  const _Heading({required this.familyName});
+
+  final String familyName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Delete $familyName?',
+                style: GoogleFonts.newsreader(
+                  color: albumInk,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(context, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
+        Text(
+          'Hidden for 60 days, then permanently removed. Owner/co-owner can Recover from Manage families. Story tags stay if people are tagged elsewhere.',
+          style: GoogleFonts.literata(color: albumInk, fontSize: 16),
+        ),
+      ],
+    );
+  }
+}
+
+class _Actions extends StatelessWidget {
+  const _Actions({required this.onConfirm});
+
+  final VoidCallback? onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        const SizedBox(width: 8),
+        FilledButton(
+          key: const Key('delete-family-submit'),
+          onPressed: onConfirm,
+          child: const Text('Confirm delete'),
+        ),
+      ],
     );
   }
 }

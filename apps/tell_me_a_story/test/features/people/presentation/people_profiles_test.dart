@@ -4,11 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image/image.dart' as img;
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/invite_repository.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_person.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/person_profile.dart';
+import 'package:tell_me_a_story/core/domain/person_story_card.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
 import 'package:tell_me_a_story/features/family/presentation/start_timeline_dialog.dart';
 import 'package:tell_me_a_story/features/people/presentation/add_person_modal.dart';
 import 'package:tell_me_a_story/features/people/presentation/edit_person_dialog.dart';
@@ -16,6 +26,8 @@ import 'package:tell_me_a_story/features/people/presentation/person_profile_dial
 
 import '../../../support/fakes/fake_invite_repository.dart';
 import '../../../support/fakes/fake_manage_families_repository.dart';
+import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 const _helper =
@@ -230,18 +242,17 @@ void main() {
         email: 'ada@example.com',
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: PersonNamePill(
-              personId: 'p1',
-              name: 'Ada',
-              people: people,
-              signedInUserId: 'me',
-              child: const Text('Ada'),
-            ),
+      await _pump(
+        tester,
+        const Scaffold(
+          body: PersonNamePill(
+            personId: 'p1',
+            name: 'Ada',
+            signedInUserId: 'me',
+            child: Text('Ada'),
           ),
         ),
+        people: people,
       );
       await tester.tap(find.byKey(const Key('person-pill-p1')));
       await tester.pumpAndSettle();
@@ -305,30 +316,29 @@ void main() {
         isLinked: false,
         about: 'Kin',
       );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => showPersonProfile(
-              context,
-              personId: 'p1',
-              name: 'Ada Lovelace',
-              people: people,
-              signedInUserId: 'me',
-              loadStories: (_) async => const [
-                PersonStoryCard(
-                  id: 's1',
-                  title: 'First notes',
-                  whenLabel: 'Summer 1972',
-                  place: 'St. Jude Chapel',
-                  photoCount: 8,
-                ),
-              ],
-            ),
-            child: const Text('open'),
+    await _pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showPersonProfile(
+            context,
+            personId: 'p1',
+            name: 'Ada Lovelace',
+            signedInUserId: 'me',
           ),
+          child: const Text('open'),
         ),
       ),
+      people: people,
+      stories: const [
+        PersonStoryCard(
+          id: 's1',
+          title: 'First notes',
+          whenLabel: 'Summer 1972',
+          place: 'St. Jude Chapel',
+          photoCount: 8,
+        ),
+      ],
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -344,22 +354,18 @@ void main() {
 
   testWidgets('a missing profile shows the name only', (tester) async {
     final people = _People()..missing = true;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () => showPersonProfile(
-                context,
-                personId: 'p1',
-                name: 'Pill Name',
-                people: people,
-              ),
-              child: const Text('open'),
-            ),
+    await _pump(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () =>
+                showPersonProfile(context, personId: 'p1', name: 'Pill Name'),
+            child: const Text('open'),
           ),
         ),
       ),
+      people: people,
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -387,21 +393,20 @@ void main() {
       email: 'ada@example.com',
       about: 'Kin',
     );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => showEditPersonDialog(
-              context,
-              person: person,
-              people: people,
-              invites: invites,
-              signedInUserId: 'me',
-            ),
-            child: const Text('open'),
+    await _pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showEditPersonDialog(
+            context,
+            person: person,
+            signedInUserId: 'me',
           ),
+          child: const Text('open'),
         ),
       ),
+      people: people,
+      invites: invites,
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -475,21 +480,20 @@ void main() {
     final people = _People();
     final bytes = Uint8List.fromList(const [1, 2, 3]);
     Future<void> open(Person person) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => showEditPersonDialog(
-                context,
-                person: person,
-                people: people,
-                signedInUserId: 'me',
-                pickImageBytes: () async => bytes,
-              ),
-              child: const Text('open'),
+      await _pump(
+        tester,
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showEditPersonDialog(
+              context,
+              person: person,
+              signedInUserId: 'me',
+              pickImageBytes: () async => bytes,
             ),
+            child: const Text('open'),
           ),
         ),
+        people: people,
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
@@ -536,26 +540,25 @@ void main() {
 
   testWidgets('a linked self does not open Edit person', (tester) async {
     final people = _People();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => showEditPersonDialog(
-              context,
-              person: const Person(
-                id: 'p1',
-                familyId: _familyId,
-                name: 'Ada',
-                email: 'ada@example.com',
-                userId: 'me',
-              ),
-              people: people,
-              signedInUserId: 'me',
+    await _pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showEditPersonDialog(
+            context,
+            person: const Person(
+              id: 'p1',
+              familyId: _familyId,
+              name: 'Ada',
+              email: 'ada@example.com',
+              userId: 'me',
             ),
-            child: const Text('open'),
+            signedInUserId: 'me',
           ),
+          child: const Text('open'),
         ),
       ),
+      people: people,
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -568,26 +571,25 @@ void main() {
     tester,
   ) async {
     final people = _People();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => showEditPersonDialog(
-              context,
-              person: const Person(
-                id: 'p1',
-                familyId: _familyId,
-                name: 'Ada',
-                email: 'ada@example.com',
-                userId: 'other',
-              ),
-              people: people,
-              signedInUserId: 'me',
+    await _pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showEditPersonDialog(
+            context,
+            person: const Person(
+              id: 'p1',
+              familyId: _familyId,
+              name: 'Ada',
+              email: 'ada@example.com',
+              userId: 'other',
             ),
-            child: const Text('open'),
+            signedInUserId: 'me',
           ),
+          child: const Text('open'),
         ),
       ),
+      people: people,
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -601,28 +603,27 @@ void main() {
     tester,
   ) async {
     var opened = false;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () async {
-              final result = await showEditPersonDialog(
-                context,
-                person: const Person(
-                  id: 'p1',
-                  familyId: _familyId,
-                  name: 'Ada',
-                  userId: 'other',
-                ),
-                people: _People(),
-                signedInUserId: 'me',
-              );
-              opened = result != null;
-            },
-            child: const Text('open'),
-          ),
+    await _pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () async {
+            final result = await showEditPersonDialog(
+              context,
+              person: const Person(
+                id: 'p1',
+                familyId: _familyId,
+                name: 'Ada',
+                userId: 'other',
+              ),
+              signedInUserId: 'me',
+            );
+            opened = result != null;
+          },
+          child: const Text('open'),
         ),
       ),
+      people: _People(),
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -634,42 +635,44 @@ void main() {
     tester,
   ) async {
     final people = _People();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => showStartTimelineDialog(
-              context,
-              parentId: _familyId,
-              parentName: 'Ada',
-              stories: [
-                Story(
-                  id: 's1',
-                  familyId: _familyId,
-                  authorId: 'me',
-                  timeframeStart: DateTime(1980, 1, 1),
-                  status: StoryStatus.published,
-                  people: const [(id: 'p1', name: 'Bea')],
-                  personNames: const ['Bea'],
-                ),
-              ],
-              familiesApi: _Families(),
-              peopleApi: people,
-              manageApi: FakeManageFamiliesRepository()
-                ..error = StateError('unexpected call'),
-              currentUserId: 'me',
-              origin: Story(
+    await _pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showStartTimelineDialog(
+            context,
+            parentId: _familyId,
+            parentName: 'Ada',
+            stories: [
+              Story(
                 id: 's1',
                 familyId: _familyId,
                 authorId: 'me',
                 timeframeStart: DateTime(1980, 1, 1),
                 status: StoryStatus.published,
+                people: const [(id: 'p1', name: 'Bea')],
+                personNames: const ['Bea'],
               ),
+            ],
+            currentUserId: 'me',
+            origin: Story(
+              id: 's1',
+              familyId: _familyId,
+              authorId: 'me',
+              timeframeStart: DateTime(1980, 1, 1),
+              status: StoryStatus.published,
             ),
-            child: const Text('open'),
           ),
+          child: const Text('open'),
         ),
       ),
+      people: people,
+      overrides: [
+        familiesRepositoryProvider.overrideWithValue(_Families()),
+        manageFamiliesRepositoryProvider.overrideWithValue(
+          FakeManageFamiliesRepository()..error = StateError('unexpected call'),
+        ),
+      ],
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -732,25 +735,24 @@ void main() {
     tester,
   ) async {
     final people = _People()..picture = _png();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => showEditPersonDialog(
-              context,
-              person: const Person(
-                id: 'p1',
-                familyId: _familyId,
-                name: 'Ada',
-                avatarPath: 'p1/avatar.jpg',
-              ),
-              people: people,
-              signedInUserId: 'me',
+    await _pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showEditPersonDialog(
+            context,
+            person: const Person(
+              id: 'p1',
+              familyId: _familyId,
+              name: 'Ada',
+              avatarPath: 'p1/avatar.jpg',
             ),
-            child: const Text('open'),
+            signedInUserId: 'me',
           ),
+          child: const Text('open'),
         ),
       ),
+      people: people,
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -762,27 +764,47 @@ void main() {
   });
 }
 
+Future<void> _pump(
+  WidgetTester tester,
+  Widget home, {
+  PeopleRepository? people,
+  InviteRepository? invites,
+  List<PersonStoryCard> stories = const [],
+  List<Override> overrides = const [],
+}) {
+  return pumpApp(
+    tester,
+    home,
+    overrides: [
+      peopleRepositoryProvider.overrideWithValue(people ?? _People()),
+      inviteRepositoryProvider.overrideWithValue(
+        invites ?? FakeInviteRepository(),
+      ),
+      storiesRepositoryProvider.overrideWithValue(
+        FakeStoriesRepository()..personStories['p1'] = stories,
+      ),
+      ...overrides,
+    ],
+  );
+}
+
 Future<void> _openAdd(
   WidgetTester tester,
   _People api, {
   InviteRepository? invites,
 }) async {
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: TextButton(
-            onPressed: () => AddPersonModal.show(
-              context,
-              familyId: _familyId,
-              api: api,
-              invites: invites,
-            ),
-            child: const Text('open'),
-          ),
+  await _pump(
+    tester,
+    Builder(
+      builder: (context) => Scaffold(
+        body: TextButton(
+          onPressed: () => AddPersonModal.show(context, familyId: _familyId),
+          child: const Text('open'),
         ),
       ),
     ),
+    people: api,
+    invites: invites,
   );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
@@ -909,22 +931,21 @@ Future<void> _openProfileWith(
 }) async {
   await tester.binding.setSurfaceSize(const Size(900, 1400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Builder(
-        builder: (context) => TextButton(
-          onPressed: () => showPersonProfile(
-            context,
-            personId: 'p1',
-            name: 'Ada',
-            people: people,
-            signedInUserId: 'me',
-            loadStories: (_) async => stories,
-          ),
-          child: const Text('open'),
+  await _pump(
+    tester,
+    Builder(
+      builder: (context) => TextButton(
+        onPressed: () => showPersonProfile(
+          context,
+          personId: 'p1',
+          name: 'Ada',
+          signedInUserId: 'me',
         ),
+        child: const Text('open'),
       ),
     ),
+    people: people,
+    stories: stories,
   );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();

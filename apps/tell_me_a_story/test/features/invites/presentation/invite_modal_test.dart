@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tell_me_a_story/core/env.dart';
-import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/invite_repository.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/create_invite_result.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
 import 'package:tell_me_a_story/features/invites/presentation/invite_modal.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_page.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
+import '../../../support/fakes/fake_photos_repository.dart';
+import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 class _MemberOf extends FamiliesRepository {
   _MemberOf(this.id);
@@ -67,14 +76,22 @@ void main() {
   });
 
   testWidgets('timeline header shows Invite and New story', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        builder: albumAppBuilder,
-        home: TimelinePage(
-          api: _StubInviteApi(),
-          familiesApi: _MemberOf('family-1'),
-        ),
-      ),
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (context, state) => const TimelinePage()),
+      ],
+    );
+    addTearDown(router.dispose);
+    await pumpRouterApp(
+      tester,
+      router,
+      overrides: [
+        inviteRepositoryProvider.overrideWithValue(_StubInviteApi()),
+        familiesRepositoryProvider.overrideWithValue(_MemberOf('family-1')),
+        storiesRepositoryProvider.overrideWithValue(FakeStoriesRepository()),
+        photosRepositoryProvider.overrideWithValue(FakePhotosRepository()),
+        peopleRepositoryProvider.overrideWithValue(_NoPeople()),
+      ],
     );
     await tester.pumpAndSettle();
     expect(find.text('New story'), findsOneWidget);
@@ -462,6 +479,24 @@ class _EmailPeople extends PeopleRepository {
   }
 }
 
+/// No people: the modal shows no picks and no "Not invited yet" list.
+class _NoPeople extends PeopleRepository {
+  @override
+  Future<List<Person>> listPeople(String familyId) async => const [];
+
+  @override
+  Future<Person> createPerson({
+    required String familyId,
+    required String name,
+    String? about,
+    String? email,
+    bool passedAway = false,
+    List<int>? pictureBytes,
+  }) {
+    throw UnimplementedError();
+  }
+}
+
 class _UnlinkedPeople extends PeopleRepository {
   @override
   Future<List<Person>> listPeople(String familyId) async => const [];
@@ -489,23 +524,24 @@ Future<void> _open(
   _StubInviteApi api, {
   PeopleRepository? people,
 }) async {
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => InviteModal.show(
-              context,
-              familyId: '00000000-0000-0000-0000-000000000001',
-              familyName: 'Ada',
-              api: api,
-              people: people,
-            ),
-            child: const Text('open'),
+  await pumpApp(
+    tester,
+    Scaffold(
+      body: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => InviteModal.show(
+            context,
+            familyId: '00000000-0000-0000-0000-000000000001',
+            familyName: 'Ada',
           ),
+          child: const Text('open'),
         ),
       ),
     ),
+    overrides: [
+      inviteRepositoryProvider.overrideWithValue(api),
+      peopleRepositoryProvider.overrideWithValue(people ?? _NoPeople()),
+    ],
   );
   await tester.tap(find.text('open'));
   await tester.pump();

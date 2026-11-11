@@ -3,7 +3,8 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:tell_me_a_story/core/data/profile_repository.dart';
+import 'package:tell_me_a_story/core/data/server_profile_repository.dart';
+import 'package:tell_me_a_story/core/domain/birth_visibility.dart';
 
 import 'support/live_server.dart';
 

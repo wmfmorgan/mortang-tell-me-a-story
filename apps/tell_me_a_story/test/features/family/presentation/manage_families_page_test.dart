@@ -1,11 +1,24 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_detail.dart';
+import 'package:tell_me_a_story/core/domain/family_directory.dart';
+import 'package:tell_me_a_story/core/domain/family_directory_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_invite.dart';
+import 'package:tell_me_a_story/core/domain/family_person.dart';
+import 'package:tell_me_a_story/core/domain/family_roster.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
 import 'package:tell_me_a_story/core/session/family_selection.dart';
 import 'package:tell_me_a_story/features/family/presentation/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/presentation/manage_family_page.dart';
@@ -13,6 +26,7 @@ import 'package:tell_me_a_story/features/invites/presentation/invite_modal.dart'
 
 import '../../../support/fakes/fake_invite_repository.dart';
 import '../../../support/fakes/fake_manage_families_repository.dart';
+import '../../../support/pump_app.dart';
 
 void main() {
   late _Directory directory;
@@ -20,9 +34,23 @@ void main() {
   late GoRouter router;
   String? viewerId = 'me';
 
+  /// Repository fakes. No invite override: the session family falls back to
+  /// the remembered one, as the routes did without an invite gateway.
+  List<Override> overrides({InviteRepository? invite}) => [
+    familyDirectoryRepositoryProvider.overrideWithValue(directory),
+    manageFamiliesRepositoryProvider.overrideWithValue(manage),
+    familiesRepositoryProvider.overrideWithValue(_HubFamilies(directory)),
+    inviteRepositoryProvider.overrideWithValue(
+      invite ?? FakeInviteRepository(familyId: null),
+    ),
+    peopleRepositoryProvider.overrideWithValue(_People()),
+  ];
+
+  String? remembered(WidgetTester tester) =>
+      containerOf(tester).read(familySelectionProvider);
+
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
     viewerId = 'me';
     directory = _Directory();
     manage = _Manage(directory);
@@ -31,18 +59,12 @@ void main() {
       routes: [
         GoRoute(
           path: AppRoutes.manageFamilies,
-          builder: (context, state) => ManageFamiliesPage(
-            directoryApi: directory,
-            manageApi: manage,
-            familiesApi: _HubFamilies(directory),
-          ),
+          builder: (context, state) => const ManageFamiliesPage(),
         ),
         GoRoute(
           path: AppRoutes.manageFamily,
           builder: (context, state) => ManageFamilyPage(
-            familyId: state.pathParameters['familyId']!,
-            directoryApi: directory,
-            manageApi: manage,
+            familyId: state.pathParameters['familyId'] ?? '',
             currentUserId: viewerId,
           ),
         ),
@@ -78,14 +100,22 @@ void main() {
 
   tearDown(() {
     router.dispose();
-    FamilySelection.clear();
   });
 
-  Future<void> show(WidgetTester tester, {String? location}) async {
+  Future<void> show(
+    WidgetTester tester, {
+    String? location,
+    String? rememberedFamilyId,
+  }) async {
     await tester.binding.setSurfaceSize(const Size(900, 2200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     if (location != null) router.go(location);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpRouterApp(tester, router, overrides: overrides());
+    if (rememberedFamilyId != null) {
+      containerOf(tester)
+          .read(familySelectionProvider.notifier)
+          .remember(rememberedFamilyId);
+    }
     await tester.pumpAndSettle();
   }
 
@@ -136,20 +166,16 @@ void main() {
   });
 
   testWidgets('header invite opens for the current family', (tester) async {
-    FamilySelection.clear();
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ManageFamiliesPage(
-          directoryApi: directory,
-          manageApi: manage,
-          inviteApi: FakeInviteRepository(
-            familyId: 'fam-1',
-            createdFamilyId: 'fam-1',
-            acceptedFamilyId: 'fam-1',
-          ),
-          familiesApi: _HubFamilies(directory),
+    await pumpApp(
+      tester,
+      const ManageFamiliesPage(),
+      overrides: overrides(
+        invite: FakeInviteRepository(
+          familyId: 'fam-1',
+          createdFamilyId: 'fam-1',
+          acceptedFamilyId: 'fam-1',
         ),
       ),
     );
@@ -177,7 +203,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/manage-families/fam-1');
-    expect(FamilySelection.id, isNull);
+    expect(remembered(tester), isNull);
     expect(find.byKey(const Key('manage-family-detail')), findsOneWidget);
   });
 
@@ -233,7 +259,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(manage.callsTo('createRootFamily'), ['North Archive']);
-    expect(FamilySelection.id, 'created-1');
+    expect(remembered(tester), 'created-1');
     expect(router.state.uri.path, AppRoutes.familyLanding);
     expect(find.text('landing-landed'), findsOneWidget);
   });
@@ -706,8 +732,11 @@ void main() {
     tester,
   ) async {
     directory.detail = _detail(role: 'owner');
-    FamilySelection.remember('fam-1');
-    await show(tester, location: '/manage-families/fam-1');
+    await show(
+      tester,
+      location: '/manage-families/fam-1',
+      rememberedFamilyId: 'fam-1',
+    );
 
     await tester.tap(find.byKey(const Key('manage-family-delete')));
     await tester.pumpAndSettle();
@@ -740,7 +769,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(manage.callsTo('softDeleteFamily'), ['fam-1']);
-    expect(FamilySelection.id, isNull);
+    expect(remembered(tester), isNull);
     expect(router.state.uri.path, AppRoutes.manageFamilies);
   });
 }
@@ -900,5 +929,23 @@ class _HubFamilies extends FamiliesRepository {
             deletedAt: row.deletedAt,
           ),
     ];
+  }
+}
+
+/// The invite modal reads people; this hub has none to offer.
+class _People extends PeopleRepository {
+  @override
+  Future<List<Person>> listPeople(String familyId) async => const [];
+
+  @override
+  Future<Person> createPerson({
+    required String familyId,
+    required String name,
+    String? about,
+    String? email,
+    bool passedAway = false,
+    List<int>? pictureBytes,
+  }) {
+    throw UnimplementedError();
   }
 }

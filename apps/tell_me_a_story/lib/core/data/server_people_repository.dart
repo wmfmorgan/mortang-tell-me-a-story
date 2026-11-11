@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/compressed_photo.dart';
 import 'package:tell_me_a_story/core/data/server/server_errors.dart';
 import 'package:tell_me_a_story/core/data/server/wire.dart';
 import 'package:tell_me_a_story/core/domain/people_repository.dart';

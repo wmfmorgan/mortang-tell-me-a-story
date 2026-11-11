@@ -1,17 +1,36 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/app.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/domain/comments_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_covers_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_directory_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_link_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/perspectives_repository.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
+import 'package:tell_me_a_story/core/domain/story_thumbs.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/session/auth_refresh.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/features/drafts/presentation/drafts_page.dart';
+import 'package:tell_me_a_story/features/search/domain/search_repository.dart';
 import 'package:tell_me_a_story/features/stories/presentation/new_story_page.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
@@ -19,6 +38,7 @@ import '../../../support/fakes/fake_mapbox_search.dart';
 import '../../../support/fakes/fake_photos_repository.dart';
 import '../../../support/fakes/fake_places_repository.dart';
 import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -102,26 +122,33 @@ class _StubPeopleApi extends PeopleRepository {
   }
 }
 
-Widget _drafts({
+FakeInviteRepository _invite() => FakeInviteRepository(
+  familyId: _familyId,
+  createdFamilyId: _familyId,
+  acceptedFamilyId: 'f',
+);
+
+Future<void> _pumpDrafts(
+  WidgetTester tester, {
   required StoriesRepository stories,
   FamiliesRepository? families,
 }) {
-  return MaterialApp(
-    home: DraftsPage(
-      inviteApi: FakeInviteRepository(
-        familyId: _familyId,
-        createdFamilyId: _familyId,
-        acceptedFamilyId: 'f',
+  return pumpApp(
+    tester,
+    const DraftsPage(),
+    overrides: [
+      inviteRepositoryProvider.overrideWithValue(_invite()),
+      storiesRepositoryProvider.overrideWithValue(stories),
+      familiesRepositoryProvider.overrideWithValue(
+        families ?? _FakeFamilies(const []),
       ),
-      storiesApi: stories,
-      familiesApi: families,
-    ),
+    ],
   );
 }
 
 void main() {
   testWidgets('empty drafts copy', (tester) async {
-    await tester.pumpWidget(_drafts(stories: _FakeStoriesApi(drafts: [])));
+    await _pumpDrafts(tester, stories: _FakeStoriesApi(drafts: []));
     await tester.pumpAndSettle();
     expect(
       find.text(
@@ -133,7 +160,7 @@ void main() {
   });
 
   testWidgets('list load failure is not empty copy', (tester) async {
-    await tester.pumpWidget(_drafts(stories: _ThrowingListStoriesApi()));
+    await _pumpDrafts(tester, stories: _ThrowingListStoriesApi());
     await tester.pumpAndSettle();
     expect(find.text('Couldn’t load drafts. Try again.'), findsOneWidget);
     expect(
@@ -145,27 +172,26 @@ void main() {
   });
 
   testWidgets('loading copy', (tester) async {
-    await tester.pumpWidget(_drafts(stories: _SlowStoriesApi()));
+    await _pumpDrafts(tester, stories: _SlowStoriesApi());
     await tester.pump();
     expect(find.text('Loading drafts…'), findsOneWidget);
   });
 
   testWidgets('missing-field chips and Ready to publish', (tester) async {
-    await tester.pumpWidget(
-      _drafts(
-        stories: _FakeStoriesApi(
-          drafts: [
-            _draft(body: null, personIds: [], placeId: null),
-            _draft(
-              id: 's2',
-              title: 'Jam',
-              body: 'We made jam on the porch.',
-              personIds: const ['p'],
-              placeId: 'pl',
-              photoCount: 0,
-            ),
-          ],
-        ),
+    await _pumpDrafts(
+      tester,
+      stories: _FakeStoriesApi(
+        drafts: [
+          _draft(body: null, personIds: [], placeId: null),
+          _draft(
+            id: 's2',
+            title: 'Jam',
+            body: 'We made jam on the porch.',
+            personIds: const ['p'],
+            placeId: 'pl',
+            photoCount: 0,
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -187,20 +213,19 @@ void main() {
   });
 
   testWidgets('filter chips hide non-matching rows', (tester) async {
-    await tester.pumpWidget(
-      _drafts(
-        stories: _FakeStoriesApi(
-          drafts: [
-            _draft(id: 's1', body: null, personIds: [], placeId: null),
-            _draft(
-              id: 's2',
-              title: 'Jam',
-              body: 'We made jam on the porch.',
-              personIds: const ['p'],
-              placeId: 'pl',
-            ),
-          ],
-        ),
+    await _pumpDrafts(
+      tester,
+      stories: _FakeStoriesApi(
+        drafts: [
+          _draft(id: 's1', body: null, personIds: [], placeId: null),
+          _draft(
+            id: 's2',
+            title: 'Jam',
+            body: 'We made jam on the porch.',
+            personIds: const ['p'],
+            placeId: 'pl',
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -214,17 +239,16 @@ void main() {
   });
 
   testWidgets('draft card prefers a saved title', (tester) async {
-    await tester.pumpWidget(
-      _drafts(
-        stories: _FakeStoriesApi(
-          drafts: [
-            _draft(
-              id: 's3',
-              title: 'Making Blackberry Jam on the Back Porch',
-              body: 'We spent the afternoon.',
-            ),
-          ],
-        ),
+    await _pumpDrafts(
+      tester,
+      stories: _FakeStoriesApi(
+        drafts: [
+          _draft(
+            id: 's3',
+            title: 'Making Blackberry Jam on the Back Porch',
+            body: 'We spent the afternoon.',
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -238,26 +262,41 @@ void main() {
   testWidgets('Continue writing goes to /stories/new?draft=id', (tester) async {
     final auth = AuthRefresh(initiallySignedIn: true);
     addTearDown(auth.dispose);
-    final router = createAppRouter(
-      authRefresh: auth,
-      inviteApi: FakeInviteRepository(
-        familyId: _familyId,
-        createdFamilyId: _familyId,
-        acceptedFamilyId: 'f',
-      ),
-      peopleApi: _StubPeopleApi(),
-      placesApi: FakePlacesRepository(),
-      mapboxSearch: FakeMapboxSearch(),
-      storiesApi: _FakeStoriesApi(
-        drafts: [_draft(id: 's1', body: 'Jam')],
-      ),
-      photosApi: FakePhotosRepository(),
+    final container = ProviderContainer(
+      overrides: [
+        ...defaultTestOverrides,
+        authRefreshProvider.overrideWithValue(auth),
+        inviteRepositoryProvider.overrideWithValue(_invite()),
+        peopleRepositoryProvider.overrideWithValue(_StubPeopleApi()),
+        placesRepositoryProvider.overrideWithValue(FakePlacesRepository()),
+        mapboxSearchRepositoryProvider.overrideWithValue(FakeMapboxSearch()),
+        storiesRepositoryProvider.overrideWithValue(
+          _FakeStoriesApi(
+            drafts: [_draft(id: 's1', body: 'Jam')],
+          ),
+        ),
+        photosRepositoryProvider.overrideWithValue(FakePhotosRepository()),
+        familiesRepositoryProvider.overrideWithValue(
+          _FakeFamilies([
+            MemberFamily(
+              id: _familyId,
+              name: 'Family',
+              createdAt: DateTime.utc(2020),
+            ),
+          ]),
+        ),
+        ..._offlineOverrides(),
+      ],
     );
+    addTearDown(container.dispose);
+    final router = container.read(appRouterProvider);
 
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const App()),
+    );
     await tester.pumpAndSettle();
 
     router.go(AppRoutes.drafts);
@@ -285,7 +324,7 @@ void main() {
 
   testWidgets('Discard calls discard and removes the row', (tester) async {
     final api = _FakeStoriesApi(drafts: [_draft(id: 's1')]);
-    await tester.pumpWidget(_drafts(stories: api));
+    await _pumpDrafts(tester, stories: api);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Discard draft'));
@@ -303,7 +342,7 @@ void main() {
 
   testWidgets('a failed discard keeps the draft row', (tester) async {
     final api = _FakeStoriesApi(drafts: [_draft(id: 's1')])..failDiscard = true;
-    await tester.pumpWidget(_drafts(stories: api));
+    await _pumpDrafts(tester, stories: api);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Discard draft'));
@@ -317,21 +356,15 @@ void main() {
   testWidgets('drafts bar keeps Drafts and switches the family list', (
     tester,
   ) async {
-    addTearDown(FamilySelection.clear);
     const otherId = '00000000-0000-0000-0000-000000000002';
     final stories = _FakeStoriesApi(drafts: [_draft()]);
-    await tester.pumpWidget(
-      _drafts(
-        stories: stories,
-        families: _FakeFamilies([
-          MemberFamily(
-            id: _familyId,
-            name: 'Ada',
-            createdAt: DateTime.utc(2020),
-          ),
-          MemberFamily(id: otherId, name: 'Bea', createdAt: DateTime.utc(2021)),
-        ]),
-      ),
+    await _pumpDrafts(
+      tester,
+      stories: stories,
+      families: _FakeFamilies([
+        MemberFamily(id: _familyId, name: 'Ada', createdAt: DateTime.utc(2020)),
+        MemberFamily(id: otherId, name: 'Bea', createdAt: DateTime.utc(2021)),
+      ]),
     );
     await tester.pumpAndSettle();
 
@@ -375,8 +408,9 @@ void main() {
       status: StoryStatus.draft,
       createdAt: DateTime.utc(2020, 6),
     );
-    await tester.pumpWidget(
-      _drafts(stories: _FakeStoriesApi(drafts: [undated, dated])),
+    await _pumpDrafts(
+      tester,
+      stories: _FakeStoriesApi(drafts: [undated, dated]),
     );
     await tester.pumpAndSettle();
 
@@ -407,3 +441,39 @@ class _FakeFamilies extends FamiliesRepository {
   @override
   Future<List<StewardFamily>> listStewarded() async => const [];
 }
+
+const _offline = AppException(
+  code: AppErrorCode.unauthenticated,
+  message: 'offline',
+);
+
+/// Repositories this test does not exercise fail like an unreachable server.
+mixin _Offline {
+  @override
+  Object? noSuchMethod(Invocation invocation) => Future<Never>.error(_offline);
+}
+
+class _OfflineDirectory with _Offline implements FamilyDirectoryRepository {}
+
+class _OfflineCovers with _Offline implements FamilyCoversRepository {}
+
+class _OfflineManage with _Offline implements ManageFamiliesRepository {}
+
+class _OfflineInviteLink with _Offline implements InviteLinkRepository {}
+
+class _OfflineComments with _Offline implements CommentsRepository {}
+
+class _OfflinePerspectives with _Offline implements PerspectivesRepository {}
+
+class _OfflineSearch with _Offline implements SearchRepository {}
+
+List<Override> _offlineOverrides() => [
+  familyDirectoryRepositoryProvider.overrideWithValue(_OfflineDirectory()),
+  familyCoversRepositoryProvider.overrideWithValue(_OfflineCovers()),
+  manageFamiliesRepositoryProvider.overrideWithValue(_OfflineManage()),
+  inviteLinkRepositoryProvider.overrideWithValue(_OfflineInviteLink()),
+  commentsRepositoryProvider.overrideWithValue(_OfflineComments()),
+  perspectivesRepositoryProvider.overrideWithValue(_OfflinePerspectives()),
+  searchRepositoryProvider.overrideWithValue(_OfflineSearch()),
+  storyThumbsLoaderProvider.overrideWithValue((stories) async => const {}),
+];

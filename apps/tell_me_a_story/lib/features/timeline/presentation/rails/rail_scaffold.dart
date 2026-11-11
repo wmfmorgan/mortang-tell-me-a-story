@@ -204,8 +204,51 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
     Widget? action,
     Widget? notice,
   }) {
-    return _ArrowKeys(
+    return _RailFrame(
       onStep: step,
+      onScrolled: () {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) measure();
+        });
+      },
+      subheader: DialSubheader(
+        selected: selected,
+        onMacro: onMacro,
+        onMid: onMid,
+        onFullCards: onFullCards,
+        action: action,
+      ),
+      notice: notice,
+      onEmpty: onEmpty,
+      viewport: viewport,
+    );
+  }
+}
+
+/// Layout behind [RailScaffold.buildRail]: the subheader, the optional
+/// notice, and the empty-tap viewport that reports scrolls.
+class _RailFrame extends StatelessWidget {
+  const _RailFrame({
+    required this.onStep,
+    required this.onScrolled,
+    required this.subheader,
+    required this.notice,
+    required this.onEmpty,
+    required this.viewport,
+  });
+
+  final ValueChanged<int> onStep;
+  final VoidCallback onScrolled;
+  final Widget subheader;
+  final Widget? notice;
+  final VoidCallback onEmpty;
+  final Widget viewport;
+
+  @override
+  Widget build(BuildContext context) {
+    final pinned = notice;
+    return _ArrowKeys(
+      onStep: onStep,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -216,15 +259,9 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
               AlbumSpace.xl,
               0,
             ),
-            child: DialSubheader(
-              selected: selected,
-              onMacro: onMacro,
-              onMid: onMid,
-              onFullCards: onFullCards,
-              action: action,
-            ),
+            child: subheader,
           ),
-          if (notice != null)
+          if (pinned != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 AlbumSpace.xl,
@@ -232,21 +269,13 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
                 AlbumSpace.xl,
                 AlbumSpace.l,
               ),
-              child: notice,
+              child: pinned,
             ),
           Expanded(
             child: _EmptyTap(
               onTap: onEmpty,
               child: NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  if (notification is ScrollUpdateNotification ||
-                      notification is ScrollEndNotification) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) measure();
-                    });
-                  }
-                  return false;
-                },
+                onNotification: _onScroll,
                 child: viewport,
               ),
             ),
@@ -254,6 +283,14 @@ mixin RailScaffold<W extends StatefulWidget, K> on State<W> {
         ],
       ),
     );
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification ||
+        notification is ScrollEndNotification) {
+      onScrolled();
+    }
+    return false;
   }
 }
 

@@ -1,223 +1,86 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/domain/cover_photo_exception.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/core/session/app_session_provider.dart';
+import 'package:tell_me_a_story/core/session/family_selection.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/core/widgets/album/album_chrome.dart';
 import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/family_covers_repository.dart';
-import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/invite_repository.dart';
-import 'package:tell_me_a_story/core/data/manage_families_repository.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
-import 'package:tell_me_a_story/features/invites/presentation/invite_modal.dart';
-import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
 import 'package:tell_me_a_story/core/widgets/family/family_role.dart';
+import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
+import 'package:tell_me_a_story/features/family/presentation/family_providers.dart';
 import 'package:tell_me_a_story/features/family/presentation/start_timeline_host.dart';
+import 'package:tell_me_a_story/features/invites/presentation/invite_modal.dart';
 
 /// Default home for a live family. Hero, then the Latest shelf.
-class FamilyLandingPage extends StatefulWidget {
-  const FamilyLandingPage({
-    super.key,
-    this.api,
-    this.storiesApi,
-    this.familiesApi,
-    this.photosApi,
-    this.peopleApi,
-    this.manageApi,
-    this.loadLatest,
-    this.pickImage,
-    this.now,
-  });
+class FamilyLandingPage extends ConsumerStatefulWidget {
+  const FamilyLandingPage({super.key, this.pickImage, this.now = utcNow});
 
-  final InviteRepository? api;
-  final StoriesRepository? storiesApi;
-  final FamiliesRepository? familiesApi;
-  final PhotosRepository? photosApi;
-  final PeopleRepository? peopleApi;
-  final ManageFamiliesRepository? manageApi;
-  final Future<List<Story>> Function(String familyId)? loadLatest;
   final Future<Uint8List?> Function()? pickImage;
-  final DateTime Function()? now;
+
+  /// Clock for the Latest window. Must be stable across rebuilds.
+  final DateTime Function() now;
 
   @override
-  State<FamilyLandingPage> createState() => _FamilyLandingPageState();
+  ConsumerState<FamilyLandingPage> createState() => _FamilyLandingPageState();
 }
 
-class _FamilyLandingPageState extends State<FamilyLandingPage> {
-  List<MemberFamily> _families = const [];
-  List<StewardFamily> _stewarded = const [];
-  List<TreeFamily> _tree = const [];
-  Set<String> _memberIds = FamilyMembership.ids;
-  String? _familyId;
-  List<Story> _latest = const [];
-  Map<String, Uint8List> _thumbs = const {};
-  Uint8List? _coverBytes;
-  var _loading = true;
+class _FamilyLandingPageState extends ConsumerState<FamilyLandingPage> {
+  FamilyLandingProvider get _provider =>
+      familyLandingProvider(clock: widget.now);
 
-  DateTime get _now => widget.now?.call() ?? DateTime.now().toUtc();
+  /// Last loaded data; kept while a reload shows the blank body.
+  FamilyLandingData? get _data => ref.read(_provider).value;
 
-  MemberFamily? get _family {
-    final id = _familyId;
-    for (final family in _families) {
-      if (family.id == id) return family;
-    }
-    return null;
-  }
-
-  bool get _canEditCover => originSteward(_family?.role);
-
-  bool get _canWrite {
-    final id = _familyId;
-    return id != null && _memberIds.contains(id);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final gateway = widget.familiesApi;
-    List<MemberFamily> rows = const [];
-    List<StewardFamily> stewarded = const [];
-    var memberIds = <String>{};
-    try {
-      if (gateway != null) {
-        rows = await gateway.listMine();
-        stewarded = await gateway.listStewarded();
-      } else {
-        final live = ServerFamiliesRepository();
-        rows = await live.listMine();
-        stewarded = await live.listStewarded();
-      }
-      memberIds = rows.map((row) => row.id).toSet();
-      FamilyMembership.remember(memberIds);
-    } catch (_) {
-      rows = const [];
-      stewarded = const [];
-      memberIds = {};
-    }
-
-    var familyId = FamilySelection.id;
-    if (rows.isNotEmpty &&
-        (familyId == null || !rows.any((family) => family.id == familyId))) {
-      familyId = rows.first.id;
-      FamilySelection.remember(familyId);
-    }
-
-    List<TreeFamily> tree = const [];
-    if (familyId != null) {
-      try {
-        if (gateway != null) {
-          tree = await gateway.listFamilyTree(familyId);
-        } else {
-          tree = await ServerFamiliesRepository().listFamilyTree(familyId);
-        }
-      } catch (_) {
-        tree = const [];
-      }
-    }
-
-    var latest = const <Story>[];
-    if (familyId != null) {
-      try {
-        latest = latestShelf(await _fetchLatest(familyId), now: _now);
-      } catch (_) {
-        latest = const [];
-      }
-    }
-
-    final family = _familyFrom(rows, familyId);
-    Uint8List? cover;
-    if (family?.coverPhotoPath case final path?) {
-      cover = await _downloadCover(path);
-    }
-    final thumbs = await downloadFirstThumbs(latest, widget.photosApi);
-
-    if (!mounted) return;
-    setState(() {
-      _families = rows;
-      _stewarded = stewarded;
-      _tree = tree;
-      _memberIds = memberIds;
-      _familyId = familyId;
-      _latest = latest;
-      _coverBytes = cover;
-      _thumbs = thumbs;
-      _loading = false;
-    });
-  }
-
-  MemberFamily? _familyFrom(List<MemberFamily> rows, String? id) {
-    for (final family in rows) {
-      if (family.id == id) return family;
-    }
-    return null;
-  }
-
-  Future<List<Story>> _fetchLatest(String familyId) {
-    final load = widget.loadLatest;
-    if (load != null) return load(familyId);
-    final api = widget.storiesApi ?? ServerStoriesRepository();
-    return api.listLatestPublished(familyId, now: _now);
-  }
-
-  Future<Uint8List?> _downloadCover(String? path) async {
-    final families = widget.familiesApi;
-    try {
-      if (families is FamilyCoverClient) {
-        return await (families as FamilyCoverClient).download(path);
-      }
-      if (families == null) {
-        return await ServerFamilyCoversRepository().download(path);
-      }
-    } catch (_) {
-      return null;
-    }
-    return null;
+  Future<void> _reload() async {
+    ref.invalidate(_provider);
+    await ref.read(_provider.future);
   }
 
   Future<void> _selectFamily(String id) async {
-    FamilySelection.remember(id);
-    if (id == _familyId) return;
-    setState(() => _loading = true);
-    await _load();
+    ref.read(familySelectionProvider.notifier).remember(id);
+    if (id == _data?.familyId) return;
+    await _reload();
   }
 
   Future<void> _openInvite() async {
-    final family = _family;
-    final id = family?.id ?? _familyId;
+    final data = _data;
+    final family = data?.family;
+    final id = family?.id ?? data?.familyId;
     if (id == null || !mounted) return;
     await InviteModal.show(
       context,
       familyId: id,
       familyName: family?.name ?? 'Family',
-      api: widget.api,
-      people: widget.peopleApi,
     );
   }
 
   Future<void> _startTimeline() async {
-    final family = _family;
+    final family = _data?.family;
     if (family == null || !mounted) return;
-    final userId = AppSession.instance.currentUserId;
+    final userId = ref.read(appSessionProvider).currentUserId;
     if (userId == null) return;
     List<Story> stories = const [];
     try {
-      final api = widget.storiesApi ?? ServerStoriesRepository();
-      stories = await api.listPublished(family.id);
+      stories = await ref
+          .read(storiesRepositoryProvider)
+          .listPublished(family.id);
     } catch (error) {
+      // Mapped to copy and shown in a snack.
       if (!mounted) return;
       _snack(appErrorMessage(error) ?? 'Try again');
       return;
@@ -229,14 +92,9 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
       parentName: family.name,
       stories: stories,
       userId: userId,
-      familiesApi: widget.familiesApi ?? ServerFamiliesRepository(),
-      peopleApi: widget.peopleApi ?? ServerPeopleRepository(),
-      manageApi: widget.manageApi ?? ServerManageFamiliesRepository(),
     );
     if (created == null || !mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${created.name} timeline created')));
+    _snack('${created.name} timeline created');
   }
 
   void _snack(String message) {
@@ -245,8 +103,8 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
   }
 
   Future<void> _editCover() async {
-    final family = _family;
-    if (family == null || !_canEditCover) return;
+    final family = _data?.family;
+    if (family == null || !originSteward(family.role)) return;
     final bytes = await _pickBytes();
     if (bytes == null || !mounted) return;
     final choice = await showDialog<_CoverChoice>(
@@ -258,23 +116,11 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     );
     if (!mounted || choice == null) return;
     try {
-      final api = widget.familiesApi ?? ServerFamiliesRepository();
-      if (choice.remove) {
-        await api.clearCoverPhoto(
-          familyId: family.id,
-          path: family.coverPhotoPath,
-        );
-      } else {
-        await api.setCoverPhoto(
-          familyId: family.id,
-          bytes: choice.bytes!,
-          previousPath: family.coverPhotoPath,
-        );
-      }
+      await _applyCover(family, choice);
       if (!mounted) return;
-      setState(() => _loading = true);
-      await _load();
+      await _reload();
     } catch (error) {
+      // Mapped to copy and shown in a snack.
       if (!mounted) return;
       _snack(
         error is CoverPhotoException
@@ -282,6 +128,23 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
             : appErrorMessage(error) ??
                   'Couldn’t save the family photo. Try again.',
       );
+    }
+  }
+
+  Future<void> _applyCover(MemberFamily family, _CoverChoice choice) async {
+    final api = ref.read(familiesRepositoryProvider);
+    switch (choice.bytes) {
+      case final bytes?:
+        await api.setCoverPhoto(
+          familyId: family.id,
+          bytes: bytes,
+          previousPath: family.coverPhotoPath,
+        );
+      case null:
+        await api.clearCoverPhoto(
+          familyId: family.id,
+          path: family.coverPhotoPath,
+        );
     }
   }
 
@@ -293,63 +156,91 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     return file.readAsBytes();
   }
 
+  Future<void> _openStory(Story story) async {
+    if (GoRouter.maybeOf(context) == null) return;
+    await context.push(AppRoutes.storyPath(story.id));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final family = _family;
-    final related = [
-      for (final row in _tree)
-        if (!_memberIds.contains(row.id)) row,
-    ];
+    final landing = ref.watch(_provider);
+    final data = landing.value;
+    final memberIds = data?.memberIds ?? const <String>{};
+    final familyId = data?.familyId;
+    final canWrite = familyId != null && memberIds.contains(familyId);
     return Scaffold(
       key: const Key('family-landing'),
       backgroundColor: albumParchment,
       appBar: AlbumHeader(
         page: AlbumHeaderPage.familyLanding,
-        familyName: family?.name ?? 'Family',
-        families: _families,
-        currentFamilyId: _familyId,
+        familyName: data?.family?.name ?? 'Family',
+        families: data?.families ?? const <MemberFamily>[],
+        currentFamilyId: familyId,
         onFamilySelected: (id) {
           _selectFamily(id);
         },
-        stewarded: _stewarded,
-        relatedFamilies: related,
-        canWrite: _canWrite,
-        onInvite: _canWrite ? _openInvite : null,
-        onStartTimeline: _canWrite ? _startTimeline : null,
-        manageApi: widget.manageApi,
+        stewarded: data?.stewarded ?? const <StewardFamily>[],
+        relatedFamilies: [
+          for (final TreeFamily row in data?.tree ?? const [])
+            if (!memberIds.contains(row.id)) row,
+        ],
+        canWrite: canWrite,
+        onInvite: canWrite ? _openInvite : null,
+        onStartTimeline: canWrite ? _startTimeline : null,
       ),
-      body: _loading
-          ? const SizedBox.shrink()
-          : SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
-              child: AlbumColumn(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _Hero(
-                      familyName: family?.name ?? 'Family',
-                      bytes: _coverBytes,
-                      canEdit: _canEditCover,
-                      onEdit: _editCover,
-                    ),
-                    const SizedBox(height: 28),
-                    _LatestShelf(
-                      familyName: family?.name ?? 'Family',
-                      familyId: _familyId,
-                      stories: _latest,
-                      thumbs: _thumbs,
-                      onOpen: _openStory,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+      body: landing.when(
+        skipLoadingOnRefresh: false,
+        loading: () => const SizedBox.shrink(),
+        error: (error, _) =>
+            Center(child: Text(appErrorMessage(error) ?? 'Try again')),
+        data: (data) => _LandingBody(
+          data: data,
+          onEditCover: _editCover,
+          onOpen: _openStory,
+        ),
+      ),
     );
   }
+}
 
-  Future<void> _openStory(Story story) async {
-    if (GoRouter.maybeOf(context) == null) return;
-    await context.push(AppRoutes.storyPath(story.id));
+class _LandingBody extends StatelessWidget {
+  const _LandingBody({
+    required this.data,
+    required this.onEditCover,
+    required this.onOpen,
+  });
+
+  final FamilyLandingData data;
+  final VoidCallback onEditCover;
+  final ValueChanged<Story> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final family = data.family;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
+      child: AlbumColumn(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _Hero(
+              familyName: family?.name ?? 'Family',
+              bytes: data.coverBytes,
+              canEdit: originSteward(family?.role),
+              onEdit: onEditCover,
+            ),
+            const SizedBox(height: 28),
+            _LatestShelf(
+              familyName: family?.name ?? 'Family',
+              familyId: data.familyId,
+              stories: data.latest,
+              thumbs: data.thumbs,
+              onOpen: onOpen,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -376,6 +267,7 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bytes = this.bytes;
     return AspectRatio(
       key: const Key('family-landing-hero'),
       aspectRatio: 16 / 9,
@@ -392,23 +284,8 @@ class _Hero extends StatelessWidget {
               ColoredBox(
                 color: albumParchment,
                 child: bytes == null
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          FamilyMonogram(name: familyName, size: 72),
-                          if (canEdit) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              'Add a family photo',
-                              style: GoogleFonts.sourceSans3(
-                                color: albumInk.withValues(alpha: 0.7),
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ],
-                      )
-                    : Image.memory(bytes!, fit: BoxFit.cover),
+                    ? _HeroPlaceholder(familyName: familyName, canEdit: canEdit)
+                    : Image.memory(bytes, fit: BoxFit.cover),
               ),
               if (canEdit)
                 Positioned(
@@ -428,6 +305,33 @@ class _Hero extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HeroPlaceholder extends StatelessWidget {
+  const _HeroPlaceholder({required this.familyName, required this.canEdit});
+
+  final String familyName;
+  final bool canEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        FamilyMonogram(name: familyName, size: 72),
+        if (canEdit) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Add a family photo',
+            style: GoogleFonts.sourceSans3(
+              color: albumInk.withValues(alpha: 0.7),
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -476,22 +380,7 @@ class _LatestShelf extends StatelessWidget {
             style: GoogleFonts.sourceSans3(color: albumInk, fontSize: 16),
           )
         else
-          SizedBox(
-            height: 248,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: stories.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 16),
-              itemBuilder: (context, index) {
-                final story = stories[index];
-                return _StoryCard(
-                  story: story,
-                  thumb: thumbs[story.id],
-                  onTap: () => onOpen(story),
-                );
-              },
-            ),
-          ),
+          _ShelfList(stories: stories, thumbs: thumbs, onOpen: onOpen),
       ],
     );
   }
@@ -522,18 +411,7 @@ class _StoryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AspectRatio(
-                aspectRatio: 4 / 3,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: ColoredBox(
-                    color: albumParchment,
-                    child: thumb == null
-                        ? const SizedBox.expand()
-                        : Image.memory(thumb!, fit: BoxFit.cover),
-                  ),
-                ),
-              ),
+              _CardThumb(thumb: thumb),
               const SizedBox(height: 8),
               Text(
                 title,
@@ -557,6 +435,61 @@ class _StoryCard extends StatelessWidget {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShelfList extends StatelessWidget {
+  const _ShelfList({
+    required this.stories,
+    required this.thumbs,
+    required this.onOpen,
+  });
+
+  final List<Story> stories;
+  final Map<String, Uint8List> thumbs;
+  final ValueChanged<Story> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 248,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: stories.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          final story = stories[index];
+          return _StoryCard(
+            story: story,
+            thumb: thumbs[story.id],
+            onTap: () => onOpen(story),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CardThumb extends StatelessWidget {
+  const _CardThumb({required this.thumb});
+
+  final Uint8List? thumb;
+
+  @override
+  Widget build(BuildContext context) {
+    final thumb = this.thumb;
+    return AspectRatio(
+      aspectRatio: 4 / 3,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: ColoredBox(
+          color: albumParchment,
+          child: thumb == null
+              ? const SizedBox.expand()
+              : Image.memory(thumb, fit: BoxFit.cover),
         ),
       ),
     );

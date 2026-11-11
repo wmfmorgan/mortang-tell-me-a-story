@@ -3,8 +3,11 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/features/search/data/search_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/data/server_stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story_date_precision.dart';
+import 'package:tell_me_a_story/features/search/data/server_search_repository.dart';
+import 'package:tell_me_a_story/features/search/domain/search_request.dart';
+import 'package:tell_me_a_story/features/search/domain/search_sort.dart';
 
 import 'support/live_server.dart';
 import 'support/story_fixtures.dart';

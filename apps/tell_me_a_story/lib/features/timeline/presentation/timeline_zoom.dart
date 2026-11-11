@@ -1,5 +1,7 @@
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_title.dart';
 

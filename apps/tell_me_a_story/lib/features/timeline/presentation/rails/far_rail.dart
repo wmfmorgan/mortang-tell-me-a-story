@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/filter/timeline_filter.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_zoom.dart';
@@ -132,30 +132,16 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
     return band.stories[band.stories.length ~/ 2];
   }
 
-  List<Widget> _farChildren() {
-    return [
+  @override
+  Widget build(BuildContext context) {
+    final looks = [
       for (final band in widget.bands)
-        _FarDecadeRow(
-          key: _rowKey(band.startYear),
-          band: band,
-          branching: widget.branching,
-          originStoryId: widget.originStoryId,
-          onOpenBranch: widget.onOpenBranch,
+        (
           focused: band.startYear == centerKey,
           opacity: opacityOf(band.startYear, unmeasured: 1),
           highlight: _highlight(band),
-          onDot: widget.onDot,
-          dotKey: _dotKey,
-          onEmpty: widget.onEmpty,
-          onYear: widget.onYear,
-          dimmed: widget.dimmed,
-          filtering: widget.filtering,
         ),
     ];
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return buildRail(
       selected: TimelineZoom.far,
       onMacro: () {},
@@ -168,15 +154,12 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
         key: viewportKey,
         children: [
           const RailSpine(),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final pad = constraints.maxHeight / 2;
-              return ListView(
-                controller: scroll,
-                padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                children: _farChildren(),
-              );
-            },
+          _FarList(
+            scroll: scroll,
+            rail: widget,
+            looks: looks,
+            rowKey: _rowKey,
+            dotKey: _dotKey,
           ),
         ],
       ),
@@ -184,23 +167,67 @@ class _FarRailState extends State<FarRail> with RailScaffold<FarRail, int> {
   }
 }
 
-class _FarDecadeRow extends StatelessWidget {
-  const _FarDecadeRow({
-    super.key,
-    required this.band,
-    required this.focused,
-    required this.opacity,
-    required this.highlight,
-    required this.branching,
-    this.originStoryId,
-    required this.onDot,
+/// Per-decade state the rail scaffold owns: focus, fade and the story the
+/// decade highlights.
+typedef _BandLook = ({bool focused, double opacity, Story? highlight});
+
+class _FarList extends StatelessWidget {
+  const _FarList({
+    required this.scroll,
+    required this.rail,
+    required this.looks,
+    required this.rowKey,
     required this.dotKey,
-    required this.onEmpty,
-    required this.onYear,
-    required this.onOpenBranch,
-    required this.dimmed,
-    required this.filtering,
   });
+
+  final ScrollController scroll;
+  final FarRail rail;
+  final List<_BandLook> looks;
+  final GlobalKey Function(int year) rowKey;
+  final GlobalKey Function(String id) dotKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pad = constraints.maxHeight / 2;
+        return ListView(
+          controller: scroll,
+          padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
+          children: [
+            for (var i = 0; i < rail.bands.length; i++)
+              _FarDecadeRow.at(
+                rail,
+                rail.bands[i],
+                looks[i],
+                key: rowKey(rail.bands[i].startYear),
+                dotKey: dotKey,
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FarDecadeRow extends StatelessWidget {
+  _FarDecadeRow.at(
+    FarRail rail,
+    this.band,
+    _BandLook look, {
+    required GlobalKey super.key,
+    required this.dotKey,
+  }) : focused = look.focused,
+       opacity = look.opacity,
+       highlight = look.highlight,
+       branching = rail.branching,
+       originStoryId = rail.originStoryId,
+       onDot = rail.onDot,
+       onEmpty = rail.onEmpty,
+       onYear = rail.onYear,
+       onOpenBranch = rail.onOpenBranch,
+       dimmed = rail.dimmed,
+       filtering = rail.filtering;
 
   final DecadeBand band;
   final bool focused;
@@ -222,125 +249,6 @@ class _FarDecadeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stories = band.stories;
-    final matched = stories.where((s) => !dimmed.contains(s.id)).length;
-    final count = countWord(band.stories.length, 'story', 'stories');
-    // A decade with no match keeps its row in the dim ink (Q4).
-    final noMatch = filtering && matched == 0;
-    final label = Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            key: Key('timeline-decade-${band.startYear}'),
-            onTap: () => onYear(band.startYear),
-            child: Text(
-              band.label,
-              style:
-                  (focused
-                          ? Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(fontWeight: FontWeight.w700)
-                          : Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w500))
-                      ?.copyWith(color: noMatch ? albumDimInk : null),
-            ),
-          ),
-        ),
-        const SizedBox(height: 2),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (focused)
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(right: 6),
-                decoration: const BoxDecoration(
-                  color: albumTerracotta,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            Flexible(
-              child: Text(
-                filtering
-                    ? decadeMatchCount(matched, stories.length)
-                    : focused
-                    ? '$count preserved'
-                    : count,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: noMatch
-                      ? albumDimInk
-                      : focused
-                      ? albumTerracotta
-                      : albumInk.withValues(alpha: 0.6),
-                  fontWeight: focused ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-    // The dots half is narrow on Split View and Slide Over, so a branch
-    // label shortens (with an ellipsis) to fit it.
-    Widget dots(double width) {
-      final plain = <Widget>[];
-      final branched = <Widget>[];
-      for (final story in stories) {
-        final frame = branching.frameFor(story);
-        final highlighted = focused && story.id == highlight?.id;
-        final origin = story.id == originStoryId;
-        if (frame.parent != null) {
-          branched.add(
-            _farParent(
-              context,
-              frame,
-              highlighted: highlighted,
-              origin: origin,
-            ),
-          );
-        } else if (frame.branchesStory) {
-          branched.add(
-            _farBranch(
-              context,
-              frame,
-              highlighted: highlighted,
-              origin: origin,
-              width: width,
-            ),
-          );
-        } else {
-          plain.add(
-            _FarDot(
-              story: story,
-              highlighted: highlighted,
-              matched: !dimmed.contains(story.id),
-              origin: origin,
-              ringed: true,
-              anchor: dotKey(story.id),
-              onTap: () => onDot(story),
-            ),
-          );
-        }
-      }
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [...plain, ...branched],
-          ),
-        ],
-      );
-    }
-
     return Opacity(
       opacity: opacity,
       child: Padding(
@@ -350,47 +258,12 @@ class _FarDecadeRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Align(alignment: Alignment.centerRight, child: label),
-            ),
-            SizedBox(
-              width: 48,
-              child: GestureDetector(
-                key: Key('timeline-decade-node-${band.startYear}'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onYear(band.startYear),
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: Center(
-                    child: Container(
-                      width: focused ? 28 : 14,
-                      height: focused ? 28 : 14,
-                      decoration: BoxDecoration(
-                        color: focused
-                            ? albumTerracotta.withValues(alpha: 0.2)
-                            : albumDialogSurface,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: focused ? albumTerracotta : albumRuleStrong,
-                          width: focused ? 1.5 : 2,
-                        ),
-                      ),
-                      child: focused
-                          ? Center(
-                              child: Container(
-                                width: 12,
-                                height: 12,
-                                decoration: const BoxDecoration(
-                                  color: albumTerracotta,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _DecadeLabel(row: this),
               ),
             ),
+            _DecadeNode(year: band.startYear, focused: focused, onYear: onYear),
             Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -400,7 +273,7 @@ class _FarDecadeRow extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 16),
                   child: LayoutBuilder(
                     builder: (context, constraints) =>
-                        dots(constraints.maxWidth),
+                        _DecadeDots(row: this, width: constraints.maxWidth),
                   ),
                 ),
               ),
@@ -440,29 +313,237 @@ class _FarDecadeRow extends StatelessWidget {
       if (story.id == id) return onDot(story);
     }
   }
+}
 
-  Widget _farParent(
-    BuildContext context,
-    StoryFrame frame, {
-    required bool highlighted,
-    required bool origin,
-  }) {
-    final story = frame.story;
+/// Decade label and its story count, right-aligned against the spine.
+class _DecadeLabel extends StatelessWidget {
+  const _DecadeLabel({required this.row});
+
+  final _FarDecadeRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final band = row.band;
+    final focused = row.focused;
+    final stories = band.stories;
+    final matched = stories.where((s) => !row.dimmed.contains(s.id)).length;
+    final count = countWord(band.stories.length, 'story', 'stories');
+    // A decade with no match keeps its row in the dim ink (Q4).
+    final noMatch = row.filtering && matched == 0;
+    final heading = focused
+        ? text.headlineMedium?.copyWith(fontWeight: FontWeight.w700)
+        : text.headlineSmall?.copyWith(fontWeight: FontWeight.w500);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            key: Key('timeline-decade-${band.startYear}'),
+            onTap: () => row.onYear(band.startYear),
+            child: Text(
+              band.label,
+              style: heading?.copyWith(color: noMatch ? albumDimInk : null),
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        _DecadeCount(
+          label: row.filtering
+              ? decadeMatchCount(matched, stories.length)
+              : focused
+              ? '$count preserved'
+              : count,
+          focused: focused,
+          noMatch: noMatch,
+        ),
+      ],
+    );
+  }
+}
+
+class _DecadeCount extends StatelessWidget {
+  const _DecadeCount({
+    required this.label,
+    required this.focused,
+    required this.noMatch,
+  });
+
+  final String label;
+  final bool focused;
+  final bool noMatch;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (focused)
+          Container(
+            width: 8,
+            height: 8,
+            margin: const EdgeInsets.only(right: 6),
+            decoration: const BoxDecoration(
+              color: albumTerracotta,
+              shape: BoxShape.circle,
+            ),
+          ),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: noMatch
+                  ? albumDimInk
+                  : focused
+                  ? albumTerracotta
+                  : albumInk.withValues(alpha: 0.6),
+              fontWeight: focused ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The decade's node on the spine; it opens the decade's year.
+class _DecadeNode extends StatelessWidget {
+  const _DecadeNode({
+    required this.year,
+    required this.focused,
+    required this.onYear,
+  });
+
+  final int year;
+  final bool focused;
+  final ValueChanged<int> onYear;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 48,
+      child: GestureDetector(
+        key: Key('timeline-decade-node-$year'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => onYear(year),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Center(
+            child: Container(
+              width: focused ? 28 : 14,
+              height: focused ? 28 : 14,
+              decoration: BoxDecoration(
+                color: focused
+                    ? albumTerracotta.withValues(alpha: 0.2)
+                    : albumDialogSurface,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: focused ? albumTerracotta : albumRuleStrong,
+                  width: focused ? 1.5 : 2,
+                ),
+              ),
+              child: focused
+                  ? Center(
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: const BoxDecoration(
+                          color: albumTerracotta,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The decade's story dots: plain dots first, then branch and parent
+/// callouts. The dots half is narrow on Split View and Slide Over, so a
+/// branch label shortens (with an ellipsis) to fit [width].
+class _DecadeDots extends StatelessWidget {
+  const _DecadeDots({required this.row, required this.width});
+
+  final _FarDecadeRow row;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final plain = <Widget>[];
+    final branched = <Widget>[];
+    for (final story in row.band.stories) {
+      final frame = row.branching.frameFor(story);
+      final highlighted = row.focused && story.id == row.highlight?.id;
+      final origin = story.id == row.originStoryId;
+      if (frame.parent != null) {
+        branched.add(
+          _FarParent(
+            row: row,
+            frame: frame,
+            highlighted: highlighted,
+            origin: origin,
+          ),
+        );
+      } else if (frame.branchesStory) {
+        branched.add(
+          _FarBranch(
+            row: row,
+            frame: frame,
+            highlighted: highlighted,
+            origin: origin,
+            width: width,
+          ),
+        );
+      } else {
+        plain.add(_FarDot.of(row, story, highlighted, origin, ringed: true));
+      }
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [...plain, ...branched],
+        ),
+      ],
+    );
+  }
+}
+
+class _FarParent extends StatelessWidget {
+  const _FarParent({
+    required this.row,
+    required this.frame,
+    required this.highlighted,
+    required this.origin,
+  });
+
+  final _FarDecadeRow row;
+  final StoryFrame frame;
+  final bool highlighted;
+  final bool origin;
+
+  @override
+  Widget build(BuildContext context) {
     final mark = decadeParentMark(
       context: context,
       frame: frame,
-      dot: _FarDot(
-        anchor: dotKey(story.id),
-        story: story,
-        highlighted: highlighted,
-        matched: !dimmed.contains(story.id),
-        origin: origin,
-        onTap: () => onDot(story),
-      ),
+      dot: _FarDot.of(row, frame.story, highlighted, origin),
       dotDiameter: highlighted ? farDotHighlightedDiameter : farDotDiameter,
       centerToLane: calloutHit / 2,
       maxLabelWidth: calloutLabelWidthFar,
-      onOpen: onOpenBranch,
+      onOpen: row.onOpenBranch,
     );
     return _CenterOnDot(
       dotExtent: calloutHit,
@@ -470,35 +551,41 @@ class _FarDecadeRow extends StatelessWidget {
       child: mark.child,
     );
   }
+}
 
-  Widget _farBranch(
-    BuildContext context,
-    StoryFrame frame, {
-    required bool highlighted,
-    required bool origin,
-    required double width,
-  }) {
-    final story = frame.story;
-    PlacedBranch place(double maxLabelWidth) => placeBranchCallout(
+class _FarBranch extends StatelessWidget {
+  const _FarBranch({
+    required this.row,
+    required this.frame,
+    required this.highlighted,
+    required this.origin,
+    required this.width,
+  });
+
+  final _FarDecadeRow row;
+  final StoryFrame frame;
+  final bool highlighted;
+  final bool origin;
+  final double width;
+
+  PlacedBranch _place(BuildContext context, double maxLabelWidth) {
+    return placeBranchCallout(
       context: context,
       frame: frame,
       side: CalloutSide.right,
-      dot: _FarDot(
-        anchor: dotKey(story.id),
-        story: story,
-        matched: !dimmed.contains(story.id),
-        highlighted: highlighted,
-        origin: origin,
-        onTap: () => onDot(story),
-      ),
+      dot: _FarDot.of(row, frame.story, highlighted, origin),
       dotDiameter: highlighted ? farDotHighlightedDiameter : farDotDiameter,
       centerToLane: calloutHit / 2,
       maxLabelWidth: maxLabelWidth,
-      onOpen: onOpenBranch,
+      onOpen: row.onOpenBranch,
     );
-    var placed = place(calloutLabelWidthFar);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var placed = _place(context, calloutLabelWidthFar);
     final fit = width - calloutHit - placed.push;
-    if (fit < calloutLabelWidthFar) placed = place(math.max(0, fit));
+    if (fit < calloutLabelWidthFar) placed = _place(context, math.max(0, fit));
     return _CenterOnDot(
       dotExtent: calloutHit,
       child: Stack(
@@ -507,7 +594,7 @@ class _FarDecadeRow extends StatelessWidget {
         children: [
           BranchCalloutTarget(
             frame: frame,
-            onOpen: onOpenBranch,
+            onOpen: row.onOpenBranch,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -576,6 +663,7 @@ class _RenderCenterOnDot extends RenderShiftedBox {
 
   @override
   void performLayout() {
+    // The widget always passes a child.
     final child = this.child!;
     child.layout(constraints.loosen(), parentUsesSize: true);
     final childSize = child.size;
@@ -588,7 +676,7 @@ class _RenderCenterOnDot extends RenderShiftedBox {
     size = constraints.constrain(
       Size(childSize.width, extraAbove + childSize.height + extraBelow),
     );
-    (child.parentData! as BoxParentData).offset = Offset(0, extraAbove);
+    (child.parentData as BoxParentData).offset = Offset(0, extraAbove);
   }
 }
 
@@ -597,15 +685,16 @@ class _RenderCenterOnDot extends RenderShiftedBox {
 /// branch callout is never [ringed]: the callout's moss ring is the only
 /// ring there (branch-callout.md Rule 1). An unmatched dot is hollow.
 class _FarDot extends StatelessWidget {
-  const _FarDot({
-    required this.story,
-    required this.highlighted,
-    required this.matched,
-    required this.anchor,
-    required this.onTap,
-    this.origin = false,
+  /// [story]'s dot in [row]: matched unless dimmed, tapping opens it.
+  _FarDot.of(
+    _FarDecadeRow row,
+    this.story,
+    this.highlighted,
+    this.origin, {
     this.ringed = false,
-  });
+  }) : matched = !row.dimmed.contains(story.id),
+       anchor = row.dotKey(story.id),
+       onTap = (() => row.onDot(story));
 
   final Story story;
   final bool highlighted;

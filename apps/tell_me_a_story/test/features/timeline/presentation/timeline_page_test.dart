@@ -2,22 +2,48 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/domain/comment.dart';
+import 'package:tell_me_a_story/core/domain/comments_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_covers_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_directory_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_link_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/perspective.dart';
+import 'package:tell_me_a_story/core/domain/perspectives_repository.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
+import 'package:tell_me_a_story/core/domain/profile_repository.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
+import 'package:tell_me_a_story/core/domain/story_thumbs.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/session/auth_refresh.dart';
 import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
 import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
 import 'package:tell_me_a_story/core/session/timeline_live.dart';
+import 'package:tell_me_a_story/features/auth/domain/otp_sign_in.dart';
 import 'package:tell_me_a_story/features/invites/presentation/invite_modal.dart';
+import 'package:tell_me_a_story/features/search/domain/search_repository.dart';
 import 'package:tell_me_a_story/core/widgets/story/photo_frame.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_page.dart';
@@ -28,7 +54,9 @@ import 'package:tell_me_a_story/core/widgets/timeline/view_switch.dart';
 import '../../../support/fakes/fake_invite_repository.dart';
 import '../../../support/fakes/fake_manage_families_repository.dart';
 import '../../../support/fakes/fake_photos_repository.dart';
+import '../../../support/fakes/fake_profile_repository.dart';
 import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/fakes/fake_timeline_live.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -202,6 +230,204 @@ Story _published({
   );
 }
 
+/// The open test's provider container: the session state the timeline
+/// reads (the remembered family) lives here.
+late ProviderContainer _container;
+
+/// The family the invite repository reports, as the only membership: what
+/// the page showed when a test gave it no families repository.
+class _InviteFamilyOnly extends FamiliesRepository {
+  _InviteFamilyOnly({this.member = true});
+
+  /// False for router tests: an empty membership keeps the sign-in redirect
+  /// on the timeline instead of Family Landing.
+  final bool member;
+
+  @override
+  Future<List<MemberFamily>> listMine() async => [
+    if (member)
+      MemberFamily(
+        id: _familyId,
+        name: 'Family',
+        createdAt: DateTime.utc(2020),
+      ),
+  ];
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => const [];
+}
+
+class _NoPeople extends PeopleRepository {
+  @override
+  Future<List<Person>> listPeople(String familyId) async => const [];
+
+  @override
+  Future<Person> createPerson({
+    required String familyId,
+    required String name,
+    String? about,
+    String? email,
+    bool passedAway = false,
+    List<int>? pictureBytes,
+  }) {
+    throw UnimplementedError();
+  }
+}
+
+class _NoComments implements CommentsRepository {
+  @override
+  Future<List<Comment>> listForStory(String storyId) async => const [];
+
+  @override
+  Future<Comment> create({
+    required String storyId,
+    required String familyId,
+    required String body,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> update({required String id, required String body}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+}
+
+class _NoPerspectives implements PerspectivesRepository {
+  @override
+  Future<List<Perspective>> listForStory(String storyId) async => const [];
+
+  @override
+  Future<Perspective> create({
+    required String storyId,
+    required String familyId,
+    required String body,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> update({required String id, required String body}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+}
+
+const _offline = AppException(
+  code: AppErrorCode.unauthenticated,
+  message: 'offline',
+);
+
+/// Repositories a test never exercises fail like an unreachable server.
+mixin _Offline {
+  @override
+  Object? noSuchMethod(Invocation invocation) => Future<Never>.error(_offline);
+}
+
+class _OfflineDirectory with _Offline implements FamilyDirectoryRepository {}
+
+class _OfflineCovers with _Offline implements FamilyCoversRepository {}
+
+class _OfflineManage with _Offline implements ManageFamiliesRepository {}
+
+class _OfflineInviteLink with _Offline implements InviteLinkRepository {}
+
+class _OfflinePlaces with _Offline implements PlacesRepository {}
+
+class _OfflineMapbox with _Offline implements MapboxSearchRepository {}
+
+class _OfflineSearch with _Offline implements SearchRepository {}
+
+class _OfflineOtp with _Offline implements OtpSignIn {}
+
+/// A fresh [_container] for one pump: the given fakes, the rest stubbed.
+/// [remembered] seeds the saved family before the page reads it.
+ProviderContainer _scope({
+  required StoriesRepository stories,
+  FamiliesRepository? families,
+  TimelineLive? live,
+  PhotosRepository? photos,
+  ManageFamiliesRepository? manage,
+  InviteRepository? invites,
+  AuthRefresh? auth,
+  String? remembered,
+}) {
+  final overrides = <Override>[
+    timelineLiveProvider.overrideWithValue(live ?? FakeTimelineLive()),
+    profileRepositoryProvider.overrideWithValue(FakeProfileRepository()),
+    inviteRepositoryProvider.overrideWithValue(
+      invites ??
+          FakeInviteRepository(
+            familyId: _familyId,
+            createdFamilyId: _familyId,
+            acceptedFamilyId: 'f',
+          ),
+    ),
+    storiesRepositoryProvider.overrideWithValue(stories),
+    familiesRepositoryProvider.overrideWithValue(
+      families ?? _InviteFamilyOnly(member: auth == null),
+    ),
+    photosRepositoryProvider.overrideWithValue(
+      photos ?? FakePhotosRepository(),
+    ),
+    manageFamiliesRepositoryProvider.overrideWithValue(
+      manage ?? _OfflineManage(),
+    ),
+    peopleRepositoryProvider.overrideWithValue(_NoPeople()),
+    commentsRepositoryProvider.overrideWithValue(_NoComments()),
+    perspectivesRepositoryProvider.overrideWithValue(_NoPerspectives()),
+    familyDirectoryRepositoryProvider.overrideWithValue(_OfflineDirectory()),
+    familyCoversRepositoryProvider.overrideWithValue(_OfflineCovers()),
+    inviteLinkRepositoryProvider.overrideWithValue(_OfflineInviteLink()),
+    placesRepositoryProvider.overrideWithValue(_OfflinePlaces()),
+    mapboxSearchRepositoryProvider.overrideWithValue(_OfflineMapbox()),
+    searchRepositoryProvider.overrideWithValue(_OfflineSearch()),
+    otpSignInProvider.overrideWithValue(_OfflineOtp()),
+    storyThumbsLoaderProvider.overrideWithValue((stories) async => const {}),
+    if (auth != null) authRefreshProvider.overrideWithValue(auth),
+  ];
+  final container = ProviderContainer(overrides: overrides);
+  addTearDown(container.dispose);
+  if (remembered != null) {
+    container.read(familySelectionProvider.notifier).remember(remembered);
+  }
+  return _container = container;
+}
+
+/// [child] over [_container], with the app's builder and forui
+/// localizations.
+Widget _scoped(Widget child) =>
+    UncontrolledProviderScope(container: _container, child: child);
+
+/// The app's router over a fresh [_container] (see [_scope]).
+GoRouter _appRouter({
+  required StoriesRepository stories,
+  FamiliesRepository? families,
+  required AuthRefresh auth,
+}) {
+  _scope(stories: stories, families: families, auth: auth);
+  return _container.read(appRouterProvider);
+}
+
+/// The app over [_container], as `main.dart` runs it.
+Widget get _app => _scoped(const App());
+
+/// A test [GoRouter] in a `MaterialApp.router` over [_container].
+Widget _routerApp(GoRouter router, {ThemeData? theme}) => _scoped(
+  MaterialApp.router(
+    theme: theme,
+    builder: albumAppBuilder,
+    localizationsDelegates: FLocalizations.localizationsDelegates,
+    supportedLocales: FLocalizations.supportedLocales,
+    routerConfig: router,
+  ),
+);
+
 Widget _timeline({
   required StoriesRepository stories,
   ThemeData? theme,
@@ -209,24 +435,28 @@ Widget _timeline({
   TimelineLive? live,
   PhotosRepository? photos,
   Key? pageKey,
+  String? remembered,
 }) {
-  return MaterialApp(
-    theme: theme,
-    builder: albumAppBuilder,
-    home: TimelinePage(
-      key: pageKey,
-      api: FakeInviteRepository(
-        familyId: _familyId,
-        createdFamilyId: _familyId,
-        acceptedFamilyId: 'f',
-      ),
-      storiesApi: stories,
-      familiesApi: families,
-      live: live,
-      photosApi: photos,
+  _scope(
+    stories: stories,
+    families: families,
+    live: live,
+    photos: photos,
+    remembered: remembered,
+  );
+  return _scoped(
+    MaterialApp(
+      theme: theme,
+      builder: albumAppBuilder,
+      localizationsDelegates: FLocalizations.localizationsDelegates,
+      supportedLocales: FLocalizations.supportedLocales,
+      home: TimelinePage(key: pageKey),
     ),
   );
 }
+
+/// The family the page remembered, as [FamilySelection] holds it.
+String? get _rememberedFamily => _container.read(familySelectionProvider);
 
 class _FakePhotos extends FakePhotosRepository {
   _FakePhotos({Uint8List? bytes}) : bytes = bytes ?? _png;
@@ -513,11 +743,10 @@ void main() {
   testWidgets(
     'W-21 a non-member opens a branch they can read through the tree',
     (tester) async {
-      addTearDown(FamilySelection.clear);
       const branchId = '00000000-0000-0000-0000-0000000000aa';
-      FamilySelection.remember(branchId);
       await tester.pumpWidget(
         _timeline(
+          remembered: branchId,
           stories: _FakeStoriesApi(published: const []),
           families: _ReadableTree(
             mine: [
@@ -547,10 +776,10 @@ void main() {
   testWidgets('a saved family outside the tree falls back to the membership', (
     tester,
   ) async {
-    addTearDown(FamilySelection.clear);
-    FamilySelection.remember('00000000-0000-0000-0000-0000000000bb');
+    const saved = '00000000-0000-0000-0000-0000000000bb';
     await tester.pumpWidget(
       _timeline(
+        remembered: saved,
         stories: _FakeStoriesApi(published: const []),
         families: _ReadableTree(
           mine: [
@@ -778,7 +1007,6 @@ void main() {
   testWidgets('family switch reloads that family and Invite uses it', (
     tester,
   ) async {
-    addTearDown(FamilySelection.clear);
     const otherId = '00000000-0000-0000-0000-000000000002';
     final stories = _RecordingStories(published: [_published(title: 'Jam')]);
     final live = _FakeLive();
@@ -820,19 +1048,13 @@ void main() {
   });
 
   testWidgets('Drafts and New story leave the timeline', (tester) async {
+    _scope(stories: _FakeStoriesApi(published: []));
     final router = GoRouter(
       initialLocation: AppRoutes.timeline,
       routes: [
         GoRoute(
           path: AppRoutes.timeline,
-          builder: (context, state) => TimelinePage(
-            api: FakeInviteRepository(
-              familyId: _familyId,
-              createdFamilyId: _familyId,
-              acceptedFamilyId: 'f',
-            ),
-            storiesApi: _FakeStoriesApi(published: []),
-          ),
+          builder: (context, state) => const TimelinePage(),
         ),
         GoRoute(
           path: AppRoutes.drafts,
@@ -844,9 +1066,7 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(
-      MaterialApp.router(builder: albumAppBuilder, routerConfig: router),
-    );
+    await tester.pumpWidget(_routerApp(router));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Draft Stories'));
@@ -863,7 +1083,6 @@ void main() {
   testWidgets('returning to timeline opens the family remembered at create', (
     tester,
   ) async {
-    addTearDown(FamilySelection.clear);
     const otherId = '00000000-0000-0000-0000-000000000002';
     final stories = _FakeStoriesApi(
       published: [
@@ -871,31 +1090,19 @@ void main() {
         _published(id: 'new', title: 'New', familyId: otherId),
       ],
     );
+    _scope(
+      stories: stories,
+      families: _FakeFamilies([
+        MemberFamily(id: _familyId, name: 'Ada', createdAt: DateTime.utc(2020)),
+        MemberFamily(id: otherId, name: 'Bea', createdAt: DateTime.utc(2021)),
+      ]),
+    );
     final router = GoRouter(
       initialLocation: AppRoutes.timeline,
       routes: [
         GoRoute(
           path: AppRoutes.timeline,
-          builder: (context, state) => TimelinePage(
-            api: FakeInviteRepository(
-              familyId: _familyId,
-              createdFamilyId: _familyId,
-              acceptedFamilyId: 'f',
-            ),
-            storiesApi: stories,
-            familiesApi: _FakeFamilies([
-              MemberFamily(
-                id: _familyId,
-                name: 'Ada',
-                createdAt: DateTime.utc(2020),
-              ),
-              MemberFamily(
-                id: otherId,
-                name: 'Bea',
-                createdAt: DateTime.utc(2021),
-              ),
-            ]),
-          ),
+          builder: (context, state) => const TimelinePage(),
         ),
         GoRoute(
           path: AppRoutes.manageFamilies,
@@ -903,16 +1110,14 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(
-      MaterialApp.router(builder: albumAppBuilder, routerConfig: router),
-    );
+    await tester.pumpWidget(_routerApp(router));
     await tester.pumpAndSettle();
     expect(find.text('Ada'), findsWidgets);
     expect(_tooltipFor(tester, 'old'), contains('Old'));
 
     router.push(AppRoutes.manageFamilies);
     await tester.pumpAndSettle();
-    FamilySelection.remember(otherId);
+    _container.read(familySelectionProvider.notifier).remember(otherId);
     router.go(AppRoutes.timeline);
     await tester.pumpAndSettle();
 
@@ -924,10 +1129,8 @@ void main() {
   testWidgets(
     'the timeline dropdown has Manage families and no Start a family',
     (tester) async {
-      addTearDown(FamilySelection.clear);
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      FamilySelection.remember(_familyId);
       final families = _FakeFamilies([
         MemberFamily(id: _familyId, name: 'Ada', createdAt: DateTime.utc(2020)),
       ]);
@@ -936,29 +1139,24 @@ void main() {
           _published(id: 'oldA', title: 'Old A', familyId: _familyId),
         ],
       );
+      _scope(
+        stories: stories,
+        families: families,
+        live: _FakeLive(),
+        manage: _FakeManage(families),
+        remembered: _familyId,
+      );
       final router = GoRouter(
         initialLocation: AppRoutes.timeline,
         routes: [
           GoRoute(
             path: AppRoutes.timeline,
-            builder: (context, state) => TimelinePage(
-              api: FakeInviteRepository(
-                familyId: _familyId,
-                createdFamilyId: _familyId,
-                acceptedFamilyId: 'f',
-              ),
-              storiesApi: stories,
-              familiesApi: families,
-              live: _FakeLive(),
-              manageApi: _FakeManage(families),
-            ),
+            builder: (context, state) => const TimelinePage(),
           ),
         ],
       );
       addTearDown(router.dispose);
-      await tester.pumpWidget(
-        MaterialApp.router(builder: albumAppBuilder, routerConfig: router),
-      );
+      await tester.pumpWidget(_routerApp(router));
       await tester.pumpAndSettle();
       expect(
         find.text('No stories yet. Capture the first one for this family.'),
@@ -981,17 +1179,9 @@ void main() {
   ) async {
     final stories = _FakeStoriesApi(published: []);
     final auth = AuthRefresh(initiallySignedIn: true);
-    final router = createAppRouter(
-      authRefresh: auth,
-      inviteApi: FakeInviteRepository(
-        familyId: _familyId,
-        createdFamilyId: _familyId,
-        acceptedFamilyId: 'f',
-      ),
-      storiesApi: stories,
-    );
+    final router = _appRouter(stories: stories, auth: auth);
 
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpWidget(_app);
     await tester.pumpAndSettle();
     router.go(AppRoutes.timeline);
     await tester.pumpAndSettle();
@@ -1028,17 +1218,12 @@ void main() {
   ) async {
     final story = _published(title: 'Jam');
     final auth = AuthRefresh(initiallySignedIn: true);
-    final router = createAppRouter(
-      authRefresh: auth,
-      inviteApi: FakeInviteRepository(
-        familyId: _familyId,
-        createdFamilyId: _familyId,
-        acceptedFamilyId: 'f',
-      ),
-      storiesApi: _FakeStoriesApi(published: [story]),
+    final router = _appRouter(
+      stories: _FakeStoriesApi(published: [story]),
+      auth: auth,
     );
 
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpWidget(_app);
     await tester.pumpAndSettle();
     router.go(AppRoutes.timeline);
     await tester.pumpAndSettle();
@@ -1130,18 +1315,13 @@ void main() {
   ) async {
     final story = _published(title: 'Jam');
     final auth = AuthRefresh(initiallySignedIn: true);
-    final router = createAppRouter(
-      authRefresh: auth,
-      inviteApi: FakeInviteRepository(
-        familyId: _familyId,
-        createdFamilyId: _familyId,
-        acceptedFamilyId: 'f',
-      ),
-      storiesApi: _FakeStoriesApi(published: [story]),
+    final router = _appRouter(
+      stories: _FakeStoriesApi(published: [story]),
+      auth: auth,
     );
     addTearDown(auth.dispose);
 
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpWidget(_app);
     await tester.pumpAndSettle();
     router.go('${AppRoutes.timeline}?view=decades');
     await tester.pumpAndSettle();
@@ -1712,19 +1892,15 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
+    _scope(
+      stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+    );
     final router = GoRouter(
       initialLocation: AppRoutes.timeline,
       routes: [
         GoRoute(
           path: AppRoutes.timeline,
-          builder: (context, state) => TimelinePage(
-            api: FakeInviteRepository(
-              familyId: _familyId,
-              createdFamilyId: _familyId,
-              acceptedFamilyId: 'f',
-            ),
-            storiesApi: _FakeStoriesApi(published: [_published(title: 'Jam')]),
-          ),
+          builder: (context, state) => const TimelinePage(),
         ),
         GoRoute(
           path: AppRoutes.search,
@@ -1732,13 +1908,7 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(
-      MaterialApp.router(
-        theme: albumTheme(),
-        builder: albumAppBuilder,
-        routerConfig: router,
-      ),
-    );
+    await tester.pumpWidget(_routerApp(router, theme: albumTheme()));
     await tester.pumpAndSettle();
 
     Future<void> openAndBack() async {
@@ -1765,19 +1935,15 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
+    _scope(
+      stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+    );
     final router = GoRouter(
       initialLocation: AppRoutes.timeline,
       routes: [
         GoRoute(
           path: AppRoutes.timeline,
-          builder: (context, state) => TimelinePage(
-            api: FakeInviteRepository(
-              familyId: _familyId,
-              createdFamilyId: _familyId,
-              acceptedFamilyId: 'f',
-            ),
-            storiesApi: _FakeStoriesApi(published: [_published(title: 'Jam')]),
-          ),
+          builder: (context, state) => const TimelinePage(),
         ),
         GoRoute(
           path: AppRoutes.familyTree,
@@ -1787,13 +1953,7 @@ void main() {
       ],
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(
-      MaterialApp.router(
-        theme: albumTheme(),
-        builder: albumAppBuilder,
-        routerConfig: router,
-      ),
-    );
+    await tester.pumpWidget(_routerApp(router, theme: albumTheme()));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('timeline-open-tree')));
@@ -2206,7 +2366,6 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    addTearDown(FamilySelection.clear);
     const bea = '00000000-0000-0000-0000-0000000000be';
     await tester.pumpWidget(
       _timeline(
@@ -2291,7 +2450,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('timeline-branch-callout-$bea')));
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, bea);
+    expect(_rememberedFamily, bea);
   });
 
   testWidgets('a 1972 callout sits on the story that started the branch', (
@@ -2578,7 +2737,6 @@ void main() {
   testWidgets('tapping the years ring opens the branch family', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    addTearDown(FamilySelection.clear);
     const bea = '00000000-0000-0000-0000-0000000000be';
     await tester.pumpWidget(
       _timeline(
@@ -2615,7 +2773,7 @@ void main() {
     );
     await tester.tapAt(tester.getCenter(ring) + ringTap);
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, bea);
+    expect(_rememberedFamily, bea);
   });
 
   testWidgets('tapping the years ring on a diagonal opens the branch', (
@@ -2623,7 +2781,6 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    addTearDown(FamilySelection.clear);
     const bea = '00000000-0000-0000-0000-0000000000be';
     await tester.pumpWidget(
       _timeline(
@@ -2656,7 +2813,7 @@ void main() {
     const ringTap = Offset(10, 10);
     await tester.tapAt(tester.getCenter(ring) + ringTap);
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, bea);
+    expect(_rememberedFamily, bea);
     _expectZoom(tester, 'timeline-zoom-mid');
     expect(find.byKey(const Key('story-reader-modal')), findsNothing);
   });
@@ -2666,7 +2823,6 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    addTearDown(FamilySelection.clear);
     const bea = '00000000-0000-0000-0000-0000000000be';
     await tester.pumpWidget(
       _timeline(
@@ -2701,14 +2857,13 @@ void main() {
     await gesture.moveTo(center + const Offset(0, 16));
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, isNull);
+    expect(_rememberedFamily, isNull);
     _expectZoom(tester, 'timeline-zoom-mid');
   });
 
   testWidgets('tapping the years node opens the story', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    addTearDown(FamilySelection.clear);
     const bea = '00000000-0000-0000-0000-0000000000be';
     await tester.pumpWidget(
       _timeline(
@@ -2738,7 +2893,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-mid-node-s1')));
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, isNull);
+    expect(_rememberedFamily, isNull);
     _expectZoom(tester, 'timeline-zoom-full');
     expect(find.byKey(const Key('timeline-card-s1')), findsOneWidget);
   });
@@ -2904,7 +3059,6 @@ void main() {
   testWidgets('enter on the callout opens the branch', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    addTearDown(FamilySelection.clear);
     const bea = '00000000-0000-0000-0000-0000000000be';
     await tester.pumpWidget(
       _timeline(
@@ -2941,7 +3095,7 @@ void main() {
     expect(_mossFocusOutline(), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, bea);
+    expect(_rememberedFamily, bea);
   });
 
   testWidgets('enter on a focused branch card opens the story', (tester) async {
@@ -2951,15 +3105,10 @@ void main() {
     final story = _published(title: 'Jam');
     final auth = AuthRefresh(initiallySignedIn: true);
     addTearDown(auth.dispose);
-    final router = createAppRouter(
-      authRefresh: auth,
-      inviteApi: FakeInviteRepository(
-        familyId: _familyId,
-        createdFamilyId: _familyId,
-        acceptedFamilyId: 'f',
-      ),
-      storiesApi: _FakeStoriesApi(published: [story]),
-      familiesApi: _TreeFamilies(
+    final router = _appRouter(
+      auth: auth,
+      stories: _FakeStoriesApi(published: [story]),
+      families: _TreeFamilies(
         mine: [
           MemberFamily(
             id: _familyId,
@@ -2978,7 +3127,7 @@ void main() {
         ],
       ),
     );
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpWidget(_app);
     await tester.pumpAndSettle();
     router.go(AppRoutes.timeline);
     await tester.pumpAndSettle();
@@ -3009,7 +3158,6 @@ void main() {
   testWidgets('tapping a mark opens that family timeline', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    addTearDown(FamilySelection.clear);
     const bea = '00000000-0000-0000-0000-0000000000be';
     await tester.pumpWidget(
       _timeline(
@@ -3057,7 +3205,7 @@ void main() {
     expect(ringRect.right - 2, greaterThan(dotRect.right));
     await tester.pumpAndSettle();
 
-    expect(FamilySelection.id, bea);
+    expect(_rememberedFamily, bea);
     expect(_tooltipFor(tester, 'bea-story'), contains('Bea tale'));
     expect(_tooltipFor(tester, 'bea-story'), isNot(contains('Origin')));
     expect(_tooltipFor(tester, 'ada'), contains('Origin'));
@@ -3080,30 +3228,33 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     const ada = '00000000-0000-0000-0000-0000000000ad';
     const bea = '00000000-0000-0000-0000-0000000000be';
+    _scope(
+      invites: FakeInviteRepository(
+        familyId: bea,
+        createdFamilyId: bea,
+        acceptedFamilyId: 'f',
+      ),
+      stories: _FakeStoriesApi(
+        published: [_published(familyId: bea, title: 'Bea tale')],
+      ),
+      families: _TreeFamilies(
+        mine: [
+          MemberFamily(id: ada, name: 'Ada', createdAt: DateTime.utc(1970)),
+        ],
+        tree: const [
+          TreeFamily(id: ada, name: 'Ada'),
+          TreeFamily(id: bea, name: 'Bea'),
+        ],
+        stewarded: [const StewardFamily(id: ada, name: 'Ada', role: 'owner')],
+      ),
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        builder: albumAppBuilder,
-        home: TimelinePage(
-          api: FakeInviteRepository(
-            familyId: bea,
-            createdFamilyId: bea,
-            acceptedFamilyId: 'f',
-          ),
-          storiesApi: _FakeStoriesApi(
-            published: [_published(familyId: bea, title: 'Bea tale')],
-          ),
-          familiesApi: _TreeFamilies(
-            mine: [
-              MemberFamily(id: ada, name: 'Ada', createdAt: DateTime.utc(1970)),
-            ],
-            tree: const [
-              TreeFamily(id: ada, name: 'Ada'),
-              TreeFamily(id: bea, name: 'Bea'),
-            ],
-            stewarded: [
-              const StewardFamily(id: ada, name: 'Ada', role: 'owner'),
-            ],
-          ),
+      _scoped(
+        const MaterialApp(
+          builder: albumAppBuilder,
+          localizationsDelegates: FLocalizations.localizationsDelegates,
+          supportedLocales: FLocalizations.supportedLocales,
+          home: TimelinePage(),
         ),
       ),
     );
@@ -3223,6 +3374,13 @@ void main() {
         find.text('Open one of your stories and choose Set as origin for Ada.'),
         findsOneWidget,
       );
+      // Each case swapped in a new container; let the old ones' scheduled
+      // auto-dispose run before the test ends. Disposing one provider can
+      // schedule its dependencies' disposal, so pump a few rounds.
+      await tester.pumpWidget(const SizedBox.shrink());
+      for (var round = 0; round < 4; round++) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
     },
   );
 
@@ -3231,7 +3389,6 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    addTearDown(FamilySelection.clear);
     const parent = '00000000-0000-0000-0000-0000000000aa';
     const origin = 'origin';
     const earlier = 'earlier';
@@ -3369,7 +3526,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-branch-callout-$parent')));
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, parent);
+    expect(_rememberedFamily, parent);
   });
 
   testWidgets('a decade parent callout sits above a child callout', (
@@ -3468,7 +3625,6 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    addTearDown(FamilySelection.clear);
     const parent = '00000000-0000-0000-0000-0000000000aa';
     const origin = 'origin';
     await tester.pumpWidget(
@@ -3553,7 +3709,7 @@ void main() {
 
     await tester.tap(parentName);
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, parent);
+    expect(_rememberedFamily, parent);
   });
 
   testWidgets('a root origin uses a plain Origin tag', (tester) async {

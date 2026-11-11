@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/core/data/mapbox_search_repository.dart';
-import 'package:tell_me_a_story/core/data/places_repository.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:tell_me_a_story/core/domain/mapbox_search_exception.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_hit.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_repository.dart';
+import 'package:tell_me_a_story/core/domain/place.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
 import 'package:tell_me_a_story/features/places/presentation/place_map.dart';
 import 'package:tell_me_a_story/features/places/presentation/place_picker_modal.dart';
 
 import '../../../support/fakes/fake_mapbox_search.dart';
 import '../../../support/fakes/fake_places_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -115,6 +120,16 @@ Widget _placeholderMap({double? lat, double? lng}) {
   );
 }
 
+List<Override> _overrides(
+  PlacesRepository places,
+  MapboxSearchRepository search,
+) {
+  return [
+    placesRepositoryProvider.overrideWithValue(places),
+    mapboxSearchRepositoryProvider.overrideWithValue(search),
+  ];
+}
+
 Future<Place?> _openModal(
   WidgetTester tester, {
   required PlacesRepository places,
@@ -123,27 +138,25 @@ Future<Place?> _openModal(
   Place? Function()? onResult,
 }) async {
   Place? result;
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: TextButton(
-            onPressed: () async {
-              result = await PlacePickerModal.show(
-                context,
-                familyId: _familyId,
-                places: places,
-                search: search,
-                hasMapboxToken: hasMapboxToken,
-                mapBuilder: _placeholderMap,
-              );
-              onResult?.call();
-            },
-            child: const Text('open'),
-          ),
+  await pumpApp(
+    tester,
+    Builder(
+      builder: (context) => Scaffold(
+        body: TextButton(
+          onPressed: () async {
+            result = await PlacePickerModal.show(
+              context,
+              familyId: _familyId,
+              hasMapboxToken: hasMapboxToken,
+              mapBuilder: _placeholderMap,
+            );
+            onResult?.call();
+          },
+          child: const Text('open'),
         ),
       ),
     ),
+    overrides: _overrides(places, search),
   );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
@@ -244,26 +257,24 @@ void main() {
     final search = FakeMapboxSearch();
 
     Place? result;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () async {
-                result = await PlacePickerModal.show(
-                  context,
-                  familyId: _familyId,
-                  places: places,
-                  search: search,
-                  hasMapboxToken: true,
-                  mapBuilder: _placeholderMap,
-                );
-              },
-              child: const Text('open'),
-            ),
+    await pumpApp(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () async {
+              result = await PlacePickerModal.show(
+                context,
+                familyId: _familyId,
+                hasMapboxToken: true,
+                mapBuilder: _placeholderMap,
+              );
+            },
+            child: const Text('open'),
           ),
         ),
       ),
+      overrides: _overrides(places, search),
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -304,26 +315,24 @@ void main() {
     final search = FakeMapboxSearch();
 
     Place? result;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () async {
-                result = await PlacePickerModal.show(
-                  context,
-                  familyId: _familyId,
-                  places: places,
-                  search: search,
-                  hasMapboxToken: true,
-                  mapBuilder: _placeholderMap,
-                );
-              },
-              child: const Text('open'),
-            ),
+    await pumpApp(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () async {
+              result = await PlacePickerModal.show(
+                context,
+                familyId: _familyId,
+                hasMapboxToken: true,
+                mapBuilder: _placeholderMap,
+              );
+            },
+            child: const Text('open'),
           ),
         ),
       ),
+      overrides: _overrides(places, search),
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -368,26 +377,24 @@ void main() {
     );
 
     Place? result;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () async {
-                result = await PlacePickerModal.show(
-                  context,
-                  familyId: _familyId,
-                  places: places,
-                  search: search,
-                  hasMapboxToken: true,
-                  mapBuilder: _placeholderMap,
-                );
-              },
-              child: const Text('open'),
-            ),
+    await pumpApp(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () async {
+              result = await PlacePickerModal.show(
+                context,
+                familyId: _familyId,
+                hasMapboxToken: true,
+                mapBuilder: _placeholderMap,
+              );
+            },
+            child: const Text('open'),
           ),
         ),
       ),
+      overrides: _overrides(places, search),
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -431,26 +438,24 @@ void main() {
     );
 
     Place? result;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () async {
-                result = await PlacePickerModal.show(
-                  context,
-                  familyId: _familyId,
-                  places: places,
-                  search: search,
-                  hasMapboxToken: true,
-                  mapBuilder: _placeholderMap,
-                );
-              },
-              child: const Text('open'),
-            ),
+    await pumpApp(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () async {
+              result = await PlacePickerModal.show(
+                context,
+                familyId: _familyId,
+                hasMapboxToken: true,
+                mapBuilder: _placeholderMap,
+              );
+            },
+            child: const Text('open'),
           ),
         ),
       ),
+      overrides: _overrides(places, search),
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -579,30 +584,28 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () async {
-                await PlacePickerModal.show(
-                  context,
-                  familyId: _familyId,
-                  places: places,
-                  search: search,
-                  hasMapboxToken: true,
-                  mapBuilder: ({double? lat, double? lng}) {
-                    seenLat = lat;
-                    seenLng = lng;
-                    return _placeholderMap(lat: lat, lng: lng);
-                  },
-                );
-              },
-              child: const Text('open'),
-            ),
+    await pumpApp(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () async {
+              await PlacePickerModal.show(
+                context,
+                familyId: _familyId,
+                hasMapboxToken: true,
+                mapBuilder: ({double? lat, double? lng}) {
+                  seenLat = lat;
+                  seenLng = lng;
+                  return _placeholderMap(lat: lat, lng: lng);
+                },
+              );
+            },
+            child: const Text('open'),
           ),
         ),
       ),
+      overrides: _overrides(places, search),
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();

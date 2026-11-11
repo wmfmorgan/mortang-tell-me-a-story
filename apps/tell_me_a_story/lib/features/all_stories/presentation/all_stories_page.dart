@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -12,10 +13,12 @@ import 'package:tell_me_a_story/core/widgets/album/album_chrome.dart';
 import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/core/widgets/avatar/profile_avatar.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/session/family_membership.dart';
 import 'package:tell_me_a_story/features/all_stories/presentation/all_stories_card.dart';
 import 'package:tell_me_a_story/features/all_stories/presentation/all_stories_loader.dart';
 import 'package:tell_me_a_story/features/all_stories/presentation/all_stories_logic.dart';
@@ -34,50 +37,34 @@ int allStoriesColumns(double width) {
   return 1;
 }
 
-class AllStoriesPage extends StatefulWidget {
-  const AllStoriesPage({
-    super.key,
-    required this.familyId,
-    this.storiesApi,
-    this.familiesApi,
-    this.photosApi,
-  });
+class AllStoriesPage extends ConsumerStatefulWidget {
+  const AllStoriesPage({super.key, required this.familyId});
 
   final String familyId;
-  final StoriesRepository? storiesApi;
-  final FamiliesRepository? familiesApi;
-  final PhotosRepository? photosApi;
 
   @override
-  State<AllStoriesPage> createState() => _AllStoriesPageState();
+  ConsumerState<AllStoriesPage> createState() => _AllStoriesPageState();
 }
 
 enum _Phase { loading, ready, error }
 
-class _AllStoriesPageState extends State<AllStoriesPage> {
+class _AllStoriesPageState extends ConsumerState<AllStoriesPage> {
   final _scroll = ScrollController();
   late final TextEditingController _search;
-  late AllStoriesViewState _view;
   Timer? _debounce;
-  _Phase _phase = _Phase.loading;
-  AllStoriesData? _data;
-  Map<String, Uint8List> _thumbs = const {};
-  List<MemberFamily> _families = const [];
-  List<StewardFamily> _stewarded = const [];
-  late bool _canWrite;
   var _scrolledUnder = false;
-  var _loadGeneration = 0;
   var _pinExtent = 88.0;
 
   @override
   void initState() {
     super.initState();
-    _canWrite = FamilyMembership.canWrite(widget.familyId);
-    FamilySelection.remember(widget.familyId);
-    _view = AllStoriesSession.of(widget.familyId);
+    // Not during the first build: the header may watch the selection.
+    Future.microtask(() {
+      if (!mounted) return;
+      ref.read(familySelectionProvider.notifier).remember(widget.familyId);
+    });
     _search = TextEditingController(text: _view.query);
     _scroll.addListener(_onScroll);
-    _load(showLoading: true);
   }
 
   @override
@@ -89,11 +76,36 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     super.dispose();
   }
 
-  StoriesRepository get _stories =>
-      widget.storiesApi ?? ServerStoriesRepository();
+  AllStoriesViewState get _view =>
+      ref.read(allStoriesViewProvider(widget.familyId));
 
-  FamiliesRepository get _familiesApi =>
-      widget.familiesApi ?? ServerFamiliesRepository();
+  AsyncValue<AllStoriesPageData> get _page =>
+      ref.read(allStoriesPageProvider(widget.familyId));
+
+  /// A retry after an error shows the skeleton again; a reload behind a
+  /// loaded list keeps the list until it settles.
+  _Phase get _phase {
+    final page = _page;
+    if (page.isLoading && (!page.hasValue || page.hasError)) {
+      return _Phase.loading;
+    }
+    return page.hasError ? _Phase.error : _Phase.ready;
+  }
+
+  AllStoriesData? get _data => _page.value?.data;
+
+  Map<String, Uint8List> get _thumbs =>
+      _page.value?.thumbs ?? const <String, Uint8List>{};
+
+  List<MemberFamily> get _families =>
+      _page.value?.chrome.families ?? const <MemberFamily>[];
+
+  List<StewardFamily> get _stewarded =>
+      _page.value?.chrome.stewarded ?? const <StewardFamily>[];
+
+  bool get _canWrite =>
+      _page.value?.chrome.canWrite ??
+      ref.read(familyMembershipProvider).canWrite(widget.familyId);
 
   void _onScroll() {
     final under = _scroll.hasClients && _scroll.offset > 8;
@@ -101,63 +113,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     setState(() => _scrolledUnder = under);
   }
 
-  Future<void> _load({required bool showLoading}) async {
-    final generation = ++_loadGeneration;
-    if (showLoading && mounted) {
-      setState(() => _phase = _Phase.loading);
-    }
-    try {
-      final loader = AllStoriesLoader(
-        stories: _stories,
-        families: _familiesApi,
-      );
-      final dataFuture = loader.load(widget.familyId);
-      final chromeFuture = _loadChrome();
-      final data = await dataFuture;
-      final chrome = await chromeFuture;
-      final thumbs = await downloadFirstThumbs(data.stories, widget.photosApi);
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() {
-        _data = data;
-        _thumbs = thumbs;
-        _families = chrome.families;
-        _stewarded = chrome.stewarded;
-        _canWrite = chrome.canWrite;
-        _phase = _Phase.ready;
-      });
-    } catch (_) {
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() => _phase = _Phase.error);
-    }
-  }
-
-  /// Header membership is the same best-effort read Landing uses. A menu
-  /// failure must not replace a loaded story list with the story error line.
-  Future<
-    ({
-      List<MemberFamily> families,
-      List<StewardFamily> stewarded,
-      bool canWrite,
-    })
-  >
-  _loadChrome() async {
-    try {
-      final mine = await _familiesApi.listMine();
-      final stewarded = await _familiesApi.listStewarded();
-      FamilyMembership.remember(mine.map((row) => row.id));
-      return (
-        families: mine,
-        stewarded: stewarded,
-        canWrite: mine.any((row) => row.id == widget.familyId),
-      );
-    } catch (_) {
-      return (
-        families: const <MemberFamily>[],
-        stewarded: const <StewardFamily>[],
-        canWrite: false,
-      );
-    }
-  }
+  void _reload() => ref.invalidate(allStoriesPageProvider(widget.familyId));
 
   void _reportPinHeight(double height) {
     if (!mounted || (height - _pinExtent).abs() < 0.5) return;
@@ -165,8 +121,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
   }
 
   void _setView(AllStoriesViewState next) {
-    AllStoriesSession.save(widget.familyId, next);
-    setState(() => _view = next);
+    ref.read(allStoriesViewProvider(widget.familyId).notifier).save(next);
   }
 
   void _onQueryChanged(String value) {
@@ -200,11 +155,15 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
   Future<void> _openStory(Story story) async {
     await context.push(AppRoutes.storyPath(story.id));
     if (!mounted) return;
-    await _load(showLoading: false);
+    _reload();
+  }
+
+  void _onFamilySelected(String familyId) {
+    ref.read(familySelectionProvider.notifier).remember(familyId);
   }
 
   void _openBranch(TreeFamily branch) {
-    FamilySelection.remember(branch.id);
+    _onFamilySelected(branch.id);
     context.go(AppRoutes.timeline);
   }
 
@@ -217,20 +176,25 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     return 'Family';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final name = _familyName();
-    final empty = _phase == _Phase.ready && (_data?.stories.isEmpty ?? true);
-    final locked = empty || _phase == _Phase.error;
-    final data = _data;
-    final marks = data == null
-        ? const <String, SpawnMark>{}
-        : spawnMarks(
-            familyId: widget.familyId,
-            tree: data.tree,
-            stories: data.stories,
-          );
-    final undimmed = {
+  List<TreeFamily> get _relatedFamilies => [
+    for (final row in _data?.tree ?? const <TreeFamily>[])
+      if (!_families.any((family) => family.id == row.id)) row,
+  ];
+
+  Map<String, SpawnMark> _marksFor(AllStoriesData? data) {
+    if (data == null) return const <String, SpawnMark>{};
+    return spawnMarks(
+      familyId: widget.familyId,
+      tree: data.tree,
+      stories: data.stories,
+    );
+  }
+
+  Map<String, bool> _undimmedFor(
+    AllStoriesData? data,
+    Map<String, SpawnMark> marks,
+  ) {
+    return {
       for (final story in data?.stories ?? const <Story>[])
         story.id: isUndimmed(
           story,
@@ -238,83 +202,122 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
           marks[story.id] ?? const SpawnMark(),
         ),
     };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(allStoriesViewProvider(widget.familyId));
+    ref.watch(allStoriesPageProvider(widget.familyId));
+    ref.watch(familyMembershipProvider);
+    final data = _data;
+    final empty = _phase == _Phase.ready && (data?.stories.isEmpty ?? true);
+    final locked = empty || _phase == _Phase.error;
+    final marks = _marksFor(data);
+    final undimmed = _undimmedFor(data, marks);
     return Scaffold(
       key: const Key('all-stories-page'),
       backgroundColor: albumParchment,
       appBar: AlbumHeader(
         page: AlbumHeaderPage.allStories,
-        familyName: name,
+        familyName: _familyName(),
         families: _families,
         currentFamilyId: widget.familyId,
-        onFamilySelected: FamilySelection.remember,
+        onFamilySelected: _onFamilySelected,
         stewarded: _stewarded,
-        relatedFamilies: [
-          for (final row in _data?.tree ?? const <TreeFamily>[])
-            if (!_families.any((family) => family.id == row.id)) row,
-        ],
+        relatedFamilies: _relatedFamilies,
         canWrite: _canWrite,
       ),
       body: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = math.min(albumColumnWidth, constraints.maxWidth);
-          return Align(
-            alignment: Alignment.topCenter,
-            child: SizedBox(
-              width: width,
-              height: constraints.maxHeight,
-              child: CustomScrollView(
-                key: const Key('all-stories-scroll'),
-                controller: _scroll,
-                slivers: [
-                  SliverToBoxAdapter(child: _heading()),
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _PinDelegate(
-                      height: _pinExtent,
-                      showBorder: _scrolledUnder,
-                      onHeight: _reportPinHeight,
-                      child: _controls(locked: locked, undimmed: undimmed),
-                    ),
-                  ),
-                  ..._body(
-                    empty: empty,
-                    viewport: constraints.maxWidth,
-                    marks: marks,
-                    undimmed: undimmed,
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _heading() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 24, 0, 16),
-      child: Semantics(
-        header: true,
-        headingLevel: 1,
-        child: Text(
-          key: const Key('all-stories-heading'),
-          'Stories',
-          style: GoogleFonts.newsreader(
-            color: albumInk,
-            fontSize: 40,
-            fontWeight: FontWeight.w500,
+        builder: (context, constraints) => _ScrollFrame(
+          state: this,
+          constraints: constraints,
+          controls: _Controls(state: this, locked: locked, undimmed: undimmed),
+          body: _Body(
+            state: this,
+            empty: empty,
+            viewport: constraints.maxWidth,
+            marks: marks,
+            undimmed: undimmed,
           ),
         ),
       ),
     );
   }
 
-  Widget _controls({
-    required bool locked,
-    required Map<String, bool> undimmed,
-  }) {
-    final line = _phase == _Phase.ready ? _status(undimmed) : null;
+  String? _status(Map<String, bool> undimmed) {
+    final data = _data;
+    if (data == null) return null;
+    var n = 0;
+    for (final shown in undimmed.values) {
+      if (shown) n++;
+    }
+    return statusLine(
+      n: n,
+      total: data.stories.length,
+      query: _view.query,
+      startedTimelineOnly: _view.startedTimelineOnly,
+    );
+  }
+}
+
+/// Centred column with the heading, the pinned controls and the body.
+class _ScrollFrame extends StatelessWidget {
+  const _ScrollFrame({
+    required this.state,
+    required this.constraints,
+    required this.controls,
+    required this.body,
+  });
+
+  final _AllStoriesPageState state;
+  final BoxConstraints constraints;
+  final Widget controls;
+  final Widget body;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = math.min(albumColumnWidth, constraints.maxWidth);
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SizedBox(
+        width: width,
+        height: constraints.maxHeight,
+        child: CustomScrollView(
+          key: const Key('all-stories-scroll'),
+          controller: state._scroll,
+          slivers: [
+            const SliverToBoxAdapter(child: _Heading()),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _PinDelegate(
+                height: state._pinExtent,
+                showBorder: state._scrolledUnder,
+                onHeight: state._reportPinHeight,
+                child: controls,
+              ),
+            ),
+            body,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Controls extends StatelessWidget {
+  const _Controls({
+    required this.state,
+    required this.locked,
+    required this.undimmed,
+  });
+
+  final _AllStoriesPageState state;
+  final bool locked;
+  final Map<String, bool> undimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    final line = state._phase == _Phase.ready ? state._status(undimmed) : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
@@ -322,21 +325,8 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              final search = _searchField(locked);
-              final tail = Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  _membersToggle(locked: locked),
-                  _spawnToggle(locked: locked),
-                  _GroupBySwitch(
-                    selected: _view.groupBy,
-                    enabled: !locked,
-                    onChanged: _setGroup,
-                  ),
-                ],
-              );
+              final search = _SearchField(state: state, locked: locked);
+              final tail = _ControlToggles(state: state, locked: locked);
               if (constraints.maxWidth < _stackedControlsWidth) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -367,36 +357,70 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
       ),
     );
   }
+}
 
-  Widget _searchField(bool locked) {
+class _ControlToggles extends StatelessWidget {
+  const _ControlToggles({required this.state, required this.locked});
+
+  final _AllStoriesPageState state;
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
+    final view = state._view;
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _PillToggle(
+          semanticsKey: const Key('all-stories-members'),
+          label: 'Members',
+          on: view.showMemberPills,
+          locked: locked,
+          onToggle: state._toggleMembers,
+        ),
+        _PillToggle(
+          semanticsKey: const Key('all-stories-toggle'),
+          label: 'Started a timeline',
+          on: view.startedTimelineOnly,
+          locked: locked,
+          onToggle: state._toggleSpawn,
+        ),
+        _GroupBySwitch(
+          selected: view.groupBy,
+          enabled: !locked,
+          onChanged: state._setGroup,
+        ),
+      ],
+    );
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  const _SearchField({required this.state, required this.locked});
+
+  final _AllStoriesPageState state;
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
     final quiet = OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
       borderSide: BorderSide(color: albumInk.withValues(alpha: 0.15)),
     );
     return TextField(
       key: const Key('all-stories-search'),
-      controller: _search,
+      controller: state._search,
       enabled: !locked,
-      onChanged: locked ? null : _onQueryChanged,
+      onChanged: locked ? null : state._onQueryChanged,
       style: GoogleFonts.sourceSans3(color: albumInk, fontSize: 16),
       decoration: InputDecoration(
         hintText: 'Search titles, story text, and people',
         prefixIcon: const Icon(Icons.search, color: albumInk),
-        suffixIcon: _search.text.isEmpty
+        suffixIcon: state._search.text.isEmpty
             ? null
-            : AllStoriesFocusTarget(
-                radius: 22,
-                childBuilder: (node) => IconButton(
-                  key: const Key('all-stories-search-clear'),
-                  focusNode: node,
-                  onPressed: locked ? null : _clearQuery,
-                  icon: const Icon(Icons.close, color: albumInk),
-                  constraints: const BoxConstraints.tightFor(
-                    width: 44,
-                    height: 44,
-                  ),
-                ),
-              ),
+            : _SearchClear(onClear: locked ? null : state._clearQuery),
         filled: true,
         fillColor: albumParchment,
         enabledBorder: quiet,
@@ -408,224 +432,191 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
       ),
     );
   }
+}
 
-  Widget _membersToggle({required bool locked}) {
-    final on = _view.showMemberPills;
-    final labelColor = locked
-        ? albumInk.withValues(alpha: 0.38)
-        : on
-        ? albumParchment
-        : albumInk;
-    return Semantics(
-      key: const Key('all-stories-members'),
-      button: true,
-      enabled: !locked,
-      toggled: on,
-      label: 'Members',
-      onTap: locked ? null : _toggleMembers,
-      child: AllStoriesFocusTarget(
-        radius: 999,
-        childBuilder: (node) => ExcludeSemantics(
-          child: Material(
-            color: on ? albumTerracotta : albumParchment,
-            shape: StadiumBorder(
-              side: BorderSide(
-                color: on ? albumTerracotta : albumInk.withValues(alpha: 0.15),
-              ),
-            ),
-            child: InkWell(
-              focusNode: node,
-              onTap: locked ? null : _toggleMembers,
-              customBorder: const StadiumBorder(),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Members',
-                        style: GoogleFonts.sourceSans3(
-                          color: labelColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+class _SearchClear extends StatelessWidget {
+  const _SearchClear({required this.onClear});
+
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return AllStoriesFocusTarget(
+      radius: 22,
+      childBuilder: (node) => IconButton(
+        key: const Key('all-stories-search-clear'),
+        focusNode: node,
+        onPressed: onClear,
+        icon: const Icon(Icons.close, color: albumInk),
+        constraints: const BoxConstraints.tightFor(width: 44, height: 44),
       ),
     );
   }
+}
 
-  Widget _spawnToggle({required bool locked}) {
-    final on = _view.startedTimelineOnly;
-    final labelColor = locked
-        ? albumInk.withValues(alpha: 0.38)
-        : on
-        ? albumParchment
-        : albumInk;
-    return Semantics(
-      key: const Key('all-stories-toggle'),
-      button: true,
-      enabled: !locked,
-      toggled: on,
-      label: 'Started a timeline',
-      onTap: locked ? null : _toggleSpawn,
-      child: AllStoriesFocusTarget(
-        radius: 999,
-        childBuilder: (node) => ExcludeSemantics(
-          child: Material(
-            color: on ? albumTerracotta : albumParchment,
-            shape: StadiumBorder(
-              side: BorderSide(
-                color: on ? albumTerracotta : albumInk.withValues(alpha: 0.15),
-              ),
-            ),
-            child: InkWell(
-              focusNode: node,
-              onTap: locked ? null : _toggleSpawn,
-              customBorder: const StadiumBorder(),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Started a timeline',
-                        style: GoogleFonts.sourceSans3(
-                          color: labelColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+/// The one sliver under the pinned controls for the current phase.
+class _Body extends StatelessWidget {
+  const _Body({
+    required this.state,
+    required this.empty,
+    required this.viewport,
+    required this.marks,
+    required this.undimmed,
+  });
 
-  String? _status(Map<String, bool> undimmed) {
-    final data = _data;
-    if (data == null) return null;
-    var n = 0;
-    for (final shown in undimmed.values) {
-      if (shown) n++;
+  final _AllStoriesPageState state;
+  final bool empty;
+  final double viewport;
+  final Map<String, SpawnMark> marks;
+  final Map<String, bool> undimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state._phase == _Phase.loading) {
+      return const SliverToBoxAdapter(child: _Skeleton());
     }
-    return statusLine(
-      n: n,
-      total: data.stories.length,
-      query: _view.query,
-      startedTimelineOnly: _view.startedTimelineOnly,
-    );
-  }
-
-  List<Widget> _body({
-    required bool empty,
-    required double viewport,
-    required Map<String, SpawnMark> marks,
-    required Map<String, bool> undimmed,
-  }) {
-    if (_phase == _Phase.loading) {
-      return [SliverToBoxAdapter(child: _skeleton())];
-    }
-    if (_phase == _Phase.error) {
-      return [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 24),
-            child: Row(
-              children: [
-                Text(
-                  "Couldn't load stories.",
-                  style: Theme.of(context).textTheme.bodyLarge
-                      ?.copyWith(color: Theme.of(context).colorScheme.error),
-                ),
-                const SizedBox(width: 12),
-                AllStoriesFocusTarget(
-                  radius: 20,
-                  childBuilder: (node) => TextButton(
-                    key: const Key('all-stories-retry'),
-                    focusNode: node,
-                    onPressed: () => _load(showLoading: true),
-                    style: TextButton.styleFrom(
-                      foregroundColor: albumTerracotta,
-                    ),
-                    child: Text(
-                      'Retry',
-                      style: GoogleFonts.sourceSans3(
-                        color: albumTerracotta,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ];
+    if (state._phase == _Phase.error) {
+      return SliverToBoxAdapter(child: _LoadError(onRetry: state._reload));
     }
     if (empty) {
-      return [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-            child: Text(
-              'No stories yet.',
-              style: Theme.of(context).textTheme.bodyLarge,
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Text(
+            'No stories yet.',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+      );
+    }
+    if (state._data case final data?) {
+      return SliverToBoxAdapter(
+        child: _Groups(
+          state: state,
+          data: data,
+          viewport: viewport,
+          marks: marks,
+          undimmed: undimmed,
+        ),
+      );
+    }
+    // Ready with no data never happens; an empty adapter takes no space.
+    return const SliverToBoxAdapter();
+  }
+}
+
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Row(
+        children: [
+          Text(
+            "Couldn't load stories.",
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(color: Theme.of(context).colorScheme.error),
+          ),
+          const SizedBox(width: 12),
+          AllStoriesFocusTarget(
+            radius: 20,
+            childBuilder: (node) => TextButton(
+              key: const Key('all-stories-retry'),
+              focusNode: node,
+              onPressed: onRetry,
+              style: TextButton.styleFrom(foregroundColor: albumTerracotta),
+              child: Text(
+                'Retry',
+                style: GoogleFonts.sourceSans3(
+                  color: albumTerracotta,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
-        ),
-      ];
-    }
-    if (_data case final data?) {
-      final groups = groupStories(data.stories, _view.groupBy);
-      final columns = allStoriesColumns(viewport);
-      final filterActive = _view.filterActive;
-      final name = _familyName();
-      return [
-        SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final group in groups)
-                _GroupSection(
-                  group: group,
-                  columns: columns,
-                  marks: marks,
-                  familyName: name,
-                  query: _view.query,
-                  filterActive: filterActive,
-                  undimmed: undimmed,
-                  view: _view,
-                  thumbs: _thumbs,
-                  onOpen: _openStory,
-                  onOpenBranch: _openBranch,
-                ),
-              const SizedBox(height: 48),
-            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Groups extends StatelessWidget {
+  const _Groups({
+    required this.state,
+    required this.data,
+    required this.viewport,
+    required this.marks,
+    required this.undimmed,
+  });
+
+  final _AllStoriesPageState state;
+  final AllStoriesData data;
+  final double viewport;
+  final Map<String, SpawnMark> marks;
+  final Map<String, bool> undimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    final view = state._view;
+    final columns = allStoriesColumns(viewport);
+    final name = state._familyName();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final group in groupStories(data.stories, view.groupBy))
+          _GroupSection(
+            group: group,
+            columns: columns,
+            marks: marks,
+            familyName: name,
+            query: view.query,
+            filterActive: view.filterActive,
+            undimmed: undimmed,
+            view: view,
+            thumbs: state._thumbs,
+            onOpen: state._openStory,
+            onOpenBranch: state._openBranch,
+          ),
+        const SizedBox(height: 48),
+      ],
+    );
+  }
+}
+
+class _Heading extends StatelessWidget {
+  const _Heading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 24, 0, 16),
+      child: Semantics(
+        header: true,
+        headingLevel: 1,
+        child: Text(
+          key: const Key('all-stories-heading'),
+          'Stories',
+          style: GoogleFonts.newsreader(
+            color: albumInk,
+            fontSize: 40,
+            fontWeight: FontWeight.w500,
           ),
         ),
-      ];
-    }
-    return const <Widget>[];
+      ),
+    );
   }
+}
 
-  Widget _skeleton() {
+class _Skeleton extends StatelessWidget {
+  const _Skeleton();
+
+  @override
+  Widget build(BuildContext context) {
     return const Column(
       key: Key('all-stories-skeleton'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -639,6 +630,89 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         SizedBox(height: 8),
         _Bar(width: 120, height: 14),
       ],
+    );
+  }
+}
+
+/// Members / Started a timeline filter pill.
+class _PillToggle extends StatelessWidget {
+  const _PillToggle({
+    required this.semanticsKey,
+    required this.label,
+    required this.on,
+    required this.locked,
+    required this.onToggle,
+  });
+
+  final Key semanticsKey;
+  final String label;
+  final bool on;
+  final bool locked;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor = locked
+        ? albumInk.withValues(alpha: 0.38)
+        : on
+        ? albumParchment
+        : albumInk;
+    return Semantics(
+      key: semanticsKey,
+      button: true,
+      enabled: !locked,
+      toggled: on,
+      label: label,
+      onTap: locked ? null : onToggle,
+      child: AllStoriesFocusTarget(
+        radius: 999,
+        childBuilder: (node) => ExcludeSemantics(
+          child: Material(
+            color: on ? albumTerracotta : albumParchment,
+            shape: StadiumBorder(
+              side: BorderSide(
+                color: on ? albumTerracotta : albumInk.withValues(alpha: 0.15),
+              ),
+            ),
+            child: InkWell(
+              focusNode: node,
+              onTap: locked ? null : onToggle,
+              customBorder: const StadiumBorder(),
+              child: _PillLabel(label: label, color: labelColor),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PillLabel extends StatelessWidget {
+  const _PillLabel({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.sourceSans3(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -675,71 +749,15 @@ class _GroupSection extends StatelessWidget {
     final headingDimmed =
         filterActive &&
         group.stories.every((story) => undimmed[story.id] != true);
-    final headingColor = headingDimmed ? allStoriesDimInk() : albumInk;
-    final count = groupCountLabel(group.stories.length);
-    final address = group.address?.trim();
-    final showAddress =
-        address != null && address.isNotEmpty && address != group.heading;
     return Padding(
       padding: const EdgeInsets.only(top: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Semantics(
-            header: true,
-            headingLevel: 2,
-            child: Row(
-              children: [
-                if (view.groupBy == AllStoriesGroupBy.member && !group.isNone)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ProfileAvatar(size: 32, displayName: group.heading),
-                  ),
-                if (view.groupBy == AllStoriesGroupBy.place && !group.isNone)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Icon(
-                      Icons.location_on,
-                      size: 18,
-                      color: headingDimmed ? allStoriesDimInk() : albumSage,
-                    ),
-                  ),
-                Flexible(
-                  child: Text(
-                    group.heading,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.newsreader(
-                      color: headingColor,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                if (showAddress) ...[
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      address,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.sourceSans3(
-                        color: headingColor,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(width: 8),
-                Text(
-                  count,
-                  style: GoogleFonts.sourceSans3(
-                    color: headingColor,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
+          _GroupHeading(
+            group: group,
+            groupBy: view.groupBy,
+            dimmed: headingDimmed,
           ),
           const SizedBox(height: 16),
           for (var i = 0; i < group.stories.length; i += columns) ...[
@@ -750,7 +768,10 @@ class _GroupSection extends StatelessWidget {
                   if (column > 0) const SizedBox(width: 24),
                   Expanded(
                     child: i + column < group.stories.length
-                        ? _card(group.stories[i + column])
+                        ? _GroupCell(
+                            section: this,
+                            story: group.stories[i + column],
+                          )
                         : const SizedBox.shrink(),
                   ),
                 ],
@@ -762,20 +783,130 @@ class _GroupSection extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _card(Story story) {
-    final mark = marks[story.id] ?? const SpawnMark();
+class _GroupCell extends StatelessWidget {
+  const _GroupCell({required this.section, required this.story});
+
+  final _GroupSection section;
+  final Story story;
+
+  @override
+  Widget build(BuildContext context) {
     return AllStoriesCard(
       story: story,
-      mark: mark,
-      familyName: familyName,
-      query: query,
-      filterActive: filterActive,
-      undimmed: undimmed[story.id] ?? true,
-      showMembers: view.showMemberPills,
-      thumb: thumbs[story.id],
-      onOpen: () => onOpen(story),
-      onOpenBranch: onOpenBranch,
+      mark: section.marks[story.id] ?? const SpawnMark(),
+      familyName: section.familyName,
+      query: section.query,
+      filterActive: section.filterActive,
+      undimmed: section.undimmed[story.id] ?? true,
+      showMembers: section.view.showMemberPills,
+      thumb: section.thumbs[story.id],
+      onOpen: () => section.onOpen(story),
+      onOpenBranch: section.onOpenBranch,
+    );
+  }
+}
+
+class _GroupHeading extends StatelessWidget {
+  const _GroupHeading({
+    required this.group,
+    required this.groupBy,
+    required this.dimmed,
+  });
+
+  final StoryGroup group;
+  final AllStoriesGroupBy groupBy;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    final headingColor = dimmed ? allStoriesDimInk() : albumInk;
+    final address = group.address?.trim();
+    final showAddress =
+        address != null && address.isNotEmpty && address != group.heading;
+    final small = GoogleFonts.sourceSans3(color: headingColor, fontSize: 14);
+    return Semantics(
+      header: true,
+      headingLevel: 2,
+      child: Row(
+        children: [
+          if (groupBy == AllStoriesGroupBy.member && !group.isNone)
+            _MemberAvatar(name: group.heading),
+          if (groupBy == AllStoriesGroupBy.place && !group.isNone)
+            _PlacePin(dimmed: dimmed),
+          _GroupTitle(text: group.heading, color: headingColor),
+          if (showAddress) ...[
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                address,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: small,
+              ),
+            ),
+          ],
+          const SizedBox(width: 8),
+          Text(groupCountLabel(group.stories.length), style: small),
+        ],
+      ),
+    );
+  }
+}
+
+class _MemberAvatar extends StatelessWidget {
+  const _MemberAvatar({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ProfileAvatar(size: 32, displayName: name),
+    );
+  }
+}
+
+class _PlacePin extends StatelessWidget {
+  const _PlacePin({required this.dimmed});
+
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Icon(
+        Icons.location_on,
+        size: 18,
+        color: dimmed ? allStoriesDimInk() : albumSage,
+      ),
+    );
+  }
+}
+
+/// Flexible group heading text; must sit directly in the heading [Row].
+class _GroupTitle extends StatelessWidget {
+  const _GroupTitle({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Flexible(
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.newsreader(
+          color: color,
+          fontSize: 28,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }
@@ -940,21 +1071,11 @@ class _GroupBySwitchState extends State<_GroupBySwitch> {
     });
   }
 
-  String _label(AllStoriesGroupBy mode) {
-    return switch (mode) {
-      AllStoriesGroupBy.date => 'Date',
-      AllStoriesGroupBy.member => 'Member',
-      AllStoriesGroupBy.place => 'Place',
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
-    final motion = allStoriesMotionOf(context);
     final labelColor = widget.enabled
         ? albumInk
         : albumInk.withValues(alpha: 0.38);
-    final modes = AllStoriesGroupBy.values;
     return Semantics(
       label: 'Group by',
       explicitChildNodes: true,
@@ -974,75 +1095,141 @@ class _GroupBySwitchState extends State<_GroupBySwitch> {
             ),
             child: Stack(
               children: [
-                if (_width > 0)
-                  AnimatedPositioned(
-                    duration: motion,
-                    curve: Curves.easeOutCubic,
-                    left: _left,
-                    width: _width,
-                    top: 0,
-                    bottom: 0,
-                    child: const DecoratedBox(
-                      decoration: ShapeDecoration(
-                        color: albumTerracotta,
-                        shape: StadiumBorder(),
-                      ),
-                    ),
-                  ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < modes.length; i++)
-                      KeyedSubtree(
-                        key: _keys[i],
-                        child: Semantics(
-                          key: Key('all-stories-group-${modes[i].name}'),
-                          button: true,
-                          enabled: widget.enabled,
-                          inMutuallyExclusiveGroup: true,
-                          checked: widget.selected == modes[i],
-                          label: _label(modes[i]),
-                          child: AllStoriesFocusTarget(
-                            radius: 999,
-                            childBuilder: (node) => InkWell(
-                              focusNode: node,
-                              onTap: widget.enabled
-                                  ? () => widget.onChanged(modes[i])
-                                  : null,
-                              customBorder: const StadiumBorder(),
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  minWidth: 44,
-                                  minHeight: 44,
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      _label(modes[i]),
-                                      style: GoogleFonts.sourceSans3(
-                                        color: widget.selected == modes[i]
-                                            ? albumParchment
-                                            : labelColor,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+                if (_width > 0) _GroupByIndicator(left: _left, width: _width),
+                _GroupByOptions(
+                  keys: _keys,
+                  selected: widget.selected,
+                  enabled: widget.enabled,
+                  labelColor: labelColor,
+                  onChanged: widget.onChanged,
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GroupByOptions extends StatelessWidget {
+  const _GroupByOptions({
+    required this.keys,
+    required this.selected,
+    required this.enabled,
+    required this.labelColor,
+    required this.onChanged,
+  });
+
+  final List<GlobalKey> keys;
+  final AllStoriesGroupBy selected;
+  final bool enabled;
+  final Color labelColor;
+  final ValueChanged<AllStoriesGroupBy> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const modes = AllStoriesGroupBy.values;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < modes.length; i++)
+          KeyedSubtree(
+            key: keys[i],
+            child: _GroupByOption(
+              mode: modes[i],
+              selected: selected == modes[i],
+              enabled: enabled,
+              labelColor: labelColor,
+              onChanged: onChanged,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+String _groupByLabel(AllStoriesGroupBy mode) {
+  return switch (mode) {
+    AllStoriesGroupBy.date => 'Date',
+    AllStoriesGroupBy.member => 'Member',
+    AllStoriesGroupBy.place => 'Place',
+  };
+}
+
+/// Sliding terracotta stadium under the selected option.
+class _GroupByIndicator extends StatelessWidget {
+  const _GroupByIndicator({required this.left, required this.width});
+
+  final double left;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedPositioned(
+      duration: allStoriesMotionOf(context),
+      curve: Curves.easeOutCubic,
+      left: left,
+      width: width,
+      top: 0,
+      bottom: 0,
+      child: const DecoratedBox(
+        decoration: ShapeDecoration(
+          color: albumTerracotta,
+          shape: StadiumBorder(),
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupByOption extends StatelessWidget {
+  const _GroupByOption({
+    required this.mode,
+    required this.selected,
+    required this.enabled,
+    required this.labelColor,
+    required this.onChanged,
+  });
+
+  final AllStoriesGroupBy mode;
+  final bool selected;
+  final bool enabled;
+  final Color labelColor;
+  final ValueChanged<AllStoriesGroupBy> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      key: Key('all-stories-group-${mode.name}'),
+      button: true,
+      enabled: enabled,
+      inMutuallyExclusiveGroup: true,
+      checked: selected,
+      label: _groupByLabel(mode),
+      child: AllStoriesFocusTarget(
+        radius: 999,
+        childBuilder: (node) => InkWell(
+          focusNode: node,
+          onTap: enabled ? () => onChanged(mode) : null,
+          customBorder: const StadiumBorder(),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Center(
+                child: Text(
+                  _groupByLabel(mode),
+                  style: GoogleFonts.sourceSans3(
+                    color: selected ? albumParchment : labelColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

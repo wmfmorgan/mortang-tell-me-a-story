@@ -3,23 +3,31 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/invite_repository.dart';
-import 'package:tell_me_a_story/core/data/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/data/server_families_repository.dart';
+import 'package:tell_me_a_story/core/data/server_invite_link_repository.dart';
+import 'package:tell_me_a_story/core/data/server_invite_repository.dart';
+import 'package:tell_me_a_story/core/data/server_manage_families_repository.dart';
 
 import 'support/live_server.dart';
 
 Matcher _code(AppErrorCode code) =>
     throwsA(isA<AppException>().having((e) => e.code, 'code', code));
 
+/// The remembered family the app's session would hold.
+String? _remembered;
+
+String? _rememberedId() => _remembered;
+
 void main() {
   setUpAll(waitForLiveServer);
-  tearDown(FamilySelection.clear);
+  tearDown(() => _remembered = null);
 
   test('create → send → preview → accept → resend → revoke', () async {
     final ownerClient = await signInLive(freshEmail('inv-owner'));
-    final ownerInvites = ServerInviteRepository(client: ownerClient);
+    final ownerInvites = ServerInviteRepository(
+      client: ownerClient,
+      currentFamilyId: _rememberedId,
+    );
     final familyId = await ownerInvites.createFamily('Hendersons');
     final joinerEmail = freshEmail('inv-joiner');
 
@@ -52,11 +60,16 @@ void main() {
     );
 
     final joinerClient = await signInLive(joinerEmail);
-    final accepted = await ServerInviteRepository(client: joinerClient)
-        .acceptInvite(token: created.token);
+    final accepted = await ServerInviteRepository(
+      client: joinerClient,
+      currentFamilyId: _rememberedId,
+    ).acceptInvite(token: created.token);
     expect(accepted.familyId, familyId);
     expect(
-      await ServerInviteRepository(client: joinerClient).currentFamilyId(),
+      await ServerInviteRepository(
+        client: joinerClient,
+        currentFamilyId: _rememberedId,
+      ).currentFamilyId(),
       familyId,
     );
     final joined = await ServerFamiliesRepository(client: joinerClient)
@@ -86,7 +99,10 @@ void main() {
 
   test('accept refuses a different email (D2)', () async {
     final ownerClient = await signInLive(freshEmail('d2-owner'));
-    final invites = ServerInviteRepository(client: ownerClient);
+    final invites = ServerInviteRepository(
+      client: ownerClient,
+      currentFamilyId: _rememberedId,
+    );
     final familyId = await invites.createFamily('Bound');
     final created = await invites.createInvite(
       familyId: familyId,
@@ -94,21 +110,27 @@ void main() {
     );
     final other = await signInLive(freshEmail('d2-other'));
     await expectLater(
-      ServerInviteRepository(client: other).acceptInvite(token: created.token),
+      ServerInviteRepository(
+        client: other,
+        currentFamilyId: _rememberedId,
+      ).acceptInvite(token: created.token),
       _code(AppErrorCode.inviteInvalid),
     );
   });
 
   test('currentFamilyId: remembered family, else first, else null', () async {
     final client = await signInLive(freshEmail('current'));
-    final invites = ServerInviteRepository(client: client);
+    final invites = ServerInviteRepository(
+      client: client,
+      currentFamilyId: _rememberedId,
+    );
     expect(await invites.currentFamilyId(), isNull);
     final first = await invites.createFamily('First');
     final second = await invites.createFamily('Second');
     expect(await invites.currentFamilyId(), first);
-    FamilySelection.remember(second);
+    _remembered = second;
     expect(await invites.currentFamilyId(), second);
-    FamilySelection.remember('00000000-0000-4000-8000-000000000000');
+    _remembered = '00000000-0000-4000-8000-000000000000';
     expect(await invites.currentFamilyId(), first);
   });
 }

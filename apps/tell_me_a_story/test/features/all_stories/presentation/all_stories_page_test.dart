@@ -5,21 +5,29 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_date_precision.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
+import 'package:tell_me_a_story/core/domain/story_thumbs.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
 import 'package:tell_me_a_story/features/all_stories/presentation/all_stories_card.dart';
-import 'package:tell_me_a_story/features/all_stories/presentation/all_stories_logic.dart';
 import 'package:tell_me_a_story/features/all_stories/presentation/all_stories_page.dart';
 
-import '../../../support/fakes/fake_photos_repository.dart';
 import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _family = 'fam-1';
 const _name = 'The Morgans';
@@ -27,13 +35,6 @@ const _name = 'The Morgans';
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
-    AllStoriesSession.resetForTest();
-  });
-
-  tearDown(() {
-    FamilySelection.clear();
-    AllStoriesSession.resetForTest();
   });
 
   testWidgets('W-01 Stories opens All Stories from Landing and the timeline', (
@@ -48,7 +49,7 @@ void main() {
       location: '/landing',
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await _pump(tester, router);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('header-underline-stories')), findsNothing);
 
@@ -77,7 +78,7 @@ void main() {
     await _size(tester, const Size(1440, 900));
     final router = _router(stories: _Stories(), families: _Families());
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await _pump(tester, router);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-search')));
     await tester.pumpAndSettle();
@@ -127,7 +128,7 @@ void main() {
     await _size(tester, const Size(1440, 700));
     final router = _router(stories: _Stories(), families: _Families());
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await _pump(tester, router);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('all-stories-search')),
@@ -171,7 +172,7 @@ void main() {
     final stories = _Stories(publishedOverride: (_) => gate.future);
     final router = _router(stories: stories, families: _Families());
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await _pump(tester, router);
     await tester.pump();
     expect(find.byKey(const Key('all-stories-heading')), findsOneWidget);
     expect(find.byKey(const Key('all-stories-search')), findsOneWidget);
@@ -187,7 +188,7 @@ void main() {
     final stories = _Stories(published: const [], includeOrigin: false);
     final router = _router(stories: stories, families: _Families());
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await _pump(tester, router);
     await tester.pumpAndSettle();
     expect(find.text('No stories yet.'), findsOneWidget);
     expect(
@@ -223,7 +224,7 @@ void main() {
     final stories = _Stories(publishedError: StateError('down'));
     final router = _router(stories: stories, families: _Families());
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await _pump(tester, router);
     await tester.pumpAndSettle();
     expect(find.text("Couldn't load stories."), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
@@ -264,7 +265,7 @@ void main() {
     final stories = _Stories(publishedError: StateError('down'));
     final router = _router(stories: stories, families: _Families());
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await _pump(tester, router);
     await tester.pumpAndSettle();
     stories.publishedError = null;
     await tester.tap(find.byKey(const Key('all-stories-retry')));
@@ -381,7 +382,7 @@ void main() {
       families: _Families(),
     );
     addTearDown(lane.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: lane));
+    await _pump(tester, lane);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('all-stories-group-place')));
     await tester.pumpAndSettle();
@@ -434,7 +435,7 @@ void main() {
     final stories = _Stories();
     final router = _router(stories: stories, families: _Families());
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await _pump(tester, router);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('all-stories-group-place')));
     await tester.enterText(
@@ -479,7 +480,9 @@ void main() {
     'W-16 a branch pill remembers that family and opens the timeline',
     (tester) async {
       await _pumpReady(tester);
-      FamilySelection.remember(_family);
+      containerOf(tester)
+          .read(familySelectionProvider.notifier)
+          .remember(_family);
       await tester.ensureVisible(
         find.byKey(const Key('all-stories-branch-spawn-east')),
       );
@@ -488,7 +491,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('reader-spawn'), findsNothing);
       expect(find.text('timeline-page'), findsOneWidget);
-      expect(FamilySelection.id, 'east');
+      expect(containerOf(tester).read(familySelectionProvider), 'east');
     },
   );
 
@@ -498,7 +501,7 @@ void main() {
     final stories = _Stories(publishedOverride: (_) => gate.future);
     final router = _router(stories: stories, families: _Families());
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await _pump(tester, router);
     await tester.pump();
     await tester.pumpWidget(const SizedBox.shrink());
     gate.complete(_published());
@@ -605,18 +608,7 @@ Future<GoRouter> _pumpReady(
   await _size(tester, const Size(1440, 900));
   final router = _router(stories: _Stories(), families: _Families());
   addTearDown(router.dispose);
-  await tester.pumpWidget(
-    MaterialApp.router(
-      routerConfig: router,
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(disableAnimations: disableAnimations),
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-    ),
-  );
+  await _pump(tester, router, disableAnimations: disableAnimations);
   await tester.pumpAndSettle();
   return router;
 }
@@ -655,47 +647,82 @@ ScrollController _controller(WidgetTester tester) {
       .controller!;
 }
 
+/// Repository overrides for each router built by [_router].
+final _routerOverrides = Expando<List<Override>>();
+
+/// Pumps [router] in a fresh [ProviderScope] (keyed by the router, so a
+/// second router starts with new providers) with that router's fakes.
+/// [disableAnimations] adds the reduced-motion builder [_pumpReady] uses.
+Future<void> _pump(
+  WidgetTester tester,
+  GoRouter router, {
+  bool? disableAnimations,
+}) {
+  return tester.pumpWidget(
+    ProviderScope(
+      key: ObjectKey(router),
+      overrides: [...defaultTestOverrides, ...?_routerOverrides[router]],
+      child: MaterialApp.router(
+        routerConfig: router,
+        builder: disableAnimations == null
+            ? null
+            : (context, child) {
+                return MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(disableAnimations: disableAnimations),
+                  child: child ?? const SizedBox.shrink(),
+                );
+              },
+      ),
+    ),
+  );
+}
+
 GoRouter _router({
   required _Stories stories,
   required _Families families,
   String location = '/family/fam-1/stories',
 }) {
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: location,
     routes: [
       GoRoute(
         path: '/landing',
-        builder: (context, state) => Scaffold(
-          appBar: AlbumHeader(
-            page: AlbumHeaderPage.familyLanding,
-            familyName: _name,
-            families: [_member()],
-            currentFamilyId: _family,
-            onFamilySelected: FamilySelection.remember,
+        builder: (context, state) => Consumer(
+          builder: (context, ref, _) => Scaffold(
+            appBar: AlbumHeader(
+              page: AlbumHeaderPage.familyLanding,
+              familyName: _name,
+              families: [_member()],
+              currentFamilyId: _family,
+              onFamilySelected: ref
+                  .read(familySelectionProvider.notifier)
+                  .remember,
+            ),
+            body: const Text('landing-page'),
           ),
-          body: const Text('landing-page'),
         ),
       ),
       GoRoute(
         path: AppRoutes.allStories,
-        builder: (context, state) => AllStoriesPage(
-          familyId: state.pathParameters['id']!,
-          storiesApi: stories,
-          familiesApi: families,
-          photosApi: FakePhotosRepository(),
-        ),
+        builder: (context, state) =>
+            AllStoriesPage(familyId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: AppRoutes.timeline,
-        builder: (context, state) => Scaffold(
-          appBar: AlbumHeader(
-            page: AlbumHeaderPage.timeline,
-            familyName: _name,
-            families: [_member()],
-            currentFamilyId: FamilySelection.id ?? _family,
-            onFamilySelected: FamilySelection.remember,
+        builder: (context, state) => Consumer(
+          builder: (context, ref, _) => Scaffold(
+            appBar: AlbumHeader(
+              page: AlbumHeaderPage.timeline,
+              familyName: _name,
+              families: [_member()],
+              currentFamilyId: ref.watch(familySelectionProvider) ?? _family,
+              onFamilySelected: ref
+                  .read(familySelectionProvider.notifier)
+                  .remember,
+            ),
+            body: const Text('timeline-page'),
           ),
-          body: const Text('timeline-page'),
         ),
       ),
       GoRoute(
@@ -718,6 +745,12 @@ GoRouter _router({
       ),
     ],
   );
+  _routerOverrides[router] = [
+    storiesRepositoryProvider.overrideWithValue(stories),
+    familiesRepositoryProvider.overrideWithValue(families),
+    storyThumbsLoaderProvider.overrideWithValue((_) async => const {}),
+  ];
+  return router;
 }
 
 MemberFamily _member() {

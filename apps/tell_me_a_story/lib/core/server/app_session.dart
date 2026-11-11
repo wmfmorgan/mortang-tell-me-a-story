@@ -11,10 +11,6 @@ import 'package:tell_me_a_story/core/server/server_client.dart';
 abstract class AppSession {
   const AppSession();
 
-  /// App-wide session. Tests replace it and restore
-  /// `const ServerAppSession()` in tearDown.
-  static AppSession instance = const ServerAppSession();
-
   /// Signed-in user id, or null when signed out or auth has not started.
   String? get currentUserId;
 

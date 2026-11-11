@@ -1,4 +1,5 @@
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/domain/person_story_card.dart';
 import 'package:tell_me_a_story/core/domain/stories_repository.dart';
 import 'package:tell_me_a_story/core/domain/story.dart';
 import 'package:tell_me_a_story/core/domain/story_date_precision.dart';
@@ -9,6 +10,13 @@ import 'package:tell_me_a_story/core/domain/story_status.dart';
 /// [error] to make every call throw it. Subclass and override a method for
 /// anything else.
 class FakeStoriesRepository implements StoriesRepository {
+  /// Seeded per person id; returned by [storiesForPerson].
+  final personStories = <String, List<PersonStoryCard>>{};
+
+  @override
+  Future<List<PersonStoryCard>> storiesForPerson(String personId) async =>
+      personStories[personId] ?? const [];
+
   FakeStoriesRepository({
     Iterable<Story> stories = const [],
     this.userId = 'user-1',

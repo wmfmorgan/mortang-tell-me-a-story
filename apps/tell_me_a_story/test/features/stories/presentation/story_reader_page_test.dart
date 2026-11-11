@@ -2,20 +2,30 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tell_me_a_story/app.dart';
-import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/comments_repository.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
-import 'package:tell_me_a_story/core/data/perspectives_repository.dart'
-    hide displayNameOrMember;
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
-import 'package:tell_me_a_story/core/data/places_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/comment.dart';
+import 'package:tell_me_a_story/core/domain/comments_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/origin_dependent.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/perspective.dart';
+import 'package:tell_me_a_story/core/domain/perspectives_repository.dart';
+import 'package:tell_me_a_story/core/domain/photo.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/place.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
+import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/session/timeline_live.dart';
 import 'package:tell_me_a_story/features/perspectives/presentation/add_perspective_page.dart';
 import 'package:tell_me_a_story/features/stories/presentation/photo_strip.dart';
@@ -24,6 +34,7 @@ import 'package:tell_me_a_story/features/stories/presentation/story_reader_page.
 import '../../../support/fakes/fake_photos_repository.dart';
 import '../../../support/fakes/fake_places_repository.dart';
 import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 const _storyId = 's1';
@@ -405,7 +416,41 @@ class _FakePerspectivesApi implements PerspectivesRepository {
   }
 }
 
-Widget _readerApp({
+/// Reader repositories for one test. Without [families] the caller is a
+/// member of the story's family with no tree and no stewarded families.
+List<Override> _readerOverrides({
+  required StoriesRepository stories,
+  PeopleRepository? people,
+  PlacesRepository? places,
+  PhotosRepository? photos,
+  CommentsRepository? comments,
+  PerspectivesRepository? perspectives,
+  FamiliesRepository? families,
+  TimelineLive? live,
+}) {
+  return [
+    storiesRepositoryProvider.overrideWithValue(stories),
+    peopleRepositoryProvider.overrideWithValue(people ?? _FakePeopleApi()),
+    placesRepositoryProvider.overrideWithValue(
+      places ?? FakePlacesRepository(),
+    ),
+    photosRepositoryProvider.overrideWithValue(photos ?? _FakePhotosApi()),
+    commentsRepositoryProvider.overrideWithValue(
+      comments ?? _FakeCommentsApi(),
+    ),
+    perspectivesRepositoryProvider.overrideWithValue(
+      perspectives ?? _FakePerspectivesApi(),
+    ),
+    familiesRepositoryProvider.overrideWithValue(
+      families ?? _StoryFamilyMember(stories),
+    ),
+    if (live != null) timelineLiveProvider.overrideWithValue(live),
+  ];
+}
+
+/// Pumps the reader at `/stories/:storyId` in a fresh [ProviderScope].
+Future<void> _pumpReader(
+  WidgetTester tester, {
   required StoriesRepository stories,
   PeopleRepository? people,
   PlacesRepository? places,
@@ -417,8 +462,7 @@ Widget _readerApp({
   String storyId = _storyId,
   String? currentUserId,
   TimelineLive? live,
-}) {
-  final perspectivesApi = perspectives ?? _FakePerspectivesApi();
+}) async {
   final router = GoRouter(
     initialLocation: AppRoutes.storyPath(storyId),
     routes: [
@@ -432,31 +476,64 @@ Widget _readerApp({
         builder: (context, state) {
           final extra = state.extra;
           return AddPerspectivePage(
-            storyId: state.pathParameters['storyId']!,
+            storyId: state.pathParameters['storyId'] ?? storyId,
             familyId: extra is String ? extra : _familyId,
-            perspectivesApi: perspectivesApi,
           );
         },
       ),
       GoRoute(
         path: AppRoutes.story,
         builder: (context, state) => StoryReaderPage(
-          storyId: state.pathParameters['storyId']!,
-          storiesApi: stories,
-          peopleApi: people ?? _FakePeopleApi(),
-          placesApi: places ?? FakePlacesRepository(),
-          photosApi: photos ?? _FakePhotosApi(),
-          commentsApi: comments ?? _FakeCommentsApi(),
-          perspectivesApi: perspectivesApi,
-          familiesApi: families,
+          storyId: state.pathParameters['storyId'] ?? storyId,
           pickImageBytes: pickImageBytes,
           currentUserId: currentUserId,
-          live: live,
         ),
       ),
     ],
   );
-  return TellMeAStoryApp(router: router);
+  // A test that pumps twice starts the second reader from a fresh scope.
+  await tester.pumpWidget(const SizedBox.shrink());
+  await pumpRouterApp(
+    tester,
+    router,
+    overrides: _readerOverrides(
+      stories: stories,
+      people: people,
+      places: places,
+      photos: photos,
+      comments: comments,
+      perspectives: perspectives,
+      families: families,
+      live: live,
+    ),
+  );
+}
+
+/// The reader belongs to the story's family; no tree, nothing stewarded.
+class _StoryFamilyMember extends FamiliesRepository {
+  _StoryFamilyMember(this.stories);
+
+  final StoriesRepository stories;
+
+  String get _storyFamilyId => switch (stories) {
+    _FakeStoriesApi(:final story?) => story.familyId,
+    _ => _familyId,
+  };
+
+  @override
+  Future<List<MemberFamily>> listMine() async => [
+    MemberFamily(
+      id: _storyFamilyId,
+      name: 'Family',
+      createdAt: DateTime.utc(2000),
+    ),
+  ];
+
+  @override
+  Future<List<TreeFamily>> listFamilyTree(String familyId) async => const [];
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => const [];
 }
 
 void main() {
@@ -500,11 +577,10 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        photos: photos,
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      photos: photos,
     );
     await tester.pumpAndSettle();
 
@@ -515,49 +591,48 @@ void main() {
   testWidgets('published story renders body, people, place, sections', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        people: _FakePeopleApi(seed: const [_ada, _bob]),
-        places: FakePlacesRepository(places: [_park]),
-        photos: _FakePhotosApi(
-          seed: const [
-            Photo(
-              id: 'ph1',
-              storyId: _storyId,
-              familyId: _familyId,
-              uploaderId: 'u1',
-              storagePath: 'f/s/ph1.jpg',
-              sortOrder: 0,
-            ),
-          ],
-        ),
-        comments: _FakeCommentsApi(
-          seed: [
-            Comment(
-              id: 'c1',
-              storyId: _storyId,
-              familyId: _familyId,
-              authorId: 'u1',
-              body: 'I remember the pie.',
-              createdAt: DateTime.utc(2026, 9, 27),
-              authorDisplayName: 'Aunt Clara',
-            ),
-          ],
-        ),
-        perspectives: _FakePerspectivesApi(
-          seed: [
-            Perspective(
-              id: 'v1',
-              storyId: _storyId,
-              familyId: _familyId,
-              authorId: 'u2',
-              body: 'From the porch it looked different.',
-              createdAt: DateTime.utc(2026, 9, 26),
-              authorDisplayName: 'Uncle Ben',
-            ),
-          ],
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      people: _FakePeopleApi(seed: const [_ada, _bob]),
+      places: FakePlacesRepository(places: [_park]),
+      photos: _FakePhotosApi(
+        seed: const [
+          Photo(
+            id: 'ph1',
+            storyId: _storyId,
+            familyId: _familyId,
+            uploaderId: 'u1',
+            storagePath: 'f/s/ph1.jpg',
+            sortOrder: 0,
+          ),
+        ],
+      ),
+      comments: _FakeCommentsApi(
+        seed: [
+          Comment(
+            id: 'c1',
+            storyId: _storyId,
+            familyId: _familyId,
+            authorId: 'u1',
+            body: 'I remember the pie.',
+            createdAt: DateTime.utc(2026, 9, 27),
+            authorDisplayName: 'Aunt Clara',
+          ),
+        ],
+      ),
+      perspectives: _FakePerspectivesApi(
+        seed: [
+          Perspective(
+            id: 'v1',
+            storyId: _storyId,
+            familyId: _familyId,
+            authorId: 'u2',
+            body: 'From the porch it looked different.',
+            createdAt: DateTime.utc(2026, 9, 26),
+            authorDisplayName: 'Uncle Ben',
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -601,22 +676,21 @@ void main() {
   testWidgets('hero keeps a portrait whole inside a 3:4 frame', (tester) async {
     final portrait = _pngOf(30, 40);
     final wide = _pngOf(32, 18);
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        photos: _FakePhotosApi(
-          bytes: portrait,
-          seed: const [
-            Photo(
-              id: 'ph1',
-              storyId: _storyId,
-              familyId: _familyId,
-              uploaderId: 'u1',
-              storagePath: 'f/s/ph1.jpg',
-              sortOrder: 0,
-            ),
-          ],
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      photos: _FakePhotosApi(
+        bytes: portrait,
+        seed: const [
+          Photo(
+            id: 'ph1',
+            storyId: _storyId,
+            familyId: _familyId,
+            uploaderId: 'u1',
+            storagePath: 'f/s/ph1.jpg',
+            sortOrder: 0,
+          ),
+        ],
       ),
     );
     await tester.pump();
@@ -638,22 +712,21 @@ void main() {
       BoxFit.contain,
     );
 
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        photos: _FakePhotosApi(
-          bytes: wide,
-          seed: const [
-            Photo(
-              id: 'ph1',
-              storyId: _storyId,
-              familyId: _familyId,
-              uploaderId: 'u1',
-              storagePath: 'f/s/ph1.jpg',
-              sortOrder: 0,
-            ),
-          ],
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      photos: _FakePhotosApi(
+        bytes: wide,
+        seed: const [
+          Photo(
+            id: 'ph1',
+            storyId: _storyId,
+            familyId: _familyId,
+            uploaderId: 'u1',
+            storagePath: 'f/s/ph1.jpg',
+            sortOrder: 0,
+          ),
+        ],
       ),
     );
     await tester.pump();
@@ -678,12 +751,11 @@ void main() {
       );
     }
 
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        photos: _FakePhotosApi(
-          seed: [photo('ph2', 1), photo('ph1', 0), photo('ph3', 2)],
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      photos: _FakePhotosApi(
+        seed: [photo('ph2', 1), photo('ph1', 0), photo('ph3', 2)],
       ),
     );
     await tester.pumpAndSettle();
@@ -726,12 +798,11 @@ void main() {
 
     final photos = _FakePhotosApi(seed: [photo('ph1', 0), photo('ph2', 1)]);
     final live = _StoryReload();
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        photos: photos,
-        live: live,
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      photos: photos,
+      live: live,
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('story-hero-ph1')), findsOneWidget);
@@ -750,9 +821,7 @@ void main() {
   });
 
   testWidgets('Add comment reveals the composer', (tester) async {
-    await tester.pumpWidget(
-      _readerApp(stories: _FakeStoriesApi(story: _published())),
-    );
+    await _pumpReader(tester, stories: _FakeStoriesApi(story: _published()));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('comment-composer')), findsNothing);
@@ -767,14 +836,10 @@ void main() {
   });
 
   testWidgets('draft id shows Not found without body text', (tester) async {
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(
-          story: _published(
-            body: 'DRAFT_SECRET_BODY',
-            status: StoryStatus.draft,
-          ),
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(
+        story: _published(body: 'DRAFT_SECRET_BODY', status: StoryStatus.draft),
       ),
     );
     await tester.pumpAndSettle();
@@ -791,7 +856,7 @@ void main() {
   testWidgets('missing story shows Not found without loading comments', (
     tester,
   ) async {
-    await tester.pumpWidget(_readerApp(stories: _FakeStoriesApi()));
+    await _pumpReader(tester, stories: _FakeStoriesApi());
     await tester.pumpAndSettle();
 
     expect(find.text('Not found'), findsOneWidget);
@@ -802,9 +867,7 @@ void main() {
   testWidgets('throwing getPublished shows SnackBar, not Not found', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _readerApp(stories: _FakeStoriesApi(throwOnGet: true)),
-    );
+    await _pumpReader(tester, stories: _FakeStoriesApi(throwOnGet: true));
     await tester.pump();
     await tester.pump();
 
@@ -818,9 +881,7 @@ void main() {
   testWidgets('empty comments and perspectives still show headers and CTAs', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _readerApp(stories: _FakeStoriesApi(story: _published())),
-    );
+    await _pumpReader(tester, stories: _FakeStoriesApi(story: _published()));
     await tester.pumpAndSettle();
 
     expect(find.text('Perspectives'), findsOneWidget);
@@ -830,34 +891,33 @@ void main() {
   });
 
   testWidgets('blank author display name falls back to Member', (tester) async {
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        comments: _FakeCommentsApi(
-          seed: [
-            Comment(
-              id: 'c1',
-              storyId: _storyId,
-              familyId: _familyId,
-              authorId: 'u1',
-              body: 'Unsigned note',
-              createdAt: DateTime.utc(2026, 9, 27),
-            ),
-          ],
-        ),
-        perspectives: _FakePerspectivesApi(
-          seed: [
-            Perspective(
-              id: 'v1',
-              storyId: _storyId,
-              familyId: _familyId,
-              authorId: 'u2',
-              body: 'Unsigned telling',
-              createdAt: DateTime.utc(2026, 9, 26),
-              authorDisplayName: '   ',
-            ),
-          ],
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      comments: _FakeCommentsApi(
+        seed: [
+          Comment(
+            id: 'c1',
+            storyId: _storyId,
+            familyId: _familyId,
+            authorId: 'u1',
+            body: 'Unsigned note',
+            createdAt: DateTime.utc(2026, 9, 27),
+          ),
+        ],
+      ),
+      perspectives: _FakePerspectivesApi(
+        seed: [
+          Perspective(
+            id: 'v1',
+            storyId: _storyId,
+            familyId: _familyId,
+            authorId: 'u2',
+            body: 'Unsigned telling',
+            createdAt: DateTime.utc(2026, 9, 26),
+            authorDisplayName: '   ',
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -870,13 +930,12 @@ void main() {
   testWidgets('saved title is the headline and the full body stays', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(
-          story: _published(
-            title: 'Making Blackberry Jam on the Back Porch',
-            body: 'Picnic at the lake\nWe brought pie.',
-          ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(
+        story: _published(
+          title: 'Making Blackberry Jam on the Back Porch',
+          body: 'Picnic at the lake\nWe brought pie.',
         ),
       ),
     );
@@ -892,10 +951,9 @@ void main() {
   });
 
   testWidgets('empty body headline is Untitled', (tester) async {
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published(body: '   ')),
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published(body: '   ')),
     );
     await tester.pumpAndSettle();
 
@@ -904,21 +962,20 @@ void main() {
   });
 
   testWidgets('a blank place label uses the address chip', (tester) async {
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        places: FakePlacesRepository(
-          places: [
-            const Place(
-              id: 'pl1',
-              label: '   ',
-              address: 'New York, NY',
-              lat: 40.78,
-              lng: -73.96,
-              isFavorite: false,
-            ),
-          ],
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      places: FakePlacesRepository(
+        places: [
+          const Place(
+            id: 'pl1',
+            label: '   ',
+            address: 'New York, NY',
+            lat: 40.78,
+            lng: -73.96,
+            isFavorite: false,
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -930,23 +987,17 @@ void main() {
   testWidgets('modal shell closes without a Timeline back link', (
     tester,
   ) async {
-    final nav = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: nav,
-        home: const Scaffold(body: Text('under-page')),
+    await pumpApp(
+      tester,
+      const Scaffold(body: Text('under-page')),
+      overrides: _readerOverrides(
+        stories: _FakeStoriesApi(story: _published(title: 'Jam')),
       ),
     );
-    nav.currentState!.push(
-      MaterialPageRoute<void>(
-        builder: (context) => StoryReaderPage(
-          storyId: _storyId,
-          storiesApi: _FakeStoriesApi(story: _published(title: 'Jam')),
-          peopleApi: _FakePeopleApi(),
-          placesApi: FakePlacesRepository(),
-          photosApi: _FakePhotosApi(),
-          commentsApi: _FakeCommentsApi(),
-          perspectivesApi: _FakePerspectivesApi(),
+    unawaited(
+      Navigator.of(tester.element(find.text('under-page'))).push(
+        MaterialPageRoute<void>(
+          builder: (context) => const StoryReaderPage(storyId: _storyId),
         ),
       ),
     );
@@ -974,10 +1025,9 @@ void main() {
     tester,
   ) async {
     final delay = Completer<void>();
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published(), getDelay: delay.future),
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published(), getDelay: delay.future),
     );
     await tester.pump();
 
@@ -993,11 +1043,10 @@ void main() {
   testWidgets('ancillary load error shows SnackBar and keeps the story', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        comments: _FakeCommentsApi(throwOnList: true),
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      comments: _FakeCommentsApi(throwOnList: true),
     );
     await tester.pump();
     await tester.pump();
@@ -1009,9 +1058,7 @@ void main() {
   });
 
   testWidgets('close from a root reader goes to /timeline', (tester) async {
-    await tester.pumpWidget(
-      _readerApp(stories: _FakeStoriesApi(story: _published())),
-    );
+    await _pumpReader(tester, stories: _FakeStoriesApi(story: _published()));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('family-menu')), findsNothing);
@@ -1025,9 +1072,7 @@ void main() {
   });
 
   testWidgets('Add perspective pushes the overlay route', (tester) async {
-    await tester.pumpWidget(
-      _readerApp(stories: _FakeStoriesApi(story: _published())),
-    );
+    await _pumpReader(tester, stories: _FakeStoriesApi(story: _published()));
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Add perspective'));
@@ -1041,11 +1086,10 @@ void main() {
     tester,
   ) async {
     final perspectives = _FakePerspectivesApi();
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        perspectives: perspectives,
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      perspectives: perspectives,
     );
     await tester.pumpAndSettle();
 
@@ -1076,12 +1120,11 @@ void main() {
     tester,
   ) async {
     final comments = _FakeCommentsApi();
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        comments: comments,
-        currentUserId: 'u1',
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      comments: comments,
+      currentUserId: 'u1',
     );
     await tester.pumpAndSettle();
 
@@ -1101,11 +1144,10 @@ void main() {
 
   testWidgets('empty Post does not create a comment', (tester) async {
     final comments = _FakeCommentsApi();
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        comments: comments,
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      comments: comments,
     );
     await tester.pumpAndSettle();
 
@@ -1126,11 +1168,10 @@ void main() {
     tester,
   ) async {
     final comments = _FakeCommentsApi(throwOnCreate: true);
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        comments: comments,
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      comments: comments,
     );
     await tester.pumpAndSettle();
 
@@ -1154,38 +1195,37 @@ void main() {
   testWidgets('comment and perspective menus keep the reader scrim', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        currentUserId: 'u1',
-        comments: _FakeCommentsApi(
-          seed: [
-            Comment(
-              id: 'mine',
-              storyId: _storyId,
-              familyId: _familyId,
-              authorId: 'u1',
-              body: 'My note',
-              createdAt: DateTime.utc(2026, 9, 27),
-              authorDisplayName: 'Me',
-              canDelete: true,
-            ),
-          ],
-        ),
-        perspectives: _FakePerspectivesApi(
-          seed: [
-            Perspective(
-              id: 'mine',
-              storyId: _storyId,
-              familyId: _familyId,
-              authorId: 'u1',
-              body: 'My telling',
-              createdAt: DateTime.utc(2026, 9, 26),
-              authorDisplayName: 'Me',
-              canDelete: true,
-            ),
-          ],
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      currentUserId: 'u1',
+      comments: _FakeCommentsApi(
+        seed: [
+          Comment(
+            id: 'mine',
+            storyId: _storyId,
+            familyId: _familyId,
+            authorId: 'u1',
+            body: 'My note',
+            createdAt: DateTime.utc(2026, 9, 27),
+            authorDisplayName: 'Me',
+            canDelete: true,
+          ),
+        ],
+      ),
+      perspectives: _FakePerspectivesApi(
+        seed: [
+          Perspective(
+            id: 'mine',
+            storyId: _storyId,
+            familyId: _familyId,
+            authorId: 'u1',
+            body: 'My telling',
+            createdAt: DateTime.utc(2026, 9, 26),
+            authorDisplayName: 'Me',
+            canDelete: true,
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -1232,12 +1272,11 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        comments: comments,
-        currentUserId: 'u1',
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      comments: comments,
+      currentUserId: 'u1',
     );
     await tester.pumpAndSettle();
 
@@ -1281,12 +1320,11 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        comments: comments,
-        currentUserId: 'u1',
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      comments: comments,
+      currentUserId: 'u1',
     );
     await tester.pumpAndSettle();
 
@@ -1357,12 +1395,11 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        comments: comments,
-        currentUserId: 'u1',
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      comments: comments,
+      currentUserId: 'u1',
     );
     await tester.pumpAndSettle();
 
@@ -1419,12 +1456,11 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        perspectives: perspectives,
-        currentUserId: 'u1',
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      perspectives: perspectives,
+      currentUserId: 'u1',
     );
     await tester.pumpAndSettle();
 
@@ -1516,13 +1552,12 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        comments: comments,
-        perspectives: perspectives,
-        currentUserId: 'u1',
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      comments: comments,
+      perspectives: perspectives,
+      currentUserId: 'u1',
     );
     await tester.pumpAndSettle();
 
@@ -1554,12 +1589,11 @@ void main() {
       seed: [perspectiveRow(id: 'mine', authorId: 'u1', body: 'My telling')],
       throwOnDelete: true,
     );
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        perspectives: perspectives,
-        currentUserId: 'u1',
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      perspectives: perspectives,
+      currentUserId: 'u1',
     );
     await tester.pumpAndSettle();
 
@@ -1582,13 +1616,12 @@ void main() {
   ) async {
     final photos = _FakePhotosApi();
     final picker = _FakePicker(bytes: _tinyJpeg);
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        photos: photos,
-        pickImageBytes: picker.call,
-        currentUserId: 'u-member',
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      photos: photos,
+      pickImageBytes: picker.call,
+      currentUserId: 'u-member',
     );
     await tester.pumpAndSettle();
 
@@ -1620,12 +1653,11 @@ void main() {
     );
     final photos = _FakePhotosApi(seed: seed);
     final picker = _FakePicker();
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        photos: photos,
-        pickImageBytes: picker.call,
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      photos: photos,
+      pickImageBytes: picker.call,
     );
     await tester.pumpAndSettle();
 
@@ -1640,12 +1672,11 @@ void main() {
     tester,
   ) async {
     final photos = _FakePhotosApi(failUpload: true);
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        photos: photos,
-        pickImageBytes: _FakePicker().call,
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      photos: photos,
+      pickImageBytes: _FakePicker().call,
     );
     await tester.pumpAndSettle();
 
@@ -1693,12 +1724,11 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published()),
-        photos: photos,
-        currentUserId: 'u1',
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published()),
+      photos: photos,
+      currentUserId: 'u1',
     );
     await tester.pumpAndSettle();
 
@@ -1713,12 +1743,11 @@ void main() {
 
   testWidgets('a non-member reader hides write controls', (tester) async {
     final people = _TreePeople(seed: const [_ada]);
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published(title: 'Jam')),
-        people: people,
-        families: _NoMembership(),
-      ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published(title: 'Jam')),
+      people: people,
+      families: _NoMembership(),
     );
     await tester.pumpAndSettle();
 
@@ -1735,25 +1764,24 @@ void main() {
   ) async {
     const child = 'ada';
     final people = _TreePeople(seed: const [_ada]);
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published(title: 'Jam')),
-        people: people,
-        currentUserId: 'u-child',
-        families: _OriginFamilies(
-          mine: [
-            MemberFamily(id: child, name: 'Ada', createdAt: DateTime.utc(1990)),
-          ],
-          tree: [
-            const TreeFamily(id: _familyId, name: 'Parent'),
-            const TreeFamily(
-              id: child,
-              name: 'Ada',
-              parentFamilyId: _familyId,
-              originStoryId: _storyId,
-            ),
-          ],
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published(title: 'Jam')),
+      people: people,
+      currentUserId: 'u-child',
+      families: _OriginFamilies(
+        mine: [
+          MemberFamily(id: child, name: 'Ada', createdAt: DateTime.utc(1990)),
+        ],
+        tree: [
+          const TreeFamily(id: _familyId, name: 'Parent'),
+          const TreeFamily(
+            id: child,
+            name: 'Ada',
+            parentFamilyId: _familyId,
+            originStoryId: _storyId,
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -1767,64 +1795,63 @@ void main() {
     tester,
   ) async {
     const child = 'ada';
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(
-          story: _published(authorId: 'u-author', title: 'Jam'),
-        ),
-        currentUserId: 'u-child',
-        photos: _FakePhotosApi(
-          seed: const [
-            Photo(
-              id: 'ph-child',
-              storyId: _storyId,
-              familyId: _familyId,
-              uploaderId: 'u-child',
-              storagePath: 'f/s/child.jpg',
-              sortOrder: 0,
-            ),
-          ],
-        ),
-        comments: _FakeCommentsApi(
-          seed: [
-            Comment(
-              id: 'c-child',
-              storyId: _storyId,
-              familyId: _familyId,
-              authorId: 'u-child',
-              body: 'A note from Ada',
-              createdAt: DateTime.utc(2026, 9, 27),
-              authorDisplayName: 'Ada',
-            ),
-          ],
-        ),
-        perspectives: _FakePerspectivesApi(
-          seed: [
-            Perspective(
-              id: 'v-child',
-              storyId: _storyId,
-              familyId: _familyId,
-              authorId: 'u-child',
-              body: 'A longer telling',
-              createdAt: DateTime.utc(2026, 9, 27),
-              authorDisplayName: 'Ada',
-            ),
-          ],
-        ),
-        families: _OriginFamilies(
-          mine: [
-            MemberFamily(id: child, name: 'Ada', createdAt: DateTime.utc(1990)),
-          ],
-          tree: const [
-            TreeFamily(id: _familyId, name: 'Parent'),
-            TreeFamily(
-              id: child,
-              name: 'Ada',
-              parentFamilyId: _familyId,
-              originStoryId: 'other-story',
-            ),
-          ],
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(
+        story: _published(authorId: 'u-author', title: 'Jam'),
+      ),
+      currentUserId: 'u-child',
+      photos: _FakePhotosApi(
+        seed: const [
+          Photo(
+            id: 'ph-child',
+            storyId: _storyId,
+            familyId: _familyId,
+            uploaderId: 'u-child',
+            storagePath: 'f/s/child.jpg',
+            sortOrder: 0,
+          ),
+        ],
+      ),
+      comments: _FakeCommentsApi(
+        seed: [
+          Comment(
+            id: 'c-child',
+            storyId: _storyId,
+            familyId: _familyId,
+            authorId: 'u-child',
+            body: 'A note from Ada',
+            createdAt: DateTime.utc(2026, 9, 27),
+            authorDisplayName: 'Ada',
+          ),
+        ],
+      ),
+      perspectives: _FakePerspectivesApi(
+        seed: [
+          Perspective(
+            id: 'v-child',
+            storyId: _storyId,
+            familyId: _familyId,
+            authorId: 'u-child',
+            body: 'A longer telling',
+            createdAt: DateTime.utc(2026, 9, 27),
+            authorDisplayName: 'Ada',
+          ),
+        ],
+      ),
+      families: _OriginFamilies(
+        mine: [
+          MemberFamily(id: child, name: 'Ada', createdAt: DateTime.utc(1990)),
+        ],
+        tree: const [
+          TreeFamily(id: _familyId, name: 'Parent'),
+          TreeFamily(
+            id: child,
+            name: 'Ada',
+            parentFamilyId: _familyId,
+            originStoryId: 'other-story',
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -1861,31 +1888,26 @@ void main() {
     ];
 
     Future<void> pump(String uid) async {
-      await tester.pumpWidget(
-        _readerApp(
-          stories: _FakeStoriesApi(
-            story: _published(authorId: 'u-author', title: 'Jam'),
-          ),
-          currentUserId: uid,
-          photos: _FakePhotosApi(seed: photos),
-          families: _OriginFamilies(
-            mine: [
-              MemberFamily(
-                id: child,
-                name: 'Ada',
-                createdAt: DateTime.utc(1990),
-              ),
-            ],
-            tree: [
-              const TreeFamily(id: _familyId, name: 'Parent'),
-              const TreeFamily(
-                id: child,
-                name: 'Ada',
-                parentFamilyId: _familyId,
-                originStoryId: _storyId,
-              ),
-            ],
-          ),
+      await _pumpReader(
+        tester,
+        stories: _FakeStoriesApi(
+          story: _published(authorId: 'u-author', title: 'Jam'),
+        ),
+        currentUserId: uid,
+        photos: _FakePhotosApi(seed: photos),
+        families: _OriginFamilies(
+          mine: [
+            MemberFamily(id: child, name: 'Ada', createdAt: DateTime.utc(1990)),
+          ],
+          tree: [
+            const TreeFamily(id: _familyId, name: 'Parent'),
+            const TreeFamily(
+              id: child,
+              name: 'Ada',
+              parentFamilyId: _familyId,
+              originStoryId: _storyId,
+            ),
+          ],
         ),
       );
       await tester.pumpAndSettle();
@@ -1904,16 +1926,15 @@ void main() {
       String authorId = 'author',
       List<StewardFamily> stewarded = const [],
     }) async {
-      await tester.pumpWidget(
-        _readerApp(
-          stories: _FakeStoriesApi(
-            story: _published(authorId: authorId, title: 'Jam'),
-          ),
-          currentUserId: uid,
-          families: _OriginFamilies(
-            tree: const [TreeFamily(id: _familyId, name: 'Family')],
-            stewarded: stewarded,
-          ),
+      await _pumpReader(
+        tester,
+        stories: _FakeStoriesApi(
+          story: _published(authorId: authorId, title: 'Jam'),
+        ),
+        currentUserId: uid,
+        families: _OriginFamilies(
+          tree: const [TreeFamily(id: _familyId, name: 'Family')],
+          stewarded: stewarded,
         ),
       );
       await tester.pumpAndSettle();
@@ -1986,16 +2007,15 @@ void main() {
     (tester) async {
       const ada = 'ada';
       Future<void> pump(String role) async {
-        await tester.pumpWidget(
-          _readerApp(
-            stories: _FakeStoriesApi(
-              story: _published(familyId: ada, title: 'Jam'),
-            ),
-            currentUserId: 'u-member',
-            families: _OriginFamilies(
-              tree: const [TreeFamily(id: ada, name: 'Ada')],
-              stewarded: [StewardFamily(id: ada, name: 'Ada', role: role)],
-            ),
+        await _pumpReader(
+          tester,
+          stories: _FakeStoriesApi(
+            story: _published(familyId: ada, title: 'Jam'),
+          ),
+          currentUserId: 'u-member',
+          families: _OriginFamilies(
+            tree: const [TreeFamily(id: ada, name: 'Ada')],
+            stewarded: [StewardFamily(id: ada, name: 'Ada', role: role)],
           ),
         );
         await tester.pumpAndSettle();
@@ -2024,25 +2044,24 @@ void main() {
     'overflow lists one Set as origin for each child the viewer stewards',
     (tester) async {
       const parent = 'parent';
-      await tester.pumpWidget(
-        _readerApp(
-          stories: _FakeStoriesApi(
-            story: _published(familyId: parent, title: 'Jam'),
-          ),
-          currentUserId: 'u-member',
-          families: _OriginFamilies(
-            tree: const [
-              TreeFamily(id: parent, name: 'Parent'),
-              TreeFamily(id: 'ada', name: 'Ada', parentFamilyId: parent),
-              TreeFamily(id: 'bea', name: 'Bea', parentFamilyId: parent),
-              TreeFamily(id: 'cara', name: 'Cara', parentFamilyId: 'other'),
-            ],
-            stewarded: const [
-              StewardFamily(id: 'ada', name: 'Ada', role: 'owner'),
-              StewardFamily(id: 'bea', name: 'Bea', role: 'member'),
-              StewardFamily(id: 'cara', name: 'Cara', role: 'owner'),
-            ],
-          ),
+      await _pumpReader(
+        tester,
+        stories: _FakeStoriesApi(
+          story: _published(familyId: parent, title: 'Jam'),
+        ),
+        currentUserId: 'u-member',
+        families: _OriginFamilies(
+          tree: const [
+            TreeFamily(id: parent, name: 'Parent'),
+            TreeFamily(id: 'ada', name: 'Ada', parentFamilyId: parent),
+            TreeFamily(id: 'bea', name: 'Bea', parentFamilyId: parent),
+            TreeFamily(id: 'cara', name: 'Cara', parentFamilyId: 'other'),
+          ],
+          stewarded: const [
+            StewardFamily(id: 'ada', name: 'Ada', role: 'owner'),
+            StewardFamily(id: 'bea', name: 'Bea', role: 'member'),
+            StewardFamily(id: 'cara', name: 'Cara', role: 'owner'),
+          ],
         ),
       );
       await tester.pumpAndSettle();
@@ -2063,14 +2082,13 @@ void main() {
         tree: const [TreeFamily(id: ada, name: 'Ada')],
         stewarded: const [StewardFamily(id: ada, name: 'Ada', role: 'owner')],
       );
-      await tester.pumpWidget(
-        _readerApp(
-          stories: _FakeStoriesApi(
-            story: _published(familyId: ada, title: 'Jam'),
-          ),
-          currentUserId: 'u-member',
-          families: families,
+      await _pumpReader(
+        tester,
+        stories: _FakeStoriesApi(
+          story: _published(familyId: ada, title: 'Jam'),
         ),
+        currentUserId: 'u-member',
+        families: families,
       );
       await tester.pumpAndSettle();
 
@@ -2103,14 +2121,13 @@ void main() {
       expect(families.originCalls, [(familyId: ada, storyId: _storyId)]);
       expect(find.text('timeline-dest'), findsOneWidget);
 
-      await tester.pumpWidget(
-        _readerApp(
-          stories: _FakeStoriesApi(
-            story: _published(familyId: ada, title: 'Jam'),
-          ),
-          currentUserId: 'u-member',
-          families: families,
+      await _pumpReader(
+        tester,
+        stories: _FakeStoriesApi(
+          story: _published(familyId: ada, title: 'Jam'),
         ),
+        currentUserId: 'u-member',
+        families: families,
       );
       await tester.pumpAndSettle();
 
@@ -2154,8 +2171,11 @@ void main() {
         tree: const [TreeFamily(id: _familyId, name: 'Jenkins')],
         dependents: const [OriginDependent(familyId: 'ada', name: 'Ada')],
       );
-      await tester.pumpWidget(
-        _readerApp(stories: stories, currentUserId: 'u1', families: families),
+      await _pumpReader(
+        tester,
+        stories: stories,
+        currentUserId: 'u1',
+        families: families,
       );
       await tester.pumpAndSettle();
 
@@ -2218,16 +2238,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(stories.discarded, [_storyId]);
 
-      await tester.pumpWidget(
-        _readerApp(
-          stories: _FakeStoriesApi(story: _published(title: 'Jam')),
-          currentUserId: 'u-member',
-          families: _OriginFamilies(
-            tree: const [TreeFamily(id: _familyId, name: 'Jenkins')],
-            stewarded: const [
-              StewardFamily(id: _familyId, name: 'Jenkins', role: 'owner'),
-            ],
-          ),
+      await _pumpReader(
+        tester,
+        stories: _FakeStoriesApi(story: _published(title: 'Jam')),
+        currentUserId: 'u-member',
+        families: _OriginFamilies(
+          tree: const [TreeFamily(id: _familyId, name: 'Jenkins')],
+          stewarded: const [
+            StewardFamily(id: _familyId, name: 'Jenkins', role: 'owner'),
+          ],
         ),
       );
       await tester.pumpAndSettle();
@@ -2247,32 +2266,31 @@ void main() {
       final picker = _FakePicker(bytes: _tinyJpeg);
 
       Future<void> pump(String? originId) async {
-        await tester.pumpWidget(
-          _readerApp(
-            stories: _FakeStoriesApi(
-              story: _published(familyId: parent, title: 'The beginning'),
-            ),
-            photos: photos,
-            pickImageBytes: picker.call,
-            currentUserId: 'u-child',
-            families: _OriginFamilies(
-              mine: [
-                MemberFamily(
-                  id: child,
-                  name: 'Ada',
-                  createdAt: DateTime.utc(1990),
-                ),
-              ],
-              tree: [
-                const TreeFamily(id: parent, name: 'Parent'),
-                TreeFamily(
-                  id: child,
-                  name: 'Ada',
-                  parentFamilyId: parent,
-                  originStoryId: originId,
-                ),
-              ],
-            ),
+        await _pumpReader(
+          tester,
+          stories: _FakeStoriesApi(
+            story: _published(familyId: parent, title: 'The beginning'),
+          ),
+          photos: photos,
+          pickImageBytes: picker.call,
+          currentUserId: 'u-child',
+          families: _OriginFamilies(
+            mine: [
+              MemberFamily(
+                id: child,
+                name: 'Ada',
+                createdAt: DateTime.utc(1990),
+              ),
+            ],
+            tree: [
+              const TreeFamily(id: parent, name: 'Parent'),
+              TreeFamily(
+                id: child,
+                name: 'Ada',
+                parentFamilyId: parent,
+                originStoryId: originId,
+              ),
+            ],
           ),
         );
         await tester.pumpAndSettle();
@@ -2319,30 +2337,29 @@ void main() {
         required List<StewardFamily> stewarded,
         required List<MemberFamily> mine,
       }) async {
-        await tester.pumpWidget(
-          _readerApp(
-            stories: _FakeStoriesApi(
-              story: _published(
-                familyId: parent,
-                authorId: 'u-author',
-                title: 'The beginning',
+        await _pumpReader(
+          tester,
+          stories: _FakeStoriesApi(
+            story: _published(
+              familyId: parent,
+              authorId: 'u-author',
+              title: 'The beginning',
+            ),
+          ),
+          currentUserId: uid,
+          photos: _FakePhotosApi(seed: photos),
+          families: _OriginFamilies(
+            mine: mine,
+            tree: [
+              const TreeFamily(id: parent, name: 'Parent'),
+              const TreeFamily(
+                id: child,
+                name: 'Ada',
+                parentFamilyId: parent,
+                originStoryId: _storyId,
               ),
-            ),
-            currentUserId: uid,
-            photos: _FakePhotosApi(seed: photos),
-            families: _OriginFamilies(
-              mine: mine,
-              tree: [
-                const TreeFamily(id: parent, name: 'Parent'),
-                const TreeFamily(
-                  id: child,
-                  name: 'Ada',
-                  parentFamilyId: parent,
-                  originStoryId: _storyId,
-                ),
-              ],
-              stewarded: stewarded,
-            ),
+            ],
+            stewarded: stewarded,
           ),
         );
         await tester.pumpAndSettle();
@@ -2390,29 +2407,28 @@ void main() {
       required List<StewardFamily> stewarded,
       List<MemberFamily> mine = const [],
     }) async {
-      await tester.pumpWidget(
-        _readerApp(
-          stories: _FakeStoriesApi(
-            story: _published(
-              familyId: parent,
-              authorId: 'u-author',
-              title: 'The beginning',
+      await _pumpReader(
+        tester,
+        stories: _FakeStoriesApi(
+          story: _published(
+            familyId: parent,
+            authorId: 'u-author',
+            title: 'The beginning',
+          ),
+        ),
+        currentUserId: uid,
+        families: _OriginFamilies(
+          mine: mine,
+          tree: const [
+            TreeFamily(id: parent, name: 'Parent'),
+            TreeFamily(
+              id: child,
+              name: 'Ada',
+              parentFamilyId: parent,
+              originStoryId: _storyId,
             ),
-          ),
-          currentUserId: uid,
-          families: _OriginFamilies(
-            mine: mine,
-            tree: const [
-              TreeFamily(id: parent, name: 'Parent'),
-              TreeFamily(
-                id: child,
-                name: 'Ada',
-                parentFamilyId: parent,
-                originStoryId: _storyId,
-              ),
-            ],
-            stewarded: stewarded,
-          ),
+          ],
+          stewarded: stewarded,
         ),
       );
       await tester.pumpAndSettle();
@@ -2439,42 +2455,41 @@ void main() {
   testWidgets('origin story shows Origin then each branch before people', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(
-          story: _published(title: 'Matt is born', personIds: const ['p1']),
-        ),
-        people: _WholeTreePeople(seed: const [_ada]),
-        families: _OriginFamilies(
-          mine: [
-            MemberFamily(
-              id: _familyId,
-              name: 'The WFM Morgans',
-              createdAt: DateTime.utc(1990),
-            ),
-          ],
-          tree: [
-            const TreeFamily(id: _familyId, name: 'The WFM Morgans'),
-            const TreeFamily(
-              id: 'child-west',
-              name: 'West',
-              parentFamilyId: _familyId,
-              originStoryId: _storyId,
-            ),
-            const TreeFamily(
-              id: 'child-east',
-              name: 'East',
-              parentFamilyId: _familyId,
-              originStoryId: _storyId,
-            ),
-            const TreeFamily(
-              id: 'other',
-              name: 'Unrelated',
-              parentFamilyId: _familyId,
-              originStoryId: 'some-other-story',
-            ),
-          ],
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(
+        story: _published(title: 'Matt is born', personIds: const ['p1']),
+      ),
+      people: _WholeTreePeople(seed: const [_ada]),
+      families: _OriginFamilies(
+        mine: [
+          MemberFamily(
+            id: _familyId,
+            name: 'The WFM Morgans',
+            createdAt: DateTime.utc(1990),
+          ),
+        ],
+        tree: [
+          const TreeFamily(id: _familyId, name: 'The WFM Morgans'),
+          const TreeFamily(
+            id: 'child-west',
+            name: 'West',
+            parentFamilyId: _familyId,
+            originStoryId: _storyId,
+          ),
+          const TreeFamily(
+            id: 'child-east',
+            name: 'East',
+            parentFamilyId: _familyId,
+            originStoryId: _storyId,
+          ),
+          const TreeFamily(
+            id: 'other',
+            name: 'Unrelated',
+            parentFamilyId: _familyId,
+            originStoryId: 'some-other-story',
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -2498,27 +2513,26 @@ void main() {
   testWidgets('a story that starts no branch has no Origin pill', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(story: _published(title: 'Later')),
-        families: _OriginFamilies(
-          mine: [
-            MemberFamily(
-              id: _familyId,
-              name: 'The WFM Morgans',
-              createdAt: DateTime.utc(1990),
-            ),
-          ],
-          tree: [
-            const TreeFamily(id: _familyId, name: 'The WFM Morgans'),
-            const TreeFamily(
-              id: 'child-west',
-              name: 'West',
-              parentFamilyId: _familyId,
-              originStoryId: 'other-story',
-            ),
-          ],
-        ),
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(story: _published(title: 'Later')),
+      families: _OriginFamilies(
+        mine: [
+          MemberFamily(
+            id: _familyId,
+            name: 'The WFM Morgans',
+            createdAt: DateTime.utc(1990),
+          ),
+        ],
+        tree: [
+          const TreeFamily(id: _familyId, name: 'The WFM Morgans'),
+          const TreeFamily(
+            id: 'child-west',
+            name: 'West',
+            parentFamilyId: _familyId,
+            originStoryId: 'other-story',
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -2532,24 +2546,20 @@ void main() {
     tester,
   ) async {
     final people = _WholeTreePeople(seed: const [_ada, _will]);
-    await tester.pumpWidget(
-      _readerApp(
-        stories: _FakeStoriesApi(
-          story: _published(
-            title: 'Matt is born',
-            personIds: const ['p1', 'w1'],
+    await _pumpReader(
+      tester,
+      stories: _FakeStoriesApi(
+        story: _published(title: 'Matt is born', personIds: const ['p1', 'w1']),
+      ),
+      people: people,
+      families: _OriginFamilies(
+        mine: [
+          MemberFamily(
+            id: _familyId,
+            name: 'The WFM Morgans',
+            createdAt: DateTime.utc(1990),
           ),
-        ),
-        people: people,
-        families: _OriginFamilies(
-          mine: [
-            MemberFamily(
-              id: _familyId,
-              name: 'The WFM Morgans',
-              createdAt: DateTime.utc(1990),
-            ),
-          ],
-        ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -2570,27 +2580,29 @@ void main() {
     final people = _WholeTreePeople(seed: const [_ada, _will]);
     final stories = _FakeStoriesApi(story: story);
 
-    await tester.pumpWidget(
-      _readerApp(
-        stories: stories,
-        people: people,
-        families: _OriginFamilies(
-          mine: [
-            MemberFamily(
-              id: _familyId,
-              name: 'The WFM Morgans',
-              createdAt: DateTime.utc(1990),
-            ),
-          ],
-        ),
+    await _pumpReader(
+      tester,
+      stories: stories,
+      people: people,
+      families: _OriginFamilies(
+        mine: [
+          MemberFamily(
+            id: _familyId,
+            name: 'The WFM Morgans',
+            createdAt: DateTime.utc(1990),
+          ),
+        ],
       ),
     );
     await tester.pumpAndSettle();
     expect(find.text('William F Morgan'), findsWidgets);
     expect(find.text('Ada'), findsWidgets);
 
-    await tester.pumpWidget(
-      _readerApp(stories: stories, people: people, families: _NoMembership()),
+    await _pumpReader(
+      tester,
+      stories: stories,
+      people: people,
+      families: _NoMembership(),
     );
     await tester.pumpAndSettle();
     expect(find.text('William F Morgan'), findsWidgets);

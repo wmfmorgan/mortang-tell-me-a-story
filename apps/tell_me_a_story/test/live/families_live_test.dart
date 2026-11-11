@@ -7,13 +7,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/family_covers_repository.dart';
-import 'package:tell_me_a_story/core/data/invite_repository.dart';
-import 'package:tell_me_a_story/core/data/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/data/server_families_repository.dart';
+import 'package:tell_me_a_story/core/data/server_family_covers_repository.dart';
+import 'package:tell_me_a_story/core/data/server_invite_repository.dart';
+import 'package:tell_me_a_story/core/data/server_manage_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/cover_photo_exception.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import 'support/live_server.dart';
+
+String? _noFamily() => null;
 
 /// A published, dated story in [familyId], made with the raw client.
 Future<String> _publishedStory(server.Client client, String familyId) async {
@@ -71,11 +74,15 @@ _familyWithJoiner(String owner, String joiner) async {
   final ownerClient = await signInLive(freshEmail(owner));
   final familyId = await ServerManageFamiliesRepository(client: ownerClient)
       .createRootFamily('$owner family');
-  final invite = await ServerInviteRepository(client: ownerClient)
-      .createInvite(familyId: familyId);
+  final invite = await ServerInviteRepository(
+    client: ownerClient,
+    currentFamilyId: _noFamily,
+  ).createInvite(familyId: familyId);
   final joinerClient = await signInLive(freshEmail(joiner));
-  await ServerInviteRepository(client: joinerClient)
-      .acceptInvite(token: invite.token);
+  await ServerInviteRepository(
+    client: joinerClient,
+    currentFamilyId: _noFamily,
+  ).acceptInvite(token: invite.token);
   final joinerId = joinerClient.auth.authInfo!.authUserId.toString();
   return (
     familyId: familyId,
@@ -122,6 +129,7 @@ void main() {
       await _publishedStory(setup.ownerClient, setup.familyId);
       await ServerInviteRepository(
         client: setup.ownerClient,
+        currentFamilyId: _noFamily,
       ).createInvite(familyId: setup.familyId, email: 'Pending@Example.test ');
 
       final directory = await families.listDirectory();

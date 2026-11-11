@@ -47,7 +47,6 @@ class AlbumTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = screenLabel;
     return AppBar(
       automaticallyImplyLeading: false,
       centerTitle: false,
@@ -56,39 +55,7 @@ class AlbumTopBar extends StatelessWidget implements PreferredSizeWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Text(
-                    'Tell Me a Story',
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    style: GoogleFonts.newsreader(
-                      color: albumInk,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                ?leading,
-                if (label != null && label.isNotEmpty) ...[
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                      label,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                      style: GoogleFonts.sourceSans3(
-                        color: albumInk,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            child: _TopBarTitle(screenLabel: screenLabel, leading: leading),
           ),
           Flexible(
             child: FittedBox(
@@ -103,6 +70,52 @@ class AlbumTopBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
+/// Wordmark, optional [leading], and the optional screen label.
+class _TopBarTitle extends StatelessWidget {
+  const _TopBarTitle({required this.screenLabel, required this.leading});
+
+  final String? screenLabel;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = screenLabel;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            'Tell Me a Story',
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: GoogleFonts.newsreader(
+              color: albumInk,
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        ?leading,
+        if (label != null && label.isNotEmpty) ...[
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: GoogleFonts.sourceSans3(
+                color: albumInk,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// Warm card for one existing form section.
 class AlbumPanel extends StatelessWidget {
   const AlbumPanel({super.key, this.title, this.trailing, required this.child});
@@ -113,6 +126,7 @@ class AlbumPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final title = this.title;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 8),
@@ -126,33 +140,43 @@ class AlbumPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title!,
-                    style: GoogleFonts.sourceSans3(
-                      color: albumInk,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                ),
-                if (trailing != null)
-                  Flexible(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: trailing!,
-                    ),
-                  ),
-              ],
-            ),
+            _PanelTitleRow(title: title, trailing: trailing),
             const SizedBox(height: 8),
           ],
           child,
         ],
       ),
+    );
+  }
+}
+
+class _PanelTitleRow extends StatelessWidget {
+  const _PanelTitleRow({required this.title, required this.trailing});
+
+  final String title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final trailing = this.trailing;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: GoogleFonts.sourceSans3(
+              color: albumInk,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ),
+        if (trailing != null)
+          Flexible(
+            child: Align(alignment: Alignment.centerRight, child: trailing),
+          ),
+      ],
     );
   }
 }

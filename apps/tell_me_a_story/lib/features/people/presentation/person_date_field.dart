@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:tell_me_a_story/core/domain/story_date_precision.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_date_picker.dart';
 
@@ -95,11 +95,35 @@ class _PersonDateFieldState extends State<PersonDateField> {
         ],
       );
     }
-    final muted = albumInk.withValues(alpha: 0.55);
+    return _DateFrame(
+      label: widget.label,
+      icon: widget.icon,
+      iconColor: widget.iconColor,
+      child: picker,
+    );
+  }
+}
+
+/// Parchment card around the picker, with an uppercase kicker.
+class _DateFrame extends StatelessWidget {
+  const _DateFrame({
+    required this.label,
+    required this.icon,
+    required this.iconColor,
+    required this.child,
+  });
+
+  final String label;
+  final IconData? icon;
+  final Color? iconColor;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     final kicker = Theme.of(context).textTheme.labelSmall?.copyWith(
       letterSpacing: 1.1,
       fontWeight: FontWeight.w700,
-      color: muted,
+      color: albumInk.withValues(alpha: 0.55),
     );
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -114,19 +138,15 @@ class _PersonDateFieldState extends State<PersonDateField> {
           children: [
             Row(
               children: [
-                if (widget.icon != null) ...[
-                  Icon(
-                    widget.icon,
-                    size: 15,
-                    color: widget.iconColor ?? albumSage,
-                  ),
+                if (icon != null) ...[
+                  Icon(icon, size: 15, color: iconColor ?? albumSage),
                   const SizedBox(width: 6),
                 ],
-                Text(widget.label.toUpperCase(), style: kicker),
+                Text(label.toUpperCase(), style: kicker),
               ],
             ),
             const SizedBox(height: 8),
-            picker,
+            child,
           ],
         ),
       ),

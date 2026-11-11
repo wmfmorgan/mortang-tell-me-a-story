@@ -99,6 +99,7 @@ void paintSpineLabels(
 }) {
   final pill = Paint()..color = albumParchment;
   for (final m in timeAxisMarks(scale, finest: TickKind.decade)) {
+    // timeAxisMarks always labels decade ticks, the finest kind requested here.
     final label = CanvasLabel(m.label!, labelStyle);
     final rect = Rect.fromCenter(
       center: Offset(spineX, m.px),

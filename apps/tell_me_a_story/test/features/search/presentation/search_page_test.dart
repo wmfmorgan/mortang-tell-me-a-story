@@ -6,17 +6,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
-import 'package:tell_me_a_story/features/search/data/search_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/features/search/domain/search_facets.dart';
+import 'package:tell_me_a_story/features/search/domain/search_repository.dart';
+import 'package:tell_me_a_story/features/search/domain/search_request.dart';
 import 'package:tell_me_a_story/features/search/presentation/search_page.dart';
-import 'package:tell_me_a_story/features/search/presentation/search_recents.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
 import '../../../support/fakes/fake_photos_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _family = 'family-1';
 
@@ -123,7 +128,8 @@ Story _hit({
   );
 }
 
-Widget _app({
+Future<void> _pump(
+  WidgetTester tester, {
   required SearchRepository search,
   PhotosRepository? photos,
   String initial = '/search',
@@ -137,16 +143,7 @@ Widget _app({
       ),
       GoRoute(
         path: AppRoutes.search,
-        builder: (context, state) => SearchPage(
-          inviteApi: FakeInviteRepository(
-            familyId: _family,
-            createdFamilyId: _family,
-          ),
-          peopleApi: _People(),
-          searchApi: search,
-          photosApi: photos ?? _Photos(null),
-          recents: SearchRecents(),
-        ),
+        builder: (context, state) => const SearchPage(),
       ),
       GoRoute(
         path: AppRoutes.story,
@@ -155,7 +152,18 @@ Widget _app({
       ),
     ],
   );
-  return MaterialApp.router(theme: albumTheme(), routerConfig: router);
+  return pumpRouterApp(
+    tester,
+    router,
+    overrides: [
+      inviteRepositoryProvider.overrideWithValue(
+        FakeInviteRepository(familyId: _family, createdFamilyId: _family),
+      ),
+      peopleRepositoryProvider.overrideWithValue(_People()),
+      searchRepositoryProvider.overrideWithValue(search),
+      photosRepositoryProvider.overrideWithValue(photos ?? _Photos(null)),
+    ],
+  );
 }
 
 void main() {
@@ -167,7 +175,7 @@ void main() {
     tester,
   ) async {
     final search = _Search([_hit()], decades: const [1980]);
-    await tester.pumpWidget(_app(search: search));
+    await _pump(tester, search: search);
     await tester.pumpAndSettle();
 
     expect(search.facetLoads, [_family]);
@@ -194,7 +202,7 @@ void main() {
   testWidgets('the decade picker offers only decades with stories', (
     tester,
   ) async {
-    await tester.pumpWidget(_app(search: _Search([_hit()])));
+    await _pump(tester, search: _Search([_hit()]));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('search-add-decade')));
@@ -211,9 +219,7 @@ void main() {
   testWidgets('the Decade pill hides once no decade is left to pick', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _app(search: _Search([_hit()], decades: const [1980])),
-    );
+    await _pump(tester, search: _Search([_hit()], decades: const [1980]));
     await tester.pumpAndSettle();
 
     final addDecade = find.byKey(const Key('search-add-decade'));
@@ -230,7 +236,7 @@ void main() {
   });
 
   testWidgets('no Decade pill when the family has no decades', (tester) async {
-    await tester.pumpWidget(_app(search: _Search([_hit()], decades: const [])));
+    await _pump(tester, search: _Search([_hit()], decades: const []));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('search-add-person')), findsOneWidget);
@@ -243,7 +249,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1200, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final search = _Search([_hit()]);
-    await tester.pumpWidget(_app(search: search));
+    await _pump(tester, search: search);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('search-suggest-person-clara')));
@@ -266,7 +272,7 @@ void main() {
   });
 
   testWidgets('a query with no hits shows the locked sentence', (tester) async {
-    await tester.pumpWidget(_app(search: _Search([_hit()])));
+    await _pump(tester, search: _Search([_hit()]));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('search-field')), 'subway');
@@ -282,7 +288,7 @@ void main() {
   });
 
   testWidgets('searching shows the locked loading copy', (tester) async {
-    await tester.pumpWidget(_app(search: _Search([_hit()], hang: true)));
+    await _pump(tester, search: _Search([_hit()], hang: true));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('search-field')), 'porch');
@@ -293,9 +299,7 @@ void main() {
   });
 
   testWidgets('failure shows Try again and stays on search', (tester) async {
-    await tester.pumpWidget(
-      _app(search: _Search([_hit()], throwOnSearch: true)),
-    );
+    await _pump(tester, search: _Search([_hit()], throwOnSearch: true));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('search-field')), 'porch');
@@ -309,7 +313,7 @@ void main() {
 
   testWidgets('add person, decade span, and clear filters', (tester) async {
     final search = _Search([_hit()]);
-    await tester.pumpWidget(_app(search: search));
+    await _pump(tester, search: search);
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('search-field')), 'porch');
@@ -352,7 +356,7 @@ void main() {
   testWidgets('card uses the saved title, filled person, and quiet place', (
     tester,
   ) async {
-    await tester.pumpWidget(_app(search: _Search([_hit(author: 'Elena')])));
+    await _pump(tester, search: _Search([_hit(author: 'Elena')]));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('search-field')), 'summer');
@@ -390,15 +394,14 @@ void main() {
   testWidgets('a blank title is omitted and Member is the empty byline', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _app(
-        search: _Search([
-          _hit(
-            title: '   ',
-            body: 'First line of the body stays in the excerpt.',
-          ),
-        ]),
-      ),
+    await _pump(
+      tester,
+      search: _Search([
+        _hit(
+          title: '   ',
+          body: 'First line of the body stays in the excerpt.',
+        ),
+      ]),
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('search-field')), 'excerpt');
@@ -414,13 +417,12 @@ void main() {
   });
 
   testWidgets('a photo keeps the year on the image well', (tester) async {
-    await tester.pumpWidget(
-      _app(
-        search: _Search([
-          _hit(photoPaths: const ['fam/s1/p.jpg']),
-        ]),
-        photos: _Photos(_png),
-      ),
+    await _pump(
+      tester,
+      search: _Search([
+        _hit(photoPaths: const ['fam/s1/p.jpg']),
+      ]),
+      photos: _Photos(_png),
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('search-field')), 'summer');
@@ -435,7 +437,7 @@ void main() {
   testWidgets('Read Story opens the reader and Close leaves search', (
     tester,
   ) async {
-    await tester.pumpWidget(_app(search: _Search([_hit()])));
+    await _pump(tester, search: _Search([_hit()]));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('search-field')), 'summer');
     await tester.pump(const Duration(milliseconds: 350));

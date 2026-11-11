@@ -9,10 +9,14 @@ import 'package:flutter_test/flutter_test.dart';
 // where <layer> is data, domain or presentation.
 // - core never imports features.
 // - data never imports Flutter UI libraries, widgets or presentation.
+// - presentation, core/widgets, core/session and core/router never import a
+//   data area; they read repositories through providers in domain/.
+// - domain imports only domain areas (and packages).
 // - A feature never imports another feature's data/.
 // - Features import other features only of a lower rank (no cycles).
 // - Only app, core/server, core/data, core/session and features/*/data
 //   import the generated client or serverpod.
+// - lib/ has no export directives (no barrels).
 
 /// Features may import only features of a lower rank.
 const featureRank = <String, int>{
@@ -84,14 +88,31 @@ bool talksToServer(String area) =>
 String? featureOf(String area) =>
     area.startsWith('features/') ? area.split('/')[1] : null;
 
+bool isDomain(String area) =>
+    area == 'core/domain' ||
+    area == 'core/env' ||
+    (area.startsWith('features/') && area.endsWith('/domain'));
+
 /// Null when allowed, else the broken rule.
 String? violation(String from, String to) {
+  if (from == 'app') return null;
+  final readsThroughProviders =
+      from.endsWith('/presentation') ||
+      from == 'core/widgets' ||
+      from == 'core/session' ||
+      from == 'core/router';
+  if (readsThroughProviders && isData(to)) {
+    return 'read repositories through domain providers, not data/';
+  }
+  if (isDomain(from) && from != 'core/env' && !isDomain(to)) {
+    return 'domain imports only domain';
+  }
   // The router is the composition root for routes: it imports screens.
-  if (from == 'app' || from == 'core/router') return null;
+  if (from == 'core/router') return null;
   if (from.startsWith('core/') && to.startsWith('features/')) {
     return 'core never imports features';
   }
-  if (isData(from) && to.endsWith('/presentation')) {
+  if (isData(from) && (to.endsWith('/presentation') || to == 'core/widgets')) {
     return 'data never imports presentation';
   }
   final fromFeature = featureOf(from);
@@ -154,7 +175,11 @@ void main() {
         found.add('$file: add its feature to featureRank');
         continue;
       }
-      for (final target in targetsOf(entity.readAsStringSync())) {
+      final source = entity.readAsStringSync();
+      if (RegExp(r'^export\s', multiLine: true).hasMatch(source)) {
+        found.add('$file: no export directives (import the defining file)');
+      }
+      for (final target in targetsOf(source)) {
         if (serverPackages.any(target.startsWith) && !talksToServer(from)) {
           found.add('$file -> $target: only server-facing areas import it');
           continue;

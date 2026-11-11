@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
 import 'package:tell_me_a_story/core/session/family_selection.dart';
+
+import '../../../support/album_test_scope.dart';
 
 const _ada = 'ada';
 const _bea = 'bea';
@@ -14,14 +17,12 @@ const _related = 'rel';
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
   });
-
-  tearDown(FamilySelection.clear);
 
   testWidgets(
     'a different family goes to /family from Drafts, Settings, New, Edit, Manage',
     (tester) async {
+      final container = albumTestContainer();
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       const cases = <(AlbumHeaderPage, String)>[
@@ -36,22 +37,28 @@ void main() {
       for (final (page, location) in cases) {
         final selected = <String>[];
         final router = _router(
+          container: container,
           page: page,
           location: location,
           onSelected: selected.add,
         );
         addTearDown(router.dispose);
-        await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+        await pumpScoped(
+          tester,
+          container,
+          MaterialApp.router(routerConfig: router),
+        );
         await tester.pumpAndSettle();
         await _pick(tester, const Key('family-menu-item-$_bea'));
         expect(router.state.uri.path, '/family');
         expect(selected, [_bea]);
-        expect(FamilySelection.id, _bea);
+        expect(container.read(familySelectionProvider), _bea);
       }
     },
   );
 
   testWidgets('Rule 1: nested family rows behave the same', (tester) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final extra = [
@@ -65,13 +72,18 @@ void main() {
 
     final fromDrafts = <String>[];
     final drafts = _router(
+      container: container,
       page: AlbumHeaderPage.drafts,
       location: '/drafts',
       extra: extra,
       onSelected: fromDrafts.add,
     );
     addTearDown(drafts.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: drafts));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: drafts),
+    );
     await tester.pumpAndSettle();
     await _pick(tester, const Key('family-menu-item-$_related'));
     expect(drafts.state.uri.path, '/family');
@@ -79,13 +91,18 @@ void main() {
 
     final fromTimeline = <String>[];
     final timeline = _router(
+      container: container,
       page: AlbumHeaderPage.timeline,
       location: '/timeline',
       extra: extra,
       onSelected: fromTimeline.add,
     );
     addTearDown(timeline.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: timeline));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: timeline),
+    );
     await tester.pumpAndSettle();
     await _pick(tester, const Key('family-menu-item-$_related'));
     expect(timeline.state.uri.path, '/timeline');
@@ -95,36 +112,48 @@ void main() {
   testWidgets('a different family on Timeline stays on /timeline', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final selected = <String>[];
     final router = _router(
+      container: container,
       page: AlbumHeaderPage.timeline,
       location: '/timeline',
       onSelected: selected.add,
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: router),
+    );
     await tester.pumpAndSettle();
     await _pick(tester, const Key('family-menu-item-$_bea'));
     expect(router.state.uri.path, '/timeline');
     expect(selected, [_bea]);
-    expect(FamilySelection.id, _bea);
+    expect(container.read(familySelectionProvider), _bea);
   });
 
   testWidgets('a different family on the tree goes to that family tree', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final selected = <String>[];
     final router = _router(
+      container: container,
       page: AlbumHeaderPage.familyTree,
       location: '/family/$_ada/tree',
       onSelected: selected.add,
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: router),
+    );
     await tester.pumpAndSettle();
     await _pick(tester, const Key('family-menu-item-$_bea'));
     expect(router.state.uri.path, '/family/$_bea/tree');
@@ -134,16 +163,22 @@ void main() {
   testWidgets('a different family on All stories goes to its stories', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final selected = <String>[];
     final router = _router(
+      container: container,
       page: AlbumHeaderPage.allStories,
       location: '/family/$_ada/stories',
       onSelected: selected.add,
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: router),
+    );
     await tester.pumpAndSettle();
     await _pick(tester, const Key('family-menu-item-$_bea'));
     expect(router.state.uri.path, '/family/$_bea/stories');
@@ -153,6 +188,7 @@ void main() {
   testWidgets('picking the current family on Timeline, tree or stories stays', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     const cases = <(AlbumHeaderPage, String)>[
@@ -163,12 +199,17 @@ void main() {
     for (final (page, location) in cases) {
       final selected = <String>[];
       final router = _router(
+        container: container,
         page: page,
         location: location,
         onSelected: selected.add,
       );
       addTearDown(router.dispose);
-      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await pumpScoped(
+        tester,
+        container,
+        MaterialApp.router(routerConfig: router),
+      );
       await tester.pumpAndSettle();
       await _pick(tester, const Key('family-menu-item-$_ada'));
       expect(selected, isEmpty, reason: location);
@@ -179,6 +220,7 @@ void main() {
   testWidgets(
     'Rule 9: picking the current family off Landing goes to /family',
     (tester) async {
+      final container = albumTestContainer();
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       const cases = <(AlbumHeaderPage, String)>[
@@ -190,36 +232,51 @@ void main() {
         (AlbumHeaderPage.manageFamilies, '/manage-families/ada'),
       ];
       for (final (page, location) in cases) {
-        FamilySelection.remember('keep');
+        container.read(familySelectionProvider.notifier).remember('keep');
         final selected = <String>[];
         final router = _router(
+          container: container,
           page: page,
           location: location,
           onSelected: selected.add,
         );
         addTearDown(router.dispose);
-        await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+        await pumpScoped(
+          tester,
+          container,
+          MaterialApp.router(routerConfig: router),
+        );
         await tester.pumpAndSettle();
         await _pick(tester, const Key('family-menu-item-$_ada'));
         expect(selected, isEmpty, reason: location);
         expect(router.state.uri.path, '/family', reason: location);
-        expect(FamilySelection.id, 'keep', reason: location);
+        expect(
+          container.read(familySelectionProvider),
+          'keep',
+          reason: location,
+        );
       }
     },
   );
 
   testWidgets('home sits left of Timeline and opens Landing', (tester) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final selected = <String>[];
-    FamilySelection.remember('keep');
+    container.read(familySelectionProvider.notifier).remember('keep');
     final router = _router(
+      container: container,
       page: AlbumHeaderPage.timeline,
       location: '/timeline',
       onSelected: selected.add,
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: router),
+    );
     await tester.pumpAndSettle();
 
     final home = tester.getTopLeft(find.byKey(const Key('header-nav-home')));
@@ -253,19 +310,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/family');
     expect(selected, isEmpty);
-    expect(FamilySelection.id, 'keep');
+    expect(container.read(familySelectionProvider), 'keep');
   });
 
   testWidgets('home on Landing stays', (tester) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final router = _router(
+      container: container,
       page: AlbumHeaderPage.familyLanding,
       location: '/family',
       onSelected: (_) {},
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: router),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('header-nav-home')));
     await tester.pumpAndSettle();
@@ -275,22 +338,28 @@ void main() {
   testWidgets('Rule 9: picking the current family on Landing stays', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    FamilySelection.remember('keep');
+    container.read(familySelectionProvider.notifier).remember('keep');
     final selected = <String>[];
     final router = _router(
+      container: container,
       page: AlbumHeaderPage.familyLanding,
       location: '/family',
       onSelected: selected.add,
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: router),
+    );
     await tester.pumpAndSettle();
     await _pick(tester, const Key('family-menu-item-$_ada'));
     expect(selected, isEmpty);
     expect(router.state.uri.path, '/family');
-    expect(FamilySelection.id, 'keep');
+    expect(container.read(familySelectionProvider), 'keep');
   });
 }
 
@@ -298,6 +367,7 @@ GoRouter _router({
   required AlbumHeaderPage page,
   required String location,
   required void Function(String id) onSelected,
+  required ProviderContainer container,
   List<MemberFamily> extra = const [],
 }) {
   Widget screen() {
@@ -313,7 +383,7 @@ GoRouter _router({
         currentFamilyId: _ada,
         onFamilySelected: (id) {
           onSelected(id);
-          FamilySelection.remember(id);
+          container.read(familySelectionProvider.notifier).remember(id);
         },
       ),
       body: Text(location),

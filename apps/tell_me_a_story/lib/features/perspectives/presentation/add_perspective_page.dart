@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:tell_me_a_story/core/widgets/album/album_chrome.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/perspectives_repository.dart';
+import 'package:tell_me_a_story/core/domain/perspective.dart';
+import 'package:tell_me_a_story/core/domain/perspectives_repository.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
 import 'package:tell_me_a_story/core/session/profile_session.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/core/widgets/album/album_chrome.dart';
 
 /// Words in [text], split on whitespace. Empty text is 0.
 int perspectiveWordCount(String text) {
@@ -14,9 +18,14 @@ int perspectiveWordCount(String text) {
   return trimmed.split(RegExp(r'\s+')).length;
 }
 
+final _letter = RegExp(r'[A-Za-z]');
+
+/// Group 0 of a match is the whole match and is never null.
+String _upperMatch(RegExpMatch match) => match.group(0)!.toUpperCase();
+
 String _firstLetter(String part) {
-  final match = RegExp(r'[A-Za-z]').firstMatch(part);
-  return match == null ? '' : match.group(0)!.toUpperCase();
+  final match = _letter.firstMatch(part);
+  return match == null ? '' : _upperMatch(match);
 }
 
 String _perspectiveInitials(String name) {
@@ -28,11 +37,7 @@ String _perspectiveInitials(String name) {
       .toList();
   if (letters.isEmpty) return '';
   if (letters.length == 1) {
-    final word = name.trim();
-    final chars = RegExp(r'[A-Za-z]')
-        .allMatches(word)
-        .map((match) => match.group(0)!.toUpperCase())
-        .toList();
+    final chars = _letter.allMatches(name.trim()).map(_upperMatch).toList();
     if (chars.isEmpty) return '';
     return chars.length == 1 ? chars.first : chars.take(2).join();
   }
@@ -44,14 +49,18 @@ String? _nonEmpty(String? value) {
   return trimmed.isEmpty ? null : trimmed;
 }
 
+const _muted = Color(0xFF6B5E55);
+const _line = Color(0xFFE7DECE);
+const _panel = Color(0xFFF3EDE6);
+const _panelBorder = Color(0x4DE7DECE);
+const _fieldLine = Color(0x66E7DECE);
+
 /// Full-telling overlay at `/stories/:storyId/perspective`.
-class AddPerspectivePage extends StatefulWidget {
+class AddPerspectivePage extends ConsumerStatefulWidget {
   const AddPerspectivePage({
     super.key,
     required this.storyId,
     this.familyId,
-    this.perspectivesApi,
-    this.storiesApi,
     this.asDialog = false,
     this.postingAs,
     this.storyAuthorId,
@@ -63,8 +72,6 @@ class AddPerspectivePage extends StatefulWidget {
 
   /// When set (reader extra / tests), skips [StoriesRepository.getStory].
   final String? familyId;
-  final PerspectivesRepository? perspectivesApi;
-  final StoriesRepository? storiesApi;
 
   /// Reader opens this as a dialog. The route page stays for the existing URL.
   final bool asDialog;
@@ -83,8 +90,6 @@ class AddPerspectivePage extends StatefulWidget {
     BuildContext context, {
     required String storyId,
     String? familyId,
-    PerspectivesRepository? perspectivesApi,
-    StoriesRepository? storiesApi,
     String? postingAs,
     String? storyAuthorId,
     String? currentUserId,
@@ -96,8 +101,6 @@ class AddPerspectivePage extends StatefulWidget {
       builder: (ctx) => AddPerspectivePage(
         storyId: storyId,
         familyId: familyId,
-        perspectivesApi: perspectivesApi,
-        storiesApi: storiesApi,
         asDialog: true,
         postingAs: postingAs,
         storyAuthorId: storyAuthorId,
@@ -108,24 +111,12 @@ class AddPerspectivePage extends StatefulWidget {
   }
 
   @override
-  State<AddPerspectivePage> createState() => _AddPerspectivePageState();
+  ConsumerState<AddPerspectivePage> createState() => _AddPerspectivePageState();
 }
 
-class _AddPerspectivePageState extends State<AddPerspectivePage> {
-  PerspectivesRepository? _perspectivesOverride;
-  StoriesRepository? _storiesOverride;
+class _AddPerspectivePageState extends ConsumerState<AddPerspectivePage> {
   final _body = TextEditingController();
   var _busy = false;
-  String? _postingAs;
-
-  PerspectivesRepository get _perspectives =>
-      widget.perspectivesApi ??
-      (_perspectivesOverride ??= ServerPerspectivesRepository());
-
-  StoriesRepository get _stories =>
-      widget.storiesApi ?? (_storiesOverride ??= ServerStoriesRepository());
-
-  bool get _editing => widget.existing != null;
 
   bool get _canPublish => !_busy && _body.text.trim().isNotEmpty;
 
@@ -143,27 +134,37 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
     super.initState();
     final existing = widget.existing;
     if (existing != null) _body.text = existing.body;
-    _postingAs = _nonEmpty(widget.postingAs);
-    if (_postingAs == null) {
-      final session = ProfileSession.instance;
-      _postingAs = _nonEmpty(session.displayName);
-      session.addListener(_onProfile);
-      session.ensureLoaded();
+    if (_nonEmpty(widget.postingAs) == null) {
+      // After the first frame: loading may update the profile provider.
+      Future.microtask(() {
+        if (!mounted) return;
+        unawaited(ref.read(profileSessionProvider.notifier).ensureLoaded());
+      });
     }
-  }
-
-  /// Signed-in name from [ProfileSession]. Tests and signed-out sessions have none.
-  void _onProfile() {
-    final name = _nonEmpty(ProfileSession.instance.displayName);
-    if (!mounted || name == null || name == _postingAs) return;
-    setState(() => _postingAs = name);
   }
 
   @override
   void dispose() {
-    ProfileSession.instance.removeListener(_onProfile);
     _body.dispose();
     super.dispose();
+  }
+
+  Future<Perspective> _save(String body) async {
+    final perspectives = ref.read(perspectivesRepositoryProvider);
+    final existing = widget.existing;
+    if (existing != null) {
+      await perspectives.update(id: existing.id, body: body);
+      return existing.copyWith(body: body);
+    }
+    final familyId =
+        widget.familyId ??
+        (await ref.read(storiesRepositoryProvider).getStory(widget.storyId))
+            .familyId;
+    return perspectives.create(
+      storyId: widget.storyId,
+      familyId: familyId,
+      body: body,
+    );
   }
 
   Future<void> _publish() async {
@@ -171,30 +172,7 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
     final body = _body.text.trim();
     setState(() => _busy = true);
     try {
-      final existing = widget.existing;
-      final Perspective saved;
-      if (existing != null) {
-        await _perspectives.update(id: existing.id, body: body);
-        saved = Perspective(
-          id: existing.id,
-          storyId: existing.storyId,
-          familyId: existing.familyId,
-          authorId: existing.authorId,
-          body: body,
-          createdAt: existing.createdAt,
-          authorDisplayName: existing.authorDisplayName,
-          canDelete: existing.canDelete,
-        );
-      } else {
-        final familyId =
-            widget.familyId ??
-            (await _stories.getStory(widget.storyId)).familyId;
-        saved = await _perspectives.create(
-          storyId: widget.storyId,
-          familyId: familyId,
-          body: body,
-        );
-      }
+      final saved = await _save(body);
       if (!mounted) return;
       if (widget.asDialog) {
         Navigator.of(context).pop(saved);
@@ -202,6 +180,7 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
         context.pop(saved);
       }
     } catch (_) {
+      // Boundary: any failure is shown as the existing Try again copy.
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Try again')));
@@ -221,7 +200,19 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
 
   @override
   Widget build(BuildContext context) {
-    final form = _form(context);
+    final postingAs =
+        _nonEmpty(widget.postingAs) ??
+        _nonEmpty(ref.watch(profileSessionProvider).displayName);
+    final form = _PerspectiveForm(
+      body: _body,
+      busy: _busy,
+      editing: widget.existing != null,
+      postingAs: postingAs,
+      showAuthorChip: _showAuthorChip,
+      onChanged: () => setState(() {}),
+      onCancel: _cancel,
+      onPublish: _canPublish ? _publish : null,
+    );
     if (widget.asDialog) {
       return Material(
         key: const Key('add-perspective'),
@@ -235,247 +226,209 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
       body: SafeArea(child: form),
     );
   }
+}
 
-  Widget _form(BuildContext context) {
-    final theme = Theme.of(context);
-    final words = perspectiveWordCount(_body.text);
-    final wordLabel = words == 1 ? '1 word' : '$words words';
-    final postingAs = _postingAs;
+class _PerspectiveForm extends StatelessWidget {
+  const _PerspectiveForm({
+    required this.body,
+    required this.busy,
+    required this.editing,
+    required this.postingAs,
+    required this.showAuthorChip,
+    required this.onChanged,
+    required this.onCancel,
+    required this.onPublish,
+  });
+
+  final TextEditingController body;
+  final bool busy;
+  final bool editing;
+  final String? postingAs;
+  final bool showAuthorChip;
+  final VoidCallback onChanged;
+  final VoidCallback onCancel;
+  final VoidCallback? onPublish;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = postingAs;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.diversity_1,
-                          size: 18,
-                          color: albumTerracotta,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'PERSPECTIVE',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: albumSage,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _editing
-                          ? 'Edit your perspective'
-                          : 'Add your perspective',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        height: 1.15,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Provide your perspective of this story, or add some missing pieces',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF6B5E55),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'Close modal',
-                onPressed: _busy ? null : _cancel,
-                icon: const Icon(Icons.close),
-              ),
-            ],
-          ),
+          _Header(editing: editing, onClose: busy ? null : onCancel),
           const SizedBox(height: 12),
-          const Divider(height: 1, color: Color(0xFFE7DECE)),
-          if (postingAs != null) ...[
+          const Divider(height: 1, color: _line),
+          if (name != null) ...[
             const SizedBox(height: 16),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3EDE6),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0x4DE7DECE)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    _initials(postingAs),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Posting as',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: const Color(0xFF6B5E55),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        postingAs,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    if (_showAuthorChip) ...[
-                      const SizedBox(width: 8),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: albumTerracotta.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          child: Text(
-                            'Author',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: albumTerracotta,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+            _PostingAs(name: name, showAuthorChip: showAuthorChip),
           ],
           const SizedBox(height: 20),
-          Row(
-            children: [
-              const Spacer(),
-              Text(
-                wordLabel,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: const Color(0xFF6B5E55),
-                ),
-              ),
-            ],
-          ),
+          _WordCount(words: perspectiveWordCount(body.text)),
           const SizedBox(height: 8),
-          TextField(
-            key: const Key('perspective-body'),
-            controller: _body,
-            minLines: 6,
-            maxLines: 8,
-            enabled: !_busy,
-            cursorColor: albumTerracotta,
-            onChanged: (_) => setState(() {}),
-            style: theme.textTheme.bodyLarge,
-            decoration: InputDecoration(
-              hintText: 'What do you remember? Who was there, what was said…',
-              hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                color: albumInk.withValues(alpha: 0.38),
-              ),
-              filled: true,
-              fillColor: Colors.white,
-              alignLabelWithHint: true,
-              contentPadding: const EdgeInsets.all(14),
-              border: _fieldBorder(const Color(0x66E7DECE)),
-              enabledBorder: _fieldBorder(const Color(0x66E7DECE)),
-              focusedBorder: _fieldBorder(albumTerracotta, width: 2),
-              disabledBorder: _fieldBorder(const Color(0x66E7DECE)),
-            ),
-          ),
+          _BodyField(body: body, enabled: !busy, onChanged: onChanged),
           const SizedBox(height: 16),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3EDE6),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x4DE7DECE)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.lock_outline,
-                    size: 18,
-                    color: albumTerracotta,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: const Color(0xFF6B5E55),
-                          height: 1.4,
-                        ),
-                        children: [
-                          const TextSpan(
-                            text: 'Only you can edit this perspective later. Use ',
-                          ),
-                          TextSpan(
-                            text: 'Comments',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: albumInk,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const TextSpan(text: ' below for short reactions.'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          const _EditNotice(),
           const SizedBox(height: 16),
-          const Divider(height: 1, color: Color(0xFFE7DECE)),
+          const Divider(height: 1, color: _line),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              OutlinedButton(
-                onPressed: _busy ? null : _cancel,
-                child: const Text('Cancel'),
-              ),
-              const SizedBox(width: 12),
-              FilledButton.icon(
-                onPressed: _canPublish ? _publish : null,
-                icon: const Icon(Icons.history_edu, size: 18),
-                label: Text(_editing ? 'Save' : 'Publish perspective'),
-              ),
-            ],
+          _Actions(
+            editing: editing,
+            onCancel: busy ? null : onCancel,
+            onPublish: onPublish,
           ),
         ],
       ),
     );
   }
+}
 
-  OutlineInputBorder _fieldBorder(Color color, {double width = 1}) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(color: color, width: width),
+class _Header extends StatelessWidget {
+  const _Header({required this.editing, required this.onClose});
+
+  final bool editing;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _Eyebrow(),
+              const SizedBox(height: 6),
+              Text(
+                editing ? 'Edit your perspective' : 'Add your perspective',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Provide your perspective of this story, or add some missing pieces',
+                style: theme.textTheme.bodyMedium?.copyWith(color: _muted),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          tooltip: 'Close modal',
+          onPressed: onClose,
+          icon: const Icon(Icons.close),
+        ),
+      ],
     );
   }
+}
 
-  Widget _initials(String name) {
+class _Eyebrow extends StatelessWidget {
+  const _Eyebrow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.diversity_1, size: 18, color: albumTerracotta),
+        const SizedBox(width: 8),
+        Text(
+          'PERSPECTIVE',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: albumSage,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PostingAs extends StatelessWidget {
+  const _PostingAs({required this.name, required this.showAuthorChip});
+
+  final String name;
+  final bool showAuthorChip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _panel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _panelBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        child: Row(
+          children: [
+            _Initials(name: name),
+            const SizedBox(width: 10),
+            Text(
+              'Posting as',
+              style: theme.textTheme.labelMedium?.copyWith(color: _muted),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                name,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            if (showAuthorChip) ...[
+              const SizedBox(width: 8),
+              const _AuthorChip(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthorChip extends StatelessWidget {
+  const _AuthorChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: albumTerracotta.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        child: Text(
+          'Author',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: albumTerracotta,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.6,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Initials extends StatelessWidget {
+  const _Initials({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: Color(0xFFE7D5CC),
@@ -492,6 +445,158 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _WordCount extends StatelessWidget {
+  const _WordCount({required this.words});
+
+  final int words;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Spacer(),
+        Text(
+          words == 1 ? '1 word' : '$words words',
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: _muted),
+        ),
+      ],
+    );
+  }
+}
+
+OutlineInputBorder _fieldBorder(Color color, {double width = 1}) {
+  return OutlineInputBorder(
+    borderRadius: BorderRadius.circular(16),
+    borderSide: BorderSide(color: color, width: width),
+  );
+}
+
+class _BodyField extends StatelessWidget {
+  const _BodyField({
+    required this.body,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final TextEditingController body;
+  final bool enabled;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return TextField(
+      key: const Key('perspective-body'),
+      controller: body,
+      minLines: 6,
+      maxLines: 8,
+      enabled: enabled,
+      cursorColor: albumTerracotta,
+      onChanged: (_) => onChanged(),
+      style: theme.textTheme.bodyLarge,
+      decoration: InputDecoration(
+        hintText: 'What do you remember? Who was there, what was said…',
+        hintStyle: theme.textTheme.bodyLarge?.copyWith(
+          color: albumInk.withValues(alpha: 0.38),
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        alignLabelWithHint: true,
+        contentPadding: const EdgeInsets.all(14),
+        border: _fieldBorder(_fieldLine),
+        enabledBorder: _fieldBorder(_fieldLine),
+        focusedBorder: _fieldBorder(albumTerracotta, width: 2),
+        disabledBorder: _fieldBorder(_fieldLine),
+      ),
+    );
+  }
+}
+
+class _EditNotice extends StatelessWidget {
+  const _EditNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _panel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _panelBorder),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.lock_outline, size: 18, color: albumTerracotta),
+            SizedBox(width: 10),
+            Expanded(child: _EditNoticeText()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditNoticeText extends StatelessWidget {
+  const _EditNoticeText();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text.rich(
+      TextSpan(
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: _muted,
+          height: 1.4,
+        ),
+        children: [
+          const TextSpan(
+            text: 'Only you can edit this perspective later. Use ',
+          ),
+          TextSpan(
+            text: 'Comments',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: albumInk,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const TextSpan(text: ' below for short reactions.'),
+        ],
+      ),
+    );
+  }
+}
+
+class _Actions extends StatelessWidget {
+  const _Actions({
+    required this.editing,
+    required this.onCancel,
+    required this.onPublish,
+  });
+
+  final bool editing;
+  final VoidCallback? onCancel;
+  final VoidCallback? onPublish;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        OutlinedButton(onPressed: onCancel, child: const Text('Cancel')),
+        const SizedBox(width: 12),
+        FilledButton.icon(
+          onPressed: onPublish,
+          icon: const Icon(Icons.history_edu, size: 18),
+          label: Text(editing ? 'Save' : 'Publish perspective'),
+        ),
+      ],
     );
   }
 }

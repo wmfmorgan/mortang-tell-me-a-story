@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart' show TextField, FilledButton;
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tell_me_a_story/app.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/data/server_stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/main.dart' as app;
 
 import 'support/preconditions.dart';
@@ -96,7 +100,11 @@ void main() {
     await _signIn(tester, 'C3', email);
     await _startFamily(tester, 'C3', family);
     final place = await _step('C3', 'favorite', () {
-      return createFavoritePlace(label: placeLabel, address: '1 Archive Lane');
+      return createFavoritePlace(
+        _container(tester),
+        label: placeLabel,
+        address: '1 Archive Lane',
+      );
     });
     await _openCapture(tester, 'C3', family);
     await _enterYear(tester, 'C3');
@@ -125,7 +133,11 @@ void main() {
     await _signIn(tester, 'C4', email);
     await _startFamily(tester, 'C4', family);
     final place = await _step('C4', 'favorite', () {
-      return createFavoritePlace(label: placeLabel, address: '2 Archive Lane');
+      return createFavoritePlace(
+        _container(tester),
+        label: placeLabel,
+        address: '2 Archive Lane',
+      );
     });
     await _openCapture(tester, 'C4', family);
     await _enterYear(tester, 'C4');
@@ -235,7 +247,7 @@ void main() {
       await pumpUntilGone(tester, find.byKey(const Key('invite-link')));
     });
     await _step('C6', 'guest-signed-out', () async {
-      await resetAppState();
+      await resetAppState(_container(tester));
       await pumpUntilFound(tester, find.byKey(const Key('magic-link-email')));
     });
     await _step('C6', 'open-invite', () async {
@@ -354,7 +366,7 @@ Future<T> _step<T>(String flow, String label, Future<T> Function() body) async {
   }
 }
 
-TellMeAStoryApp? _mounted;
+ProviderScope? _mounted;
 
 // app.main() sets the URL strategy and starts the server client, so it runs
 // once. The test binding replaces the tree between flows; later flows sign
@@ -363,11 +375,11 @@ Future<void> _mountApp(WidgetTester tester) async {
   final mounted = _mounted;
   if (mounted == null) {
     await app.main();
-    await pumpUntilFound(tester, find.byType(TellMeAStoryApp));
-    _mounted = _app(tester);
+    await pumpUntilFound(tester, find.byType(App));
+    _mounted = tester.widget<ProviderScope>(find.byType(ProviderScope));
     return;
   }
-  await resetAppState();
+  await resetAppState(_container(tester));
   await tester.pumpWidget(mounted);
 }
 
@@ -789,16 +801,19 @@ Future<void> _untilDraftReady(
   throw TestFailure('draft $title was not autosaved before the deadline');
 }
 
-TellMeAStoryApp _app(WidgetTester tester) {
-  return tester.widget<TellMeAStoryApp>(find.byType(TellMeAStoryApp));
+ProviderContainer _container(WidgetTester tester) =>
+    ProviderScope.containerOf(tester.element(find.byType(App)));
+
+GoRouter _router(WidgetTester tester) {
+  return _container(tester).read(appRouterProvider);
 }
 
 void _go(WidgetTester tester, String location) {
-  _app(tester).router.go(location);
+  _router(tester).go(location);
 }
 
 String _path(WidgetTester tester) {
-  return _app(tester).router.routerDelegate.currentConfiguration.uri.path;
+  return _router(tester).routerDelegate.currentConfiguration.uri.path;
 }
 
 Future<Story> _publishedStory({
@@ -826,7 +841,11 @@ Future<Story> _publishAlbumStory(
   await _signIn(tester, flow, email);
   await _startFamily(tester, flow, family);
   final place = await _step(flow, 'favorite', () {
-    return createFavoritePlace(label: placeLabel, address: address);
+    return createFavoritePlace(
+      _container(tester),
+      label: placeLabel,
+      address: address,
+    );
   });
   await _openCapture(tester, flow, family);
   await _enterYear(tester, flow);
@@ -1038,7 +1057,7 @@ Future<void> _signOut(WidgetTester tester) async {
 Future<void> _expectGuardedRedirect(WidgetTester tester, String route) async {
   _go(tester, route);
   final home = find.byWidgetPredicate((widget) {
-    if (widget is! TellMeAStoryApp) return false;
+    if (widget is! App) return false;
     if (_path(tester) != '/') return false;
     if (find.byKey(const Key('family-menu')).evaluate().isNotEmpty) {
       return false;

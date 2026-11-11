@@ -1,4 +1,4 @@
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_zoom.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_search.dart';
 

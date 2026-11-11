@@ -6,12 +6,68 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 
 /// Shared sigma-4 scrim. Start-a-family keeps its own sigma-5 blur.
-Widget familyBlurShell({required Widget child}) {
-  return BackdropFilter(
-    filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-    child: ColoredBox(color: albumInk.withAlpha(0x66), child: child),
-  );
+class FamilyBlurShell extends StatelessWidget {
+  const FamilyBlurShell({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+      child: ColoredBox(color: albumInk.withAlpha(0x66), child: child),
+    );
+  }
 }
+
+/// Blur shell whose scrim runs [onDismiss] and whose centered [child]
+/// swallows taps.
+class _TapOutsideShell extends StatelessWidget {
+  const _TapOutsideShell({required this.onDismiss, required this.child});
+
+  final VoidCallback? onDismiss;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return FamilyBlurShell(
+      child: GestureDetector(
+        onTap: onDismiss,
+        behavior: HitTestBehavior.opaque,
+        child: Center(
+          child: GestureDetector(onTap: () {}, child: child),
+        ),
+      ),
+    );
+  }
+}
+
+/// The close X in a blur card's top-right corner. Must sit in a [Stack].
+class CornerCloseButton extends StatelessWidget {
+  const CornerCloseButton({super.key, required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: -12,
+      right: -12,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: const Icon(Icons.close, size: 20),
+        color: albumInk,
+      ),
+    );
+  }
+}
+
+Widget _fade(
+  BuildContext context,
+  Animation<double> animation,
+  Animation<double> secondaryAnimation,
+  Widget child,
+) => FadeTransition(opacity: animation, child: child);
 
 /// Full-viewport blur with a centered card. Dropdowns stay on their own routes.
 ///
@@ -31,14 +87,11 @@ Future<T?> showBlurredCard<T>({
     barrierColor: albumBackdropClear,
     transitionDuration: const Duration(milliseconds: 200),
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
-      final shell = familyBlurShell(
-        child: GestureDetector(
-          onTap: barrierDismissible ? () => Navigator.pop(dialogContext) : null,
-          behavior: HitTestBehavior.opaque,
-          child: Center(
-            child: GestureDetector(onTap: () {}, child: builder(dialogContext)),
-          ),
-        ),
+      final shell = _TapOutsideShell(
+        onDismiss: barrierDismissible
+            ? () => Navigator.pop(dialogContext)
+            : null,
+        child: builder(dialogContext),
       );
       if (!scopedMessages) return shell;
       return ScaffoldMessenger(
@@ -50,9 +103,7 @@ Future<T?> showBlurredCard<T>({
         ),
       );
     },
-    transitionBuilder: (context, animation, secondaryAnimation, child) {
-      return FadeTransition(opacity: animation, child: child);
-    },
+    transitionBuilder: _fade,
   );
 }
 
@@ -87,9 +138,7 @@ Future<bool> showFamilyBlurDialog(
         cancelKey: cancelKey,
       );
     },
-    transitionBuilder: (context, animation, secondaryAnimation, child) {
-      return FadeTransition(opacity: animation, child: child);
-    },
+    transitionBuilder: _fade,
   );
   return confirmed == true;
 }
@@ -117,127 +166,127 @@ class _FamilyBlurDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return familyBlurShell(
-      child: GestureDetector(
-        onTap: () => Navigator.pop(context, false),
-        behavior: HitTestBehavior.opaque,
-        child: Center(
-          child: GestureDetector(
-            onTap: () {},
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: DecoratedBox(
-                key: dialogKey,
-                decoration: BoxDecoration(
-                  color: albumDialogSurface,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: albumShadow.withAlpha(0x1A),
-                      blurRadius: 25,
-                      offset: const Offset(0, 20),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Stack(
-                      children: [
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              title,
-                              style: GoogleFonts.newsreader(
-                                color: albumInk,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                                height: 1.25,
-                              ),
-                            ),
-                            if (body != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                body!,
-                                style: GoogleFonts.literata(
-                                  color: albumInk,
-                                  fontSize: 14,
-                                  height: 1.45,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 24),
-                            Wrap(
-                              alignment: WrapAlignment.end,
-                              spacing: 12,
-                              runSpacing: 8,
-                              children: [
-                                TextButton(
-                                  key: cancelKey,
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: albumInk,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    textStyle: GoogleFonts.sourceSans3(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  child: Text(cancelLabel),
-                                ),
-                                FilledButton(
-                                  key: confirmKey,
-                                  onPressed: () => Navigator.pop(context, true),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: confirmColor,
-                                    foregroundColor: albumWhite,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    textStyle: GoogleFonts.sourceSans3(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  child: Text(confirmLabel),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        Positioned(
-                          top: -12,
-                          right: -12,
-                          child: IconButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            icon: const Icon(Icons.close, size: 20),
-                            color: albumInk,
-                          ),
-                        ),
-                      ],
-                    ),
+    return _TapOutsideShell(
+      onDismiss: () => Navigator.pop(context, false),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: DecoratedBox(
+          key: dialogKey,
+          decoration: BoxDecoration(
+            color: albumDialogSurface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: albumShadow.withAlpha(0x1A),
+                blurRadius: 25,
+                offset: const Offset(0, 20),
+              ),
+            ],
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Stack(
+                children: [
+                  _FamilyBlurDialogBody(dialog: this),
+                  CornerCloseButton(
+                    onPressed: () => Navigator.pop(context, false),
                   ),
-                ),
+                ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _FamilyBlurDialogBody extends StatelessWidget {
+  const _FamilyBlurDialogBody({required this.dialog});
+
+  final _FamilyBlurDialog dialog;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = dialog.body;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          dialog.title,
+          style: GoogleFonts.newsreader(
+            color: albumInk,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          ),
+        ),
+        if (body != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: GoogleFonts.literata(
+              color: albumInk,
+              fontSize: 14,
+              height: 1.45,
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        _FamilyBlurDialogActions(dialog: dialog),
+      ],
+    );
+  }
+}
+
+class _FamilyBlurDialogActions extends StatelessWidget {
+  const _FamilyBlurDialogActions({required this.dialog});
+
+  final _FamilyBlurDialog dialog;
+
+  @override
+  Widget build(BuildContext context) {
+    const padding = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    );
+    final textStyle = GoogleFonts.sourceSans3(
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+    );
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        TextButton(
+          key: dialog.cancelKey,
+          onPressed: () => Navigator.pop(context, false),
+          style: TextButton.styleFrom(
+            foregroundColor: albumInk,
+            padding: padding,
+            shape: shape,
+            textStyle: textStyle,
+          ),
+          child: Text(dialog.cancelLabel),
+        ),
+        FilledButton(
+          key: dialog.confirmKey,
+          onPressed: () => Navigator.pop(context, true),
+          style: FilledButton.styleFrom(
+            backgroundColor: dialog.confirmColor,
+            foregroundColor: albumWhite,
+            elevation: 0,
+            padding: padding,
+            shape: shape,
+            textStyle: textStyle,
+          ),
+          child: Text(dialog.confirmLabel),
+        ),
+      ],
     );
   }
 }
@@ -258,12 +307,12 @@ Future<bool> showSendInviteConfirm(
     pageBuilder: (context, animation, secondaryAnimation) {
       return _SendInviteConfirm(name: name, email: email);
     },
-    transitionBuilder: (context, animation, secondaryAnimation, child) {
-      return FadeTransition(opacity: animation, child: child);
-    },
+    transitionBuilder: _fade,
   );
   return confirmed == true;
 }
+
+final _inviteInkLight = albumInk.withValues(alpha: 0.62);
 
 class _SendInviteConfirm extends StatelessWidget {
   const _SendInviteConfirm({required this.name, required this.email});
@@ -273,203 +322,215 @@ class _SendInviteConfirm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inkLight = albumInk.withValues(alpha: 0.62);
-    return familyBlurShell(
-      child: GestureDetector(
-        onTap: () => Navigator.pop(context, false),
-        behavior: HitTestBehavior.opaque,
-        child: Center(
-          child: GestureDetector(
-            onTap: () {},
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: DecoratedBox(
-                key: const Key('send-invite-confirm'),
-                decoration: BoxDecoration(
-                  color: albumParchment,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: albumInviteBorder),
-                  boxShadow: [
-                    BoxShadow(
-                      color: albumInk.withAlpha(0x1A),
-                      blurRadius: 28,
-                      offset: const Offset(0, 16),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(28, 24, 28, 22),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: albumSage.withValues(alpha: 0.16),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: albumSage.withValues(alpha: 0.28),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.mail_outline,
-                                size: 20,
-                                color: albumSage,
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              tooltip: 'Close',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () => Navigator.pop(context, false),
-                              icon: Icon(
-                                Icons.close,
-                                size: 18,
-                                color: inkLight,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Send invite to $name?',
-                          style: GoogleFonts.newsreader(
-                            color: albumInk,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w400,
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text.rich(
-                          TextSpan(
-                            style: GoogleFonts.literata(
-                              color: inkLight,
-                              fontSize: 14,
-                              height: 1.45,
-                            ),
-                            children: [
-                              const TextSpan(
-                                text: "We'll send a private sign-in link to ",
-                              ),
-                              TextSpan(
-                                text: email,
-                                style: GoogleFonts.literata(
-                                  color: albumInk,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.45,
-                                ),
-                              ),
-                              const TextSpan(
-                                text: ' so they can read and contribute stories to the family archive.',
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: albumInviteNoteFill,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: albumInviteBorder),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.info_outline,
-                                  size: 16,
-                                  color: albumSage,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    "They'll be added as a family member with immediate access to read shared memories.",
-                                    style: GoogleFonts.sourceSans3(
-                                      color: inkLight,
-                                      fontSize: 12,
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        Divider(
-                          height: 1,
-                          color: albumInviteBorder.withAlpha(0x80),
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            OutlinedButton(
-                              key: const Key('send-invite-confirm-no'),
-                              onPressed: () => Navigator.pop(context, false),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: albumSage,
-                                side: BorderSide(
-                                  color: albumSage.withValues(alpha: 0.4),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                textStyle: GoogleFonts.sourceSans3(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              child: const Text('Not now'),
-                            ),
-                            const SizedBox(width: 12),
-                            FilledButton(
-                              key: const Key('send-invite-confirm-yes'),
-                              onPressed: () => Navigator.pop(context, true),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: albumTerracotta,
-                                foregroundColor: albumParchment,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                textStyle: GoogleFonts.sourceSans3(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              child: const Text('Send invite'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+    return _TapOutsideShell(
+      onDismiss: () => Navigator.pop(context, false),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: DecoratedBox(
+          key: const Key('send-invite-confirm'),
+          decoration: BoxDecoration(
+            color: albumParchment,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: albumInviteBorder),
+            boxShadow: [
+              BoxShadow(
+                color: albumInk.withAlpha(0x1A),
+                blurRadius: 28,
+                offset: const Offset(0, 16),
               ),
+            ],
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(28, 24, 28, 22),
+              child: _SendInviteBody(name: name, email: email),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SendInviteBody extends StatelessWidget {
+  const _SendInviteBody({required this.name, required this.email});
+
+  final String name;
+  final String email;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SendInviteHeader(),
+        const SizedBox(height: 8),
+        Text(
+          'Send invite to $name?',
+          style: GoogleFonts.newsreader(
+            color: albumInk,
+            fontSize: 24,
+            fontWeight: FontWeight.w400,
+            height: 1.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _SendInviteMessage(email: email),
+        const SizedBox(height: 16),
+        const _SendInviteNote(),
+        const SizedBox(height: 18),
+        Divider(height: 1, color: albumInviteBorder.withAlpha(0x80)),
+        const SizedBox(height: 14),
+        const _SendInviteActions(),
+      ],
+    );
+  }
+}
+
+class _SendInviteHeader extends StatelessWidget {
+  const _SendInviteHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: albumSage.withValues(alpha: 0.16),
+            shape: BoxShape.circle,
+            border: Border.all(color: albumSage.withValues(alpha: 0.28)),
+          ),
+          child: const Icon(Icons.mail_outline, size: 20, color: albumSage),
+        ),
+        const Spacer(),
+        IconButton(
+          tooltip: 'Close',
+          visualDensity: VisualDensity.compact,
+          onPressed: () => Navigator.pop(context, false),
+          icon: Icon(Icons.close, size: 18, color: _inviteInkLight),
+        ),
+      ],
+    );
+  }
+}
+
+class _SendInviteMessage extends StatelessWidget {
+  const _SendInviteMessage({required this.email});
+
+  final String email;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        style: GoogleFonts.literata(
+          color: _inviteInkLight,
+          fontSize: 14,
+          height: 1.45,
+        ),
+        children: [
+          const TextSpan(text: "We'll send a private sign-in link to "),
+          TextSpan(
+            text: email,
+            style: GoogleFonts.literata(
+              color: albumInk,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+            ),
+          ),
+          const TextSpan(
+            text: ' so they can read and contribute stories to the family archive.',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SendInviteNote extends StatelessWidget {
+  const _SendInviteNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: albumInviteNoteFill,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: albumInviteBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.info_outline, size: 16, color: albumSage),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "They'll be added as a family member with immediate access to read shared memories.",
+                style: GoogleFonts.sourceSans3(
+                  color: _inviteInkLight,
+                  fontSize: 12,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SendInviteActions extends StatelessWidget {
+  const _SendInviteActions();
+
+  @override
+  Widget build(BuildContext context) {
+    const padding = EdgeInsets.symmetric(horizontal: 16, vertical: 10);
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+    );
+    final textStyle = GoogleFonts.sourceSans3(
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+    );
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        OutlinedButton(
+          key: const Key('send-invite-confirm-no'),
+          onPressed: () => Navigator.pop(context, false),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: albumSage,
+            side: BorderSide(color: albumSage.withValues(alpha: 0.4)),
+            padding: padding,
+            shape: shape,
+            textStyle: textStyle,
+          ),
+          child: const Text('Not now'),
+        ),
+        const SizedBox(width: 12),
+        FilledButton(
+          key: const Key('send-invite-confirm-yes'),
+          onPressed: () => Navigator.pop(context, true),
+          style: FilledButton.styleFrom(
+            backgroundColor: albumTerracotta,
+            foregroundColor: albumParchment,
+            elevation: 0,
+            padding: padding,
+            shape: shape,
+            textStyle: textStyle,
+          ),
+          child: const Text('Send invite'),
+        ),
+      ],
     );
   }
 }

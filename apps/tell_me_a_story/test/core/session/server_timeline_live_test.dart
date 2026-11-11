@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/core/session/timeline_live.dart';
+import 'package:tell_me_a_story/core/session/server_timeline_live.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 const _family = '0190d7a0-0000-7000-8000-000000000001';

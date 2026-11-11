@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
 import 'package:tell_me_a_story/core/data/server/media_batches.dart';
 import 'package:tell_me_a_story/core/data/server/server_errors.dart';
 import 'package:tell_me_a_story/core/data/server/wire.dart';
@@ -211,6 +211,7 @@ class ServerStoriesRepository implements StoriesRepository {
 
   /// Published stories tagged with [personId] in live families of its tree,
   /// oldest first, each with its first photo.
+  @override
   Future<List<PersonStoryCard>> storiesForPerson(String personId) async {
     final stories = await _stories(
       () => _client.story.listForPerson(_uuid(personId)),

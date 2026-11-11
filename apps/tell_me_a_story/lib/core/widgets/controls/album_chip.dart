@@ -42,24 +42,7 @@ class AlbumChip extends StatelessWidget {
             horizontal: AlbumSpace.m,
             vertical: AlbumSpace.xs,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (avatar != null) ...[
-                avatar,
-                const SizedBox(width: AlbumSpace.s),
-              ],
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelLarge
-                      ?.copyWith(color: dimmed ? albumDimInk : null),
-                ),
-              ),
-            ],
-          ),
+          child: _ChipLabelRow(avatar: avatar, label: label, dimmed: dimmed),
         ),
       ),
     );
@@ -68,5 +51,37 @@ class AlbumChip extends StatelessWidget {
       return FTappable(selected: selected, onPress: onTap, child: chip);
     }
     return Semantics(selected: selected, child: chip);
+  }
+}
+
+class _ChipLabelRow extends StatelessWidget {
+  const _ChipLabelRow({
+    required this.avatar,
+    required this.label,
+    required this.dimmed,
+  });
+
+  final Widget? avatar;
+  final String label;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatar = this.avatar;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (avatar != null) ...[avatar, const SizedBox(width: AlbumSpace.s)],
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(color: dimmed ? albumDimInk : null),
+          ),
+        ),
+      ],
+    );
   }
 }

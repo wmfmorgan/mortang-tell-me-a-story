@@ -1,13 +1,12 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/rails/far_rail.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_zoom.dart';
 
+import '../../../support/pump_app.dart';
 import '../../../support/timeline_fixture.dart';
 
 // 7.4 touch: a finger gets AlbumTarget.fingerRadius (22 pt) around a dot,
@@ -46,12 +45,13 @@ void main() {
     await pumpFixtureTimeline(tester, stories: fixtureStacked);
     final ids = ['s1961', 's1961b', 's1961c'];
     final centres = {for (final id in ids) id: _dot(tester, id)};
+    Offset centre(String id) => centres[id] ?? Offset.zero;
     final ordered = ids.toList()
-      ..sort((a, b) => centres[a]!.dx.compareTo(centres[b]!.dx));
-    final first = centres[ordered[0]]!;
-    final second = centres[ordered[1]]!;
+      ..sort((a, b) => centre(a).dx.compareTo(centre(b).dx));
+    final first = centre(ordered[0]);
+    final second = centre(ordered[1]);
 
-    await tester.tapAt(Offset.lerp(first, second, 0.5)!);
+    await tester.tapAt(Offset.lerp(first, second, 0.5) ?? first);
     await tester.pumpAndSettle();
     expect(find.text('Stories here'), findsOneWidget);
     expect(find.byKey(Key('chooser-${ordered[0]}')), findsOneWidget);
@@ -109,27 +109,24 @@ void main() {
       _desktop(tester);
       empties = 0;
       opened = [];
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: albumTheme(),
-          builder: albumAppBuilder,
-          home: Scaffold(
-            body: FarRail(
-              bands: decadeBands(fixtureStacked),
-              focusedId: null,
-              branching: railBranching(
-                open: null,
-                tree: const [],
-                stories: fixtureStacked,
-              ),
-              onDot: (Story s) => opened.add(s.id),
-              onEmpty: () => empties++,
-              onYear: (_) {},
-              onFocus: (_) {},
-              onOpenBranch: (_) {},
-              onMid: () {},
-              onFullCards: () {},
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: FarRail(
+            bands: decadeBands(fixtureStacked),
+            focusedId: null,
+            branching: railBranching(
+              open: null,
+              tree: const [],
+              stories: fixtureStacked,
             ),
+            onDot: (Story s) => opened.add(s.id),
+            onEmpty: () => empties++,
+            onYear: (_) {},
+            onFocus: (_) {},
+            onOpenBranch: (_) {},
+            onMid: () {},
+            onFullCards: () {},
           ),
         ),
       );
@@ -151,7 +148,7 @@ void main() {
       await pumpFar(tester);
       final a = _dot(tester, 's1961');
       final b = _dot(tester, 's1961b');
-      await tester.tapAt(Offset.lerp(a, b, 0.5)!);
+      await tester.tapAt(Offset.lerp(a, b, 0.5) ?? a);
       await tester.pumpAndSettle();
       expect(find.text('Stories here'), findsOneWidget);
       expect(empties, 0);

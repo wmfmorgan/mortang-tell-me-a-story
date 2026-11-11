@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tell_me_a_story/app.dart';
+import 'package:tell_me_a_story/core/domain/own_profile.dart';
+import 'package:tell_me_a_story/core/domain/perspective.dart';
+import 'package:tell_me_a_story/core/domain/perspectives_repository.dart';
+import 'package:tell_me_a_story/core/domain/profile_repository.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/data/perspectives_repository.dart';
-import 'package:tell_me_a_story/core/data/profile_repository.dart';
-import 'package:tell_me_a_story/core/session/profile_session.dart';
 import 'package:tell_me_a_story/features/perspectives/presentation/add_perspective_page.dart';
+
+import '../../../support/fakes/fake_profile_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 const _storyId = 's1';
@@ -100,13 +103,16 @@ Future<void> _pumpEdit(
         builder: (context, state) => AddPerspectivePage(
           storyId: state.pathParameters['storyId']!,
           familyId: _familyId,
-          perspectivesApi: api,
           existing: existing,
         ),
       ),
     ],
   );
-  await tester.pumpWidget(TellMeAStoryApp(router: router));
+  await pumpRouterApp(
+    tester,
+    router,
+    overrides: [perspectivesRepositoryProvider.overrideWithValue(api)],
+  );
   await tester.pumpAndSettle();
   router.push(AppRoutes.storyPerspectivePath(_storyId));
   await tester.pumpAndSettle();
@@ -116,6 +122,7 @@ Future<GoRouter> _pumpOverlay(
   WidgetTester tester, {
   required PerspectivesRepository api,
   String familyId = _familyId,
+  ProfileRepository? profile,
 }) async {
   final router = GoRouter(
     initialLocation: AppRoutes.storyPath(_storyId),
@@ -129,12 +136,18 @@ Future<GoRouter> _pumpOverlay(
         builder: (context, state) => AddPerspectivePage(
           storyId: state.pathParameters['storyId']!,
           familyId: familyId,
-          perspectivesApi: api,
         ),
       ),
     ],
   );
-  await tester.pumpWidget(TellMeAStoryApp(router: router));
+  await pumpRouterApp(
+    tester,
+    router,
+    overrides: [
+      perspectivesRepositoryProvider.overrideWithValue(api),
+      if (profile != null) profileRepositoryProvider.overrideWithValue(profile),
+    ],
+  );
   await tester.pumpAndSettle();
   router.push(AppRoutes.storyPerspectivePath(_storyId));
   await tester.pumpAndSettle();
@@ -158,7 +171,6 @@ void main() {
           builder: (context, state) => AddPerspectivePage(
             storyId: state.pathParameters['storyId']!,
             familyId: _familyId,
-            perspectivesApi: _FakePerspectivesApi(),
             postingAs: 'Dad (Thomas)',
             storyAuthorId: 'u1',
             currentUserId: 'u1',
@@ -166,7 +178,15 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await pumpRouterApp(
+      tester,
+      router,
+      overrides: [
+        perspectivesRepositoryProvider.overrideWithValue(
+          _FakePerspectivesApi(),
+        ),
+      ],
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Posting as'), findsOneWidget);
@@ -178,14 +198,13 @@ void main() {
   testWidgets('with no postingAs the page shows the signed-in profile name', (
     tester,
   ) async {
-    ProfileSession.loadOwn = () async =>
-        const OwnProfile(id: 'u1', displayName: 'Sarah Morgan');
-    addTearDown(() {
-      ProfileSession.loadOwn = null;
-      ProfileSession.instance.clear();
-    });
-
-    await _pumpOverlay(tester, api: _FakePerspectivesApi());
+    await _pumpOverlay(
+      tester,
+      api: _FakePerspectivesApi(),
+      profile: FakeProfileRepository(
+        own: const OwnProfile(id: 'u1', displayName: 'Sarah Morgan'),
+      ),
+    );
 
     expect(find.text('Posting as'), findsOneWidget);
     expect(find.text('Sarah Morgan'), findsOneWidget);

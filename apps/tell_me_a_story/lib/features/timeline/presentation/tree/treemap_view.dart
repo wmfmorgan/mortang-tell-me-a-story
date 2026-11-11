@@ -5,8 +5,8 @@ import 'package:flutter/rendering.dart';
 import 'package:forui/forui.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/tree/treemap_layout.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_title.dart';
@@ -77,143 +77,265 @@ class _TreemapViewState extends State<TreemapView> {
     _cellId = cell;
   });
 
+  void _select(TreemapBy by) => setState(() {
+    _by = by;
+    _groupId = null;
+    _cellId = null;
+  });
+
   @override
   Widget build(BuildContext context) {
     if (widget.stories.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _crumbs(context, null, null),
-          const Expanded(child: EmptyTimeline(message: emptyTreeMessage)),
-        ],
+      return _EmptyTreemap(
+        crumbs: _Crumbs(
+          title: widget.title,
+          by: _by,
+          onOpen: _open,
+          onFamily: widget.onFamily,
+        ),
       );
     }
-    final groups = buildTreemap(
-      timelineEntries(widget.stories),
-      widget.tree,
-      _by,
-    );
+    final entries = timelineEntries(widget.stories);
+    final groups = buildTreemap(entries, widget.tree, _by);
     final group = groups.where((g) => g.id == _groupId).firstOrNull;
     final cell = group?.cells.where((c) => c.id == _cellId).firstOrNull;
     final tints = treemapFamilyTints(widget.tree);
-
-    final Widget body;
-    if (cell != null) {
-      body = _StoryTiles(cell: cell, tints: tints, onStory: widget.onStory);
-    } else if (group != null) {
-      body = _CellGrid(
-        group: group,
-        tints: tints,
-        large: true,
-        onCell: (c) => _open(group: group.id, cell: c.id),
-      );
-    } else {
-      body = TreemapLayout(
-        children: [
-          for (final g in groups)
-            TreemapSlot(
-              weight: g.count.toDouble(),
-              child: _GroupTile(
-                group: g,
-                tints: tints,
-                onGroup: () => _open(group: g.id),
-                onCell: (c) => _open(group: g.id, cell: c.id),
-              ),
-            ),
-        ],
-      );
-    }
-
-    final bySwitch = ViewSwitch<TreemapBy>(
-      key: const Key('treemap-by'),
-      values: TreemapBy.values,
-      labelOf: treemapByLabel,
-      selected: _by,
-      onChanged: (v) => setState(() {
-        _by = v;
-        _groupId = null;
-        _cellId = null;
-      }),
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _crumbs(context, group, cell),
-        if (widget.viewSwitch case final viewSwitch?)
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [viewSwitch, bySwitch],
-          )
-        else
-          bySwitch,
+        _Crumbs(
+          title: widget.title,
+          group: group,
+          cell: cell,
+          by: _by,
+          onOpen: _open,
+          onFamily: widget.onFamily,
+        ),
+        _Switches(viewSwitch: widget.viewSwitch, by: _by, onBy: _select),
         _FamilyKey(tree: widget.tree, tints: tints),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AlbumSpace.l,
-              AlbumSpace.s,
-              AlbumSpace.l,
-              AlbumSpace.l,
-            ),
-            child: body,
-          ),
+        _TreemapBody(
+          groups: groups,
+          group: group,
+          cell: cell,
+          tints: tints,
+          onOpen: _open,
+          onStory: widget.onStory,
         ),
       ],
     );
   }
+}
 
-  /// The C2 heading, then › group › cell while drilled in. Every crumb but
-  /// the last goes back up.
-  Widget _crumbs(BuildContext context, TreemapGroup? group, TreemapCell? cell) {
-    final crumbStyle = Theme.of(context).textTheme.titleMedium
-        ?.copyWith(color: albumInk);
-    final link = crumbStyle?.copyWith(color: albumTerracotta);
-    final heading = TreeHeading(widget.title);
-    const chevron = Icon(Icons.chevron_right, size: 20, color: albumDimInk);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AlbumSpace.l,
-        AlbumSpace.xl,
-        AlbumSpace.l,
-        AlbumSpace.xs,
-      ),
-      child: Wrap(
+/// The page's view switch (if any), then the grouping switch, in one row.
+class _Switches extends StatelessWidget {
+  const _Switches({
+    required this.viewSwitch,
+    required this.by,
+    required this.onBy,
+  });
+
+  final Widget? viewSwitch;
+  final TreemapBy by;
+  final ValueChanged<TreemapBy> onBy;
+
+  @override
+  Widget build(BuildContext context) {
+    final bySwitch = ViewSwitch<TreemapBy>(
+      key: const Key('treemap-by'),
+      values: TreemapBy.values,
+      labelOf: treemapByLabel,
+      selected: by,
+      onChanged: onBy,
+    );
+    if (viewSwitch case final viewSwitch?) {
+      return Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: AlbumSpace.xs,
-        runSpacing: AlbumSpace.xs,
-        children: [
-          if (group == null)
-            KeyedSubtree(key: const Key('treemap-crumb-root'), child: heading)
-          else
-            InkWell(
-              key: const Key('treemap-crumb-root'),
-              onTap: () => _open(),
-              child: heading,
-            ),
-          if (group != null) ...[
-            chevron,
-            FButton(
-              key: const Key('treemap-crumb-group'),
-              variant: FButtonVariant.ghost,
-              mainAxisSize: MainAxisSize.min,
-              onPress: cell == null ? null : () => _open(group: group.id),
-              child: Text(group.label, style: cell == null ? crumbStyle : link),
-            ),
-          ],
-          if (cell != null) ...[chevron, Text(cell.label, style: crumbStyle)],
-          if (group != null && _by == TreemapBy.family) ...[
-            const SizedBox(width: AlbumSpace.m),
-            OpenFamilyTimelineAction(
-              key: const Key('treemap-open-family'),
-              family: group.label,
-              onPressed: () => widget.onFamily(group.id),
-            ),
-          ],
-        ],
+        children: [viewSwitch, bySwitch],
+      );
+    }
+    return bySwitch;
+  }
+}
+
+typedef _OpenLevel = void Function({String? group, String? cell});
+
+/// C9 under the heading.
+class _EmptyTreemap extends StatelessWidget {
+  const _EmptyTreemap({required this.crumbs});
+
+  final Widget crumbs;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      crumbs,
+      const Expanded(child: EmptyTimeline(message: emptyTreeMessage)),
+    ],
+  );
+}
+
+/// The overview, a drilled group, or a drilled cell's story tiles.
+class _TreemapBody extends StatelessWidget {
+  const _TreemapBody({
+    required this.groups,
+    required this.group,
+    required this.cell,
+    required this.tints,
+    required this.onOpen,
+    required this.onStory,
+  });
+
+  final List<TreemapGroup> groups;
+  final TreemapGroup? group;
+  final TreemapCell? cell;
+  final Map<String, Color> tints;
+  final _OpenLevel onOpen;
+  final ValueChanged<String> onStory;
+
+  @override
+  Widget build(BuildContext context) {
+    final group = this.group;
+    final cell = this.cell;
+    final Widget content;
+    if (cell != null) {
+      content = _StoryTiles(cell: cell, tints: tints, onStory: onStory);
+    } else if (group != null) {
+      content = _CellGrid(
+        group: group,
+        tints: tints,
+        large: true,
+        onCell: (c) => onOpen(group: group.id, cell: c.id),
+      );
+    } else {
+      content = _Overview(groups: groups, tints: tints, onOpen: onOpen);
+    }
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AlbumSpace.l,
+          AlbumSpace.s,
+          AlbumSpace.l,
+          AlbumSpace.l,
+        ),
+        child: content,
       ),
     );
   }
+}
+
+/// The whole-tree overview: one [_GroupTile] per group.
+class _Overview extends StatelessWidget {
+  const _Overview({
+    required this.groups,
+    required this.tints,
+    required this.onOpen,
+  });
+
+  final List<TreemapGroup> groups;
+  final Map<String, Color> tints;
+  final _OpenLevel onOpen;
+
+  @override
+  Widget build(BuildContext context) => TreemapLayout(
+    children: [
+      for (final g in groups)
+        TreemapSlot(
+          weight: g.count.toDouble(),
+          child: _GroupTile(
+            group: g,
+            tints: tints,
+            onGroup: () => onOpen(group: g.id),
+            onCell: (c) => onOpen(group: g.id, cell: c.id),
+          ),
+        ),
+    ],
+  );
+}
+
+/// The C2 heading, then › group › cell while drilled in. Every crumb but
+/// the last goes back up.
+class _Crumbs extends StatelessWidget {
+  const _Crumbs({
+    required this.title,
+    required this.by,
+    required this.onOpen,
+    required this.onFamily,
+    this.group,
+    this.cell,
+  });
+
+  final String title;
+  final TreemapGroup? group;
+  final TreemapCell? cell;
+  final TreemapBy by;
+  final _OpenLevel onOpen;
+  final ValueChanged<String> onFamily;
+
+  @override
+  Widget build(BuildContext context) {
+    final group = this.group;
+    final cell = this.cell;
+    final crumbStyle = Theme.of(context).textTheme.titleMedium
+        ?.copyWith(color: albumInk);
+    final link = crumbStyle?.copyWith(color: albumTerracotta);
+    final heading = TreeHeading(title);
+    const chevron = Icon(Icons.chevron_right, size: 20, color: albumDimInk);
+    return _CrumbRow(
+      children: [
+        if (group == null)
+          KeyedSubtree(key: const Key('treemap-crumb-root'), child: heading)
+        else
+          InkWell(
+            key: const Key('treemap-crumb-root'),
+            onTap: () => onOpen(),
+            child: heading,
+          ),
+        if (group != null) ...[
+          chevron,
+          FButton(
+            key: const Key('treemap-crumb-group'),
+            variant: FButtonVariant.ghost,
+            mainAxisSize: MainAxisSize.min,
+            onPress: cell == null ? null : () => onOpen(group: group.id),
+            child: Text(group.label, style: cell == null ? crumbStyle : link),
+          ),
+        ],
+        if (cell != null) ...[chevron, Text(cell.label, style: crumbStyle)],
+        if (group != null && by == TreemapBy.family) ...[
+          const SizedBox(width: AlbumSpace.m),
+          OpenFamilyTimelineAction(
+            key: const Key('treemap-open-family'),
+            family: group.label,
+            onPressed: () => onFamily(group.id),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// The padded, wrapping row the crumbs sit in.
+class _CrumbRow extends StatelessWidget {
+  const _CrumbRow({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(
+      AlbumSpace.l,
+      AlbumSpace.xl,
+      AlbumSpace.l,
+      AlbumSpace.xs,
+    ),
+    child: Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: AlbumSpace.xs,
+      runSpacing: AlbumSpace.xs,
+      children: children,
+    ),
+  );
 }
 
 /// The C2 heading of the whole-tree views.
@@ -279,37 +401,53 @@ class _FamilyKey extends StatelessWidget {
         runSpacing: AlbumSpace.xs,
         children: [
           for (final f in tree)
-            Row(
-              key: Key('treemap-key-${f.id}'),
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox.square(
-                  dimension: 14,
-                  child: DecoratedBox(
-                    decoration: ShapeDecoration(
-                      color: tints[f.id],
-                      shape: albumContainerShape(
-                        AlbumRadius.tile,
-                        side: const BorderSide(color: albumRuleStrong),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AlbumSpace.xs),
-                Flexible(
-                  child: Text(
-                    f.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: style,
-                  ),
-                ),
-              ],
-            ),
+            _FamilyKeyEntry(family: f, tint: tints[f.id], style: style),
         ],
       ),
     );
   }
+}
+
+/// One family of the colour key: its swatch, then its name.
+class _FamilyKeyEntry extends StatelessWidget {
+  const _FamilyKeyEntry({
+    required this.family,
+    required this.tint,
+    required this.style,
+  });
+
+  final TreeFamily family;
+  final Color? tint;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    key: Key('treemap-key-${family.id}'),
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      SizedBox.square(
+        dimension: 14,
+        child: DecoratedBox(
+          decoration: ShapeDecoration(
+            color: tint,
+            shape: albumContainerShape(
+              AlbumRadius.tile,
+              side: const BorderSide(color: albumRuleStrong),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: AlbumSpace.xs),
+      Flexible(
+        child: Text(
+          family.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
+      ),
+    ],
+  );
 }
 
 /// Overview tile: a header, then the group's cells as a nested treemap.
@@ -328,8 +466,6 @@ class _GroupTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.labelMedium
-        ?.copyWith(color: albumInk, fontWeight: FontWeight.w600);
     // Cells sit 2 px inside the group's 1 px border, so their tile radius
     // (4) follows the group's 8 px curve.
     return DecoratedBox(
@@ -345,20 +481,7 @@ class _GroupTile extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (roomForHeader)
-                InkWell(
-                  key: Key('treemap-group-${group.id}'),
-                  onTap: onGroup,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(6, 3, 6, 2),
-                    child: Text(
-                      '${group.label} · ${group.count}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: style,
-                    ),
-                  ),
-                ),
+              if (roomForHeader) _GroupHeader(group: group, onTap: onGroup),
               Expanded(
                 child: _CellGrid(
                   group: group,
@@ -370,6 +493,33 @@ class _GroupTile extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// An overview group's `label · count` header; it drills into the group.
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader({required this.group, required this.onTap});
+
+  final TreemapGroup group;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.labelMedium
+        ?.copyWith(color: albumInk, fontWeight: FontWeight.w600);
+    return InkWell(
+      key: Key('treemap-group-${group.id}'),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(6, 3, 6, 2),
+        child: Text(
+          '${group.label} · ${group.count}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
       ),
     );
   }
@@ -437,86 +587,118 @@ class TreemapCellTile extends StatelessWidget {
   static const _bigLabelSide = 96.0;
 
   @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    excludeSemantics: true,
+    label: '${cell.label}, ${_storyCount(cell.count)}',
+    child: LayoutBuilder(
+      builder: (context, box) {
+        final small =
+            box.maxWidth < AlbumTarget.min || box.maxHeight < AlbumTarget.min;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          // A finger can't aim at a sub-44 pt cell. It opens the whole
+          // group instead, where cells are large.
+          onTapUp: (d) {
+            final smallTap = onSmallTap;
+            if (small && smallTap != null && isFingerLike(d.kind)) {
+              smallTap();
+            } else {
+              onTap();
+            }
+          },
+          child: _CellFace(cell: cell, tint: tint, large: large),
+        );
+      },
+    ),
+  );
+}
+
+/// A cell's tinted, bordered face; its label and count when they fit.
+class _CellFace extends StatelessWidget {
+  const _CellFace({
+    required this.cell,
+    required this.tint,
+    required this.large,
+  });
+
+  final TreemapCell cell;
+  final Color tint;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: ShapeDecoration(
+      color: tint,
+      shape: albumContainerShape(
+        large ? AlbumRadius.group : AlbumRadius.tile,
+        side: const BorderSide(
+          color: albumModalBorder,
+          width: AlbumStroke.hairline,
+        ),
+      ),
+    ),
+    child: LayoutBuilder(
+      builder: (context, box) {
+        if (box.maxWidth < 34 || box.maxHeight < 18) {
+          return const SizedBox.shrink();
+        }
+        return _CellLabel(cell: cell, large: large, box: box);
+      },
+    ),
+  );
+}
+
+/// A cell's label, then its story count when the cell is tall enough.
+class _CellLabel extends StatelessWidget {
+  const _CellLabel({
+    required this.cell,
+    required this.large,
+    required this.box,
+  });
+
+  final TreemapCell cell;
+  final bool large;
+  final BoxConstraints box;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
-    final radius = large ? AlbumRadius.group : AlbumRadius.tile;
-    return Semantics(
-      button: true,
-      excludeSemantics: true,
-      label: '${cell.label}, ${_storyCount(cell.count)}',
-      child: LayoutBuilder(
-        builder: (context, box) {
-          final small =
-              box.maxWidth < AlbumTarget.min || box.maxHeight < AlbumTarget.min;
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            // A finger can't aim at a sub-44 pt cell. It opens the whole
-            // group instead, where cells are large.
-            onTapUp: (d) =>
-                (small && onSmallTap != null && isFingerLike(d.kind)
-                        ? onSmallTap!
-                        : onTap)
-                    .call(),
-            child: DecoratedBox(
-              decoration: ShapeDecoration(
-                color: tint,
-                shape: albumContainerShape(
-                  radius,
-                  side: const BorderSide(
-                    color: albumModalBorder,
-                    width: AlbumStroke.hairline,
+    final shortest = math.min(box.maxWidth, box.maxHeight);
+    final labelStyle =
+        (large || shortest >= TreemapCellTile._bigLabelSide
+                ? AlbumText.group(theme)
+                // albumTheme() always sets labelSmall.
+                : theme.labelSmall ?? const TextStyle())
+            .copyWith(color: albumInk, fontWeight: FontWeight.w600);
+    final count = AlbumText.count(theme);
+    return Padding(
+      padding: const EdgeInsets.all(AlbumSpace.xs),
+      // Never overflow a short cell: shrink the pair instead.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topLeft,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(cell.label, softWrap: false, style: labelStyle),
+            if (large || box.maxHeight >= 34)
+              Text(
+                '${cell.count}',
+                key: const Key('treemap-count'),
+                softWrap: false,
+                style: count.copyWith(
+                  color: albumInk,
+                  height: 1.1,
+                  fontSize: treemapCountSize(
+                    shortest,
+                    base: count.fontSize ?? 12,
                   ),
                 ),
               ),
-              child: LayoutBuilder(
-                builder: (context, box) {
-                  if (box.maxWidth < 34 || box.maxHeight < 18) {
-                    return const SizedBox.shrink();
-                  }
-                  final shortest = math.min(box.maxWidth, box.maxHeight);
-                  final labelStyle =
-                      (large || shortest >= _bigLabelSide
-                              ? AlbumText.group(theme)
-                              : theme.labelSmall!)
-                          .copyWith(
-                            color: albumInk,
-                            fontWeight: FontWeight.w600,
-                          );
-                  final count = AlbumText.count(theme);
-                  return Padding(
-                    padding: const EdgeInsets.all(AlbumSpace.xs),
-                    // Never overflow a short cell: shrink the pair instead.
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.topLeft,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(cell.label, softWrap: false, style: labelStyle),
-                          if (large || box.maxHeight >= 34)
-                            Text(
-                              '${cell.count}',
-                              key: const Key('treemap-count'),
-                              softWrap: false,
-                              style: count.copyWith(
-                                color: albumInk,
-                                height: 1.1,
-                                fontSize: treemapCountSize(
-                                  shortest,
-                                  base: count.fontSize ?? 12,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
@@ -536,7 +718,8 @@ class _StoryTiles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.labelMedium!
+    // albumTheme() always sets labelMedium.
+    final style = (Theme.of(context).textTheme.labelMedium ?? const TextStyle())
         .copyWith(color: albumInk);
     return TreemapLayout(
       gap: 3,
@@ -544,34 +727,57 @@ class _StoryTiles extends StatelessWidget {
         for (final TimelineEntry(:story) in cell.entries)
           TreemapSlot(
             weight: 1,
-            child: Semantics(
-              button: true,
-              child: GestureDetector(
-                key: Key('treemap-story-${story.id}'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onStory(story.id),
-                child: DecoratedBox(
-                  decoration: ShapeDecoration(
-                    color: tints[story.familyId] ?? albumPillFill,
-                    shape: albumContainerShape(
-                      AlbumRadius.group,
-                      side: const BorderSide(color: albumPillBorder),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: _FitText(
-                      '${storyDateLabelFor(story)}\n${storyTitle(story)}',
-                      style: style,
-                    ),
-                  ),
-                ),
-              ),
+            child: _StoryTile(
+              story: story,
+              tint: tints[story.familyId] ?? albumPillFill,
+              style: style,
+              onTap: () => onStory(story.id),
             ),
           ),
       ],
     );
   }
+}
+
+/// One story of a drilled cell: its date and title on its family's tint.
+class _StoryTile extends StatelessWidget {
+  const _StoryTile({
+    required this.story,
+    required this.tint,
+    required this.style,
+    required this.onTap,
+  });
+
+  final Story story;
+  final Color tint;
+  final TextStyle style;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    child: GestureDetector(
+      key: Key('treemap-story-${story.id}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: ShapeDecoration(
+          color: tint,
+          shape: albumContainerShape(
+            AlbumRadius.group,
+            side: const BorderSide(color: albumPillBorder),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: _FitText(
+            '${storyDateLabelFor(story)}\n${storyTitle(story)}',
+            style: style,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /// Multi-line text that shows as many whole lines as fit and ends the last
@@ -615,7 +821,7 @@ class TreemapSlot extends ParentDataWidget<TreemapParentData> {
 
   @override
   void applyParentData(RenderObject renderObject) {
-    final pd = renderObject.parentData! as TreemapParentData;
+    final pd = renderObject.parentData as TreemapParentData;
     if (pd.weight == weight) return;
     pd.weight = weight;
     final parent = renderObject.parent;
@@ -676,13 +882,13 @@ class RenderTreemapLayout extends RenderBox
     size = constraints.biggest;
     final children = getChildrenAsList();
     final rects = squarify([
-      for (final c in children) (c.parentData! as TreemapParentData).weight,
+      for (final c in children) (c.parentData as TreemapParentData).weight,
     ], Offset.zero & size);
     for (final (i, child) in children.indexed) {
       final r = rects[i].deflate(gap / 2);
       final w = math.max(0.0, r.width), h = math.max(0.0, r.height);
       child.layout(BoxConstraints.tight(Size(w, h)));
-      (child.parentData! as TreemapParentData).offset = r.topLeft;
+      (child.parentData as TreemapParentData).offset = r.topLeft;
     }
   }
 

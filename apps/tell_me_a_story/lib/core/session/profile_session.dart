@@ -1,24 +1,20 @@
 import 'package:flutter/foundation.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import 'package:tell_me_a_story/core/data/profile_repository.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/domain/profile_repository.dart';
+import 'package:tell_me_a_story/core/session/profile_state.dart';
+
+part 'profile_session.g.dart';
 
 /// Process memory for the signed-in profile. Not kept across a restart.
-class ProfileSession extends ChangeNotifier {
-  ProfileSession._();
-
-  static final ProfileSession instance = ProfileSession._();
-
-  /// Set from `main` after the server client starts. Tests leave this null.
-  static Future<OwnProfile?> Function()? loadOwn;
-
-  /// Set from `main`. Downloads `{uid}/avatar.jpg` when a path is stored.
-  static Future<Uint8List?> Function(String path)? downloadAvatar;
-
+@Riverpod(keepAlive: true)
+class ProfileSession extends _$ProfileSession {
   String? _userId;
-  String? displayName;
-  String? email;
-  Uint8List? avatarBytes;
   var _started = false;
+
+  @override
+  ProfileState build() => const ProfileState();
 
   /// A different signed-in user drops the previous profile.
   void bindUser(String userId) {
@@ -30,11 +26,8 @@ class ProfileSession extends ChangeNotifier {
 
   void clear() {
     _userId = null;
-    displayName = null;
-    email = null;
-    avatarBytes = null;
     _started = false;
-    notifyListeners();
+    state = const ProfileState();
   }
 
   void apply({
@@ -43,32 +36,40 @@ class ProfileSession extends ChangeNotifier {
     Uint8List? avatarBytes,
     bool keepAvatar = false,
   }) {
-    this.displayName = displayName;
-    this.email = email;
-    if (!keepAvatar) this.avatarBytes = avatarBytes;
-    notifyListeners();
+    state = ProfileState(
+      displayName: displayName,
+      email: email,
+      avatarBytes: keepAvatar ? state.avatarBytes : avatarBytes,
+    );
   }
 
-  /// Loads once per signed-in user. A null [loadOwn] does nothing.
+  /// Loads once per signed-in user. A failed load is reported and retried
+  /// on the next call.
   Future<void> ensureLoaded() async {
-    final loader = loadOwn;
-    if (_started || loader == null) return;
+    if (_started) return;
     _started = true;
+    final repository = ref.read(profileRepositoryProvider);
     try {
-      final profile = await loader();
-      if (profile == null) return;
-      Uint8List? bytes;
+      final profile = await repository.loadOwn();
+      if (profile == null || !ref.mounted) return;
       final path = profile.avatarPath;
-      final download = downloadAvatar;
-      if (path != null && download != null) {
-        bytes = await download(path);
-      }
-      displayName = profile.displayName;
-      email = profile.email;
-      avatarBytes = bytes;
-      notifyListeners();
-    } catch (_) {
+      final bytes = path == null ? null : await repository.downloadAvatar(path);
+      if (!ref.mounted) return;
+      state = ProfileState(
+        displayName: profile.displayName,
+        email: profile.email,
+        avatarBytes: bytes,
+      );
+    } on AppException catch (error, stack) {
       _started = false;
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'profile session',
+          context: ErrorDescription('while loading the signed-in profile'),
+        ),
+      );
     }
   }
 }

@@ -1,7 +1,7 @@
 import 'dart:ui' show Offset, Rect, Size;
 
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_title.dart';
 
 enum TreeNodeKind { root, family, decade, story, overflow }
@@ -42,7 +42,10 @@ class TreeNode {
     children.add(child);
   }
 
-  int get depth => parent == null ? 0 : parent!.depth + 1;
+  int get depth => switch (parent) {
+    null => 0,
+    final parent => parent.depth + 1,
+  };
 }
 
 /// Groups larger than this collapse to `maxLeaves - 1` stories and `+N`.
@@ -117,63 +120,17 @@ TreeNode? buildFamilyTree(
   int maxLeaves = treeGraphMaxLeaves,
 }) {
   if (stories.isEmpty) return null;
-  final byFamily = <String, List<Story>>{};
-  for (final s in stories) {
-    (byFamily[s.familyId] ??= []).add(s);
-  }
   final ids = {for (final f in tree) f.id};
-  final origins = {
-    for (final f in tree)
-      if (f.originStoryId != null) f.originStoryId!,
-  };
-  final leafById = <String, TreeNode>{};
-
-  TreeNode? buildFamily(TreeFamily f) {
-    final mine = byFamily[f.id] ?? const <Story>[];
-    final branchNodes = [
-      for (final b in tree)
-        if (b.parentFamilyId == f.id)
-          if (buildFamily(b) case final n?) (b, n),
-    ];
-    if (mine.isEmpty && branchNodes.isEmpty) return null;
-    final node = TreeNode(
-      id: 'f-${f.id}',
-      kind: TreeNodeKind.family,
-      label: f.branchYear == null ? f.name : '${f.name} (${f.branchYear})',
-      familyId: f.id,
-    );
-    final decades = <int, List<Story>>{};
-    for (final s in mine) {
-      (decades[_decadeOf(s)] ??= []).add(s);
-    }
-    for (final MapEntry(key: decade, value: inDecade) in decades.entries) {
-      final dNode = TreeNode(
-        id: 'f-${f.id}-d-$decade',
-        kind: TreeNodeKind.decade,
-        label: '${decade}s',
-        familyId: f.id,
-      );
-      node.add(dNode);
-      _addLeaves(
-        dNode,
-        inDecade,
-        expanded: expanded,
-        maxLeaves: maxLeaves,
-        keep: origins,
-        leafById: leafById,
-      );
-    }
-    // Attach after this family's leaves exist so the origin leaf is found.
-    for (final (b, bNode) in branchNodes) {
-      (leafById[b.originStoryId] ?? node).add(bNode);
-    }
-    return node;
-  }
-
+  final builder = _FamilyTreeBuilder(
+    stories,
+    tree,
+    expanded: expanded,
+    maxLeaves: maxLeaves,
+  );
   final roots = [
     for (final f in tree)
       if (f.parentFamilyId == null || !ids.contains(f.parentFamilyId))
-        ?buildFamily(f),
+        ?builder.buildFamily(f),
   ];
   if (roots.isEmpty) return null;
   final TreeNode root;
@@ -190,6 +147,76 @@ TreeNode? buildFamilyTree(
   }
   _countUp(root);
   return root;
+}
+
+/// Builds family subtrees for [buildFamilyTree], recording every shown story
+/// leaf so branch families can hang off their origin story.
+class _FamilyTreeBuilder {
+  _FamilyTreeBuilder(
+    List<Story> stories,
+    this.tree, {
+    required this.expanded,
+    required this.maxLeaves,
+  }) : origins = {for (final f in tree) ?f.originStoryId} {
+    for (final s in stories) {
+      (byFamily[s.familyId] ??= []).add(s);
+    }
+  }
+
+  final List<TreeFamily> tree;
+  final Set<String> expanded;
+  final int maxLeaves;
+  final Set<String> origins;
+  final Map<String, List<Story>> byFamily = {};
+  final Map<String, TreeNode> leafById = {};
+
+  TreeNode? buildFamily(TreeFamily f) {
+    final mine = byFamily[f.id] ?? const <Story>[];
+    final branchNodes = [
+      for (final b in tree)
+        if (b.parentFamilyId == f.id)
+          if (buildFamily(b) case final n?) (b, n),
+    ];
+    if (mine.isEmpty && branchNodes.isEmpty) return null;
+    final node = TreeNode(
+      id: 'f-${f.id}',
+      kind: TreeNodeKind.family,
+      label: f.branchYear == null ? f.name : '${f.name} (${f.branchYear})',
+      familyId: f.id,
+    );
+    _addDecades(node, f.id, mine);
+    // Attach after this family's leaves exist so the origin leaf is found.
+    for (final (b, bNode) in branchNodes) {
+      (leafById[b.originStoryId] ?? node).add(bNode);
+    }
+    return node;
+  }
+
+  /// One decade node per decade of [mine] under family [node], each holding
+  /// its story leaves.
+  void _addDecades(TreeNode node, String familyId, List<Story> mine) {
+    final decades = <int, List<Story>>{};
+    for (final s in mine) {
+      (decades[_decadeOf(s)] ??= []).add(s);
+    }
+    for (final MapEntry(key: decade, value: inDecade) in decades.entries) {
+      final dNode = TreeNode(
+        id: 'f-$familyId-d-$decade',
+        kind: TreeNodeKind.decade,
+        label: '${decade}s',
+        familyId: familyId,
+      );
+      node.add(dNode);
+      _addLeaves(
+        dNode,
+        inDecade,
+        expanded: expanded,
+        maxLeaves: maxLeaves,
+        keep: origins,
+        leafById: leafById,
+      );
+    }
+  }
 }
 
 /// Tidy layered layout, depth on x, leaves stacked on y in date order.
@@ -214,13 +241,14 @@ class TreeLayout {
         y = nextY;
         nextY += leafGap;
       } else {
+        // Children were placed just above.
         y =
-            (positions[n.children.first]!.dy + positions[n.children.last]!.dy) /
+            (positionOf(n.children.first).dy + positionOf(n.children.last).dy) /
             2;
       }
       positions[n] = Offset(pad + depth * levelGap, y);
       nodes.add(n);
-      if (n.storyId != null) storyNodes[n.storyId!] = n;
+      if (n.storyId case final storyId?) storyNodes[storyId] = n;
       for (final id in n.hiddenStoryIds) {
         storyNodes[id] = n;
       }
@@ -247,13 +275,16 @@ class TreeLayout {
 
   static const hitRadius = 10.0;
 
+  /// The position of [n], a node of this layout.
+  Offset positionOf(TreeNode n) => positions[n]!; // place() set every node.
+
   /// The node whose centre is nearest [p] within [radius]. Labels are not
   /// targets; callers pass `AlbumTarget.fingerRadius` for finger taps.
   TreeNode? hitTest(Offset p, {double radius = hitRadius}) {
     TreeNode? best;
     var bestDist = double.infinity;
     for (final n in nodes) {
-      final dist = (positions[n]! - p).distance;
+      final dist = (positionOf(n) - p).distance;
       if (dist <= radius && dist < bestDist) {
         best = n;
         bestDist = dist;
@@ -263,5 +294,5 @@ class TreeLayout {
   }
 
   Rect rectOf(TreeNode n) =>
-      Rect.fromCircle(center: positions[n]!, radius: hitRadius);
+      Rect.fromCircle(center: positionOf(n), radius: hitRadius);
 }

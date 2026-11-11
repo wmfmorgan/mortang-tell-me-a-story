@@ -29,6 +29,9 @@ class FilterPanel extends StatefulWidget {
   State<FilterPanel> createState() => _FilterPanelState();
 }
 
+Set<String> _toggled(Set<String> ids, String id) =>
+    ids.contains(id) ? ({...ids}..remove(id)) : {...ids, id};
+
 class _FilterPanelState extends State<FilterPanel> {
   late final _search = TextEditingController(text: widget.filter.query);
 
@@ -50,30 +53,8 @@ class _FilterPanelState extends State<FilterPanel> {
   Widget build(BuildContext context) {
     final filter = widget.filter;
     final options = widget.options;
+    final onChanged = widget.onChanged;
     final text = Theme.of(context).textTheme;
-    final heading = AlbumText.group(text);
-
-    Set<String> toggled(Set<String> ids, String id, bool on) =>
-        on ? {...ids, id} : ({...ids}..remove(id));
-
-    Widget section(String title, List<Widget> children) => Padding(
-      padding: const EdgeInsets.only(top: AlbumSpace.l),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: heading),
-          const SizedBox(height: AlbumSpace.s),
-          ...children,
-        ],
-      ),
-    );
-
-    Widget chips(List<Widget> children) => Wrap(
-      spacing: AlbumSpace.s,
-      runSpacing: AlbumSpace.s,
-      children: children,
-    );
-
     return Padding(
       padding: const EdgeInsets.all(AlbumSpace.l),
       child: Column(
@@ -97,51 +78,55 @@ class _FilterPanelState extends State<FilterPanel> {
               hintText: 'Search titles, stories and people',
               prefixIcon: Icon(Icons.search),
             ),
-            onChanged: (query) =>
-                widget.onChanged(filter.copyWith(query: query)),
+            onChanged: (query) => onChanged(filter.copyWith(query: query)),
           ),
           if (options.people.isNotEmpty)
-            section('People', [
-              chips([
-                for (final person in options.people)
-                  AlbumChip(
-                    key: Key('filter-person-${person.id}'),
-                    label: person.name,
-                    selected: filter.personIds.contains(person.id),
-                    onTap: () => widget.onChanged(
-                      filter.copyWith(
-                        personIds: toggled(
-                          filter.personIds,
-                          person.id,
-                          !filter.personIds.contains(person.id),
+            _Section(
+              title: 'People',
+              child: _Chips(
+                children: [
+                  for (final person in options.people)
+                    AlbumChip(
+                      key: Key('filter-person-${person.id}'),
+                      label: person.name,
+                      selected: filter.personIds.contains(person.id),
+                      onTap: () => onChanged(
+                        filter.copyWith(
+                          personIds: _toggled(filter.personIds, person.id),
                         ),
                       ),
                     ),
-                  ),
-              ]),
-            ]),
+                ],
+              ),
+            ),
           if (options.places.isNotEmpty)
-            section('Places', [
-              chips([
-                for (final place in options.places)
-                  AlbumChip(
-                    key: Key('filter-place-${place.id}'),
-                    label: place.label,
-                    selected: filter.placeIds.contains(place.id),
-                    onTap: () => widget.onChanged(
-                      filter.copyWith(
-                        placeIds: toggled(
-                          filter.placeIds,
-                          place.id,
-                          !filter.placeIds.contains(place.id),
+            _Section(
+              title: 'Places',
+              child: _Chips(
+                children: [
+                  for (final place in options.places)
+                    AlbumChip(
+                      key: Key('filter-place-${place.id}'),
+                      label: place.label,
+                      selected: filter.placeIds.contains(place.id),
+                      onTap: () => onChanged(
+                        filter.copyWith(
+                          placeIds: _toggled(filter.placeIds, place.id),
                         ),
                       ),
                     ),
-                  ),
-              ]),
-            ]),
+                ],
+              ),
+            ),
           if (options.decades.length > 1)
-            section('Years', [_decades(context, options.decades)]),
+            _Section(
+              title: 'Years',
+              child: _DecadeRange(
+                filter: filter,
+                decades: options.decades,
+                onChanged: onChanged,
+              ),
+            ),
           if (filter.isActive) ...[
             const SizedBox(height: AlbumSpace.l),
             Align(
@@ -150,7 +135,7 @@ class _FilterPanelState extends State<FilterPanel> {
                 key: const Key('filter-clear'),
                 variant: FButtonVariant.ghost,
                 mainAxisSize: MainAxisSize.min,
-                onPress: () => widget.onChanged(const TimelineFilter()),
+                onPress: () => onChanged(const TimelineFilter()),
                 child: const Text('Clear filters'),
               ),
             ),
@@ -159,25 +144,72 @@ class _FilterPanelState extends State<FilterPanel> {
       ),
     );
   }
+}
 
-  /// A range over the loaded decades. A thumb at either end is an open
-  /// bound, so a story added later in an outer decade still matches.
-  Widget _decades(BuildContext context, List<int> decades) {
-    final filter = widget.filter;
-    int indexOf(int? decade, int fallback) {
-      if (decade == null) return fallback;
-      final at = decades.indexWhere((d) => d >= decade);
-      return at < 0 ? decades.length - 1 : at;
-    }
+class _Section extends StatelessWidget {
+  const _Section({required this.title, required this.child});
 
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AlbumSpace.l),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: AlbumText.group(Theme.of(context).textTheme)),
+          const SizedBox(height: AlbumSpace.s),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _Chips extends StatelessWidget {
+  const _Chips({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AlbumSpace.s,
+      runSpacing: AlbumSpace.s,
+      children: children,
+    );
+  }
+}
+
+/// A range over the loaded decades. A thumb at either end is an open
+/// bound, so a story added later in an outer decade still matches.
+class _DecadeRange extends StatelessWidget {
+  const _DecadeRange({
+    required this.filter,
+    required this.decades,
+    required this.onChanged,
+  });
+
+  final TimelineFilter filter;
+  final List<int> decades;
+  final ValueChanged<TimelineFilter> onChanged;
+
+  int _indexOf(int? decade, int fallback) {
+    if (decade == null) return fallback;
+    final at = decades.indexWhere((d) => d >= decade);
+    return at < 0 ? decades.length - 1 : at;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final last = decades.length - 1;
-    final from = indexOf(filter.fromDecade, 0);
-    final to = filter.toDecade == null
+    final from = _indexOf(filter.fromDecade, 0);
+    final toDecade = filter.toDecade;
+    final to = toDecade == null
         ? last
-        : decades
-              .lastIndexWhere((d) => d <= filter.toDecade!)
-              .clamp(from, last);
-    final values = RangeValues(from.toDouble(), to.toDouble());
+        : decades.lastIndexWhere((d) => d <= toDecade).clamp(from, last);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -191,12 +223,12 @@ class _FilterPanelState extends State<FilterPanel> {
           min: 0,
           max: last.toDouble(),
           divisions: last,
-          values: values,
+          values: RangeValues(from.toDouble(), to.toDouble()),
           labels: RangeLabels('${decades[from]}s', '${decades[to]}s'),
           onChanged: (range) {
             final start = range.start.round();
             final end = range.end.round();
-            widget.onChanged(
+            onChanged(
               filter.copyWith(
                 fromDecade: () => start == 0 ? null : decades[start],
                 toDecade: () => end == last ? null : decades[end],

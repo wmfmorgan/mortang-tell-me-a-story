@@ -6,12 +6,18 @@ import 'package:tell_me_a_story/core/domain/accept_invite_result.dart';
 import 'package:tell_me_a_story/core/domain/create_invite_result.dart';
 import 'package:tell_me_a_story/core/domain/invite_repository.dart';
 import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/core/session/family_selection.dart';
 
 class ServerInviteRepository implements InviteRepository {
-  ServerInviteRepository({server.Client? client}) : _injected = client;
+  /// [currentFamilyId] reads the remembered family (the session's
+  /// `familySelectionProvider` in the app).
+  ServerInviteRepository({
+    server.Client? client,
+    required String? Function() currentFamilyId,
+  }) : _injected = client,
+       _rememberedFamilyId = currentFamilyId;
 
   final server.Client? _injected;
+  final String? Function() _rememberedFamilyId;
 
   server.Client get _client => _injected ?? serverClient;
 
@@ -22,7 +28,7 @@ class ServerInviteRepository implements InviteRepository {
     if (!_client.auth.isAuthenticated) return null;
     final rows = await withServerErrors(() => _client.family.listMine());
     final ids = [for (final row in rows) row.id.toString()];
-    final remembered = FamilySelection.id;
+    final remembered = _rememberedFamilyId();
     if (remembered != null && ids.contains(remembered)) return remembered;
     return ids.isEmpty ? null : ids.first;
   }

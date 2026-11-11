@@ -3,8 +3,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/photo.dart';
 import 'package:tell_me_a_story/features/stories/presentation/photo_strip.dart';
+
+import '../../../support/pump_app.dart';
 
 const _photo = Photo(
   id: 'ph1',
@@ -25,17 +27,16 @@ void main() {
   testWidgets('thumb renders Image when preview bytes are provided', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: PhotoStrip(
-          photos: const [_photo],
-          previews: {'ph1': _solidJpeg()},
-          onAdd: () {},
-          onRemove: (_) {},
-          onRetry: () {},
-          uploadFailed: false,
-          canAdd: true,
-        ),
+    await pumpApp(
+      tester,
+      PhotoStrip(
+        photos: const [_photo],
+        previews: {'ph1': _solidJpeg()},
+        onAdd: () {},
+        onRemove: (_) {},
+        onRetry: () {},
+        uploadFailed: false,
+        canAdd: true,
       ),
     );
 

@@ -1,4 +1,4 @@
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
 
 /// Case-insensitive substring match of trimmed [query] on title, body, personNames.
 /// Empty trimmed query => true. Never matches place label/address or decade.

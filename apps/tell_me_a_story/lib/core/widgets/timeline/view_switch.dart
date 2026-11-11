@@ -136,88 +136,26 @@ class _ViewSwitchState<T> extends State<ViewSwitch<T>>
   Color _foreground(int index) {
     final t = _t;
     if (index == _toIndex && index == _fromIndex) return albumOnAccent;
-    if (index == _toIndex) return Color.lerp(albumInk, albumOnAccent, t)!;
-    if (index == _fromIndex) return Color.lerp(albumOnAccent, albumInk, t)!;
+    // Color.lerp returns null only when both ends are null; both are tokens,
+    // so the fallbacks never apply.
+    if (index == _toIndex) {
+      return Color.lerp(albumInk, albumOnAccent, t) ?? albumOnAccent;
+    }
+    if (index == _fromIndex) {
+      return Color.lerp(albumOnAccent, albumInk, t) ?? albumInk;
+    }
     return albumInk;
   }
 
-  Widget _segments(BuildContext context) {
-    final textStyle = Theme.of(context).textTheme.labelLarge;
-    return DecoratedBox(
-      decoration: const ShapeDecoration(
-        color: albumPillFill,
-        shape: StadiumBorder(side: BorderSide(color: albumSageLine)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AlbumSpace.xs),
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            final rect = _fromRect == null || _toRect == null
-                ? null
-                : Rect.lerp(_fromRect, _toRect, _t);
-            return Stack(
-              key: _stackKey,
-              children: [
-                if (rect != null)
-                  Positioned.fromRect(
-                    rect: rect,
-                    child: const DecoratedBox(
-                      key: Key('view-switch-pill'),
-                      decoration: ShapeDecoration(
-                        color: albumTerracotta,
-                        shape: StadiumBorder(),
-                      ),
-                    ),
-                  ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < widget.values.length; i++)
-                      KeyedSubtree(
-                        key: _keys[i],
-                        child: _segment(i, textStyle),
-                      ),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _segment(int i, TextStyle? textStyle) {
-    final value = widget.values[i];
-    final isSelected = value == widget.selected;
-    // FTappable reports button + selected to semantics itself.
-    return FTappable(
-      key: widget.segmentKeyOf?.call(value),
-      selected: isSelected,
-      onPress: () {
-        if (value != widget.selected) widget.onChanged(value);
-      },
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: AlbumTarget.min),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AlbumSpace.l),
-          child: Center(
-            widthFactor: 1,
-            child: Text(
-              widget.labelOf(value),
-              style: textStyle?.copyWith(color: _foreground(i)),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Rect? _pillRect() => _fromRect == null || _toRect == null
+      ? null
+      : Rect.lerp(_fromRect, _toRect, _t);
 
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) => _place());
     final label = widget.label;
+    final textStyle = Theme.of(context).textTheme.labelLarge;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(
@@ -231,9 +169,130 @@ class _ViewSwitchState<T> extends State<ViewSwitch<T>>
             Text(label, style: AlbumText.lane(Theme.of(context).textTheme)),
             const SizedBox(width: AlbumSpace.m),
           ],
-          _segments(context),
+          _SegmentTrack(
+            animation: _controller,
+            stackKey: _stackKey,
+            pillRect: _pillRect,
+            segments: () => _SegmentRow<T>(state: this, textStyle: textStyle),
+          ),
           ...widget.trailing,
         ],
+      ),
+    );
+  }
+}
+
+/// Pill track: rebuilds the sliding pill and segment colors per tick.
+class _SegmentTrack extends StatelessWidget {
+  const _SegmentTrack({
+    required this.animation,
+    required this.stackKey,
+    required this.pillRect,
+    required this.segments,
+  });
+
+  final Listenable animation;
+  final GlobalKey stackKey;
+  final Rect? Function() pillRect;
+  final Widget Function() segments;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const ShapeDecoration(
+        color: albumPillFill,
+        shape: StadiumBorder(side: BorderSide(color: albumSageLine)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AlbumSpace.xs),
+        child: AnimatedBuilder(
+          animation: animation,
+          builder: (context, _) {
+            final rect = pillRect();
+            return Stack(
+              key: stackKey,
+              children: [
+                if (rect != null)
+                  Positioned.fromRect(
+                    rect: rect,
+                    child: const DecoratedBox(
+                      key: Key('view-switch-pill'),
+                      decoration: ShapeDecoration(
+                        color: albumTerracotta,
+                        shape: StadiumBorder(),
+                      ),
+                    ),
+                  ),
+                segments(),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// The segment labels, recolored from [state] on every animation tick.
+class _SegmentRow<T> extends StatelessWidget {
+  const _SegmentRow({required this.state, required this.textStyle});
+
+  final _ViewSwitchState<T> state;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final widget = state.widget;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < widget.values.length; i++)
+          KeyedSubtree(
+            key: state._keys[i],
+            child: _Segment(
+              tappableKey: widget.segmentKeyOf?.call(widget.values[i]),
+              label: widget.labelOf(widget.values[i]),
+              selected: widget.values[i] == widget.selected,
+              style: textStyle?.copyWith(color: state._foreground(i)),
+              onPress: () {
+                final value = widget.values[i];
+                if (value != widget.selected) widget.onChanged(value);
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _Segment extends StatelessWidget {
+  const _Segment({
+    required this.tappableKey,
+    required this.label,
+    required this.selected,
+    required this.style,
+    required this.onPress,
+  });
+
+  final Key? tappableKey;
+  final String label;
+  final bool selected;
+  final TextStyle? style;
+  final VoidCallback onPress;
+
+  @override
+  Widget build(BuildContext context) {
+    // FTappable reports button + selected to semantics itself.
+    return FTappable(
+      key: tappableKey,
+      selected: selected,
+      onPress: onPress,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: AlbumTarget.min),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AlbumSpace.l),
+          child: Center(widthFactor: 1, child: Text(label, style: style)),
+        ),
       ),
     );
   }

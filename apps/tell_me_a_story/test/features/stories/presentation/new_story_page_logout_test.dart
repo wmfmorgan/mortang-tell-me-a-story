@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_repository.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
 import 'package:tell_me_a_story/core/widgets/navigation/unsaved_guard.dart';
-import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
 import 'package:tell_me_a_story/features/stories/presentation/new_story_page.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
@@ -13,16 +19,14 @@ import '../../../support/fakes/fake_mapbox_search.dart';
 import '../../../support/fakes/fake_photos_repository.dart';
 import '../../../support/fakes/fake_places_repository.dart';
 import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _ada = 'ada';
 
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
   });
-
-  tearDown(FamilySelection.clear);
 
   testWidgets('Save runs before onLogout', (tester) async {
     await _surface(tester);
@@ -68,16 +72,6 @@ Future<GoRouter> _mount(
         path: '/stories/new',
         onExit: (context, state) => UnsavedGuards.onExit(context, state),
         builder: (_, _) => NewStoryPage(
-          inviteApi: FakeInviteRepository(
-            familyId: _ada,
-            createdFamilyId: _ada,
-            acceptedFamilyId: _ada,
-          ),
-          peopleApi: _People(),
-          placesApi: FakePlacesRepository(),
-          mapboxSearch: FakeMapboxSearch(),
-          storiesApi: stories,
-          photosApi: FakePhotosRepository(),
           hasMapboxToken: false,
           mapBuilder: ({double? lat, double? lng}) => const SizedBox.shrink(),
           pickImageBytes: () async => null,
@@ -92,7 +86,24 @@ Future<GoRouter> _mount(
       router.dispose();
     }
   });
-  await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+  await pumpRouterApp(
+    tester,
+    router,
+    overrides: [
+      inviteRepositoryProvider.overrideWithValue(
+        FakeInviteRepository(
+          familyId: _ada,
+          createdFamilyId: _ada,
+          acceptedFamilyId: _ada,
+        ),
+      ),
+      peopleRepositoryProvider.overrideWithValue(_People()),
+      placesRepositoryProvider.overrideWithValue(FakePlacesRepository()),
+      mapboxSearchRepositoryProvider.overrideWithValue(FakeMapboxSearch()),
+      storiesRepositoryProvider.overrideWithValue(stories),
+      photosRepositoryProvider.overrideWithValue(FakePhotosRepository()),
+    ],
+  );
   await tester.pumpAndSettle();
   return router;
 }

@@ -1,32 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story/app.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/domain/comments_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_covers_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_detail.dart';
+import 'package:tell_me_a_story/core/domain/family_directory.dart';
+import 'package:tell_me_a_story/core/domain/family_directory_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_roster.dart';
+import 'package:tell_me_a_story/core/domain/invite_link_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/perspectives_repository.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story_thumbs.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/session/auth_refresh.dart';
-import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/session/auth_info.dart';
 import 'package:tell_me_a_story/core/session/family_selection.dart';
+import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
+import 'package:tell_me_a_story/features/auth/domain/otp_sign_in.dart';
+import 'package:tell_me_a_story/features/search/domain/search_repository.dart';
 import 'package:tell_me_a_story/features/family/presentation/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/presentation/manage_family_page.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
 import '../../../support/fakes/fake_manage_families_repository.dart';
+import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/album_test_scope.dart';
 
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
   });
-
-  tearDown(FamilySelection.clear);
 
   testWidgets('dropdown lists live families, a divider, then Manage', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    final container = albumTestContainer();
+    await pumpScoped(
+      tester,
+      container,
       _menu(
         families: [_live('ada', 'Ada Archive'), _live('bea', 'Bea Archive')],
         currentId: 'ada',
@@ -60,7 +86,10 @@ void main() {
   testWidgets('Start is gone and Manage shows for a members-only user', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    final container = albumTestContainer();
+    await pumpScoped(
+      tester,
+      container,
       _menu(
         families: [_live('mem', 'Cousin Archive')],
         currentId: 'mem',
@@ -76,8 +105,10 @@ void main() {
   });
 
   testWidgets('Manage is shown for an owner', (tester) async {
+    final container = albumTestContainer();
     await _openMenu(
       tester,
+      container,
       stewarded: const [
         StewardFamily(id: 'ada', name: 'Ada Archive', role: 'owner'),
       ],
@@ -86,8 +117,10 @@ void main() {
   });
 
   testWidgets('Manage is shown for a co-owner', (tester) async {
+    final container = albumTestContainer();
     await _openMenu(
       tester,
+      container,
       stewarded: const [
         StewardFamily(id: 'ada', name: 'Ada Archive', role: 'co_owner'),
       ],
@@ -98,8 +131,10 @@ void main() {
   testWidgets('Manage is shown when the only owned family is soft-deleted', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await _openMenu(
       tester,
+      container,
       families: const [],
       currentId: null,
       familyName: 'Family',
@@ -118,7 +153,8 @@ void main() {
   });
 
   testWidgets('Manage is shown for a members-only user', (tester) async {
-    await _openMenu(tester, stewarded: const []);
+    final container = albumTestContainer();
+    await _openMenu(tester, container, stewarded: const []);
     expect(find.byKey(const Key('family-menu-manage')), findsOneWidget);
     expect(find.text('Start a family'), findsNothing);
   });
@@ -126,7 +162,10 @@ void main() {
   testWidgets('Manage stays visible after switching to a member family', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    final container = albumTestContainer();
+    await pumpScoped(
+      tester,
+      container,
       _SwitchHost(
         families: [
           _live('owned', 'Owned Archive'),
@@ -152,8 +191,10 @@ void main() {
   testWidgets('a soft-deleted family is absent from the switch list', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await _openMenu(
       tester,
+      container,
       families: [_live('ada', 'Ada Archive')],
       stewarded: [
         const StewardFamily(id: 'ada', name: 'Ada Archive', role: 'owner'),
@@ -170,7 +211,10 @@ void main() {
   });
 
   testWidgets('the avatar menu is exactly Settings and Logout', (tester) async {
-    await tester.pumpWidget(
+    final container = albumTestContainer();
+    await pumpScoped(
+      tester,
+      container,
       _menu(families: [_live('ada', 'Ada Archive')], stewarded: const []),
     );
     await tester.pumpAndSettle();
@@ -191,26 +235,18 @@ void main() {
   testWidgets(
     'family trigger is active and Timeline is plain on both Manage routes',
     (tester) async {
-      final directory = _Directory();
+      final container = albumTestContainer(_hub(directory: _Directory()));
       final router = GoRouter(
         initialLocation: AppRoutes.manageFamilies,
         routes: [
           GoRoute(
             path: AppRoutes.manageFamilies,
-            builder: (context, state) => ManageFamiliesPage(
-              directoryApi: directory,
-              manageApi: FakeManageFamiliesRepository()
-                ..error = StateError('unexpected call'),
-            ),
+            builder: (context, state) => const ManageFamiliesPage(),
           ),
           GoRoute(
             path: AppRoutes.manageFamily,
-            builder: (context, state) => ManageFamilyPage(
-              familyId: state.pathParameters['familyId']!,
-              directoryApi: directory,
-              manageApi: FakeManageFamiliesRepository()
-                ..error = StateError('unexpected call'),
-            ),
+            builder: (context, state) =>
+                ManageFamilyPage(familyId: state.pathParameters['familyId']!),
           ),
           GoRoute(
             path: AppRoutes.timeline,
@@ -238,7 +274,11 @@ void main() {
 
       Future<void> expectActive(String location) async {
         router.go(location);
-        await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+        await pumpScoped(
+          tester,
+          container,
+          MaterialApp.router(routerConfig: router),
+        );
         await tester.pumpAndSettle();
         expect(
           find.byKey(const Key('header-underline-family')),
@@ -256,8 +296,43 @@ void main() {
   );
 
   testWidgets('monogram skips a leading The', (tester) async {
+    final directory = _Directory()
+      ..directory = const FamilyDirectory(
+        active: [
+          FamilyRoster(
+            id: 'morgan',
+            name: "The Morgan Family",
+            role: 'owner',
+            memberCount: 1,
+            publishedCount: 0,
+          ),
+          FamilyRoster(
+            id: 'south',
+            name: 'South Archive',
+            role: 'member',
+            memberCount: 2,
+            publishedCount: 0,
+          ),
+        ],
+        recoverable: [],
+      );
+    final container = albumTestContainer(
+      _hub(
+        directory: directory,
+        families: _Families(
+          stewarded: const [
+            StewardFamily(
+              id: 'morgan',
+              name: 'The Morgan Family',
+              role: 'owner',
+            ),
+          ],
+        ),
+      ),
+    );
     await _openMenu(
       tester,
+      container,
       families: [
         _live('morgan', "The Morgan Family"),
         _live('ruth', "Grandma Ruth's Side"),
@@ -287,43 +362,10 @@ void main() {
       'G',
     );
 
-    final directory = _Directory()
-      ..directory = const FamilyDirectory(
-        active: [
-          FamilyRoster(
-            id: 'morgan',
-            name: "The Morgan Family",
-            role: 'owner',
-            memberCount: 1,
-            publishedCount: 0,
-          ),
-          FamilyRoster(
-            id: 'south',
-            name: 'South Archive',
-            role: 'member',
-            memberCount: 2,
-            publishedCount: 0,
-          ),
-        ],
-        recoverable: [],
-      );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ManageFamiliesPage(
-          directoryApi: directory,
-          manageApi: FakeManageFamiliesRepository()
-            ..error = StateError('unexpected call'),
-          familiesApi: _Families(
-            stewarded: const [
-              StewardFamily(
-                id: 'morgan',
-                name: 'The Morgan Family',
-                role: 'owner',
-              ),
-            ],
-          ),
-        ),
-      ),
+    await pumpScoped(
+      tester,
+      container,
+      const MaterialApp(home: ManageFamiliesPage()),
     );
     await tester.pumpAndSettle();
     expect(find.text('South Archive'), findsNothing);
@@ -343,6 +385,7 @@ void main() {
   testWidgets('picking a family on Manage opens Family Landing', (
     tester,
   ) async {
+    final container = albumTestContainer();
     final router = GoRouter(
       initialLocation: AppRoutes.manageFamilies,
       routes: [
@@ -357,10 +400,9 @@ void main() {
                 _live('bea', 'Bea Archive'),
               ],
               currentFamilyId: 'ada',
-              onFamilySelected: FamilySelection.remember,
+              onFamilySelected: (id) =>
+                  container.read(familySelectionProvider.notifier).remember(id),
               stewarded: const [],
-              manageApi: FakeManageFamiliesRepository()
-                ..error = StateError('unexpected call'),
             ),
             body: const Text('hub-screen'),
           ),
@@ -376,10 +418,9 @@ void main() {
                 _live('bea', 'Bea Archive'),
               ],
               currentFamilyId: 'bea',
-              onFamilySelected: FamilySelection.remember,
+              onFamilySelected: (id) =>
+                  container.read(familySelectionProvider.notifier).remember(id),
               stewarded: const [],
-              manageApi: FakeManageFamiliesRepository()
-                ..error = StateError('unexpected call'),
             ),
             body: const Text('detail-screen'),
           ),
@@ -398,7 +439,11 @@ void main() {
     );
     addTearDown(router.dispose);
 
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: router),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
@@ -407,7 +452,7 @@ void main() {
 
     expect(find.text('landing-screen'), findsOneWidget);
     expect(find.text('hub-screen'), findsNothing);
-    expect(FamilySelection.id, 'bea');
+    expect(container.read(familySelectionProvider), 'bea');
 
     router.go('/manage-families/ada');
     await tester.pumpAndSettle();
@@ -417,7 +462,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('landing-screen'), findsOneWidget);
-    expect(FamilySelection.id, 'ada');
+    expect(container.read(familySelectionProvider), 'ada');
   });
 
   testWidgets('a live family lands on Family Landing', (tester) async {
@@ -471,13 +516,16 @@ MemberFamily _live(String id, String name) {
 }
 
 Future<void> _openMenu(
-  WidgetTester tester, {
+  WidgetTester tester,
+  ProviderContainer container, {
   List<MemberFamily>? families,
   String? currentId = 'ada',
   String familyName = 'Ada Archive',
   List<StewardFamily> stewarded = const [],
 }) async {
-  await tester.pumpWidget(
+  await pumpScoped(
+    tester,
+    container,
     _menu(
       families: families ?? [_live('ada', 'Ada Archive')],
       currentId: currentId,
@@ -505,8 +553,6 @@ Widget _menu({
         currentFamilyId: currentId,
         onFamilySelected: (_) {},
         stewarded: stewarded,
-        manageApi: FakeManageFamiliesRepository()
-          ..error = StateError('unexpected call'),
         onLogout: () async {},
       ),
     ),
@@ -540,8 +586,6 @@ class _SwitchHostState extends State<_SwitchHost> {
           currentFamilyId: _current,
           onFamilySelected: (id) => setState(() => _current = id),
           stewarded: widget.stewarded,
-          manageApi: FakeManageFamiliesRepository()
-            ..error = StateError('unexpected call'),
           onLogout: () async {},
         ),
       ),
@@ -554,22 +598,103 @@ Future<String> _land(
   required _Families families,
   String? familyId,
 }) async {
-  final auth = AuthRefresh(initiallySignedIn: true);
-  final router = createAppRouter(
-    authRefresh: auth,
-    inviteApi: FakeInviteRepository(
-      familyId: familyId,
-      createdFamilyId: 'created',
-      acceptedFamilyId: 'f',
+  final container = albumTestContainer([
+    authInfoProvider.overrideWithValue(
+      ValueNotifier<AuthSuccess?>(_signedInUser),
     ),
-    familiesApi: families,
-  );
-  addTearDown(auth.dispose);
-  addTearDown(router.dispose);
-  await tester.pumpWidget(TellMeAStoryApp(router: router));
+    inviteRepositoryProvider.overrideWithValue(
+      FakeInviteRepository(
+        familyId: familyId,
+        createdFamilyId: 'created',
+        acceptedFamilyId: 'f',
+      ),
+    ),
+    familiesRepositoryProvider.overrideWithValue(families),
+    storiesRepositoryProvider.overrideWithValue(FakeStoriesRepository()),
+    familyDirectoryRepositoryProvider.overrideWithValue(_Directory()),
+    manageFamiliesRepositoryProvider.overrideWithValue(
+      FakeManageFamiliesRepository()..error = StateError('unexpected call'),
+    ),
+    familyCoversRepositoryProvider.overrideWithValue(_OfflineCovers()),
+    inviteLinkRepositoryProvider.overrideWithValue(_OfflineInviteLink()),
+    peopleRepositoryProvider.overrideWithValue(_OfflinePeople()),
+    placesRepositoryProvider.overrideWithValue(_OfflinePlaces()),
+    mapboxSearchRepositoryProvider.overrideWithValue(_OfflineMapbox()),
+    photosRepositoryProvider.overrideWithValue(_OfflinePhotos()),
+    commentsRepositoryProvider.overrideWithValue(_OfflineComments()),
+    perspectivesRepositoryProvider.overrideWithValue(_OfflinePerspectives()),
+    searchRepositoryProvider.overrideWithValue(_OfflineSearch()),
+    otpSignInProvider.overrideWithValue(_OfflineOtp()),
+    storyThumbsLoaderProvider.overrideWithValue((stories) async => const {}),
+  ]);
+  await pumpScoped(tester, container, const App());
   await tester.pumpAndSettle();
-  return router.routerDelegate.currentConfiguration.uri.path;
+  return container
+      .read(appRouterProvider)
+      .routerDelegate
+      .currentConfiguration
+      .uri
+      .path;
 }
+
+/// Hub repositories: [directory], [families] (both empty by default), and a
+/// manage repository these flows must not use.
+List<Override> _hub({
+  FamilyDirectoryRepository? directory,
+  _Families? families,
+}) {
+  return [
+    familyDirectoryRepositoryProvider.overrideWithValue(
+      directory ?? _Directory(),
+    ),
+    familiesRepositoryProvider.overrideWithValue(families ?? _Families()),
+    manageFamiliesRepositoryProvider.overrideWithValue(
+      FakeManageFamiliesRepository()..error = StateError('unexpected call'),
+    ),
+    inviteRepositoryProvider.overrideWithValue(
+      FakeInviteRepository(familyId: null),
+    ),
+  ];
+}
+
+final _signedInUser = AuthSuccess(
+  authStrategy: 'session',
+  token: 'token',
+  authUserId: UuidValue.fromString('00000000-0000-4000-8000-00000000000b'),
+  scopeNames: const {},
+);
+
+const _offline = AppException(
+  code: AppErrorCode.unauthenticated,
+  message: 'No server in widget tests.',
+);
+
+/// Fails every call like an unreachable server, for repositories a test
+/// does not exercise.
+mixin _Offline {
+  @override
+  Object? noSuchMethod(Invocation invocation) => Future<Never>.error(_offline);
+}
+
+class _OfflineCovers with _Offline implements FamilyCoversRepository {}
+
+class _OfflineInviteLink with _Offline implements InviteLinkRepository {}
+
+class _OfflinePeople with _Offline implements PeopleRepository {}
+
+class _OfflinePlaces with _Offline implements PlacesRepository {}
+
+class _OfflineMapbox with _Offline implements MapboxSearchRepository {}
+
+class _OfflinePhotos with _Offline implements PhotosRepository {}
+
+class _OfflineComments with _Offline implements CommentsRepository {}
+
+class _OfflinePerspectives with _Offline implements PerspectivesRepository {}
+
+class _OfflineSearch with _Offline implements SearchRepository {}
+
+class _OfflineOtp with _Offline implements OtpSignIn {}
 
 class _Families extends FamiliesRepository {
   _Families({this.live = const [], this.stewarded = const []});

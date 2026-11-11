@@ -86,12 +86,13 @@ List<Story> latestShelf(
   final cutoff = latestPublishedCutoff(now, withinDays: withinDays);
   final rows = [
     for (final story in stories)
-      if (story.status == StoryStatus.published &&
-          story.publishedAt != null &&
-          !story.publishedAt!.toUtc().isBefore(cutoff))
+      if (story.publishedAt case final at?
+          when story.status == StoryStatus.published &&
+              !at.toUtc().isBefore(cutoff))
         story,
   ];
   rows.sort((a, b) {
+    // Every row passed the publishedAt != null filter above.
     final byTime = b.publishedAt!.compareTo(a.publishedAt!);
     if (byTime != 0) return byTime;
     return b.id.compareTo(a.id);

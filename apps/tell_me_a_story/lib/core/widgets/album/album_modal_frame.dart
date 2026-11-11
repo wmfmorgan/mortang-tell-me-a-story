@@ -26,7 +26,6 @@ class AlbumModalFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final height = MediaQuery.sizeOf(context).height;
-    final theme = Theme.of(context);
     return Material(
       type: MaterialType.transparency,
       child: Stack(
@@ -46,55 +45,90 @@ class AlbumModalFrame extends StatelessWidget {
                   maxWidth: 1040,
                   maxHeight: height - 48,
                 ),
-                child: Material(
-                  key: frameKey,
-                  color: albumParchment,
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: albumModalBorder),
-                  ),
-                  child: Scaffold(
-                    backgroundColor: albumParchment,
-                    body: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.auto_stories_outlined,
-                                key: markKey,
-                                color: albumTerracotta,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                label,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: albumSage,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.4,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: trailing,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(child: child),
-                      ],
-                    ),
-                  ),
-                ),
+                child: _FrameCard(frame: this),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The parchment card: title row over the frame's child.
+class _FrameCard extends StatelessWidget {
+  const _FrameCard({required this.frame});
+
+  final AlbumModalFrame frame;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: frame.frameKey,
+      color: albumParchment,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: albumModalBorder),
+      ),
+      child: Scaffold(
+        backgroundColor: albumParchment,
+        body: Column(
+          children: [
+            _FrameTitleRow(
+              label: frame.label,
+              markKey: frame.markKey,
+              trailing: frame.trailing,
+            ),
+            Expanded(child: frame.child),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Book mark, [label], and the scrollable [trailing] actions.
+class _FrameTitleRow extends StatelessWidget {
+  const _FrameTitleRow({
+    required this.label,
+    required this.markKey,
+    required this.trailing,
+  });
+
+  final String label;
+  final Key? markKey;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+      child: Row(
+        children: [
+          Icon(
+            Icons.auto_stories_outlined,
+            key: markKey,
+            color: albumTerracotta,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: albumSage,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: trailing,
               ),
             ),
           ),

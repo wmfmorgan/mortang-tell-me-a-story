@@ -25,7 +25,8 @@ class ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = bytes != null && bytes!.isNotEmpty;
+    final image = bytes;
+    final hasImage = image != null && image.isNotEmpty;
     final initials = hasImage ? '' : profileInitials(displayName);
     return Container(
       width: size,
@@ -37,9 +38,9 @@ class ProfileAvatar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,
-      child: hasImage
+      child: image != null && hasImage
           ? Image.memory(
-              bytes!,
+              image,
               key: const Key('profile-avatar-image'),
               width: size,
               height: size,

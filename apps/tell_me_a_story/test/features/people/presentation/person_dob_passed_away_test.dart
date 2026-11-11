@@ -3,10 +3,18 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
-import 'package:tell_me_a_story/core/data/profile_repository.dart';
+import 'package:tell_me_a_story/core/domain/birth_visibility.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/own_profile.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/person_profile.dart';
+import 'package:tell_me_a_story/core/domain/profile_repository.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/core/session/app_session_provider.dart';
 import 'package:tell_me_a_story/features/invites/presentation/invite_modal.dart';
 import 'package:tell_me_a_story/features/people/presentation/add_person_modal.dart';
 import 'package:tell_me_a_story/features/people/presentation/edit_person_dialog.dart';
@@ -14,6 +22,8 @@ import 'package:tell_me_a_story/features/people/presentation/person_profile_dial
 import 'package:tell_me_a_story/features/settings/presentation/settings_page.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
+import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -192,8 +202,6 @@ void main() {
   testWidgets(
     'with no injected id the profile asks AppSession who is signed in',
     (tester) async {
-      AppSession.instance = const _Session('member');
-      addTearDown(() => AppSession.instance = const ServerAppSession());
       final people = _People()
         ..profile = const PersonProfile(
           id: 'p1',
@@ -208,7 +216,13 @@ void main() {
           userId: 'member',
         )
         ..steward = true;
-      await _openProfile(tester, people);
+      await _openProfile(
+        tester,
+        people,
+        overrides: [
+          appSessionProvider.overrideWithValue(const _Session('member')),
+        ],
+      );
 
       expect(find.byType(PersonProfileDialog), findsOneWidget);
       expect(
@@ -253,17 +267,10 @@ void main() {
     final profile = _Profile();
     await tester.binding.setSurfaceSize(const Size(900, 2200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SettingsPage(
-          profileApi: profile,
-          inviteApi: FakeInviteRepository(
-            familyId: _familyId,
-            createdFamilyId: _familyId,
-            acceptedFamilyId: _familyId,
-          ),
-        ),
-      ),
+    await _pump(
+      tester,
+      const SettingsPage(),
+      overrides: [profileRepositoryProvider.overrideWithValue(profile)],
     );
     await tester.pumpAndSettle();
 
@@ -380,26 +387,17 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => InviteModal.show(
-                context,
-                familyId: _familyId,
-                api: FakeInviteRepository(
-                  familyId: _familyId,
-                  createdFamilyId: _familyId,
-                  acceptedFamilyId: _familyId,
-                ),
-                people: people,
-              ),
-              child: const Text('invite'),
-            ),
+    await _pump(
+      tester,
+      Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => InviteModal.show(context, familyId: _familyId),
+            child: const Text('invite'),
           ),
         ),
       ),
+      people: people,
     );
     await tester.tap(find.text('invite'));
     await tester.pumpAndSettle();
@@ -417,16 +415,15 @@ void main() {
 Future<void> _openAdd(WidgetTester tester, _People people) async {
   await tester.binding.setSurfaceSize(const Size(900, 1400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Builder(
-        builder: (context) => TextButton(
-          onPressed: () =>
-              AddPersonModal.show(context, familyId: _familyId, api: people),
-          child: const Text('open'),
-        ),
+  await _pump(
+    tester,
+    Builder(
+      builder: (context) => TextButton(
+        onPressed: () => AddPersonModal.show(context, familyId: _familyId),
+        child: const Text('open'),
       ),
     ),
+    people: people,
   );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
@@ -437,16 +434,15 @@ Future<void> _openAdd(WidgetTester tester, _People people) async {
 Future<void> _openPicker(WidgetTester tester, _People people) async {
   await tester.binding.setSurfaceSize(const Size(900, 1400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Builder(
-        builder: (context) => TextButton(
-          onPressed: () =>
-              AddPersonModal.show(context, familyId: _familyId, api: people),
-          child: const Text('open'),
-        ),
+  await _pump(
+    tester,
+    Builder(
+      builder: (context) => TextButton(
+        onPressed: () => AddPersonModal.show(context, familyId: _familyId),
+        child: const Text('open'),
       ),
     ),
+    people: people,
   );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
@@ -457,18 +453,16 @@ Future<void> _openEdit(
   Person person, {
   String? signedInUserId,
 }) async {
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Builder(
-        builder: (context) => TextButton(
-          onPressed: () => showEditPersonDialog(
-            context,
-            person: person,
-            people: _People(),
-            signedInUserId: signedInUserId,
-          ),
-          child: const Text('open'),
+  await _pump(
+    tester,
+    Builder(
+      builder: (context) => TextButton(
+        onPressed: () => showEditPersonDialog(
+          context,
+          person: person,
+          signedInUserId: signedInUserId,
         ),
+        child: const Text('open'),
       ),
     ),
   );
@@ -480,29 +474,54 @@ Future<void> _openProfile(
   WidgetTester tester,
   _People people, {
   String? signedInUserId,
+  List<Override> overrides = const [],
 }) async {
   await tester.binding.setSurfaceSize(const Size(900, 1400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => showPersonProfile(
-              context,
-              personId: 'p1',
-              name: 'Ada',
-              people: people,
-              signedInUserId: signedInUserId,
-            ),
-            child: const Text('open'),
+  await _pump(
+    tester,
+    Scaffold(
+      body: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showPersonProfile(
+            context,
+            personId: 'p1',
+            name: 'Ada',
+            signedInUserId: signedInUserId,
           ),
+          child: const Text('open'),
         ),
       ),
     ),
+    people: people,
+    overrides: overrides,
   );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
+}
+
+Future<void> _pump(
+  WidgetTester tester,
+  Widget home, {
+  _People? people,
+  List<Override> overrides = const [],
+}) {
+  return pumpApp(
+    tester,
+    home,
+    overrides: [
+      peopleRepositoryProvider.overrideWithValue(people ?? _People()),
+      inviteRepositoryProvider.overrideWithValue(
+        FakeInviteRepository(
+          familyId: _familyId,
+          createdFamilyId: _familyId,
+          acceptedFamilyId: _familyId,
+        ),
+      ),
+      storiesRepositoryProvider.overrideWithValue(FakeStoriesRepository()),
+      ...overrides,
+    ],
+  );
 }
 
 class _People extends PeopleRepository {

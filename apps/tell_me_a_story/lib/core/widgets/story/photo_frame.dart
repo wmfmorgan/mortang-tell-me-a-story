@@ -72,20 +72,7 @@ double? encodedPhotoAspect(Uint8List bytes) {
     if (i + 3 >= bytes.length) return null;
     final length = (bytes[i + 2] << 8) | bytes[i + 3];
     if (length < 2) return null;
-    final isStartOfFrame =
-        marker == 0xC0 ||
-        marker == 0xC1 ||
-        marker == 0xC2 ||
-        marker == 0xC3 ||
-        marker == 0xC5 ||
-        marker == 0xC6 ||
-        marker == 0xC7 ||
-        marker == 0xC9 ||
-        marker == 0xCA ||
-        marker == 0xCB ||
-        marker == 0xCD ||
-        marker == 0xCE ||
-        marker == 0xCF;
+    final isStartOfFrame = _startOfFrameMarkers.contains(marker);
     if (isStartOfFrame && i + 8 < bytes.length) {
       final height = (bytes[i + 5] << 8) | bytes[i + 6];
       final width = (bytes[i + 7] << 8) | bytes[i + 8];
@@ -96,6 +83,12 @@ double? encodedPhotoAspect(Uint8List bytes) {
   }
   return null;
 }
+
+/// SOF0–SOF15 minus DHT (C4), JPG (C8) and DAC (CC).
+const _startOfFrameMarkers = {
+  0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, //
+  0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF,
+};
 
 int _u32(Uint8List bytes, int offset) {
   return (bytes[offset] << 24) |
@@ -113,17 +106,18 @@ class FramedPhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final encoded = bytes == null ? null : encodedPhotoAspect(bytes!);
+    final image = bytes;
+    final encoded = image == null ? null : encodedPhotoAspect(image);
     return AspectRatio(
       aspectRatio: framedPhotoAspect(encoded ?? (16 / 9)),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
         child: ColoredBox(
           color: albumParchment,
-          child: bytes == null
+          child: image == null
               ? const SizedBox.expand()
               : Image.memory(
-                  bytes!,
+                  image,
                   fit: BoxFit.contain,
                   errorBuilder: (_, _, _) => const SizedBox.expand(),
                 ),

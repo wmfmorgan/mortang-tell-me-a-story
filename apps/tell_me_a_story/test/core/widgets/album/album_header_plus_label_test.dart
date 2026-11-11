@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+
+import '../../../support/album_test_scope.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +16,9 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
+    await pumpScoped(
+      tester,
+      albumTestContainer(),
       MaterialApp(
         theme: albumTheme(),
         home: Scaffold(

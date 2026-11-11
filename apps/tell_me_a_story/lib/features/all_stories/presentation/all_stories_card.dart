@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_search.dart';
 import 'package:tell_me_a_story/features/all_stories/presentation/all_stories_logic.dart';
@@ -70,7 +70,8 @@ class AllStoriesCard extends StatelessWidget {
                 Color.lerp(albumPillBorder, albumTerracotta, highlight) ??
                 albumPillBorder;
             final borderWidth = 1 + highlight;
-            return _frame(
+            return _CardFrame(
+              card: this,
               dim: dim,
               textColor: textColor,
               accent: accent,
@@ -83,191 +84,10 @@ class AllStoriesCard extends StatelessWidget {
     );
   }
 
-  Widget _frame({
-    required double dim,
-    required Color textColor,
-    required Color accent,
-    required Color borderColor,
-    required double borderWidth,
-  }) {
-    return Semantics(
-      key: Key('all-stories-card-${story.id}'),
-      container: true,
-      explicitChildNodes: true,
-      button: true,
-      label: _label(),
-      onTap: onOpen,
-      child: AllStoriesFocusTarget(
-        radius: albumCardRadius,
-        childBuilder: (node) => Material(
-          color: albumParchment,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(albumCardRadius),
-            side: BorderSide(color: borderColor, width: borderWidth),
-          ),
-          child: InkWell(
-            focusNode: node,
-            onTap: onOpen,
-            borderRadius: BorderRadius.circular(albumCardRadius),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _cover(dim, accent),
-                  if (_dateLine() case final date?) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      date,
-                      style: GoogleFonts.sourceSans3(
-                        color: textColor,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                  if (_title() case final title?) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.newsreader(
-                        color: textColor,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                  if (_pills(textColor, accent) case final pills?) ...[
-                    const SizedBox(height: 8),
-                    pills,
-                  ],
-                  if (placeHeading(story) case final place?) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on, size: 16, color: accent),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            place,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.sourceSans3(
-                              color: textColor,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _cover(double dim, Color accent) {
-    final bytes = thumb;
-    Widget photo = switch (bytes) {
-      final image? when image.isNotEmpty => Image.memory(
-        image,
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        width: double.infinity,
-        height: 140,
-      ),
-      _ => const ColoredBox(color: albumParchment),
-    };
-    if (bytes != null && bytes.isNotEmpty && dim > 0) {
-      photo = ColorFiltered(
-        colorFilter: ColorFilter.matrix(_grayAt(dim)),
-        child: photo,
-      );
-    }
-    return SizedBox(
-      height: 140,
-      width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          photo,
-          ColoredBox(
-            color: albumParchment.withValues(
-              alpha: allStoriesVeilOpacity * dim,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget? _pills(Color textColor, Color accent) {
-    final children = <Widget>[
-      if (mark.startedTimeline)
-        _OriginPill(
-          text: mark.inheritedFromName == null
-              ? 'Origin'
-              : 'Origin · from ${mark.inheritedFromName}',
-          color: accent,
-        ),
-      for (final branch in mark.branches)
-        Semantics(
-          button: true,
-          label: 'Open the ${branch.name} timeline',
-          onTap: () => onOpenBranch(branch),
-          child: AllStoriesFocusTarget(
-            radius: 20,
-            childBuilder: (node) => TextButton(
-              key: Key('all-stories-branch-${story.id}-${branch.id}'),
-              focusNode: node,
-              onPressed: () => onOpenBranch(branch),
-              style: TextButton.styleFrom(
-                minimumSize: const Size(44, 44),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                foregroundColor: textColor,
-                backgroundColor: albumPillFill,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: const BorderSide(color: albumPillBorder),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.account_tree_outlined, size: 16, color: textColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    branch.name,
-                    style: GoogleFonts.sourceSans3(color: textColor),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      if (showMembers)
-        for (final person in story.people)
-          _PersonPill(
-            key: Key('all-stories-person-${story.id}-${person.id}'),
-            name: person.name,
-            color: textColor,
-            matched: nameMatches(person.name, query),
-          ),
-    ];
-    if (children.isEmpty) return null;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: children,
-    );
-  }
+  bool get _hasPills =>
+      mark.startedTimeline ||
+      mark.branches.isNotEmpty ||
+      (showMembers && story.people.isNotEmpty);
 
   String _label() {
     final parts = <String>[];
@@ -310,6 +130,285 @@ class AllStoriesCard extends StatelessWidget {
     if (start == null) return null;
     return storyDateLabel(
       StoryDate.fromRow(start, story.timeframeEnd, story.datePrecision),
+    );
+  }
+}
+
+class _CardFrame extends StatelessWidget {
+  const _CardFrame({
+    required this.card,
+    required this.dim,
+    required this.textColor,
+    required this.accent,
+    required this.borderColor,
+    required this.borderWidth,
+  });
+
+  final AllStoriesCard card;
+  final double dim;
+  final Color textColor;
+  final Color accent;
+  final Color borderColor;
+  final double borderWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      key: Key('all-stories-card-${card.story.id}'),
+      container: true,
+      explicitChildNodes: true,
+      button: true,
+      label: card._label(),
+      onTap: card.onOpen,
+      child: AllStoriesFocusTarget(
+        radius: albumCardRadius,
+        childBuilder: (node) => Material(
+          color: albumParchment,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(albumCardRadius),
+            side: BorderSide(color: borderColor, width: borderWidth),
+          ),
+          child: InkWell(
+            focusNode: node,
+            onTap: card.onOpen,
+            borderRadius: BorderRadius.circular(albumCardRadius),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: _CardContent(
+                card: card,
+                dim: dim,
+                textColor: textColor,
+                accent: accent,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CardContent extends StatelessWidget {
+  const _CardContent({
+    required this.card,
+    required this.dim,
+    required this.textColor,
+    required this.accent,
+  });
+
+  final AllStoriesCard card;
+  final double dim;
+  final Color textColor;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _CardCover(thumb: card.thumb, dim: dim),
+        if (card._dateLine() case final date?) ...[
+          const SizedBox(height: 8),
+          Text(
+            date,
+            style: GoogleFonts.sourceSans3(color: textColor, fontSize: 14),
+          ),
+        ],
+        if (card._title() case final title?) ...[
+          const SizedBox(height: 4),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.newsreader(
+              color: textColor,
+              fontSize: 22,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+        if (card._hasPills) ...[
+          const SizedBox(height: 8),
+          _CardPills(card: card, textColor: textColor, accent: accent),
+        ],
+        if (placeHeading(card.story) case final place?) ...[
+          const SizedBox(height: 8),
+          _PlaceLine(place: place, textColor: textColor, accent: accent),
+        ],
+      ],
+    );
+  }
+}
+
+class _PlaceLine extends StatelessWidget {
+  const _PlaceLine({
+    required this.place,
+    required this.textColor,
+    required this.accent,
+  });
+
+  final String place;
+  final Color textColor;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(Icons.location_on, size: 16, color: accent),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            place,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.sourceSans3(color: textColor, fontSize: 14),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CardCover extends StatelessWidget {
+  const _CardCover({required this.thumb, required this.dim});
+
+  final Uint8List? thumb;
+  final double dim;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = thumb;
+    Widget photo = switch (bytes) {
+      final image? when image.isNotEmpty => Image.memory(
+        image,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        width: double.infinity,
+        height: 140,
+      ),
+      _ => const ColoredBox(color: albumParchment),
+    };
+    if (bytes != null && bytes.isNotEmpty && dim > 0) {
+      photo = ColorFiltered(
+        colorFilter: ColorFilter.matrix(_grayAt(dim)),
+        child: photo,
+      );
+    }
+    return SizedBox(
+      height: 140,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          photo,
+          ColoredBox(
+            color: albumParchment.withValues(
+              alpha: allStoriesVeilOpacity * dim,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardPills extends StatelessWidget {
+  const _CardPills({
+    required this.card,
+    required this.textColor,
+    required this.accent,
+  });
+
+  final AllStoriesCard card;
+  final Color textColor;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = card.mark;
+    final story = card.story;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (mark.startedTimeline)
+          _OriginPill(
+            text: mark.inheritedFromName == null
+                ? 'Origin'
+                : 'Origin · from ${mark.inheritedFromName}',
+            color: accent,
+          ),
+        for (final branch in mark.branches)
+          _BranchPill(
+            storyId: story.id,
+            branch: branch,
+            textColor: textColor,
+            onOpenBranch: card.onOpenBranch,
+          ),
+        if (card.showMembers)
+          for (final person in story.people)
+            _PersonPill(
+              key: Key('all-stories-person-${story.id}-${person.id}'),
+              name: person.name,
+              color: textColor,
+              matched: nameMatches(person.name, card.query),
+            ),
+      ],
+    );
+  }
+}
+
+class _BranchPill extends StatelessWidget {
+  const _BranchPill({
+    required this.storyId,
+    required this.branch,
+    required this.textColor,
+    required this.onOpenBranch,
+  });
+
+  final String storyId;
+  final TreeFamily branch;
+  final Color textColor;
+  final ValueChanged<TreeFamily> onOpenBranch;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Open the ${branch.name} timeline',
+      onTap: () => onOpenBranch(branch),
+      child: AllStoriesFocusTarget(
+        radius: 20,
+        childBuilder: (node) => TextButton(
+          key: Key('all-stories-branch-$storyId-${branch.id}'),
+          focusNode: node,
+          onPressed: () => onOpenBranch(branch),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(44, 44),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            foregroundColor: textColor,
+            backgroundColor: albumPillFill,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: albumPillBorder),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.account_tree_outlined, size: 16, color: textColor),
+              const SizedBox(width: 4),
+              Text(
+                branch.name,
+                style: GoogleFonts.sourceSans3(color: textColor),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

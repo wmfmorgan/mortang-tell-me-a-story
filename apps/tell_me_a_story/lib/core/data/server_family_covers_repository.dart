@@ -6,7 +6,7 @@ import 'package:tell_me_a_story/core/server/server_client.dart';
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
 import 'package:tell_me_a_story/core/domain/cover_photo_exception.dart';
 import 'package:tell_me_a_story/core/domain/family_covers_repository.dart';
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/compressed_photo.dart';
 import 'package:tell_me_a_story/core/data/server/server_errors.dart';
 
 const familyCoverMaxBytes = 5242880;

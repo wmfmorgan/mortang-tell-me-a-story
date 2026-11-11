@@ -4,15 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
-    show EmailAccountRequestException, EmailAccountRequestExceptionReason;
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:tell_me_a_story/core/domain/accept_invite_result.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/domain/invite_link_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_preview.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/session/auth_refresh.dart';
-import 'package:tell_me_a_story/core/data/invite_repository.dart';
+import 'package:tell_me_a_story/features/auth/domain/otp_sign_in.dart';
 import 'package:tell_me_a_story/features/auth/presentation/invite_sign_in_page.dart';
-import 'package:tell_me_a_story/features/auth/data/otp_sign_in.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
+import '../../../support/pump_app.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -30,21 +34,8 @@ void main() {
       routes: [
         GoRoute(
           path: '/invite/:token',
-          builder: (context, state) => InviteSignInPage(
-            token: state.pathParameters['token']!,
-            previewApi: _Preview(
-              const InvitePreview(
-                valid: true,
-                familyId: 'fam',
-                familyName: 'Ada',
-                inviterName: 'Bea',
-              ),
-            ),
-            inviteApi: invites,
-            otpSignIn: otp,
-            authRefresh: auth,
-            signedIn: () => auth.isSignedIn,
-          ),
+          builder: (context, state) =>
+              InviteSignInPage(token: state.pathParameters['token']!),
         ),
         GoRoute(
           path: AppRoutes.familyLanding,
@@ -57,7 +48,23 @@ void main() {
       ],
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpRouterApp(
+      tester,
+      router,
+      overrides: _overrides(
+        auth: auth,
+        preview: _Preview(
+          const InvitePreview(
+            valid: true,
+            familyId: 'fam',
+            familyName: 'Ada',
+            inviterName: 'Bea',
+          ),
+        ),
+        invites: invites,
+        otp: otp,
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('YOU’RE INVITED'), findsOneWidget);
     expect(find.text('Join Ada'), findsOneWidget);
@@ -82,8 +89,9 @@ void main() {
     expect(find.byKey(const Key('invite-sent')), findsOneWidget);
     expect(otp.sent, ['a@b.co']);
 
-    otp.signInError = EmailAccountRequestException(
-      reason: EmailAccountRequestExceptionReason.invalid,
+    otp.signInError = const AppException(
+      code: AppErrorCode.validation,
+      message: "That code isn't right. Check it and try again.",
     );
     await _enterCode(tester, '000000');
     expect(
@@ -99,32 +107,31 @@ void main() {
     expect(otp.signIns.last, ('req-1', '111111'));
 
     router.go('/invite/dead');
-    await tester.pumpWidget(
-      MaterialApp(
-        home: InviteSignInPage(
-          key: const Key('invite-dead-page'),
-          token: 'dead',
-          previewApi: _Preview(const InvitePreview(valid: false)),
-          signedIn: () => false,
-        ),
+    // A fresh ProviderScope per app below.
+    await tester.pumpWidget(const SizedBox());
+    await pumpApp(
+      tester,
+      const InviteSignInPage(key: Key('invite-dead-page'), token: 'dead'),
+      overrides: _overrides(
+        auth: _signedOut(),
+        preview: _Preview(const InvitePreview(valid: false)),
       ),
     );
     await tester.pumpAndSettle();
     expect(find.text(inviteDeadLink), findsOneWidget);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: InviteSignInPage(
-          key: const Key('invite-noname-page'),
-          token: 'noname',
-          previewApi: _Preview(
-            const InvitePreview(
-              valid: true,
-              familyName: 'Ada',
-              inviterName: null,
-            ),
+    await tester.pumpWidget(const SizedBox());
+    await pumpApp(
+      tester,
+      const InviteSignInPage(key: Key('invite-noname-page'), token: 'noname'),
+      overrides: _overrides(
+        auth: _signedOut(),
+        preview: _Preview(
+          const InvitePreview(
+            valid: true,
+            familyName: 'Ada',
+            inviterName: null,
           ),
-          signedIn: () => false,
         ),
       ),
     );
@@ -133,37 +140,39 @@ void main() {
     expect(find.text('Join Ada'), findsOneWidget);
 
     final signed = _Invites();
-    await tester.pumpWidget(
-      MaterialApp.router(
-        routerConfig: GoRouter(
-          initialLocation: '/invite/tok',
-          routes: [
-            GoRoute(
-              path: '/invite/:token',
-              builder: (context, state) => InviteSignInPage(
-                token: 'tok',
-                previewApi: _Preview(
-                  const InvitePreview(
-                    valid: true,
-                    familyId: 'fam',
-                    familyName: 'Ada',
-                    inviterName: 'Bea',
-                  ),
-                ),
-                inviteApi: signed,
-                signedIn: () => true,
-              ),
-            ),
-            GoRoute(
-              path: AppRoutes.familyLanding,
-              builder: (context, state) => const Text('landing-home'),
-            ),
-            GoRoute(
-              path: AppRoutes.timeline,
-              builder: (context, state) => const Text('timeline-home'),
-            ),
-          ],
+    final signedRouter = GoRouter(
+      initialLocation: '/invite/tok',
+      routes: [
+        GoRoute(
+          path: '/invite/:token',
+          builder: (context, state) => const InviteSignInPage(token: 'tok'),
         ),
+        GoRoute(
+          path: AppRoutes.familyLanding,
+          builder: (context, state) => const Text('landing-home'),
+        ),
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) => const Text('timeline-home'),
+        ),
+      ],
+    );
+    addTearDown(signedRouter.dispose);
+    await tester.pumpWidget(const SizedBox());
+    await pumpRouterApp(
+      tester,
+      signedRouter,
+      overrides: _overrides(
+        auth: _signedIn(),
+        preview: _Preview(
+          const InvitePreview(
+            valid: true,
+            familyId: 'fam',
+            familyName: 'Ada',
+            inviterName: 'Bea',
+          ),
+        ),
+        invites: signed,
       ),
     );
     await tester.pumpAndSettle();
@@ -181,15 +190,7 @@ void main() {
         routes: [
           GoRoute(
             path: '/invite/:token',
-            builder: (context, state) => InviteSignInPage(
-              token: 'tok',
-              previewApi: _Preview(
-                const InvitePreview(valid: false),
-                onValidate: () => validated++,
-              ),
-              inviteApi: invites,
-              signedIn: () => true,
-            ),
+            builder: (context, state) => const InviteSignInPage(token: 'tok'),
           ),
           GoRoute(
             path: AppRoutes.familyLanding,
@@ -202,7 +203,18 @@ void main() {
         ],
       );
       addTearDown(router.dispose);
-      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await pumpRouterApp(
+        tester,
+        router,
+        overrides: _overrides(
+          auth: _signedIn(),
+          preview: _Preview(
+            const InvitePreview(valid: false),
+            onValidate: () => validated++,
+          ),
+          invites: invites,
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('landing-home'), findsOneWidget);
       expect(find.text(inviteDeadLink), findsNothing);
@@ -215,20 +227,43 @@ void main() {
     tester,
   ) async {
     final invites = _Invites()..acceptInviteError = Exception('used');
-    await tester.pumpWidget(
-      MaterialApp(
-        home: InviteSignInPage(
-          token: 'used',
-          previewApi: _Preview(const InvitePreview(valid: false)),
-          inviteApi: invites,
-          signedIn: () => true,
-        ),
+    await pumpApp(
+      tester,
+      const InviteSignInPage(token: 'used'),
+      overrides: _overrides(
+        auth: _signedIn(),
+        preview: _Preview(const InvitePreview(valid: false)),
+        invites: invites,
       ),
     );
     await tester.pumpAndSettle();
     expect(find.text(inviteDeadLink), findsOneWidget);
     expect(invites.accepts, 1);
   });
+}
+
+/// Repositories and session for one pumped app. [invites] defaults to one
+/// that counts accepts; [otp] to a fresh fake.
+List<Override> _overrides({
+  required AuthRefresh auth,
+  required InviteLinkRepository preview,
+  InviteRepository? invites,
+  OtpSignIn? otp,
+}) => [
+  authRefreshProvider.overrideWithValue(auth),
+  inviteLinkRepositoryProvider.overrideWithValue(preview),
+  inviteRepositoryProvider.overrideWithValue(invites ?? _Invites()),
+  otpSignInProvider.overrideWithValue(otp ?? _Otp()),
+];
+
+AuthRefresh _signedOut() => _session(signedIn: false);
+
+AuthRefresh _signedIn() => _session(signedIn: true);
+
+AuthRefresh _session({required bool signedIn}) {
+  final auth = AuthRefresh(initiallySignedIn: signedIn);
+  addTearDown(auth.dispose);
+  return auth;
 }
 
 Future<void> _tapText(WidgetTester tester, String text) async {

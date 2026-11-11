@@ -5,8 +5,9 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
-import 'package:tell_me_a_story/core/session/timeline_live.dart';
+import 'package:tell_me_a_story/core/data/server_stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/session/server_timeline_live.dart';
 
 import 'support/live_server.dart';
 import 'support/story_fixtures.dart';

@@ -1,20 +1,20 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:tell_me_a_story/core/widgets/album/album_chrome.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/invite_repository.dart';
-import 'package:tell_me_a_story/core/data/people_repository.dart';
+import 'package:tell_me_a_story/core/widgets/album/album_chrome.dart';
 import 'package:tell_me_a_story/core/widgets/dialogs/family_blur_dialog.dart';
 
 /// Edit person. The gate is [Person.userId] from the people row.
 Future<Person?> showEditPersonDialog(
   BuildContext context, {
   required Person person,
-  required PeopleRepository people,
-  InviteRepository? invites,
   String? signedInUserId,
   Future<Uint8List?> Function()? pickImageBytes,
 }) {
@@ -24,35 +24,29 @@ Future<Person?> showEditPersonDialog(
     maxWidth: 560,
     builder: (ctx) => EditPersonDialog(
       person: person,
-      people: people,
-      invites: invites,
       signedInUserId: signedInUserId,
       pickImageBytes: pickImageBytes,
     ),
   );
 }
 
-class EditPersonDialog extends StatefulWidget {
+class EditPersonDialog extends ConsumerStatefulWidget {
   const EditPersonDialog({
     super.key,
     required this.person,
-    required this.people,
-    this.invites,
     this.signedInUserId,
     this.pickImageBytes,
   });
 
   final Person person;
-  final PeopleRepository people;
-  final InviteRepository? invites;
   final String? signedInUserId;
   final Future<Uint8List?> Function()? pickImageBytes;
 
   @override
-  State<EditPersonDialog> createState() => _EditPersonDialogState();
+  ConsumerState<EditPersonDialog> createState() => _EditPersonDialogState();
 }
 
-class _EditPersonDialogState extends State<EditPersonDialog> {
+class _EditPersonDialogState extends ConsumerState<EditPersonDialog> {
   late final TextEditingController _name;
   late final TextEditingController _about;
   late final TextEditingController _email;
@@ -79,13 +73,15 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
 
   Future<void> _loadExisting(String path) async {
     try {
-      final bytes = await widget.people.pictureBytes(
-        personId: widget.person.id,
-        path: path,
-      );
+      final bytes = await ref
+          .read(peopleRepositoryProvider)
+          .pictureBytes(personId: widget.person.id, path: path);
       if (!mounted || _removed || _picture != null) return;
       setState(() => _existingBytes = bytes);
-    } catch (_) {}
+    } catch (error) {
+      // An unreadable picture keeps the empty mark; Replace still works.
+      return;
+    }
   }
 
   @override
@@ -150,35 +146,12 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
     }
     setState(() => _busy = true);
     try {
-      final person = await widget.people.updatePerson(
-        personId: widget.person.id,
-        name: name,
-        passedAway: _passedAway,
-        writePassedAway: true,
-        about: about,
-        writeAbout: true,
-        email: email,
-        writeEmail: true,
-        pictureBytes: _picture,
-        clearPicture: _removed && _picture == null,
-      );
-      if (sendInvite) {
-        final invites = widget.invites;
-        if (invites != null) {
-          final created = await invites.createInvite(
-            familyId: person.familyId,
-            email: email,
-            personId: person.id,
-          );
-          await invites.sendInviteEmail(
-            inviteId: created.inviteId,
-            token: created.token,
-          );
-        }
-      }
+      final person = await _write(name, about, email);
+      if (sendInvite) await _invite(person, email);
       if (!mounted) return;
       Navigator.of(context).pop(person);
-    } catch (_) {
+    } catch (error) {
+      // Every save failure shows the save sentence.
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t save person. Try again.')),
@@ -187,6 +160,82 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  Future<Person> _write(String name, String about, String email) {
+    return ref
+        .read(peopleRepositoryProvider)
+        .updatePerson(
+          personId: widget.person.id,
+          name: name,
+          passedAway: _passedAway,
+          writePassedAway: true,
+          about: about,
+          writeAbout: true,
+          email: email,
+          writeEmail: true,
+          pictureBytes: _picture,
+          clearPicture: _removed && _picture == null,
+        );
+  }
+
+  Future<void> _invite(Person person, String email) async {
+    final invites = ref.read(inviteRepositoryProvider);
+    final created = await invites.createInvite(
+      familyId: person.familyId,
+      email: email,
+      personId: person.id,
+    );
+    await invites.sendInviteEmail(
+      inviteId: created.inviteId,
+      token: created.token,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final VoidCallback? close = _busy
+        ? null
+        : () => Navigator.of(context).pop();
+    return _EditScroll(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _EditHeader(onClose: close),
+          const SizedBox(height: 12),
+          Divider(color: albumSage.withValues(alpha: 0.28), height: 1),
+          const SizedBox(height: 16),
+          _PictureRow(
+            canRemove: _canRemove,
+            onPick: _busy ? null : _pick,
+            onRemove: _busy ? null : _remove,
+            avatar: _AvatarImage(
+              picture: _picture,
+              existing: _removed ? null : _existingBytes,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _EditFields(
+            name: _name,
+            about: _about,
+            email: _email,
+            aboutError: _aboutError,
+            passedAway: _passedAway,
+            onPassedAway: _busy
+                ? null
+                : (value) => setState(() => _passedAway = value),
+          ),
+          const SizedBox(height: 20),
+          _EditActions(onCancel: close, onSave: _busy ? null : _save),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditScroll extends StatelessWidget {
+  const _EditScroll({required this.child});
+
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -199,109 +248,164 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
           top: 20,
           bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: albumSage.withValues(alpha: 0.18),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: albumSage.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: const Icon(Icons.person, size: 18, color: albumSage),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Edit person',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                ),
-                IconButton(
-                  key: const Key('edit-person-close'),
-                  tooltip: 'Close',
-                  onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Divider(color: albumSage.withValues(alpha: 0.28), height: 1),
-            const SizedBox(height: 16),
-            _pictureRow(context),
-            const SizedBox(height: 20),
-            const Text('Name'),
-            const SizedBox(height: 8),
-            TextField(
-              key: const Key('edit-person-name'),
-              controller: _name,
-              decoration: const InputDecoration(hintText: 'Name'),
-            ),
-            const SizedBox(height: 20),
-            const Text('About'),
-            const SizedBox(height: 8),
-            _AboutField(controller: _about, errorText: _aboutError),
-            const SizedBox(height: 20),
-            const Text('Email'),
-            const SizedBox(height: 8),
-            TextField(
-              key: const Key('edit-person-email'),
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Expanded(child: Text('Passed away')),
-                Switch(
-                  key: const Key('edit-person-passed-away'),
-                  value: _passedAway,
-                  onChanged: _busy
-                      ? null
-                      : (value) => setState(() => _passedAway = value),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                TextButton(
-                  key: const Key('edit-person-cancel'),
-                  onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                const Spacer(),
-                FilledButton(
-                  key: const Key('edit-person-save'),
-                  onPressed: _busy ? null : _save,
-                  child: const Text('Save'),
-                ),
-              ],
-            ),
-          ],
-        ),
+        child: child,
       ),
     );
   }
+}
 
-  Widget _pictureRow(BuildContext context) {
+class _EditHeader extends StatelessWidget {
+  const _EditHeader({required this.onClose});
+
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: albumSage.withValues(alpha: 0.18),
+            shape: BoxShape.circle,
+            border: Border.all(color: albumSage.withValues(alpha: 0.35)),
+          ),
+          child: const Icon(Icons.person, size: 18, color: albumSage),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Edit person',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+        ),
+        IconButton(
+          key: const Key('edit-person-close'),
+          tooltip: 'Close',
+          onPressed: onClose,
+          icon: const Icon(Icons.close),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditFields extends StatelessWidget {
+  const _EditFields({
+    required this.name,
+    required this.about,
+    required this.email,
+    required this.aboutError,
+    required this.passedAway,
+    required this.onPassedAway,
+  });
+
+  final TextEditingController name;
+  final TextEditingController about;
+  final TextEditingController email;
+  final String? aboutError;
+  final bool passedAway;
+  final ValueChanged<bool>? onPassedAway;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('Name'),
+        const SizedBox(height: 8),
+        TextField(
+          key: const Key('edit-person-name'),
+          controller: name,
+          decoration: const InputDecoration(hintText: 'Name'),
+        ),
+        const SizedBox(height: 20),
+        const Text('About'),
+        const SizedBox(height: 8),
+        _AboutField(controller: about, errorText: aboutError),
+        const SizedBox(height: 20),
+        const Text('Email'),
+        const SizedBox(height: 8),
+        TextField(
+          key: const Key('edit-person-email'),
+          controller: email,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 12),
+        _PassedAwayRow(value: passedAway, onChanged: onPassedAway),
+      ],
+    );
+  }
+}
+
+class _PassedAwayRow extends StatelessWidget {
+  const _PassedAwayRow({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: Text('Passed away')),
+        Switch(
+          key: const Key('edit-person-passed-away'),
+          value: value,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+}
+
+class _EditActions extends StatelessWidget {
+  const _EditActions({required this.onCancel, required this.onSave});
+
+  final VoidCallback? onCancel;
+  final VoidCallback? onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        TextButton(
+          key: const Key('edit-person-cancel'),
+          onPressed: onCancel,
+          child: const Text('Cancel'),
+        ),
+        const Spacer(),
+        FilledButton(
+          key: const Key('edit-person-save'),
+          onPressed: onSave,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PictureRow extends StatelessWidget {
+  const _PictureRow({
+    required this.canRemove,
+    required this.onPick,
+    required this.onRemove,
+    required this.avatar,
+  });
+
+  final bool canRemove;
+  final VoidCallback? onPick;
+  final VoidCallback? onRemove;
+  final Widget avatar;
+
+  @override
+  Widget build(BuildContext context) {
     final labelStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
       letterSpacing: 1.1,
       fontWeight: FontWeight.w700,
       color: albumInk.withValues(alpha: 0.55),
-    );
-    final actionStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: albumTerracotta,
-      fontWeight: FontWeight.w700,
-      decoration: TextDecoration.underline,
-      decorationColor: albumTerracotta,
     );
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -313,7 +417,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            _avatar(),
+            _Avatar(image: avatar),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -321,48 +425,10 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
                 children: [
                   Text('Picture', style: labelStyle),
                   const SizedBox(height: 2),
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 4,
-                    children: [
-                      TextButton(
-                        key: const Key('edit-person-picture'),
-                        onPressed: _busy ? null : _pick,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          minimumSize: const Size(0, 36),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          _canRemove ? 'Replace photo' : 'Add photo',
-                          style: actionStyle,
-                        ),
-                      ),
-                      if (_canRemove) ...[
-                        Text(
-                          '•',
-                          style: TextStyle(
-                            color: albumInk.withValues(alpha: 0.35),
-                          ),
-                        ),
-                        TextButton(
-                          key: const Key('edit-person-picture-remove'),
-                          onPressed: _busy ? null : _remove,
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            minimumSize: const Size(0, 36),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: Text(
-                            'Remove',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: albumInk.withValues(alpha: 0.55),
-                                ),
-                          ),
-                        ),
-                      ],
-                    ],
+                  _PictureActions(
+                    canRemove: canRemove,
+                    onPick: onPick,
+                    onRemove: onRemove,
                   ),
                 ],
               ),
@@ -372,8 +438,70 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
       ),
     );
   }
+}
 
-  Widget _avatar() {
+class _PictureActions extends StatelessWidget {
+  const _PictureActions({
+    required this.canRemove,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  final bool canRemove;
+  final VoidCallback? onPick;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final actionStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      color: albumTerracotta,
+      fontWeight: FontWeight.w700,
+      decoration: TextDecoration.underline,
+      decorationColor: albumTerracotta,
+    );
+    final buttonStyle = TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      minimumSize: const Size(0, 36),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 4,
+      children: [
+        TextButton(
+          key: const Key('edit-person-picture'),
+          onPressed: onPick,
+          style: buttonStyle,
+          child: Text(
+            canRemove ? 'Replace photo' : 'Add photo',
+            style: actionStyle,
+          ),
+        ),
+        if (canRemove) ...[
+          Text('•', style: TextStyle(color: albumInk.withValues(alpha: 0.35))),
+          TextButton(
+            key: const Key('edit-person-picture-remove'),
+            onPressed: onRemove,
+            style: buttonStyle,
+            child: Text(
+              'Remove',
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: albumInk.withValues(alpha: 0.55)),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.image});
+
+  final Widget image;
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
       width: 72,
       height: 72,
@@ -390,38 +518,48 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
                 width: 2,
               ),
             ),
-            child: ClipOval(child: _avatarImage()),
+            child: ClipOval(child: image),
           ),
-          Positioned(
-            left: 42,
-            top: 42,
-            child: IgnorePointer(
-              child: Container(
-                width: 24,
-                height: 24,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: albumTerracotta,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.photo_camera,
-                  size: 13,
-                  color: albumParchment,
-                ),
-              ),
-            ),
-          ),
+          const Positioned(left: 42, top: 42, child: _CameraBadge()),
         ],
       ),
     );
   }
+}
 
-  Widget _avatarImage() {
-    final bytes = _picture;
-    if (bytes != null) {
+class _CameraBadge extends StatelessWidget {
+  const _CameraBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: 24,
+        height: 24,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          color: albumTerracotta,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.photo_camera, size: 13, color: albumParchment),
+      ),
+    );
+  }
+}
+
+/// The new pick, else the stored picture ([existing] is null once removed).
+class _AvatarImage extends StatelessWidget {
+  const _AvatarImage({required this.picture, required this.existing});
+
+  final Uint8List? picture;
+  final Uint8List? existing;
+
+  @override
+  Widget build(BuildContext context) {
+    final picked = picture;
+    if (picked != null) {
       return Image.memory(
-        bytes,
+        picked,
         key: const Key('edit-person-picture-preview'),
         width: 64,
         height: 64,
@@ -432,10 +570,10 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
         ),
       );
     }
-    final existing = _existingBytes;
-    if (!_removed && existing != null && existing.isNotEmpty) {
+    final stored = existing;
+    if (stored != null && stored.isNotEmpty) {
       return Image.memory(
-        existing,
+        stored,
         key: const Key('edit-person-picture-preview'),
         width: 64,
         height: 64,
@@ -491,50 +629,73 @@ class _AboutFieldState extends State<_AboutField> {
           height: height,
           child: Stack(
             children: [
-              TextField(
-                key: const Key('edit-person-about'),
-                controller: widget.controller,
-                expands: true,
-                maxLines: null,
-                textAlignVertical: TextAlignVertical.top,
-                style: style,
-                decoration: const InputDecoration(
-                  contentPadding: EdgeInsets.fromLTRB(12, 10, 22, 14),
-                ),
-              ),
+              _EditAboutTextField(controller: widget.controller, style: style),
               Positioned(
                 right: 1,
                 bottom: 1,
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.resizeUpLeftDownRight,
-                  child: GestureDetector(
-                    key: const Key('edit-person-about-resize'),
-                    behavior: HitTestBehavior.opaque,
-                    onVerticalDragUpdate: (details) {
-                      setState(() {
-                        _height = (height + details.delta.dy).clamp(min, 360);
-                      });
-                    },
-                    child: const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CustomPaint(painter: _ResizeGripPainter()),
-                    ),
-                  ),
+                child: _EditResizeGrip(
+                  onDrag: (dy) => setState(() {
+                    _height = (height + dy).clamp(min, 360);
+                  }),
                 ),
               ),
             ],
           ),
         ),
-        if (widget.errorText != null) ...[
+        if (widget.errorText case final errorText?) ...[
           const SizedBox(height: 6),
           Text(
-            widget.errorText!,
+            errorText,
             style: Theme.of(context).textTheme.bodySmall
                 ?.copyWith(color: Theme.of(context).colorScheme.error),
           ),
         ],
       ],
+    );
+  }
+}
+
+class _EditAboutTextField extends StatelessWidget {
+  const _EditAboutTextField({required this.controller, required this.style});
+
+  final TextEditingController controller;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: const Key('edit-person-about'),
+      controller: controller,
+      expands: true,
+      maxLines: null,
+      textAlignVertical: TextAlignVertical.top,
+      style: style,
+      decoration: const InputDecoration(
+        contentPadding: EdgeInsets.fromLTRB(12, 10, 22, 14),
+      ),
+    );
+  }
+}
+
+class _EditResizeGrip extends StatelessWidget {
+  const _EditResizeGrip({required this.onDrag});
+
+  final ValueChanged<double> onDrag;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeUpLeftDownRight,
+      child: GestureDetector(
+        key: const Key('edit-person-about-resize'),
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragUpdate: (details) => onDrag(details.delta.dy),
+        child: const SizedBox(
+          width: 18,
+          height: 18,
+          child: CustomPaint(painter: _ResizeGripPainter()),
+        ),
+      ),
     );
   }
 }

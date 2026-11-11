@@ -63,104 +63,196 @@ class _SignInCodeFormState extends State<SignInCodeForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          widget.message,
-          key: widget.messageKey,
-          style: GoogleFonts.literata(
-            color: albumInk.withValues(alpha: 0.8),
-            fontSize: 14,
-            height: 1.6,
-          ),
-        ),
+        _CodeMessage(message: widget.message, messageKey: widget.messageKey),
         const SizedBox(height: 20),
-        Text(
-          signInCodeLabel,
-          style: GoogleFonts.sourceSans3(
-            color: albumInk,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        const _CodeLabel(),
         const SizedBox(height: 8),
-        TextField(
-          key: const Key('sign-in-code'),
+        _CodeField(
           controller: _code,
-          keyboardType: TextInputType.number,
-          autofillHints: const [AutofillHints.oneTimeCode],
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(6),
-          ],
           enabled: !widget.signingIn,
-          onSubmitted: (_) => _submit(),
-          style: GoogleFonts.sourceSans3(
-            color: albumInk,
-            fontSize: 20,
-            letterSpacing: 6,
-          ),
-          cursorColor: albumTerracotta,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: albumParchment,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            border: _border(1, albumModalBorder),
-            enabledBorder: _border(1, albumModalBorder),
-            focusedBorder: _border(2, albumTerracotta),
-            disabledBorder: _border(1, albumModalBorder),
-          ),
+          onSubmitted: _submit,
         ),
         if (error != null) ...[
           const SizedBox(height: 12),
-          Text(
-            error,
-            key: const Key('sign-in-error'),
-            style: GoogleFonts.literata(color: albumTerracotta, fontSize: 14),
-          ),
+          _CodeError(error: error),
         ],
         const SizedBox(height: 20),
-        FilledButton(
-          key: const Key('sign-in-code-submit'),
+        _SubmitButton(
+          signingIn: widget.signingIn,
           onPressed: _busy ? null : _submit,
-          style: FilledButton.styleFrom(
-            backgroundColor: albumTerracotta,
-            foregroundColor: albumParchment,
-            disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.55),
-            disabledForegroundColor: albumParchment,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: Text(
-            widget.signingIn ? signingInLabel : signInButtonLabel,
-            style: GoogleFonts.sourceSans3(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: albumParchment,
-            ),
-          ),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 8,
-          children: [
-            _secondary(sendNewCodeLabel, widget.onResend),
-            _secondary(useDifferentEmailLabel, widget.onUseDifferentEmail),
-          ],
+        _BackLinks(
+          onResend: _busy ? null : widget.onResend,
+          onUseDifferentEmail: _busy ? null : widget.onUseDifferentEmail,
         ),
       ],
     );
   }
+}
 
-  Widget _secondary(String label, VoidCallback onPressed) {
+class _CodeMessage extends StatelessWidget {
+  const _CodeMessage({required this.message, required this.messageKey});
+
+  final String message;
+  final Key? messageKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      message,
+      key: messageKey,
+      style: GoogleFonts.literata(
+        color: albumInk.withValues(alpha: 0.8),
+        fontSize: 14,
+        height: 1.6,
+      ),
+    );
+  }
+}
+
+class _BackLinks extends StatelessWidget {
+  const _BackLinks({required this.onResend, required this.onUseDifferentEmail});
+
+  final VoidCallback? onResend;
+  final VoidCallback? onUseDifferentEmail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      children: [
+        _SecondaryButton(label: sendNewCodeLabel, onPressed: onResend),
+        _SecondaryButton(
+          label: useDifferentEmailLabel,
+          onPressed: onUseDifferentEmail,
+        ),
+      ],
+    );
+  }
+}
+
+class _CodeLabel extends StatelessWidget {
+  const _CodeLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      signInCodeLabel,
+      style: GoogleFonts.sourceSans3(
+        color: albumInk,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
+
+class _CodeError extends StatelessWidget {
+  const _CodeError({required this.error});
+
+  final String error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      error,
+      key: const Key('sign-in-error'),
+      style: GoogleFonts.literata(color: albumTerracotta, fontSize: 14),
+    );
+  }
+}
+
+class _CodeField extends StatelessWidget {
+  const _CodeField({
+    required this.controller,
+    required this.enabled,
+    required this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final bool enabled;
+  final VoidCallback onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: const Key('sign-in-code'),
+      controller: controller,
+      keyboardType: TextInputType.number,
+      autofillHints: const [AutofillHints.oneTimeCode],
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(6),
+      ],
+      enabled: enabled,
+      onSubmitted: (_) => onSubmitted(),
+      style: GoogleFonts.sourceSans3(
+        color: albumInk,
+        fontSize: 20,
+        letterSpacing: 6,
+      ),
+      cursorColor: albumTerracotta,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: albumParchment,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        border: _border(1, albumModalBorder),
+        enabledBorder: _border(1, albumModalBorder),
+        focusedBorder: _border(2, albumTerracotta),
+        disabledBorder: _border(1, albumModalBorder),
+      ),
+    );
+  }
+}
+
+class _SubmitButton extends StatelessWidget {
+  const _SubmitButton({required this.signingIn, required this.onPressed});
+
+  final bool signingIn;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      key: const Key('sign-in-code-submit'),
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: albumTerracotta,
+        foregroundColor: albumParchment,
+        disabledBackgroundColor: albumTerracotta.withValues(alpha: 0.55),
+        disabledForegroundColor: albumParchment,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: Text(
+        signingIn ? signingInLabel : signInButtonLabel,
+        style: GoogleFonts.sourceSans3(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: albumParchment,
+        ),
+      ),
+    );
+  }
+}
+
+class _SecondaryButton extends StatelessWidget {
+  const _SecondaryButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
     return TextButton(
-      onPressed: _busy ? null : onPressed,
+      onPressed: onPressed,
       child: Text(
         label,
         style: GoogleFonts.sourceSans3(
@@ -170,11 +262,11 @@ class _SignInCodeFormState extends State<SignInCodeForm> {
       ),
     );
   }
+}
 
-  OutlineInputBorder _border(double width, Color color) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(color: color, width: width),
-    );
-  }
+OutlineInputBorder _border(double width, Color color) {
+  return OutlineInputBorder(
+    borderRadius: BorderRadius.circular(8),
+    borderSide: BorderSide(color: color, width: width),
+  );
 }

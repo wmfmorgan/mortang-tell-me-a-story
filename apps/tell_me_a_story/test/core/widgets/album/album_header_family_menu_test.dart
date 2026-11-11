@@ -1,30 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_detail.dart';
+import 'package:tell_me_a_story/core/domain/family_directory.dart';
+import 'package:tell_me_a_story/core/domain/family_directory_repository.dart';
+import 'package:tell_me_a_story/core/domain/family_roster.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
 import 'package:tell_me_a_story/core/session/family_selection.dart';
 import 'package:tell_me_a_story/core/widgets/family/family_role.dart';
 import 'package:tell_me_a_story/core/widgets/family/family_tree_order.dart';
 import 'package:tell_me_a_story/features/family/presentation/manage_families_page.dart';
 
+import '../../../support/fakes/fake_invite_repository.dart';
 import '../../../support/fakes/fake_manage_families_repository.dart';
+import '../../../support/album_test_scope.dart';
 
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
   });
-
-  tearDown(FamilySelection.clear);
 
   testWidgets(
     'dropdown order: families, divider, tree, invite, branch, Manage',
     (tester) async {
+      final container = albumTestContainer();
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final families = [
@@ -38,7 +48,9 @@ void main() {
         ),
         MemberFamily(id: 'ada', name: 'Ada', createdAt: DateTime.utc(2020)),
       ];
-      await tester.pumpWidget(
+      await pumpScoped(
+        tester,
+        container,
         _header(
           families: families,
           currentId: 'ada',
@@ -88,9 +100,12 @@ void main() {
   );
 
   testWidgets('invite row hides when canWrite is false', (tester) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
+    await pumpScoped(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           appBar: AlbumHeader(
@@ -124,9 +139,12 @@ void main() {
   testWidgets('capture menu hides invite and still offers a branch', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
+    await pumpScoped(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           appBar: AlbumHeader(
@@ -160,11 +178,14 @@ void main() {
   testWidgets(
     'closed family name stays one line and uses the room before the nav',
     (tester) async {
+      final container = albumTestContainer();
       await tester.binding.setSurfaceSize(const Size(1400, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       const name =
           'The extraordinarily long Morgan family archive name that wraps';
-      await tester.pumpWidget(
+      await pumpScoped(
+        tester,
+        container,
         _header(
           families: [
             MemberFamily(id: 'ada', name: name, createdAt: DateTime.utc(2020)),
@@ -203,9 +224,12 @@ void main() {
   testWidgets('closed family control has no filled bar at rest', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 240));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
+    await pumpScoped(
+      tester,
+      container,
       _header(
         families: [
           MemberFamily(id: 'ada', name: 'Ada', createdAt: DateTime.utc(2020)),
@@ -248,12 +272,15 @@ void main() {
   testWidgets('a name longer than the slot ellipsizes on one line', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 240));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     const name =
         'The extraordinarily long Morgan family archive name that wraps ';
     final huge = name * 8;
-    await tester.pumpWidget(
+    await pumpScoped(
+      tester,
+      container,
       _header(
         families: [
           MemberFamily(id: 'ada', name: huge, createdAt: DateTime.utc(2020)),
@@ -279,9 +306,12 @@ void main() {
   testWidgets('sage guide stops above the post-families divider', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
+    await pumpScoped(
+      tester,
+      container,
       _header(
         families: [
           MemberFamily(id: 'ada', name: 'Ada', createdAt: DateTime.utc(2020)),
@@ -323,9 +353,12 @@ void main() {
   });
 
   testWidgets('search, New story, and avatar sit 12px apart', (tester) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 240));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
+    await pumpScoped(
+      tester,
+      container,
       _header(
         families: [
           MemberFamily(id: 'ada', name: 'Ada', createdAt: DateTime.utc(2020)),
@@ -349,9 +382,12 @@ void main() {
   testWidgets('child rows indent 24px per level under their parent', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
+    await pumpScoped(
+      tester,
+      container,
       _header(
         families: [
           MemberFamily(id: 'root', name: 'Root', createdAt: DateTime.utc(2020)),
@@ -390,9 +426,12 @@ void main() {
   testWidgets(
     'current family has a terracotta check and a medium-weight name',
     (tester) async {
+      final container = albumTestContainer();
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
+      await pumpScoped(
+        tester,
+        container,
         _header(
           families: [
             MemberFamily(id: 'ada', name: 'Ada', createdAt: DateTime.utc(2020)),
@@ -422,6 +461,7 @@ void main() {
   testWidgets('picking a nested family from Drafts lands on Family Landing', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     const ada = 'ada';
@@ -432,6 +472,7 @@ void main() {
         GoRoute(
           path: AppRoutes.drafts,
           builder: (context, state) => _switchScreen(
+            container: container,
             page: AlbumHeaderPage.drafts,
             currentId: ada,
             kid: kid,
@@ -448,19 +489,24 @@ void main() {
       ],
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: router),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu-item-$kid')));
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, kid);
+    expect(container.read(familySelectionProvider), kid);
     expect(router.state.uri.path, AppRoutes.familyLanding);
   });
 
   testWidgets('the tree row opens the current family tree page', (
     tester,
   ) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final router = GoRouter(
@@ -469,6 +515,7 @@ void main() {
         GoRoute(
           path: AppRoutes.drafts,
           builder: (context, state) => _switchScreen(
+            container: container,
             page: AlbumHeaderPage.drafts,
             currentId: 'ada',
             kid: 'kid',
@@ -482,7 +529,11 @@ void main() {
       ],
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: router),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
@@ -493,11 +544,15 @@ void main() {
   });
 
   testWidgets('the tree page hides its own tree row', (tester) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
+    await pumpScoped(
+      tester,
+      container,
       MaterialApp(
         home: _switchScreen(
+          container: container,
           page: AlbumHeaderPage.familyTree,
           currentId: 'ada',
           kid: 'kid',
@@ -512,9 +567,12 @@ void main() {
   });
 
   testWidgets('no current family, no tree row', (tester) async {
+    final container = albumTestContainer();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
+    await pumpScoped(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           appBar: AlbumHeader(
@@ -537,6 +595,7 @@ void main() {
   testWidgets(
     'Manage families shows for a members-only user and opens the hub',
     (tester) async {
+      final container = albumTestContainer();
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final router = GoRouter(
@@ -569,7 +628,11 @@ void main() {
         ],
       );
       addTearDown(router.dispose);
-      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await pumpScoped(
+        tester,
+        container,
+        MaterialApp.router(routerConfig: router),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('family-menu')));
       await tester.pumpAndSettle();
@@ -599,18 +662,20 @@ void main() {
           recoverable: [],
         ),
       );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ManageFamiliesPage(
-            directoryApi: directory,
-            familiesApi: _Families(
-              stewarded: const [
-                StewardFamily(id: 'ada', name: 'Ada Archive', role: 'owner'),
-              ],
-            ),
-            manageApi: _noManage(),
+      final container = albumTestContainer(
+        _hub(
+          directory: directory,
+          families: _Families(
+            stewarded: const [
+              StewardFamily(id: 'ada', name: 'Ada Archive', role: 'owner'),
+            ],
           ),
         ),
+      );
+      await pumpScoped(
+        tester,
+        container,
+        const MaterialApp(home: ManageFamiliesPage()),
       );
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('hub-monogram-ada')), findsOneWidget);
@@ -648,26 +713,27 @@ void main() {
           createdAt: DateTime.utc(2022),
         ),
       ];
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ManageFamiliesPage(
-            directoryApi: _EmptyDirectory(),
-            familiesApi: _Families(
-              mine: mine,
-              stewarded: [
-                StewardFamily(
-                  id: 'gone',
-                  name: 'Gone',
-                  role: 'owner',
-                  deletedAt: DateTime.now().toUtc().subtract(
-                    const Duration(days: 70),
-                  ),
+      final container = albumTestContainer(
+        _hub(
+          families: _Families(
+            mine: mine,
+            stewarded: [
+              StewardFamily(
+                id: 'gone',
+                name: 'Gone',
+                role: 'owner',
+                deletedAt: DateTime.now().toUtc().subtract(
+                  const Duration(days: 70),
                 ),
-              ],
-            ),
-            manageApi: _noManage(),
+              ),
+            ],
           ),
         ),
+      );
+      await pumpScoped(
+        tester,
+        container,
+        const MaterialApp(home: ManageFamiliesPage()),
       );
       await tester.pumpAndSettle();
 
@@ -699,6 +765,20 @@ void main() {
   testWidgets('non-owner hub row switches family and opens Family Landing', (
     tester,
   ) async {
+    final container = albumTestContainer(
+      _hub(
+        families: _Families(
+          mine: [
+            MemberFamily(
+              id: 'mem',
+              name: 'Cousin',
+              role: 'member',
+              createdAt: DateTime.utc(2020),
+            ),
+          ],
+        ),
+      ),
+    );
     await tester.binding.setSurfaceSize(const Size(1200, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final router = GoRouter(
@@ -706,20 +786,7 @@ void main() {
       routes: [
         GoRoute(
           path: AppRoutes.manageFamilies,
-          builder: (context, state) => ManageFamiliesPage(
-            directoryApi: _EmptyDirectory(),
-            familiesApi: _Families(
-              mine: [
-                MemberFamily(
-                  id: 'mem',
-                  name: 'Cousin',
-                  role: 'member',
-                  createdAt: DateTime.utc(2020),
-                ),
-              ],
-            ),
-            manageApi: _noManage(),
-          ),
+          builder: (context, state) => const ManageFamiliesPage(),
         ),
         GoRoute(
           path: AppRoutes.familyLanding,
@@ -728,27 +795,28 @@ void main() {
       ],
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await pumpScoped(
+      tester,
+      container,
+      MaterialApp.router(routerConfig: router),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('manage-families-member-mem')));
     await tester.pumpAndSettle();
-    expect(FamilySelection.id, 'mem');
+    expect(container.read(familySelectionProvider), 'mem');
     expect(router.state.uri.path, AppRoutes.familyLanding);
   });
 
   testWidgets(
     'non-owner hub with no families shows only title, subtitle and Start',
     (tester) async {
+      final container = albumTestContainer(_hub(families: _Families()));
       await tester.binding.setSurfaceSize(const Size(1200, 1600));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ManageFamiliesPage(
-            directoryApi: _EmptyDirectory(),
-            familiesApi: _Families(),
-            manageApi: _noManage(),
-          ),
-        ),
+      await pumpScoped(
+        tester,
+        container,
+        const MaterialApp(home: ManageFamiliesPage()),
       );
       await tester.pumpAndSettle();
       expect(find.text('Manage families'), findsOneWidget);
@@ -787,6 +855,7 @@ Widget _header({
 }
 
 Widget _switchScreen({
+  required ProviderContainer container,
   required AlbumHeaderPage page,
   required String currentId,
   required String kid,
@@ -806,7 +875,8 @@ Widget _switchScreen({
         ),
       ],
       currentFamilyId: currentId,
-      onFamilySelected: FamilySelection.remember,
+      onFamilySelected: (id) =>
+          container.read(familySelectionProvider.notifier).remember(id),
       stewarded: const [],
     ),
   );
@@ -848,6 +918,24 @@ class _EmptyDirectory implements FamilyDirectoryRepository {
 
   @override
   Future<FamilyDetail?> loadDetail(String familyId) async => null;
+}
+
+/// Hub repositories: [directory] (empty by default), [families], and a
+/// manage repository these flows must not use.
+List<Override> _hub({
+  FamilyDirectoryRepository? directory,
+  required FamiliesRepository families,
+}) {
+  return [
+    familyDirectoryRepositoryProvider.overrideWithValue(
+      directory ?? _EmptyDirectory(),
+    ),
+    familiesRepositoryProvider.overrideWithValue(families),
+    manageFamiliesRepositoryProvider.overrideWithValue(_noManage()),
+    inviteRepositoryProvider.overrideWithValue(
+      FakeInviteRepository(familyId: null),
+    ),
+  ];
 }
 
 /// A manage gateway that fails every call: these flows must not use it.

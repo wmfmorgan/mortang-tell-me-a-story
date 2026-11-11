@@ -3,7 +3,7 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/core/data/places_repository.dart';
+import 'package:tell_me_a_story/core/data/server_places_repository.dart';
 
 import 'support/live_server.dart';
 

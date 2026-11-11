@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' show Color, Rect;
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/core/widgets/timeline/timeline_entry.dart';
 
 /// The treemap groupings (O5): C5–C7.
@@ -33,6 +33,7 @@ String treemapDominantFamily(TreemapCell cell) {
   }
   var best = counts.keys.first;
   for (final MapEntry(:key, :value) in counts.entries) {
+    // [best] is always a key of [counts].
     if (value > counts[best]!) best = key;
   }
   return best;
@@ -53,13 +54,42 @@ List<Rect> squarify(List<double> values, Rect bounds) {
     return List.filled(values.length, Rect.zero);
   }
   final scale = bounds.width * bounds.height / total;
-  final areas = [for (final v in values) v * scale];
-  final out = List<Rect>.filled(values.length, Rect.zero);
-
-  var free = bounds;
+  final s = _Squarifier([for (final v in values) v * scale], bounds);
+  final areas = s.areas;
   var rowStart = 0;
   var rowSum = 0.0;
+  final n = areas.lastIndexWhere((a) => a > 0) + 1;
+  var i = 0;
+  while (i < n) {
+    final side = math.min(s.free.width, s.free.height);
+    final withNext = rowSum + areas[i];
+    if (i == rowStart ||
+        s.worst(rowStart, i + 1, withNext, side) <=
+            s.worst(rowStart, i, rowSum, side)) {
+      rowSum = withNext;
+      i++;
+      continue;
+    }
+    s.layoutRow(rowStart, i, rowSum);
+    rowStart = i;
+    rowSum = 0;
+  }
+  if (rowStart < n) s.layoutRow(rowStart, n, rowSum);
+  return s.out;
+}
 
+/// [squarify]'s working state: the scaled [areas], the rects placed so far
+/// and the [free] space left to tile.
+class _Squarifier {
+  _Squarifier(this.areas, this.free)
+    : out = List<Rect>.filled(areas.length, Rect.zero);
+
+  final List<double> areas;
+  final List<Rect> out;
+  Rect free;
+
+  /// The worst aspect ratio of a row of `areas[start..end)` summing to [sum]
+  /// along a side of length [side].
   double worst(int start, int end, double sum, double side) {
     var maxA = 0.0, minA = double.infinity;
     for (var i = start; i < end; i++) {
@@ -70,6 +100,8 @@ List<Rect> squarify(List<double> values, Rect bounds) {
     return math.max(w2 * maxA / s2, s2 / (w2 * minA));
   }
 
+  /// Places `areas[start..end)` (summing to [sum]) along the shorter side of
+  /// [free] and shrinks [free] past them.
   void layoutRow(int start, int end, double sum) {
     if (free.width >= free.height) {
       // Column on the left.
@@ -93,25 +125,6 @@ List<Rect> squarify(List<double> values, Rect bounds) {
       free = Rect.fromLTRB(free.left, free.top + h, free.right, free.bottom);
     }
   }
-
-  final n = areas.lastIndexWhere((a) => a > 0) + 1;
-  var i = 0;
-  while (i < n) {
-    final side = math.min(free.width, free.height);
-    final withNext = rowSum + areas[i];
-    if (i == rowStart ||
-        worst(rowStart, i + 1, withNext, side) <=
-            worst(rowStart, i, rowSum, side)) {
-      rowSum = withNext;
-      i++;
-      continue;
-    }
-    layoutRow(rowStart, i, rowSum);
-    rowStart = i;
-    rowSum = 0;
-  }
-  if (rowStart < n) layoutRow(rowStart, n, rowSum);
-  return out;
 }
 
 /// A leaf cell of the overview: the stories of one group in one sub-period.
@@ -156,55 +169,68 @@ List<TreemapGroup> buildTreemap(
   List<TreeFamily> tree,
   TreemapBy by,
 ) {
-  final names = {for (final f in tree) f.id: f.name};
-  final groups = <String, TreemapGroup>{};
-  final cells = <String, TreemapCell>{};
+  final builder = _TreemapBuilder({for (final f in tree) f.id: f.name});
+  for (final e in entries) {
+    builder.addEntry(e, by);
+  }
+  final out = builder.groups.values.toList();
+  for (final g in out) {
+    _sortDesc(g.cells, (c) => c.count);
+  }
+  _sortDesc(out, (g) => g.count);
+  return out;
+}
 
-  void add(
+/// [buildTreemap]'s groups and cells, filled one entry at a time in
+/// timeline order.
+class _TreemapBuilder {
+  _TreemapBuilder(this.names);
+
+  /// Family id → family name.
+  final Map<String, String> names;
+  final Map<String, TreemapGroup> groups = {};
+  final Map<String, TreemapCell> cells = {};
+
+  /// Adds [e] to its group(s) and cell(s) for grouping [by].
+  void addEntry(TimelineEntry e, TreemapBy by) {
+    final s = e.story;
+    final year = s.publishedStart.year;
+    final decade = year ~/ 10 * 10;
+    final decadeSub = (id: decade, label: '${decade}s');
+    switch (by) {
+      case TreemapBy.decade:
+        _add('$decade', '${decade}s', (id: year, label: '$year'), e);
+      case TreemapBy.family:
+        _add(s.familyId, names[s.familyId] ?? '', decadeSub, e);
+      case TreemapBy.person:
+        if (s.people.isEmpty) {
+          _add(noOneTaggedGroup, noOneTaggedLabel, decadeSub, e);
+        }
+        for (final p in s.people) {
+          _add(p.id, p.name, decadeSub, e);
+        }
+    }
+  }
+
+  /// Adds [e] to cell [sub] of group [groupId], creating either on first use.
+  void _add(
     String groupId,
     String groupLabel,
-    int sub,
-    String subLabel,
+    ({int id, String label}) sub,
     TimelineEntry e,
   ) {
     final g = groups.putIfAbsent(
       groupId,
       () => TreemapGroup(id: groupId, label: groupLabel),
     );
-    final cellId = '$groupId/$sub';
+    final cellId = '$groupId/${sub.id}';
     final c = cells.putIfAbsent(cellId, () {
-      final cell = TreemapCell(id: cellId, label: subLabel);
+      final cell = TreemapCell(id: cellId, label: sub.label);
       g.cells.add(cell);
       return cell;
     });
     c.entries.add(e);
   }
-
-  for (final e in entries) {
-    final s = e.story;
-    final year = s.publishedStart.year;
-    final decade = year ~/ 10 * 10;
-    switch (by) {
-      case TreemapBy.decade:
-        add('$decade', '${decade}s', year, '$year', e);
-      case TreemapBy.family:
-        add(s.familyId, names[s.familyId] ?? '', decade, '${decade}s', e);
-      case TreemapBy.person:
-        if (s.people.isEmpty) {
-          add(noOneTaggedGroup, noOneTaggedLabel, decade, '${decade}s', e);
-        }
-        for (final p in s.people) {
-          add(p.id, p.name, decade, '${decade}s', e);
-        }
-    }
-  }
-
-  final out = groups.values.toList();
-  for (final g in out) {
-    _sortDesc(g.cells, (c) => c.count);
-  }
-  _sortDesc(out, (g) => g.count);
-  return out;
 }
 
 /// Stable descending sort.

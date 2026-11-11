@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
 
 /// Lower-cased name with surrounding space trimmed and one leading "The "
 /// dropped (same rule as familyMonogram in family_role.dart).
@@ -44,20 +44,7 @@ List<FamilyMenuRow> nestFamilies(List<MemberFamily> families) {
   for (final f in families) {
     byId.putIfAbsent(f.id, () => f); // first one wins on a duplicate id
   }
-  final roots = <MemberFamily>[];
-  final children = <String, List<MemberFamily>>{};
-  for (final f in byId.values) {
-    final parent = f.parentFamilyId;
-    if (parent == null || parent == f.id || !byId.containsKey(parent)) {
-      roots.add(f); // orphan, self-parent or deleted/unknown parent
-    } else {
-      (children[parent] ??= <MemberFamily>[]).add(f);
-    }
-  }
-  roots.sort(compareTopLevel);
-  for (final list in children.values) {
-    list.sort(compareChildren);
-  }
+  final (:roots, :children) = _partition(byId);
   final out = <FamilyMenuRow>[];
   final visited = <String>{};
   void visit(MemberFamily f, int depth) {
@@ -81,6 +68,26 @@ List<FamilyMenuRow> nestFamilies(List<MemberFamily> families) {
     visit(f, 0);
   }
   return out;
+}
+
+/// Sorted top-level families and sorted children by parent id.
+({List<MemberFamily> roots, Map<String, List<MemberFamily>> children})
+_partition(Map<String, MemberFamily> byId) {
+  final roots = <MemberFamily>[];
+  final children = <String, List<MemberFamily>>{};
+  for (final f in byId.values) {
+    final parent = f.parentFamilyId;
+    if (parent == null || parent == f.id || !byId.containsKey(parent)) {
+      roots.add(f); // orphan, self-parent or deleted/unknown parent
+    } else {
+      (children[parent] ??= <MemberFamily>[]).add(f);
+    }
+  }
+  roots.sort(compareTopLevel);
+  for (final list in children.values) {
+    list.sort(compareChildren);
+  }
+  return (roots: roots, children: children);
 }
 
 /// One 24px slot per level, each with a 1px albumSage line centred in it.

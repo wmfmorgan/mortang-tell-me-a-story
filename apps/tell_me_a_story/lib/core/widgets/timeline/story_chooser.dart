@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_title.dart';
 
@@ -14,6 +14,7 @@ Future<String?> showStoryChooser(
   required Offset globalPosition,
   required List<Story> stories,
 }) {
+  // The root overlay always has a laid-out RenderBox while a menu can open.
   final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
   final at = overlay.globalToLocal(globalPosition);
   return showMenu<String>(

@@ -4,18 +4,23 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/session/family_selection.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_date_precision.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
+import 'package:tell_me_a_story/core/domain/story_thumbs.dart';
 import 'package:tell_me_a_story/features/family/presentation/family_landing_page.dart';
+
+import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
 
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
-    FamilySelection.clear();
   });
-
-  tearDown(FamilySelection.clear);
 
   testWidgets('empty week keeps the hero and no all-stories button', (
     tester,
@@ -124,17 +129,15 @@ Future<void> _pump(
 }) async {
   await tester.binding.setSurfaceSize(const Size(1440, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  FamilySelection.remember('fam-1');
+  // A fresh ProviderScope per pump, so a new role is read from scratch.
+  await tester.pumpWidget(const SizedBox.shrink());
+  final clock = _Clock(now ?? DateTime.utc(2026, 10, 28));
   final router = GoRouter(
     initialLocation: AppRoutes.familyLanding,
     routes: [
       GoRoute(
         path: AppRoutes.familyLanding,
-        builder: (context, state) => FamilyLandingPage(
-          familiesApi: _Families(role, familyName),
-          loadLatest: (_) async => stories,
-          now: () => now ?? DateTime.utc(2026, 10, 28),
-        ),
+        builder: (context, state) => FamilyLandingPage(now: clock.call),
       ),
       GoRoute(
         path: AppRoutes.allStories,
@@ -184,7 +187,15 @@ Future<void> _pump(
     ],
   );
   addTearDown(router.dispose);
-  await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+  await pumpRouterApp(
+    tester,
+    router,
+    overrides: [
+      familiesRepositoryProvider.overrideWithValue(_Families(role, familyName)),
+      storiesRepositoryProvider.overrideWithValue(_Stories(stories)),
+      storyThumbsLoaderProvider.overrideWithValue((_) async => const {}),
+    ],
+  );
   await tester.pumpAndSettle();
 }
 
@@ -208,4 +219,28 @@ class _Families extends FamiliesRepository {
 
   @override
   Future<List<StewardFamily>> listStewarded() async => const [];
+}
+
+/// Returns [latest] as the server window, like the old `loadLatest` hook.
+class _Stories extends FakeStoriesRepository {
+  _Stories(this.latest);
+
+  final List<Story> latest;
+
+  @override
+  Future<List<Story>> listLatestPublished(
+    String familyId, {
+    int withinDays = 7,
+    int limit = 3,
+    DateTime? now,
+  }) async => latest;
+}
+
+/// Stable clock tear-off target; the landing provider is keyed by it.
+class _Clock {
+  const _Clock(this.now);
+
+  final DateTime now;
+
+  DateTime call() => now;
 }

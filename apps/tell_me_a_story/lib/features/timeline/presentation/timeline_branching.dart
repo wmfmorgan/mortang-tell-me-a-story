@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_zoom.dart';
 
 const calloutStroke = 2.0;
@@ -381,7 +381,7 @@ PlacedBranch placeBranchCallout({
   return PlacedBranch(
     dot: _CalloutVisuals(dot: dot, geometry: geometry),
     ringHit: geometry.ringOpensFamily && single != null
-        ? _ringTarget(
+        ? _RingTarget(
             storyId: frame.story.id,
             dotDiameter: dotDiameter,
             onTap: () => onOpen(single.familyId),
@@ -422,8 +422,9 @@ DecadeParentMark decadeParentMark({
   required void Function(String familyId) onOpen,
 }) {
   final parent = frame.parent;
-  assert(parent != null);
-  final link = parent!;
+  final link =
+      parent ??
+      (throw ArgumentError.value(frame, 'frame', 'has no parent callout'));
   final style = _calloutStyle(context);
   final parentSize = _labelSize(context, link.label, style, maxLabelWidth);
   final up = layoutCallouts(
@@ -566,8 +567,9 @@ ParentCalloutOverlay parentCalloutOverlay({
   double extraRun = calloutParentLift,
 }) {
   final parent = frame.parent;
-  assert(parent != null);
-  final link = parent!;
+  final link =
+      parent ??
+      (throw ArgumentError.value(frame, 'frame', 'has no parent callout'));
   final base = _calloutStyle(context);
   final parentStyle = fontSize != null
       ? base.copyWith(fontSize: fontSize)
@@ -647,23 +649,32 @@ ParentCalloutOverlay parentCalloutOverlay({
   );
 }
 
-Widget _ringTarget({
-  required String storyId,
-  required double dotDiameter,
-  required VoidCallback onTap,
-}) {
-  return _FocusOutline(
-    circle: true,
-    child: _AnnulusTap(
-      key: Key('timeline-branch-callout-ring-$storyId'),
-      innerRadius: dotDiameter / 2,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: const SizedBox(width: calloutHit, height: calloutHit),
+class _RingTarget extends StatelessWidget {
+  const _RingTarget({
+    required this.storyId,
+    required this.dotDiameter,
+    required this.onTap,
+  });
+
+  final String storyId;
+  final double dotDiameter;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _FocusOutline(
+      circle: true,
+      child: _AnnulusTap(
+        key: Key('timeline-branch-callout-ring-$storyId'),
+        innerRadius: dotDiameter / 2,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: const SizedBox(width: calloutHit, height: calloutHit),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 TextStyle _calloutStyle(BuildContext context) {

@@ -1,4 +1,5 @@
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_date_precision.dart';
 
 /// A story date: a year, optionally with a month, optionally with a day.
 class StoryDate {
@@ -33,15 +34,15 @@ class StoryDate {
 
   ({DateTime start, DateTime end, StoryDatePrecision precision}) toRange() {
     final kind = precision;
-    switch (kind) {
-      case StoryDatePrecision.day:
-        final date = DateTime(year, month!, day!);
+    switch ((month, day)) {
+      case (final int m, final int d):
+        final date = DateTime(year, m, d);
         return (start: date, end: date, precision: kind);
-      case StoryDatePrecision.month:
-        final start = DateTime(year, month!, 1);
-        final end = DateTime(year, month! + 1, 0);
+      case (final int m, _):
+        final start = DateTime(year, m, 1);
+        final end = DateTime(year, m + 1, 0);
         return (start: start, end: end, precision: kind);
-      case StoryDatePrecision.year:
+      case _:
         return (
           start: DateTime(year, 1, 1),
           end: DateTime(year, 12, 31),

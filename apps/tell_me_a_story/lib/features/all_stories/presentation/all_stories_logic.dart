@@ -1,7 +1,5 @@
-import 'package:flutter/foundation.dart';
-
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_search.dart';
 
 enum AllStoriesGroupBy { date, member, place }
@@ -86,20 +84,6 @@ class AllStoriesViewState {
   }
 }
 
-/// In-memory, per-family, app-lifetime holder. Never persisted.
-abstract final class AllStoriesSession {
-  static final Map<String, AllStoriesViewState> _byFamily = {};
-
-  static AllStoriesViewState of(String familyId) =>
-      _byFamily[familyId] ?? const AllStoriesViewState();
-
-  static void save(String familyId, AllStoriesViewState state) =>
-      _byFamily[familyId] = state;
-
-  @visibleForTesting
-  static void resetForTest() => _byFamily.clear();
-}
-
 int decadeOf(DateTime timeframeStart) => (timeframeStart.year ~/ 10) * 10;
 
 /// timeframeStart desc (null last), then publishedAt desc (null last), then id asc.
@@ -176,26 +160,42 @@ List<StoryGroup> _groupByDate(List<Story> stories) {
     }
     buckets.putIfAbsent(decadeOf(start), () => []).add(story);
   }
-  final decades = buckets.keys.toList()..sort((a, b) => b.compareTo(a));
-  final groups = <StoryGroup>[
-    for (final decade in decades)
-      StoryGroup(
-        key: '$decade',
-        heading: '${decade}s',
-        stories: [...buckets[decade]!]..sort(compareAllStories),
-      ),
-  ];
-  if (undated.isNotEmpty) {
-    undated.sort(compareAllStories);
+  final decades = buckets.entries.toList()
+    ..sort((a, b) => b.key.compareTo(a.key));
+  return _withNoneGroup(
+    [
+      for (final MapEntry(key: decade, value: rows) in decades)
+        StoryGroup(
+          key: '$decade',
+          heading: '${decade}s',
+          stories: [...rows]..sort(compareAllStories),
+        ),
+    ],
+    undated,
+    'No date yet',
+  );
+}
+
+/// Appends the "none" group for [rest] (sorted) when it is non-empty.
+List<StoryGroup> _withNoneGroup(
+  List<StoryGroup> groups,
+  List<Story> rest,
+  String heading,
+) {
+  if (rest.isNotEmpty) {
+    rest.sort(compareAllStories);
     groups.add(
-      StoryGroup(
-        key: StoryGroup.noneKey,
-        heading: 'No date yet',
-        stories: undated,
-      ),
+      StoryGroup(key: StoryGroup.noneKey, heading: heading, stories: rest),
     );
   }
   return groups;
+}
+
+/// Name (case-insensitive), then id.
+int _compareBuckets(String aName, String aId, String bName, String bId) {
+  final name = aName.toLowerCase().compareTo(bName.toLowerCase());
+  if (name != 0) return name;
+  return aId.compareTo(bId);
 }
 
 List<StoryGroup> _groupByMember(List<Story> stories) {
@@ -209,40 +209,31 @@ List<StoryGroup> _groupByMember(List<Story> stories) {
     for (final person in story.people) {
       final bucket = buckets.putIfAbsent(
         person.id,
-        () => _MemberBucket(person.name, story.personUserIds[person.id]),
+        () => _MemberBucket(
+          person.id,
+          person.name,
+          story.personUserIds[person.id],
+        ),
       );
       bucket.userId ??= story.personUserIds[person.id];
       bucket.stories.add(story);
     }
   }
-  final ids = buckets.keys.toList()
-    ..sort((a, b) {
-      final name = buckets[a]!.name.toLowerCase().compareTo(
-        buckets[b]!.name.toLowerCase(),
-      );
-      if (name != 0) return name;
-      return a.compareTo(b);
-    });
-  final groups = <StoryGroup>[
-    for (final id in ids)
-      StoryGroup(
-        key: id,
-        heading: buckets[id]!.name,
-        personUserId: buckets[id]!.userId,
-        stories: [...buckets[id]!.stories]..sort(compareAllStories),
-      ),
-  ];
-  if (untagged.isNotEmpty) {
-    untagged.sort(compareAllStories);
-    groups.add(
-      StoryGroup(
-        key: StoryGroup.noneKey,
-        heading: 'No one tagged',
-        stories: untagged,
-      ),
-    );
-  }
-  return groups;
+  final sorted = buckets.values.toList()
+    ..sort((a, b) => _compareBuckets(a.name, a.id, b.name, b.id));
+  return _withNoneGroup(
+    [
+      for (final bucket in sorted)
+        StoryGroup(
+          key: bucket.id,
+          heading: bucket.name,
+          personUserId: bucket.userId,
+          stories: [...bucket.stories]..sort(compareAllStories),
+        ),
+    ],
+    untagged,
+    'No one tagged',
+  );
 }
 
 List<StoryGroup> _groupByPlace(List<Story> stories) {
@@ -257,7 +248,7 @@ List<StoryGroup> _groupByPlace(List<Story> stories) {
     final heading = placeHeading(story) ?? '';
     final bucket = buckets.putIfAbsent(
       placeId,
-      () => _PlaceBucket(heading, story.placeAddress),
+      () => _PlaceBucket(placeId, heading, story.placeAddress),
     );
     if (bucket.heading.isEmpty && heading.isNotEmpty) {
       bucket.heading = heading;
@@ -265,34 +256,21 @@ List<StoryGroup> _groupByPlace(List<Story> stories) {
     bucket.address ??= story.placeAddress;
     bucket.stories.add(story);
   }
-  final ids = buckets.keys.toList()
-    ..sort((a, b) {
-      final label = buckets[a]!.heading.toLowerCase().compareTo(
-        buckets[b]!.heading.toLowerCase(),
-      );
-      if (label != 0) return label;
-      return a.compareTo(b);
-    });
-  final groups = <StoryGroup>[
-    for (final id in ids)
-      StoryGroup(
-        key: id,
-        heading: buckets[id]!.heading,
-        address: buckets[id]!.address,
-        stories: [...buckets[id]!.stories]..sort(compareAllStories),
-      ),
-  ];
-  if (unplaced.isNotEmpty) {
-    unplaced.sort(compareAllStories);
-    groups.add(
-      StoryGroup(
-        key: StoryGroup.noneKey,
-        heading: 'No place yet',
-        stories: unplaced,
-      ),
-    );
-  }
-  return groups;
+  final sorted = buckets.values.toList()
+    ..sort((a, b) => _compareBuckets(a.heading, a.id, b.heading, b.id));
+  return _withNoneGroup(
+    [
+      for (final bucket in sorted)
+        StoryGroup(
+          key: bucket.id,
+          heading: bucket.heading,
+          address: bucket.address,
+          stories: [...bucket.stories]..sort(compareAllStories),
+        ),
+    ],
+    unplaced,
+    'No place yet',
+  );
 }
 
 /// Place line and place-group heading. The label, else the address.
@@ -305,16 +283,18 @@ String? placeHeading(Story story) {
 }
 
 class _MemberBucket {
-  _MemberBucket(this.name, this.userId);
+  _MemberBucket(this.id, this.name, this.userId);
 
+  final String id;
   final String name;
   String? userId;
   final List<Story> stories = [];
 }
 
 class _PlaceBucket {
-  _PlaceBucket(this.heading, this.address);
+  _PlaceBucket(this.id, this.heading, this.address);
 
+  final String id;
   String heading;
   String? address;
   final List<Story> stories = [];

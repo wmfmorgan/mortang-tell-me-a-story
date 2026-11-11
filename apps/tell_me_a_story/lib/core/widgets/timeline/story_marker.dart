@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 
 // Story dots are terracotta everywhere; family shows through lanes and
 // labels, and moss is reserved for origin rings

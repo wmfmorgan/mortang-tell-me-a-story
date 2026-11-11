@@ -5,8 +5,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
 import 'package:tell_me_a_story/core/widgets/story/photo_frame.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_branching.dart';
@@ -112,6 +112,15 @@ class _FullCardRailState extends State<FullCardRail>
 
   @override
   Widget build(BuildContext context) {
+    final looks = [
+      for (final story in widget.stories)
+        (
+          focused: story.id == centerKey,
+          dimmed: widget.dimmed.contains(story.id),
+          opacity: opacityOf(story.id, unmeasured: 0.4),
+          originTag: story.id == widget.originStoryId ? widget.originTag : null,
+        ),
+    ];
     return buildRail(
       selected: TimelineZoom.near,
       onMacro: widget.onMacro,
@@ -120,70 +129,95 @@ class _FullCardRailState extends State<FullCardRail>
       onEmpty: widget.onEmpty,
       action: widget.toolbar,
       notice: widget.notice,
-      viewport: LayoutBuilder(
-        builder: (context, constraints) {
-          final wide = constraints.maxWidth >= AlbumBreakpoint.sidebar;
-          final pad = constraints.maxHeight / 2;
-          final gap = constraints.maxWidth < AlbumBreakpoint.sidebar
-              ? AlbumSpace.xl
-              : AlbumSpace.xl * 3;
-          return Stack(
-            key: viewportKey,
-            children: [
-              RailSpine(left: wide ? null : _narrowLeft + _narrowDotCenter),
-              ListView(
-                controller: scroll,
-                scrollCacheExtent: const ScrollCacheExtent.pixels(100000),
-                padding: EdgeInsets.fromLTRB(
-                  wide ? 24 : _narrowLeft,
-                  pad,
-                  24,
-                  pad,
-                ),
-                children: [
-                  for (var i = 0; i < widget.stories.length; i++)
-                    _FullCardRow(
-                      key: widget.anchorFor(widget.stories[i].id),
-                      story: widget.stories[i],
-                      frame: widget.branching.frameFor(widget.stories[i]),
-                      cardOnLeft: i.isEven,
-                      wide: wide,
-                      originTag: widget.stories[i].id == widget.originStoryId
-                          ? widget.originTag
-                          : null,
-                      onOpenBranch: widget.onOpenBranch,
-                      onPerson: widget.onPerson,
-                      focused: widget.stories[i].id == centerKey,
-                      dimmed: widget.dimmed.contains(widget.stories[i].id),
-                      opacity: opacityOf(widget.stories[i].id, unmeasured: 0.4),
-                      gap: gap,
-                      photos: widget.photos,
-                      onOpen: () => widget.onOpen(widget.stories[i]),
-                    ),
-                ],
+      viewport: _FullCardViewport(
+        viewportKey: viewportKey,
+        scroll: scroll,
+        rail: widget,
+        looks: looks,
+      ),
+    );
+  }
+}
+
+/// Per-row state the rail scaffold owns: focus, filter, fade and origin tag.
+typedef _RowLook = ({
+  bool focused,
+  bool dimmed,
+  double opacity,
+  String? originTag,
+});
+
+class _FullCardViewport extends StatelessWidget {
+  const _FullCardViewport({
+    required this.viewportKey,
+    required this.scroll,
+    required this.rail,
+    required this.looks,
+  });
+
+  final Key viewportKey;
+  final ScrollController scroll;
+  final FullCardRail rail;
+  final List<_RowLook> looks;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= AlbumBreakpoint.sidebar;
+        final pad = constraints.maxHeight / 2;
+        final gap = constraints.maxWidth < AlbumBreakpoint.sidebar
+            ? AlbumSpace.xl
+            : AlbumSpace.xl * 3;
+        return Stack(
+          key: viewportKey,
+          children: [
+            RailSpine(left: wide ? null : _narrowLeft + _narrowDotCenter),
+            ListView(
+              controller: scroll,
+              scrollCacheExtent: const ScrollCacheExtent.pixels(100000),
+              padding: EdgeInsets.fromLTRB(
+                wide ? 24 : _narrowLeft,
+                pad,
+                24,
+                pad,
               ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          albumParchment,
-                          albumParchment.withAlpha(0),
-                          albumParchment.withAlpha(0),
-                          albumParchment,
-                        ],
-                        stops: const [0, 0.18, 0.82, 1],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+              children: [
+                for (var i = 0; i < rail.stories.length; i++)
+                  _FullCardRow.at(rail, i, looks[i], wide: wide, gap: gap),
+              ],
+            ),
+            const _EdgeFade(),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Parchment fade over the top and bottom of the rows.
+class _EdgeFade extends StatelessWidget {
+  const _EdgeFade();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                albumParchment,
+                albumParchment.withAlpha(0),
+                albumParchment.withAlpha(0),
+                albumParchment,
+              ],
+              stops: const [0, 0.18, 0.82, 1],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -424,8 +458,8 @@ class _RenderDaysAttachedCallout extends RenderBox
       calloutOffset.dy + callout.size.height,
     );
     size = constraints.constrain(Size(width, height));
-    (body.parentData! as HangParentParentData).offset = bodyOffset;
-    (callout.parentData! as HangParentParentData).offset = calloutOffset;
+    (body.parentData as HangParentParentData).offset = bodyOffset;
+    (callout.parentData as HangParentParentData).offset = calloutOffset;
   }
 
   @override
@@ -449,22 +483,24 @@ class _RenderDaysAttachedCallout extends RenderBox
 }
 
 class _FullCardRow extends StatelessWidget {
-  const _FullCardRow({
-    super.key,
-    required this.story,
-    required this.frame,
-    required this.cardOnLeft,
+  _FullCardRow.at(
+    FullCardRail rail,
+    int index,
+    _RowLook look, {
     required this.wide,
-    required this.focused,
-    required this.dimmed,
-    required this.opacity,
     required this.gap,
-    required this.photos,
-    required this.onOpen,
-    this.originTag,
-    required this.onOpenBranch,
-    this.onPerson,
-  });
+  }) : story = rail.stories[index],
+       frame = rail.branching.frameFor(rail.stories[index]),
+       cardOnLeft = index.isEven,
+       originTag = look.originTag,
+       onOpenBranch = rail.onOpenBranch,
+       onPerson = rail.onPerson,
+       focused = look.focused,
+       dimmed = look.dimmed,
+       opacity = look.opacity,
+       photos = rail.photos,
+       onOpen = (() => rail.onOpen(rail.stories[index])),
+       super(key: rail.anchorFor(rail.stories[index].id));
 
   final Story story;
   final StoryFrame frame;
@@ -480,12 +516,15 @@ class _FullCardRow extends StatelessWidget {
   final PhotosRepository? photos;
   final VoidCallback onOpen;
 
+  /// Side the callouts run to: the card's own side, always right when narrow.
+  CalloutSide get side =>
+      !wide || !cardOnLeft ? CalloutSide.right : CalloutSide.left;
+
   @override
   Widget build(BuildContext context) {
-    if (frame.parent == null) return _row(context, null);
+    if (frame.parent == null) return _FullCardRowBody(row: this, slot: null);
     // Same side as the card, matching the days child callout. The 45° run
     // leaves the top center toward that side.
-    final side = !wide || !cardOnLeft ? CalloutSide.right : CalloutSide.left;
     final overlay = parentCalloutOverlay(
       context: context,
       frame: frame,
@@ -498,165 +537,256 @@ class _FullCardRow extends StatelessWidget {
     return _DaysAttachedCallout(
       anchor: overlay.anchor,
       callout: Opacity(opacity: opacity.clamp(0, 1), child: overlay.child),
-      body: (slot) => _row(context, slot),
+      body: (slot) => _FullCardRowBody(row: this, slot: slot),
     );
   }
+}
 
-  Widget _row(BuildContext context, _DaysCardSlot? slot) {
-    final storyCard = _FullCard(
-      story: story,
-      focused: focused,
-      dimmed: dimmed,
-      branched: frame.branchesStory,
-      parentOrigin: frame.parent != null,
-      photos: photos,
-      originTag: originTag,
-      onOpen: onOpen,
-      onPerson: onPerson,
+/// The row under any parent callout: the dot, the card and, for a branch
+/// story, its callout lane.
+class _FullCardRowBody extends StatelessWidget {
+  const _FullCardRowBody({required this.row, required this.slot});
+
+  final _FullCardRow row;
+  final _DaysCardSlot? slot;
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = row.frame;
+    final card = _ScaledCard(row: row, slot: slot);
+    final dot = _FullCardDot(
+      key: Key('timeline-full-dot-${row.story.id}'),
+      focused: row.focused,
+      matched: !row.dimmed,
+      ringed: !frame.branchesStory && frame.parent == null,
     );
+    if (!frame.branchesStory) {
+      return row.wide
+          ? _PlainWideRow(row: row, card: card, dot: dot)
+          : _PlainNarrowRow(gap: row.gap, card: card, dot: dot);
+    }
+    final placed = placeBranchCallout(
+      context: context,
+      frame: frame,
+      side: row.side,
+      dot: GestureDetector(onTap: row.onOpen, child: dot),
+      dotDiameter: row.focused ? fullDotFocusedDiameter : fullDotDiameter,
+      centerToLane: row.wide ? calloutLaneOffset : calloutHit / 2,
+      minCardFromRail: row.wide ? calloutFromRail : null,
+      maxLabelWidth: calloutLabelWidthDial,
+      onOpen: row.onOpenBranch,
+    );
+    return row.wide
+        ? _BranchWideRow(row: row, placed: placed, card: card)
+        : _BranchNarrowRow(row: row, placed: placed, card: card);
+  }
+}
+
+/// The story card at its focus scale and row fade, probed for the parent
+/// callout when [slot] is set.
+class _ScaledCard extends StatelessWidget {
+  const _ScaledCard({required this.row, required this.slot});
+
+  final _FullCardRow row;
+  final _DaysCardSlot? slot;
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = row.frame;
     // Narrow rows skip the scale. A 1.05 card overflows the right edge,
     // and focus there is the 20px dot plus the focused card chrome.
     // A branch card and a parent-origin card stay at 1 so focus does not
     // shift them.
     final scale =
-        wide && focused && !frame.branchesStory && frame.parent == null
+        row.wide && row.focused && !frame.branchesStory && frame.parent == null
         ? 1.05
         : 1.0;
-    final scaled = Transform.scale(scale: scale, child: storyCard);
-    final card = Opacity(
-      opacity: opacity.clamp(0, 1),
-      child: slot == null
+    final scaled = Transform.scale(
+      scale: scale,
+      child: _FullCard(
+        story: row.story,
+        focused: row.focused,
+        dimmed: row.dimmed,
+        branched: frame.branchesStory,
+        parentOrigin: frame.parent != null,
+        photos: row.photos,
+        originTag: row.originTag,
+        onOpen: row.onOpen,
+        onPerson: row.onPerson,
+      ),
+    );
+    final probe = slot;
+    return Opacity(
+      opacity: row.opacity.clamp(0, 1),
+      child: probe == null
           ? scaled
-          : _DaysCardProbe(slot: slot, scale: scale, child: scaled),
+          : _DaysCardProbe(slot: probe, scale: scale, child: scaled),
     );
-    final dot = _FullCardDot(
-      key: Key('timeline-full-dot-${story.id}'),
-      focused: focused,
-      matched: !dimmed,
-      ringed: !frame.branchesStory && frame.parent == null,
+  }
+}
+
+class _PlainNarrowRow extends StatelessWidget {
+  const _PlainNarrowRow({
+    required this.gap,
+    required this.card,
+    required this.dot,
+  });
+
+  final double gap;
+  final Widget card;
+  final Widget dot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: gap),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: _narrowFullDotColumn,
+            child: Align(alignment: Alignment.center, child: dot),
+          ),
+          Expanded(child: card),
+        ],
+      ),
     );
-    final placed = frame.branchesStory
-        ? placeBranchCallout(
-            context: context,
-            frame: frame,
-            side: !wide || !cardOnLeft ? CalloutSide.right : CalloutSide.left,
-            dot: GestureDetector(onTap: onOpen, child: dot),
-            dotDiameter: focused ? fullDotFocusedDiameter : fullDotDiameter,
-            centerToLane: wide ? calloutLaneOffset : calloutHit / 2,
-            minCardFromRail: wide ? calloutFromRail : null,
-            maxLabelWidth: calloutLabelWidthDial,
-            onOpen: onOpenBranch,
-          )
-        : null;
-    if (placed == null) {
-      if (!wide) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: gap),
-          child: Row(
+  }
+}
+
+class _PlainWideRow extends StatelessWidget {
+  const _PlainWideRow({
+    required this.row,
+    required this.card,
+    required this.dot,
+  });
+
+  final _FullCardRow row;
+  final Widget card;
+  final Widget dot;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardOnLeft = row.cardOnLeft;
+    return Padding(
+      padding: EdgeInsets.only(bottom: row.gap),
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SizedBox(
-                width: _narrowFullDotColumn,
-                child: Align(alignment: Alignment.center, child: dot),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FractionallySizedBox(
+                    widthFactor: 0.92,
+                    child: cardOnLeft ? card : const SizedBox.shrink(),
+                  ),
+                ),
               ),
-              Expanded(child: card),
+              const SizedBox(width: calloutGutter),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: 0.92,
+                    child: cardOnLeft ? const SizedBox.shrink() : card,
+                  ),
+                ),
+              ),
             ],
           ),
-        );
-      }
-      return Padding(
-        padding: EdgeInsets.only(bottom: gap),
-        child: Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.none,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: FractionallySizedBox(
-                      widthFactor: 0.92,
-                      child: cardOnLeft ? card : const SizedBox.shrink(),
-                    ),
+          dot,
+        ],
+      ),
+    );
+  }
+}
+
+class _BranchNarrowRow extends StatelessWidget {
+  const _BranchNarrowRow({
+    required this.row,
+    required this.placed,
+    required this.card,
+  });
+
+  final _FullCardRow row;
+  final PlacedBranch placed;
+  final Widget card;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: row.gap),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Column(
+            children: [
+              // Shift the ring so the dot sits on the spine, like the
+              // plain dots; the callout's own geometry is unchanged.
+              Transform.translate(
+                offset: const Offset(_narrowDotCenter - calloutHit / 2, 0),
+                child: BranchCalloutTarget(
+                  frame: row.frame,
+                  onOpen: row.onOpenBranch,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: calloutHit,
+                        height: calloutHit,
+                        child: placed.ringHit,
+                      ),
+                      Expanded(child: placed.lane),
+                    ],
                   ),
                 ),
-                const SizedBox(width: calloutGutter),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: 0.92,
-                      child: cardOnLeft ? const SizedBox.shrink() : card,
-                    ),
-                  ),
+              ),
+              Padding(
+                // The card starts under the label, after the ring.
+                padding: EdgeInsets.only(
+                  left: _narrowDotCenter + calloutHit / 2 + placed.push,
                 ),
-              ],
-            ),
-            dot,
-          ],
-        ),
-      );
-    }
+                child: card,
+              ),
+            ],
+          ),
+          Positioned(
+            left: _narrowDotCenter - calloutHit / 2,
+            top: 0,
+            width: calloutHit,
+            height: calloutHit,
+            child: Center(child: placed.dot),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BranchWideRow extends StatelessWidget {
+  const _BranchWideRow({
+    required this.row,
+    required this.placed,
+    required this.card,
+  });
+
+  final _FullCardRow row;
+  final PlacedBranch placed;
+  final Widget card;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardOnLeft = row.cardOnLeft;
     final pushPad = EdgeInsets.only(
       left: cardOnLeft ? 0 : placed.push,
       right: cardOnLeft ? placed.push : 0,
     );
-    if (!wide) {
-      return Padding(
-        padding: EdgeInsets.only(bottom: gap),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Column(
-              children: [
-                // Shift the ring so the dot sits on the spine, like the
-                // plain dots; the callout's own geometry is unchanged.
-                Transform.translate(
-                  offset: const Offset(_narrowDotCenter - calloutHit / 2, 0),
-                  child: BranchCalloutTarget(
-                    frame: frame,
-                    onOpen: onOpenBranch,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: calloutHit,
-                          height: calloutHit,
-                          child: placed.ringHit,
-                        ),
-                        Expanded(child: placed.lane),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  // The card starts under the label, after the ring.
-                  padding: EdgeInsets.only(
-                    left: _narrowDotCenter + calloutHit / 2 + placed.push,
-                  ),
-                  child: card,
-                ),
-              ],
-            ),
-            Positioned(
-              left: _narrowDotCenter - calloutHit / 2,
-              top: 0,
-              width: calloutHit,
-              height: calloutHit,
-              child: Center(child: placed.dot),
-            ),
-          ],
-        ),
-      );
-    }
-    Widget fraction(Widget child) {
-      return FractionallySizedBox(widthFactor: 0.92, child: child);
-    }
-
     return Padding(
-      padding: EdgeInsets.only(bottom: gap),
+      padding: EdgeInsets.only(bottom: row.gap),
       child: Stack(
         alignment: Alignment.topCenter,
         clipBehavior: Clip.none,
@@ -665,56 +795,22 @@ class _FullCardRow extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               BranchCalloutTarget(
-                frame: frame,
-                onOpen: onOpenBranch,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: cardOnLeft
-                            ? fraction(placed.lane)
-                            : const SizedBox.shrink(),
-                      ),
-                    ),
-                    SizedBox(
-                      width: calloutGutter,
-                      height: calloutHit,
-                      child: Center(child: placed.ringHit),
-                    ),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.topLeft,
-                        child: cardOnLeft
-                            ? const SizedBox.shrink()
-                            : fraction(placed.lane),
-                      ),
-                    ),
-                  ],
+                frame: row.frame,
+                onOpen: row.onOpenBranch,
+                child: _WideHalves(
+                  cardOnLeft: cardOnLeft,
+                  middle: SizedBox(
+                    width: calloutGutter,
+                    height: calloutHit,
+                    child: Center(child: placed.ringHit),
+                  ),
+                  child: placed.lane,
                 ),
               ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.topRight,
-                      child: cardOnLeft
-                          ? fraction(Padding(padding: pushPad, child: card))
-                          : const SizedBox.shrink(),
-                    ),
-                  ),
-                  const SizedBox(width: calloutGutter),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: cardOnLeft
-                          ? const SizedBox.shrink()
-                          : fraction(Padding(padding: pushPad, child: card)),
-                    ),
-                  ),
-                ],
+              _WideHalves(
+                cardOnLeft: cardOnLeft,
+                middle: const SizedBox(width: calloutGutter),
+                child: Padding(padding: pushPad, child: card),
               ),
             ],
           ),
@@ -726,6 +822,43 @@ class _FullCardRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Two top-aligned halves around [middle]; [child] sits at 92% width in the
+/// card's half, the other half stays empty.
+class _WideHalves extends StatelessWidget {
+  const _WideHalves({
+    required this.cardOnLeft,
+    required this.middle,
+    required this.child,
+  });
+
+  final bool cardOnLeft;
+  final Widget middle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = FractionallySizedBox(widthFactor: 0.92, child: child);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Align(
+            alignment: Alignment.topRight,
+            child: cardOnLeft ? fraction : const SizedBox.shrink(),
+          ),
+        ),
+        middle,
+        Expanded(
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: cardOnLeft ? const SizedBox.shrink() : fraction,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -786,19 +919,82 @@ class _FullCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final notes = story.commentCount + story.perspectiveCount;
-    final author = (story.authorDisplayName ?? '').trim().isEmpty
-        ? 'Member'
-        : story.authorDisplayName!.trim();
+    final text = Theme.of(context).textTheme;
     final paths = focused
         ? (story.photoPaths.isEmpty
               ? const <String>[]
               : [story.photoPaths.first])
         : story.photoPaths.take(2).toList();
+    return _CardSurface(
+      storyId: story.id,
+      focused: focused,
+      branched: branched,
+      parentOrigin: parentOrigin,
+      onOpen: onOpen,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _CardHeader(
+            story: story,
+            focused: focused,
+            dimmed: dimmed,
+            onPerson: onPerson,
+          ),
+          const SizedBox(height: AlbumSpace.s),
+          if (originTag case final tag?)
+            Text(
+              tag,
+              key: Key('timeline-origin-tag-${story.id}'),
+              style: text.labelLarge?.copyWith(
+                color: dimmed ? albumDimInk : albumSage,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          Text(
+            story.title ?? '',
+            style: text.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              height: 1.15,
+              color: dimmed ? albumDimInk : null,
+            ),
+          ),
+          if (photos case final repository? when paths.isNotEmpty)
+            _CardPhotos(paths: paths, photos: repository, focused: focused),
+          if (focused) ...[
+            const SizedBox(height: AlbumSpace.m),
+            _CardFooter(story: story, dimmed: dimmed),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The card's tappable shape, border and shadows around [child].
+class _CardSurface extends StatelessWidget {
+  const _CardSurface({
+    required this.storyId,
+    required this.focused,
+    required this.branched,
+    required this.parentOrigin,
+    required this.onOpen,
+    required this.child,
+  });
+
+  final String storyId;
+  final bool focused;
+  final bool branched;
+  final bool parentOrigin;
+  final VoidCallback onOpen;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final moss = branched || (focused && parentOrigin);
     final shape = albumContainerShape(
       AlbumRadius.card,
       side: BorderSide(
-        color: branched || (focused && parentOrigin)
+        color: moss
             ? branchMoss
             : focused
             ? albumTerracotta
@@ -811,158 +1007,175 @@ class _FullCard extends StatelessWidget {
       elevation: 0,
       shape: shape,
       child: InkWell(
-        key: Key('timeline-card-${story.id}'),
+        key: Key('timeline-card-$storyId'),
         onTap: onOpen,
         customBorder: shape,
         child: DecoratedBox(
           decoration: ShapeDecoration(
             shape: albumContainerShape(AlbumRadius.card),
-            shadows: branched || (focused && parentOrigin)
-                ? null
-                : [
-                    BoxShadow(
-                      color: albumInk.withValues(alpha: focused ? 0.08 : 0.04),
-                      blurRadius: focused ? 24 : 8,
-                      offset: Offset(0, focused ? 8 : 2),
-                    ),
-                    if (focused && !parentOrigin)
-                      BoxShadow(
-                        color: albumBlush.withValues(alpha: 0.3),
-                        spreadRadius: 4,
-                        blurRadius: 0,
-                      ),
-                  ],
+            shadows: moss ? null : _cardShadows(focused, parentOrigin),
           ),
           child: Padding(
             padding: const EdgeInsets.all(AlbumSpace.xl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: AlbumSpace.s,
-                  runSpacing: AlbumSpace.xs,
-                  children: [
-                    Text(
-                      storyDateLabelFor(story),
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: dimmed ? albumDimInk : albumTerracotta,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: 6,
-                      runSpacing: AlbumSpace.xs,
-                      children: [
-                        for (final person
-                            in story.people.isNotEmpty
-                                ? story.people
-                                : [
-                                    for (final name in story.personNames)
-                                      (id: '', name: name),
-                                  ])
-                          GestureDetector(
-                            key: Key(
-                              'timeline-person-${story.id}-${person.name}',
-                            ),
-                            onTap: person.id.isEmpty || onPerson == null
-                                ? null
-                                : () => onPerson!(person),
-                            child: AlbumChip(
-                              avatar: Icon(
-                                Icons.person,
-                                size: 12,
-                                color: dimmed
-                                    ? albumDimInk
-                                    : albumInk.withValues(
-                                        alpha: focused ? 0.85 : 0.7,
-                                      ),
-                              ),
-                              label: person.name,
-                              selected: focused,
-                              dimmed: dimmed,
-                            ),
-                          ),
-                        if ((story.placeLabel ?? '').isNotEmpty)
-                          AlbumChip(
-                            avatar: Icon(
-                              Icons.location_on,
-                              size: 12,
-                              color: dimmed
-                                  ? albumDimInk
-                                  : albumInk.withValues(
-                                      alpha: focused ? 0.85 : 0.7,
-                                    ),
-                            ),
-                            label: story.placeLabel!,
-                            selected: focused,
-                            dimmed: dimmed,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AlbumSpace.s),
-                if (originTag != null)
-                  Text(
-                    originTag!,
-                    key: Key('timeline-origin-tag-${story.id}'),
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: dimmed ? albumDimInk : albumSage,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                Text(
-                  story.title ?? '',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    height: 1.15,
-                    color: dimmed ? albumDimInk : null,
-                  ),
-                ),
-                if (paths.isNotEmpty && photos != null)
-                  _CardPhotos(paths: paths, photos: photos!, focused: focused),
-                if (focused) ...[
-                  const SizedBox(height: AlbumSpace.m),
-                  DecoratedBox(
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: albumRule)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: AlbumSpace.s),
-                      child: Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        spacing: AlbumSpace.s,
-                        runSpacing: AlbumSpace.xs,
-                        children: [
-                          Text(
-                            'Added by $author',
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  color: dimmed
-                                      ? albumDimInk
-                                      : albumInk.withValues(alpha: 0.7),
-                                ),
-                          ),
-                          Text(
-                            '${countWord(story.photoCount, 'photo', 'photos')} · ${countWord(notes, 'note', 'notes')}',
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: dimmed ? albumDimInk : albumTerracotta,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            child: child,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+List<BoxShadow> _cardShadows(bool focused, bool parentOrigin) {
+  return [
+    BoxShadow(
+      color: albumInk.withValues(alpha: focused ? 0.08 : 0.04),
+      blurRadius: focused ? 24 : 8,
+      offset: Offset(0, focused ? 8 : 2),
+    ),
+    if (focused && !parentOrigin)
+      BoxShadow(
+        color: albumBlush.withValues(alpha: 0.3),
+        spreadRadius: 4,
+        blurRadius: 0,
+      ),
+  ];
+}
+
+/// Date label beside the person and place chips.
+class _CardHeader extends StatelessWidget {
+  const _CardHeader({
+    required this.story,
+    required this.focused,
+    required this.dimmed,
+    required this.onPerson,
+  });
+
+  final Story story;
+  final bool focused;
+  final bool dimmed;
+  final void Function(({String id, String name}) person)? onPerson;
+
+  @override
+  Widget build(BuildContext context) {
+    final people = story.people.isNotEmpty
+        ? story.people
+        : [for (final name in story.personNames) (id: '', name: name)];
+    final place = story.placeLabel ?? '';
+    final tap = onPerson;
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: AlbumSpace.s,
+      runSpacing: AlbumSpace.xs,
+      children: [
+        Text(
+          storyDateLabelFor(story),
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: dimmed ? albumDimInk : albumTerracotta,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+          ),
+        ),
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 6,
+          runSpacing: AlbumSpace.xs,
+          children: [
+            for (final person in people)
+              GestureDetector(
+                key: Key('timeline-person-${story.id}-${person.name}'),
+                onTap: person.id.isEmpty || tap == null
+                    ? null
+                    : () => tap(person),
+                child: _CardChip(
+                  icon: Icons.person,
+                  label: person.name,
+                  focused: focused,
+                  dimmed: dimmed,
+                ),
+              ),
+            if (place.isNotEmpty)
+              _CardChip(
+                icon: Icons.location_on,
+                label: place,
+                focused: focused,
+                dimmed: dimmed,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CardChip extends StatelessWidget {
+  const _CardChip({
+    required this.icon,
+    required this.label,
+    required this.focused,
+    required this.dimmed,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool focused;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlbumChip(
+      avatar: Icon(
+        icon,
+        size: 12,
+        color: dimmed
+            ? albumDimInk
+            : albumInk.withValues(alpha: focused ? 0.85 : 0.7),
+      ),
+      label: label,
+      selected: focused,
+      dimmed: dimmed,
+    );
+  }
+}
+
+/// Focused card's rule-topped author and counts line.
+class _CardFooter extends StatelessWidget {
+  const _CardFooter({required this.story, required this.dimmed});
+
+  final Story story;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = Theme.of(context).textTheme.labelMedium;
+    final name = story.authorDisplayName?.trim() ?? '';
+    final author = name.isEmpty ? 'Member' : name;
+    final notes = story.commentCount + story.perspectiveCount;
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: albumRule)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(top: AlbumSpace.s),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: AlbumSpace.s,
+          runSpacing: AlbumSpace.xs,
+          children: [
+            Text(
+              'Added by $author',
+              style: label?.copyWith(
+                color: dimmed ? albumDimInk : albumInk.withValues(alpha: 0.7),
+              ),
+            ),
+            Text(
+              '${countWord(story.photoCount, 'photo', 'photos')} · ${countWord(notes, 'note', 'notes')}',
+              style: label?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: dimmed ? albumDimInk : albumTerracotta,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1003,8 +1216,9 @@ class _CardPhotosState extends State<_CardPhotos> {
           _bytes[path] = bytes;
           _aspect[path] = encodedPhotoAspect(bytes) ?? (16 / 9);
         });
-      } catch (_) {
+      } on Object {
         // A photo that cannot be read stays out of the well.
+        continue;
       }
     }
   }
@@ -1013,54 +1227,77 @@ class _CardPhotosState extends State<_CardPhotos> {
   Widget build(BuildContext context) {
     final ready = [
       for (final path in widget.paths)
-        if (_bytes[path] != null) path,
+        if (_bytes[path] case final bytes?) (path: path, bytes: bytes),
     ];
     if (ready.isEmpty) return const SizedBox.shrink();
-    final shared = ready.length > 1;
     return Padding(
       padding: const EdgeInsets.only(top: AlbumSpace.m),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final gaps = 12.0 * (ready.length - 1);
-          final cellWidth = ready.length == 1
-              ? constraints.maxWidth
-              : (constraints.maxWidth - gaps) / ready.length;
-          final height = shared
-              ? cardPhotoRowHeight(focused: widget.focused)
-              : cardPhotoHeight(
-                  width: cellWidth,
-                  imageAspect: _aspect[ready.first] ?? (16 / 9),
-                  focused: widget.focused,
-                );
-          return SizedBox(
-            key: Key('timeline-card-photos-${ready.first}'),
-            height: height,
-            child: Row(
-              children: [
-                for (var i = 0; i < ready.length; i++)
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(left: i == 0 ? 0 : AlbumSpace.m),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AlbumRadius.group),
-                        child: ColoredBox(
-                          color: albumParchment,
-                          child: Image.memory(
-                            _bytes[ready[i]]!,
-                            height: height,
-                            width: double.infinity,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                          ),
+      child: _PhotoRow(
+        ready: ready,
+        aspect: _aspect[ready.first.path] ?? (16 / 9),
+        focused: widget.focused,
+      ),
+    );
+  }
+}
+
+/// The loaded photos side by side, contained in a parchment well.
+class _PhotoRow extends StatelessWidget {
+  const _PhotoRow({
+    required this.ready,
+    required this.aspect,
+    required this.focused,
+  });
+
+  final List<({String path, Uint8List bytes})> ready;
+
+  /// Aspect of the first photo; sizes a single-photo well.
+  final double aspect;
+  final bool focused;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gaps = 12.0 * (ready.length - 1);
+        final cellWidth = ready.length == 1
+            ? constraints.maxWidth
+            : (constraints.maxWidth - gaps) / ready.length;
+        final height = ready.length > 1
+            ? cardPhotoRowHeight(focused: focused)
+            : cardPhotoHeight(
+                width: cellWidth,
+                imageAspect: aspect,
+                focused: focused,
+              );
+        return SizedBox(
+          key: Key('timeline-card-photos-${ready.first.path}'),
+          height: height,
+          child: Row(
+            children: [
+              for (var i = 0; i < ready.length; i++)
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(left: i == 0 ? 0 : AlbumSpace.m),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AlbumRadius.group),
+                      child: ColoredBox(
+                        color: albumParchment,
+                        child: Image.memory(
+                          ready[i].bytes,
+                          height: height,
+                          width: double.infinity,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),
                       ),
                     ),
                   ),
-              ],
-            ),
-          );
-        },
-      ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

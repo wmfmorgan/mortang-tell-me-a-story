@@ -5,7 +5,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:tell_me_a_story/core/data/people_repository.dart';
+import 'package:tell_me_a_story/core/data/server_people_repository.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import 'support/live_server.dart';

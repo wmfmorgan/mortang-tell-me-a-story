@@ -53,10 +53,10 @@ class PlaceMap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final token = accessToken ?? Env.mapboxAccessToken;
-    final hasPin = lat != null && lng != null;
-    final center = hasPin ? LatLng(lat!, lng!) : const LatLng(20, 0);
-    final zoom = hasPin ? 14.0 : 1.0;
-
+    final pin = switch ((lat, lng)) {
+      (final double lat, final double lng) => LatLng(lat, lng),
+      _ => null,
+    };
     return ClipRRect(
       borderRadius: BorderRadius.circular(albumCardRadius),
       child: SizedBox(
@@ -65,8 +65,8 @@ class PlaceMap extends StatelessWidget {
         child: FlutterMap(
           key: mapKeyFor(lat: lat, lng: lng),
           options: MapOptions(
-            initialCenter: center,
-            initialZoom: zoom,
+            initialCenter: pin ?? const LatLng(20, 0),
+            initialZoom: pin != null ? 14.0 : 1.0,
             interactionOptions: const InteractionOptions(
               flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
             ),
@@ -81,25 +81,35 @@ class PlaceMap extends StatelessWidget {
                 onTileError?.call(error, stackTrace);
               },
             ),
-            if (hasPin)
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: center,
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.topCenter,
-                    child: const Icon(
-                      Icons.location_on,
-                      color: albumTerracotta,
-                      size: 40,
-                    ),
-                  ),
-                ],
-              ),
+            if (pin != null) _PinLayer(point: pin),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PinLayer extends StatelessWidget {
+  const _PinLayer({required this.point});
+
+  final LatLng point;
+
+  @override
+  Widget build(BuildContext context) {
+    return MarkerLayer(
+      markers: [
+        Marker(
+          point: point,
+          width: 40,
+          height: 40,
+          alignment: Alignment.topCenter,
+          child: const Icon(
+            Icons.location_on,
+            color: albumTerracotta,
+            size: 40,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,61 +1,47 @@
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import 'package:tell_me_a_story/core/session/family_membership.dart';
+
+part 'family_selection.g.dart';
+
 /// Process-memory family choice. Not a table and not kept across a restart.
-class FamilySelection {
-  static String? _familyId;
-  static String? _userId;
+///
+/// State is the remembered family id.
+@Riverpod(keepAlive: true)
+class FamilySelection extends _$FamilySelection {
+  String? _userId;
 
-  static String? get id => _familyId;
+  @override
+  String? build() => null;
 
-  static void remember(String familyId) {
-    _familyId = familyId;
+  void remember(String familyId) {
+    state = familyId;
   }
 
-  static void clear() {
-    _familyId = null;
+  /// Also clears [FamilyMembership].
+  void clear() {
+    state = null;
     _userId = null;
-    FamilyMembership.clear();
+    ref.read(familyMembershipProvider.notifier).clear();
   }
 
   /// Drops the remembered id when it is the family that was just soft-deleted.
-  static void forget(String familyId) {
-    if (_familyId == familyId) _familyId = null;
+  void forget(String familyId) {
+    if (state == familyId) state = null;
   }
 
   /// Binds [userId] as the signed-in user.
   ///
   /// A different user clears the remembered family. The same user keeps it.
   /// Returns the remembered id after that check.
-  static String? bindUser(String userId) {
+  String? bindUser(String userId) {
     if (_userId != userId) {
       if (_userId != null) {
-        _familyId = null;
-        FamilyMembership.clear();
+        state = null;
+        ref.read(familyMembershipProvider.notifier).clear();
       }
       _userId = userId;
     }
-    return _familyId;
-  }
-}
-
-/// Families the signed-in user can write in, kept for this app session.
-///
-/// Header pages read this on the first frame so New story does not wait
-/// for the next membership fetch.
-abstract final class FamilyMembership {
-  static Set<String> _ids = const {};
-  static var known = false;
-
-  static Set<String> get ids => _ids;
-
-  static bool canWrite(String? familyId) =>
-      familyId != null && _ids.contains(familyId);
-
-  static void remember(Iterable<String> ids) {
-    _ids = Set.unmodifiable(ids);
-    known = true;
-  }
-
-  static void clear() {
-    _ids = const {};
-    known = false;
+    return state;
   }
 }

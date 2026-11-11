@@ -20,6 +20,7 @@ abstract class MapboxSearchHit with _$MapboxSearchHit {
     required double lng,
   }) = _MapboxSearchHit;
 
+  // dynamic: decoded Mapbox JSON boundary.
   factory MapboxSearchHit.fromFeature(Map<String, dynamic> feature) =>
       MapboxSearchHit.fromMapboxFeature(MapboxFeature.fromJson(feature));
 
@@ -60,6 +61,7 @@ abstract class MapboxSearchHit with _$MapboxSearchHit {
 }
 
 /// Parses a Mapbox Geocoding FeatureCollection JSON object.
+// dynamic: decoded Mapbox JSON boundary.
 List<MapboxSearchHit> parseMapboxFeatureCollection(Map<String, dynamic> json) {
   final features = json['features'];
   if (features is! List) return const [];

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
 import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/presentation/timeline_zoom.dart';
@@ -117,6 +117,15 @@ class _MidRailState extends State<MidRail> with RailScaffold<MidRail, String> {
 
   @override
   Widget build(BuildContext context) {
+    final looks = [
+      for (final story in widget.stories)
+        (
+          focused: story.id == centerKey,
+          dimmed: widget.dimmed.contains(story.id),
+          opacity: opacityOf(story.id, unmeasured: 0.35),
+          originTag: story.id == widget.originStoryId ? widget.originTag : null,
+        ),
+    ];
     return buildRail(
       selected: TimelineZoom.mid,
       onMacro: widget.onMacro,
@@ -129,36 +138,7 @@ class _MidRailState extends State<MidRail> with RailScaffold<MidRail, String> {
         key: viewportKey,
         children: [
           const RailSpine(),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final pad = constraints.maxHeight / 2;
-              return ListView(
-                controller: scroll,
-                padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
-                children: [
-                  for (var i = 0; i < widget.stories.length; i++)
-                    _DialRow(
-                      key: widget.anchorFor(widget.stories[i].id),
-                      story: widget.stories[i],
-                      frame: widget.branching.frameFor(widget.stories[i]),
-                      originTag: widget.stories[i].id == widget.originStoryId
-                          ? widget.originTag
-                          : null,
-                      onOpenBranch: widget.onOpenBranch,
-                      cardOnLeft: i.isEven,
-                      focused: widget.stories[i].id == centerKey,
-                      dimmed: widget.dimmed.contains(widget.stories[i].id),
-                      opacity: opacityOf(
-                        widget.stories[i].id,
-                        unmeasured: 0.35,
-                      ),
-                      onTap: () => widget.onStub(widget.stories[i]),
-                      onNode: () => widget.onNode(widget.stories[i]),
-                    ),
-                ],
-              );
-            },
-          ),
+          _MidList(scroll: scroll, rail: widget, looks: looks),
           const _DialFade(top: true),
           const _DialFade(top: false),
         ],
@@ -166,6 +146,43 @@ class _MidRailState extends State<MidRail> with RailScaffold<MidRail, String> {
     );
   }
 }
+
+class _MidList extends StatelessWidget {
+  const _MidList({
+    required this.scroll,
+    required this.rail,
+    required this.looks,
+  });
+
+  final ScrollController scroll;
+  final MidRail rail;
+  final List<_RowLook> looks;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pad = constraints.maxHeight / 2;
+        return ListView(
+          controller: scroll,
+          padding: EdgeInsets.fromLTRB(24, pad, 24, pad),
+          children: [
+            for (var i = 0; i < rail.stories.length; i++)
+              _DialRow.at(rail, i, looks[i]),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Per-row state the rail scaffold owns: focus, filter, fade and origin tag.
+typedef _RowLook = ({
+  bool focused,
+  bool dimmed,
+  double opacity,
+  String? originTag,
+});
 
 class _DialFade extends StatelessWidget {
   const _DialFade({required this.top});
@@ -201,19 +218,18 @@ class _DialFade extends StatelessWidget {
 }
 
 class _DialRow extends StatelessWidget {
-  const _DialRow({
-    super.key,
-    required this.story,
-    required this.frame,
-    required this.cardOnLeft,
-    required this.focused,
-    required this.dimmed,
-    required this.opacity,
-    required this.onTap,
-    required this.onNode,
-    this.originTag,
-    required this.onOpenBranch,
-  });
+  _DialRow.at(MidRail rail, int index, _RowLook look)
+    : story = rail.stories[index],
+      frame = rail.branching.frameFor(rail.stories[index]),
+      cardOnLeft = index.isEven,
+      originTag = look.originTag,
+      onOpenBranch = rail.onOpenBranch,
+      focused = look.focused,
+      dimmed = look.dimmed,
+      opacity = look.opacity,
+      onTap = (() => rail.onStub(rail.stories[index])),
+      onNode = (() => rail.onNode(rail.stories[index])),
+      super(key: rail.anchorFor(rail.stories[index].id));
 
   final Story story;
   final StoryFrame frame;
@@ -230,14 +246,308 @@ class _DialRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final year = storyDateLabelFor(story);
-    final place = (story.placeLabel ?? '').trim();
-    final photos = story.photoCount > 0
-        ? countWord(story.photoCount, 'photo', 'photos')
+    final side = cardOnLeft ? CalloutSide.left : CalloutSide.right;
+    final placed = frame.branchesStory
+        ? placeBranchCallout(
+            context: context,
+            frame: frame,
+            side: side,
+            dot: _NodeHit(row: this, slop: false),
+            dotDiameter: focused ? midDotFocusedDiameter : midDotDiameter,
+            centerToLane: calloutLaneOffset,
+            minCardFromRail: calloutFromRail,
+            maxLabelWidth: calloutLabelWidthDial,
+            onOpen: onOpenBranch,
+          )
         : null;
-    // A dimmed row keeps the focus ring and border but not the terracotta
-    // ink, so its text stays in the dim ink.
-    final lit = focused && !dimmed;
+    final parentOverlay = frame.parent == null
+        ? null
+        : parentCalloutOverlay(
+            context: context,
+            frame: frame,
+            side: side,
+            maxLabelWidth: calloutLabelWidthDial,
+            onOpen: onOpenBranch,
+          );
+    return _DialRowLayout(row: this, placed: placed, overlay: parentOverlay);
+  }
+}
+
+class _DialRowLayout extends StatelessWidget {
+  const _DialRowLayout({
+    required this.row,
+    required this.placed,
+    required this.overlay,
+  });
+
+  final _DialRow row;
+  final PlacedBranch? placed;
+  final ParentCalloutOverlay? overlay;
+
+  @override
+  Widget build(BuildContext context) {
+    final card = _DialCard(row: row);
+    final branch = placed;
+    _DialSide sideCard(bool show) => _DialSide(
+      show: show,
+      card: card,
+      overlay: overlay,
+      cardOnLeft: row.cardOnLeft,
+      placed: branch,
+    );
+    return Opacity(
+      opacity: row.opacity,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 28),
+        child: branch == null
+            ? _PlainDialRow(
+                left: sideCard(row.cardOnLeft),
+                right: sideCard(!row.cardOnLeft),
+                node: _NodeHit(row: row, slop: true),
+              )
+            : _BranchDialRow(
+                frame: row.frame,
+                cardOnLeft: row.cardOnLeft,
+                placed: branch,
+                onOpenBranch: row.onOpenBranch,
+                left: sideCard(row.cardOnLeft),
+                right: sideCard(!row.cardOnLeft),
+              ),
+      ),
+    );
+  }
+}
+
+/// The row's story dot.
+class _MidDot extends StatelessWidget {
+  const _MidDot({required this.row});
+
+  final _DialRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = row.frame;
+    final focused = row.focused;
+    return StoryDot(
+      reserveRings: false,
+      spec: MarkerSpec(
+        matched: !row.dimmed,
+        selected: focused && !frame.branchesStory && frame.parent == null,
+        diameter: focused ? midDotFocusedDiameter : midDotDiameter,
+      ),
+    );
+  }
+}
+
+/// The story's node. The branch ring sits just outside the dot. Extra slop
+/// belongs only on a plain node, where it cannot cover that stroke: 8 pt for
+/// a pointer, and the finger radius as a disk for a finger.
+class _NodeHit extends StatelessWidget {
+  const _NodeHit({required this.row, required this.slop});
+
+  final _DialRow row;
+  final bool slop;
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = _MidDot(row: row);
+    final hit = GestureDetector(
+      key: Key('timeline-mid-node-${row.story.id}'),
+      behavior: HitTestBehavior.opaque,
+      supportedDevices: slop ? preciseDevices : null,
+      onTap: row.onNode,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: slop
+            ? Padding(padding: const EdgeInsets.all(8), child: mark)
+            : mark,
+      ),
+    );
+    // The square bounds cover the ring on the diagonals. Only the disk
+    // should open the story.
+    if (!slop) return ClipOval(child: hit);
+    return ClipOval(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        supportedDevices: fingerDevices,
+        onTap: row.onNode,
+        child: SizedBox.square(
+          dimension: 2 * AlbumTarget.fingerRadius,
+          child: Center(child: hit),
+        ),
+      ),
+    );
+  }
+}
+
+/// One half of a row: the card (under its parent callout, pushed past a
+/// branch lane) when [show], else nothing.
+class _DialSide extends StatelessWidget {
+  const _DialSide({
+    required this.show,
+    required this.card,
+    required this.overlay,
+    required this.cardOnLeft,
+    required this.placed,
+  });
+
+  final bool show;
+  final Widget card;
+  final ParentCalloutOverlay? overlay;
+  final bool cardOnLeft;
+  final PlacedBranch? placed;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!show) return const SizedBox.shrink();
+    final parent = overlay;
+    final branch = placed;
+    final shown = parent == null
+        ? card
+        : _HangParentCallout(
+            anchor: parent.anchor,
+            cardOnLeft: cardOnLeft,
+            balance: branch == null,
+            callout: parent.child,
+            card: card,
+          );
+    if (branch == null) return shown;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: cardOnLeft ? 0 : branch.push,
+        right: cardOnLeft ? branch.push : 0,
+      ),
+      child: shown,
+    );
+  }
+}
+
+class _PlainDialRow extends StatelessWidget {
+  const _PlainDialRow({
+    required this.left,
+    required this.right,
+    required this.node,
+  });
+
+  final Widget left;
+  final Widget right;
+  final Widget node;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Align(alignment: Alignment.centerRight, child: left),
+            ),
+            const SizedBox(width: calloutGutter),
+            Expanded(
+              child: Align(alignment: Alignment.centerLeft, child: right),
+            ),
+          ],
+        ),
+        node,
+      ],
+    );
+  }
+}
+
+class _BranchDialRow extends StatelessWidget {
+  const _BranchDialRow({
+    required this.frame,
+    required this.cardOnLeft,
+    required this.placed,
+    required this.onOpenBranch,
+    required this.left,
+    required this.right,
+  });
+
+  final StoryFrame frame;
+  final bool cardOnLeft;
+  final PlacedBranch placed;
+  final ValueChanged<String> onOpenBranch;
+  final Widget left;
+  final Widget right;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.topCenter,
+      clipBehavior: Clip.none,
+      children: [
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            BranchCalloutTarget(
+              frame: frame,
+              onOpen: onOpenBranch,
+              child: _TopHalves(
+                left: cardOnLeft ? placed.lane : const SizedBox.shrink(),
+                middle: SizedBox(
+                  width: calloutGutter,
+                  height: calloutHit,
+                  child: Center(child: placed.ringHit),
+                ),
+                right: cardOnLeft ? const SizedBox.shrink() : placed.lane,
+              ),
+            ),
+            _TopHalves(
+              left: left,
+              middle: const SizedBox(width: calloutGutter),
+              right: right,
+            ),
+          ],
+        ),
+        Positioned(top: 0, left: 0, right: 0, child: Center(child: placed.dot)),
+      ],
+    );
+  }
+}
+
+/// [left] and [right] top-aligned toward [middle].
+class _TopHalves extends StatelessWidget {
+  const _TopHalves({
+    required this.left,
+    required this.middle,
+    required this.right,
+  });
+
+  final Widget left;
+  final Widget middle;
+  final Widget right;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Align(alignment: Alignment.topRight, child: left),
+        ),
+        middle,
+        Expanded(
+          child: Align(alignment: Alignment.topLeft, child: right),
+        ),
+      ],
+    );
+  }
+}
+
+/// The tappable story stub; a focused or branch card gets its surface.
+class _DialCard extends StatelessWidget {
+  const _DialCard({required this.row});
+
+  final _DialRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = row.frame;
+    final focused = row.focused;
     // Branch and parent-origin cards are moss-edged and never glow
     // (branch-callout.md Rules 1 and 8).
     final moss = frame.branchesStory || (focused && frame.parent != null);
@@ -249,14 +559,15 @@ class _DialRow extends StatelessWidget {
           ? BorderSide(color: moss ? branchMoss : albumTerracotta, width: 2)
           : BorderSide.none,
     );
-    final card = InkWell(
-      key: Key('timeline-stub-${story.id}'),
-      onTap: onTap,
+    final surfaced = frame.branchesStory || focused;
+    return InkWell(
+      key: Key('timeline-stub-${row.story.id}'),
+      onTap: row.onTap,
       customBorder: shape,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
         child: DecoratedBox(
-          decoration: frame.branchesStory || focused
+          decoration: surfaced
               ? ShapeDecoration(
                   color: frame.branchesStory
                       ? albumParchment
@@ -274,279 +585,168 @@ class _DialRow extends StatelessWidget {
                 )
               : const BoxDecoration(),
           child: Padding(
-            padding: EdgeInsets.all(
-              frame.branchesStory || focused ? calloutCardPadding : 0,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: cardOnLeft
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: AlbumSpace.s,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  alignment: cardOnLeft
-                      ? WrapAlignment.end
-                      : WrapAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AlbumSpace.s,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: lit ? albumTerracotta : albumWatermark,
-                        borderRadius: BorderRadius.circular(AlbumRadius.tile),
-                      ),
-                      child: Text(
-                        year,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: dimmed
-                              ? albumDimInk
-                              : lit
-                              ? albumParchment
-                              : albumInk,
-                        ),
-                      ),
-                    ),
-                    if (place.isNotEmpty)
-                      Text(
-                        place,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: dimmed
-                              ? albumDimInk
-                              : lit
-                              ? albumTerracotta
-                              : albumInk.withValues(alpha: 0.55),
-                          fontWeight: lit ? FontWeight.w700 : null,
-                        ),
-                      ),
-                    if (photos != null)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.photo_library,
-                            size: 14,
-                            color: dimmed
-                                ? albumDimInk
-                                : lit
-                                ? albumTerracotta
-                                : albumInk.withValues(alpha: 0.45),
-                          ),
-                          const SizedBox(width: AlbumSpace.xs),
-                          Text(
-                            photos,
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: dimmed ? albumDimInk : null),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                if (originTag != null)
-                  Text(
-                    originTag!,
-                    key: Key('timeline-origin-tag-${story.id}'),
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: dimmed ? albumDimInk : albumSage,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                Text(
-                  storyTitle(story),
-                  textAlign: cardOnLeft ? TextAlign.end : TextAlign.start,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: dimmed ? albumDimInk : null,
-                  ),
-                ),
-              ],
-            ),
+            padding: EdgeInsets.all(surfaced ? calloutCardPadding : 0),
+            child: _DialCardBody(row: row),
           ),
         ),
       ),
     );
-    final mark = StoryDot(
-      reserveRings: false,
-      spec: MarkerSpec(
-        matched: !dimmed,
-        selected: focused && !frame.branchesStory && frame.parent == null,
-        diameter: focused ? midDotFocusedDiameter : midDotDiameter,
-      ),
-    );
-    // The branch ring sits just outside the dot. Extra slop belongs only on
-    // a plain node, where it cannot cover that stroke: 8 pt for a pointer,
-    // and the finger radius as a disk for a finger.
-    Widget nodeHit({required bool slop}) {
-      final hit = GestureDetector(
-        key: Key('timeline-mid-node-${story.id}'),
-        behavior: HitTestBehavior.opaque,
-        supportedDevices: slop ? preciseDevices : null,
-        onTap: onNode,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: slop
-              ? Padding(padding: const EdgeInsets.all(8), child: mark)
-              : mark,
-        ),
-      );
-      // The square bounds cover the ring on the diagonals. Only the disk
-      // should open the story.
-      if (!slop) return ClipOval(child: hit);
-      return ClipOval(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          supportedDevices: fingerDevices,
-          onTap: onNode,
-          child: SizedBox.square(
-            dimension: 2 * AlbumTarget.fingerRadius,
-            child: Center(child: hit),
+  }
+}
+
+class _DialCardBody extends StatelessWidget {
+  const _DialCardBody({required this.row});
+
+  final _DialRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final story = row.story;
+    final dimmed = row.dimmed;
+    final cardOnLeft = row.cardOnLeft;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: cardOnLeft
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        _DialMeta(row: row),
+        const SizedBox(height: 4),
+        if (row.originTag case final tag?)
+          Text(
+            tag,
+            key: Key('timeline-origin-tag-${story.id}'),
+            style: text.labelLarge?.copyWith(
+              color: dimmed ? albumDimInk : albumSage,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        Text(
+          storyTitle(story),
+          textAlign: cardOnLeft ? TextAlign.end : TextAlign.start,
+          style: text.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: dimmed ? albumDimInk : null,
           ),
         ),
-      );
-    }
+      ],
+    );
+  }
+}
 
-    final placed = frame.branchesStory
-        ? placeBranchCallout(
-            context: context,
-            frame: frame,
-            side: cardOnLeft ? CalloutSide.left : CalloutSide.right,
-            dot: nodeHit(slop: false),
-            dotDiameter: focused ? midDotFocusedDiameter : midDotDiameter,
-            centerToLane: calloutLaneOffset,
-            minCardFromRail: calloutFromRail,
-            maxLabelWidth: calloutLabelWidthDial,
-            onOpen: onOpenBranch,
-          )
-        : null;
-    final pushPad = placed == null
-        ? EdgeInsets.zero
-        : EdgeInsets.only(
-            left: cardOnLeft ? 0 : placed.push,
-            right: cardOnLeft ? placed.push : 0,
-          );
-    final parentOverlay = frame.parent == null
-        ? null
-        : parentCalloutOverlay(
-            context: context,
-            frame: frame,
-            side: cardOnLeft ? CalloutSide.left : CalloutSide.right,
-            maxLabelWidth: calloutLabelWidthDial,
-            onOpen: onOpenBranch,
-          );
-    Widget sideCard(bool show) {
-      if (!show) return const SizedBox.shrink();
-      final shown = parentOverlay == null
-          ? card
-          : _HangParentCallout(
-              anchor: parentOverlay.anchor,
-              cardOnLeft: cardOnLeft,
-              balance: placed == null,
-              callout: parentOverlay.child,
-              card: card,
-            );
-      if (placed == null) return shown;
-      return Padding(padding: pushPad, child: shown);
-    }
+/// Year pill, place and photo count above the title.
+class _DialMeta extends StatelessWidget {
+  const _DialMeta({required this.row});
 
-    Widget sideLabel(bool show) {
-      if (!show || placed == null) return const SizedBox.shrink();
-      return placed.lane;
-    }
+  final _DialRow row;
 
-    return Opacity(
-      opacity: opacity,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 28),
-        child: Stack(
-          alignment: placed == null ? Alignment.center : Alignment.topCenter,
-          clipBehavior: Clip.none,
-          children: [
-            if (placed == null)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: sideCard(cardOnLeft),
-                    ),
-                  ),
-                  const SizedBox(width: calloutGutter),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: sideCard(!cardOnLeft),
-                    ),
-                  ),
-                ],
-              )
-            else
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  BranchCalloutTarget(
-                    frame: frame,
-                    onOpen: onOpenBranch,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.topRight,
-                            child: sideLabel(cardOnLeft),
-                          ),
-                        ),
-                        SizedBox(
-                          width: calloutGutter,
-                          height: calloutHit,
-                          child: Center(child: placed.ringHit),
-                        ),
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.topLeft,
-                            child: sideLabel(!cardOnLeft),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.topRight,
-                          child: sideCard(cardOnLeft),
-                        ),
-                      ),
-                      const SizedBox(width: calloutGutter),
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.topLeft,
-                          child: sideCard(!cardOnLeft),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            if (placed != null)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Center(child: placed.dot),
-              )
-            else
-              nodeHit(slop: true),
-          ],
+  @override
+  Widget build(BuildContext context) {
+    final story = row.story;
+    final dimmed = row.dimmed;
+    final place = (story.placeLabel ?? '').trim();
+    // A dimmed row keeps the focus ring and border but not the terracotta
+    // ink, so its text stays in the dim ink.
+    final lit = row.focused && !dimmed;
+    return Wrap(
+      spacing: AlbumSpace.s,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      alignment: row.cardOnLeft ? WrapAlignment.end : WrapAlignment.start,
+      children: [
+        _YearPill(label: storyDateLabelFor(story), lit: lit, dimmed: dimmed),
+        if (place.isNotEmpty)
+          Text(
+            place,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: dimmed
+                  ? albumDimInk
+                  : lit
+                  ? albumTerracotta
+                  : albumInk.withValues(alpha: 0.55),
+              fontWeight: lit ? FontWeight.w700 : null,
+            ),
+          ),
+        if (story.photoCount > 0)
+          _PhotoCount(
+            label: countWord(story.photoCount, 'photo', 'photos'),
+            lit: lit,
+            dimmed: dimmed,
+          ),
+      ],
+    );
+  }
+}
+
+class _YearPill extends StatelessWidget {
+  const _YearPill({
+    required this.label,
+    required this.lit,
+    required this.dimmed,
+  });
+
+  final String label;
+  final bool lit;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AlbumSpace.s,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: lit ? albumTerracotta : albumWatermark,
+        borderRadius: BorderRadius.circular(AlbumRadius.tile),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: dimmed
+              ? albumDimInk
+              : lit
+              ? albumParchment
+              : albumInk,
         ),
       ),
+    );
+  }
+}
+
+class _PhotoCount extends StatelessWidget {
+  const _PhotoCount({
+    required this.label,
+    required this.lit,
+    required this.dimmed,
+  });
+
+  final String label;
+  final bool lit;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.photo_library,
+          size: 14,
+          color: dimmed
+              ? albumDimInk
+              : lit
+              ? albumTerracotta
+              : albumInk.withValues(alpha: 0.45),
+        ),
+        const SizedBox(width: AlbumSpace.xs),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: dimmed ? albumDimInk : null),
+        ),
+      ],
     );
   }
 }
@@ -659,8 +859,8 @@ class _RenderHangParentCallout extends RenderBox
       cardX += shift;
       calloutX += shift;
     }
-    (card.parentData! as HangParentParentData).offset = Offset(cardX, cardY);
-    (callout.parentData! as HangParentParentData).offset = Offset(calloutX, 0);
+    (card.parentData as HangParentParentData).offset = Offset(cardX, cardY);
+    (callout.parentData as HangParentParentData).offset = Offset(calloutX, 0);
   }
 
   @override

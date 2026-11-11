@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/data/server_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
 import 'package:tell_me_a_story/core/widgets/family/family_tree_order.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 

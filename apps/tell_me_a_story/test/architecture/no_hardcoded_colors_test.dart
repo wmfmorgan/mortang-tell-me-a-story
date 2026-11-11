@@ -56,11 +56,15 @@ void main() {
         if (!path.endsWith('.dart')) {
           continue;
         }
-        final relative = _libRelativePath(path);
-        if (relative == _albumThemePath) {
+        if (path.endsWith('.g.dart') || path.endsWith('.freezed.dart')) {
           continue;
         }
         final lines = entity.readAsLinesSync();
+        // A `part of` file belongs to its library: count it there.
+        final relative = _libraryOf(_libRelativePath(path), lines);
+        if (relative == _albumThemePath) {
+          continue;
+        }
         var hits = 0;
         for (var i = 0; i < lines.length; i++) {
           final line = lines[i];
@@ -73,7 +77,7 @@ void main() {
           }
         }
         if (skipHits.containsKey(relative)) {
-          skipHits[relative] = hits;
+          skipHits[relative] = skipHits[relative]! + hits;
         }
       }
 
@@ -114,4 +118,18 @@ String _libRelativePath(String path) {
     fail('dart path is not under lib/: $path');
   }
   return path.substring(index + marker.length);
+}
+
+/// The library path [relative] belongs to: its own path, or for a
+/// `part of '<file>';` file, the path of that library file.
+String _libraryOf(String relative, List<String> lines) {
+  final partOf = RegExp(r"^part of '([^']+)';");
+  for (final line in lines) {
+    final match = partOf.firstMatch(line);
+    if (match == null) continue;
+    final target = match.group(1);
+    if (target == null) return relative;
+    return Uri.parse(relative).resolve(target).path;
+  }
+  return relative;
 }

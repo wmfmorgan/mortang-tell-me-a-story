@@ -5,35 +5,49 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image/image.dart' as img;
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:tell_me_a_story/core/domain/birth_visibility.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/own_profile.dart';
+import 'package:tell_me_a_story/core/domain/profile_repository.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
 import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
-import 'package:tell_me_a_story/core/data/profile_repository.dart';
-import 'package:tell_me_a_story/core/session/profile_session.dart';
 import 'package:tell_me_a_story/features/settings/presentation/settings_page.dart';
 
 import '../../../support/fakes/fake_invite_repository.dart';
+import '../../../support/pump_app.dart';
 
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  Future<void> pumpTall(WidgetTester tester, Widget widget) async {
+  Future<void> tall(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(900, 2200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(widget);
   }
 
-  tearDown(() {
-    ProfileSession.loadOwn = null;
-    ProfileSession.downloadAvatar = null;
-    ProfileSession.instance.clear();
-  });
+  Future<void> pumpTall(
+    WidgetTester tester,
+    _Profile profile, {
+    Future<Uint8List?> Function()? pick,
+    Future<void> Function()? onLogout,
+  }) async {
+    await tall(tester);
+    await pumpRouterApp(
+      tester,
+      _app(pick: pick, onLogout: onLogout),
+      overrides: _overrides(profile),
+    );
+  }
 
   testWidgets('settings body is name, email, upload, and one Save', (
     tester,
   ) async {
-    await pumpTall(tester, _app(_Profile()));
+    await pumpTall(tester, _Profile());
     await tester.pumpAndSettle();
 
     expect(find.text('NAME'), findsOneWidget);
@@ -56,7 +70,7 @@ void main() {
   });
 
   testWidgets('fields start from the stored profile', (tester) async {
-    await pumpTall(tester, _app(_Profile()));
+    await pumpTall(tester, _Profile());
     await tester.pumpAndSettle();
 
     expect(_text(tester, 'settings-name'), 'Sarah Morgan');
@@ -69,10 +83,8 @@ void main() {
   ) async {
     await pumpTall(
       tester,
-      _app(
-        _Profile(
-          profile: const OwnProfile(id: 'user-1', email: 'sarah@example.com'),
-        ),
+      _Profile(
+        profile: const OwnProfile(id: 'user-1', email: 'sarah@example.com'),
       ),
     );
     await tester.pumpAndSettle();
@@ -87,15 +99,13 @@ void main() {
   ) async {
     await pumpTall(
       tester,
-      _app(
-        _Profile(
-          profile: const OwnProfile(
-            id: 'user-1',
-            email: 'sarah@example.com',
-            avatarPath: 'user-1/avatar.jpg',
-          ),
-          download: _jpeg(),
+      _Profile(
+        profile: const OwnProfile(
+          id: 'user-1',
+          email: 'sarah@example.com',
+          avatarPath: 'user-1/avatar.jpg',
         ),
+        download: _jpeg(),
       ),
     );
     await tester.pumpAndSettle();
@@ -107,7 +117,7 @@ void main() {
 
   testWidgets('a blank name does not save', (tester) async {
     final profile = _Profile();
-    await pumpTall(tester, _app(profile));
+    await pumpTall(tester, profile);
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('settings-name')), '   ');
@@ -122,7 +132,7 @@ void main() {
     tester,
   ) async {
     final profile = _Profile();
-    await pumpTall(tester, _app(profile));
+    await pumpTall(tester, profile);
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('settings-name')), '  Ada  ');
@@ -136,7 +146,7 @@ void main() {
 
   testWidgets('one Save writes birth and about on the account', (tester) async {
     final profile = _Profile();
-    await pumpTall(tester, _app(profile));
+    await pumpTall(tester, profile);
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('story-date-year')), '1987');
@@ -151,7 +161,7 @@ void main() {
 
   testWidgets('the account email is read-only (D1)', (tester) async {
     final profile = _Profile();
-    await pumpTall(tester, _app(profile));
+    await pumpTall(tester, profile);
     await tester.pumpAndSettle();
 
     final field = tester.widget<TextField>(
@@ -168,7 +178,7 @@ void main() {
 
   testWidgets('a pending picture uploads on save', (tester) async {
     final profile = _Profile();
-    await pumpTall(tester, _app(profile, pick: () async => _jpeg()));
+    await pumpTall(tester, profile, pick: () async => _jpeg());
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('settings-upload')));
@@ -184,7 +194,7 @@ void main() {
 
   testWidgets('a failed upload keeps the name and the preview', (tester) async {
     final profile = _Profile()..failUpload = true;
-    await pumpTall(tester, _app(profile, pick: () async => _jpeg()));
+    await pumpTall(tester, profile, pick: () async => _jpeg());
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('settings-name')), 'Ada');
@@ -200,7 +210,8 @@ void main() {
 
   testWidgets('the avatar opens Settings, then Logout', (tester) async {
     for (final page in AlbumHeaderPage.values) {
-      await pumpTall(tester, _bar(page));
+      await tall(tester);
+      await pumpApp(tester, _bar(page));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('header-avatar')), findsOneWidget);
@@ -216,14 +227,15 @@ void main() {
       expect(settingsY, lessThan(logoutY));
       expect(find.byKey(const Key('settings-name')), findsNothing);
 
-      await pumpTall(tester, const SizedBox.shrink());
+      await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
     }
   });
 
   testWidgets('Settings in the menu pushes /settings once', (tester) async {
-    final router = _router(_Profile());
-    await pumpTall(tester, MaterialApp.router(routerConfig: router));
+    final router = _router();
+    await tall(tester);
+    await pumpRouterApp(tester, router, overrides: _overrides(_Profile()));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('header-avatar')));
@@ -249,12 +261,10 @@ void main() {
     var signedOut = false;
     await pumpTall(
       tester,
-      _app(
-        _Profile(),
-        onLogout: () async {
-          signedOut = true;
-        },
-      ),
+      _Profile(),
+      onLogout: () async {
+        signedOut = true;
+      },
     );
     await tester.pumpAndSettle();
 
@@ -277,23 +287,28 @@ Uint8List _jpeg() {
   return Uint8List.fromList(img.encodeJpg(image));
 }
 
-Widget _app(
-  _Profile profile, {
+List<Override> _overrides(_Profile profile) => [
+  profileRepositoryProvider.overrideWithValue(profile),
+  inviteRepositoryProvider.overrideWithValue(
+    FakeInviteRepository(
+      familyId: 'fam',
+      createdFamilyId: 'fam',
+      acceptedFamilyId: 'fam',
+    ),
+  ),
+  familiesRepositoryProvider.overrideWithValue(_Families()),
+];
+
+GoRouter _app({
   Future<Uint8List?> Function()? pick,
   Future<void> Function()? onLogout,
 }) {
-  final router = GoRouter(
+  return GoRouter(
     initialLocation: AppRoutes.settings,
     routes: [
       GoRoute(
         path: AppRoutes.settings,
         builder: (context, state) => SettingsPage(
-          profileApi: profile,
-          inviteApi: FakeInviteRepository(
-            familyId: 'fam',
-            createdFamilyId: 'fam',
-            acceptedFamilyId: 'fam',
-          ),
           pickImageBytes: pick,
           onLogout: onLogout ?? () async {},
         ),
@@ -316,10 +331,9 @@ Widget _app(
       ),
     ],
   );
-  return MaterialApp.router(routerConfig: router);
 }
 
-GoRouter _router(_Profile profile) {
+GoRouter _router() {
   return GoRouter(
     initialLocation: '/timeline',
     routes: [
@@ -337,14 +351,7 @@ GoRouter _router(_Profile profile) {
       ),
       GoRoute(
         path: AppRoutes.settings,
-        builder: (context, state) => SettingsPage(
-          profileApi: profile,
-          inviteApi: FakeInviteRepository(
-            familyId: 'fam',
-            createdFamilyId: 'fam',
-            acceptedFamilyId: 'fam',
-          ),
-        ),
+        builder: (context, state) => const SettingsPage(),
       ),
       GoRoute(
         path: AppRoutes.drafts,
@@ -363,18 +370,27 @@ GoRouter _router(_Profile profile) {
 }
 
 Widget _bar(AlbumHeaderPage page) {
-  return MaterialApp(
-    home: Scaffold(
-      appBar: AlbumHeader(
-        page: page,
-        familyName: 'Morgan',
-        families: const [],
-        currentFamilyId: null,
-        onFamilySelected: (_) {},
-        onLogout: () async {},
-      ),
+  return Scaffold(
+    appBar: AlbumHeader(
+      page: page,
+      familyName: 'Morgan',
+      families: const [],
+      currentFamilyId: null,
+      onFamilySelected: (_) {},
+      onLogout: () async {},
     ),
   );
+}
+
+/// The one family the settings page lists for the signed-in user.
+class _Families extends FamiliesRepository {
+  @override
+  Future<List<MemberFamily>> listMine() async => [
+    MemberFamily(id: 'fam', name: 'Family', createdAt: DateTime.utc(2020)),
+  ];
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => const [];
 }
 
 class _Profile implements ProfileRepository {
