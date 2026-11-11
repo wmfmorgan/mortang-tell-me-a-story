@@ -1274,10 +1274,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
             ),
           ),
         ),
-        _highlightIfMissing(
-          missing: _showPublishBanner && !readiness.hasPlace,
-          child: _placeCard(place),
-        ),
+        _placeCard(place),
       ],
     );
   }
