@@ -51,6 +51,20 @@ CustomTransitionPage<void> albumModalPage({
   );
 }
 
+const signInFromParam = 'from';
+
+/// The app path a signed-out visit asked for (`?from=` on sign-in), or
+/// null when absent or not an in-app path.
+String? signInReturnPath(Uri signInUri) {
+  final from = signInUri.queryParameters[signInFromParam];
+  if (from == null || !from.startsWith('/') || from.startsWith('//')) {
+    return null;
+  }
+  final path = Uri.tryParse(from)?.path;
+  if (path == null || path == AppRoutes.signIn) return null;
+  return from;
+}
+
 /// Where a signed-in session opens from the sign-in route.
 ///
 /// A live family lands on Family Landing. No live family, with a soft-deleted
@@ -65,10 +79,17 @@ Future<String> appStartPath(FamiliesGateway? families) async {
     if (stewarded.any((family) => family.countsForManage())) {
       return AppRoutes.manageFamilies;
     }
-  } catch (_) {
+  } catch (error, stack) {
+    _reportRouterError(error, stack);
     return AppRoutes.familyLanding;
   }
   return AppRoutes.timeline;
+}
+
+void _reportRouterError(Object error, StackTrace stack) {
+  FlutterError.reportError(
+    FlutterErrorDetails(exception: error, stack: stack, library: 'app router'),
+  );
 }
 
 GoRouter createAppRouter({
@@ -112,10 +133,14 @@ GoRouter createAppRouter({
       }
 
       if (!signedIn && !onSignIn && !onInvite) {
-        return AppRoutes.signIn;
+        if (authRefresh.signedInThisRun) return AppRoutes.signIn;
+        return Uri(
+          path: AppRoutes.signIn,
+          queryParameters: {signInFromParam: state.uri.toString()},
+        ).toString();
       }
       if (signedIn && onSignIn) {
-        return appStartPath(familiesApi);
+        return signInReturnPath(state.uri) ?? await appStartPath(familiesApi);
       }
       if (signedIn && loc == AppRoutes.newStory && familiesApi != null) {
         final familyId = FamilySelection.id;
@@ -126,7 +151,8 @@ GoRouter createAppRouter({
               if (mine.isNotEmpty) return AppRoutes.familyLanding;
               return AppRoutes.timeline;
             }
-          } catch (_) {
+          } catch (error, stack) {
+            _reportRouterError(error, stack);
             return AppRoutes.familyLanding;
           }
         }
@@ -150,7 +176,8 @@ GoRouter createAppRouter({
               if (next != AppRoutes.familyLanding) return next;
             }
           }
-        } catch (_) {
+        } catch (error, stack) {
+          _reportRouterError(error, stack);
           return null;
         }
       }
