@@ -1,119 +1,119 @@
 # R3 Full-card timeline
 
-> **For agentic workers:** Implement only after this plan is approved. On approval, copy this file to `docs/superpowers/plans/2026-10-04-r3-full-cards.md` in the first commit. Work from a new worktree. Do not edit `main` in place.
+> **For agentic workers:** Implement only after plan approved. On approval, copy file to `docs/superpowers/plans/2026-10-04-r3-full-cards.md` in first commit. Work from new worktree. No in-place edits on `main`.
 
-**Goal:** Replace the timeline's near view with the full-card timeline on Stitch screen `c2c1a5e91d4a449490b92ef53b0cf72c`, for the current family's published stories.
+**Goal:** Replace timeline near view with full-card timeline on Stitch screen `c2c1a5e91d4a449490b92ef53b0cf72c`, for current family's published stories.
 
-**Architecture:** Paint and list layout only. `StoriesApi.listPublished` already returns title, year, people names, place label, author display name, photo paths, and comment and perspective counts. It orders `timeframe_start` oldest first. Leave that query and that order alone. Newest first is `dialStories` on the list already loaded. The third zoom step stays `TimelineZoom.near` and stays on `/timeline`. No new route, table, column, Edge function, package, or family-id source. The R2 `AlbumHeader` is not edited.
+**Architecture:** Paint + list layout only. `StoriesApi.listPublished` already returns title, year, people names, place label, author display name, photo paths, comment + perspective counts. Orders `timeframe_start` oldest first. Leave query + order alone. Newest first = `dialStories` on already-loaded list. Third zoom step stays `TimelineZoom.near`, stays on `/timeline`. No new route, table, column, Edge function, package, or family-id source. R2 `AlbumHeader` not edited.
 
-**Tech stack:** Flutter 3.x, existing `albumTheme()` tokens, `go_router`, the existing `PhotosGateway` download used by `_PhotoRow`. Secrets stay `--dart-define` only.
+**Tech stack:** Flutter 3.x, existing `albumTheme()` tokens, `go_router`, existing `PhotosGateway` download used by `_PhotoRow`. Secrets `--dart-define` only.
 
 ## Global constraints
 
-- Branch `feat/r3-full-cards` from `origin/main` `0795f22` (`feat(r2): shared header`). Worktree `.worktrees/feat-r3-full-cards`. One PR. Do not merge. Do not claim Bill local smoke or Mugatu PASS.
-- Impl Spec §15 R3 (OPEN): https://app.notion.com/p/3e0c4bcef238814f9686d1d956b1f3f8. Screen project `12192342757314667328`, screen `c2c1a5e91d4a449490b92ef53b0cf72c` ("Family Timeline (Full Cards Variant) — Jenkins Family Archive"). Ignore screens `015a7a24ebd746bf96f69c4132fc1d9c`, `0ef65157329747aaba45e529d0a33947`, and the old near screen `b50f9265a875446abc4025d1cf84b8a3`.
-- Precedence for this PR: §15 R3, then that screen's HTML for layout. §10 still lists near id `b50f9265` and a `+/−` / Fit all cluster. R3 names those as ignore and says this page has no plus, no minus, and no Fit all. Pick R3 and the screen the user named.
-- Do not reopen M6 or M7. Do not restyle far or mid. Do not edit `AlbumHeader`, search, the reader, Drafts, or New story. Do not edit `supabase/`.
-- Tokens: page parchment `#FBF7F2`, terracotta `#8B5E4B`, sage `#7A8B74` accent only, ink `#2C2416`. Newsreader titles, Source Sans 3 labels. Card fill on this page is white `#FFFFFF` (`surface-container-lowest` on the screen). The page background stays parchment.
-- "Jenkins", Aunt Clara, Graduation, stock photos, and `school` / `group` icons are demo. Use stored fields. Do not rename the product.
-- The painted order is newest `timeframe_start` first, via `dialStories` on the rows `listPublished` already returned. Do not add an `.order()` and do not reverse the query. Drafts stay off the list.
+- Branch `feat/r3-full-cards` from `origin/main` `0795f22` (`feat(r2): shared header`). Worktree `.worktrees/feat-r3-full-cards`. One PR. No merge. No claiming Bill local smoke or Mugatu PASS.
+- Impl Spec §15 R3 (OPEN): https://app.notion.com/p/3e0c4bcef238814f9686d1d956b1f3f8. Screen project `12192342757314667328`, screen `c2c1a5e91d4a449490b92ef53b0cf72c` ("Family Timeline (Full Cards Variant) — Jenkins Family Archive"). Ignore screens `015a7a24ebd746bf96f69c4132fc1d9c`, `0ef65157329747aaba45e529d0a33947`, old near screen `b50f9265a875446abc4025d1cf84b8a3`.
+- Precedence: §15 R3, then screen HTML for layout. §10 still lists near id `b50f9265` + `+/−` / Fit all cluster. R3 marks those ignore; page has no plus, minus, or Fit all. Pick R3 + user-named screen.
+- No reopening M6 or M7. No restyling far or mid. No edits to `AlbumHeader`, search, reader, Drafts, New story. No edits to `supabase/`.
+- Tokens: page parchment `#FBF7F2`, terracotta `#8B5E4B`, sage `#7A8B74` accent only, ink `#2C2416`. Newsreader titles, Source Sans 3 labels. Card fill white `#FFFFFF` (`surface-container-lowest` on screen). Page bg stays parchment.
+- "Jenkins", Aunt Clara, Graduation, stock photos, `school` / `group` icons = demo. Use stored fields. No product rename.
+- Painted order newest `timeframe_start` first, via `dialStories` on rows `listPublished` already returned. No added `.order()`, no query reverse. Drafts stay off list.
 
 ## What this page is
 
-Under the existing R2 header, two regions:
+Under existing R2 header, two regions:
 
 1. One quiet zoom row.
-2. A scrolling spine of full cards for every published story in the current family.
+2. Scrolling spine of full cards for every published story in current family.
 
-The card whose center is nearest the viewport center is sharp and full opacity. Cards fade toward parchment as their centers enter the top or bottom of the viewport. Tapping a card still pushes `/stories/:id`.
+Card whose center nearest viewport center = sharp, full opacity. Cards fade toward parchment as centers enter top/bottom of viewport. Tap still pushes `/stories/:id`.
 
-Empty and loading stay as they are: spinner while the family or the published list is loading, and `No stories yet. Capture the first one for this family.` when that list is empty. The zoom row is hidden in those states, same as today's rail chrome.
+Empty + loading unchanged: spinner while family or published list loading; `No stories yet. Capture the first one for this family.` when list empty. Zoom row hidden in those states, same as today's rail chrome.
 
 ## Zoom row
 
-Directly under the header, full width, background `#FAF2F0`, bottom hairline ink at 12% opacity, horizontal padding 32, vertical padding 10. Content max width 1280, centered.
+Directly under header, full width, bg `#FAF2F0`, bottom hairline ink 12% opacity, horizontal padding 32, vertical padding 10. Content max width 1280, centered.
 
-Left: a beige pill, fill `#F5ECE9`, label exactly `Zoom Level: 100% (Full Cards)`. Source Sans 3, about 12px, semibold, ink at about 70%. Stadium border. Not a button.
+Left: beige pill, fill `#F5ECE9`, label exactly `Zoom Level: 100% (Full Cards)`. Source Sans 3, ~12px, semibold, ink ~70%. Stadium border. Not button.
 
-Right: one segmented switch, fill `#F5ECE9`, padding 4, corner radius 8, gap 4. Three labels, Source Sans 3 about 12px:
+Right: one segmented switch, fill `#F5ECE9`, padding 4, radius 8, gap 4. Three labels, Source Sans 3 ~12px:
 
 | Segment | Key | Look | Action |
 | --- | --- | --- | --- |
-| `Macro` | `timeline-zoom-macro` | ink at 70%, no fill | `_fitAll` (far) |
-| `Mid` | `timeline-zoom-mid` | ink at 70%, no fill | set zoom to mid, keep the focused story id |
-| `Full Cards` | `timeline-zoom-full` | terracotta fill, parchment label, semibold | selected. Tapping it does not navigate. |
+| `Macro` | `timeline-zoom-macro` | ink 70%, no fill | `_fitAll` (far) |
+| `Mid` | `timeline-zoom-mid` | ink 70%, no fill | zoom to mid, keep focused story id |
+| `Full Cards` | `timeline-zoom-full` | terracotta fill, parchment label, semibold | selected. Tap no navigate. |
 
-No plus, no minus, no `Fit all`, no `Near · full cards`, and no pinch hint on this page. Hide `_ZoomCluster` when `_zoom == TimelineZoom.near`. Far and mid keep their current context rows and the floating cluster.
+No plus, minus, `Fit all`, `Near · full cards`, or pinch hint on page. Hide `_ZoomCluster` when `_zoom == TimelineZoom.near`. Far + mid keep current context rows + floating cluster.
 
-Keep the existing `_onPinch` handler. Do not add a gesture and do not special-case the scale. Above 1.08 still calls `_zoomIn`. On near, `zoomIn` already stays on near, and that call still runs `_reveal`. Under 0.92 still calls `_zoomOut` and returns to mid.
+Keep existing `_onPinch` handler. No new gesture, no scale special-case. Above 1.08 still calls `_zoomIn`. On near, `zoomIn` stays on near, call still runs `_reveal`. Under 0.92 still calls `_zoomOut`, returns to mid.
 
-`_reveal` is alignment `0.3` today. Change that one call to `0.5`. Every path onto near uses it: `_openNear`, `_openFullCards`, and `_zoomIn` (pinch-in from mid, and pinch-in while already on near). Do not pass a second alignment. The list is `dialStories(_published)`, not `decadeNewestFirst`. A story from another decade is on this page.
+`_reveal` alignment `0.3` today. Change that one call to `0.5`. Every path onto near uses it: `_openNear`, `_openFullCards`, `_zoomIn` (pinch-in from mid, pinch-in while on near). No second alignment. List = `dialStories(_published)`, not `decadeNewestFirst`. Stories from other decades on this page.
 
-At width under 720, the row stays one line. The pill ellipsizes before the switch wraps. A 320-wide pump must not throw an overflow.
+Width under 720: row stays one line. Pill ellipsizes before switch wraps. 320-wide pump must not throw overflow.
 
 ## Card list
 
-`ListView` of `dialStories`, padding half the viewport height on top and bottom so the first and last card can sit at the center. Vertical gap about 80px on a wide window, 32px under 720px.
+`ListView` of `dialStories`, padding half viewport height top + bottom so first/last card can sit at center. Vertical gap ~80px wide window, 32px under 720px.
 
-The spine is the screen's solid 2px line through the vertical center of the list, ink at 20% opacity (`outline-variant/30` on the screen). It is a mark on this page. It is not a dashed sage rail and it is not a second timeline. Do not paint the child-family dash, `{name} Branch`, or `← {name} union joined archive` here. Those stay on far and mid. Each card has one dot on that line:
+Spine = screen's solid 2px line through vertical center of list, ink 20% opacity (`outline-variant/30` on screen). Mark only. Not dashed sage rail, not second timeline. No child-family dash, `{name} Branch`, or `← {name} union joined archive` here. Those stay on far + mid. Each card has one dot on line:
 
-- The center card's dot is 20px, fill terracotta, with an 8px ring of `#F5DED6`.
-- Every other dot is 14px, fill parchment, 2px border ink at 40%.
+- Center card dot: 20px, terracotta fill, 8px ring `#F5DED6`.
+- Other dots: 14px, parchment fill, 2px border ink 40%.
 
-Wide layout (width at least 800): even indexes sit on the left, odd indexes on the right. Each card is about half the content width minus 32px. The opposite side is empty. This matches the screen (1991 left, 1990 right, 1989 left).
+Wide layout (width ≥ 800): even indexes left, odd right. Card ~half content width minus 32px. Opposite side empty. Matches screen (1991 left, 1990 right, 1989 left).
 
-Narrow layout (under 800): one column. The spine and dot sit on the left of the card with 16px of gap. Do not squeeze two half-width cards onto a phone.
+Narrow layout (under 800): one column. Spine + dot left of card, 16px gap. No squeezing two half-width cards on phone.
 
 ### Center card
 
-White, 12px radius, 2px terracotta border, shadow (ink at 8%, blur 24, offset y 8), and a 4px outer ring of `#F5DED6` at 30% opacity. Scale 1.05. Padding 24.
+White, 12px radius, 2px terracotta border, shadow (ink 8%, blur 24, offset y 8), 4px outer ring `#F5DED6` at 30% opacity. Scale 1.05. Padding 24.
 
-Top row, space between: the year (`timeframe_start.year`) in Source Sans 3, about 12px, bold, uppercase tracking, terracotta. Then a wrap of chips. Person chips use `Icons.person` and each `personNames` entry. One place chip uses `Icons.location_on` and `placeLabel` when that label is non-empty. Center chips are filled `#F5DED6` with ink text, stadium, about 12px. No relationship-specific icons.
+Top row, space between: year (`timeframe_start.year`) Source Sans 3, ~12px, bold, uppercase tracking, terracotta. Then wrap of chips. Person chips: `Icons.person` + each `personNames` entry. One place chip: `Icons.location_on` + `placeLabel` when non-empty. Center chips filled `#F5DED6`, ink text, stadium, ~12px. No relationship-specific icons.
 
-Title: the saved title, Newsreader about 24px, bold, ink. No body.
+Title: saved title, Newsreader ~24px, bold, ink. No body.
 
-Photos: `photoPaths.first` only. That list is already sorted by `sort_order`. Full width of the card, height 192, radius 8, cover. Download through the existing `PhotosGateway`. An empty `photoPaths` means no image well and no stock photo. A failed download leaves that well out. Do not paint the second path on the center card.
+Photos: `photoPaths.first` only. List already sorted by `sort_order`. Full card width, height 192, radius 8, cover. Download via existing `PhotosGateway`. Empty `photoPaths` = no image well, no stock photo. Failed download = well omitted. No second path on center card.
 
-Footer, top hairline ink at 12%, Source Sans 3 about 12px: `Added by {name}` in ink at 70%, where `{name}` is the trimmed `authorDisplayName` or `Member`. On the right, terracotta semibold: `{photoCount} photos · {notes} notes`, using `countWord` for both nouns. `photoCount` is the stored count, not how many images this card paints. `notes` is `commentCount + perspectiveCount`. This footer is only on the center card.
+Footer, top hairline ink 12%, Source Sans 3 ~12px: `Added by {name}` ink 70%, `{name}` = trimmed `authorDisplayName` or `Member`. Right, terracotta semibold: `{photoCount} photos · {notes} notes`, `countWord` for both nouns. `photoCount` = stored count, not painted image count. `notes` = `commentCount + perspectiveCount`. Footer center card only.
 
 Key stays `timeline-card-${story.id}`. Tap pushes `/stories/${story.id}`.
 
 ### Other cards
 
-Same year, chips, and title. Chips are quiet: fill `#F5ECE9`, ink at 70%, no terracotta fill. Border is 1px ink at 20%, white fill, 12px radius, light shadow, no scale. Opacity comes from the scroll math below.
+Same year, chips, title. Chips quiet: fill `#F5ECE9`, ink 70%, no terracotta fill. Border 1px ink 20%, white fill, 12px radius, light shadow, no scale. Opacity from scroll math below.
 
-Photos: up to two stored paths, height 112, radius 8. Two photos use a two-column row with 12px gap. One photo is full width. No footer, no "Currently Focused", no dial label, no era name.
+Photos: up to two stored paths, height 112, radius 8. Two photos = two-column row, 12px gap. One photo = full width. No footer, no "Currently Focused", no dial label, no era name.
 
 ### Fade
 
-Reuse the far rule: a card stays at opacity 1 while its center is outside the top and bottom 45% bands (the middle 10% of the viewport). It dims as that center enters a band, down to 0 at the viewport edge. Apply that opacity to the card, not to the spine.
+Reuse far rule: card opacity 1 while center outside top + bottom 45% bands (middle 10% of viewport). Dims as center enters band, to 0 at viewport edge. Apply opacity to card, not spine.
 
-The center card is the one whose center is closest to the viewport center. On the first frame, before measurement, the card that was revealed (`focusedId`) is the center card at opacity 1 and the others start at 0.4. After the first measure, scroll position wins over the tapped id. Do not paint `Currently Focused`, `{year} · IN FOCUS`, or `Family Archive · Near Zoom View`.
+Center card = card whose center closest to viewport center. First frame, before measure: revealed card (`focusedId`) = center card at opacity 1, others start 0.4. After first measure, scroll position beats tapped id. No painting `Currently Focused`, `{year} · IN FOCUS`, or `Family Archive · Near Zoom View`.
 
-A parchment gradient sits over the top and bottom of the list, `IgnorePointer`, so the fade reads as parchment. It does not block taps.
+Parchment gradient over top + bottom of list, `IgnorePointer`, so fade reads as parchment. No tap blocking.
 
 ## Files
 
 ### Edit
 
 - `apps/tell_me_a_story/lib/features/timeline/timeline_page.dart`
-  - `_body` near branch passes `dialStories(_published)` into the rail. Do not change `listPublished`.
-  - Hide `_ZoomCluster` when zoom is near. Remove the near-only `Near · full cards` label from the cluster by never building the cluster on this page.
-  - Replace `_NearRail` / `_NearCard` with the layout above. Keep the card key and the reader push.
-  - Delete the near heading, the archive sentence, `Currently Focused`, and the branch-fork sentence from this page only.
+  - `_body` near branch passes `dialStories(_published)` into rail. No change to `listPublished`.
+  - Hide `_ZoomCluster` when zoom near. Remove near-only `Near · full cards` label by never building cluster on page.
+  - Replace `_NearRail` / `_NearCard` with layout above. Keep card key + reader push.
+  - Delete near heading, archive sentence, `Currently Focused`, branch-fork sentence from this page only.
 - `apps/tell_me_a_story/lib/features/timeline/timeline_zoom.dart`
-  - Add `fullCardOpacity` as a named wrapper around `farEdgeOpacity` so the full-card test does not depend on a far-only name. Same `farFadeBand` of 0.45. Do not change `farEdgeOpacity` results.
-  - Leave `nearHeading` in the file if a test still imports it; stop calling it from the page. If nothing calls it after the test edit, delete it.
+  - Add `fullCardOpacity` as named wrapper around `farEdgeOpacity` so full-card test not tied to far-only name. Same `farFadeBand` 0.45. `farEdgeOpacity` results unchanged.
+  - Leave `nearHeading` if a test still imports it; stop calling from page. If nothing calls it after test edit, delete.
 - `apps/tell_me_a_story/test/timeline_page_test.dart`
-  - Update the card-tap test. After the stub tap, expect `Zoom Level: 100% (Full Cards)`, the saved title, and no `Currently Focused`, no `Family Archive · Near Zoom View`, and no body line.
-  - Add the cases in the task below.
-- `apps/tell_me_a_story/test/timeline_zoom_test.dart` if it exists; otherwise cover `fullCardOpacity` from the page test's existing zoom tests. Do not add a new test file unless that file already exists.
+  - Update card-tap test. After stub tap, expect `Zoom Level: 100% (Full Cards)`, saved title, no `Currently Focused`, no `Family Archive · Near Zoom View`, no body line.
+  - Add cases in task below.
+- `apps/tell_me_a_story/test/timeline_zoom_test.dart` if exists; else cover `fullCardOpacity` from page test's existing zoom tests. No new test file unless that file already exists.
 
 ### Leave alone
 
-- `lib/core/theme/album_header.dart` and every `AlbumHeader(` call site.
-- Far rail, mid rail, `_ZoomCluster` on far and mid, `timeline_zoom.dart` decade and dial functions other than the opacity wrapper and an unused `nearHeading`.
-- `stories_api.dart`, including `listPublished` and its `.order('timeframe_start')`. The published select already has the fields this card paints. If a widget test fake constructs `Story` without photo paths, pass paths in the test.
+- `lib/core/theme/album_header.dart` + every `AlbumHeader(` call site.
+- Far rail, mid rail, `_ZoomCluster` on far + mid, `timeline_zoom.dart` decade + dial functions except opacity wrapper and unused `nearHeading`.
+- `stories_api.dart`, incl. `listPublished` + its `.order('timeframe_start')`. Published select already has fields card paints. If widget test fake builds `Story` without photo paths, pass paths in test.
 - Search, reader, drafts, new story, invites, `supabase/**`.
 
 ## Tasks
@@ -122,36 +122,36 @@ A parchment gradient sits over the top and bottom of the list, `IgnorePointer`, 
 
 **Files:** `timeline_page.dart`, `timeline_zoom.dart`, `test/timeline_page_test.dart`
 
-- [ ] Extend the existing "tapping a published card pushes the story reader" test. After the stub tap, the page shows `Zoom Level: 100% (Full Cards)` and `Jam`, and does not show `Currently Focused` or `Family Archive · Near Zoom View`. The card key tap still lands on the reader.
-- [ ] Add a widget test with three published stories, years 1991, 1990, and 1989, titles `Canning`, `Lawn`, and `Wagon`. Open full cards. Expect the 1991 title above the 1989 title. Expect no `Text` whose data equals the body string `secret body line`.
-- [ ] Add a widget test with two people and a place label. Both names and the place label are on the card. A story with no place does not show `location_on`.
-- [ ] Run `flutter test test/timeline_page_test.dart` from `apps/tell_me_a_story` and confirm the new expectations fail before the layout change.
-- [ ] Implement the zoom row, the alternating cards, the solid spine, the dot, and `dialStories` on the list already loaded. Set the single `_reveal` alignment to `0.5`. Leave `_onPinch` calling `_zoomIn` and `_zoomOut`.
-- [ ] Run the same test file. Expected: the new cases pass, and the far/mid cases (`CONTINUOUS FAMILY DIAL`, `1980 · IN FOCUS`, `Fit all`, search chip) still pass.
+- [ ] Extend existing "tapping a published card pushes the story reader" test. After stub tap, page shows `Zoom Level: 100% (Full Cards)` + `Jam`, not `Currently Focused` or `Family Archive · Near Zoom View`. Card key tap still lands on reader.
+- [ ] Add widget test: three published stories, years 1991, 1990, 1989, titles `Canning`, `Lawn`, `Wagon`. Open full cards. Expect 1991 title above 1989 title. Expect no `Text` with data equal to body string `secret body line`.
+- [ ] Add widget test: two people + place label. Both names + place label on card. Story with no place shows no `location_on`.
+- [ ] Run `flutter test test/timeline_page_test.dart` from `apps/tell_me_a_story`; confirm new expectations fail before layout change.
+- [ ] Implement zoom row, alternating cards, solid spine, dot, `dialStories` on loaded list. Set single `_reveal` alignment to `0.5`. Leave `_onPinch` calling `_zoomIn` + `_zoomOut`.
+- [ ] Run same test file. Expected: new cases pass; far/mid cases (`CONTINUOUS FAMILY DIAL`, `1980 · IN FOCUS`, `Fit all`, search chip) still pass.
 
 ### Task 2: Viewport center is the sharp card
 
 **Files:** `timeline_page.dart`, `timeline_zoom.dart`, `test/timeline_page_test.dart`
 
-- [ ] Add `fullCardOpacity` with the same contract as `farEdgeOpacity`. A unit test: row center in the middle 10% returns 1; a row center at the viewport edge returns 0; a row center halfway through the 45% band returns 0.5.
-- [ ] Widget test: three full cards in a tall-enough surface. After pump and one scroll notification, the middle card's `Opacity` is greater than the first and last. The middle card finds `Added by`. The first card does not find `Added by`.
-- [ ] Widget test: the center story has `photoCount` 4, two `photoPaths`, and comment count 1. The card shows one image (the first path) and the footer `4 photos · 1 note`. A story with an empty `photoPaths` has no image well (no `Image` descendant of that card) even if `photoCount` were 0.
-- [ ] Implement measurement the same way `_MidRail` already does: `ScrollNotification`, post-frame measure, opacity map, center id. Footer only when that id matches.
+- [ ] Add `fullCardOpacity`, same contract as `farEdgeOpacity`. Unit test: row center in middle 10% → 1; at viewport edge → 0; halfway through 45% band → 0.5.
+- [ ] Widget test: three full cards, tall-enough surface. After pump + one scroll notification, middle card's `Opacity` > first and last. Middle card finds `Added by`. First card doesn't.
+- [ ] Widget test: center story `photoCount` 4, two `photoPaths`, comment count 1. Card shows one image (first path) + footer `4 photos · 1 note`. Story with empty `photoPaths` has no image well (no `Image` descendant of card) even if `photoCount` 0.
+- [ ] Implement measurement like `_MidRail`: `ScrollNotification`, post-frame measure, opacity map, center id. Footer only when id matches.
 - [ ] Run `flutter test test/timeline_page_test.dart`. Expected: pass.
 
 ### Task 3: Narrow width, and the cluster stays off this page
 
 **Files:** `timeline_page.dart`, `test/timeline_page_test.dart`
 
-- [ ] Widget test: a child family is in the membership list. The full-card page does not find `union joined archive`, `Branch`, or a dashed sage painter. The spine is one solid line. Far still finds the branch label after `Macro`. Do not assert a second family's story title.
-- [ ] Widget test at 320×640 on the full-card page: `tester.takeException()` is null, and `Zoom Level: 100% (Full Cards)`, `Macro`, `Mid`, and `Full Cards` are present. `timeline-zoom-in` and `timeline-fit` are absent. Tapping `Macro` shows `CONTINUOUS FAMILY DIAL`.
-- [ ] Widget test: from mid, a scale of `1.1` lands on full cards and the focused card is revealed with the same `0.5` alignment as a stub tap. A scale of `0.9` on full cards returns to mid. The handler is still `_onPinch`.
-- [ ] Run `flutter test` from `apps/tell_me_a_story`. Expected: all tests pass. Paste the summary in the PR.
+- [ ] Widget test: child family in membership list. Full-card page doesn't find `union joined archive`, `Branch`, or dashed sage painter. Spine one solid line. Far still finds branch label after `Macro`. No asserting second family's story title.
+- [ ] Widget test at 320×640 on full-card page: `tester.takeException()` null; `Zoom Level: 100% (Full Cards)`, `Macro`, `Mid`, `Full Cards` present. `timeline-zoom-in` + `timeline-fit` absent. Tap `Macro` shows `CONTINUOUS FAMILY DIAL`.
+- [ ] Widget test: from mid, scale `1.1` lands on full cards, focused card revealed with same `0.5` alignment as stub tap. Scale `0.9` on full cards returns to mid. Handler still `_onPinch`.
+- [ ] Run `flutter test` from `apps/tell_me_a_story`. Expected: all pass. Paste summary in PR.
 
 ## Out
 
-The R2 header. Search. Reader, Drafts, New story. Far and mid layout. `listPublished` and its oldest-first order. Stories, Family Members, Places, Help. A new sort column. Another family's stories on this rail. A dashed sage rail on this page. Stock photos. Body excerpts. The old near heading and `Currently Focused`.
+R2 header. Search. Reader, Drafts, New story. Far + mid layout. `listPublished` + its oldest-first order. Stories, Family Members, Places, Help. New sort column. Other family's stories on this rail. Dashed sage rail on page. Stock photos. Body excerpts. Old near heading + `Currently Focused`.
 
 ## Exit
 
-`flutter test` from `apps/tell_me_a_story` is green. PR body says R3 is the full-card page only, the header was not edited, and Bill local smoke is not claimed. Bill's smoke on the README path is what closes the milestone.
+`flutter test` from `apps/tell_me_a_story` green. PR body says R3 = full-card page only, header not edited, Bill local smoke not claimed. Bill's smoke on README path closes milestone.

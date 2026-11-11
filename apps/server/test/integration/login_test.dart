@@ -1,3 +1,4 @@
+import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
 import 'package:tell_me_a_story_server/src/auth/auth_config.dart';
 import 'package:tell_me_a_story_server/src/generated/protocol.dart';
@@ -80,6 +81,63 @@ void main() {
             EmailAccountRequestExceptionReason.invalid,
           ),
         ),
+      );
+    });
+
+    test('when a password method is called then it is forbidden', () async {
+      final forbidden = throwsA(
+        isA<AppException>().having(
+          (e) => e.code,
+          'code',
+          AppErrorCode.forbidden,
+        ),
+      );
+      final idp = endpoints.emailIdp;
+      final id = UuidValue.fromString('00000000-0000-4000-8000-000000000001');
+
+      await expectLater(
+        idp.login(sessionBuilder, email: 'ana@example.com', password: 'x'),
+        forbidden,
+      );
+      await expectLater(
+        idp.startRegistration(sessionBuilder, email: 'ana@example.com'),
+        forbidden,
+      );
+      await expectLater(
+        idp.verifyRegistrationCode(
+          sessionBuilder,
+          accountRequestId: id,
+          verificationCode: '111111',
+        ),
+        forbidden,
+      );
+      await expectLater(
+        idp.finishRegistration(
+          sessionBuilder,
+          registrationToken: 't',
+          password: 'x',
+        ),
+        forbidden,
+      );
+      await expectLater(
+        idp.startPasswordReset(sessionBuilder, email: 'ana@example.com'),
+        forbidden,
+      );
+      await expectLater(
+        idp.verifyPasswordResetCode(
+          sessionBuilder,
+          passwordResetRequestId: id,
+          verificationCode: '111111',
+        ),
+        forbidden,
+      );
+      await expectLater(
+        idp.finishPasswordReset(
+          sessionBuilder,
+          finishPasswordResetToken: 't',
+          newPassword: 'x',
+        ),
+        forbidden,
       );
     });
   }, rollbackDatabase: RollbackDatabase.disabled);

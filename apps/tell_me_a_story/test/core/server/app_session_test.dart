@@ -4,7 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/ui/album/album_header.dart';
+import 'package:tell_me_a_story/core/session/app_session_provider.dart';
+import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
+
+import '../../support/pump_app.dart';
 
 const _userId = '6f1c2b4e-0000-4000-8000-000000000001';
 
@@ -17,7 +20,6 @@ void main() {
   });
 
   tearDown(() {
-    AppSession.instance = const ServerAppSession();
     serverClientForTesting = null;
   });
 
@@ -85,21 +87,20 @@ void main() {
     tester,
   ) async {
     final session = _FakeSession('u1');
-    AppSession.instance = session;
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          appBar: AlbumHeader(
-            page: AlbumHeaderPage.timeline,
-            familyName: 'Morgan',
-            families: const [],
-            currentFamilyId: null,
-            onFamilySelected: (_) {},
-          ),
+    await pumpApp(
+      tester,
+      Scaffold(
+        appBar: AlbumHeader(
+          page: AlbumHeaderPage.timeline,
+          familyName: 'Morgan',
+          families: const [],
+          currentFamilyId: null,
+          onFamilySelected: (_) {},
         ),
       ),
+      overrides: [appSessionProvider.overrideWithValue(session)],
     );
     await tester.pumpAndSettle();
 

@@ -1,18 +1,18 @@
 # M4.5 Memory Album visual skin — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` after human approval. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` after human approval. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
-> **Gate:** Plan-only until human approves. Do not write application code until approval.
+> **Gate:** Plan-only until human approves. No app code before approval.
 >
-> **On approval:** Copy this plan to `docs/superpowers/plans/2026-09-27-m4-5-memory-album-skin.md` in the first commit. Isolated worktree: `.worktrees/feat-m04-5-memory-album-skin` on `feat/m04-5-memory-album-skin` from **latest `main`**.
+> **On approval:** Copy plan to `docs/superpowers/plans/2026-09-27-m4-5-memory-album-skin.md` in first commit. Isolated worktree: `.worktrees/feat-m04-5-memory-album-skin` on `feat/m04-5-memory-album-skin` from **latest `main`**.
 
-**Goal:** Skin existing Flutter chrome to **Memory Album** tokens on the four IN surfaces only. No new features, routes, schema, Edge, Realtime, or Storage. Exit = **Mugatu PASS vs Stitch** + **Bill local smoke**. Open PR; do not merge unless Bill says merge.
+**Goal:** Skin existing Flutter chrome to **Memory Album** tokens on four IN surfaces only. No new features, routes, schema, Edge, Realtime, Storage. Exit = **Mugatu PASS vs Stitch** + **Bill local smoke**. Open PR; no merge unless Bill says merge.
 
-**Architecture:** Add a locked `AlbumTheme` (`ColorScheme` + `TextTheme` + component themes). Apply it to the four IN surfaces so parchment/terracotta/sage/ink/fonts/roundness match UXD DESIGN.md. Existing widgets keep their structure and locked EN copy. Timeline published rows become **soft album cards** (not Far/Mid/Near zoom).
+**Architecture:** Add locked `AlbumTheme` (`ColorScheme` + `TextTheme` + component themes). Apply to four IN surfaces so parchment/terracotta/sage/ink/fonts/roundness match UXD DESIGN.md. Existing widgets keep structure + locked EN copy. Timeline published rows → **soft album cards** (not Far/Mid/Near zoom).
 
 **Tech Stack:** Flutter 3.x, `google_fonts` (Newsreader, Literata, Source Sans 3). No new backend.
 
-**M5:** Stopped. Do not start Reader / comments / perspectives in this PR.
+**M5:** Stopped. No Reader / comments / perspectives in this PR.
 
 ## Sources (do not invent past these)
 
@@ -24,21 +24,21 @@
 
 ## Approaches (locked recommendation)
 
-1. **Recommended — token theme + card chrome on IN surfaces (Approach A).** One `albumTheme` `ThemeData`. Wrap Timeline / New Story / Drafts (Add Person + Place picker inherit from capture). Soft `Card` around published rows and draft rows. Keep field order, routes, copy, Mapbox, invite **behavior**.
-2. **Global `MaterialApp.theme` only, no card/layout pass.** Tokens would leak to magic-link; timeline would stay a flat list. Fail Mugatu “soft story cards.”
-3. **Rebuild screens from Stitch HTML.** Out of scope — skin existing chrome; do not redesign capture order or invent copy.
+1. **Recommended — token theme + card chrome on IN surfaces (Approach A).** One `albumTheme` `ThemeData`. Wrap Timeline / New Story / Drafts (Add Person + Place picker inherit from capture). Soft `Card` around published + draft rows. Keep field order, routes, copy, Mapbox, invite **behavior**.
+2. **Global `MaterialApp.theme` only, no card/layout pass.** Tokens leak to magic-link; timeline stays flat list. Fails Mugatu "soft story cards."
+3. **Rebuild screens from Stitch HTML.** Out of scope — skin existing chrome; no capture order redesign, no invented copy.
 
-Pick **Approach A**. Apply theme on `MaterialApp.router` **and** assert IN surfaces; **do not** change Invite modal tabs/copy/layout (Invite polish is OUT). Magic-link inheriting parchment is incidental token application, not a new screen.
+Pick **Approach A**. Apply theme on `MaterialApp.router` **and** assert IN surfaces; **no** Invite modal tab/copy/layout changes (Invite polish OUT). Magic-link inheriting parchment = incidental token application, not new screen.
 
 ## Locked tokens (must-match)
 
 | Token | Hex / value | Use |
 |-------|-------------|-----|
-| Parchment BG | `#FBF7F2` | Scaffold / canvas. Stitch may read `#FFF8F6` — either warm album. **Never** Material white `#FFFFFF` as product chrome. |
+| Parchment BG | `#FBF7F2` | Scaffold / canvas. Stitch may read `#FFF8F6` — either = warm album. **Never** Material white `#FFFFFF` as product chrome. |
 | Terracotta primary | `#8B5E4B` | Publish / filled primary buttons / selected decade |
 | Muted sage | `#7A8B74` | Chips, status, secondary accents **only** — **not** primary buttons |
-| Ink brown | `#2C2416` | Body and headline text |
-| Forbidden sage stand-in | `#665D5A` | Stitch Material `ColorScheme.secondary` — **do not** use as sage |
+| Ink brown | `#2C2416` | Body + headline text |
+| Forbidden sage stand-in | `#665D5A` | Stitch Material `ColorScheme.secondary` — **don't** use as sage |
 | Headlines | Newsreader | AppBar titles, section titles |
 | Body | Literata | Story text, list previews, empty copy |
 | Labels | Source Sans 3 | Buttons, chips, form labels |
@@ -47,7 +47,7 @@ Pick **Approach A**. Apply theme on `MaterialApp.router` **and** assert IN surfa
 
 ## Screens IN (only these)
 
-1. `/timeline` — parchment album chrome + **soft story cards**. **Not** Far/Mid/Near pinch (M6). Stitch zoom screens are **reference for card feel**, not zoom chrome.
+1. `/timeline` — parchment album chrome + **soft story cards**. **Not** Far/Mid/Near pinch (M6). Stitch zoom screens = **card feel reference**, not zoom chrome.
 2. `/stories/new` — capture form: decade chips, people, place+map, text, photo strip. Field **order unchanged**.
 3. `/drafts` — album list + missing-field chips. EN from chrome locks.
 4. People / Places **from capture** — Add Person + Place picker sheets only.
@@ -81,8 +81,8 @@ Still Material debug chrome; wrong fonts; purple AppBar / cold white as product 
 
 - `TellMeAStoryApp` has **no** `theme:` — default Material 3.
 - Capture already hardcodes terracotta `#8B5E4B` for publish highlight / selected decade.
-- Timeline published rows are a bare `Column` (no Card).
-- Drafts rows are not album cards.
+- Timeline published rows = bare `Column` (no Card).
+- Drafts rows not album cards.
 - No Newsreader / Literata / Source Sans 3.
 
 ## Files to touch
@@ -92,7 +92,7 @@ Still Material debug chrome; wrong fonts; purple AppBar / cold white as product 
 | Path | Responsibility |
 |------|----------------|
 | `apps/tell_me_a_story/lib/core/theme/album_theme.dart` | Locked hex constants + `ThemeData albumTheme()` |
-| `apps/tell_me_a_story/test/album_theme_test.dart` | Exact hex, sage ≠ `#665D5A`, primary is terracotta |
+| `apps/tell_me_a_story/test/album_theme_test.dart` | Exact hex, sage ≠ `#665D5A`, primary = terracotta |
 
 ### Modify
 
@@ -100,14 +100,14 @@ Still Material debug chrome; wrong fonts; purple AppBar / cold white as product 
 |------|--------|
 | `pubspec.yaml` | Pin `google_fonts` |
 | `lib/app.dart` | `theme: albumTheme()`, `colorSchemeSeed` forbidden |
-| `lib/features/timeline/timeline_page.dart` | Parchment scaffold; AppBar ink/parchment; published row → rounded Card (8–12px), ink text; keep tap → no new routes beyond existing M4 reader no-op **or** existing `/stories/:id` if already on main (reader is OUT — **do not add reader**). Timeline tap already no-op on main until M5. |
-| `lib/features/stories/new_story_page.dart` | Use theme tokens instead of ad-hoc colors where possible; section titles Newsreader; body Literata; Save draft outlined/secondary; Publish filled terracotta |
+| `lib/features/timeline/timeline_page.dart` | Parchment scaffold; AppBar ink/parchment; published row → rounded Card (8–12px), ink text; keep tap → no new routes beyond existing M4 reader no-op **or** existing `/stories/:id` if already on main (reader OUT — **don't add reader**). Timeline tap already no-op on main until M5. |
+| `lib/features/stories/new_story_page.dart` | Theme tokens over ad-hoc colors where possible; section titles Newsreader; body Literata; Save draft outlined/secondary; Publish filled terracotta |
 | `lib/features/stories/timeframe_chips.dart` | Selected = terracotta; unselected sage border/text optional |
-| `lib/features/stories/photo_strip.dart` | 8–12px tiles; parchment/sage surfaces not `surfaceContainerHighest` gray |
+| `lib/features/stories/photo_strip.dart` | 8–12px tiles; parchment/sage surfaces, not `surfaceContainerHighest` gray |
 | `lib/features/drafts/drafts_page.dart` | Album cards; missing-field chips sage; locked empty/loading copy unchanged |
 | `lib/features/people/add_person_modal.dart` | Inherit theme; parchment sheet; no copy changes |
 | `lib/features/places/place_picker_modal.dart` | Inherit theme; parchment sheet; Mapbox failure copy unchanged |
-| Widget tests that assume default Material colors | Update only if they assert chrome colors; **do not** weaken copy assertions |
+| Widget tests assuming default Material colors | Update only if asserting chrome colors; **don't** weaken copy assertions |
 | `README.md` | M4.5 smoke: visual check of four IN surfaces |
 
 ### Explicitly do not modify
@@ -149,7 +149,7 @@ const albumInk = Color(0xFF2C2416);
 ThemeData albumTheme() { ... }
 ```
 
-`ColorScheme` from parchment + terracotta primary + sage as **tertiary** (not `secondary: Color(0xFF665D5A)`). `onSurface` / `onPrimary` ink or parchment as appropriate.
+`ColorScheme` from parchment + terracotta primary + sage as **tertiary** (not `secondary: Color(0xFF665D5A)`). `onSurface` / `onPrimary` ink or parchment as fits.
 
 `TextTheme`: headline* Newsreader, body* Literata, label* Source Sans 3 via `google_fonts`.
 
@@ -189,9 +189,9 @@ feat(m04.5): add Memory Album ThemeData tokens
 
 Wire `theme: albumTheme()` on `MaterialApp.router`.
 
-Smoke widget: pump `TellMeAStoryApp` or `MaterialApp(theme: albumTheme(), home: TimelinePage(...))` and expect scaffold background parchment (read `Theme.of(context).scaffoldBackgroundColor` or `Container` color).
+Smoke widget: pump `TellMeAStoryApp` or `MaterialApp(theme: albumTheme(), home: TimelinePage(...))`, expect scaffold bg parchment (read `Theme.of(context).scaffoldBackgroundColor` or `Container` color).
 
-Do **not** restyle Invite controls beyond inherited colors.
+**Don't** restyle Invite controls beyond inherited colors.
 
 Commit:
 
@@ -203,11 +203,11 @@ feat(m04.5): apply Memory Album theme to the app
 
 ### Task 4: Timeline soft story cards
 
-Replace bare `_PublishedRow` `Column` with a `Card` (radius 8–12, padding, ink title + Literata preview). Empty copy **unchanged**: `No stories yet. Capture the first one for this family.`
+Replace bare `_PublishedRow` `Column` with `Card` (radius 8–12, padding, ink title + Literata preview). Empty copy **unchanged**: `No stories yet. Capture the first one for this family.`
 
 No zoom buttons, no decade-dot ladder.
 
-Update `timeline_page_test` if it looks for a raw Column; keep empty-copy and AppBar label tests.
+Update `timeline_page_test` if it looks for raw Column; keep empty-copy + AppBar label tests.
 
 Commit:
 
@@ -219,16 +219,16 @@ feat(m04.5): album cards on timeline smoke list
 
 ### Task 5: Capture + people/place sheets
 
-- Section titles use headline style (Newsreader).
+- Section titles headline style (Newsreader).
 - Story field body Literata.
 - Selected decade chip terracotta fill; unselected sage/ink outline.
 - Publish `FilledButton` terracotta; Save draft `TextButton` / outlined.
 - Photo strip tiles 8–12px, parchment/sage, not M3 gray `surfaceContainerHighest`.
-- Add Person / Place picker: parchment modal background via theme; **no new strings**.
+- Add Person / Place picker: parchment modal bg via theme; **no new strings**.
 
 Keep terracotta highlight `#8B5E4B` for blocked publish (already locked).
 
-Capture tests that find `Save draft` / `Publish story` / banner copy must still pass.
+Capture tests finding `Save draft` / `Publish story` / banner copy must still pass.
 
 Commit:
 
@@ -240,7 +240,7 @@ feat(m04.5): skin capture form and people/place sheets
 
 ### Task 6: Drafts album list
 
-Draft rows → same card language as timeline. Filter / missing-field chips use sage (not terracotta primary). Empty/loading copy **verbatim**.
+Draft rows → same card language as timeline. Filter / missing-field chips sage (not terracotta primary). Empty/loading copy **verbatim**.
 
 Commit:
 
@@ -265,7 +265,7 @@ cd apps/tell_me_a_story && flutter test
 
 Report pass/fail with output.
 
-**Screenshots for Mugatu** (after local run): Timeline, New story, Drafts, Add Person, Place picker — vs Stitch refs above. Agent captures if Flutter web is up; otherwise Bill/Mugatu.
+**Screenshots for Mugatu** (after local run): Timeline, New story, Drafts, Add Person, Place picker — vs Stitch refs above. Agent captures if Flutter web up; else Bill/Mugatu.
 
 **PR title:** `feat(m04.5): Memory Album visual skin`
 
@@ -276,9 +276,9 @@ PR body:
 - `flutter test` output
 - Screenshot list / paths
 - Non-goals: M5 reader, zoom, Invite polish, schema
-- Do not claim Mugatu PASS or Bill smoke until they sign
+- No Mugatu PASS or Bill smoke claim until they sign
 
-Open PR; **do not merge** unless Bill says merge.
+Open PR; **no merge** unless Bill says merge.
 
 ---
 
@@ -294,7 +294,7 @@ Open PR; **do not merge** unless Bill says merge.
 | No M5 / no Invite polish / no schema | Global |
 | `flutter test` + screenshots | 7 |
 
-**Placeholder scan:** Mugatu PASS and Bill smoke remain named exits, not agent-closed.
+**Placeholder scan:** Mugatu PASS + Bill smoke stay named exits, not agent-closed.
 
 ## Execution handoff (after approval)
 

@@ -116,9 +116,11 @@ jobs:
           just server > "$RUNNER_TEMP/server.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/server.pid"
 
-      - name: flutter pub get
+      - name: flutter pub get + codegen
         working-directory: apps/tell_me_a_story
-        run: flutter pub get --enforce-lockfile
+        run: |
+          flutter pub get --enforce-lockfile
+          dart run build_runner build
 
       - name: chrome and chromedriver (preinstalled, versions must match)
         run: |

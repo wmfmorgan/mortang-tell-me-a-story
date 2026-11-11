@@ -1,0 +1,371 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_repository.dart';
+import 'package:tell_me_a_story/core/domain/people_repository.dart';
+import 'package:tell_me_a_story/core/domain/person.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/place.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_date_precision.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
+import 'package:tell_me_a_story/core/widgets/navigation/unsaved_guard.dart';
+import 'package:tell_me_a_story/features/stories/presentation/new_story_page.dart';
+
+import '../../../support/fakes/fake_invite_repository.dart';
+import '../../../support/fakes/fake_mapbox_search.dart';
+import '../../../support/fakes/fake_photos_repository.dart';
+import '../../../support/fakes/fake_places_repository.dart';
+import '../../../support/fakes/fake_stories_repository.dart';
+import '../../../support/pump_app.dart';
+
+const _ada = 'ada';
+
+const _person = Person(id: 'p1', familyId: _ada, name: 'Ada');
+
+final _park = const Place(
+  id: 'pl1',
+  label: 'Central Park',
+  address: 'New York, NY',
+  lat: 40.78,
+  lng: -73.96,
+  isFavorite: true,
+);
+
+void main() {
+  setUp(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
+  testWidgets('any field change prompts', (tester) async {
+    await _surface(tester);
+
+    Future<void> dirty(Future<void> Function() change, {Story? story}) async {
+      await _mount(tester, story: story ?? _dated());
+      await change();
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('story-capture-close')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Leave this story?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Stay'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    await dirty(() async {
+      await tester.enterText(find.byKey(const Key('story-title')), 'Renamed');
+    });
+    await dirty(() async {
+      await tester.enterText(find.byKey(const Key('story-body')), 'Edited');
+    });
+    await dirty(() async {
+      await tester.enterText(find.byKey(const Key('story-date-year')), '1999');
+    });
+    await dirty(() async {
+      tester
+          .widget<DropdownButton<int>>(
+            find.byKey(const Key('story-date-month')),
+          )
+          .onChanged!(3);
+    });
+    await dirty(() async {
+      tester.widget<Chip>(find.widgetWithText(Chip, 'Ada')).onDeleted!();
+    }, story: _dated(personIds: const ['p1']));
+    await dirty(() async {
+      await tester.ensureVisible(
+        find.widgetWithText(TextButton, 'Choose place'),
+      );
+      await tester.tap(find.widgetWithText(TextButton, 'Choose place'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Central Park'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Use this place'));
+      await tester.pumpAndSettle();
+    }, story: _dated(placeId: null));
+  });
+
+  testWidgets('close and back prompt', (tester) async {
+    await _surface(tester);
+    final router = await _mount(tester, story: _dated(), pushed: true);
+    await tester.enterText(find.byKey(const Key('story-title')), 'Renamed');
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('story-capture-close')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Leave this story?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Stay'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(router.state.uri.path, '/stories/s1/edit');
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Leave this story?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Stay'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(router.state.uri.path, '/stories/s1/edit');
+    expect(find.text('Renamed'), findsOneWidget);
+  });
+
+  testWidgets(
+    'the Save changes button never prompts and returns to the reader',
+    (tester) async {
+      await _surface(tester);
+      final stories = _Stories(_dated());
+      final router = await _mount(tester, stories: stories);
+      await tester.enterText(find.byKey(const Key('story-title')), 'Renamed');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
+      await tester.pumpAndSettle();
+      expect(find.text('Leave this story?'), findsNothing);
+      expect(find.text('reader-s1'), findsOneWidget);
+      expect(router.state.uri.path, '/stories/s1');
+      expect(stories.updateDraftCalls, 1);
+    },
+  );
+
+  testWidgets('Save from the prompt finishes the exit, not the reader', (
+    tester,
+  ) async {
+    await _surface(tester);
+    final stories = _Stories(_dated());
+    final router = await _mount(tester, stories: stories);
+    await tester.enterText(find.byKey(const Key('story-title')), 'Renamed');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('story-capture-close')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Leave this story?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Leave this story?'), findsNothing);
+    expect(find.text('reader-s1'), findsNothing);
+    expect(router.state.uri.path, '/timeline');
+    expect(stories.updateDraftCalls, 1);
+  });
+
+  testWidgets(
+    'Save on an undated edit is blocked by the Save changes date check and stays',
+    (tester) async {
+      await _surface(tester);
+      final stories = _Stories(
+        const Story(
+          id: 's1',
+          familyId: _ada,
+          authorId: 'u1',
+          title: 'Jam',
+          body: 'We made jam.',
+          status: StoryStatus.draft,
+        ),
+      );
+      final router = await _mount(tester, stories: stories);
+      await tester.enterText(find.byKey(const Key('story-title')), 'Renamed');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('story-capture-close')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Leave this story?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Leave this story?'), findsNothing);
+      expect(router.state.uri.path, '/stories/s1/edit');
+      expect(find.text('Renamed'), findsOneWidget);
+      expect(stories.updateDraftCalls, 0);
+      expect(stories.createDraftCalls, 0);
+    },
+  );
+}
+
+Story _dated({List<String> personIds = const [], String? placeId}) {
+  return Story(
+    id: 's1',
+    familyId: _ada,
+    authorId: 'u1',
+    title: 'Jam',
+    body: 'We made jam.',
+    timeframeStart: DateTime(1987),
+    timeframeEnd: DateTime(1987, 12, 31),
+    datePrecision: StoryDatePrecision.year,
+    placeId: placeId,
+    status: StoryStatus.draft,
+    personIds: personIds,
+  );
+}
+
+Future<void> _surface(WidgetTester tester) async {
+  await tester.binding.setSurfaceSize(const Size(1400, 1200));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+}
+
+GoRouter? _router;
+
+Future<GoRouter> _mount(
+  WidgetTester tester, {
+  Story? story,
+  _Stories? stories,
+  bool pushed = false,
+}) async {
+  final previous = _router;
+  _router = null;
+  previous?.dispose();
+  final api = stories ?? _Stories(story ?? _dated());
+  final page = NewStoryPage(
+    hasMapboxToken: true,
+    mapBuilder: ({double? lat, double? lng}) => const SizedBox.shrink(),
+    pickImageBytes: () async => null,
+    editStoryId: 's1',
+  );
+  final router = GoRouter(
+    initialLocation: pushed ? '/timeline' : '/stories/s1/edit',
+    routes: [
+      GoRoute(
+        path: '/timeline',
+        builder: (_, _) => const Text('timeline-marker'),
+      ),
+      GoRoute(
+        path: '/stories/:storyId/edit',
+        onExit: (context, state) => UnsavedGuards.onExit(context, state),
+        builder: (_, _) => page,
+      ),
+      GoRoute(
+        path: '/stories/:storyId',
+        builder: (_, state) =>
+            Text('reader-${state.pathParameters['storyId']}'),
+      ),
+    ],
+  );
+  _router = router;
+  addTearDown(() {
+    if (_router == router) {
+      _router = null;
+      router.dispose();
+    }
+  });
+  await pumpRouterApp(
+    tester,
+    router,
+    overrides: [
+      inviteRepositoryProvider.overrideWithValue(
+        FakeInviteRepository(
+          familyId: _ada,
+          createdFamilyId: _ada,
+          acceptedFamilyId: _ada,
+        ),
+      ),
+      peopleRepositoryProvider.overrideWithValue(_People()),
+      placesRepositoryProvider.overrideWithValue(_Places()),
+      mapboxSearchRepositoryProvider.overrideWithValue(FakeMapboxSearch()),
+      storiesRepositoryProvider.overrideWithValue(api),
+      photosRepositoryProvider.overrideWithValue(FakePhotosRepository()),
+    ],
+  );
+  await tester.pumpAndSettle();
+  if (pushed) {
+    router.push('/stories/s1/edit');
+    await tester.pumpAndSettle();
+  }
+  return router;
+}
+
+class _Stories extends FakeStoriesRepository {
+  _Stories(this.story);
+
+  Story story;
+  var createDraftCalls = 0;
+  var updateDraftCalls = 0;
+
+  @override
+  Future<Story> createDraft({
+    String? id,
+    required String familyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    bool allowUndated = false,
+    List<String> personIds = const [],
+  }) async {
+    createDraftCalls++;
+    return story;
+  }
+
+  @override
+  Future<Story> updateDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) async {
+    updateDraftCalls++;
+    story = Story(
+      id: storyId,
+      familyId: story.familyId,
+      authorId: story.authorId,
+      title: title,
+      body: body,
+      timeframeStart: timeframeStart,
+      timeframeEnd: timeframeEnd,
+      placeId: placeId,
+      status: StoryStatus.draft,
+      personIds: personIds ?? story.personIds,
+    );
+    return story;
+  }
+
+  @override
+  Future<bool> autosaveDraft({
+    required String storyId,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) async => true;
+
+  @override
+  Future<Story> publish(String storyId) async => story;
+
+  @override
+  Future<Story> getStory(String storyId) async => story;
+}
+
+class _People extends PeopleRepository {
+  @override
+  Future<List<Person>> listPeople(String familyId) async => const [_person];
+
+  @override
+  Future<Person> createPerson({
+    required String familyId,
+    required String name,
+    String? about,
+    String? email,
+    bool passedAway = false,
+    List<int>? pictureBytes,
+  }) async {
+    throw UnimplementedError();
+  }
+}
+
+class _Places extends FakePlacesRepository {
+  _Places() : super(places: [_park]);
+
+  @override
+  Future<Place> markUsed(String placeId) async => _park;
+}

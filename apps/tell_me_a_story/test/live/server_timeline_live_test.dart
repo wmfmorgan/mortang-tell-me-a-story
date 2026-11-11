@@ -5,8 +5,9 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/data/timeline_live.dart';
+import 'package:tell_me_a_story/core/data/server_stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/session/server_timeline_live.dart';
 
 import 'support/live_server.dart';
 import 'support/story_fixtures.dart';
@@ -21,7 +22,7 @@ void main() {
   test('the timeline hears a publish and the reader an update', () async {
     final client = await signInLive(freshEmail('live'));
     final family = await seedFamily(client);
-    final stories = StoriesApi(client: client);
+    final stories = ServerStoriesRepository(client: client);
     final draft = await stories.createDraft(
       familyId: family.familyId,
       timeframeStart: DateTime(1975, 7, 4),
@@ -59,7 +60,7 @@ void main() {
   test('the tree hears a new branch and a publish in it', () async {
     final client = await signInLive(freshEmail('live-tree'));
     final family = await seedFamily(client);
-    final stories = StoriesApi(client: client);
+    final stories = ServerStoriesRepository(client: client);
     Future<Story> draftIn(String familyId, String title) => stories.createDraft(
       familyId: familyId,
       timeframeStart: DateTime(1975, 7, 4),

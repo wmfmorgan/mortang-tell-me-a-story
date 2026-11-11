@@ -1,5 +1,5 @@
 ---
-description: Coding rules and build contract (extends AGENTS.md § Build contract)
+description: Coding rules and gates (see AGENTS.md § Standards and § Gates)
 globs:
   - "apps/tell_me_a_story/**/*.dart"
   - "apps/server/**/*.dart"
@@ -8,4 +8,4 @@ globs:
   - "mise.toml"
 alwaysApply: false
 ---
-Follow `AGENTS.md` § Build contract, with § Work rules, § Gates and § Code rules. This file adds no rules. If it and `AGENTS.md` ever differ, `AGENTS.md` wins.
+Follow `AGENTS.md` § Standards and § Gates, with `.context/engineering-guide.md` for patterns. This file adds no rules. If it and `AGENTS.md` ever differ, `AGENTS.md` wins.

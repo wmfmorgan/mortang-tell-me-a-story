@@ -1,14 +1,14 @@
 # Phase 4f: e2e and CI Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** The e2e flows (C1–C9) sign in with the 6-digit email code against a local `just server`, and the CI `e2e` job runs them against that server instead of the Supabase stack.
+**Goal:** e2e flows (C1–C9) sign in with 6-digit email code against local `just server`; CI `e2e` job runs them against that server, not Supabase stack.
 
-**Architecture:** Slice row "4f e2e and CI" of `2026-11-07-serverpod-phase4-client-cutover.md`. The e2e entry keeps its flows and helpers; only sign-in, mounting, the prod guard and the reset helper change. Sign-in types the dev code `111111` into the code step that 4a builds (keys `magic-link-email`, `invite-email`, `sign-in-code`, `sign-in-code-submit`). The app is mounted by `app.main()` once; later flows remount the exact `TellMeAStoryApp` widget `main()` built, so the e2e never copies `main.dart`'s wiring and needs no knowledge of `AuthRefresh`'s constructor. The magic-link relay (`e2e/relay.ts`, `support/relay_client.dart`) goes away.
+**Architecture:** Slice row "4f e2e and CI" of `2026-11-07-serverpod-phase4-client-cutover.md`. e2e entry keeps flows + helpers; only sign-in, mounting, prod guard, reset helper change. Sign-in types dev code `111111` into code step 4a builds (keys `magic-link-email`, `invite-email`, `sign-in-code`, `sign-in-code-submit`). App mounted by `app.main()` once; later flows remount exact `TellMeAStoryApp` widget `main()` built, so e2e never copies `main.dart` wiring, needs no knowledge of `AuthRefresh` constructor. Magic-link relay (`e2e/relay.ts`, `support/relay_client.dart`) removed.
 
 **Tech Stack:** Flutter 3.47.7 `integration_test` + `flutter drive` (web-server, ChromeDriver), Serverpod 4.1.1 client (`serverClient.auth`), bash, GitHub Actions, just.
 
-**Verification on this branch:** `bash e2e/check_flows.sh` and `flutter analyze` (integration_test clean; total ≤ 23). The full `flutter drive` run needs every gateway switched (4a–4e) and happens in 4z.
+**Verification on this branch:** `bash e2e/check_flows.sh` and `flutter analyze` (integration_test clean; total ≤ 23). Full `flutter drive` run needs every gateway switched (4a–4e); happens in 4z.
 
 ---
 
@@ -19,13 +19,13 @@
 | `apps/tell_me_a_story/integration_test/flows.md` | C1 renamed "C1 email-code sign-in lands on timeline"; owning path `core/supabase/` → `core/server/`. |
 | `apps/tell_me_a_story/integration_test/e2e_test.dart` | Code sign-in (`_signIn`, C1, C6); `_mountApp` reuses `main()`'s widget; Supabase/relay code removed; `place.familyId` → `FavoritePlace.familyId`. |
 | `apps/tell_me_a_story/integration_test/support/prod_guard.dart` | `assertLocalServer()`: `Env.serverUrl` must be `http://127.0.0.1:8080` or `http://localhost:8080`. |
-| `apps/tell_me_a_story/integration_test/support/preconditions.dart` | `resetAppState()` signs out through `serverClient.auth`; `createFavoritePlace` returns `({String familyId, String label})`. |
+| `apps/tell_me_a_story/integration_test/support/preconditions.dart` | `resetAppState()` signs out via `serverClient.auth`; `createFavoritePlace` returns `({String familyId, String label})`. |
 | `apps/tell_me_a_story/integration_test/support/relay_client.dart` | Deleted. |
 | `e2e/relay.ts` | Deleted (`check_flows.sh` stays). |
-| `.github/workflows/ci.yml` | `e2e` job only: `just server` instead of `supabase start`; Deno, relay and Supabase CLI steps dropped; `flutter drive --dart-define=SERVER_URL=http://127.0.0.1:8080`. |
+| `.github/workflows/ci.yml` | `e2e` job only: `just server` not `supabase start`; Deno, relay, Supabase CLI steps dropped; `flutter drive --dart-define=SERVER_URL=http://127.0.0.1:8080`. |
 | `justfile` | `run` recipe adds `--dart-define=SERVER_URL=http://127.0.0.1:8080` (Supabase defines stay until 4z). |
 
-No `lib/` or `test/` file changes, so no gateway fakes are touched.
+No `lib/` or `test/` changes, so no gateway fakes touched.
 
 ---
 
@@ -44,7 +44,7 @@ No `lib/` or `test/` file changes, so no gateway fakes are touched.
 - [ ] **Step 2: Run it, expect FAIL**
 
 Run: `bash e2e/check_flows.sh`
-Expected: exit 1, `check_flows: flows.md and e2e_test.dart disagree:` with a diff showing `C1 email-code …` vs `C1 magic-link …`.
+Expected: exit 1, `check_flows: flows.md and e2e_test.dart disagree:` with diff `C1 email-code …` vs `C1 magic-link …`.
 
 - [ ] **Step 3: Rename the test**
 
@@ -65,7 +65,7 @@ Expected: `check_flows: 9 flows match (…flows.md <-> …e2e_test.dart)`
 - Modify: `apps/tell_me_a_story/integration_test/support/prod_guard.dart`
 - Modify: `apps/tell_me_a_story/integration_test/support/preconditions.dart`
 - Delete: `apps/tell_me_a_story/integration_test/support/relay_client.dart`, `e2e/relay.ts`
-- Modify: `apps/tell_me_a_story/integration_test/e2e_test.dart` (imports, `setUpAll`, the two `place.familyId` reads)
+- Modify: `apps/tell_me_a_story/integration_test/e2e_test.dart` (imports, `setUpAll`, two `place.familyId` reads)
 
 - [ ] **Step 1: Failing check**
 
@@ -136,7 +136,7 @@ Future<FavoritePlace> createFavoritePlace({
 }
 ```
 
-`Place` loses `familyId` in 4d, so the flows read the family from `FavoritePlace` instead (`_untilDraftReady(familyId: place.familyId …)` and `_publishedStory(familyId: place.familyId …)` keep compiling unchanged because the record has the same field name).
+`Place` loses `familyId` in 4d, so flows read family from `FavoritePlace` (`_untilDraftReady(familyId: place.familyId …)` and `_publishedStory(familyId: place.familyId …)` compile unchanged — record has same field name).
 
 - [ ] **Step 4: Delete the relay**
 
@@ -144,7 +144,7 @@ Future<FavoritePlace> createFavoritePlace({
 git rm e2e/relay.ts apps/tell_me_a_story/integration_test/support/relay_client.dart
 ```
 
-- [ ] **Step 5:** `e2e_test.dart`: `setUpAll(assertLocalServer);`, drop the `supabase_flutter`, `supabase_init`, `relay_client`, `auth_refresh`, `app_router`, `families_api`, `invite_api`, `people_api`, `profile_api`, `profile_session` imports (Task 3 removes their last uses).
+- [ ] **Step 5:** `e2e_test.dart`: `setUpAll(assertLocalServer);`, drop `supabase_flutter`, `supabase_init`, `relay_client`, `auth_refresh`, `app_router`, `families_api`, `invite_api`, `people_api`, `profile_api`, `profile_session` imports (Task 3 removes last uses).
 
 ### Task 3: Code sign-in and mounting in `e2e_test.dart`
 
@@ -255,7 +255,7 @@ Future<void> _signIn(WidgetTester tester, String flow, String email) async {
     });
 ```
 
-- [ ] **Step 5: C6** — the guest asks for a code on the invite page and enters it there:
+- [ ] **Step 5: C6** — guest requests code on invite page, enters it there:
 
 ```dart
     await _step('C6', 'send-code', () async {
@@ -284,18 +284,18 @@ Run: `bash e2e/check_flows.sh` → `9 flows match`.
 
 **Files:** Modify `.github/workflows/ci.yml` (job `e2e` only)
 
-- [ ] **Step 1:** Replace the Supabase CLI env/steps, Deno, relay and "await supabase start" steps. New step order:
+- [ ] **Step 1:** Replace Supabase CLI env/steps, Deno, relay, "await supabase start" steps. New step order:
   1. checkout; `e2e flow manifest` (`bash e2e/check_flows.sh`);
-  2. `subosito/flutter-action` (3.47.7) — its Dart runs the server;
+  2. `subosito/flutter-action` (3.47.7) — its Dart runs server;
   3. `extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0` with `just-version: "1.46.0"` (mise.toml);
-  4. `server packages and passwords`: `(cd apps/server && dart pub get --enforce-lockfile)` and `just server-passwords`. The client package needs no separate `pub get` (the app resolves it through its own lockfile), and no Serverpod CLI is needed (`just server` is `dart run bin/main.dart`);
-  5. `just server (background)`: `just server > "$RUNNER_TEMP/server.log" 2>&1 &` and save the pid;
-  6. `flutter pub get --enforce-lockfile` in the app;
+  4. `server packages and passwords`: `(cd apps/server && dart pub get --enforce-lockfile)` and `just server-passwords`. Client package needs no separate `pub get` (app resolves it via own lockfile); no Serverpod CLI needed (`just server` is `dart run bin/main.dart`);
+  5. `just server (background)`: `just server > "$RUNNER_TEMP/server.log" 2>&1 &`, save pid;
+  6. `flutter pub get --enforce-lockfile` in app;
   7. ChromeDriver step unchanged;
-  8. `await just server`: poll `http://127.0.0.1:8080/` up to 300 s with `curl -s --max-time 5 -o /dev/null` (any HTTP answer counts; connection refused does not; `--max-time` keeps a hung probe inside the 300 s limit), fail early if the server pid exits;
+  8. `await just server`: poll `http://127.0.0.1:8080/` up to 300 s with `curl -s --max-time 5 -o /dev/null` (any HTTP answer counts; connection refused doesn't; `--max-time` keeps hung probe inside 300 s limit), fail early if server pid exits;
   9. `flutter drive … --dart-define=SERVER_URL=http://127.0.0.1:8080`;
   10. `e2e logs (server, chromedriver)` with `if: always()`.
-- [ ] **Step 2: Verify** — `ruby -ryaml -e 'puts YAML.load_file(".github/workflows/ci.yml")["jobs"]["e2e"]["steps"].map{|s| s["name"]||s["uses"]}'` parses and lists the steps above; `rg -n "supabase|deno|relay" .github/workflows/ci.yml` hits only the other jobs (lines before `e2e:`).
+- [ ] **Step 2: Verify** — `ruby -ryaml -e 'puts YAML.load_file(".github/workflows/ci.yml")["jobs"]["e2e"]["steps"].map{|s| s["name"]||s["uses"]}'` parses, lists steps above; `rg -n "supabase|deno|relay" .github/workflows/ci.yml` hits only other jobs (lines before `e2e:`).
 - [ ] **Step 3: Commit** — `ci: e2e job runs against just server`
 
 ### Task 5: `just run` passes `SERVER_URL`
@@ -303,7 +303,7 @@ Run: `bash e2e/check_flows.sh` → `9 flows match`.
 **Files:** Modify `justfile` (`run` recipe)
 
 - [ ] **Step 1:** after `--dart-define=SUPABASE_ANON_KEY="$anon_key" \` add `--dart-define=SERVER_URL=http://127.0.0.1:8080 \`.
-- [ ] **Step 2: Verify** — `just --dry-run run` (or `just --show run`) prints the new define.
+- [ ] **Step 2: Verify** — `just --dry-run run` (or `just --show run`) prints new define.
 - [ ] **Step 3: Commit** — `chore: just run passes SERVER_URL`
 
 ### Task 6: Gate
@@ -312,16 +312,16 @@ Run: `bash e2e/check_flows.sh` → `9 flows match`.
 - [ ] `flutter analyze` ≤ 23, none in `integration_test/`
 - [ ] `flutter test`, `just test-live` pass (no app code changed)
 - [ ] `bash e2e/check_flows.sh` passes
-- [ ] Commit the plan as landed: `docs: Phase 4f plan as landed`
+- [ ] Commit plan as landed: `docs: Phase 4f plan as landed`
 
 ## As landed
-- Commits: `4cf0950` plan, `37a688a` C1 rename, `c5c91ff` e2e code sign-in + support files + relay deletion (Tasks 2 and 3 in one commit, since the support changes alone leave `e2e_test.dart` uncompilable), `e09b23f` CI, `b8a0e26` `just run`.
+- Commits: `4cf0950` plan, `37a688a` C1 rename, `c5c91ff` e2e code sign-in + support files + relay deletion (Tasks 2 + 3 in one commit; support changes alone leave `e2e_test.dart` uncompilable), `e09b23f` CI, `b8a0e26` `just run`.
 - Gate on `feat/p4f-e2e-ci`: format 0 changed (156 files); `flutter analyze` 23 issues, all pre-existing, none in `integration_test/`; `flutter test` +723 ~1; `just test-live` +2; `check_flows.sh` 9 flows match.
-- C6 also waits for the invite page's `invite-sent` text after the code request (4a keeps it on the invite page; that page has no "Check your email" heading).
+- C6 also waits for invite page's `invite-sent` text after code request (4a keeps it on invite page; page has no "Check your email" heading).
 
 ## Notes for 4z
-- `flutter drive` can only pass once 4a–4e are merged: on this branch `main()` still starts Supabase, so `serverClient` is never initialised.
-- The e2e depends on 4a for: `app.main()` calling `initServer`, the keys `magic-link-email`, `invite-email`, `sign-in-code`, `sign-in-code-submit`, the send button text "Email me a sign-in code" on both pages, and `AuthRefresh` reacting to `serverClient.auth` sign-out.
-- 4a makes a throwaway compile fix in `integration_test/e2e_test.dart` and `support/prod_guard.dart`; on merge, take 4f's version of both files.
-- The e2e never reads `Place.familyId` (4d removes it): `createFavoritePlace` returns `({String familyId, String label})`.
-- The CI e2e job's embedded Postgres start on `ubuntu-latest` is unexercised until the first CI run.
+- `flutter drive` passes only once 4a–4e merged: on this branch `main()` still starts Supabase, so `serverClient` never initialised.
+- e2e depends on 4a for: `app.main()` calling `initServer`, keys `magic-link-email`, `invite-email`, `sign-in-code`, `sign-in-code-submit`, send button text "Email me a sign-in code" on both pages, `AuthRefresh` reacting to `serverClient.auth` sign-out.
+- 4a makes throwaway compile fix in `integration_test/e2e_test.dart` and `support/prod_guard.dart`; on merge, take 4f's version of both.
+- e2e never reads `Place.familyId` (4d removes it): `createFavoritePlace` returns `({String familyId, String label})`.
+- CI e2e job's embedded Postgres start on `ubuntu-latest` unexercised until first CI run.

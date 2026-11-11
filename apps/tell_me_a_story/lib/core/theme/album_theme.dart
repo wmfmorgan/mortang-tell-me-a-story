@@ -141,6 +141,7 @@ class AlbumFieldBorder extends InputBorder {
   ShapeBorder? lerpFrom(ShapeBorder? a, double t) => a is AlbumFieldBorder
       ? AlbumFieldBorder(
           borderSide: BorderSide.lerp(a.borderSide, borderSide, t),
+          // lerpDouble is null only when both ends are null; radii never are.
           radius: lerpDouble(a.radius, radius, t)!,
         )
       : super.lerpFrom(a, t);
@@ -149,6 +150,7 @@ class AlbumFieldBorder extends InputBorder {
   ShapeBorder? lerpTo(ShapeBorder? b, double t) => b is AlbumFieldBorder
       ? AlbumFieldBorder(
           borderSide: BorderSide.lerp(borderSide, b.borderSide, t),
+          // lerpDouble is null only when both ends are null; radii never are.
           radius: lerpDouble(radius, b.radius, t)!,
         )
       : super.lerpTo(b, t);
@@ -203,22 +205,23 @@ abstract final class AlbumMarker {
 }
 
 /// Timeline text roles on top of the theme's TextTheme. Nothing below 11 px.
+/// Material always fills these TextTheme roles, so the empty-style
+/// fallbacks never apply.
 abstract final class AlbumText {
-  static TextStyle axis(TextTheme t) => t.labelMedium!.copyWith(
-    fontWeight: FontWeight.w600,
-    fontFeatures: const [FontFeature.tabularFigures()],
-  );
+  static TextStyle axis(TextTheme t) =>
+      (t.labelMedium ?? const TextStyle()).copyWith(
+        fontWeight: FontWeight.w600,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
   static TextStyle count(TextTheme t) =>
-      t.labelMedium!.copyWith(color: albumDimInk);
+      (t.labelMedium ?? const TextStyle()).copyWith(color: albumDimInk);
   static TextStyle lane(TextTheme t) =>
-      t.labelLarge!.copyWith(fontWeight: FontWeight.w600);
-  static TextStyle group(TextTheme t) => t.titleSmall!;
+      (t.labelLarge ?? const TextStyle()).copyWith(fontWeight: FontWeight.w600);
+  static TextStyle group(TextTheme t) => t.titleSmall ?? const TextStyle();
 
   /// Text on a painted ink pill (the tree graph's `+N`).
-  static TextStyle badge(TextTheme t) => t.labelSmall!.copyWith(
-    fontWeight: FontWeight.w700,
-    color: albumParchment,
-  );
+  static TextStyle badge(TextTheme t) => (t.labelSmall ?? const TextStyle())
+      .copyWith(fontWeight: FontWeight.w700, color: albumParchment);
 }
 
 /// Touch targets (Apple HIG: 44 pt minimum).
@@ -255,29 +258,54 @@ ColorScheme albumColorScheme() {
 }
 
 ThemeData albumTheme() {
-  final colorScheme = albumColorScheme();
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: albumColorScheme(),
+    scaffoldBackgroundColor: albumParchment,
+    canvasColor: albumParchment,
+    textTheme: _albumTextTheme(),
+    appBarTheme: AppBarTheme(
+      backgroundColor: albumParchment,
+      foregroundColor: albumInk,
+      elevation: 0,
+      titleTextStyle: GoogleFonts.newsreader(
+        color: albumInk,
+        fontSize: 22,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+    cardTheme: _albumCardTheme(),
+    chipTheme: _albumChipTheme(),
+    filledButtonTheme: _albumFilledButtonTheme(),
+    textButtonTheme: _albumTextButtonTheme(),
+    outlinedButtonTheme: _albumOutlinedButtonTheme(),
+    dialogTheme: DialogThemeData(
+      backgroundColor: albumParchment,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+    inputDecorationTheme: _albumInputDecorationTheme(),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: albumParchment,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: albumTerracotta,
+    ),
+  );
+}
 
-  final textTheme = TextTheme(
-    headlineLarge: GoogleFonts.newsreader(
-      color: albumInk,
-      fontWeight: FontWeight.w600,
-    ),
-    headlineMedium: GoogleFonts.newsreader(
-      color: albumInk,
-      fontWeight: FontWeight.w600,
-    ),
-    headlineSmall: GoogleFonts.newsreader(
-      color: albumInk,
-      fontWeight: FontWeight.w600,
-    ),
-    titleLarge: GoogleFonts.newsreader(
-      color: albumInk,
-      fontWeight: FontWeight.w600,
-    ),
-    titleMedium: GoogleFonts.newsreader(
-      color: albumInk,
-      fontWeight: FontWeight.w600,
-    ),
+TextTheme _albumTextTheme() {
+  TextStyle serif() =>
+      GoogleFonts.newsreader(color: albumInk, fontWeight: FontWeight.w600);
+  return TextTheme(
+    headlineLarge: serif(),
+    headlineMedium: serif(),
+    headlineSmall: serif(),
+    titleLarge: serif(),
+    titleMedium: serif(),
     titleSmall: GoogleFonts.sourceSans3(
       color: albumInk,
       fontWeight: FontWeight.w600,
@@ -289,104 +317,71 @@ ThemeData albumTheme() {
     labelMedium: GoogleFonts.sourceSans3(color: albumInk),
     labelSmall: GoogleFonts.sourceSans3(color: albumInk),
   );
+}
 
-  return ThemeData(
-    useMaterial3: true,
-    colorScheme: colorScheme,
-    scaffoldBackgroundColor: albumParchment,
-    canvasColor: albumParchment,
-    textTheme: textTheme,
-    appBarTheme: AppBarTheme(
-      backgroundColor: albumParchment,
-      foregroundColor: albumInk,
-      elevation: 0,
-      titleTextStyle: GoogleFonts.newsreader(
-        color: albumInk,
-        fontSize: 22,
-        fontWeight: FontWeight.w600,
-      ),
+CardThemeData _albumCardTheme() {
+  return CardThemeData(
+    color: albumParchment,
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(albumCardRadius),
+      side: BorderSide(color: albumSage.withValues(alpha: 0.45)),
     ),
-    cardTheme: CardThemeData(
-      color: albumParchment,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(albumCardRadius),
-        side: BorderSide(color: albumSage.withValues(alpha: 0.45)),
-      ),
-    ),
-    chipTheme: ChipThemeData(
-      backgroundColor: albumParchment,
-      selectedColor: albumSage.withValues(alpha: 0.35),
-      labelStyle: GoogleFonts.sourceSans3(color: albumInk),
-      side: BorderSide(color: albumSage.withValues(alpha: 0.5)),
+  );
+}
+
+ChipThemeData _albumChipTheme() {
+  return ChipThemeData(
+    backgroundColor: albumParchment,
+    selectedColor: albumSage.withValues(alpha: 0.35),
+    labelStyle: GoogleFonts.sourceSans3(color: albumInk),
+    side: BorderSide(color: albumSage.withValues(alpha: 0.5)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  );
+}
+
+FilledButtonThemeData _albumFilledButtonTheme() {
+  return FilledButtonThemeData(
+    style: FilledButton.styleFrom(
+      backgroundColor: albumTerracotta,
+      foregroundColor: albumParchment,
+      minimumSize: const Size(48, 48),
+      textStyle: GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        backgroundColor: albumTerracotta,
-        foregroundColor: albumParchment,
-        minimumSize: const Size(48, 48),
-        textStyle: GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
+  );
+}
+
+TextButtonThemeData _albumTextButtonTheme() {
+  return TextButtonThemeData(
+    style: TextButton.styleFrom(
+      foregroundColor: albumInk,
+      minimumSize: const Size(48, 40),
+      textStyle: GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
     ),
-    textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(
-        foregroundColor: albumInk,
-        minimumSize: const Size(48, 40),
-        textStyle: GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
-      ),
+  );
+}
+
+OutlinedButtonThemeData _albumOutlinedButtonTheme() {
+  return OutlinedButtonThemeData(
+    style: OutlinedButton.styleFrom(
+      foregroundColor: albumInk,
+      minimumSize: const Size(48, 48),
+      side: const BorderSide(color: albumSage),
+      textStyle: GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: albumInk,
-        minimumSize: const Size(48, 48),
-        side: const BorderSide(color: albumSage),
-        textStyle: GoogleFonts.sourceSans3(fontWeight: FontWeight.w600),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    ),
-    dialogTheme: DialogThemeData(
-      backgroundColor: albumParchment,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: albumParchment,
-      labelStyle: GoogleFonts.sourceSans3(color: albumInk),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: albumSage.withValues(alpha: 0.6)),
-      ),
-    ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: albumParchment,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-    ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: albumTerracotta,
-    ),
-    // docs/archive/ux/80-all-stories.md Rule 4: selected = terracotta pill
-    // with a parchment label (5.18:1); others ink on the pill fill. Only the
-    // timeline's ViewSwitch uses SegmentedButton.
-    segmentedButtonTheme: SegmentedButtonThemeData(
-      style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected)
-              ? albumTerracotta
-              : albumPillFill,
-        ),
-        foregroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? albumParchment : albumInk,
-        ),
-        side: const WidgetStatePropertyAll(BorderSide(color: albumSageLine)),
-        textStyle: WidgetStatePropertyAll(
-          GoogleFonts.sourceSans3(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-      ),
+  );
+}
+
+InputDecorationTheme _albumInputDecorationTheme() {
+  return InputDecorationTheme(
+    filled: true,
+    fillColor: albumParchment,
+    labelStyle: GoogleFonts.sourceSans3(color: albumInk),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: albumSage.withValues(alpha: 0.6)),
     ),
   );
 }

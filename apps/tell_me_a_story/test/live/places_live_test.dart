@@ -3,7 +3,7 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/data/places_api.dart';
+import 'package:tell_me_a_story/core/data/server_places_repository.dart';
 
 import 'support/live_server.dart';
 
@@ -16,7 +16,7 @@ void main() {
       await signInLive(freshEmail('places'));
       final familyId = (await serverClient.family.createRoot('Places'))
           .toString();
-      final api = PlacesApi();
+      final api = ServerPlacesRepository();
 
       final park = await api.createPlace(
         familyId: familyId,

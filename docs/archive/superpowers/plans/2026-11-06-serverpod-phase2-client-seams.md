@@ -1,13 +1,13 @@
 # Serverpod Phase 2: Client Seams Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Put every Supabase detail that feature and core code can see behind client-owned seams while the app still runs on Supabase. After this plan, the Serverpod cutover only rewrites `lib/data/*_api.dart` bodies plus bootstrap (`main.dart`, `lib/core/supabase/`, `AuthRefresh`, auth pages).
+**Goal:** Put every Supabase detail visible to feature/core code behind client-owned seams while app still runs on Supabase. After plan, Serverpod cutover only rewrites `lib/data/*_api.dart` bodies plus bootstrap (`main.dart`, `lib/core/supabase/`, `AuthRefresh`, auth pages).
 
-**Architecture:** This is Phase A from `docs/migration/endpoint-contract.md` §5, steps 1–4. Step 5 (OTP login UI) is deferred.
-- **Session seam.** A new `AppSession` (`lib/core/server/app_session.dart`) is the single source for the signed-in user id and for sign-out. It follows the existing `ProfileSession.instance` pattern: there is a static `AppSession.instance`, the default is Supabase-backed, and tests swap it. Per-widget injection does not change; the existing `currentUserId`, `signedInUserId` and `onLogout` constructor parameters still win.
-- **Error seam.** One client error type, `AppException{AppErrorCode code, String message}`, lives in `lib/data/app_exception.dart`. Supabase-specific translation lives in `lib/data/supabase_errors.dart`, and Phase C deletes that file. Gateways translate catalog errors (`NOT_FOUND:` / `FORBIDDEN:` / `VALIDATION:` / `INVITE_INVALID:` RPC messages and edge-function `{code, message}` envelopes) into `AppException`. Features only see `AppException` or opaque errors, which get generic copy.
-- **Moved logic.** Duplicate-key handling and photo cleanup on discard move into `StoriesApi`. Picture URLs become bytes. The perspective page reads the user's name from `ProfileSession`.
+**Architecture:** Phase A from `docs/migration/endpoint-contract.md` §5, steps 1–4. Step 5 (OTP login UI) deferred.
+- **Session seam.** New `AppSession` (`lib/core/server/app_session.dart`) = single source for signed-in user id + sign-out. Follows `ProfileSession.instance` pattern: static `AppSession.instance`, default Supabase-backed, tests swap it. Per-widget injection unchanged; existing `currentUserId`, `signedInUserId`, `onLogout` constructor params still win.
+- **Error seam.** One client error type, `AppException{AppErrorCode code, String message}`, in `lib/data/app_exception.dart`. Supabase-specific translation in `lib/data/supabase_errors.dart`; Phase C deletes it. Gateways translate catalog errors (`NOT_FOUND:` / `FORBIDDEN:` / `VALIDATION:` / `INVITE_INVALID:` RPC messages + edge-function `{code, message}` envelopes) into `AppException`. Features see only `AppException` or opaque errors (generic copy).
+- **Moved logic.** Duplicate-key handling + photo cleanup on discard move into `StoriesApi`. Picture URLs become bytes. Perspective page reads user name from `ProfileSession`.
 
 **Tech Stack:** Flutter 3.47.7 / Dart 3.13 via mise, `supabase_flutter` (postgrest 2.9.1, functions_client 2.7.1, storage_client 2.8.0), `flutter_test`, `http` (test stubs), `image` (test PNGs).
 
@@ -23,31 +23,31 @@
 | One `AppException`; delete `rpc_error.dart`, `InviteApiException`, `ManageFamiliesException`, `OriginRpcException`, `PersonProfileNotFound`; delete feature-level `PostgrestException` catches | **In** (Tasks 5–9) | Contract §5 A.2–A.3; audit "3 different error-mapping paths" |
 | Idempotent `createDraft` / `linkPerson`; fold `deleteAllForStory` into `StoriesApi.discard` | **In** (Tasks 9–10) | Contract §5 A.3 |
 | Image URL → bytes (`pictureBytes`, `thumbBytes`, `Image.memory`) | **In** (Task 11) | Contract §5 A.4 requires it |
-| Wire all 14 gateways from `main.dart` (composition root) | **Skipped** | Contract §5 Phase A has no DI step. §3 changes `main.dart` only in Phase C. Note: roadmap row 2 lists "gateways injected from `main.dart`", so Main should decide whether to amend the contract or the roadmap |
-| Shared `test/support/fakes.dart` | **Skipped** | Contract §4: "Gateway fakes in widget tests implement the unchanged interfaces, so they don't change." It does not recommend consolidating them |
+| Wire all 14 gateways from `main.dart` (composition root) | **Skipped** | Contract §5 Phase A has no DI step. §3 changes `main.dart` only in Phase C. Note: roadmap row 2 lists "gateways injected from `main.dart`", so Main decides: amend contract or roadmap |
+| Shared `test/support/fakes.dart` | **Skipped** | Contract §4: "Gateway fakes in widget tests implement the unchanged interfaces, so they don't change." No consolidation recommended |
 | Email-code (OTP) login UI | **Deferred** to cutover | Assignment exclusion (contract §5 A.5) |
-| `AuthRefresh`, `main.dart`, `lib/core/supabase/*`, auth pages, Supabase uses inside `lib/data/*` | Unchanged | Contract §5 A.1 leaves these for Phase C |
-| `AppErrorCode.conflict / photoCap / storageFailed` | Not added yet | Nothing on Supabase produces them through a gateway today. `StorageFailedException` and `StateError('PHOTO_CAP')` stay until Phase C maps the server codes (contract §3 `dto_mapping.dart`) |
+| `AuthRefresh`, `main.dart`, `lib/core/supabase/*`, auth pages, Supabase uses inside `lib/data/*` | Unchanged | Contract §5 A.1 leaves for Phase C |
+| `AppErrorCode.conflict / photoCap / storageFailed` | Not added yet | Nothing on Supabase produces them via gateway today. `StorageFailedException` + `StateError('PHOTO_CAP')` stay until Phase C maps server codes (contract §3 `dto_mapping.dart`) |
 
-**Which gateway methods get `withAppErrors`.** It wraps every method whose errors reach a call site that shows catalog copy. That is:
+**Which gateway methods get `withAppErrors`.** Wraps every method whose errors reach call site showing catalog copy:
 - `PeopleApi.listTreePeople/createPerson/personProfile/updatePerson/markPassedAway`
 - `StoriesApi.listPublished/linkPerson`
 - `FamiliesApi.setCoverPhoto/clearCoverPhoto`
-- the origin RPCs, which use their own catalog sentences
+- origin RPCs (own catalog sentences)
 
-Every other gateway method's errors already render as generic copy whatever their type, so translating them would change nothing a user sees. In Phase C the generated client throws the server `AppException` for every method anyway.
+Other gateway methods' errors already render generic copy regardless of type; translating changes nothing user sees. Phase C generated client throws server `AppException` for every method anyway.
 
-**UI copy invariant.** Every message shown before is shown after. The call sites are audited in each task. Two edge paths need explicit code to keep their copy:
-- add-person invite failures keep the generic save sentence (Task 7);
-- a hidden linked profile inside `listTreePeople` keeps the generic load failure (Task 8).
+**UI copy invariant.** Every message shown before shown after. Call sites audited per task. Two edge paths need explicit code to keep copy:
+- add-person invite failures keep generic save sentence (Task 7);
+- hidden linked profile inside `listTreePeople` keeps generic load failure (Task 8).
 
 ## Conventions for the engineer
 
-- Line numbers refer to commit `2c3aca2` (current `HEAD`). Earlier tasks shift lines in shared files. **Find each edit by the quoted code**, not only by the number.
-- Run every `flutter` command from `apps/tell_me_a_story`. Run every `git` command from the repo root.
-- Imports: keep the file's existing order (dart, package, then relative, alphabetical within each group).
+- Line numbers refer to commit `2c3aca2` (current `HEAD`). Earlier tasks shift lines in shared files. **Find each edit by quoted code**, not only number.
+- Run every `flutter` command from `apps/tell_me_a_story`. Every `git` command from repo root.
+- Imports: keep file's existing order (dart, package, relative; alphabetical within group).
 - Never add `Color(0x…)` or `Colors.` outside `lib/core/theme/album_theme.dart`. `test/theme/no_hardcoded_colors_test.dart` runs in `just test`.
-- Never write the token `timeframeStart!` in `lib/`. `test/stories_api_test.dart:140` greps for it.
+- Never write token `timeframeStart!` in `lib/`. `test/stories_api_test.dart:140` greps for it.
 
 ## File map
 
@@ -55,7 +55,7 @@ Every other gateway method's errors already render as generic copy whatever thei
 |---|---|---|
 | `lib/core/server/app_session.dart` (new) | `AppSession` seam + `SupabaseAppSession` | 1 |
 | `lib/data/app_exception.dart` (new) | `AppErrorCode`, `AppException`, `appErrorMessage` (backend-neutral) | 5 |
-| `lib/data/supabase_errors.dart` (new) | PostgREST catalog + edge-function envelope → `AppException` (deleted in Phase C) | 5, 7 |
+| `lib/data/supabase_errors.dart` (new) | PostgREST catalog + edge-function envelope → `AppException` (deleted Phase C) | 5, 7 |
 | `lib/data/rpc_error.dart` | **deleted** (replaced by `appErrorMessage`) | 6 |
 | `lib/core/router/app_router.dart` | user id via `AppSession`; drop `photosApi` from `DraftsPage` | 2, 10 |
 | `lib/core/theme/album_header.dart` | logout via `AppSession` | 3 |
@@ -74,10 +74,10 @@ Every other gateway method's errors already render as generic copy whatever thei
 | `lib/data/stories_api.dart` | guards; idempotent create/link; discard cleans photos; `thumbBytes` | 6, 9, 10, 11 |
 | `lib/data/families_api.dart` | guards; `OriginRpcException` gone | 6, 8 |
 | `lib/data/invite_api.dart`, `manage_families_api.dart` | envelopes → `AppException` | 7 |
-| `lib/data/photos_api.dart` | `deleteAllForStory` leaves the `PhotosGateway` interface | 10 |
+| `lib/data/photos_api.dart` | `deleteAllForStory` leaves `PhotosGateway` interface | 10 |
 | `test/app_session_test.dart` (new) | session seam + header logout | 1, 3 |
 | `test/supabase_errors_test.dart` (new) | translation helpers | 5, 7 |
-| `test/gateway_errors_test.dart` (new) | real `*Api` classes over a stubbed HTTP client | 6–10 |
+| `test/gateway_errors_test.dart` (new) | real `*Api` classes over stubbed HTTP client | 6–10 |
 | existing tests | listed per task | 2–11 |
 
 ---
@@ -94,7 +94,7 @@ cd apps/tell_me_a_story
 mise exec -- flutter test
 mise exec -- flutter analyze > /tmp/phase2-analyze-before.txt; echo "analyze exit $?"
 ```
-Expected: `All tests passed!` with `+677`. Keep the analyze output; Task 12 compares against it.
+Expected: `All tests passed!` with `+677`. Keep analyze output; Task 12 compares.
 
 ---
 
@@ -188,7 +188,7 @@ git commit -m "refactor(client): add AppSession seam over Supabase auth"
 
 ### Task 2: Route every user-id read through `AppSession`
 
-Today there are ten reads of `Supabase.instance.client.auth.currentUser` outside `lib/data`, `main.dart` and the auth pages:
+Today: ten reads of `Supabase.instance.client.auth.currentUser` outside `lib/data`, `main.dart`, auth pages:
 
 | File:line | Today | After |
 |---|---|---|
@@ -201,10 +201,10 @@ Today there are ten reads of `Supabase.instance.client.auth.currentUser` outside
 | `lib/features/settings/settings_page.dart:199-205` | `_sessionUserId()` | one-liner |
 | `lib/features/stories/story_reader_page.dart:199-206` | `_currentUserId` getter | `widget.currentUserId ?? AppSession…` |
 | `lib/features/timeline/timeline_page.dart:223-230` | `_sessionUserId()` | `widget.currentUserId ?? AppSession…` |
-| `lib/features/perspectives/add_perspective_page.dart:149-150` | inside the direct query | removed in Task 4 |
+| `lib/features/perspectives/add_perspective_page.dart:149-150` | inside direct query | removed in Task 4 |
 
 **Files:**
-- Modify: the nine `lib/` files in the table (all rows except add_perspective)
+- Modify: nine `lib/` files in table (all rows except add_perspective)
 - Test: `apps/tell_me_a_story/test/m14_3_dob_passed_away_test.dart`
 
 - [ ] **Step 1: Write the failing test**
@@ -219,7 +219,7 @@ import 'package:tell_me_a_story/core/server/app_session.dart';
 ```dart
   String? signedInUserId,
 ```
-3. After the test that ends at line 200 (`'a failed mark shows the mapped error and stays put'`), insert:
+3. After test ending line 200 (`'a failed mark shows the mapped error and stays put'`), insert:
 ```dart
 
   testWidgets('with no injected id the profile asks AppSession who is signed in', (
@@ -247,7 +247,7 @@ import 'package:tell_me_a_story/core/server/app_session.dart';
     expect(find.text('Mark as passed away'), findsNothing);
   });
 ```
-4. At the end of the file, append:
+4. At file end, append:
 ```dart
 
 class _Session extends AppSession {
@@ -264,7 +264,7 @@ class _Session extends AppSession {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter test test/m14_3_dob_passed_away_test.dart`
-Expected: FAIL on the new test: `Expected: no matching candidates  Actual: _TextWidgetFinder:<Found 1 widget with text "Mark as passed away"`. The dialog still asks Supabase, gets null, and runs the steward check.
+Expected: FAIL on new test: `Expected: no matching candidates  Actual: _TextWidgetFinder:<Found 1 widget with text "Mark as passed away"`. Dialog still asks Supabase, gets null, runs steward check.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -272,7 +272,7 @@ Expected: FAIL on the new test: `Expected: no matching candidates  Actual: _Text
 - Delete line 5: `import 'package:supabase_flutter/supabase_flutter.dart';`
 - Before line 35 (`import '../theme/album_theme.dart';`), insert `import '../server/app_session.dart';`
 - Line 454: `currentUserId: _signedInUserId(),` → `currentUserId: AppSession.instance.currentUserId,`
-- Delete lines 470–477, the blank line plus:
+- Delete lines 470–477, blank line plus:
 ```dart
 String? _signedInUserId() {
   try {
@@ -307,7 +307,7 @@ String? _signedInUserId() {
 
 `lib/features/family/start_timeline_host.dart`
 - Delete line 3 (`supabase_flutter` import).
-- Delete lines 12–21 (the doc comment, `signedInUserId({String? override})` and the blank line after it). The file then starts its declarations at `/// Branch dialog shared by signed-in hosts.`
+- Delete lines 12–21 (doc comment, `signedInUserId({String? override})`, blank line after). File declarations then start at `/// Branch dialog shared by signed-in hosts.`
 
 `lib/features/family/family_landing_page.dart`
 - After line 8 (`import '../../core/router/app_router.dart';`), insert `import '../../core/server/app_session.dart';`
@@ -316,7 +316,7 @@ String? _signedInUserId() {
 `lib/features/people/person_profile_dialog.dart`
 - Delete line 3 (`supabase_flutter` import). After line 5 (`'../../core/router/app_router.dart'`), insert `import '../../core/server/app_session.dart';`
 - Line 72: `signedInUserId: signedInUserId ?? _sessionUserId(),` → `signedInUserId: signedInUserId ?? AppSession.instance.currentUserId,`
-- Delete lines 78–85 (the blank line plus the top-level `String? _sessionUserId() { … }`).
+- Delete lines 78–85 (blank line + top-level `String? _sessionUserId() { … }`).
 
 `lib/features/settings/settings_page.dart`
 - Delete line 7 (`supabase_flutter` import). After line 10 (`'../../core/router/app_router.dart'`), insert `import '../../core/server/app_session.dart';`
@@ -349,7 +349,7 @@ cd apps/tell_me_a_story
 mise exec -- flutter test test/m14_3_dob_passed_away_test.dart test/m14_people_profiles_test.dart test/drafts_page_test.dart test/settings_page_test.dart test/start_timeline_test.dart test/story_reader_page_test.dart test/timeline_page_test.dart test/router_test.dart
 mise exec -- flutter test
 ```
-Expected: PASS, 0 failures (the full suite is now 677 + 3 new tests from Tasks 1–2).
+Expected: PASS, 0 failures (full suite now 677 + 3 new tests from Tasks 1–2).
 
 - [ ] **Step 5: Commit**
 
@@ -440,7 +440,7 @@ class _FakeSession extends AppSession {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter test test/app_session_test.dart`
-Expected: FAIL. The new test reports `You must initialize the supabase instance before calling Supabase.instance`, thrown from `_HeaderAvatarState._logout`.
+Expected: FAIL. New test reports `You must initialize the supabase instance before calling Supabase.instance`, thrown from `_HeaderAvatarState._logout`.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -465,7 +465,7 @@ git commit -m "refactor(client): sign out through AppSession"
 
 ### Task 4: Perspective page reads the name from `ProfileSession`
 
-`add_perspective_page.dart:147-163` queries `profiles.display_name` directly. `ProfileSession` (`lib/data/profile_session.dart`) already holds that name. It is loaded once per user through `ProfileGateway.loadOwn`, and `main.dart:23-25` wires it. The page now listens to `ProfileSession`, the same way `_HeaderAvatarState` does (`album_header.dart:1074-1089`).
+`add_perspective_page.dart:147-163` queries `profiles.display_name` directly. `ProfileSession` (`lib/data/profile_session.dart`) already holds name, loaded once per user via `ProfileGateway.loadOwn`; `main.dart:23-25` wires it. Page now listens to `ProfileSession`, same as `_HeaderAvatarState` (`album_header.dart:1074-1089`).
 
 **Files:**
 - Modify: `apps/tell_me_a_story/lib/features/perspectives/add_perspective_page.dart:3,7-8,40,135-169`
@@ -479,7 +479,7 @@ In `test/add_perspective_page_test.dart`:
 import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 ```
-2. After the test that ends at line 173 (`'posting as shows the name and Author when ids match'`), insert:
+2. After test ending line 173 (`'posting as shows the name and Author when ids match'`), insert:
 ```dart
 
   testWidgets('with no postingAs the page shows the signed-in profile name', (
@@ -502,14 +502,14 @@ import 'package:tell_me_a_story/data/profile_session.dart';
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter test test/add_perspective_page_test.dart`
-Expected: FAIL on the new test: `Expected: exactly one matching candidate  Actual: _TextWidgetFinder:<Found 0 widgets with text "Posting as"`. The page still asks Supabase, which throws and is swallowed.
+Expected: FAIL on new test: `Expected: exactly one matching candidate  Actual: _TextWidgetFinder:<Found 0 widgets with text "Posting as"`. Page still asks Supabase, which throws, swallowed.
 
 - [ ] **Step 3: Write minimal implementation**
 
 In `lib/features/perspectives/add_perspective_page.dart`:
 - Delete line 3: `import 'package:supabase_flutter/supabase_flutter.dart';`
 - Between line 7 (`'../../data/perspectives_api.dart'`) and line 8 (`'../../data/stories_api.dart'`), insert `import '../../data/profile_session.dart';`
-- After `_perspectiveInitials` (ends at line 40), insert:
+- After `_perspectiveInitials` (ends line 40), insert:
 ```dart
 
 String? _nonEmpty(String? value) {
@@ -551,13 +551,13 @@ String? _nonEmpty(String? value) {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter test test/add_perspective_page_test.dart test/story_reader_page_test.dart`
-Expected: PASS. The existing test `'shows locked Add Perspective copy and no title field'` still finds no `Posting as`, because `ProfileSession.loadOwn` is null there.
+Expected: PASS. Existing test `'shows locked Add Perspective copy and no title field'` still finds no `Posting as`, since `ProfileSession.loadOwn` null there.
 
-Then confirm the session seam is complete:
+Then confirm session seam complete:
 ```bash
 git grep -n "Supabase.instance" -- apps/tell_me_a_story/lib/features apps/tell_me_a_story/lib/core
 ```
-Expected: only `lib/core/supabase/supabase_init.dart`, `lib/features/auth/invite_sign_in_page.dart` and `lib/features/auth/magic_link_page.dart`.
+Expected: only `lib/core/supabase/supabase_init.dart`, `lib/features/auth/invite_sign_in_page.dart`, `lib/features/auth/magic_link_page.dart`.
 
 - [ ] **Step 5: Commit**
 
@@ -768,7 +768,7 @@ git commit -m "feat(client): add AppException and PostgREST catalog translation"
 
 ### Task 6: Catalog RPC errors reach features as `AppException`
 
-This replaces `mapRpcError` (`lib/data/rpc_error.dart:4-19`) with `appErrorMessage` at its five call sites. It also wraps the gateway methods whose errors reach those call sites, so each site sees the same copy it showed before:
+Replaces `mapRpcError` (`lib/data/rpc_error.dart:4-19`) with `appErrorMessage` at its five call sites. Also wraps gateway methods whose errors reach those sites, so each site shows same copy as before:
 
 | Call site | Gateway calls feeding it | Wrapped in this task |
 |---|---|---|
@@ -786,7 +786,7 @@ This replaces `mapRpcError` (`lib/data/rpc_error.dart:4-19`) with `appErrorMessa
 
 - [ ] **Step 1: Write the failing tests**
 
-(a) `test/add_person_modal_test.dart`: delete line 6 (`supabase_flutter` import). After line 7 (`'package:tell_me_a_story/core/theme/album_theme.dart'`), insert `import 'package:tell_me_a_story/data/app_exception.dart';`. Then replace the five fake throws:
+(a) `test/add_person_modal_test.dart`: delete line 6 (`supabase_flutter` import). After line 7 (`'package:tell_me_a_story/core/theme/album_theme.dart'`), insert `import 'package:tell_me_a_story/data/app_exception.dart';`. Replace five fake throws:
 - lines 436–438 (8-space indent):
 ```dart
         throw const AppException(
@@ -844,7 +844,7 @@ This replaces `mapRpcError` (`lib/data/rpc_error.dart:4-19`) with `appErrorMessa
       );
 ```
 
-(c) `test/m14_3_dob_passed_away_test.dart`: delete line 6 (`supabase_flutter` import). After the `core/server/app_session.dart` import added in Task 2, insert `import 'package:tell_me_a_story/data/app_exception.dart';`. Replace lines 187–189 with:
+(c) `test/m14_3_dob_passed_away_test.dart`: delete line 6 (`supabase_flutter` import). After `core/server/app_session.dart` import added in Task 2, insert `import 'package:tell_me_a_story/data/app_exception.dart';`. Replace lines 187–189 with:
 ```dart
       ..markError = const AppException(
         code: AppErrorCode.forbidden,
@@ -944,14 +944,14 @@ void main() {
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter test test/add_person_modal_test.dart test/invite_chrome_test.dart test/m14_3_dob_passed_away_test.dart test/gateway_errors_test.dart`
 Expected: FAIL. Examples:
-- `add_person_modal_test`: `Found 0 widgets with text "Already on this story"` (the snackbar shows `Couldn’t save person. Try again.`).
+- `add_person_modal_test`: `Found 0 widgets with text "Already on this story"` (snackbar shows `Couldn’t save person. Try again.`).
 - `invite_chrome_test` "mapped error": `Found 0 widgets with text "That email is already used"`.
 - `m14_3`: `Found 0 widgets with text "not a steward"`.
 - `gateway_errors_test`: `Expected: <Instance of 'AppException'> … Actual: PostgrestException`.
 
 - [ ] **Step 3: Write minimal implementation**
 
-Delete the old mapper:
+Delete old mapper:
 ```bash
 git rm apps/tell_me_a_story/lib/data/rpc_error.dart
 ```
@@ -1132,7 +1132,7 @@ cd apps/tell_me_a_story
 mise exec -- flutter test test/add_person_modal_test.dart test/invite_chrome_test.dart test/m14_3_dob_passed_away_test.dart test/gateway_errors_test.dart test/people_api_test.dart test/family_landing_latest_test.dart
 mise exec -- flutter test
 ```
-Expected: PASS. The invite_chrome cases `'email save falls back to Try again when the person error is unmapped'` and `'a failed email save clears Try again after the retry succeeds'` still show `Try again`.
+Expected: PASS. invite_chrome cases `'email save falls back to Try again when the person error is unmapped'` and `'a failed email save clears Try again after the retry succeeds'` still show `Try again`.
 
 - [ ] **Step 5: Commit**
 
@@ -1145,18 +1145,18 @@ git commit -m "refactor(client): catalog RPC errors surface as AppException"
 
 ### Task 7: Edge-function envelopes become `AppException`
 
-`InviteApi._invoke` (`invite_api.dart:115-152`) and `ManageFamiliesApi._invoke` (`manage_families_api.dart:148-187`) each build their own exception type from the same `{code, message}` envelope. After this task both throw `AppException`, and `InviteApiException` / `ManageFamiliesException` are deleted.
+`InviteApi._invoke` (`invite_api.dart:115-152`) and `ManageFamiliesApi._invoke` (`manage_families_api.dart:148-187`) each build own exception type from same `{code, message}` envelope. After task both throw `AppException`; `InviteApiException` / `ManageFamiliesException` deleted.
 
-Each envelope keeps its own fallback copy: `'Request failed'` (or the `reasonPhrase`) for invites, `'Try again'` for manage-families.
+Each envelope keeps own fallback copy: `'Request failed'` (or `reasonPhrase`) for invites, `'Try again'` for manage-families.
 
-Features change `on XException` to `on AppException`. These are the only catches, and none of their try blocks call a guarded gateway (audited: `manage_family_page.dart` and `manage_families_page.dart` `_load()` catch their own errors). So the shown copy is unchanged.
+Features change `on XException` → `on AppException`. These are only catches, and no try block calls guarded gateway (audited: `manage_family_page.dart` and `manage_families_page.dart` `_load()` catch own errors). Shown copy unchanged.
 
 `start_timeline_dialog.dart:215-227` branches on code:
 - `NOT_FOUND` → `AppErrorCode.notFound`
 - `FORBIDDEN` → `AppErrorCode.forbidden`
-- every other code still shows `error.message` unless it is internal.
+- every other code still shows `error.message` unless internal.
 
-`add_person_modal.dart:189-200` sends invites inside the save `try`. Before this task an `InviteApiException` was not mapped there, so it showed `Couldn’t save person. Try again.`. An explicit catch keeps that copy.
+`add_person_modal.dart:189-200` sends invites inside save `try`. Before task, `InviteApiException` unmapped there → showed `Couldn’t save person. Try again.`. Explicit catch keeps that copy.
 
 **Files:**
 - Modify: `lib/data/supabase_errors.dart` (append), `lib/data/invite_api.dart:1-5,115-152,222-231`, `lib/data/manage_families_api.dart:1,44-49,71-73,134-139,148-197`
@@ -1165,7 +1165,7 @@ Features change `on XException` to `on AppException`. These are the only catches
 
 - [ ] **Step 1: Write the failing tests**
 
-(a) Append inside `main()` of `test/supabase_errors_test.dart`, before its closing `}`:
+(a) Append inside `main()` of `test/supabase_errors_test.dart`, before closing `}`:
 ```dart
 
   group('edge-function envelopes', () {
@@ -1199,7 +1199,7 @@ Features change `on XException` to `on AppException`. These are the only catches
   });
 ```
 
-(b) `test/gateway_errors_test.dart`: add `import 'package:tell_me_a_story/data/invite_api.dart';` and `import 'package:tell_me_a_story/data/manage_families_api.dart';` after the `app_exception.dart` import. Append inside `main()`:
+(b) `test/gateway_errors_test.dart`: add `import 'package:tell_me_a_story/data/invite_api.dart';` and `import 'package:tell_me_a_story/data/manage_families_api.dart';` after `app_exception.dart` import. Append inside `main()`:
 ```dart
 
   group('edge functions without a session', () {
@@ -1233,7 +1233,7 @@ Features change `on XException` to `on AppException`. These are the only catches
   });
 ```
 
-(c) Migrate the fakes to `AppException`:
+(c) Migrate fakes to `AppException`:
 - `test/invite_chrome_test.dart` lines 225–228 →
 ```dart
       ..createError = const AppException(
@@ -1263,7 +1263,7 @@ Features change `on XException` to `on AppException`. These are the only catches
   - lines 991–994 → `manage.error = const AppException(code: AppErrorCode.validation, message: 'Request failed');`
   - line 1006 → `..error = const AppException(code: AppErrorCode.notFound, message: 'story');`
 
-(d) Add an add-person regression test to `test/m14_people_profiles_test.dart`:
+(d) Add add-person regression test to `test/m14_people_profiles_test.dart`:
 - Before line 6 (`'package:tell_me_a_story/data/families_api.dart'`), insert `import 'package:tell_me_a_story/data/app_exception.dart';`
 - In `class _Invites` (line 747), after `final sent = <String>[];` (line 751), insert:
 ```dart
@@ -1274,7 +1274,7 @@ Features change `on XException` to `on AppException`. These are the only catches
     final error = createError;
     if (error != null) throw error;
 ```
-- After the test ending at line 150 (`'Send invite saves, then create-invite, then send-invite-email'`), insert:
+- After test ending line 150 (`'Send invite saves, then create-invite, then send-invite-email'`), insert:
 ```dart
 
   testWidgets('a failed invite after saving keeps the save sentence', (
@@ -1309,7 +1309,7 @@ Features change `on XException` to `on AppException`. These are the only catches
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter test test/supabase_errors_test.dart test/gateway_errors_test.dart test/invite_chrome_test.dart test/manage_family_rename_guard_test.dart test/start_timeline_test.dart test/m14_people_profiles_test.dart`
-Expected: FAIL. `supabase_errors_test` fails to compile (`envelopeErrorCode` isn't defined). The widget tests show fallback copy instead of the fake message: `Found 0 widgets with text "person is already linked"`, `"too many levels"`, `"Rename failed"`. The new m14 test finds `person is already linked` because `appErrorMessage` now maps it.
+Expected: FAIL. `supabase_errors_test` fails to compile (`envelopeErrorCode` isn't defined). Widget tests show fallback copy instead of fake message: `Found 0 widgets with text "person is already linked"`, `"too many levels"`, `"Rename failed"`. New m14 test finds `person is already linked` since `appErrorMessage` now maps it.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -1353,7 +1353,7 @@ AppException appExceptionFromEnvelope(
 
 (b) `lib/data/invite_api.dart`
 - After line 3 (`import '../core/config/env.dart';`), insert `import 'app_exception.dart';`. After line 5 (`import 'profile_session.dart';`), insert `import 'supabase_errors.dart';`
-- Replace lines 115–153 (`_invoke`, `_asMap` and the `}` that closes `InviteApi`) with:
+- Replace lines 115–153 (`_invoke`, `_asMap`, `}` closing `InviteApi`) with:
 ```dart
   Future<Map<String, dynamic>> _invoke(
     String functionName,
@@ -1385,8 +1385,8 @@ AppException appExceptionFromEnvelope(
   }
 }
 ```
-(The trailing `}` closes `InviteApi`.)
-- Delete lines 222–231 (the blank line plus `class InviteApiException … }`).
+(Trailing `}` closes `InviteApi`.)
+- Delete lines 222–231 (blank line + `class InviteApiException … }`).
 
 (c) `lib/data/manage_families_api.dart`
 - After line 1 (`import 'package:supabase_flutter/supabase_flutter.dart';`), insert:
@@ -1416,7 +1416,7 @@ import 'supabase_errors.dart';
         message: 'resend_invite returned no expires_at',
       );
 ```
-- Replace lines 148–197 (`_invoke`, the class's closing `}`, top-level `_asMap`, and `class ManageFamiliesException`) with:
+- Replace lines 148–197 (`_invoke`, class closing `}`, top-level `_asMap`, `class ManageFamiliesException`) with:
 ```dart
   Future<Map<String, dynamic>> _invoke(
     String functionName,
@@ -1447,9 +1447,9 @@ import 'supabase_errors.dart';
 ```
 
 (d) Features
-- `lib/features/invites/invite_modal.dart` lines 171 and 240: `} on InviteApiException catch (error) {` → `} on AppException catch (error) {` (the `app_exception.dart` import was added in Task 6).
+- `lib/features/invites/invite_modal.dart` lines 171 and 240: `} on InviteApiException catch (error) {` → `} on AppException catch (error) {` (`app_exception.dart` import added in Task 6).
 - `lib/features/family/manage_families_page.dart`: before line 10 (`import '../../data/families_api.dart';`), insert `import '../../data/app_exception.dart';`. Line 191: `} on ManageFamiliesException catch (e) {` → `} on AppException catch (e) {`.
-- `lib/features/family/manage_family_page.dart`: before line 12 (`import '../../data/families_api.dart';`), insert `import '../../data/app_exception.dart';`. Replace all eight occurrences of `} on ManageFamiliesException catch (e) {` (lines 222, 241, 274, 297, 314, 344, 365, 383) with `} on AppException catch (e) {`.
+- `lib/features/family/manage_family_page.dart`: before line 12 (`import '../../data/families_api.dart';`), insert `import '../../data/app_exception.dart';`. Replace all eight `} on ManageFamiliesException catch (e) {` (lines 222, 241, 274, 297, 314, 344, 365, 383) with `} on AppException catch (e) {`.
 - `lib/features/family/start_family_dialog.dart`: before line 7 (`import '../../data/manage_families_api.dart';`), insert `import '../../data/app_exception.dart';`. Line 64: `} on ManageFamiliesException catch (e) {` → `} on AppException catch (e) {`.
 - `lib/features/family/start_timeline_dialog.dart`: before line 6 (`import '../../data/comments_api.dart';`), insert `import '../../data/app_exception.dart';`. Line 200: `} on ManageFamiliesException catch (error) {` → `} on AppException catch (error) {`. Replace lines 215–224 with:
 ```dart
@@ -1477,7 +1477,7 @@ import 'supabase_errors.dart';
         .showSnackBar(SnackBar(content: Text(message)));
   }
 ```
-  Then replace lines 189–200 (the `if (_sendInvite && !_inviteSent) { … }` block) with:
+  Then replace lines 189–200 (`if (_sendInvite && !_inviteSent) { … }` block) with:
 ```dart
       if (_sendInvite && !_inviteSent) {
         final invites = widget.invites;
@@ -1508,7 +1508,7 @@ mise exec -- flutter test test/supabase_errors_test.dart test/gateway_errors_tes
 mise exec -- flutter test
 git grep -n -E "InviteApiException|ManageFamiliesException" -- apps/tell_me_a_story
 ```
-Expected: tests PASS. The grep prints nothing.
+Expected: tests PASS. Grep prints nothing.
 
 - [ ] **Step 5: Commit**
 
@@ -1521,11 +1521,11 @@ git commit -m "refactor(client): edge-function envelopes surface as AppException
 
 ### Task 8: Origin and person-profile errors become `AppException`
 
-`originRpcException` (`families_api.dart:145-167`) keeps its §12 sentences: `You do not have permission to do that.`, `Not found.`, and the VALIDATION detail. It now builds `AppException`, and `OriginRpcException` is deleted.
+`originRpcException` (`families_api.dart:145-167`) keeps §12 sentences: `You do not have permission to do that.`, `Not found.`, VALIDATION detail. Now builds `AppException`; `OriginRpcException` deleted.
 
-`PeopleApi.personProfile` (`people_api.dart:334-348`) uses `withAppErrors`, so NOT_FOUND becomes `AppException(notFound)` and `PersonProfileNotFound` is deleted. Its callers:
-- `person_profile_dialog.dart:127-134` treats every error as "missing", so the `on PersonProfileNotFound` clause is simply removed.
-- `PeopleApi._treePerson` (`:257-271`) used to fail the tree listing with a non-catalog error, which showed generic copy in `add_person_modal`. `_treeProfile` keeps that.
+`PeopleApi.personProfile` (`people_api.dart:334-348`) uses `withAppErrors`, so NOT_FOUND → `AppException(notFound)`; `PersonProfileNotFound` deleted. Callers:
+- `person_profile_dialog.dart:127-134` treats every error as "missing", so `on PersonProfileNotFound` clause just removed.
+- `PeopleApi._treePerson` (`:257-271`) used to fail tree listing with non-catalog error → generic copy in `add_person_modal`. `_treeProfile` keeps that.
 
 **Files:**
 - Modify: `lib/data/families_api.dart:5,133-167,459-462,474-477`; `lib/data/people_api.dart:5,121-123,257-271,334-348`
@@ -1534,7 +1534,7 @@ git commit -m "refactor(client): edge-function envelopes surface as AppException
 
 - [ ] **Step 1: Write the failing tests**
 
-(a) `test/gateway_errors_test.dart`: add `import 'package:tell_me_a_story/data/families_api.dart';` after the `app_exception.dart` import. Append inside `main()`:
+(a) `test/gateway_errors_test.dart`: add `import 'package:tell_me_a_story/data/families_api.dart';` after `app_exception.dart` import. Append inside `main()`:
 ```dart
 
   group('origin and profile RPCs', () {
@@ -1620,7 +1620,7 @@ git commit -m "refactor(client): edge-function envelopes surface as AppException
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter test test/gateway_errors_test.dart test/story_reader_page_test.dart test/m14_people_profiles_test.dart`
-Expected: FAIL. `gateway_errors_test` gets `OriginRpcException` / `PersonProfileNotFound` where it expects `AppException`. `story_reader_page_test` finds `Try again` instead of `origin must be published`, because the reader still checks `is OriginRpcException`.
+Expected: FAIL. `gateway_errors_test` gets `OriginRpcException` / `PersonProfileNotFound` where expects `AppException`. `story_reader_page_test` finds `Try again` instead of `origin must be published`, since reader still checks `is OriginRpcException`.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -1657,7 +1657,7 @@ AppException? _originError(Object error) {
 
 `lib/data/people_api.dart`
 - Before line 5 (`import 'families_api.dart';`), insert `import 'app_exception.dart';`
-- Delete lines 121–124 (`class PersonProfileNotFound … }` and the blank line after it).
+- Delete lines 121–124 (`class PersonProfileNotFound … }` + blank line after).
 - In `_treePerson` (line 259–261), replace
 ```dart
     final profile = userId == null
@@ -1704,7 +1704,7 @@ AppException? _originError(Object error) {
     } on PersonProfileNotFound {
       missing = true;
 ```
-(the remaining `} catch (_) { missing = true; }` handles it).
+(remaining `} catch (_) { missing = true; }` handles it).
 
 `lib/features/stories/story_reader_page.dart`
 - Before line 13 (`import '../../data/comments_api.dart';`), insert `import '../../data/app_exception.dart';`
@@ -1719,7 +1719,7 @@ mise exec -- flutter test test/gateway_errors_test.dart test/story_reader_page_t
 mise exec -- flutter test
 git grep -n -E "OriginRpcException|originRpcException|PersonProfileNotFound" -- apps/tell_me_a_story
 ```
-Expected: tests PASS. The grep prints nothing.
+Expected: tests PASS. Grep prints nothing.
 
 - [ ] **Step 5: Commit**
 
@@ -1733,19 +1733,19 @@ git commit -m "refactor(client): origin and person-profile errors surface as App
 ### Task 9: Duplicate writes are idempotent inside `StoriesApi`
 
 Today `new_story_page.dart` catches `PostgrestException` twice:
-- `:468-480`, to ignore a duplicate `story_people_pkey`;
-- `:726-729`, to turn a retried create with the same client id into an update.
+- `:468-480`, ignore duplicate `story_people_pkey`;
+- `:726-729`, turn retried create with same client id into update.
 
-Both move into `StoriesApi`, matching the server contract (§2.2: `createDraft` is idempotent on id, `linkPerson` is ON CONFLICT DO NOTHING). The page then has no Supabase import.
+Both move into `StoriesApi`, matching server contract (§2.2: `createDraft` idempotent on id, `linkPerson` ON CONFLICT DO NOTHING). Page then has no Supabase import.
 
 **Files:**
-- Modify: `lib/data/stories_api.dart:346-352` (add a helper after it), `:428-465`, `:736-745`
+- Modify: `lib/data/stories_api.dart:346-352` (add helper after), `:428-465`, `:736-745`
 - Modify: `lib/features/stories/new_story_page.dart:7,451,468-481,708-730`
 - Test: `test/stories_api_test.dart` (after line 163), `test/gateway_errors_test.dart`, `test/new_story_shell_test.dart:5,548-563,897,942-949`, `test/new_story_capture_test.dart:7,184,356-361,1607-1634,1638-1641,1838-1868`
 
 - [ ] **Step 1: Write the failing tests**
 
-(a) `test/stories_api_test.dart`: after the `isDuplicateStoryKey` test (ends line 163), insert:
+(a) `test/stories_api_test.dart`: after `isDuplicateStoryKey` test (ends line 163), insert:
 ```dart
 
   group('createOrUpdateExisting', () {
@@ -1837,25 +1837,25 @@ Both move into `StoriesApi`, matching the server contract (§2.2: `createDraft` 
   });
 ```
 
-(c) Page tests now model the idempotent gateway:
-- `test/new_story_shell_test.dart`: delete line 5 (`supabase_flutter` import). Delete the test `'a duplicate-key insert becomes an update by the same id'` (lines 548–563, plus the blank line after it). It now lives in `stories_api_test` as `createOrUpdateExisting`. Delete line 897 (`var duplicateOnCreate = false;`) and lines 942–949 (the `if (duplicateOnCreate) { … }` block).
+(c) Page tests now model idempotent gateway:
+- `test/new_story_shell_test.dart`: delete line 5 (`supabase_flutter` import). Delete test `'a duplicate-key insert becomes an update by the same id'` (lines 548–563 + blank line after); now lives in `stories_api_test` as `createOrUpdateExisting`. Delete line 897 (`var duplicateOnCreate = false;`) and lines 942–949 (`if (duplicateOnCreate) { … }` block).
 - `test/new_story_capture_test.dart`:
   - delete line 7 (`supabase_flutter … show PostgrestException`);
   - delete line 184 (`Set<String> duplicateLinkIds = {};`);
-  - delete lines 356–361 (the `if (duplicateLinkIds.contains(personId)) { throw … }` block);
-  - delete the test `'re-adding a person already on the story shows no error'` (lines 1607–1634 plus the blank line after it), since the duplicate case is now covered by `gateway_errors_test`;
+  - delete lines 356–361 (`if (duplicateLinkIds.contains(personId)) { throw … }` block);
+  - delete test `'re-adding a person already on the story shows no error'` (lines 1607–1634 + blank line after); duplicate case now covered by `gateway_errors_test`;
   - in `'other link errors still show the save error'` replace lines 1638–1641 with:
 ```dart
       ..linkError = Exception(
         'new row violates row-level security policy for table "story_people"',
       );
 ```
-  - delete the test `'a duplicate key on another constraint still shows the save error'` (lines 1838–1868 plus the blank line after it). The page no longer inspects constraint names, and the gateway test above covers `photos_pkey`.
+  - delete test `'a duplicate key on another constraint still shows the save error'` (lines 1838–1868 + blank line after). Page no longer inspects constraint names; gateway test above covers `photos_pkey`.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter test test/stories_api_test.dart test/gateway_errors_test.dart`
-Expected: FAIL. `stories_api_test` fails to compile (`The function 'createOrUpdateExisting' isn't defined`). The first linkPerson duplicate test throws `PostgrestException(... story_people_pkey ...)`.
+Expected: FAIL. `stories_api_test` fails to compile (`The function 'createOrUpdateExisting' isn't defined`). First linkPerson duplicate test throws `PostgrestException(... story_people_pkey ...)`.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -1878,7 +1878,7 @@ Future<T> createOrUpdateExisting<T>({
   }
 }
 ```
-- Replace the `createDraft` body (lines 441–464, from `if (!allowUndated) {` through `return getStory(story.id);`) with:
+- Replace `createDraft` body (lines 441–464, from `if (!allowUndated) {` through `return getStory(story.id);`) with:
 ```dart
     if (!allowUndated) {
       ensureValidDraftSave(timeframeStart: timeframeStart);
@@ -1922,7 +1922,7 @@ Future<T> createOrUpdateExisting<T>({
       ),
     );
 ```
-- Replace `linkPerson` (the Task 6 version) with:
+- Replace `linkPerson` (Task 6 version) with:
 ```dart
   @override
   Future<void> linkPerson({
@@ -1949,8 +1949,8 @@ Future<T> createOrUpdateExisting<T>({
 `lib/features/stories/new_story_page.dart`
 - Delete line 7: `import 'package:supabase_flutter/supabase_flutter.dart';`
 - Line 451: `linkPerson: _linkIgnoringDuplicate,` → `linkPerson: _stories.linkPerson,`
-- Delete lines 468–481 (`_linkIgnoringDuplicate` and the blank line after it).
-- Replace lines 708–730 (the `if (!_autosaveInserted) { … }` block in `_writeDraft`) with:
+- Delete lines 468–481 (`_linkIgnoringDuplicate` + blank line after).
+- Replace lines 708–730 (`if (!_autosaveInserted) { … }` block in `_writeDraft`) with:
 ```dart
     if (!_autosaveInserted) {
       if (!autosave && snapshot.start == null) return null;
@@ -1981,7 +1981,7 @@ mise exec -- flutter test test/stories_api_test.dart test/gateway_errors_test.da
 mise exec -- flutter test
 git grep -n -E "PostgrestException|FunctionException|supabase_flutter" -- apps/tell_me_a_story/lib/features
 ```
-Expected: tests PASS. The grep prints only `lib/features/auth/invite_sign_in_page.dart` and `lib/features/auth/magic_link_page.dart` (deferred OTP work).
+Expected: tests PASS. Grep prints only `lib/features/auth/invite_sign_in_page.dart` and `lib/features/auth/magic_link_page.dart` (deferred OTP work).
 
 - [ ] **Step 5: Commit**
 
@@ -1994,17 +1994,17 @@ git commit -m "refactor(client): StoriesApi makes create and link idempotent"
 
 ### Task 10: `StoriesApi.discard` cleans up photo objects
 
-Today `drafts_page.dart:253-255` calls `PhotosGateway.deleteAllForStory` and then `StoriesGateway.discard`, while `story_reader_page.dart:712` calls only `discard`, which leaks storage objects. This task folds the cleanup into `StoriesApi.discard`: it reads `family_id`, removes the `{family}/{story}` objects, then deletes the row. A storage failure keeps the row, as in drafts today. `deleteAllForStory` leaves the `PhotosGateway` interface (contract §2.3 "removed (folded into `story.discard`)") and stays on `PhotosApi` for `StoriesApi` to call.
+Today `drafts_page.dart:253-255` calls `PhotosGateway.deleteAllForStory` then `StoriesGateway.discard`, while `story_reader_page.dart:712` calls only `discard` → leaks storage objects. Task folds cleanup into `StoriesApi.discard`: read `family_id`, remove `{family}/{story}` objects, delete row. Storage failure keeps row, as in drafts today. `deleteAllForStory` leaves `PhotosGateway` interface (contract §2.3 "removed (folded into `story.discard`)"), stays on `PhotosApi` for `StoriesApi` to call.
 
 **Files:**
 - Modify: `lib/data/stories_api.dart:409,417-420,731-734`; `lib/data/photos_api.dart:176-179,308`
 - Modify: `lib/features/drafts/drafts_page.dart:13,35,42,53,67-69,253-254`; `lib/core/router/app_router.dart:462`
 - Test: `test/gateway_errors_test.dart`; `test/drafts_page_test.dart:84-90,161-166,263-305,308-321,483-525`
-- Test fakes losing their `deleteAllForStory` override: `test/all_stories_page_test.dart:944-949`, `test/edit_story_guard_test.dart:453-458`, `test/logout_ordering_test.dart:287-292`, `test/new_story_capture_test.dart:450-455`, `test/new_story_guard_test.dart:652-657`, `test/router_test.dart:234-239`, `test/search_page_test.dart:180-185`, `test/start_timeline_test.dart:382-387`, `test/stories_api_test.dart:325-330`, `test/story_reader_page_test.dart:396-401`, `test/timeline_page_test.dart:460-465`
+- Test fakes losing `deleteAllForStory` override: `test/all_stories_page_test.dart:944-949`, `test/edit_story_guard_test.dart:453-458`, `test/logout_ordering_test.dart:287-292`, `test/new_story_capture_test.dart:450-455`, `test/new_story_guard_test.dart:652-657`, `test/router_test.dart:234-239`, `test/search_page_test.dart:180-185`, `test/start_timeline_test.dart:382-387`, `test/stories_api_test.dart:325-330`, `test/story_reader_page_test.dart:396-401`, `test/timeline_page_test.dart:460-465`
 
 - [ ] **Step 1: Write the failing tests**
 
-(a) `test/gateway_errors_test.dart`: add `import 'package:tell_me_a_story/data/photos_api.dart';` after the `people_api.dart` import. Append inside `main()`:
+(a) `test/gateway_errors_test.dart`: add `import 'package:tell_me_a_story/data/photos_api.dart';` after `people_api.dart` import. Append inside `main()`:
 ```dart
 
   group('StoriesApi.discard', () {
@@ -2060,8 +2060,8 @@ Today `drafts_page.dart:253-255` calls `PhotosGateway.deleteAllForStory` and the
   });
 ```
 
-(b) `test/drafts_page_test.dart`: the page no longer touches photos.
-- Replace lines 84–90 (constructor and fields) with:
+(b) `test/drafts_page_test.dart`: page no longer touches photos.
+- Replace lines 84–90 (constructor + fields) with:
 ```dart
   _FakeStoriesApi({List<Story>? drafts}) : drafts = [...?drafts];
 
@@ -2078,7 +2078,7 @@ Today `drafts_page.dart:253-255` calls `PhotosGateway.deleteAllForStory` and the
     drafts.removeWhere((s) => s.id == storyId);
   }
 ```
-- In `_FakePhotosApi` (lines 263–306): delete lines 264–270 (constructor, the `deletedStories`/`callLog`/`failDelete` fields and the blank line after them), so the class body starts at `@override Future<List<Photo>> listPhotos`. Delete lines 294–303 (the `deleteAllForStory` override and the blank line after it). The class stays because `createAppRouter` uses it at line 451.
+- In `_FakePhotosApi` (lines 263–306): delete lines 264–270 (constructor, `deletedStories`/`callLog`/`failDelete` fields, blank line after), so class body starts at `@override Future<List<Photo>> listPhotos`. Delete lines 294–303 (`deleteAllForStory` override + blank line after). Class stays since `createAppRouter` uses it at line 451.
 - Replace `_drafts` (lines 308–321) with:
 ```dart
 Widget _drafts({required StoriesGateway stories, FamiliesGateway? families}) {
@@ -2091,7 +2091,7 @@ Widget _drafts({required StoriesGateway stories, FamiliesGateway? families}) {
   );
 }
 ```
-- Replace the two tests at lines 483–525 with:
+- Replace two tests at lines 483–525 with:
 ```dart
   testWidgets('Discard calls discard and removes the row', (tester) async {
     final api = _FakeStoriesApi(drafts: [_draft(id: 's1')]);
@@ -2128,12 +2128,12 @@ Widget _drafts({required StoriesGateway stories, FamiliesGateway? families}) {
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `cd apps/tell_me_a_story && mise exec -- flutter test test/gateway_errors_test.dart test/drafts_page_test.dart`
-Expected: FAIL. `gateway_errors_test` fails to compile with `No named parameter with the name 'photos'`. (`drafts_page_test` still compiles and passes at this point, because `DraftsPage.photosApi` is optional.)
+Expected: FAIL. `gateway_errors_test` fails to compile with `No named parameter with the name 'photos'`. (`drafts_page_test` still compiles + passes here, since `DraftsPage.photosApi` optional.)
 
 - [ ] **Step 3: Write minimal implementation**
 
 `lib/data/stories_api.dart`
-- Replace the constructor and field (lines 417–420) with:
+- Replace constructor + field (lines 417–420) with:
 ```dart
   StoriesApi({SupabaseClient? client, PhotosApi? photos})
     : _client = client ?? Supabase.instance.client,
@@ -2176,7 +2176,7 @@ Expected: FAIL. `gateway_errors_test` fails to compile with `No named parameter 
 ```
 
 `lib/features/drafts/drafts_page.dart`
-- Delete line 13 (`import '../../data/photos_api.dart';`), line 35 (`this.photosApi,`), line 42 (`final PhotosGateway? photosApi;`), line 53 (`PhotosGateway? _photosOverride;`), and lines 67–69 (the blank line and the `_photos` getter).
+- Delete line 13 (`import '../../data/photos_api.dart';`), line 35 (`this.photosApi,`), line 42 (`final PhotosGateway? photosApi;`), line 53 (`PhotosGateway? _photosOverride;`), lines 67–69 (blank line + `_photos` getter).
 - In `_discard`, delete lines 253–254:
 ```dart
       final familyId = _familyId ?? story.familyId;
@@ -2184,9 +2184,9 @@ Expected: FAIL. `gateway_errors_test` fails to compile with `No named parameter 
 ```
 
 `lib/core/router/app_router.dart`
-- Delete line 462 (`photosApi: photosApi,` inside the `DraftsPage(` builder). The router's `photosApi` parameter is still used by the other routes.
+- Delete line 462 (`photosApi: photosApi,` inside `DraftsPage(` builder). Router's `photosApi` param still used by other routes.
 
-Test fakes: delete this override and the blank line after it from each file in the list above:
+Test fakes: delete this override + blank line after from each file listed above:
 ```dart
   @override
   Future<void> deleteAllForStory({
@@ -2194,7 +2194,7 @@ Test fakes: delete this override and the blank line after it from each file in t
     required String storyId,
   }) async {}
 ```
-In `test/all_stories_page_test.dart` (lines 944–949) the body is `=> Future<void>.error(UnimplementedError());` and it is the class's last member. Delete the blank line 944 plus lines 945–949, and keep the closing `}` at line 950.
+In `test/all_stories_page_test.dart` (lines 944–949) body is `=> Future<void>.error(UnimplementedError());` and it's class's last member. Delete blank line 944 plus lines 945–949; keep closing `}` at line 950.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -2217,10 +2217,10 @@ git commit -m "refactor(client): StoriesApi.discard removes photo objects"
 
 ### Task 11: Picture URLs become bytes
 
-The cutover reads blobs through `media.get` → `ByteData` (contract §2.3 rows `People.signedPictureUrl` and `storiesForPerson`). This task changes the client shape first:
+Cutover reads blobs via `media.get` → `ByteData` (contract §2.3 rows `People.signedPictureUrl` and `storiesForPerson`). Task changes client shape first:
 - `PeopleGateway.signedPictureUrl` → `pictureBytes`
 - `PersonStoryCard.thumbUrl` → `thumbBytes`
-- the three `Image.network` sites become `Image.memory`: `person_profile_dialog.dart:493,558` and `edit_person_dialog.dart:434`.
+- three `Image.network` sites → `Image.memory`: `person_profile_dialog.dart:493,558` and `edit_person_dialog.dart:434`.
 
 **Files:**
 - Modify: `lib/data/people_api.dart:215-219,435-445`; `lib/data/stories_api.dart:277-294,628-646`
@@ -2231,7 +2231,7 @@ The cutover reads blobs through `media.get` → `ByteData` (contract §2.3 rows 
 
 In `test/m14_people_profiles_test.dart`:
 1. After line 5 (`import 'package:google_fonts/google_fonts.dart';`), insert `import 'package:image/image.dart' as img;`
-2. In `_People`, replace `String? signedUrl;` (line 669) with `Uint8List? picture;` and `String? signedPath;` (line 673) with `String? picturePath;`. Replace the `signedPictureUrl` override (lines 712–719) with:
+2. In `_People`, replace `String? signedUrl;` (line 669) with `Uint8List? picture;` and `String? signedPath;` (line 673) with `String? picturePath;`. Replace `signedPictureUrl` override (lines 712–719) with:
 ```dart
   @override
   Future<Uint8List?> pictureBytes({
@@ -2242,7 +2242,7 @@ In `test/m14_people_profiles_test.dart`:
     return picture;
   }
 ```
-3. Append inside `main()` (before its closing `}`):
+3. Append inside `main()` (before closing `}`):
 ```dart
 
   testWidgets('a stored person picture renders from bytes', (tester) async {
@@ -2326,7 +2326,7 @@ In `test/m14_people_profiles_test.dart`:
     expect(preview.image, isA<MemoryImage>());
   });
 ```
-4. At the end of the file, append:
+4. At file end, append:
 ```dart
 
 Uint8List _png() => Uint8List.fromList(img.encodePng(img.Image(width: 2, height: 2)));
@@ -2393,7 +2393,7 @@ Expected: FAIL to compile: `The method 'pictureBytes' isn't defined in a supercl
 ```
 
 `lib/data/stories_api.dart`
-- In `PersonStoryCard` (lines 277–294), rename the field: `this.thumbUrl,` → `this.thumbBytes,` and `final String? thumbUrl;` → `final Uint8List? thumbBytes;`.
+- In `PersonStoryCard` (lines 277–294), rename field: `this.thumbUrl,` → `this.thumbBytes,` and `final String? thumbUrl;` → `final Uint8List? thumbBytes;`.
 - In `storiesForPerson`, replace lines 628–638 with:
 ```dart
       Uint8List? thumb;
@@ -2411,7 +2411,7 @@ Expected: FAIL to compile: `The method 'pictureBytes' isn't defined in a supercl
   and line 646 `thumbUrl: thumb,` → `thumbBytes: thumb,`.
 
 `lib/features/people/person_profile_dialog.dart`
-- Insert at the top (before line 1):
+- Insert at top (before line 1):
 ```dart
 import 'dart:typed_data';
 
@@ -2430,7 +2430,7 @@ import 'dart:typed_data';
       }
 ```
 - Line 173: `_pictureUrl = pictureUrl;` → `_pictureBytes = picture;`
-- In `_thumb`, replace lines 479–503 (from `Widget _thumb(PersonStoryCard story) {` through the `),` that closes the `ClipRRect`) with:
+- In `_thumb`, replace lines 479–503 (from `Widget _thumb(PersonStoryCard story) {` through `),` closing `ClipRRect`) with:
 ```dart
   Widget _thumb(PersonStoryCard story) {
     final bytes = story.thumbBytes;
@@ -2458,7 +2458,7 @@ import 'dart:typed_data';
                   ),
           ),
 ```
-  (the photo-count `Positioned` that follows is unchanged).
+  (photo-count `Positioned` after it unchanged).
 - In `_picture`, replace lines 535–536 with:
 ```dart
     final stored = _pictureBytes;
@@ -2529,7 +2529,7 @@ mise exec -- flutter test test/m14_people_profiles_test.dart test/m14_3_dob_pass
 mise exec -- flutter test
 git grep -n -E "signedPictureUrl|thumbUrl|Image\.network" -- apps/tell_me_a_story
 ```
-Expected: tests PASS. The grep prints nothing.
+Expected: tests PASS. Grep prints nothing.
 
 - [ ] **Step 5: Commit**
 
@@ -2553,11 +2553,11 @@ mise exec -- flutter test
 mise exec -- flutter analyze > /tmp/phase2-analyze-after.txt; echo "analyze exit $?"
 diff /tmp/phase2-analyze-before.txt /tmp/phase2-analyze-after.txt
 ```
-Expected: `All tests passed!`. `diff` shows no new issues (only removed ones, if any). Fix any `unused_import` / `override_on_non_overriding_member` it reports in files touched by this plan.
+Expected: `All tests passed!`. `diff` shows no new issues (only removed ones, if any). Fix any `unused_import` / `override_on_non_overriding_member` reported in files touched by plan.
 
 - [ ] **Step 2: Seam checks**
 
-Run from the repo root:
+Run from repo root:
 ```bash
 git grep -n "Supabase.instance" -- apps/tell_me_a_story/lib/features apps/tell_me_a_story/lib/core
 git grep -n -E "PostgrestException|FunctionException|supabase_flutter" -- apps/tell_me_a_story/lib/features
@@ -2565,8 +2565,8 @@ git grep -n -E "InviteApiException|ManageFamiliesException|OriginRpcException|Pe
 git grep -l supabase_flutter -- apps/tell_me_a_story/test
 ```
 Expected:
-1. `lib/core/supabase/supabase_init.dart`, `lib/features/auth/invite_sign_in_page.dart` and `lib/features/auth/magic_link_page.dart` only.
-2. The two auth pages only.
+1. Only `lib/core/supabase/supabase_init.dart`, `lib/features/auth/invite_sign_in_page.dart`, `lib/features/auth/magic_link_page.dart`.
+2. Only the two auth pages.
 3. No output.
 4. Data/auth tests only: `comments_api_test`, `family_landing_latest_test`, `family_selection_test`, `gateway_errors_test`, `m13_fit_finish_test`, `people_api_test`, `perspectives_api_test`, `photos_api_test`, `profile_session_test`, `stories_api_test`, `supabase_errors_test`. Phase C rewrites or deletes each per contract §4.
 
@@ -2584,32 +2584,32 @@ Expected: `All tests passed!` (includes `test/theme/no_hardcoded_colors_test.dar
 | Requirement | Task |
 |---|---|
 | `AppSession`: single source for user id + auth state | 1. `currentUserId` + `signOut`. `isSignedIn` / listenable stay on `AuthRefresh` until Phase C (contract §3 `auth_refresh.dart` row) |
-| Replace every `auth.currentUser` read in `lib/features/**`, `lib/core/**` (file:line list) | 2 (table with all ten sites), 4 (add_perspective) |
-| Injection consistent with existing patterns | 1–2. Static `instance`, as in `ProfileSession.instance`. Existing `currentUserId` / `signedInUserId` / `onLogout` constructor args keep priority |
+| Replace every `auth.currentUser` read in `lib/features/**`, `lib/core/**` (file:line list) | 2 (table, all ten sites), 4 (add_perspective) |
+| Injection consistent with existing patterns | 1–2. Static `instance`, like `ProfileSession.instance`. Existing `currentUserId` / `signedInUserId` / `onLogout` constructor args keep priority |
 | One `AppException{code, message}`; gateways translate Postgrest/Function errors | 5, 6, 7, 8 |
-| Delete feature-level `PostgrestException` catches | 9 (`new_story_page.dart:474,726`). `families_api.dart:400` is gateway-internal and stays until Phase C |
+| Delete feature-level `PostgrestException` catches | 9 (`new_story_page.dart:474,726`). `families_api.dart:400` gateway-internal, stays until Phase C |
 | Unify `rpc_error.dart` / `originRpcException` / `_invoke` envelopes | 6 / 8 / 7 |
-| UI copy unchanged, verified from call sites and tests | Audit tables in 6 and 7. Explicit guards: add-person invite step (7), tree listing NOT_FOUND (8). Existing copy assertions are kept and the new regression test is in 7 |
-| Move direct query out of `add_perspective_page.dart` | 4 (`ProfileSession`, which `ProfileGateway.loadOwn` backs) |
-| Move `signOut` from `album_header.dart` behind the session | 3 |
+| UI copy unchanged, verified from call sites + tests | Audit tables in 6 and 7. Explicit guards: add-person invite step (7), tree listing NOT_FOUND (8). Existing copy assertions kept; new regression test in 7 |
+| Move direct query out of `add_perspective_page.dart` | 4 (`ProfileSession`, backed by `ProfileGateway.loadOwn`) |
+| Move `signOut` from `album_header.dart` behind session | 3 |
 | Composition root in `main.dart` | Skipped: not in contract §5 Phase A (see Scope) |
 | Shared `test/support/fakes.dart` | Skipped: contract §4 says fakes don't change |
-| Image URL → bytes (contract Phase A requires it) | 11 |
+| Image URL → bytes (contract Phase A requires) | 11 |
 | Contract A.3 idempotency + discard fold | 9, 10 |
 | Email-code login | Excluded (deferred) |
 
-**2. Placeholder scan.** No TBD/TODO. Every code step shows the code, and every run step names the command and the expected result. Deleted tests are named with their line ranges, and each deletion gives the test that now covers it.
+**2. Placeholder scan.** No TBD/TODO. Every code step shows code; every run step names command + expected result. Deleted tests named with line ranges; each deletion names test now covering it.
 
 **3. Type consistency.**
-- `AppSession.instance`, `.currentUserId`, `.signOut()` and `SupabaseAppSession` are used the same way in Tasks 1–3.
-- `AppErrorCode {notFound, forbidden, validation, inviteInvalid, unauthenticated}` and `AppException({code, message})` are used throughout.
-- `appErrorMessage`, `appExceptionFromPostgrest`, `withAppErrors`, `envelopeBody`, `envelopeErrorCode`, `appExceptionFromEnvelope` and `createOrUpdateExisting` are defined before first use.
-- `StoriesApi({client, photos})` is introduced in 10. Earlier tests only pass `client`.
-- `pictureBytes({personId, path})` and `thumbBytes` match between the gateway, the fakes and the widgets.
-- `_Http`, `_client`, `_error`, `_Reply` are defined once in `gateway_errors_test.dart` (Task 6) and reused by 7–10.
+- `AppSession.instance`, `.currentUserId`, `.signOut()`, `SupabaseAppSession` used same way in Tasks 1–3.
+- `AppErrorCode {notFound, forbidden, validation, inviteInvalid, unauthenticated}` and `AppException({code, message})` used throughout.
+- `appErrorMessage`, `appExceptionFromPostgrest`, `withAppErrors`, `envelopeBody`, `envelopeErrorCode`, `appExceptionFromEnvelope`, `createOrUpdateExisting` defined before first use.
+- `StoriesApi({client, photos})` introduced in 10. Earlier tests pass only `client`.
+- `pictureBytes({personId, path})` and `thumbBytes` match across gateway, fakes, widgets.
+- `_Http`, `_client`, `_error`, `_Reply` defined once in `gateway_errors_test.dart` (Task 6), reused by 7–10.
 
 **4. Known behaviour changes (intentional, contract-driven).**
-- Deleting a story from the reader now also removes its storage objects (Task 10). The objects used to leak.
-- A retried create's duplicate now updates through `updateDraft` instead of the page's guarded `autosaveDraft`. The row was created by the same page moments earlier, so it is still a draft.
+- Deleting story from reader now also removes its storage objects (Task 10). Objects used to leak.
+- Retried create's duplicate now updates via `updateDraft` instead of page's guarded `autosaveDraft`. Row created by same page moments earlier, so still a draft.
 
-**5. Open question for Main.** Roadmap row 2 promises "gateways injected from `main.dart`", but contract §5 Phase A does not include it. This plan follows the contract. If the composition root is wanted, it is a separate task over the ~50 `widget.xApi ?? XApi()` sites.
+**5. Open question for Main.** Roadmap row 2 promises "gateways injected from `main.dart`", but contract §5 Phase A excludes it. Plan follows contract. If composition root wanted, separate task over ~50 `widget.xApi ?? XApi()` sites.
