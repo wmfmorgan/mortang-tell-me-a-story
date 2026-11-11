@@ -558,7 +558,7 @@ void main() {
               TreeFamily(id: 'bea', name: 'Bea'),
             ],
             stewarded: [
-              StewardFamily(id: _parent, name: 'Parent', role: 'owner'),
+              const StewardFamily(id: _parent, name: 'Parent', role: 'owner'),
             ],
           ),
           currentUserId: _me,

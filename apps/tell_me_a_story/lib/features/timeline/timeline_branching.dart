@@ -461,7 +461,7 @@ DecadeParentMark decadeParentMark({
   final dotCenterX = -minX;
   final above = math.max(0.0, -calloutHit / 2 - parentRect.top);
   final dotCenterY = above + calloutHit / 2;
-  var width = dotCenterX + maxX;
+  final width = dotCenterX + maxX;
   var height = above + calloutHit;
   void growBottom(Rect rect) {
     final bottom = dotCenterY + rect.bottom;

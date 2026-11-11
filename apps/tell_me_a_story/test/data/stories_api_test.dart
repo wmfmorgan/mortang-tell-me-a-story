@@ -245,7 +245,7 @@ void main() {
     );
     expect(dated.publishedStart, DateTime(1980, 6, 1));
 
-    final undated = Story(
+    final undated = const Story(
       id: 'undated',
       familyId: 'f1',
       authorId: 'u1',

@@ -139,21 +139,21 @@ class _TransferDialogState extends State<_TransferDialog> {
               RadioGroup<String>(
                 groupValue: _former,
                 onChanged: (value) => setState(() => _former = value),
-                child: Column(
+                child: const Column(
                   children: [
                     RadioListTile<String>(
-                      key: const Key('transfer-become-co-owner'),
+                      key: Key('transfer-become-co-owner'),
                       value: 'co_owner',
-                      title: const Text('Co-owner'),
-                      subtitle: const Text(
+                      title: Text('Co-owner'),
+                      subtitle: Text(
                         'Maintain full administrative editing rights and member management capabilities.',
                       ),
                     ),
                     RadioListTile<String>(
-                      key: const Key('transfer-become-member'),
+                      key: Key('transfer-become-member'),
                       value: 'member',
-                      title: const Text('Member'),
-                      subtitle: const Text(
+                      title: Text('Member'),
+                      subtitle: Text(
                         'Standard contributor access to view and add memories to the family archive.',
                       ),
                     ),

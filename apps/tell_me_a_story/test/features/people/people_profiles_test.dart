@@ -223,7 +223,7 @@ void main() {
         passingPrecision: 'year',
         about: 'Kin',
       );
-      people.editor = Person(
+      people.editor = const Person(
         id: 'p1',
         familyId: _familyId,
         name: 'Ada',
@@ -263,13 +263,13 @@ void main() {
         findsOneWidget,
       );
 
-      people.profile = PersonProfile(
+      people.profile = const PersonProfile(
         id: 'p1',
         familyId: _familyId,
         name: 'Ada',
         isLinked: true,
       );
-      people.editor = Person(
+      people.editor = const Person(
         id: 'p1',
         familyId: _familyId,
         name: 'Ada',
@@ -282,7 +282,7 @@ void main() {
       expect(find.byKey(const Key('person-profile-edit')), findsNothing);
       expect(find.text('Not signed in yet'), findsNothing);
 
-      people.editor = Person(
+      people.editor = const Person(
         id: 'p1',
         familyId: _familyId,
         name: 'Ada',
@@ -298,7 +298,7 @@ void main() {
 
   testWidgets('a member profile lists that person’s stories', (tester) async {
     final people = _People()
-      ..profile = PersonProfile(
+      ..profile = const PersonProfile(
         id: 'p1',
         familyId: _familyId,
         name: 'Ada Lovelace',
@@ -380,7 +380,7 @@ void main() {
       createdFamilyId: 'f',
       acceptedFamilyId: 'f',
     );
-    final person = Person(
+    final person = const Person(
       id: 'p1',
       familyId: _familyId,
       name: 'Ada',
@@ -542,7 +542,7 @@ void main() {
           builder: (context) => TextButton(
             onPressed: () => showEditPersonDialog(
               context,
-              person: Person(
+              person: const Person(
                 id: 'p1',
                 familyId: _familyId,
                 name: 'Ada',

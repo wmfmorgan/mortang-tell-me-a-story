@@ -309,7 +309,7 @@ void main() {
     expect(big.style!.color, albumInk);
     final label = tester.widget<Text>(
       find.descendant(
-        of: find.byKey(Key('treemap-cell-${TreeFixture.jenkins}/1950')),
+        of: find.byKey(const Key('treemap-cell-${TreeFixture.jenkins}/1950')),
         matching: find.text('1950s'),
       ),
     );

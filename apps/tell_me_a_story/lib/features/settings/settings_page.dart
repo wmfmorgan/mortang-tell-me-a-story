@@ -242,7 +242,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _openInvite() async {
-    var familyId = _familyId ?? await _invite.currentFamilyId();
+    final familyId = _familyId ?? await _invite.currentFamilyId();
     if (familyId == null) return;
     if (!mounted) return;
     await InviteModal.show(

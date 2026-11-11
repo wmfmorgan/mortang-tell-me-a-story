@@ -253,7 +253,7 @@ class _SignInPageState extends State<SignInPage> {
               BoxShadow(
                 color: albumShadow.withAlpha(0x0D),
                 blurRadius: 2,
-                offset: Offset(0, 1),
+                offset: const Offset(0, 1),
               ),
             ],
           ),
@@ -319,7 +319,7 @@ class _SignInPageState extends State<SignInPage> {
             BoxShadow(
               color: albumShadow.withAlpha(0x0D),
               blurRadius: 2,
-              offset: Offset(0, 1),
+              offset: const Offset(0, 1),
             ),
           ],
         ),

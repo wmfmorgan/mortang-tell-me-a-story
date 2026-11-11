@@ -89,7 +89,7 @@ void main() {
       tester,
       _app(
         _Profile(
-          profile: OwnProfile(
+          profile: const OwnProfile(
             id: 'user-1',
             email: 'sarah@example.com',
             avatarPath: 'user-1/avatar.jpg',

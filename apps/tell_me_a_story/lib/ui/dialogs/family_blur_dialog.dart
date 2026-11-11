@@ -135,7 +135,7 @@ class _FamilyBlurDialog extends StatelessWidget {
                     BoxShadow(
                       color: albumShadow.withAlpha(0x1A),
                       blurRadius: 25,
-                      offset: Offset(0, 20),
+                      offset: const Offset(0, 20),
                     ),
                   ],
                 ),
@@ -293,7 +293,7 @@ class _SendInviteConfirm extends StatelessWidget {
                     BoxShadow(
                       color: albumInk.withAlpha(0x1A),
                       blurRadius: 28,
-                      offset: Offset(0, 16),
+                      offset: const Offset(0, 16),
                     ),
                   ],
                 ),

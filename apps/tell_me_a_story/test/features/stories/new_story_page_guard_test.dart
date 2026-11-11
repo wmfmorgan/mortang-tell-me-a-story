@@ -19,7 +19,7 @@ const _ada = 'ada';
 
 const _person = Person(id: 'p1', familyId: _ada, name: 'Ada');
 
-final _park = Place(
+final _park = const Place(
   id: 'pl1',
   label: 'Central Park',
   address: 'New York, NY',

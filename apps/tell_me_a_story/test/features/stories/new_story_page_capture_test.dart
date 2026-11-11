@@ -343,7 +343,7 @@ const _tx = Person(id: 'w2', familyId: _parentFamilyId, name: 'txmorgan');
 
 const _wren = Person(id: 'w3', familyId: _parentFamilyId, name: 'Wren Morgan');
 
-final _park = Place(
+final _park = const Place(
   id: 'pl1',
   label: 'Central Park',
   address: 'New York, NY',

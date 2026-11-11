@@ -44,7 +44,9 @@ class MapboxSearchHit {
       final geometry = feature['geometry'];
       final coords = geometry is Map ? geometry['coordinates'] : null;
       if (coords is! List || coords.length < 2) {
-        throw FormatException('Mapbox feature missing center coordinates');
+        throw const FormatException(
+          'Mapbox feature missing center coordinates',
+        );
       }
       lng = (coords[0] as num).toDouble();
       lat = (coords[1] as num).toDouble();
@@ -77,7 +79,7 @@ List<MapboxSearchHit> parseMapboxFeatureCollection(Map<String, dynamic> json) {
   final features = json['features'];
   if (features is! List) return const [];
   return features
-      .whereType<Map>()
+      .whereType<Map<dynamic, dynamic>>()
       .map((f) => MapboxSearchHit.fromFeature(Map<String, dynamic>.from(f)))
       .toList();
 }

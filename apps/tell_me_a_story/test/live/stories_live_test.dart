@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story/data/app_exception.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:uuid/uuid.dart';
 
 import 'support/live_server.dart';
 import 'support/story_fixtures.dart';

@@ -443,9 +443,7 @@ class _TimelinePageState extends State<TimelinePage> {
 
   Future<void> _openInvite() async {
     var familyId = _familyId;
-    if (familyId == null) {
-      familyId = await _api.currentFamilyId();
-    }
+    familyId ??= await _api.currentFamilyId();
     if (familyId == null) {
       familyId = await _api.createFamily('Family');
       if (!mounted) return;

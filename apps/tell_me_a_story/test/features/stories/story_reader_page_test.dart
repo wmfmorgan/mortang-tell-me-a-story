@@ -55,7 +55,7 @@ const _will = Person(
 
 const _bob = Person(id: 'p2', familyId: _familyId, name: 'Bob');
 
-final _park = Place(
+final _park = const Place(
   id: 'pl1',
   label: 'Central Park',
   address: 'New York, NY',
@@ -909,7 +909,7 @@ void main() {
         stories: _FakeStoriesApi(story: _published()),
         places: FakePlacesGateway(
           places: [
-            Place(
+            const Place(
               id: 'pl1',
               label: '   ',
               address: 'New York, NY',
@@ -1746,7 +1746,7 @@ void main() {
           ],
           tree: [
             const TreeFamily(id: _familyId, name: 'Parent'),
-            TreeFamily(
+            const TreeFamily(
               id: child,
               name: 'Ada',
               parentFamilyId: _familyId,
@@ -1878,7 +1878,7 @@ void main() {
             ],
             tree: [
               const TreeFamily(id: _familyId, name: 'Parent'),
-              TreeFamily(
+              const TreeFamily(
                 id: child,
                 name: 'Ada',
                 parentFamilyId: _familyId,
@@ -1928,7 +1928,9 @@ void main() {
     await pump(
       uid: 'owner',
       authorId: 'author',
-      stewarded: [StewardFamily(id: _familyId, name: 'Family', role: 'owner')],
+      stewarded: [
+        const StewardFamily(id: _familyId, name: 'Family', role: 'owner'),
+      ],
     );
     expect(find.byKey(const Key('story-edit')), findsOneWidget);
 
@@ -2452,20 +2454,20 @@ void main() {
             ),
           ],
           tree: [
-            TreeFamily(id: _familyId, name: 'The WFM Morgans'),
-            TreeFamily(
+            const TreeFamily(id: _familyId, name: 'The WFM Morgans'),
+            const TreeFamily(
               id: 'child-west',
               name: 'West',
               parentFamilyId: _familyId,
               originStoryId: _storyId,
             ),
-            TreeFamily(
+            const TreeFamily(
               id: 'child-east',
               name: 'East',
               parentFamilyId: _familyId,
               originStoryId: _storyId,
             ),
-            TreeFamily(
+            const TreeFamily(
               id: 'other',
               name: 'Unrelated',
               parentFamilyId: _familyId,
@@ -2508,8 +2510,8 @@ void main() {
             ),
           ],
           tree: [
-            TreeFamily(id: _familyId, name: 'The WFM Morgans'),
-            TreeFamily(
+            const TreeFamily(id: _familyId, name: 'The WFM Morgans'),
+            const TreeFamily(
               id: 'child-west',
               name: 'West',
               parentFamilyId: _familyId,

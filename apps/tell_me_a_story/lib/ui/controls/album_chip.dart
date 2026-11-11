@@ -28,7 +28,7 @@ class AlbumChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final avatar = this.avatar;
     final onTap = this.onTap;
-    Widget chip = DecoratedBox(
+    final Widget chip = DecoratedBox(
       decoration: ShapeDecoration(
         color: selected ? albumSageTint : albumBlushPale,
         shape: const StadiumBorder(side: BorderSide(color: albumSageLine)),

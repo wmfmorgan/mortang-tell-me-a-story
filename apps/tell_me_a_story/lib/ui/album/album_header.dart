@@ -473,7 +473,7 @@ class _HeaderMetrics {
   _HeaderMetrics fit(double viewport) {
     var pad = this.pad;
     var word = this.word;
-    var search = this.search;
+    final search = this.search;
     var gaps = [...this.gaps];
     // Button chrome is a pixel or two wider than the text-plus-padding
     // estimate. Keep that slack in the budget so the row does not overflow.

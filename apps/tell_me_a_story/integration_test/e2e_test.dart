@@ -927,9 +927,11 @@ Future<String> _linkTabInvite(WidgetTester tester, String flow) async {
     await tester.ensureVisible(someoneNew);
     await tester.tap(someoneNew);
     final link = find.byWidgetPredicate((widget) {
-      if (widget.key != const Key('invite-link')) return false;
-      final text = (widget as dynamic).controller?.text;
-      return text is String &&
+      if (widget is! TextField || widget.key != const Key('invite-link')) {
+        return false;
+      }
+      final text = widget.controller?.text;
+      return text != null &&
           (text.contains('invite=') || text.contains('/invite/'));
     });
     await pumpUntilFound(tester, link);
@@ -938,9 +940,8 @@ Future<String> _linkTabInvite(WidgetTester tester, String flow) async {
 }
 
 String _controllerText(WidgetTester tester, Finder field) {
-  final controller = (tester.widget(field) as dynamic).controller;
-  final text = controller?.text;
-  if (text is! String) {
+  final text = tester.widget<TextField>(field).controller?.text;
+  if (text == null) {
     throw TestFailure('invite link field has no text');
   }
   return text.trim();

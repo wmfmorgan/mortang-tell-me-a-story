@@ -928,7 +928,7 @@ class _FullCard extends StatelessWidget {
                 if (focused) ...[
                   const SizedBox(height: AlbumSpace.m),
                   DecoratedBox(
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       border: Border(top: BorderSide(color: albumRule)),
                     ),
                     child: Padding(

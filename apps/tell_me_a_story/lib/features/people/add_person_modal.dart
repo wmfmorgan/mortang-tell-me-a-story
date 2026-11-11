@@ -440,8 +440,8 @@ class _AddPersonModalState extends State<AddPersonModal> {
           controller: _searchController,
           enabled: !_busy,
           textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.search, color: albumInk),
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search, color: albumInk),
             filled: true,
             fillColor: albumParchment,
             isDense: true,

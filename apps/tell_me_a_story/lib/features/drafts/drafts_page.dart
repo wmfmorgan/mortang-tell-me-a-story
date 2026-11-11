@@ -204,9 +204,7 @@ class _DraftsPageState extends State<DraftsPage> {
 
   Future<void> _openInvite() async {
     var familyId = _familyId;
-    if (familyId == null) {
-      familyId = await _invite.currentFamilyId();
-    }
+    familyId ??= await _invite.currentFamilyId();
     if (familyId == null) {
       familyId = await _invite.createFamily('Family');
       if (!mounted) return;

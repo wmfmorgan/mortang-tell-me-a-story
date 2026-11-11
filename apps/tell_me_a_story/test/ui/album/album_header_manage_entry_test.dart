@@ -288,7 +288,7 @@ void main() {
     );
 
     final directory = _Directory()
-      ..directory = FamilyDirectory(
+      ..directory = const FamilyDirectory(
         active: [
           FamilyRoster(
             id: 'morgan',
@@ -297,7 +297,7 @@ void main() {
             memberCount: 1,
             publishedCount: 0,
           ),
-          const FamilyRoster(
+          FamilyRoster(
             id: 'south',
             name: 'South Archive',
             role: 'member',
@@ -305,7 +305,7 @@ void main() {
             publishedCount: 0,
           ),
         ],
-        recoverable: const [],
+        recoverable: [],
       );
     await tester.pumpWidget(
       MaterialApp(

@@ -2240,7 +2240,7 @@ void main() {
       label: 'Bea Branch',
     );
     expect(find.textContaining('Bea ·'), findsNothing);
-    expect(find.byKey(Key('timeline-dot-$bea')), findsNothing);
+    expect(find.byKey(const Key('timeline-dot-$bea')), findsNothing);
 
     await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
@@ -2253,7 +2253,9 @@ void main() {
     );
     _expectMossCard(tester, 's1', days: false);
     expect(
-      tester.getBottomLeft(find.byKey(Key('timeline-branch-callout-$bea'))).dy,
+      tester
+          .getBottomLeft(find.byKey(const Key('timeline-branch-callout-$bea')))
+          .dy,
       lessThanOrEqualTo(
         tester.getTopLeft(find.byKey(const Key('timeline-stub-s1'))).dy + 1e-6,
       ),
@@ -2287,7 +2289,7 @@ void main() {
     );
     _expectMossCard(tester, 's1', days: true);
 
-    await tester.tap(find.byKey(Key('timeline-branch-callout-$bea')));
+    await tester.tap(find.byKey(const Key('timeline-branch-callout-$bea')));
     await tester.pumpAndSettle();
     expect(FamilySelection.id, bea);
   });
@@ -2566,7 +2568,7 @@ void main() {
     );
     _expectMossCard(tester, 'first', days: true);
     final card = find.byKey(const Key('timeline-card-first'));
-    final label = find.byKey(Key('timeline-branch-callout-$bea'));
+    final label = find.byKey(const Key('timeline-branch-callout-$bea'));
     expect(
       (tester.getRect(card).left - tester.getRect(label).left).abs(),
       lessThanOrEqualTo(1),
@@ -2785,7 +2787,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
-    final label = find.byKey(Key('timeline-branch-callout-$bea'));
+    final label = find.byKey(const Key('timeline-branch-callout-$bea'));
     final labelRect = tester.getRect(label);
     final end = _leaderEnd(tester);
     expect(
@@ -2803,7 +2805,7 @@ void main() {
     await tester.tap(find.byKey(const Key('timeline-zoom-full')));
     await tester.pumpAndSettle();
     final daysLabel = tester.getRect(
-      find.byKey(Key('timeline-branch-callout-$bea')),
+      find.byKey(const Key('timeline-branch-callout-$bea')),
     );
     final daysEnd = _leaderEnd(tester);
     expect(daysLabel.left, closeTo(daysEnd.dx + calloutLabelGap, 2));
@@ -2872,7 +2874,7 @@ void main() {
     expect((branch.dy - plain.dy).abs(), lessThanOrEqualTo(1));
     expect((branch.dy - later.dy).abs(), lessThanOrEqualTo(1));
     final label = tester.getRect(
-      find.byKey(Key('timeline-branch-callout-$bea')),
+      find.byKey(const Key('timeline-branch-callout-$bea')),
     );
     expect(
       (label.center.dy - _leaderEnd(tester).dy).abs(),
@@ -2983,7 +2985,10 @@ void main() {
     await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
     await tester.pumpAndSettle();
     final card = find.byKey(Key('timeline-stub-${story.id}'));
-    expect(find.byKey(Key('timeline-branch-callout-$bea')), findsOneWidget);
+    expect(
+      find.byKey(const Key('timeline-branch-callout-$bea')),
+      findsOneWidget,
+    );
     final scope = find
         .descendant(of: card, matching: find.byType(MouseRegion))
         .first;
@@ -3058,7 +3063,9 @@ void main() {
     expect(_tooltipFor(tester, 'ada'), contains('Origin'));
     expect(find.text('Origin · from Jenkins'), findsNothing);
     expect(find.text('Ada tale'), findsNothing);
-    final parentLabel = find.byKey(Key('timeline-branch-callout-$_familyId'));
+    final parentLabel = find.byKey(
+      const Key('timeline-branch-callout-$_familyId'),
+    );
     expect(parentLabel, findsOneWidget);
     expect(
       tester.getCenter(parentLabel).dy,
@@ -3093,7 +3100,9 @@ void main() {
               TreeFamily(id: ada, name: 'Ada'),
               TreeFamily(id: bea, name: 'Bea'),
             ],
-            stewarded: [StewardFamily(id: ada, name: 'Ada', role: 'owner')],
+            stewarded: [
+              const StewardFamily(id: ada, name: 'Ada', role: 'owner'),
+            ],
           ),
         ),
       ),
@@ -3106,10 +3115,10 @@ void main() {
     expect(find.byKey(const Key('family-menu-invite')), findsNothing);
     expect(find.byKey(const Key('family-menu-start-timeline')), findsNothing);
     expect(find.text('Related families'), findsNothing);
-    expect(find.byKey(Key('family-menu-related-$bea')), findsNothing);
+    expect(find.byKey(const Key('family-menu-related-$bea')), findsNothing);
     expect(
       find.descendant(
-        of: find.byKey(Key('family-menu-item-$ada')),
+        of: find.byKey(const Key('family-menu-item-$ada')),
         matching: find.byIcon(Icons.check),
       ),
       findsNothing,

@@ -170,7 +170,7 @@ void main() {
   testWidgets('Choose place opens PlacePickerModal', (tester) async {
     final places = _FakePlacesApi(
       seed: [
-        Place(
+        const Place(
           id: 'pl1',
           label: 'Central Park',
           address: 'New York, NY',
@@ -241,7 +241,7 @@ void main() {
   testWidgets('selecting place shows label and stub map', (tester) async {
     final places = _FakePlacesApi(
       seed: [
-        Place(
+        const Place(
           id: 'pl1',
           label: 'Central Park',
           address: 'New York, NY',
@@ -274,7 +274,7 @@ void main() {
     (tester) async {
       final places = _FakePlacesApi(
         seed: [
-          Place(
+          const Place(
             id: 'pl1',
             label: 'Central Park',
             address: 'New York, NY',
@@ -544,7 +544,7 @@ void main() {
           ),
           places: _FakePlacesApi(
             seed: [
-              Place(
+              const Place(
                 id: 'pl1',
                 label: 'Central Park',
                 address: 'New York, NY',
@@ -711,7 +711,7 @@ void main() {
         ),
         places: _FakePlacesApi(
           seed: [
-            Place(
+            const Place(
               id: 'pl1',
               label: 'Central Park',
               address: 'New York, NY',

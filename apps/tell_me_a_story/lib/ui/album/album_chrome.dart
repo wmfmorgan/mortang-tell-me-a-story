@@ -71,7 +71,7 @@ class AlbumTopBar extends StatelessWidget implements PreferredSizeWidget {
                     ),
                   ),
                 ),
-                if (leading != null) leading!,
+                ?leading,
                 if (label != null && label.isNotEmpty) ...[
                   const SizedBox(width: 12),
                   Flexible(
