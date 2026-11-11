@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/data/timeline_live.dart';
-import 'package:tell_me_a_story/features/timeline/tree/family_tree_page.dart';
+import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/session/family_selection.dart';
+import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/session/timeline_live.dart';
+import 'package:tell_me_a_story/features/timeline/presentation/tree/family_tree_page.dart';
 
-import '../support/fakes/fake_stories_gateway.dart';
+import '../support/fakes/fake_stories_repository.dart';
 import '../support/tree_fixture.dart';
 
 // The whole-tree page: the family tree graph (7.8, with a `+3` on Jenkins'
@@ -23,7 +23,7 @@ const _sizes = <String, Size>{
   'ipad_mini_portrait': Size(744, 1133),
 };
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesRepository {
   @override
   Future<List<MemberFamily>> listMine() async => [
     MemberFamily(
@@ -77,7 +77,7 @@ void main() {
           builder: albumAppBuilder,
           home: FamilyTreePage(
             familyId: TreeFixture.jenkins,
-            storiesApi: FakeStoriesGateway(stories: stories),
+            storiesApi: FakeStoriesRepository(stories: stories),
             familiesApi: _Families(),
             live: _Live(),
           ),

@@ -2,9 +2,9 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/search_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/features/search/data/search_repository.dart';
+import 'package:tell_me_a_story/core/data/stories_repository.dart';
 
 import 'support/live_server.dart';
 import 'support/story_fixtures.dart';
@@ -19,7 +19,7 @@ void main() {
     final porch = family.placeId;
     final bea = await seedPerson(client, family.familyId, name: 'Bea');
     final mill = await seedPlace(client, family.familyId, label: 'Old Mill');
-    final stories = StoriesApi();
+    final stories = ServerStoriesRepository();
 
     final summer = await stories.createDraft(
       familyId: family.familyId,
@@ -48,7 +48,7 @@ void main() {
       title: 'Unpublished porch draft',
     );
 
-    final api = SearchApi();
+    final api = ServerSearchRepository();
     final facets = await api.facets(family.familyId);
     expect(facets.decades, [1960, 1980]);
     expect(facets.people, [(id: ada, name: 'Ada'), (id: bea, name: 'Bea')]);
@@ -95,7 +95,7 @@ void main() {
     expect(hit.timeframeStart, DateTime(1962));
     expect(hit.datePrecision, StoryDatePrecision.year);
 
-    final stranger = SearchApi(
+    final stranger = ServerSearchRepository(
       client: await signInLive(freshEmail('search-stranger')),
     );
     await expectLater(

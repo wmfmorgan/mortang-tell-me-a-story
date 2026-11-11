@@ -2,8 +2,8 @@ import 'package:flutter/material.dart' show TextField, FilledButton;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:tell_me_a_story/app/app.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/app.dart';
+import 'package:tell_me_a_story/core/data/stories_repository.dart';
 import 'package:tell_me_a_story/main.dart' as app;
 
 import 'support/preconditions.dart';
@@ -770,7 +770,7 @@ Future<void> _untilDraftReady(
   required String familyId,
   required String title,
 }) async {
-  final stories = StoriesApi();
+  final stories = ServerStoriesRepository();
   final deadline = DateTime.now().add(const Duration(seconds: 30));
   while (DateTime.now().isBefore(deadline)) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -805,7 +805,7 @@ Future<Story> _publishedStory({
   required String familyId,
   required String title,
 }) async {
-  final rows = await StoriesApi().listPublished(familyId);
+  final rows = await ServerStoriesRepository().listPublished(familyId);
   for (final story in rows) {
     if (story.title == title) return story;
   }
@@ -1016,7 +1016,7 @@ Future<void> _untilOtherFamilySeesNoStory(
   expect(find.text('Try again'), findsNothing);
   expect(find.text(title), findsNothing);
   expect(find.text(body), findsNothing);
-  expect(await StoriesApi().getPublished(storyId), isNull);
+  expect(await ServerStoriesRepository().getPublished(storyId), isNull);
 }
 
 Future<void> _signOut(WidgetTester tester) async {

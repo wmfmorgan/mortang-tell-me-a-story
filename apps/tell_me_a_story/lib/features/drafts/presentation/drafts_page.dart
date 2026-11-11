@@ -1,0 +1,500 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:tell_me_a_story/core/router/app_routes.dart';
+import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/core/widgets/album/album_chrome.dart';
+import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/session/family_selection.dart';
+import 'package:tell_me_a_story/core/data/invite_repository.dart';
+import 'package:tell_me_a_story/core/data/people_repository.dart';
+import 'package:tell_me_a_story/core/data/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/features/family/presentation/start_timeline_dialog.dart';
+import 'package:tell_me_a_story/features/invites/presentation/invite_modal.dart';
+import 'package:tell_me_a_story/core/widgets/story/story_date.dart';
+
+enum _DraftsFilter {
+  all,
+  missingText,
+  missingPeople,
+  missingPlace,
+  missingPhotos,
+  readyToPublish,
+}
+
+/// Author-only draft list at `/drafts` (missing-field chips + discard).
+class DraftsPage extends StatefulWidget {
+  const DraftsPage({
+    super.key,
+    this.inviteApi,
+    this.storiesApi,
+    this.familiesApi,
+    this.peopleApi,
+  });
+
+  final InviteRepository? inviteApi;
+  final StoriesRepository? storiesApi;
+  final FamiliesRepository? familiesApi;
+  final PeopleRepository? peopleApi;
+
+  @override
+  State<DraftsPage> createState() => _DraftsPageState();
+}
+
+class _DraftsPageState extends State<DraftsPage> {
+  late final InviteRepository _invite;
+  StoriesRepository? _storiesOverride;
+
+  var _loading = true;
+  var _loadError = false;
+  var _busy = false;
+  String? _familyId = FamilySelection.id;
+  List<Story> _drafts = const [];
+  var _filter = _DraftsFilter.all;
+  List<MemberFamily> _families = const [];
+  List<StewardFamily> _stewarded = const [];
+  Set<String> _memberIds = FamilyMembership.ids;
+
+  StoriesRepository get _stories =>
+      widget.storiesApi ?? (_storiesOverride ??= ServerStoriesRepository());
+
+  @override
+  void initState() {
+    super.initState();
+    _invite = widget.inviteApi ?? ServerInviteRepository();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _loading = true;
+      _loadError = false;
+    });
+    try {
+      final familyId = _familyId ?? await _invite.currentFamilyId();
+      if (!mounted) return;
+      if (familyId == null) {
+        setState(() {
+          _familyId = null;
+          _drafts = const [];
+          _loading = false;
+        });
+        await _loadFamilies();
+        return;
+      }
+      final drafts = await _stories.listMyDrafts(familyId);
+      if (!mounted) return;
+      FamilySelection.remember(familyId);
+      setState(() {
+        _familyId = familyId;
+        _drafts = drafts;
+        _loading = false;
+      });
+      await _loadFamilies();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = true;
+      });
+    }
+  }
+
+  Future<void> _loadFamilies() async {
+    List<MemberFamily> rows = const [];
+    List<StewardFamily> stewarded = const [];
+    var memberIds = <String>{};
+    try {
+      if (widget.familiesApi != null) {
+        rows = await widget.familiesApi!.listMine();
+        stewarded = await widget.familiesApi!.listStewarded();
+        memberIds = rows.map((row) => row.id).toSet();
+        FamilyMembership.remember(memberIds);
+      } else if (widget.inviteApi != null || widget.storiesApi != null) {
+        final id = _familyId;
+        if (id != null) {
+          rows = [
+            MemberFamily(id: id, name: 'Family', createdAt: DateTime.utc(2020)),
+          ];
+        }
+      } else {
+        final live = ServerFamiliesRepository();
+        rows = await live.listMine();
+        stewarded = await live.listStewarded();
+        memberIds = rows.map((row) => row.id).toSet();
+        FamilyMembership.remember(memberIds);
+      }
+    } catch (_) {
+      rows = const [];
+      stewarded = const [];
+      memberIds = {};
+    }
+    if (!mounted) return;
+    if (rows.isEmpty && _familyId != null) {
+      rows = [
+        MemberFamily(
+          id: _familyId!,
+          name: 'Family',
+          createdAt: DateTime.utc(2020),
+        ),
+      ];
+    }
+    setState(() {
+      _families = rows;
+      _stewarded = stewarded;
+      _memberIds = memberIds;
+    });
+  }
+
+  bool get _currentFamilyIsMember {
+    final id = _familyId;
+    return id != null && _memberIds.contains(id);
+  }
+
+  String? _sessionUserId() => AppSession.instance.currentUserId;
+
+  Future<void> _startTimeline() async {
+    final id = _familyId;
+    if (id == null || !_memberIds.contains(id) || !mounted) return;
+    final userId = _sessionUserId();
+    if (userId == null) return;
+    final published = await _stories.listPublished(id);
+    if (!mounted) return;
+    final created = await showStartTimelineDialog(
+      context,
+      parentId: id,
+      parentName: _familyName,
+      stories: [
+        for (final story in published)
+          if (story.status == StoryStatus.published) story,
+      ],
+      familiesApi: widget.familiesApi ?? ServerFamiliesRepository(),
+      peopleApi: widget.peopleApi ?? ServerPeopleRepository(),
+      manageApi: ServerManageFamiliesRepository(),
+      currentUserId: userId,
+      onWriteStory: () {
+        if (!mounted) return;
+        GoRouter.of(context).push('${AppRoutes.newStory}?newTimelineFrom=$id');
+      },
+    );
+    if (created == null || !mounted) return;
+    await _reload();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${created.name} timeline created')));
+  }
+
+  Future<void> _selectFamily(String id) async {
+    FamilySelection.remember(id);
+    if (id == _familyId) return;
+    setState(() => _familyId = id);
+    await _reload();
+  }
+
+  String get _familyName {
+    for (final family in _families) {
+      if (family.id == _familyId) return family.name;
+    }
+    return 'Family';
+  }
+
+  Future<void> _openInvite() async {
+    var familyId = _familyId;
+    familyId ??= await _invite.currentFamilyId();
+    if (familyId == null) {
+      familyId = await _invite.createFamily('Family');
+      if (!mounted) return;
+      setState(() => _familyId = familyId);
+    }
+    if (!mounted) return;
+    await InviteModal.show(
+      context,
+      familyId: familyId,
+      familyName: _familyName,
+      api: _invite,
+      people: widget.peopleApi,
+    );
+  }
+
+  List<Story> get _visible {
+    return [
+      for (final story in _drafts)
+        if (_matchesFilter(story, _filter)) story,
+    ];
+  }
+
+  void _continueWriting(Story story) {
+    context.push('${AppRoutes.newStory}?draft=${story.id}');
+  }
+
+  Future<void> _discard(Story story) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _stories.discard(story.id);
+      if (!mounted) return;
+      await _reload();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t discard draft. Try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AlbumHeader(
+        page: AlbumHeaderPage.drafts,
+        familyName: _familyName,
+        families: _families,
+        currentFamilyId: _familyId,
+        onFamilySelected: _selectFamily,
+        stewarded: _stewarded,
+        canWrite: _currentFamilyIsMember,
+        onInvite: _currentFamilyIsMember ? _openInvite : null,
+        onStartTimeline: _currentFamilyIsMember ? _startTimeline : null,
+      ),
+      body: SafeArea(
+        child: AlbumColumn(
+          maxWidth: 1080,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _filterChip('All', _DraftsFilter.all),
+                    _filterChip('Missing text', _DraftsFilter.missingText),
+                    _filterChip('Missing people', _DraftsFilter.missingPeople),
+                    _filterChip('Missing place', _DraftsFilter.missingPlace),
+                    _filterChip('Missing photos', _DraftsFilter.missingPhotos),
+                    _filterChip(
+                      'Ready to publish',
+                      _DraftsFilter.readyToPublish,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: _body()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _body() {
+    if (_loading) {
+      return const Center(child: Text('Loading drafts…'));
+    }
+    if (_loadError) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Couldn’t load drafts. Try again.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    if (_drafts.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'No drafts yet. Stories you’re still writing will show up here.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    final rows = _visible;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 640 ? 2 : 1;
+        const pad = 20.0;
+        final inner = constraints.maxWidth - pad * 2;
+        final tileWidth = (inner - 16 * (columns - 1)) / columns;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              for (final story in rows)
+                SizedBox(
+                  width: tileWidth,
+                  child: _DraftRow(
+                    story: story,
+                    onContinue: _busy ? null : () => _continueWriting(story),
+                    onDiscard: _busy ? null : () => _discard(story),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _filterChip(String label, _DraftsFilter value) {
+    return FilterChip(
+      label: Text(label),
+      selected: _filter == value,
+      onSelected: (_) => setState(() => _filter = value),
+    );
+  }
+}
+
+class _DraftRow extends StatelessWidget {
+  const _DraftRow({
+    required this.story,
+    required this.onContinue,
+    required this.onDiscard,
+  });
+
+  final Story story;
+  final VoidCallback? onContinue;
+  final VoidCallback? onDiscard;
+
+  @override
+  Widget build(BuildContext context) {
+    final excerpt = _bodyExcerpt(story);
+    return KeyedSubtree(
+      key: Key('draft-row-${story.id}'),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: albumParchment,
+          borderRadius: BorderRadius.circular(albumCardRadius),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x142C2416),
+              blurRadius: 18,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _timeframeLabel(story),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: story.timeframeStart == null
+                            ? albumInk.withValues(alpha: 0.55)
+                            : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _StatusPill(label: _statusPill(story)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                excerpt,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyLarge
+                    ?.copyWith(fontSize: 18, height: 1.45),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: onContinue,
+                child: const Text('Continue writing'),
+              ),
+              TextButton(
+                onPressed: onDiscard,
+                child: const Text('Discard draft'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: albumSage.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+      ),
+    );
+  }
+}
+
+/// One status for the card. Filter chips still expose every missing field.
+String _statusPill(Story story) {
+  final ready = publishReadiness(
+    title: story.title,
+    body: story.body,
+    timeframeStart: story.timeframeStart,
+    personIds: story.personIds,
+    placeId: story.placeId,
+  );
+  if (ready.canPublish) return 'Ready to publish';
+  if (!ready.hasTitle) return 'Missing title';
+  if (!ready.hasBody) return 'Missing text';
+  if (!ready.hasPerson) return 'Missing people';
+  if (!ready.hasPlace) return 'Missing place';
+  if (story.photoCount <= 0) return 'Missing photos';
+  return 'Draft';
+}
+
+bool _matchesFilter(Story story, _DraftsFilter filter) {
+  final ready = publishReadiness(
+    title: story.title,
+    body: story.body,
+    timeframeStart: story.timeframeStart,
+    personIds: story.personIds,
+    placeId: story.placeId,
+  );
+  return switch (filter) {
+    _DraftsFilter.all => true,
+    _DraftsFilter.missingText => !ready.hasBody,
+    _DraftsFilter.missingPeople => !ready.hasPerson,
+    _DraftsFilter.missingPlace => !ready.hasPlace,
+    _DraftsFilter.missingPhotos => story.photoCount <= 0,
+    _DraftsFilter.readyToPublish => ready.canPublish,
+  };
+}
+
+String _bodyExcerpt(Story story) {
+  final title = story.title?.trim() ?? '';
+  return title.isEmpty ? 'Untitled' : title;
+}
+
+String _timeframeLabel(Story story) {
+  if (story.timeframeStart == null) return 'No date yet';
+  return storyDateLabelFor(story);
+}

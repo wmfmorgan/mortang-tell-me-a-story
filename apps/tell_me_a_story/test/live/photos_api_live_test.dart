@@ -5,8 +5,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/data/photos_repository.dart';
 
 import 'support/live_server.dart';
 import 'support/story_fixture.dart';
@@ -23,7 +23,7 @@ void main() {
   test('upload, list, hero, download and delete round trip', () async {
     final owner = await signInLive(freshEmail('photos'));
     final (familyId, storyId) = await liveFamilyStory(owner);
-    final api = PhotosApi();
+    final api = ServerPhotosRepository();
 
     final first = await api.uploadPhoto(
       familyId: familyId,
@@ -63,7 +63,7 @@ void main() {
     () async {
       final owner = await signInLive(freshEmail('photos-refused'));
       final (familyId, storyId) = await liveFamilyStory(owner);
-      final api = PhotosApi(uploadBinary: (_, _) async => false);
+      final api = ServerPhotosRepository(uploadBinary: (_, _) async => false);
 
       await expectLater(
         api.uploadPhoto(
@@ -74,14 +74,14 @@ void main() {
         ),
         throwsA(isA<StorageFailedException>()),
       );
-      expect(await PhotosApi().listPhotos(storyId), isEmpty);
+      expect(await ServerPhotosRepository().listPhotos(storyId), isEmpty);
     },
   );
 
   test('downloading an unknown key is StorageFailedException', () async {
     await signInLive(freshEmail('photos-missing'));
     await expectLater(
-      PhotosApi().downloadBytes('photos/none.jpg'),
+      ServerPhotosRepository().downloadBytes('photos/none.jpg'),
       throwsA(
         isA<StorageFailedException>().having(
           (e) => e.code,

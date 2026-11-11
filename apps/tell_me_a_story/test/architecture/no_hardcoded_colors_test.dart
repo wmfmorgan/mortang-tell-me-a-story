@@ -3,22 +3,22 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 const temporaryHardcodedColorSkipPaths = <String>{
-  'features/auth/invite_sign_in_page.dart',
-  'features/comments/comment_composer.dart',
-  'features/drafts/drafts_page.dart',
-  'features/family/add_co_owner_dialog.dart',
-  'features/family/manage_families_page.dart',
-  'features/family/manage_family_page.dart',
-  'features/family/start_family_dialog.dart',
-  'features/family/start_timeline_dialog.dart',
-  'features/invites/invite_modal.dart',
-  'features/perspectives/add_perspective_page.dart',
-  'features/places/place_picker_modal.dart',
-  'features/search/search_page.dart',
-  'features/settings/settings_page.dart',
-  'features/stories/new_story_page.dart',
-  'features/stories/photo_strip.dart',
-  'features/stories/story_reader_page.dart',
+  'features/auth/presentation/invite_sign_in_page.dart',
+  'features/comments/presentation/comment_composer.dart',
+  'features/drafts/presentation/drafts_page.dart',
+  'features/family/presentation/add_co_owner_dialog.dart',
+  'features/family/presentation/manage_families_page.dart',
+  'features/family/presentation/manage_family_page.dart',
+  'features/family/presentation/start_family_dialog.dart',
+  'features/family/presentation/start_timeline_dialog.dart',
+  'features/invites/presentation/invite_modal.dart',
+  'features/perspectives/presentation/add_perspective_page.dart',
+  'features/places/presentation/place_picker_modal.dart',
+  'features/search/presentation/search_page.dart',
+  'features/settings/presentation/settings_page.dart',
+  'features/stories/presentation/new_story_page.dart',
+  'features/stories/presentation/photo_strip.dart',
+  'features/stories/presentation/story_reader_page.dart',
 };
 
 /// The skip list only shrinks: lower this when a file leaves the list.

@@ -2,11 +2,11 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/session/family_selection.dart';
+import 'package:tell_me_a_story/core/data/invite_repository.dart';
+import 'package:tell_me_a_story/core/data/manage_families_repository.dart';
 
 import 'support/live_server.dart';
 
@@ -19,7 +19,7 @@ void main() {
 
   test('create → send → preview → accept → resend → revoke', () async {
     final ownerClient = await signInLive(freshEmail('inv-owner'));
-    final ownerInvites = InviteApi(client: ownerClient);
+    final ownerInvites = ServerInviteRepository(client: ownerClient);
     final familyId = await ownerInvites.createFamily('Hendersons');
     final joinerEmail = freshEmail('inv-joiner');
 
@@ -39,27 +39,31 @@ void main() {
       _code(AppErrorCode.inviteInvalid),
     );
 
-    final preview = await InviteLinkApi(client: ownerClient)
+    final preview = await ServerInviteLinkRepository(client: ownerClient)
         .validateInviteToken(created.token);
     expect(preview.valid, isTrue);
     expect(preview.familyId, familyId);
     expect(preview.familyName, 'Hendersons');
     expect(
-      (await InviteLinkApi(client: ownerClient)
+      (await ServerInviteLinkRepository(client: ownerClient)
               .validateInviteToken('not-a-token'))
           .valid,
       isFalse,
     );
 
     final joinerClient = await signInLive(joinerEmail);
-    final accepted = await InviteApi(client: joinerClient)
+    final accepted = await ServerInviteRepository(client: joinerClient)
         .acceptInvite(token: created.token);
     expect(accepted.familyId, familyId);
-    expect(await InviteApi(client: joinerClient).currentFamilyId(), familyId);
-    final joined = await FamiliesApi(client: joinerClient).listMine();
+    expect(
+      await ServerInviteRepository(client: joinerClient).currentFamilyId(),
+      familyId,
+    );
+    final joined = await ServerFamiliesRepository(client: joinerClient)
+        .listMine();
     expect(joined.single.role, 'member');
 
-    final manage = ManageFamiliesApi(client: ownerClient);
+    final manage = ServerManageFamiliesRepository(client: ownerClient);
     final pending = await ownerInvites.createInvite(
       familyId: familyId,
       email: freshEmail('inv-pending'),
@@ -67,7 +71,7 @@ void main() {
     final resent = await manage.resendInvite(pending.inviteId);
     expect(resent.isAfter(DateTime.now()), isTrue);
     expect(
-      (await InviteLinkApi(client: ownerClient)
+      (await ServerInviteLinkRepository(client: ownerClient)
               .validateInviteToken(pending.token))
           .valid,
       isFalse,
@@ -75,13 +79,14 @@ void main() {
     );
 
     await manage.revokeInvite(pending.inviteId);
-    final detail = await FamiliesApi(client: ownerClient).loadDetail(familyId);
+    final detail = await ServerFamiliesRepository(client: ownerClient)
+        .loadDetail(familyId);
     expect(detail!.pendingInvites, isEmpty);
   });
 
   test('accept refuses a different email (D2)', () async {
     final ownerClient = await signInLive(freshEmail('d2-owner'));
-    final invites = InviteApi(client: ownerClient);
+    final invites = ServerInviteRepository(client: ownerClient);
     final familyId = await invites.createFamily('Bound');
     final created = await invites.createInvite(
       familyId: familyId,
@@ -89,14 +94,14 @@ void main() {
     );
     final other = await signInLive(freshEmail('d2-other'));
     await expectLater(
-      InviteApi(client: other).acceptInvite(token: created.token),
+      ServerInviteRepository(client: other).acceptInvite(token: created.token),
       _code(AppErrorCode.inviteInvalid),
     );
   });
 
   test('currentFamilyId: remembered family, else first, else null', () async {
     final client = await signInLive(freshEmail('current'));
-    final invites = InviteApi(client: client);
+    final invites = ServerInviteRepository(client: client);
     expect(await invites.currentFamilyId(), isNull);
     final first = await invites.createFamily('First');
     final second = await invites.createFamily('Second');

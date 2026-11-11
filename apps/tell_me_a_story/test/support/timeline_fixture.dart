@@ -3,13 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/data/timeline_live.dart';
-import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
+import 'package:tell_me_a_story/core/data/families_repository.dart';
+import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/session/timeline_live.dart';
+import 'package:tell_me_a_story/features/timeline/presentation/timeline_page.dart';
 
-import 'fakes/fake_invite_gateway.dart';
-import 'fakes/fake_stories_gateway.dart';
+import 'fakes/fake_invite_repository.dart';
+import 'fakes/fake_stories_repository.dart';
 
 // The Jenkins family with a Bea branch from its 1975 story: the golden
 // fixture, shared by the rail widget tests and the iPad sweep.
@@ -117,7 +117,7 @@ final fixtureVaried = <Story>[
   ),
 ];
 
-class FixtureStories extends FakeStoriesGateway {
+class FixtureStories extends FakeStoriesRepository {
   FixtureStories(this.published);
 
   final List<Story> published;
@@ -135,7 +135,7 @@ class FixtureStories extends FakeStoriesGateway {
   }
 }
 
-class FixtureFamilies extends FamiliesGateway {
+class FixtureFamilies extends FamiliesRepository {
   @override
   Future<List<MemberFamily>> listMine() async => [
     MemberFamily(id: jenkinsId, name: 'Jenkins', createdAt: DateTime.utc(2020)),
@@ -178,7 +178,7 @@ class FixtureLive implements TimelineLive {
 }
 
 TimelinePage fixturePage(List<Story> stories) => TimelinePage(
-  api: FakeInviteGateway(familyId: jenkinsId),
+  api: FakeInviteRepository(familyId: jenkinsId),
   storiesApi: FixtureStories(stories),
   familiesApi: FixtureFamilies(),
   live: FixtureLive(),

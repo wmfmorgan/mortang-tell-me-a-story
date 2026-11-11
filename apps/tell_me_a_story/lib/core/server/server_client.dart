@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart';
 
-import 'package:tell_me_a_story/core/config/env.dart';
+import 'package:tell_me_a_story/core/env.dart';
 
 Client? _serverClient;
 

@@ -3,8 +3,8 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
-import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/data/stories_repository.dart';
 
 import 'support/live_server.dart';
 import 'support/story_fixtures.dart';
@@ -18,7 +18,7 @@ void main() {
   test('a draft becomes a published story the family reads', () async {
     final client = await signInLive(freshEmail('stories'));
     final family = await seedFamily(client);
-    final api = StoriesApi();
+    final api = ServerStoriesRepository();
     final id = const Uuid().v4();
 
     final draft = await api.createDraft(
@@ -105,7 +105,7 @@ void main() {
   test('another user neither reads nor discards the story', () async {
     final owner = await signInLive(freshEmail('stories-owner'));
     final family = await seedFamily(owner);
-    final mine = StoriesApi(client: owner);
+    final mine = ServerStoriesRepository(client: owner);
     final story = await mine.createDraft(
       familyId: family.familyId,
       timeframeStart: DateTime(1990),
@@ -118,7 +118,7 @@ void main() {
     );
     await mine.publish(story.id);
 
-    final stranger = StoriesApi(
+    final stranger = ServerStoriesRepository(
       client: await signInLive(freshEmail('stories-stranger')),
     );
     expect(await stranger.getPublished(story.id), isNull);
@@ -136,7 +136,7 @@ void main() {
   test('a root member reads a branch story through the tree read', () async {
     final client = await signInLive(freshEmail('stories-tree'));
     final family = await seedFamily(client);
-    final api = StoriesApi(client: client);
+    final api = ServerStoriesRepository(client: client);
     Future<Story> published(String familyId, int year, String title) async {
       final draft = await api.createDraft(
         familyId: familyId,
@@ -172,7 +172,7 @@ void main() {
       [branchId.toString(), family.familyId],
     );
 
-    final stranger = StoriesApi(
+    final stranger = ServerStoriesRepository(
       client: await signInLive(freshEmail('stories-tree-stranger')),
     );
     await expectLater(

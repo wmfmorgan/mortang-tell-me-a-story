@@ -2,9 +2,9 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/comments_api.dart';
-import 'package:tell_me_a_story/data/perspectives_api.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/data/comments_repository.dart';
+import 'package:tell_me_a_story/core/data/perspectives_repository.dart';
 
 import 'support/live_server.dart';
 import 'support/story_fixture.dart';
@@ -15,7 +15,7 @@ void main() {
   test('comments: create, list, update and delete', () async {
     final owner = await signInLive(freshEmail('comments'));
     final (familyId, storyId) = await liveFamilyStory(owner, publish: true);
-    final api = CommentsApi();
+    final api = ServerCommentsRepository();
 
     final created = await api.create(
       storyId: storyId,
@@ -41,8 +41,8 @@ void main() {
     () async {
       final owner = await signInLive(freshEmail('perspectives'));
       final (familyId, storyId) = await liveFamilyStory(owner, publish: true);
-      final api = PerspectivesApi();
-      await CommentsApi().create(
+      final api = ServerPerspectivesRepository();
+      await ServerCommentsRepository().create(
         storyId: storyId,
         familyId: familyId,
         body: 'A comment',
@@ -72,10 +72,10 @@ void main() {
     final (familyId, storyId) = await liveFamilyStory(owner, publish: true);
     await joinLiveFamily(owner, member, familyId);
 
-    final ownerComments = CommentsApi(client: owner);
-    final memberComments = CommentsApi(client: member);
-    final ownerPerspectives = PerspectivesApi(client: owner);
-    final memberPerspectives = PerspectivesApi(client: member);
+    final ownerComments = ServerCommentsRepository(client: owner);
+    final memberComments = ServerCommentsRepository(client: member);
+    final ownerPerspectives = ServerPerspectivesRepository(client: owner);
+    final memberPerspectives = ServerPerspectivesRepository(client: member);
 
     final ownerNote = await ownerComments.create(
       storyId: storyId,

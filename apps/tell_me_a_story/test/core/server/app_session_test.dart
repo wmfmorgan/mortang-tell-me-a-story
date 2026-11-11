@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/ui/album/album_header.dart';
+import 'package:tell_me_a_story/core/widgets/album/album_header.dart';
 
 const _userId = '6f1c2b4e-0000-4000-8000-000000000001';
 
