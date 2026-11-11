@@ -41,6 +41,20 @@ CustomTransitionPage<void> albumModalPage({
   );
 }
 
+const signInFromParam = 'from';
+
+/// The app path a signed-out visit asked for (`?from=` on sign-in), or
+/// null when absent or not an in-app path.
+String? signInReturnPath(Uri signInUri) {
+  final from = signInUri.queryParameters[signInFromParam];
+  if (from == null || !from.startsWith('/') || from.startsWith('//')) {
+    return null;
+  }
+  final path = Uri.tryParse(from)?.path;
+  if (path == null || path == AppRoutes.signIn) return null;
+  return from;
+}
+
 /// Where a signed-in session opens from the sign-in route.
 ///
 /// A live family lands on Family Landing. No live family, with a soft-deleted
@@ -54,10 +68,17 @@ Future<String> appStartPath(FamiliesRepository families) async {
     if (stewarded.any((family) => family.countsForManage())) {
       return AppRoutes.manageFamilies;
     }
-  } catch (_) {
+  } catch (error, stack) {
+    _reportRouterError(error, stack);
     return AppRoutes.familyLanding;
   }
   return AppRoutes.timeline;
+}
+
+void _reportRouterError(Object error, StackTrace stack) {
+  FlutterError.reportError(
+    FlutterErrorDetails(exception: error, stack: stack, library: 'app router'),
+  );
 }
 
 /// The app's route table. Repositories come from providers; [AuthRefresh]
@@ -78,7 +99,7 @@ GoRouter appRouter(Ref ref) {
     initialLocation: AppRoutes.signIn,
     refreshListenable: authRefresh,
     redirect: (BuildContext context, GoRouterState state) =>
-        _redirect(ref, authRefresh.isSignedIn, families, state),
+        _redirect(ref, authRefresh, families, state),
     routes: [
       ..._familyRoutes(ref),
       ..._storyRoutes(storyOnExit),
@@ -97,10 +118,11 @@ String _param(GoRouterState state, String name) {
 
 Future<String?> _redirect(
   Ref ref,
-  bool signedIn,
+  AuthRefresh auth,
   FamiliesRepository families,
   GoRouterState state,
 ) async {
+  final signedIn = auth.isSignedIn;
   final loc = state.matchedLocation;
   final onSignIn = loc == AppRoutes.signIn;
   final onInvite = loc.startsWith('/invite/');
@@ -108,8 +130,16 @@ Future<String?> _redirect(
   if (inviteToken != null && inviteToken.isNotEmpty && !onInvite) {
     return AppRoutes.invitePath(inviteToken);
   }
-  if (!signedIn && !onSignIn && !onInvite) return AppRoutes.signIn;
-  if (signedIn && onSignIn) return appStartPath(families);
+  if (!signedIn && !onSignIn && !onInvite) {
+    if (auth.signedInThisRun) return AppRoutes.signIn;
+    return Uri(
+      path: AppRoutes.signIn,
+      queryParameters: {signInFromParam: state.uri.toString()},
+    ).toString();
+  }
+  if (signedIn && onSignIn) {
+    return signInReturnPath(state.uri) ?? await appStartPath(families);
+  }
   if (signedIn && loc == AppRoutes.newStory) {
     final familyId = ref.read(familySelectionProvider);
     if (familyId != null) return _newStoryRedirect(families, familyId);
@@ -131,7 +161,8 @@ Future<String?> _newStoryRedirect(
       if (mine.isNotEmpty) return AppRoutes.familyLanding;
       return AppRoutes.timeline;
     }
-  } catch (_) {
+  } catch (error, stack) {
+    _reportRouterError(error, stack);
     return AppRoutes.familyLanding;
   }
   return null;
@@ -156,7 +187,8 @@ Future<String?> _landingRedirect(Ref ref, FamiliesRepository families) async {
       final next = await appStartPath(families);
       if (next != AppRoutes.familyLanding) return next;
     }
-  } catch (_) {
+  } catch (error, stack) {
+    _reportRouterError(error, stack);
     return null;
   }
   return null;

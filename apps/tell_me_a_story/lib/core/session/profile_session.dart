@@ -51,7 +51,11 @@ class ProfileSession extends _$ProfileSession {
     final repository = ref.read(profileRepositoryProvider);
     try {
       final profile = await repository.loadOwn();
-      if (profile == null || !ref.mounted) return;
+      if (profile == null) {
+        _started = false;
+        return;
+      }
+      if (!ref.mounted) return;
       final path = profile.avatarPath;
       final bytes = path == null ? null : await repository.downloadAvatar(path);
       if (!ref.mounted) return;

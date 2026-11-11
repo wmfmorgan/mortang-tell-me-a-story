@@ -351,7 +351,6 @@ class _ContextColumn extends StatelessWidget {
   const _ContextColumn({
     required this.timeframeMissing,
     required this.peopleMissing,
-    required this.placeMissing,
     required this.timeframe,
     required this.people,
     required this.place,
@@ -359,7 +358,6 @@ class _ContextColumn extends StatelessWidget {
 
   final bool timeframeMissing;
   final bool peopleMissing;
-  final bool placeMissing;
   final Widget timeframe;
   final Widget people;
   final Widget place;
@@ -389,10 +387,7 @@ class _ContextColumn extends StatelessWidget {
           missing: peopleMissing,
           child: _PaperCard(child: people),
         ),
-        _HighlightIfMissing(
-          missing: placeMissing,
-          child: _PaperCard(child: place),
-        ),
+        _PaperCard(child: place),
       ],
     );
   }

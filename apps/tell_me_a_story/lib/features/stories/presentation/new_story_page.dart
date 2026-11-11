@@ -1036,7 +1036,6 @@ class _NewStoryPageState extends ConsumerState<NewStoryPage> {
           (_showPublishBanner && !readiness.hasTimeframe) ||
           (_highlightTimeframeForPhoto && _storyDate == null),
       peopleMissing: _showPublishBanner && !readiness.hasPerson,
-      placeMissing: _showPublishBanner && !readiness.hasPlace,
       timeframe: StoryDatePicker(
         year: _year,
         month: _month,

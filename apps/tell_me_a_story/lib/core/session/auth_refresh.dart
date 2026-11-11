@@ -19,7 +19,8 @@ class AuthRefresh extends ChangeNotifier {
     this._onSignedIn,
     this._onSignedOut,
   }) : _authInfo = authInfo,
-       _signedIn = initiallySignedIn ?? (authInfo?.value != null) {
+       _signedIn = initiallySignedIn ?? (authInfo?.value != null),
+       _signedInThisRun = initiallySignedIn ?? (authInfo?.value != null) {
     final info = authInfo;
     if (info == null) return;
     final current = info.value;
@@ -31,8 +32,13 @@ class AuthRefresh extends ChangeNotifier {
   final void Function(String userId)? _onSignedIn;
   final VoidCallback? _onSignedOut;
   bool _signedIn;
+  bool _signedInThisRun;
 
   bool get isSignedIn => _signedIn;
+
+  /// Whether any user signed in since the app started; a sign-out then must
+  /// not carry the old page to the next sign-in.
+  bool get signedInThisRun => _signedInThisRun;
 
   void _onAuthInfo() {
     final info = _authInfo?.value;
@@ -40,6 +46,7 @@ class AuthRefresh extends ChangeNotifier {
     final next = info != null;
     if (next != _signedIn) {
       _signedIn = next;
+      if (next) _signedInThisRun = true;
       notifyListeners();
     }
   }
@@ -57,6 +64,7 @@ class AuthRefresh extends ChangeNotifier {
   void setSignedIn(bool value) {
     if (value == _signedIn) return;
     _signedIn = value;
+    if (value) _signedInThisRun = true;
     notifyListeners();
   }
 

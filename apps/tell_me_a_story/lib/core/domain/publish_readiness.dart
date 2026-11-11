@@ -9,13 +9,14 @@ abstract class PublishReadiness with _$PublishReadiness {
     required bool hasBody,
     required bool hasTimeframe,
     required bool hasPerson,
+
+    /// Shown as a Drafts hint; a story publishes without a place.
     required bool hasPlace,
   }) = _PublishReadiness;
 
   const PublishReadiness._();
 
-  bool get canPublish =>
-      hasTitle && hasBody && hasTimeframe && hasPerson && hasPlace;
+  bool get canPublish => hasTitle && hasBody && hasTimeframe && hasPerson;
 }
 
 PublishReadiness publishReadiness({

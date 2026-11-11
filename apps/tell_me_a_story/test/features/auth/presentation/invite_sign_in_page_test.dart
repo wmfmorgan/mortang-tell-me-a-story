@@ -11,6 +11,8 @@ import 'package:tell_me_a_story/core/domain/invite_link_repository.dart';
 import 'package:tell_me_a_story/core/domain/invite_preview.dart';
 import 'package:tell_me_a_story/core/domain/invite_repository.dart';
 import 'package:tell_me_a_story/core/router/app_routes.dart';
+import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/core/session/app_session_provider.dart';
 import 'package:tell_me_a_story/core/session/auth_refresh.dart';
 import 'package:tell_me_a_story/features/auth/domain/otp_sign_in.dart';
 import 'package:tell_me_a_story/features/auth/presentation/invite_sign_in_page.dart';
@@ -223,22 +225,81 @@ void main() {
     },
   );
 
-  testWidgets('signed-in invite that another account used stays dead', (
+  testWidgets('signed-in wrong account shows the reason and switches account', (
     tester,
   ) async {
-    final invites = _Invites()..acceptInviteError = Exception('used');
+    final auth = _signedIn();
+    final invites = _Invites()
+      ..acceptInviteError = const AppException(
+        code: AppErrorCode.inviteInvalid,
+        message: 'Invite was sent to a different email',
+      );
     await pumpApp(
       tester,
-      const InviteSignInPage(token: 'used'),
+      const InviteSignInPage(token: 'tok'),
+      overrides: [
+        ..._overrides(
+          auth: auth,
+          preview: _Preview(
+            const InvitePreview(
+              valid: true,
+              familyId: 'fam',
+              familyName: 'Ada',
+            ),
+          ),
+          invites: invites,
+        ),
+        appSessionProvider.overrideWithValue(
+          _Session(onSignOut: () => auth.setSignedIn(false)),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Invite was sent to a different email'), findsOneWidget);
+    expect(find.text(inviteDeadLink), findsNothing);
+    expect(invites.accepts, 1);
+
+    await tester.tap(find.byKey(const Key('invite-switch-account')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('invite-email')), findsOneWidget);
+    expect(find.text('Join Ada'), findsOneWidget);
+  });
+
+  testWidgets('accept network failure offers Try again', (tester) async {
+    final invites = _Invites()..acceptInviteError = Exception('offline');
+    final router = GoRouter(
+      initialLocation: '/invite/tok',
+      routes: [
+        GoRoute(
+          path: '/invite/:token',
+          builder: (context, state) => const InviteSignInPage(token: 'tok'),
+        ),
+        GoRoute(
+          path: AppRoutes.familyLanding,
+          builder: (context, state) => const Text('landing-home'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await pumpRouterApp(
+      tester,
+      router,
       overrides: _overrides(
         auth: _signedIn(),
-        preview: _Preview(const InvitePreview(valid: false)),
+        preview: _Preview(const InvitePreview(valid: true, familyName: 'Ada')),
         invites: invites,
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text(inviteDeadLink), findsOneWidget);
-    expect(invites.accepts, 1);
+    expect(tester.takeException(), isA<Exception>());
+    expect(find.text('Request failed'), findsOneWidget);
+    expect(find.byKey(const Key('invite-retry')), findsOneWidget);
+
+    invites.acceptInviteError = null;
+    await tester.tap(find.byKey(const Key('invite-retry')));
+    await tester.pumpAndSettle();
+    expect(find.text('landing-home'), findsOneWidget);
+    expect(invites.accepts, 2);
   });
 }
 
@@ -335,4 +396,16 @@ class _Invites extends FakeInviteRepository {
     accepts++;
     return super.acceptInvite(token: token);
   }
+}
+
+class _Session extends AppSession {
+  _Session({required this.onSignOut});
+
+  final void Function() onSignOut;
+
+  @override
+  String? get currentUserId => 'u1';
+
+  @override
+  Future<void> signOut() async => onSignOut();
 }

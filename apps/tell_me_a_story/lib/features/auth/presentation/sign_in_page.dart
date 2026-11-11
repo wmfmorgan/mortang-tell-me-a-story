@@ -21,7 +21,6 @@ const landingPasswordNote =
     "We'll email you a 6-digit code. No password needed.";
 const sendCodeLabel = 'Email me a sign-in code';
 const sendingCodeLabel = 'Sending…';
-const invalidEmailMessage = 'Please enter a full email address.';
 
 final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 

@@ -12,8 +12,6 @@ const signInCodeWrong = "That code isn't right. Check it and try again.";
 const signInCodeExpired = 'That code has expired. Send a new one.';
 const signInTooManyTries =
     'Too many tries. Wait a few minutes, then send a new code.';
-const signInRequestFailed = 'Request failed';
-const invalidEmailMessage = 'Please enter a full email address.';
 
 /// [OtpSignIn] over the server's `emailIdp` endpoint. Every failure
 /// surfaces as an [AppException] whose message is [signInErrorMessage].

@@ -2,9 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
+import 'package:tell_me_a_story/core/domain/own_profile.dart';
+import 'package:tell_me_a_story/core/domain/profile_repository.dart';
 import 'package:tell_me_a_story/core/session/auth_info.dart';
 import 'package:tell_me_a_story/core/session/auth_refresh.dart';
 import 'package:tell_me_a_story/core/session/profile_session.dart';
+
+import '../../support/fakes/fake_profile_repository.dart';
 
 const _userA = '00000000-0000-4000-8000-00000000000a';
 const _userB = '00000000-0000-4000-8000-00000000000b';
@@ -83,4 +87,33 @@ void main() {
     expect(container.read(profileSessionProvider).displayName, isNull);
     expect(auth.isSignedIn, isTrue);
   });
+
+  test('a load without a profile does not block the next load', () async {
+    final results = <OwnProfile?>[
+      null,
+      const OwnProfile(id: 'u1', displayName: 'Ada'),
+    ];
+    final container = ProviderContainer(
+      overrides: [
+        profileRepositoryProvider.overrideWithValue(_Profiles(results)),
+      ],
+    );
+    addTearDown(container.dispose);
+    final session = container.read(profileSessionProvider.notifier);
+
+    await session.ensureLoaded();
+    await session.ensureLoaded();
+
+    expect(container.read(profileSessionProvider).displayName, 'Ada');
+  });
+}
+
+/// Returns [results] one per [loadOwn] call.
+class _Profiles extends FakeProfileRepository {
+  _Profiles(this.results);
+
+  final List<OwnProfile?> results;
+
+  @override
+  Future<OwnProfile?> loadOwn() async => results.removeAt(0);
 }

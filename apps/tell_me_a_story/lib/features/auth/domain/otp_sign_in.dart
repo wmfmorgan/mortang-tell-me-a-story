@@ -2,6 +2,9 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'otp_sign_in.g.dart';
 
+const signInRequestFailed = 'Request failed';
+const invalidEmailMessage = 'Please enter a full email address.';
+
 /// Email-code sign-in. Tests inject this instead of the server.
 abstract class OtpSignIn {
   /// Emails a 6-digit code to [email]. Returns the request id [signIn] needs.

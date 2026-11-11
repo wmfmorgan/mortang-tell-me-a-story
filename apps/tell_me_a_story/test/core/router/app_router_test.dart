@@ -107,9 +107,13 @@ class _StubPerspectivesApi implements PerspectivesRepository {
   Future<void> delete(String id) async {}
 }
 
-_TestApp _fullApp({required bool signedIn}) {
+_TestApp _fullApp({
+  bool signedIn = false,
+  ValueListenable<AuthSuccess?>? authInfo,
+}) {
   return _TestApp(
     signedIn: signedIn,
+    authInfo: authInfo,
     inviteApi: FakeInviteRepository(
       createdFamilyId: 'family-1',
       acceptedFamilyId: 'f',
@@ -237,8 +241,6 @@ void main() {
     final uri = router.routerDelegate.currentConfiguration.uri;
     expect(uri.path, '/invite/abc123');
     expect(uri.queryParameters['invite'], isNull);
-    // No server in this test: the invite preview load fails and is reported.
-    expect(tester.takeException(), isStateError);
 
     app.dispose();
   });
@@ -466,15 +468,10 @@ void main() {
 
   testWidgets('signed-out deep link opens after sign-in', (tester) async {
     final info = ValueNotifier<AuthSuccess?>(null);
-    final auth = AuthRefresh(authInfo: info);
-    addTearDown(() {
-      auth.dispose();
-      FamilySelection.clear();
-      ProfileSession.instance.clear();
-    });
-    final router = _router(auth: auth);
+    final app = _fullApp(authInfo: info);
+    final router = app.router;
 
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpWidget(app.widget);
     await tester.pumpAndSettle();
     router.go(AppRoutes.drafts);
     await tester.pumpAndSettle();
@@ -495,6 +492,8 @@ void main() {
       AppRoutes.drafts,
     );
     expect(find.byType(DraftsPage), findsOneWidget);
+
+    app.dispose();
   });
 
   testWidgets('sign-out does not carry the page to the next sign-in', (
@@ -510,15 +509,10 @@ void main() {
         scopeNames: const {},
       ),
     );
-    final auth = AuthRefresh(authInfo: info);
-    addTearDown(() {
-      auth.dispose();
-      FamilySelection.clear();
-      ProfileSession.instance.clear();
-    });
-    final router = _router(auth: auth);
+    final app = _fullApp(authInfo: info);
+    final router = app.router;
 
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpWidget(app.widget);
     await tester.pumpAndSettle();
     router.go(AppRoutes.drafts);
     await tester.pumpAndSettle();
@@ -529,6 +523,8 @@ void main() {
     final uri = router.routerDelegate.currentConfiguration.uri;
     expect(uri.path, AppRoutes.signIn);
     expect(uri.queryParameters.containsKey('from'), isFalse);
+
+    app.dispose();
   });
 
   testWidgets('new story route forwards draft query', (tester) async {
