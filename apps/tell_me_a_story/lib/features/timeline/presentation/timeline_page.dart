@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:tell_me_a_story/core/domain/families_repository.dart';
 import 'package:tell_me_a_story/core/domain/invite_repository.dart';
 import 'package:tell_me_a_story/core/domain/member_family.dart';
-import 'package:tell_me_a_story/core/domain/photos_repository.dart';
 import 'package:tell_me_a_story/core/domain/steward_family.dart';
 import 'package:tell_me_a_story/core/domain/story.dart';
 import 'package:tell_me_a_story/core/domain/story_status.dart';
@@ -639,8 +638,7 @@ class _TimelinePageState extends ConsumerState<TimelinePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Keeps the live feed open while the page is up.
-    ref.watch(timelineLiveProvider);
+    ref.watch(timelineLiveProvider); // Keeps the live feed open.
     _data = _watchData();
     final family = _currentFamily;
     final bands = decadeBands(_data.published);
@@ -655,12 +653,7 @@ class _TimelinePageState extends ConsumerState<TimelinePage> {
       // floats over them instead of squeezing the viewport.
       resizeToAvoidBottomInset: false,
       endDrawer: showRail && !wide
-          ? Drawer(
-              key: const Key('timeline-filter-drawer'),
-              width: math.min(_filterPanelWidth, width * 0.9),
-              backgroundColor: albumParchment,
-              child: SafeArea(child: panel),
-            )
+          ? _FilterDrawer(width: width, panel: panel)
           : null,
       appBar: AlbumHeader(
         page: AlbumHeaderPage.timeline,
@@ -684,6 +677,24 @@ class _TimelinePageState extends ConsumerState<TimelinePage> {
         sidebar: wide && _sidebarOpen ? panel : null,
         familyName: family?.name ?? 'Family',
       ),
+    );
+  }
+}
+
+/// The filter panel in a drawer, for widths without the docked sidebar.
+class _FilterDrawer extends StatelessWidget {
+  const _FilterDrawer({required this.width, required this.panel});
+
+  final double width;
+  final Widget panel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      key: const Key('timeline-filter-drawer'),
+      width: math.min(_filterPanelWidth, width * 0.9),
+      backgroundColor: albumParchment,
+      child: SafeArea(child: panel),
     );
   }
 }
@@ -931,7 +942,7 @@ class _NoMatch extends StatelessWidget {
 }
 
 /// Spinner, empty copy, or the rail for the current zoom.
-class _TimelineBody extends ConsumerWidget {
+class _TimelineBody extends StatelessWidget {
   const _TimelineBody({
     required this.host,
     required this.bands,
@@ -945,7 +956,7 @@ class _TimelineBody extends ConsumerWidget {
   final bool wide;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     if (host._data.loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -961,10 +972,7 @@ class _TimelineBody extends ConsumerWidget {
     return switch (host._zoom) {
       TimelineZoom.far => _farRail(rails),
       TimelineZoom.mid => _midRail(rails),
-      TimelineZoom.near => _nearRail(
-        rails,
-        ref.watch(photosRepositoryProvider),
-      ),
+      TimelineZoom.near => _nearRail(rails),
     };
   }
 
@@ -1005,26 +1013,24 @@ class _TimelineBody extends ConsumerWidget {
     notice: parts.notice,
   );
 
-  FullCardRail _nearRail(_RailParts parts, PhotosRepository photos) =>
-      FullCardRail(
-        stories: dialStories(host._data.published),
-        focusedId: host._focusedStoryId,
-        photos: photos,
-        onPerson: host._openPerson,
-        branching: parts.branching,
-        originStoryId: parts.originId,
-        originTag: parts.originLabel,
-        anchorFor: host._anchor,
-        onOpen: host._openStory,
-        onEmpty: host._zoomOut,
-        onFocus: host._onDialFocus,
-        onOpenBranch: host._selectFamily,
-        onMacro: host._fitAll,
-        onMid: host._showMid,
-        dimmed: dimmed,
-        toolbar: parts.toolbar,
-        notice: parts.notice,
-      );
+  FullCardRail _nearRail(_RailParts parts) => FullCardRail(
+    stories: dialStories(host._data.published),
+    focusedId: host._focusedStoryId,
+    onPerson: host._openPerson,
+    branching: parts.branching,
+    originStoryId: parts.originId,
+    originTag: parts.originLabel,
+    anchorFor: host._anchor,
+    onOpen: host._openStory,
+    onEmpty: host._zoomOut,
+    onFocus: host._onDialFocus,
+    onOpenBranch: host._selectFamily,
+    onMacro: host._fitAll,
+    onMid: host._showMid,
+    dimmed: dimmed,
+    toolbar: parts.toolbar,
+    notice: parts.notice,
+  );
 }
 
 /// What every rail shares: branching, origin tag, toolbar and notice.

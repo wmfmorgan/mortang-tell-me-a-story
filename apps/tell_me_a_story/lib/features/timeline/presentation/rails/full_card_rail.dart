@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/core/domain/photos_repository.dart';
@@ -21,7 +22,6 @@ class FullCardRail extends StatefulWidget {
     super.key,
     required this.stories,
     required this.focusedId,
-    required this.photos,
     required this.branching,
     this.originStoryId,
     this.originTag,
@@ -40,7 +40,6 @@ class FullCardRail extends StatefulWidget {
 
   final List<Story> stories;
   final String? focusedId;
-  final PhotosRepository? photos;
   final RailBranching branching;
   final String? originStoryId;
   final String? originTag;
@@ -390,9 +389,8 @@ class _RenderDaysAttachedCallout extends RenderBox
 
   @override
   void setupParentData(RenderBox child) {
-    if (child.parentData is! HangParentParentData) {
-      child.parentData = HangParentParentData();
-    }
+    if (child.parentData is HangParentParentData) return;
+    child.parentData = HangParentParentData();
   }
 
   /// [target]'s top-left in [ancestor]'s coordinates. Sums parent offsets, so
@@ -498,7 +496,6 @@ class _FullCardRow extends StatelessWidget {
        focused = look.focused,
        dimmed = look.dimmed,
        opacity = look.opacity,
-       photos = rail.photos,
        onOpen = (() => rail.onOpen(rail.stories[index])),
        super(key: rail.anchorFor(rail.stories[index].id));
 
@@ -513,7 +510,6 @@ class _FullCardRow extends StatelessWidget {
   final bool dimmed;
   final double opacity;
   final double gap;
-  final PhotosRepository? photos;
   final VoidCallback onOpen;
 
   /// Side the callouts run to: the card's own side, always right when narrow.
@@ -609,7 +605,6 @@ class _ScaledCard extends StatelessWidget {
         dimmed: row.dimmed,
         branched: frame.branchesStory,
         parentOrigin: frame.parent != null,
-        photos: row.photos,
         originTag: row.originTag,
         onOpen: row.onOpen,
         onPerson: row.onPerson,
@@ -725,26 +720,7 @@ class _BranchNarrowRow extends StatelessWidget {
         children: [
           Column(
             children: [
-              // Shift the ring so the dot sits on the spine, like the
-              // plain dots; the callout's own geometry is unchanged.
-              Transform.translate(
-                offset: const Offset(_narrowDotCenter - calloutHit / 2, 0),
-                child: BranchCalloutTarget(
-                  frame: row.frame,
-                  onOpen: row.onOpenBranch,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: calloutHit,
-                        height: calloutHit,
-                        child: placed.ringHit,
-                      ),
-                      Expanded(child: placed.lane),
-                    ],
-                  ),
-                ),
-              ),
+              _NarrowCalloutTarget(row: row, placed: placed),
               Padding(
                 // The card starts under the label, after the ring.
                 padding: EdgeInsets.only(
@@ -762,6 +738,37 @@ class _BranchNarrowRow extends StatelessWidget {
             child: Center(child: placed.dot),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The branch ring and its lane, the ring shifted onto the spine like the
+/// plain dots; the callout's own geometry is unchanged.
+class _NarrowCalloutTarget extends StatelessWidget {
+  const _NarrowCalloutTarget({required this.row, required this.placed});
+
+  final _FullCardRow row;
+  final PlacedBranch placed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: const Offset(_narrowDotCenter - calloutHit / 2, 0),
+      child: BranchCalloutTarget(
+        frame: row.frame,
+        onOpen: row.onOpenBranch,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: calloutHit,
+              height: calloutHit,
+              child: placed.ringHit,
+            ),
+            Expanded(child: placed.lane),
+          ],
+        ),
       ),
     );
   }
@@ -794,19 +801,7 @@ class _BranchWideRow extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              BranchCalloutTarget(
-                frame: row.frame,
-                onOpen: row.onOpenBranch,
-                child: _WideHalves(
-                  cardOnLeft: cardOnLeft,
-                  middle: SizedBox(
-                    width: calloutGutter,
-                    height: calloutHit,
-                    child: Center(child: placed.ringHit),
-                  ),
-                  child: placed.lane,
-                ),
-              ),
+              _WideCalloutTarget(row: row, placed: placed),
               _WideHalves(
                 cardOnLeft: cardOnLeft,
                 middle: const SizedBox(width: calloutGutter),
@@ -821,6 +816,31 @@ class _BranchWideRow extends StatelessWidget {
             child: Center(child: placed.dot),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The branch ring in the gutter with its lane on the card's half.
+class _WideCalloutTarget extends StatelessWidget {
+  const _WideCalloutTarget({required this.row, required this.placed});
+
+  final _FullCardRow row;
+  final PlacedBranch placed;
+
+  @override
+  Widget build(BuildContext context) {
+    return BranchCalloutTarget(
+      frame: row.frame,
+      onOpen: row.onOpenBranch,
+      child: _WideHalves(
+        cardOnLeft: row.cardOnLeft,
+        middle: SizedBox(
+          width: calloutGutter,
+          height: calloutHit,
+          child: Center(child: placed.ringHit),
+        ),
+        child: placed.lane,
       ),
     );
   }
@@ -899,7 +919,6 @@ class _FullCard extends StatelessWidget {
     required this.dimmed,
     required this.branched,
     required this.parentOrigin,
-    required this.photos,
     required this.onOpen,
     this.originTag,
     this.onPerson,
@@ -912,7 +931,6 @@ class _FullCard extends StatelessWidget {
   final bool dimmed;
   final bool branched;
   final bool parentOrigin;
-  final PhotosRepository? photos;
   final VoidCallback onOpen;
   final String? originTag;
   final void Function(({String id, String name}) person)? onPerson;
@@ -920,11 +938,7 @@ class _FullCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final paths = focused
-        ? (story.photoPaths.isEmpty
-              ? const <String>[]
-              : [story.photoPaths.first])
-        : story.photoPaths.take(2).toList();
+    final paths = _cardPhotoPaths(story, focused: focused);
     return _CardSurface(
       storyId: story.id,
       focused: focused,
@@ -942,14 +956,7 @@ class _FullCard extends StatelessWidget {
           ),
           const SizedBox(height: AlbumSpace.s),
           if (originTag case final tag?)
-            Text(
-              tag,
-              key: Key('timeline-origin-tag-${story.id}'),
-              style: text.labelLarge?.copyWith(
-                color: dimmed ? albumDimInk : albumSage,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            _OriginTag(tag: tag, storyId: story.id, dimmed: dimmed),
           Text(
             story.title ?? '',
             style: text.headlineSmall?.copyWith(
@@ -958,13 +965,43 @@ class _FullCard extends StatelessWidget {
               color: dimmed ? albumDimInk : null,
             ),
           ),
-          if (photos case final repository? when paths.isNotEmpty)
-            _CardPhotos(paths: paths, photos: repository, focused: focused),
+          if (paths.isNotEmpty) _CardPhotos(paths: paths, focused: focused),
           if (focused) ...[
             const SizedBox(height: AlbumSpace.m),
             _CardFooter(story: story, dimmed: dimmed),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// The focused card shows its first photo; the others show up to two.
+List<String> _cardPhotoPaths(Story story, {required bool focused}) {
+  if (!focused) return story.photoPaths.take(2).toList();
+  return story.photoPaths.isEmpty ? const <String>[] : [story.photoPaths.first];
+}
+
+/// The sage origin tag above the title of the family's origin story.
+class _OriginTag extends StatelessWidget {
+  const _OriginTag({
+    required this.tag,
+    required this.storyId,
+    required this.dimmed,
+  });
+
+  final String tag;
+  final String storyId;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      tag,
+      key: Key('timeline-origin-tag-$storyId'),
+      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+        color: dimmed ? albumDimInk : albumSage,
+        fontWeight: FontWeight.w600,
       ),
     );
   }
@@ -1057,11 +1094,6 @@ class _CardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final people = story.people.isNotEmpty
-        ? story.people
-        : [for (final name in story.personNames) (id: '', name: name)];
-    final place = story.placeLabel ?? '';
-    final tap = onPerson;
     return Wrap(
       alignment: WrapAlignment.spaceBetween,
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -1076,33 +1108,61 @@ class _CardHeader extends StatelessWidget {
             letterSpacing: 1.2,
           ),
         ),
-        Wrap(
-          alignment: WrapAlignment.end,
-          spacing: 6,
-          runSpacing: AlbumSpace.xs,
-          children: [
-            for (final person in people)
-              GestureDetector(
-                key: Key('timeline-person-${story.id}-${person.name}'),
-                onTap: person.id.isEmpty || tap == null
-                    ? null
-                    : () => tap(person),
-                child: _CardChip(
-                  icon: Icons.person,
-                  label: person.name,
-                  focused: focused,
-                  dimmed: dimmed,
-                ),
-              ),
-            if (place.isNotEmpty)
-              _CardChip(
-                icon: Icons.location_on,
-                label: place,
-                focused: focused,
-                dimmed: dimmed,
-              ),
-          ],
+        _CardChips(
+          story: story,
+          focused: focused,
+          dimmed: dimmed,
+          onPerson: onPerson,
         ),
+      ],
+    );
+  }
+}
+
+/// The person chips (tappable when linked) and the place chip.
+class _CardChips extends StatelessWidget {
+  const _CardChips({
+    required this.story,
+    required this.focused,
+    required this.dimmed,
+    required this.onPerson,
+  });
+
+  final Story story;
+  final bool focused;
+  final bool dimmed;
+  final void Function(({String id, String name}) person)? onPerson;
+
+  @override
+  Widget build(BuildContext context) {
+    final people = story.people.isNotEmpty
+        ? story.people
+        : [for (final name in story.personNames) (id: '', name: name)];
+    final place = story.placeLabel ?? '';
+    final tap = onPerson;
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 6,
+      runSpacing: AlbumSpace.xs,
+      children: [
+        for (final person in people)
+          GestureDetector(
+            key: Key('timeline-person-${story.id}-${person.name}'),
+            onTap: person.id.isEmpty || tap == null ? null : () => tap(person),
+            child: _CardChip(
+              icon: Icons.person,
+              label: person.name,
+              focused: focused,
+              dimmed: dimmed,
+            ),
+          ),
+        if (place.isNotEmpty)
+          _CardChip(
+            icon: Icons.location_on,
+            label: place,
+            focused: focused,
+            dimmed: dimmed,
+          ),
       ],
     );
   }
@@ -1182,22 +1242,17 @@ class _CardFooter extends StatelessWidget {
   }
 }
 
-class _CardPhotos extends StatefulWidget {
-  const _CardPhotos({
-    required this.paths,
-    required this.photos,
-    required this.focused,
-  });
+class _CardPhotos extends ConsumerStatefulWidget {
+  const _CardPhotos({required this.paths, required this.focused});
 
   final List<String> paths;
-  final PhotosRepository photos;
   final bool focused;
 
   @override
-  State<_CardPhotos> createState() => _CardPhotosState();
+  ConsumerState<_CardPhotos> createState() => _CardPhotosState();
 }
 
-class _CardPhotosState extends State<_CardPhotos> {
+class _CardPhotosState extends ConsumerState<_CardPhotos> {
   final Map<String, Uint8List> _bytes = {};
   final Map<String, double> _aspect = {};
 
@@ -1208,9 +1263,10 @@ class _CardPhotosState extends State<_CardPhotos> {
   }
 
   Future<void> _load() async {
+    final photos = ref.read(photosRepositoryProvider);
     for (final path in widget.paths) {
       try {
-        final bytes = await widget.photos.downloadBytes(path);
+        final bytes = await photos.downloadBytes(path);
         if (!mounted) return;
         setState(() {
           _bytes[path] = bytes;
@@ -1279,25 +1335,38 @@ class _PhotoRow extends StatelessWidget {
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(left: i == 0 ? 0 : AlbumSpace.m),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(AlbumRadius.group),
-                      child: ColoredBox(
-                        color: albumParchment,
-                        child: Image.memory(
-                          ready[i].bytes,
-                          height: height,
-                          width: double.infinity,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                        ),
-                      ),
-                    ),
+                    child: _PhotoCell(bytes: ready[i].bytes, height: height),
                   ),
                 ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// One photo, contained in a rounded parchment well.
+class _PhotoCell extends StatelessWidget {
+  const _PhotoCell({required this.bytes, required this.height});
+
+  final Uint8List bytes;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AlbumRadius.group),
+      child: ColoredBox(
+        color: albumParchment,
+        child: Image.memory(
+          bytes,
+          height: height,
+          width: double.infinity,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        ),
+      ),
     );
   }
 }

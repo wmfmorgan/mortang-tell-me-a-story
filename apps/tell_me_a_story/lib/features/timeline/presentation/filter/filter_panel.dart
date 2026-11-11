@@ -54,93 +54,202 @@ class _FilterPanelState extends State<FilterPanel> {
     final filter = widget.filter;
     final options = widget.options;
     final onChanged = widget.onChanged;
-    final text = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.all(AlbumSpace.l),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Filters', style: text.titleLarge),
-          if (filter.isActive) ...[
-            const SizedBox(height: AlbumSpace.xs),
-            Text(
-              filterStatusLine(widget.matched, widget.total),
-              key: const Key('filter-status'),
-              style: AlbumText.count(text),
-            ),
-          ],
+          _Header(
+            active: filter.isActive,
+            matched: widget.matched,
+            total: widget.total,
+          ),
           const SizedBox(height: AlbumSpace.m),
           TextField(
             key: const Key('filter-search'),
             controller: _search,
-            decoration: const InputDecoration(
-              hintText: 'Search titles, stories and people',
-              prefixIcon: Icon(Icons.search),
-            ),
+            decoration: _searchDecoration,
             onChanged: (query) => onChanged(filter.copyWith(query: query)),
           ),
-          if (options.people.isNotEmpty)
-            _Section(
-              title: 'People',
-              child: _Chips(
-                children: [
-                  for (final person in options.people)
-                    AlbumChip(
-                      key: Key('filter-person-${person.id}'),
-                      label: person.name,
-                      selected: filter.personIds.contains(person.id),
-                      onTap: () => onChanged(
-                        filter.copyWith(
-                          personIds: _toggled(filter.personIds, person.id),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          if (options.places.isNotEmpty)
-            _Section(
-              title: 'Places',
-              child: _Chips(
-                children: [
-                  for (final place in options.places)
-                    AlbumChip(
-                      key: Key('filter-place-${place.id}'),
-                      label: place.label,
-                      selected: filter.placeIds.contains(place.id),
-                      onTap: () => onChanged(
-                        filter.copyWith(
-                          placeIds: _toggled(filter.placeIds, place.id),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          if (options.decades.length > 1)
-            _Section(
-              title: 'Years',
-              child: _DecadeRange(
-                filter: filter,
-                decades: options.decades,
-                onChanged: onChanged,
-              ),
-            ),
+          _OptionSections(
+            filter: filter,
+            options: options,
+            onChanged: onChanged,
+          ),
           if (filter.isActive) ...[
             const SizedBox(height: AlbumSpace.l),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FButton(
-                key: const Key('filter-clear'),
-                variant: FButtonVariant.ghost,
-                mainAxisSize: MainAxisSize.min,
-                onPress: () => onChanged(const TimelineFilter()),
-                child: const Text('Clear filters'),
-              ),
-            ),
+            _ClearButton(onChanged: onChanged),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// People, Places and Years: each only when there is something to pick.
+class _OptionSections extends StatelessWidget {
+  const _OptionSections({
+    required this.filter,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final TimelineFilter filter;
+  final FilterOptions options;
+  final ValueChanged<TimelineFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (options.people.isNotEmpty)
+          _PeopleSection(
+            filter: filter,
+            options: options,
+            onChanged: onChanged,
+          ),
+        if (options.places.isNotEmpty)
+          _PlacesSection(
+            filter: filter,
+            options: options,
+            onChanged: onChanged,
+          ),
+        if (options.decades.length > 1)
+          _Section(
+            title: 'Years',
+            child: _DecadeRange(
+              filter: filter,
+              decades: options.decades,
+              onChanged: onChanged,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+const _searchDecoration = InputDecoration(
+  hintText: 'Search titles, stories and people',
+  prefixIcon: Icon(Icons.search),
+);
+
+/// The panel title and, while a filter is on, the match count.
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.active,
+    required this.matched,
+    required this.total,
+  });
+
+  final bool active;
+  final int matched;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Filters', style: text.titleLarge),
+        if (active) ...[
+          const SizedBox(height: AlbumSpace.xs),
+          Text(
+            filterStatusLine(matched, total),
+            key: const Key('filter-status'),
+            style: AlbumText.count(text),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PeopleSection extends StatelessWidget {
+  const _PeopleSection({
+    required this.filter,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final TimelineFilter filter;
+  final FilterOptions options;
+  final ValueChanged<TimelineFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Section(
+      title: 'People',
+      child: _Chips(
+        children: [
+          for (final person in options.people)
+            AlbumChip(
+              key: Key('filter-person-${person.id}'),
+              label: person.name,
+              selected: filter.personIds.contains(person.id),
+              onTap: () => onChanged(
+                filter.copyWith(
+                  personIds: _toggled(filter.personIds, person.id),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlacesSection extends StatelessWidget {
+  const _PlacesSection({
+    required this.filter,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final TimelineFilter filter;
+  final FilterOptions options;
+  final ValueChanged<TimelineFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Section(
+      title: 'Places',
+      child: _Chips(
+        children: [
+          for (final place in options.places)
+            AlbumChip(
+              key: Key('filter-place-${place.id}'),
+              label: place.label,
+              selected: filter.placeIds.contains(place.id),
+              onTap: () => onChanged(
+                filter.copyWith(placeIds: _toggled(filter.placeIds, place.id)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClearButton extends StatelessWidget {
+  const _ClearButton({required this.onChanged});
+
+  final ValueChanged<TimelineFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FButton(
+        key: const Key('filter-clear'),
+        variant: FButtonVariant.ghost,
+        mainAxisSize: MainAxisSize.min,
+        onPress: () => onChanged(const TimelineFilter()),
+        child: const Text('Clear filters'),
       ),
     );
   }

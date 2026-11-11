@@ -229,7 +229,8 @@ class ServerFamiliesRepository
       active: [for (final row in dto.active) familyRosterFromDto(row)],
       recoverable: [
         for (final row in dto.recoverable)
-          if (row.deletedAt != null && isInsideRecoveryWindow(row.deletedAt!))
+          if (row.deletedAt case final deletedAt?
+              when isInsideRecoveryWindow(deletedAt))
             familyRosterFromDto(row),
       ],
     );

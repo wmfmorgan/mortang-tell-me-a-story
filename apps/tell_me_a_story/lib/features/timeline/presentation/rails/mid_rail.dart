@@ -568,21 +568,7 @@ class _DialCard extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 460),
         child: DecoratedBox(
           decoration: surfaced
-              ? ShapeDecoration(
-                  color: frame.branchesStory
-                      ? albumParchment
-                      : albumDialogSurface,
-                  shape: shape,
-                  shadows: moss
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: albumInk.withValues(alpha: 0.08),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                )
+              ? _dialSurface(frame, shape, moss: moss)
               : const BoxDecoration(),
           child: Padding(
             padding: EdgeInsets.all(surfaced ? calloutCardPadding : 0),
@@ -592,6 +578,28 @@ class _DialCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The card surface: parchment for a branch, dialog white otherwise, with a
+/// soft shadow unless the card is moss-edged.
+ShapeDecoration _dialSurface(
+  StoryFrame frame,
+  ShapeBorder shape, {
+  required bool moss,
+}) {
+  return ShapeDecoration(
+    color: frame.branchesStory ? albumParchment : albumDialogSurface,
+    shape: shape,
+    shadows: moss
+        ? null
+        : [
+            BoxShadow(
+              color: albumInk.withValues(alpha: 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+  );
 }
 
 class _DialCardBody extends StatelessWidget {
@@ -817,9 +825,8 @@ class _RenderHangParentCallout extends RenderBox
 
   @override
   void setupParentData(RenderBox child) {
-    if (child.parentData is! HangParentParentData) {
-      child.parentData = HangParentParentData();
-    }
+    if (child.parentData is HangParentParentData) return;
+    child.parentData = HangParentParentData();
   }
 
   @override

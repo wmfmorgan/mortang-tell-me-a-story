@@ -31,12 +31,13 @@ List<DecadeBand> decadeBands(Iterable<Story> stories) {
     final start = decadeStartYear(story.publishedStart);
     (grouped[start] ??= []).add(story);
   }
-  final years = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+  final entries = grouped.entries.toList()
+    ..sort((a, b) => b.key.compareTo(a.key));
   return [
-    for (final year in years)
+    for (final MapEntry(key: year, value: decade) in entries)
       DecadeBand(
         startYear: year,
-        stories: [...grouped[year]!]..sort((a, b) => compareStories(b, a)),
+        stories: [...decade]..sort((a, b) => compareStories(b, a)),
       ),
   ];
 }

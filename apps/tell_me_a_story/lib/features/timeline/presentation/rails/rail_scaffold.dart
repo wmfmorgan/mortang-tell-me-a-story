@@ -342,7 +342,7 @@ class _ArrowKeysState extends State<_ArrowKeys> {
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+    if (!(event is KeyDownEvent || event is KeyRepeatEvent)) {
       return KeyEventResult.ignored;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {

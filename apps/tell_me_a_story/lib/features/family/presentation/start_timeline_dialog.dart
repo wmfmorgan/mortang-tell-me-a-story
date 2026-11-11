@@ -340,11 +340,7 @@ class _Picker extends StatelessWidget {
         TextField(
           key: const Key('start-timeline-search'),
           controller: search,
-          decoration: const InputDecoration(
-            hintText: 'Search stories',
-            filled: true,
-            fillColor: Colors.white,
-          ),
+          decoration: _searchDecoration,
         ),
         const SizedBox(height: 12),
         Flexible(
@@ -355,16 +351,31 @@ class _Picker extends StatelessWidget {
           onPressed: onWriteStory,
           child: const Text('Write a new story'),
         ),
-        OutlinedButton(
-          key: const Key('start-timeline-picker-cancel'),
-          onPressed: () => Navigator.pop(context),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: albumInk,
-            side: const BorderSide(color: albumInk),
-          ),
-          child: const Text('Cancel'),
-        ),
+        const _PickerCancel(),
       ],
+    );
+  }
+}
+
+const _searchDecoration = InputDecoration(
+  hintText: 'Search stories',
+  filled: true,
+  fillColor: Colors.white,
+);
+
+class _PickerCancel extends StatelessWidget {
+  const _PickerCancel();
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      key: const Key('start-timeline-picker-cancel'),
+      onPressed: () => Navigator.pop(context),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: albumInk,
+        side: const BorderSide(color: albumInk),
+      ),
+      child: const Text('Cancel'),
     );
   }
 }

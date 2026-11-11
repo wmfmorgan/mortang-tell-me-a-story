@@ -84,11 +84,11 @@ Riverpod 3 with codegen (`riverpod_generator`).
 - `@riverpod` functions (family by id) for derived or async reads.
 - `@riverpod class X extends _$X` notifiers (`AsyncNotifier`) for mutable or async state.
 - Widgets that read app data are `ConsumerWidget` / `ConsumerStatefulWidget`: `ref.watch` in `build`, `ref.read` in callbacks.
-- Repositories: `abstract interface class XRepository` plus its provider in `domain/x_repository.dart`:
+- Repositories: `abstract class XRepository` (fakes may `extends` it) plus its provider in `domain/x_repository.dart`:
   `@Riverpod(keepAlive: true) XRepository xRepository(Ref ref) => throw UnimplementedError('Overridden in main.dart');`
   The implementation `class ServerXRepository implements XRepository` lives in `data/server_x_repository.dart`. `lib/main.dart` overrides each provider (`xRepositoryProvider.overrideWithValue(ServerXRepository())`); tests override with fakes.
 - Widgets never construct repositories or receive them through constructors.
-- Shared keepAlive session state (family selection, profile session, auth refresh, timeline live) lives in `lib/core/session/`.
+- Shared keepAlive session state lives in `lib/core/session/`, one provider per file: `familySelectionProvider`, `familyMembershipProvider` (`FamilyMembershipState`), `profileSessionProvider` (`ProfileState`), `authInfoProvider` (overridden in `main.dart`), `authRefreshProvider` (go_router `refreshListenable`), `appSessionProvider` (signed-in user id, sign-out), and the auto-dispose `timelineLiveProvider` (`ServerTimelineLive` in `server_timeline_live.dart`). Cross-feature loaders with no repository home are domain providers overridden in `main.dart` (e.g. `storyThumbsLoaderProvider`).
 - No global singletons. `setState` only for state local to one widget (text controllers, animation, hover, expanded/collapsed, form fields).
 
 ## Code Generation
@@ -104,7 +104,7 @@ Riverpod 3 with codegen (`riverpod_generator`).
 
 - `test/` mirrors `lib/` exactly (`test/architecture/test_layout_test.dart`); move tests with their sources.
 - TDD: write the failing test, make it pass, then refactor green. Tests ship with the code they cover.
-- Widget tests pump through `test/support/pump_app.dart` (`pumpApp(tester, child, {overrides, router, ...})`), which wraps `ProviderScope(overrides:)` and `MaterialApp(theme: albumTheme(), builder: albumAppBuilder, ...)`.
+- Widget tests pump through `test/support/pump_app.dart`: `pumpApp(tester, home, {overrides, theme, size})`, `pumpRouterApp(tester, router, {overrides})`, `defaultTestOverrides` (fake profile repository, fake timeline live) and `containerOf(tester)` to seed or read session state after pumping. Router-level tests build a `ProviderContainer` with overrides and pump `UncontrolledProviderScope(container, child: const App())`.
 - Override repository providers with fakes from `test/support/fakes/` (`FakeXRepository` in `fake_x_repository.dart`, implementing the domain interface) or `mocktail` mocks. Prefer the shared fakes.
 - Provider unit tests use `ProviderContainer` with `addTearDown(container.dispose)`.
 - Assert what a user or caller observes: finders and text, return values, `AppErrorCode`. Never assert on private members. Every new `AppException` throw has a test asserting its code.
@@ -117,11 +117,17 @@ Riverpod 3 with codegen (`riverpod_generator`).
 
 Client (`apps/tell_me_a_story/lib/`), guarded by `test/architecture/import_boundaries_test.dart`:
 
-- `presentation/` never imports any `data/` folder; it reads repositories only through providers in `domain/`.
-- A feature never imports another feature's `data/`. It may import another feature's `presentation/` (screens it opens) or `domain/`.
-- Code used by 2+ features lives in `lib/core/`. Feature-only data: `auth` (OTP sign-in), `family` (family covers, recovery window), `search` (search repository, search recents).
+- Areas: `main.dart`/`app.dart` (composition), `core/<area>`, `features/<f>/{data,domain,presentation}`.
+- `presentation/`, `core/widgets`, `core/session` and `core/router` never import a `data/` area; they read repositories only through providers in `domain/`.
+- `domain/` imports only domain areas (and `core/env.dart`); it never imports the generated client or serverpod.
+- `core/` never imports `features/`, except `core/router` (the route table is the composition root for screens).
+- `data/` never imports Flutter UI libraries, `core/widgets` or `presentation/`.
+- A feature never imports another feature's `data/`; it imports only lower-rank features (`featureRank`).
+- Only `main.dart`/`app.dart`, `core/server`, `core/data`, `core/session` and `features/*/data` import the generated client or serverpod.
+- `lib/` has no `export` directives (no barrels); import the defining file. Platform switches use conditional imports.
+- Code used by 2+ features lives in `lib/core/`. Feature-only data: `auth` (OTP sign-in) and `search` (search repository); family covers and the recovery window are shared (`core/`).
 - The Serverpod client and session live in `lib/core/server/`; repositories in `data/` own every server call and return domain models.
-- HTTP: the generated Serverpod client for the API; `package:http` only for Mapbox (`lib/core/data/mapbox_search_repository.dart`).
+- HTTP: the generated Serverpod client for the API; `package:http` only for Mapbox (`lib/core/data/server_mapbox_search_repository.dart`).
 - Repositories wrap server calls in `withServerErrors` (`lib/core/data/server/server_errors.dart`), the only place server errors become client `AppException` / `StorageFailedException`. They let those pass through and never turn a failure into null/false/empty, except documented not-found-equals-unreadable methods.
 
 Generated code (`packages/tell_me_a_story_client/`, `apps/server/lib/src/generated/`, `*.g.dart`, `*.freezed.dart`) is never hand-edited. Shared schema, endpoint and client changes are contract work: regenerate and update every consumer together.

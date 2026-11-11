@@ -292,7 +292,7 @@ class _FarDecadeRow extends StatelessWidget {
     final covered = <Story>[];
     for (final story in band.stories) {
       final box = dotKey(story.id).currentContext?.findRenderObject();
-      if (box is! RenderBox || !box.attached) continue;
+      if (!(box is RenderBox && box.attached)) continue;
       final centre = box.localToGlobal(box.size.center(Offset.zero));
       final reach = hitRadiusFor(
         details.kind,
@@ -483,25 +483,9 @@ class _DecadeDots extends StatelessWidget {
       final frame = row.branching.frameFor(story);
       final highlighted = row.focused && story.id == row.highlight?.id;
       final origin = story.id == row.originStoryId;
-      if (frame.parent != null) {
-        branched.add(
-          _FarParent(
-            row: row,
-            frame: frame,
-            highlighted: highlighted,
-            origin: origin,
-          ),
-        );
-      } else if (frame.branchesStory) {
-        branched.add(
-          _FarBranch(
-            row: row,
-            frame: frame,
-            highlighted: highlighted,
-            origin: origin,
-            width: width,
-          ),
-        );
+      final callout = _calloutFor(row, frame, highlighted, origin, width);
+      if (callout != null) {
+        branched.add(callout);
       } else {
         plain.add(_FarDot.of(row, story, highlighted, origin, ringed: true));
       }
@@ -519,6 +503,34 @@ class _DecadeDots extends StatelessWidget {
       ],
     );
   }
+}
+
+/// A parent or branch callout for [frame], or null for a plain dot.
+Widget? _calloutFor(
+  _FarDecadeRow row,
+  StoryFrame frame,
+  bool highlighted,
+  bool origin,
+  double width,
+) {
+  if (frame.parent != null) {
+    return _FarParent(
+      row: row,
+      frame: frame,
+      highlighted: highlighted,
+      origin: origin,
+    );
+  }
+  if (frame.branchesStory) {
+    return _FarBranch(
+      row: row,
+      frame: frame,
+      highlighted: highlighted,
+      origin: origin,
+      width: width,
+    );
+  }
+  return null;
 }
 
 class _FarParent extends StatelessWidget {
@@ -664,7 +676,7 @@ class _RenderCenterOnDot extends RenderShiftedBox {
   @override
   void performLayout() {
     // The widget always passes a child.
-    final child = this.child!;
+    final child = this.child!; // non-null: the callout widget always has one.
     child.layout(constraints.loosen(), parentUsesSize: true);
     final childSize = child.size;
     // A downward callout hangs under a top-aligned dot, so the spare space
