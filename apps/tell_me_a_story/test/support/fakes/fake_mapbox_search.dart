@@ -1,4 +1,5 @@
-import 'package:tell_me_a_story/core/data/mapbox_search_repository.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_hit.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_repository.dart';
 
 /// [MapboxSearchRepository] that returns [hits] (at most `limit`) for every
 /// query and records the queries. Set [error] to make [search] throw it.

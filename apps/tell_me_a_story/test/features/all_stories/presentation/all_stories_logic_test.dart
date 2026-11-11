@@ -11,7 +11,7 @@ server.UuidValue _uuid(int n) => server.UuidValue.fromString(
 
 void main() {
   test('U-01 fromDto keeps address and person user ids', () {
-    final story = Story.fromDto(
+    final story = storyFromDto(
       server.StoryDto(
         id: _uuid(1),
         familyId: _uuid(2),

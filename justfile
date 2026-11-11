@@ -13,7 +13,7 @@ setup:
 
 # build_runner codegen (freezed, riverpod_generator, json_serializable); outputs are gitignored
 codegen:
-    cd apps/tell_me_a_story && dart run build_runner build --delete-conflicting-outputs
+    cd apps/tell_me_a_story && dart run build_runner build
 
 # flutter test in apps/tell_me_a_story (goldens excluded: they are macOS-only)
 test: codegen

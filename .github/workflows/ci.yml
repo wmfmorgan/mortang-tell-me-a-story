@@ -120,7 +120,7 @@ jobs:
         working-directory: apps/tell_me_a_story
         run: |
           flutter pub get --enforce-lockfile
-          dart run build_runner build --delete-conflicting-outputs
+          dart run build_runner build
 
       - name: chrome and chromedriver (preinstalled, versions must match)
         run: |

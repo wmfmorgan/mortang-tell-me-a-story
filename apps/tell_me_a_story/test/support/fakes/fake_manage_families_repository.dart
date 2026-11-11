@@ -1,4 +1,4 @@
-import 'package:tell_me_a_story/core/data/manage_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/manage_families_repository.dart';
 
 /// [ManageFamiliesRepository] that records every call in [calls] as
 /// `method:arg,arg` and succeeds. Set [error] to make every call throw it.

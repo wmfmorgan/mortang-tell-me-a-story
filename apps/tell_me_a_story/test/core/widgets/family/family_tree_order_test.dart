@@ -22,7 +22,7 @@ MemberFamily _family(
 
 void main() {
   test('MemberFamily.fromDto reads branchYear and role', () {
-    final row = MemberFamily.fromDto(
+    final row = memberFamilyFromDto(
       server.MemberFamilyDto(
         id: server.UuidValue.fromString('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
         name: 'Ada',
@@ -34,7 +34,7 @@ void main() {
     expect(row.branchYear, 1987);
     expect(row.role, 'co_owner');
 
-    final missing = MemberFamily.fromDto(
+    final missing = memberFamilyFromDto(
       server.MemberFamilyDto(
         id: server.UuidValue.fromString('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
         name: 'Bea',

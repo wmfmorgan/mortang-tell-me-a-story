@@ -1,4 +1,5 @@
-import 'package:tell_me_a_story/core/data/places_repository.dart';
+import 'package:tell_me_a_story/core/domain/place.dart';
+import 'package:tell_me_a_story/core/domain/places_repository.dart';
 
 /// In-memory [PlacesRepository] for widget tests. [places] is the store (one
 /// tree); every call is appended to [calls] as its method name. Set

@@ -49,10 +49,10 @@ dependencies:
   serverpod_auth_core_flutter: 4.1.1
   serverpod_auth_idp_client: 4.1.1
   forui: ^0.27.7
-  flutter_riverpod: ^3.0.0
-  riverpod_annotation: ^3.0.0
+  flutter_riverpod: ^3.5.0
+  riverpod_annotation: ^4.0.8
   freezed_annotation: ^3.0.0
-  json_annotation: ^4.9.0
+  json_annotation: ^4.12.0
 
 dev_dependencies:
   flutter_test:
@@ -66,10 +66,10 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  riverpod_generator: ^3.0.0
-  build_runner: ^2.4.0
-  freezed: ^3.0.0
-  json_serializable: ^6.9.0
+  riverpod_generator: ^4.0.10
+  build_runner: ^2.17.1
+  freezed: ^4.0.3
+  json_serializable: ^6.15.2
   mocktail: ^1.0.4
 
 # For information on the generic Dart part of this file, see the

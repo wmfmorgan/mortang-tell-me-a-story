@@ -1,0 +1,1 @@
+enum StoryStatus { draft, published }

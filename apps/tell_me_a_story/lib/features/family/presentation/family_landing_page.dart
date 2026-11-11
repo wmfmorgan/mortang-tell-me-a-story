@@ -179,8 +179,9 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
       if (families is FamilyCoverClient) {
         return await (families as FamilyCoverClient).download(path);
       }
-      if (families == null)
+      if (families == null) {
         return await ServerFamilyCoversRepository().download(path);
+      }
     } catch (_) {
       return null;
     }

@@ -1,4 +1,7 @@
-import 'package:tell_me_a_story/core/data/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/accept_invite_result.dart';
+import 'package:tell_me_a_story/core/domain/create_invite_result.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_url.dart';
 
 /// In-memory [InviteRepository] for widget tests. Records every call. Set an
 /// `*Error` field to make that call throw it. Subclass and override a method

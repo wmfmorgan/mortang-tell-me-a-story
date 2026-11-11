@@ -1,5 +1,8 @@
 import 'package:tell_me_a_story/core/domain/app_exception.dart';
-import 'package:tell_me_a_story/core/data/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_date_precision.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
 
 /// In-memory [StoriesRepository] for widget tests. [stories] is the store,
 /// keyed by id; every call is appended to [calls] as its method name. Set

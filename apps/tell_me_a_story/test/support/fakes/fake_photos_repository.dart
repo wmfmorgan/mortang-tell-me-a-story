@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:tell_me_a_story/core/data/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/photo.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
 
 /// In-memory [PhotosRepository] for widget tests. [photos] is the store; every
 /// call is appended to [calls] as its method name. Set an `*Error` field to
