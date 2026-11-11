@@ -237,6 +237,8 @@ void main() {
     final uri = router.routerDelegate.currentConfiguration.uri;
     expect(uri.path, '/invite/abc123');
     expect(uri.queryParameters['invite'], isNull);
+    // No server in this test: the invite preview load fails and is reported.
+    expect(tester.takeException(), isStateError);
 
     app.dispose();
   });
@@ -460,6 +462,73 @@ void main() {
     expect(find.byType(DraftsPage), findsNothing);
 
     app.dispose();
+  });
+
+  testWidgets('signed-out deep link opens after sign-in', (tester) async {
+    final info = ValueNotifier<AuthSuccess?>(null);
+    final auth = AuthRefresh(authInfo: info);
+    addTearDown(() {
+      auth.dispose();
+      FamilySelection.clear();
+      ProfileSession.instance.clear();
+    });
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+    router.go(AppRoutes.drafts);
+    await tester.pumpAndSettle();
+    final signInUri = router.routerDelegate.currentConfiguration.uri;
+    expect(signInUri.path, AppRoutes.signIn);
+    expect(signInUri.queryParameters['from'], AppRoutes.drafts);
+
+    info.value = AuthSuccess(
+      authStrategy: 'session',
+      token: 'token',
+      authUserId: UuidValue.fromString('00000000-0000-4000-8000-00000000000a'),
+      scopeNames: const {},
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.drafts,
+    );
+    expect(find.byType(DraftsPage), findsOneWidget);
+  });
+
+  testWidgets('sign-out does not carry the page to the next sign-in', (
+    tester,
+  ) async {
+    final info = ValueNotifier<AuthSuccess?>(
+      AuthSuccess(
+        authStrategy: 'session',
+        token: 'token',
+        authUserId: UuidValue.fromString(
+          '00000000-0000-4000-8000-00000000000a',
+        ),
+        scopeNames: const {},
+      ),
+    );
+    final auth = AuthRefresh(authInfo: info);
+    addTearDown(() {
+      auth.dispose();
+      FamilySelection.clear();
+      ProfileSession.instance.clear();
+    });
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+    router.go(AppRoutes.drafts);
+    await tester.pumpAndSettle();
+
+    info.value = null;
+    await tester.pumpAndSettle();
+
+    final uri = router.routerDelegate.currentConfiguration.uri;
+    expect(uri.path, AppRoutes.signIn);
+    expect(uri.queryParameters.containsKey('from'), isFalse);
   });
 
   testWidgets('new story route forwards draft query', (tester) async {

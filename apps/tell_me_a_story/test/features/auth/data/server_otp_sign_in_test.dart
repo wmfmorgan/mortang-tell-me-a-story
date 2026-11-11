@@ -26,7 +26,7 @@ void main() {
       signInErrorMessage(
         refusal(EmailAccountRequestExceptionReason.policyViolation),
       ),
-      'Request failed',
+      'Please enter a full email address.',
     );
     expect(signInErrorMessage(Exception('offline')), 'Request failed');
   });

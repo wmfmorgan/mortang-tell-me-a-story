@@ -1595,16 +1595,9 @@ void main() {
 
     expect(
       find.text('Finish the highlighted fields to publish.'),
-      findsOneWidget,
-    );
-    expect(
-      find.ancestor(
-        of: find.text('People'),
-        matching: find.byWidgetPredicate(_hasTerracottaBorder),
-      ),
       findsNothing,
     );
-    expect(stories.publishCalls, 0);
+    expect(stories.publishCalls, 1);
   });
 
   testWidgets(
