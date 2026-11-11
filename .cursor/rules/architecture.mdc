@@ -1,0 +1,11 @@
+---
+description: Architecture and layer rules (see AGENTS.md § Standards and § Where To Edit)
+globs:
+  - "apps/tell_me_a_story/lib/**/*.dart"
+  - "apps/tell_me_a_story/test/architecture/**/*.dart"
+  - "apps/server/lib/**/*.dart"
+  - "packages/tell_me_a_story_client/**/*.dart"
+  - "infra/gcp/**"
+alwaysApply: false
+---
+Follow `AGENTS.md` § Standards and § Where To Edit, with `.context/engineering-guide.md` § Boundaries and § Server. This file adds no rules. If it and `AGENTS.md` ever differ, `AGENTS.md` wins.

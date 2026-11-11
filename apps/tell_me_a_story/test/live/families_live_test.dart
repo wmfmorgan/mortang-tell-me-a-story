@@ -6,14 +6,17 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
-import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/family_covers.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/core/domain/app_exception.dart';
+import 'package:tell_me_a_story/core/data/server_families_repository.dart';
+import 'package:tell_me_a_story/core/data/server_family_covers_repository.dart';
+import 'package:tell_me_a_story/core/data/server_invite_repository.dart';
+import 'package:tell_me_a_story/core/data/server_manage_families_repository.dart';
+import 'package:tell_me_a_story/core/domain/cover_photo_exception.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import 'support/live_server.dart';
+
+String? _noFamily() => null;
 
 /// A published, dated story in [familyId], made with the raw client.
 Future<String> _publishedStory(server.Client client, String familyId) async {
@@ -69,12 +72,17 @@ Future<
 >
 _familyWithJoiner(String owner, String joiner) async {
   final ownerClient = await signInLive(freshEmail(owner));
-  final familyId = await ManageFamiliesApi(client: ownerClient)
+  final familyId = await ServerManageFamiliesRepository(client: ownerClient)
       .createRootFamily('$owner family');
-  final invite = await InviteApi(client: ownerClient)
-      .createInvite(familyId: familyId);
+  final invite = await ServerInviteRepository(
+    client: ownerClient,
+    currentFamilyId: _noFamily,
+  ).createInvite(familyId: familyId);
   final joinerClient = await signInLive(freshEmail(joiner));
-  await InviteApi(client: joinerClient).acceptInvite(token: invite.token);
+  await ServerInviteRepository(
+    client: joinerClient,
+    currentFamilyId: _noFamily,
+  ).acceptInvite(token: invite.token);
   final joinerId = joinerClient.auth.authInfo!.authUserId.toString();
   return (
     familyId: familyId,
@@ -89,8 +97,8 @@ void main() {
 
   test('createRoot, listMine, rename, listStewarded and the tree', () async {
     final client = await signInLive(freshEmail('root'));
-    final manage = ManageFamiliesApi(client: client);
-    final families = FamiliesApi(client: client);
+    final manage = ServerManageFamiliesRepository(client: client);
+    final families = ServerFamiliesRepository(client: client);
 
     final id = await manage.createRootFamily('  Morgans ');
     var mine = await families.listMine();
@@ -117,10 +125,11 @@ void main() {
     'directory, detail and members show counts, roles and invites',
     () async {
       final setup = await _familyWithJoiner('dir-owner', 'dir-member');
-      final families = FamiliesApi(client: setup.ownerClient);
+      final families = ServerFamiliesRepository(client: setup.ownerClient);
       await _publishedStory(setup.ownerClient, setup.familyId);
-      await InviteApi(
+      await ServerInviteRepository(
         client: setup.ownerClient,
+        currentFamilyId: _noFamily,
       ).createInvite(familyId: setup.familyId, email: 'Pending@Example.test ');
 
       final directory = await families.listDirectory();
@@ -146,7 +155,8 @@ void main() {
 
       final stranger = await signInLive(freshEmail('dir-stranger'));
       expect(
-        await FamiliesApi(client: stranger).loadDetail(setup.familyId),
+        await ServerFamiliesRepository(client: stranger)
+            .loadDetail(setup.familyId),
         isNull,
       );
     },
@@ -154,9 +164,9 @@ void main() {
 
   test('cover round trip: save, download, clear', () async {
     final client = await signInLive(freshEmail('cover'));
-    final id = await ManageFamiliesApi(client: client)
+    final id = await ServerManageFamiliesRepository(client: client)
         .createRootFamily('Covers');
-    final families = FamiliesApi(client: client);
+    final families = ServerFamiliesRepository(client: client);
     final png = Uint8List.fromList(
       img.encodePng(img.Image(width: 8, height: 6)),
     );
@@ -170,15 +180,16 @@ void main() {
     await families.clearCoverPhoto(familyId: id, path: key);
     expect((await families.listMine()).single.coverPhotoPath, isNull);
     await expectLater(
-      FamilyCoversApi(client: client).save(familyId: id, bytes: Uint8List(0)),
+      ServerFamilyCoversRepository(client: client)
+          .save(familyId: id, bytes: Uint8List(0)),
       throwsA(isA<CoverPhotoException>()),
     );
   });
 
   test('co-owner add/remove, transfer, remove member', () async {
     final setup = await _familyWithJoiner('mg-owner', 'mg-member');
-    final manage = ManageFamiliesApi(client: setup.ownerClient);
-    final families = FamiliesApi(client: setup.ownerClient);
+    final manage = ServerManageFamiliesRepository(client: setup.ownerClient);
+    final families = ServerFamiliesRepository(client: setup.ownerClient);
     Future<String> roleOf(String userId) async =>
         (await families.listMembers(setup.familyId))
             .singleWhere((m) => m.userId == userId)
@@ -202,15 +213,18 @@ void main() {
     final ownerId = setup.ownerClient.auth.authInfo!.authUserId.toString();
     expect(await roleOf(ownerId), 'co_owner');
 
-    await ManageFamiliesApi(client: setup.joinerClient)
+    await ServerManageFamiliesRepository(client: setup.joinerClient)
         .removeMember(familyId: setup.familyId, userId: ownerId);
-    expect(await FamiliesApi(client: setup.ownerClient).listMine(), isEmpty);
+    expect(
+      await ServerFamiliesRepository(client: setup.ownerClient).listMine(),
+      isEmpty,
+    );
   });
 
   test('soft delete then recover', () async {
     final client = await signInLive(freshEmail('del'));
-    final manage = ManageFamiliesApi(client: client);
-    final families = FamiliesApi(client: client);
+    final manage = ServerManageFamiliesRepository(client: client);
+    final families = ServerFamiliesRepository(client: client);
     final id = await manage.createRootFamily('Deleted');
 
     await manage.softDeleteFamily(id);
@@ -226,18 +240,19 @@ void main() {
 
   test('origin, branch and origin dependents', () async {
     final setup = await _familyWithJoiner('br-owner', 'br-member');
-    final families = FamiliesApi(client: setup.ownerClient);
+    final families = ServerFamiliesRepository(client: setup.ownerClient);
     final storyId = await _publishedStory(setup.ownerClient, setup.familyId);
 
     await families.setFamilyOrigin(familyId: setup.familyId, storyId: storyId);
-    final branchId = await ManageFamiliesApi(client: setup.ownerClient)
-        .createBranchFamily(
-          parentFamilyId: setup.familyId,
-          originStoryId: storyId,
-          name: 'Branch',
-          branchYear: 1995,
-          ownerUserId: setup.joinerId,
-        );
+    final branchId =
+        await ServerManageFamiliesRepository(client: setup.ownerClient)
+            .createBranchFamily(
+              parentFamilyId: setup.familyId,
+              originStoryId: storyId,
+              name: 'Branch',
+              branchYear: 1995,
+              ownerUserId: setup.joinerId,
+            );
 
     final tree = await families.listFamilyTree(setup.familyId);
     final branch = tree.singleWhere((f) => f.id == branchId);
@@ -252,7 +267,7 @@ void main() {
     expect(dependents.map((d) => d.familyId), contains(setup.familyId));
 
     await expectLater(
-      FamiliesApi(client: setup.joinerClient)
+      ServerFamiliesRepository(client: setup.joinerClient)
           .setFamilyOrigin(familyId: setup.familyId, storyId: storyId),
       throwsA(
         isA<AppException>()

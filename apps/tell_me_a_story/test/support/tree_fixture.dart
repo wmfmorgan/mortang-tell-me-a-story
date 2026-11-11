@@ -1,5 +1,6 @@
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
 
 /// One family tree for the whole-tree tests and goldens: Jenkins (root) with
 /// two branches, Bea (from the 1975 story) and Cal (from 1984), and 13

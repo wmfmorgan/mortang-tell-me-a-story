@@ -1,0 +1,11 @@
+---
+description: Coding rules and gates (see AGENTS.md § Standards and § Gates)
+globs:
+  - "apps/tell_me_a_story/**/*.dart"
+  - "apps/server/**/*.dart"
+  - "apps/**/pubspec.yaml"
+  - "apps/server/lib/src/models/**/*.spy.yaml"
+  - "mise.toml"
+alwaysApply: false
+---
+Follow `AGENTS.md` § Standards and § Gates, with `.context/engineering-guide.md` for patterns. This file adds no rules. If it and `AGENTS.md` ever differ, `AGENTS.md` wins.

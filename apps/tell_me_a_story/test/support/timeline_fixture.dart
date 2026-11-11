@@ -1,15 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tell_me_a_story/core/domain/families_repository.dart';
+import 'package:tell_me_a_story/core/domain/invite_repository.dart';
+import 'package:tell_me_a_story/core/domain/member_family.dart';
+import 'package:tell_me_a_story/core/domain/photos_repository.dart';
+import 'package:tell_me_a_story/core/domain/steward_family.dart';
+import 'package:tell_me_a_story/core/domain/stories_repository.dart';
+import 'package:tell_me_a_story/core/domain/story.dart';
+import 'package:tell_me_a_story/core/domain/story_status.dart';
+import 'package:tell_me_a_story/core/domain/tree_family.dart';
+import 'package:tell_me_a_story/core/session/timeline_live.dart';
 import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/data/timeline_live.dart';
-import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
+import 'package:tell_me_a_story/features/timeline/presentation/timeline_page.dart';
 
-import 'fakes/fake_invite_gateway.dart';
-import 'fakes/fake_stories_gateway.dart';
+import 'fakes/fake_invite_repository.dart';
+import 'fakes/fake_photos_repository.dart';
+import 'fakes/fake_stories_repository.dart';
+import 'pump_app.dart';
 
 // The Jenkins family with a Bea branch from its 1975 story: the golden
 // fixture, shared by the rail widget tests and the iPad sweep.
@@ -117,7 +128,7 @@ final fixtureVaried = <Story>[
   ),
 ];
 
-class FixtureStories extends FakeStoriesGateway {
+class FixtureStories extends FakeStoriesRepository {
   FixtureStories(this.published);
 
   final List<Story> published;
@@ -135,7 +146,7 @@ class FixtureStories extends FakeStoriesGateway {
   }
 }
 
-class FixtureFamilies extends FamiliesGateway {
+class FixtureFamilies extends FamiliesRepository {
   @override
   Future<List<MemberFamily>> listMine() async => [
     MemberFamily(id: jenkinsId, name: 'Jenkins', createdAt: DateTime.utc(2020)),
@@ -177,11 +188,22 @@ class FixtureLive implements TimelineLive {
   void dispose() {}
 }
 
-TimelinePage fixturePage(List<Story> stories) => TimelinePage(
-  api: FakeInviteGateway(familyId: jenkinsId),
-  storiesApi: FixtureStories(stories),
-  familiesApi: FixtureFamilies(),
-  live: FixtureLive(),
+/// Repository overrides for the Jenkins fixture timeline (the live feed is
+/// the no-op one from [defaultTestOverrides]).
+List<Override> fixtureOverrides(List<Story> stories) => [
+  ...defaultTestOverrides,
+  inviteRepositoryProvider.overrideWithValue(
+    FakeInviteRepository(familyId: jenkinsId),
+  ),
+  storiesRepositoryProvider.overrideWithValue(FixtureStories(stories)),
+  familiesRepositoryProvider.overrideWithValue(FixtureFamilies()),
+  photosRepositoryProvider.overrideWithValue(FakePhotosRepository()),
+];
+
+/// The fixture timeline in its own [ProviderScope].
+Widget fixturePage(List<Story> stories) => ProviderScope(
+  overrides: fixtureOverrides(stories),
+  child: const TimelinePage(),
 );
 
 /// The timeline in a router, so opening a story lands on a page that reads

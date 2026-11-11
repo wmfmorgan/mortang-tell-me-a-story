@@ -2,8 +2,21 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-// Import rules for lib/. Layers: app (main.dart, app/), core, data, ui and
-// features/<name>. See AGENTS.md "Layout". Run from apps/tell_me_a_story.
+// Import rules for lib/ (ctx flutter preset layout; see AGENTS.md and
+// .context/engineering-guide.md "Boundaries"). Run from apps/tell_me_a_story.
+//
+// Areas: app (main.dart, app.dart), core/<area> and features/<f>/<layer>
+// where <layer> is data, domain or presentation.
+// - core never imports features.
+// - data never imports Flutter UI libraries, widgets or presentation.
+// - presentation, core/widgets, core/session and core/router never import a
+//   data area; they read repositories through providers in domain/.
+// - domain imports only domain areas (and packages).
+// - A feature never imports another feature's data/.
+// - Features import other features only of a lower rank (no cycles).
+// - Only app, core/server, core/data, core/session and features/*/data
+//   import the generated client or serverpod.
+// - lib/ has no export directives (no barrels).
 
 /// Features may import only features of a lower rank.
 const featureRank = <String, int>{
@@ -22,13 +35,15 @@ const featureRank = <String, int>{
   'timeline': 2,
 };
 
-/// Packages that only app (main.dart, app/), core/server/ and data/ may import.
+const featureLayers = {'data', 'domain', 'presentation'};
+
+/// Packages only server-facing areas may import.
 const serverPackages = <String>[
   'package:tell_me_a_story_client/',
   'package:serverpod',
 ];
 
-/// Flutter UI libraries that data/ may not import.
+/// Flutter UI libraries that data layers may not import.
 const uiLibraries = <String>[
   'package:flutter/material.dart',
   'package:flutter/widgets.dart',
@@ -42,34 +57,76 @@ final _directive = RegExp(
   multiLine: true,
 );
 
-String layerOf(String path) {
-  if (path == 'main.dart' || path.startsWith('app/')) return 'app';
+/// A file's area: `app`, `core/<area>`, `features/<f>/<layer>`, or `unknown`.
+String areaOf(String path) {
+  if (path == 'main.dart' || path == 'app.dart') return 'app';
   final parts = path.split('/');
-  switch (parts.first) {
-    case 'core' || 'data' || 'ui':
-      return parts.first;
-    case 'features' when parts.length > 2:
-      return 'features/${parts[1]}';
+  if (parts.first == 'core' && parts.length > 1) {
+    return parts.length == 2
+        ? 'core/${parts[1].replaceAll('.dart', '')}'
+        : 'core/${parts[1]}';
+  }
+  if (parts.first == 'features' &&
+      parts.length > 3 &&
+      featureLayers.contains(parts[2])) {
+    return 'features/${parts[1]}/${parts[2]}';
   }
   return 'unknown';
 }
 
-bool allowed(String from, String to) {
-  if (from == to || from == 'app') return true;
-  final inShared = to == 'core' || to == 'data' || to == 'ui';
-  switch (from) {
-    case 'core':
-      return to == 'core';
-    case 'data':
-      return to == 'core' || to == 'data';
-    case 'ui':
-      return inShared;
+bool isData(String area) =>
+    area == 'core/data' ||
+    (area.startsWith('features/') && area.endsWith('/data'));
+
+bool talksToServer(String area) =>
+    area == 'app' ||
+    area == 'core/server' ||
+    area == 'core/data' ||
+    area == 'core/session' ||
+    isData(area);
+
+String? featureOf(String area) =>
+    area.startsWith('features/') ? area.split('/')[1] : null;
+
+bool isDomain(String area) =>
+    area == 'core/domain' ||
+    area == 'core/env' ||
+    (area.startsWith('features/') && area.endsWith('/domain'));
+
+/// Null when allowed, else the broken rule.
+String? violation(String from, String to) {
+  if (from == 'app') return null;
+  final readsThroughProviders =
+      from.endsWith('/presentation') ||
+      from == 'core/widgets' ||
+      from == 'core/session' ||
+      from == 'core/router';
+  if (readsThroughProviders && isData(to)) {
+    return 'read repositories through domain providers, not data/';
   }
-  if (inShared) return true;
-  if (!to.startsWith('features/')) return false;
-  final fromRank = featureRank[from.substring('features/'.length)];
-  final toRank = featureRank[to.substring('features/'.length)];
-  return fromRank != null && toRank != null && toRank < fromRank;
+  if (isDomain(from) && from != 'core/env' && !isDomain(to)) {
+    return 'domain imports only domain';
+  }
+  // The router is the composition root for routes: it imports screens.
+  if (from == 'core/router') return null;
+  if (from.startsWith('core/') && to.startsWith('features/')) {
+    return 'core never imports features';
+  }
+  if (isData(from) && (to.endsWith('/presentation') || to == 'core/widgets')) {
+    return 'data never imports presentation';
+  }
+  final fromFeature = featureOf(from);
+  final toFeature = featureOf(to);
+  if (fromFeature == null || toFeature == null || fromFeature == toFeature) {
+    return null;
+  }
+  if (isData(to)) return "a feature never imports another feature's data";
+  final fromRank = featureRank[fromFeature];
+  final toRank = featureRank[toFeature];
+  if (fromRank == null || toRank == null || toRank >= fromRank) {
+    return 'features import only lower-rank features';
+  }
+  return null;
 }
 
 /// Every import/export target of [source], as written.
@@ -104,31 +161,37 @@ void main() {
     for (final entity in lib.listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final file = entity.path.replaceAll('\\', '/').substring('lib/'.length);
-      final from = layerOf(file);
+      if (file.endsWith('.g.dart') || file.endsWith('.freezed.dart')) continue;
+      final from = areaOf(file);
       if (from == 'unknown') {
-        found.add('$file is outside app/, core/, data/, ui/ and features/');
+        found.add(
+          '$file is outside main.dart, app.dart, core/ and '
+          'features/<f>/{data,domain,presentation}/',
+        );
         continue;
       }
-      if (from.startsWith('features/') &&
-          !featureRank.containsKey(from.substring('features/'.length))) {
+      final feature = featureOf(from);
+      if (feature != null && !featureRank.containsKey(feature)) {
         found.add('$file: add its feature to featureRank');
         continue;
       }
-      for (final target in targetsOf(entity.readAsStringSync())) {
-        if (serverPackages.any(target.startsWith) &&
-            from != 'app' &&
-            from != 'data' &&
-            !file.startsWith('core/server/')) {
-          found.add('$file -> $target');
+      final source = entity.readAsStringSync();
+      if (RegExp(r'^export\s', multiLine: true).hasMatch(source)) {
+        found.add('$file: no export directives (import the defining file)');
+      }
+      for (final target in targetsOf(source)) {
+        if (serverPackages.any(target.startsWith) && !talksToServer(from)) {
+          found.add('$file -> $target: only server-facing areas import it');
           continue;
         }
-        if (from == 'data' && uiLibraries.contains(target)) {
-          found.add('$file -> $target');
+        if (isData(from) && uiLibraries.contains(target)) {
+          found.add('$file -> $target: data never imports Flutter UI');
           continue;
         }
         final path = libPath(file, target);
         if (path == null) continue;
-        if (!allowed(from, layerOf(path))) found.add('$file -> $path');
+        final rule = violation(from, areaOf(path));
+        if (rule != null) found.add('$file -> $path: $rule');
       }
     }
 

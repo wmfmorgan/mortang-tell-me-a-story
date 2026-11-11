@@ -1,0 +1,255 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import 'package:tell_me_a_story/core/widgets/dialogs/family_blur_dialog.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+
+/// Centered Stitch content column. The scaffold behind it stays parchment.
+const albumColumnWidth = 800.0;
+
+class AlbumColumn extends StatelessWidget {
+  const AlbumColumn({
+    super.key,
+    required this.child,
+    this.maxWidth = albumColumnWidth,
+  });
+
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Wordmark plus the controls that already exist. No extra nav destinations.
+class AlbumTopBar extends StatelessWidget implements PreferredSizeWidget {
+  const AlbumTopBar({
+    super.key,
+    this.screenLabel,
+    this.leading,
+    this.actions = const [],
+  });
+
+  final String? screenLabel;
+  final Widget? leading;
+  final List<Widget> actions;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      automaticallyImplyLeading: false,
+      centerTitle: false,
+      titleSpacing: 16,
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: _TopBarTitle(screenLabel: screenLabel, leading: leading),
+          ),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Wordmark, optional [leading], and the optional screen label.
+class _TopBarTitle extends StatelessWidget {
+  const _TopBarTitle({required this.screenLabel, required this.leading});
+
+  final String? screenLabel;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = screenLabel;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            'Tell Me a Story',
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: GoogleFonts.newsreader(
+              color: albumInk,
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        ?leading,
+        if (label != null && label.isNotEmpty) ...[
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: GoogleFonts.sourceSans3(
+                color: albumInk,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Warm card for one existing form section.
+class AlbumPanel extends StatelessWidget {
+  const AlbumPanel({super.key, this.title, this.trailing, required this.child});
+
+  final String? title;
+  final Widget? trailing;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = this.title;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: albumParchment,
+        borderRadius: BorderRadius.circular(albumCardRadius),
+        border: Border.all(color: albumSage.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null) ...[
+            _PanelTitleRow(title: title, trailing: trailing),
+            const SizedBox(height: 8),
+          ],
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _PanelTitleRow extends StatelessWidget {
+  const _PanelTitleRow({required this.title, required this.trailing});
+
+  final String title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final trailing = this.trailing;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: GoogleFonts.sourceSans3(
+              color: albumInk,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ),
+        if (trailing != null)
+          Flexible(
+            child: Align(alignment: Alignment.centerRight, child: trailing),
+          ),
+      ],
+    );
+  }
+}
+
+/// Filled circle with a plus. Terracotta on parchment or outline.
+/// Parchment circle when the control itself is filled terracotta.
+class PlusLabel extends StatelessWidget {
+  const PlusLabel({
+    super.key,
+    required this.label,
+    this.size = 20,
+    this.onTerracotta = false,
+    this.style,
+  });
+
+  final String label;
+  final double size;
+  final bool onTerracotta;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final circle = onTerracotta ? albumParchment : albumTerracotta;
+    final plus = onTerracotta ? albumTerracotta : albumWhite;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: size,
+          height: size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: circle, shape: BoxShape.circle),
+          child: Icon(Icons.add, size: size * 0.72, color: plus),
+        ),
+        SizedBox(width: size >= 28 ? 8 : 6),
+        Text(label, style: style, textAlign: TextAlign.center),
+      ],
+    );
+  }
+}
+
+/// Centered parchment dialog on the sigma-4 blur shell.
+/// Callers keep their existing [show] signatures. Menus do not use this.
+/// [scopedMessages]: see [showBlurredCard].
+Future<T?> showAlbumDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  double maxWidth = 640,
+  bool scopedMessages = false,
+}) {
+  return showBlurredCard<T>(
+    context: context,
+    scopedMessages: scopedMessages,
+    builder: (ctx) {
+      final height = MediaQuery.sizeOf(ctx).height;
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+          maxHeight: height * 0.9,
+        ),
+        child: Material(
+          color: albumParchment,
+          surfaceTintColor: albumBackdropClear,
+          elevation: 8,
+          shadowColor: albumInk.withAlpha(0x33),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: albumSage.withValues(alpha: 0.35)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: builder(ctx),
+        ),
+      );
+    },
+  );
+}

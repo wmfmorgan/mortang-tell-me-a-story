@@ -1,8 +1,9 @@
-import 'package:tell_me_a_story/data/mapbox_search.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_hit.dart';
+import 'package:tell_me_a_story/core/domain/mapbox_search_repository.dart';
 
-/// [MapboxSearchGateway] that returns [hits] (at most `limit`) for every
+/// [MapboxSearchRepository] that returns [hits] (at most `limit`) for every
 /// query and records the queries. Set [error] to make [search] throw it.
-class FakeMapboxSearch implements MapboxSearchGateway {
+class FakeMapboxSearch implements MapboxSearchRepository {
   FakeMapboxSearch({this.hits = const []});
 
   List<MapboxSearchHit> hits;
