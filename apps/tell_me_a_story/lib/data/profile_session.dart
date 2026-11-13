@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:tell_me_a_story/data/profile_api.dart';
+import 'profile_api.dart';
 
 /// Process memory for the signed-in profile. Not kept across a restart.
 class ProfileSession extends ChangeNotifier {
@@ -10,7 +10,7 @@ class ProfileSession extends ChangeNotifier {
 
   static final ProfileSession instance = ProfileSession._();
 
-  /// Set from `main` after the server client starts. Tests leave this null.
+  /// Set from `main` after Supabase starts. Tests leave this null.
   static Future<OwnProfile?> Function()? loadOwn;
 
   /// Set from `main`. Downloads `{uid}/avatar.jpg` when a path is stored.

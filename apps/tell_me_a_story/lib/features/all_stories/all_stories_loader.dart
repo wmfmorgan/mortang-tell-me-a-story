@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/features/all_stories/all_stories_logic.dart';
+import '../../data/families_api.dart';
+import '../../data/stories_api.dart';
+import 'all_stories_logic.dart';
 
 class AllStoriesLoader {
   AllStoriesLoader({required this.stories, required this.families});

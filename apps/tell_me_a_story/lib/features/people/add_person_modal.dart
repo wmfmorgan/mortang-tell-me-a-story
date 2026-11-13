@@ -3,12 +3,12 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:tell_me_a_story/ui/album/album_chrome.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/ui/dialogs/family_blur_dialog.dart';
+import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
+import '../../data/invite_api.dart';
+import '../../data/people_api.dart';
+import '../../data/rpc_error.dart';
+import '../family/family_blur_dialog.dart';
 
 /// People added from this modal, and whether the caller chose "Send invite".
 class AddPersonResult {
@@ -124,13 +124,8 @@ class _AddPersonModalState extends State<AddPersonModal> {
     }
   }
 
-  static const _saveFailed = 'Couldn’t save person. Try again.';
-
   void _showSaveError(Object error) {
-    _snack(appErrorMessage(error) ?? _saveFailed);
-  }
-
-  void _snack(String message) {
+    final message = mapRpcError(error) ?? 'Couldn’t save person. Try again.';
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
@@ -194,21 +189,12 @@ class _AddPersonModalState extends State<AddPersonModal> {
       if (_sendInvite && !_inviteSent) {
         final invites = widget.invites;
         if (invites != null) {
-          try {
-            final created = await invites.createInvite(
-              familyId: widget.familyId,
-              email: email,
-              personId: person.id,
-            );
-            await invites.sendInviteEmail(
-              inviteId: created.inviteId,
-              token: created.token,
-            );
-          } on AppException {
-            // The person row is saved; invite failures keep the save sentence.
-            if (mounted) _snack(_saveFailed);
-            return;
-          }
+          final created = await invites.createInvite(
+            familyId: widget.familyId,
+            email: email,
+            personId: person.id,
+          );
+          await invites.sendInviteEmail(inviteId: created.inviteId);
         }
         _inviteSent = true;
       }

@@ -1,9 +1,0 @@
-### Precision of a calendar date span. byIndex ON PURPOSE: the stored bigint
-### (0 year, 1 month, 2 day) sorts coarse→fine like the old Postgres enum.
-### APPEND-ONLY. Never reorder or remove values.
-enum: DatePrecision
-serialized: byIndex
-values:
-  - year
-  - month
-  - day

@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main, feature/serverpod]
+    branches: [main]
   push:
-    branches: [main, feature/serverpod]
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -13,8 +13,69 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  ANALYZE_CEILING: 27
+
 jobs:
-  app:
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/tell_me_a_story
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: "3.47.7"
+
+      - name: flutter --version
+        run: flutter --version
+
+      - name: flutter pub get
+        run: flutter pub get --enforce-lockfile
+
+      - name: dart format
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: flutter analyze (ceiling)
+        run: |
+          out="$RUNNER_TEMP/analyze.txt"
+          set +e
+          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee "$out"
+          rc=${PIPESTATUS[0]}
+          set -e
+          if grep -qF 'error •' "$out"; then
+            echo "flutter analyze: errors found (exit $rc)" >&2
+            exit 1
+          fi
+          if grep -qF 'No issues found!' "$out"; then
+            count=0
+          else
+            count=$( { grep -vF '•' "$out" | grep -Eo '[0-9]+ issues? found\.' | tail -n 1 | grep -Eo '^[0-9]+'; } || true )
+          fi
+          if [ -z "$count" ]; then
+            echo "flutter analyze: no issue count in the output (exit $rc)" >&2
+            exit 1
+          fi
+          echo "flutter analyze: $count issues (ceiling $ANALYZE_CEILING, exit $rc)"
+          if [ "$count" -gt "$ANALYZE_CEILING" ]; then
+            echo "flutter analyze: $count issues is over the ceiling of $ANALYZE_CEILING" >&2
+            exit 1
+          fi
+          if [ "$rc" -ne 0 ]; then
+            echo "flutter analyze: exit $rc with no error lines" >&2
+            exit 1
+          fi
+
+      - name: flutter test
+        run: flutter test
+
+  deno:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -25,100 +86,137 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
-          install_args: flutter just # terraform is for deploys only
+          deno-version: "2.9.4"
 
-      - name: tool versions
-        run: |
-          flutter --version
-          just --version
+      - name: deno --version
+        run: deno --version
 
-      - name: pub get (app and server)
-        run: |
-          (cd apps/tell_me_a_story && flutter pub get --enforce-lockfile)
-          (cd apps/server && dart pub get --enforce-lockfile)
+      - name: deno check
+        run: deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts
 
-      - name: just fmt-check
-        run: just fmt-check
+      - name: deno test
+        run: deno test --allow-env supabase/functions
 
-      - name: just analyze
-        run: just analyze
-
-      - name: just test
-        run: just test
-
-  server:
+  pgtap:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
       run:
         shell: bash
+    env:
+      SUPABASE_CLI_VERSION: "2.121.0"
+      SUPABASE_CLI_SHA256: "4b481189efbdc57cf2d37bdee5f1a0d29574314398564b32a6dfb76c0fcf275f"
+      SPLINTER_COMMIT: "fccca4b1c4d8b48b8ccd69bd6b30e84adcb92975"
+      SPLINTER_SHA256: "d8d558baad3e03832e521c527907fa50a9a172fabd899dd0f5c2504a5a0e9349"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
-        with:
-          install_args: flutter just # terraform is for deploys only
-
-      # Serverpod downloads its embedded Postgres bundle from GitHub releases;
-      # cache it so a release-download outage doesn't fail the job.
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: ~/.cache/serverpod/pg-binaries
-          key: serverpod-pg-${{ runner.os }}-${{ hashFiles('apps/server/pubspec.lock') }}
-          restore-keys: serverpod-pg-${{ runner.os }}-
-
-      - name: server packages and passwords
+      - name: install supabase cli
         run: |
-          (cd apps/server && dart pub get --enforce-lockfile)
-          just server-passwords
+          tgz="$RUNNER_TEMP/supabase.tar.gz"
+          curl -fsSL -o "$tgz" "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
+          echo "${SUPABASE_CLI_SHA256}  ${tgz}" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" supabase supabase-go
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
-      - name: just server-analyze
-        run: just server-analyze
+      - name: supabase --version
+        run: supabase --version
 
-      - name: just server-test
-        run: just server-test
+      - name: supabase db start
+        run: supabase db start
+
+      - name: supabase test db
+        run: supabase test db
+
+      - name: fetch splinter (pinned)
+        run: |
+          f="$RUNNER_TEMP/splinter.sql"
+          curl -fsSL -o "$f" "https://raw.githubusercontent.com/supabase/splinter/${SPLINTER_COMMIT}/splinter.sql"
+          echo "${SPLINTER_SHA256}  ${f}" | sha256sum -c -
+
+      - name: advisors (splinter vs supabase/advisors-baseline.json)
+        env:
+          # local container defaults from config.toml [db] port; not secrets
+          PGHOST: 127.0.0.1
+          PGPORT: "57322"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          command -v psql >/dev/null 2>&1 || { echo "::error::psql not found on runner; advisors step fails closed"; exit 1; }
+          psql --version
+          out="$RUNNER_TEMP/advisors.csv"
+          {
+            echo "set transaction read only;"
+            echo "set local pgrst.db_schemas = 'public, graphql_public';"
+            cat "$RUNNER_TEMP/splinter.sql"
+          } | psql -X -q -v ON_ERROR_STOP=1 --single-transaction --csv -f - > "$out"
+          python3 -m unittest discover -s scripts/advisors -p 'test_*.py'
+          python3 scripts/advisors/check.py --layer local \
+            --baseline supabase/advisors-baseline.json --findings "$out"
 
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
     defaults:
       run:
         shell: bash
     env:
-      SERVER_URL: "http://127.0.0.1:8080"
+      SUPABASE_CLI_VERSION: "2.121.0"
+      SUPABASE_CLI_SHA256: "4b481189efbdc57cf2d37bdee5f1a0d29574314398564b32a6dfb76c0fcf275f"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
-        with:
-          install_args: flutter just # terraform is for deploys only
+      - name: e2e flow manifest
+        run: bash e2e/check_flows.sh
 
-      # Same embedded Postgres cache as the server job.
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: ~/.cache/serverpod/pg-binaries
-          key: serverpod-pg-${{ runner.os }}-${{ hashFiles('apps/server/pubspec.lock') }}
-          restore-keys: serverpod-pg-${{ runner.os }}-
-
-      - name: server packages and passwords
+      - name: install supabase cli
         run: |
-          (cd apps/server && dart pub get --enforce-lockfile)
-          just server-passwords
+          tgz="$RUNNER_TEMP/supabase.tar.gz"
+          curl -fsSL -o "$tgz" "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
+          echo "${SUPABASE_CLI_SHA256}  ${tgz}" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" supabase supabase-go
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
-      - name: just server (background)
+      - name: supabase --version
+        run: supabase --version
+
+      - name: supabase start (background)
         run: |
-          just server > "$RUNNER_TEMP/server.log" 2>&1 &
-          echo $! > "$RUNNER_TEMP/server.pid"
+          ( set +e
+            supabase start -x studio,imgproxy,vector,logflare,supavisor,postgres-meta > "$RUNNER_TEMP/supabase-start.log" 2>&1
+            echo $? > "$RUNNER_TEMP/supabase-start.rc"
+          ) &
+          echo $! > "$RUNNER_TEMP/supabase-start.pid"
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: "3.47.7"
+
+      - name: flutter --version
+        working-directory: apps/tell_me_a_story
+        run: flutter --version
 
       - name: flutter pub get
         working-directory: apps/tell_me_a_story
         run: flutter pub get --enforce-lockfile
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: "2.9.4"
+
+      - name: deno --version
+        run: deno --version
 
       - name: chrome and chromedriver (preinstalled, versions must match)
         run: |
@@ -137,40 +235,57 @@ jobs:
           curl -fsS --retry 20 --retry-connrefused --retry-max-time 30 http://127.0.0.1:4444/status > /dev/null
           echo "chromedriver listening on 127.0.0.1:4444"
 
-      - name: await just server
+      - name: start e2e relay
         run: |
-          pid="$(cat "$RUNNER_TEMP/server.pid")"
-          deadline=$((SECONDS + 300))
-          until [ "$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "$SERVER_URL/")" != 000 ]; do
-            if ! kill -0 "$pid" 2>/dev/null; then
-              echo "e2e: just server exited before listening on $SERVER_URL" >&2
-              exit 1
-            fi
-            if [ "$SECONDS" -ge "$deadline" ]; then
-              echo "e2e: just server did not listen on $SERVER_URL within 300 s" >&2
-              exit 1
-            fi
-            sleep 2
-          done
-          echo "just server listening on $SERVER_URL"
+          deno run --no-prompt --allow-net=127.0.0.1:57390,127.0.0.1:57321,localhost:57321,127.0.0.1:57324 e2e/relay.ts > "$RUNNER_TEMP/relay.log" 2>&1 &
+          curl -fsS --retry 20 --retry-connrefused --retry-max-time 30 http://127.0.0.1:57390/health
+
+      - name: await supabase start
+        run: |
+          pid="$(cat "$RUNNER_TEMP/supabase-start.pid")"
+          set +e
+          timeout 600 tail --pid="$pid" -f /dev/null
+          waited=$?
+          set -e
+          sed -E 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[redacted-jwt]/g; s/sb_(secret|publishable)_[A-Za-z0-9_-]+/[redacted-key]/g; s/[0-9a-f]{32,}/[redacted-hex]/g' "$RUNNER_TEMP/supabase-start.log"
+          if [ "$waited" -ne 0 ]; then
+            echo "e2e: supabase start did not finish within 600 s" >&2
+            exit 1
+          fi
+          rc="$(cat "$RUNNER_TEMP/supabase-start.rc")"
+          echo "supabase start: exit ${rc}"
+          test "$rc" = 0
 
       - name: flutter drive (e2e)
         working-directory: apps/tell_me_a_story
         run: |
+          status="$(cd "$GITHUB_WORKSPACE" && supabase status -o env)"
+          url="$(printf '%s\n' "$status" | sed -n 's/^API_URL="\(.*\)"$/\1/p')"
+          anon="$(printf '%s\n' "$status" | sed -n 's/^ANON_KEY="\(.*\)"$/\1/p')"
+          unset status
+          if [ "$url" != "http://127.0.0.1:57321" ]; then
+            echo "e2e: API_URL '${url}' is not the local stack http://127.0.0.1:57321" >&2
+            exit 1
+          fi
+          if [ -z "$anon" ]; then
+            echo "e2e: no ANON_KEY in supabase status -o env" >&2
+            exit 1
+          fi
           flutter drive \
             --driver=test_driver/integration_test.dart \
             --target=integration_test/e2e_test.dart \
             -d web-server --web-port=3000 --web-hostname=127.0.0.1 \
             --browser-name=chrome --driver-port=4444 --headless \
             --chrome-binary="$(command -v google-chrome)" \
-            --dart-define=SERVER_URL="$SERVER_URL"
+            --dart-define=SUPABASE_URL="$url" \
+            --dart-define=SUPABASE_ANON_KEY="$anon"
 
-      - name: e2e logs (server, chromedriver)
+      - name: e2e logs (relay, chromedriver)
         if: always()
         run: |
-          for f in server.log chromedriver.log; do
+          for f in relay.log chromedriver.log; do
             if [ -f "$RUNNER_TEMP/$f" ]; then
               echo "== $f"
-              cat "$RUNNER_TEMP/$f"
+              sed -E 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[redacted-jwt]/g' "$RUNNER_TEMP/$f"
             fi
           done

@@ -1,6 +1,0 @@
-### A person tagged on a story.
-class: StoryPersonDto
-fields:
-  personId: UuidValue
-  name: String
-  userId: UuidValue?

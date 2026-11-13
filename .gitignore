@@ -26,6 +26,10 @@ build/
 **/*.g.dart
 **/*.freezed.dart
 
+# Supabase local
+supabase/.branches
+supabase/.temp
+
 # OS / IDE
 .DS_Store
 *.swp
@@ -38,12 +42,3 @@ build/
 # Logs
 *.log
 /tmp/
-
-# Terraform
-infra/gcp/.terraform/
-infra/gcp/*.tfstate*
-infra/gcp/*.tfplan
-infra/gcp/tfplan
-
-# Firebase CLI deploy cache
-.firebase/

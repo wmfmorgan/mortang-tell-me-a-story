@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:tell_me_a_story/ui/album/album_chrome.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/perspectives_api.dart';
-import 'package:tell_me_a_story/data/profile_session.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
+import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
+import '../../data/perspectives_api.dart';
+import '../../data/stories_api.dart';
 
 /// Words in [text], split on whitespace. Empty text is 0.
 int perspectiveWordCount(String text) {
@@ -37,11 +37,6 @@ String _perspectiveInitials(String name) {
     return chars.length == 1 ? chars.first : chars.take(2).join();
   }
   return letters.first + letters[1];
-}
-
-String? _nonEmpty(String? value) {
-  final trimmed = value?.trim() ?? '';
-  return trimmed.isEmpty ? null : trimmed;
 }
 
 /// Full-telling overlay at `/stories/:storyId/perspective`.
@@ -142,25 +137,33 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
     super.initState();
     final existing = widget.existing;
     if (existing != null) _body.text = existing.body;
-    _postingAs = _nonEmpty(widget.postingAs);
-    if (_postingAs == null) {
-      final session = ProfileSession.instance;
-      _postingAs = _nonEmpty(session.displayName);
-      session.addListener(_onProfile);
-      session.ensureLoaded();
+    _postingAs = widget.postingAs?.trim();
+    if (_postingAs == null || _postingAs!.isEmpty) {
+      _postingAs = null;
+      _loadPostingAs();
     }
   }
 
-  /// Signed-in name from [ProfileSession]. Tests and signed-out sessions have none.
-  void _onProfile() {
-    final name = _nonEmpty(ProfileSession.instance.displayName);
-    if (!mounted || name == null || name == _postingAs) return;
-    setState(() => _postingAs = name);
+  Future<void> _loadPostingAs() async {
+    try {
+      final client = Supabase.instance.client;
+      final id = client.auth.currentUser?.id;
+      if (id == null) return;
+      final row = await client
+          .from('profiles')
+          .select('display_name')
+          .eq('id', id)
+          .maybeSingle();
+      final name = (row?['display_name'] as String?)?.trim() ?? '';
+      if (!mounted || name.isEmpty) return;
+      setState(() => _postingAs = name);
+    } catch (_) {
+      // Tests and signed-out sessions have no profile row to show.
+    }
   }
 
   @override
   void dispose() {
-    ProfileSession.instance.removeListener(_onProfile);
     _body.dispose();
     super.dispose();
   }
@@ -182,7 +185,6 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
           body: body,
           createdAt: existing.createdAt,
           authorDisplayName: existing.authorDisplayName,
-          canDelete: existing.canDelete,
         );
       } else {
         final familyId =

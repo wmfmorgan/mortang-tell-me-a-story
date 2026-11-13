@@ -1,8 +1,0 @@
-### How much of a user's birth date other tree members see.
-enum: BirthVisibility
-serialized: byName
-values:
-  - hidden
-  - year
-  - yearMonth
-  - full

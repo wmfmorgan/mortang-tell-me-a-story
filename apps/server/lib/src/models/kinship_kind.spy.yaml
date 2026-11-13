@@ -1,7 +1,0 @@
-### parentOf: fromPerson is a parent of toPerson. partnerOf: symmetric, stored with fromPersonId < toPersonId.
-### Siblings, grandparents and cousins are derived, never stored.
-enum: KinshipKind
-serialized: byName
-values:
-  - parentOf
-  - partnerOf

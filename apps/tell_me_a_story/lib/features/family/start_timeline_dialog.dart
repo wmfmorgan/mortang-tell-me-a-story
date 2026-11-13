@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/comments_api.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
-import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/ui/story/story_title.dart';
-import 'package:tell_me_a_story/ui/dialogs/family_blur_dialog.dart';
+import '../../core/theme/album_theme.dart';
+import '../../data/comments_api.dart';
+import '../../data/families_api.dart';
+import '../../data/manage_families_api.dart';
+import '../../data/people_api.dart';
+import '../../data/stories_api.dart';
+import '../timeline/timeline_zoom.dart';
+import 'family_blur_dialog.dart';
 
 class StartTimelineResult {
   const StartTimelineResult({required this.familyId, required this.name});
@@ -198,7 +197,7 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
         context,
         StartTimelineResult(familyId: id, name: _name.text.trim()),
       );
-    } on AppException catch (error) {
+    } on ManageFamiliesException catch (error) {
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -213,14 +212,14 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
     }
   }
 
-  String _inlineError(AppException error) {
-    if (error.code == AppErrorCode.notFound) {
+  String _inlineError(ManageFamiliesException error) {
+    if (error.code == 'NOT_FOUND') {
       if (widget.allowChange) {
         return "That story isn't available anymore. Pick another one.";
       }
       return "That story isn't available anymore.";
     }
-    if (error.code == AppErrorCode.forbidden) {
+    if (error.code == 'FORBIDDEN') {
       return "You're not a member of ${widget.parentName} anymore.";
     }
     if (_isInternal(error.message)) return 'Try again';

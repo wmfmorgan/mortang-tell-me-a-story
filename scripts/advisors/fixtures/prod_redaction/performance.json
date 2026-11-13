@@ -1,0 +1,52 @@
+{
+  "lints": [
+    {
+      "name": "auth_rls_initplan",
+      "title": "SENTINEL-TITLE-initplan",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": ["PERFORMANCE"],
+      "description": "SENTINEL-DESCRIPTION-initplan",
+      "detail": "SENTINEL-DETAIL-initplan Table `public.sentinel_object_table` has a row level security policy `sentinel_object_policy` that re-evaluates auth.uid() for each row",
+      "remediation": "https://sentinel-remediation.invalid/0003_auth_rls_initplan",
+      "metadata": { "name": "sentinel_object_table", "type": "table", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_auth_rls_init_plan_public_sentinel_object_table_sentinel_object_policy"
+    },
+    {
+      "name": "unused_index",
+      "title": "SENTINEL-TITLE-unused",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": ["PERFORMANCE"],
+      "description": "SENTINEL-DESCRIPTION-unused",
+      "detail": "SENTINEL-DETAIL-unused-1 Index `sentinel_object_idx_1` on table `public.sentinel_object_table` has not been used",
+      "remediation": "https://sentinel-remediation.invalid/0005_unused_index",
+      "metadata": { "name": "sentinel_object_table", "type": "table", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_unused_index_public_sentinel_object_table_sentinel_object_idx_1"
+    },
+    {
+      "name": "unused_index",
+      "title": "SENTINEL-TITLE-unused",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": ["PERFORMANCE"],
+      "description": "SENTINEL-DESCRIPTION-unused",
+      "detail": "SENTINEL-DETAIL-unused-2 Index `sentinel_object_idx_2` on table `public.sentinel_object_table` has not been used",
+      "remediation": "https://sentinel-remediation.invalid/0005_unused_index",
+      "metadata": { "name": "sentinel_object_table", "type": "table", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_unused_index_public_sentinel_object_table_sentinel_object_idx_2"
+    },
+    {
+      "name": "unused_index",
+      "title": "SENTINEL-TITLE-unused",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": ["PERFORMANCE"],
+      "description": "SENTINEL-DESCRIPTION-unused",
+      "detail": "SENTINEL-DETAIL-unused-3 Index `sentinel_object_idx_3` on table `public.sentinel_object_table` has not been used",
+      "remediation": "https://sentinel-remediation.invalid/0005_unused_index",
+      "metadata": { "name": "sentinel_object_table", "type": "table", "schema": "public" },
+      "cache_key": "SENTINEL_CACHE_KEY_unused_index_public_sentinel_object_table_sentinel_object_idx_3"
+    }
+  ]
+}

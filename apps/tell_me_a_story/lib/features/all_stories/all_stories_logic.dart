@@ -1,8 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/ui/story/story_search.dart';
+import '../../data/families_api.dart';
+import '../../data/stories_api.dart';
 
 enum AllStoriesGroupBy { date, member, place }
 
@@ -320,11 +319,36 @@ class _PlaceBucket {
   final List<Story> stories = [];
 }
 
+/// Case-insensitive substring match of trimmed [query] on title, body, personNames.
+/// Empty trimmed query => true. Never matches place label/address or decade.
+bool matchesSearch(Story story, String query) {
+  final needle = query.trim().toLowerCase();
+  if (needle.isEmpty) return true;
+  if (_contains(story.title, needle) || _contains(story.body, needle)) {
+    return true;
+  }
+  for (final name in story.personNames) {
+    if (nameMatches(name, query)) return true;
+  }
+  return false;
+}
+
+bool nameMatches(String name, String query) {
+  final needle = query.trim().toLowerCase();
+  if (needle.isEmpty) return false;
+  return name.toLowerCase().contains(needle);
+}
+
 TreeFamily? treeFamilyById(List<TreeFamily> tree, String id) {
   for (final row in tree) {
     if (row.id == id) return row;
   }
   return null;
+}
+
+bool _contains(String? value, String needle) {
+  if (value == null) return false;
+  return value.toLowerCase().contains(needle);
 }
 
 /// Undimmed iff (query empty OR matchesSearch) AND (!startedTimelineOnly OR mark.startedTimeline).

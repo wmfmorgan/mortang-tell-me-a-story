@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/photos_api.dart';
+import '../../core/theme/album_theme.dart';
+import '../../data/photos_api.dart';
 
 const photoUploadFailureCopy =
     'Couldn’t upload the photo. Check your connection and try again.';

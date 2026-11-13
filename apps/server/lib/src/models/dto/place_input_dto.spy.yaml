@@ -1,9 +1,0 @@
-### Place create input.
-class: PlaceInputDto
-fields:
-  label: String
-  address: String
-  lat: double
-  lng: double
-  mapboxPlaceId: String?
-  isFavorite: bool

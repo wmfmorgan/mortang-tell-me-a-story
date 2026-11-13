@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/ui/avatar/profile_avatar.dart';
-import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/ui/dialogs/family_blur_dialog.dart';
+import '../../core/theme/album_theme.dart';
+import '../../core/theme/profile_avatar.dart';
+import '../../data/invite_api.dart';
+import '../../data/people_api.dart';
+import '../../data/rpc_error.dart';
+import '../family/family_blur_dialog.dart';
 
 /// Invite dialog matching the Stitch Email, Link, and SMS screens.
 /// SMS is visual only until a later milestone.
@@ -79,7 +79,7 @@ class _InviteModalState extends State<InviteModal> {
   final _emailDrafts = <String, TextEditingController>{};
   final _addingEmail = <String>{};
   final _rowError = <String, String>{};
-  final _pendingSend = <String, CreateInviteResult>{};
+  final _pendingSend = <String, String>{};
   String? _rowBusyId;
 
   @override
@@ -168,7 +168,7 @@ class _InviteModalState extends State<InviteModal> {
     });
     try {
       await _createAndSend(person, email);
-    } on AppException catch (error) {
+    } on InviteApiException catch (error) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = error.message);
     } catch (_) {
@@ -182,15 +182,17 @@ class _InviteModalState extends State<InviteModal> {
   /// Creates the invite once, then sends it. A second tap after a failed
   /// send retries the email and does not create another invite.
   Future<void> _createAndSend(Person person, String email) async {
-    final created = _pendingSend[person.id] ??= await _api.createInvite(
-      familyId: widget.familyId,
-      personId: person.id,
-      email: email,
-    );
-    await _api.sendInviteEmail(
-      inviteId: created.inviteId,
-      token: created.token,
-    );
+    var inviteId = _pendingSend[person.id];
+    if (inviteId == null) {
+      final created = await _api.createInvite(
+        familyId: widget.familyId,
+        personId: person.id,
+        email: email,
+      );
+      inviteId = created.inviteId;
+      _pendingSend[person.id] = inviteId;
+    }
+    await _api.sendInviteEmail(inviteId: inviteId);
     _pendingSend.remove(person.id);
     if (!mounted) return;
     setState(() => _dropNotInvited(person.id));
@@ -216,7 +218,7 @@ class _InviteModalState extends State<InviteModal> {
       if (!mounted) return;
       setState(() {
         _rowBusyId = null;
-        _rowError[person.id] = appErrorMessage(error) ?? 'Try again';
+        _rowError[person.id] = mapRpcError(error) ?? 'Try again';
       });
       return;
     }
@@ -235,7 +237,7 @@ class _InviteModalState extends State<InviteModal> {
     }
     try {
       await _createAndSend(saved, email);
-    } on AppException catch (error) {
+    } on InviteApiException catch (error) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = error.message);
     } catch (_) {
@@ -259,10 +261,7 @@ class _InviteModalState extends State<InviteModal> {
         familyId: widget.familyId,
         email: email,
       );
-      await _api.sendInviteEmail(
-        inviteId: created.inviteId,
-        token: created.token,
-      );
+      await _api.sendInviteEmail(inviteId: created.inviteId);
       if (!mounted) return;
       _toast('Invite sent');
       Navigator.of(context).pop();

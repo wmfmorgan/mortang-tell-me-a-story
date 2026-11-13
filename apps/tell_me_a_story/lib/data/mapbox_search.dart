@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'package:tell_me_a_story/core/config/env.dart';
+import '../core/config/env.dart';
 
 /// One Mapbox Geocoding feature, split for place persistence (label ≠ address).
 class MapboxSearchHit {

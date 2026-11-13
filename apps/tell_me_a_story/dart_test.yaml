@@ -1,4 +1,0 @@
-tags:
-  live:
-    skip: "Needs `just server`. Run with `just test-live`."
-  golden:

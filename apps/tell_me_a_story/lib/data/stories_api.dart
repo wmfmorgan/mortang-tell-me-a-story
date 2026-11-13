@@ -1,18 +1,13 @@
 import 'dart:typed_data';
 
-import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/data/photos_api.dart';
-import 'package:tell_me_a_story/data/server/media_batches.dart';
-import 'package:tell_me_a_story/data/server/server_errors.dart';
-import 'package:tell_me_a_story/data/server/wire.dart';
+import 'photos_api.dart';
 
 enum StoryStatus { draft, published }
 
-/// Coarse to fine, like the server's `DatePrecision`; timeline order sorts
-/// on it. `decade` was dropped (D9).
-enum StoryDatePrecision { year, month, day }
+/// Declaration order matches Postgres `story_date_precision`.
+enum StoryDatePrecision { decade, year, month, day }
 
 StoryDatePrecision storyDatePrecisionFrom(String? raw) {
   for (final value in StoryDatePrecision.values) {
@@ -89,57 +84,142 @@ class Story {
   /// `story_people.person_id` to `people.user_id`, only when both are non-empty.
   final Map<String, String> personUserIds;
 
-  /// The server's story. An undated draft keeps the default precision. The
-  /// server orders `photos` and resolves each to its edited key, so
-  /// [photoPaths] keeps that order.
-  factory Story.fromDto(server.StoryDto dto) => Story(
-    id: dto.id.toString(),
-    familyId: dto.familyId.toString(),
-    authorId: dto.authorId?.toString() ?? '',
-    title: dto.title,
-    body: dto.body,
-    timeframeStart: fromWireDate(dto.dateStart),
-    timeframeEnd: fromWireDate(dto.dateEnd),
-    datePrecision: switch (dto.datePrecision) {
-      server.DatePrecision.year => StoryDatePrecision.year,
-      server.DatePrecision.month => StoryDatePrecision.month,
-      server.DatePrecision.day || null => StoryDatePrecision.day,
-    },
-    createdAt: dto.createdAt,
-    placeId: dto.placeId?.toString(),
-    status: switch (dto.status) {
-      server.StoryStatus.draft => StoryStatus.draft,
-      server.StoryStatus.published => StoryStatus.published,
-    },
-    publishedAt: dto.publishedAt,
-    personIds: [for (final person in dto.people) person.personId.toString()],
-    photoCount: dto.photos.length,
-    placeLabel: _trimmed(dto.placeLabel),
-    people: [
-      for (final person in dto.people)
-        if (_trimmed(person.name) case final name?)
-          (id: person.personId.toString(), name: name),
-    ],
-    personNames: [for (final person in dto.people) ?_trimmed(person.name)],
-    authorDisplayName: _trimmed(dto.authorName),
-    authorAvatarPath: _trimmed(dto.authorAvatarKey),
-    commentCount: dto.commentCount,
-    perspectiveCount: dto.perspectiveCount,
-    photoPaths: [for (final photo in dto.photos) photo.key],
-    placeAddress: _trimmed(dto.placeAddress),
-    personUserIds: {
-      for (final person in dto.people)
-        if (person.userId case final userId?)
-          person.personId.toString(): userId.toString(),
-    },
-  );
+  factory Story.fromJson(Map<String, dynamic> json) {
+    final people = json['story_people'];
+    final photos = json['photos'];
+    return Story(
+      id: json['id'] as String,
+      familyId: json['family_id'] as String,
+      authorId: json['author_id'] as String,
+      title: json['title'] as String?,
+      body: json['body'] as String?,
+      timeframeStart: json['timeframe_start'] == null
+          ? null
+          : _parseDate(json['timeframe_start'] as String),
+      timeframeEnd: json['timeframe_end'] != null
+          ? _parseDate(json['timeframe_end'] as String)
+          : null,
+      datePrecision: storyDatePrecisionFrom(json['date_precision'] as String?),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : null,
+      placeId: json['place_id'] as String?,
+      status: _storyStatusFrom(json['status'] as String),
+      publishedAt: json['published_at'] != null
+          ? DateTime.parse(json['published_at'] as String)
+          : null,
+      personIds: people is List
+          ? people.map((row) => (row as Map)['person_id'] as String).toList()
+          : const [],
+      photoCount: photos is List ? photos.length : 0,
+      placeLabel: _embedLabel(json['places']),
+      people: _storyPeople(people),
+      personNames: _personNames(people),
+      authorDisplayName: _authorName(json['profiles']),
+      authorAvatarPath: _authorAvatarPath(json['profiles']),
+      commentCount: _rowCount(json['comments']),
+      perspectiveCount: _rowCount(json['perspectives']),
+      photoPaths: _photoPaths(photos),
+      placeAddress: _embedAddress(json['places']),
+      personUserIds: _personUserIds(json['story_people']),
+    );
+  }
 }
 
-/// Trimmed [value]; null when it is null or blank.
-String? _trimmed(String? value) {
-  final trimmed = value?.trim();
-  return trimmed == null || trimmed.isEmpty ? null : trimmed;
+String? _embedLabel(Object? places) {
+  if (places is Map) {
+    final label = places['label'];
+    if (label is String && label.trim().isNotEmpty) return label.trim();
+  }
+  return null;
 }
+
+String? _embedAddress(Object? places) {
+  if (places is Map) {
+    final address = places['address'];
+    if (address is String && address.trim().isNotEmpty) return address.trim();
+  }
+  return null;
+}
+
+Map<String, String> _personUserIds(Object? people) {
+  if (people is! List) return const {};
+  final out = <String, String>{};
+  for (final row in people) {
+    if (row is! Map) continue;
+    final personId = row['person_id'];
+    final nested = row['people'];
+    if (nested is! Map) continue;
+    final userId = nested['user_id'];
+    if (personId is! String || personId.isEmpty) continue;
+    if (userId is! String || userId.trim().isEmpty) continue;
+    out[personId] = userId.trim();
+  }
+  return out;
+}
+
+List<({String id, String name})> _storyPeople(Object? people) {
+  if (people is! List) return const [];
+  final out = <({String id, String name})>[];
+  for (final row in people) {
+    if (row is! Map) continue;
+    final nested = row['people'];
+    String? name;
+    var id = row['person_id'] as String?;
+    if (nested is Map) {
+      final rawName = nested['name'];
+      if (rawName is String && rawName.trim().isNotEmpty) name = rawName.trim();
+      id ??= nested['id'] as String?;
+    }
+    if (id != null && id.isNotEmpty && name != null) {
+      out.add((id: id, name: name));
+    }
+  }
+  return out;
+}
+
+List<String> _personNames(Object? people) {
+  if (people is! List) return const [];
+  final names = <String>[];
+  for (final row in people) {
+    if (row is! Map) continue;
+    final nested = row['people'];
+    if (nested is Map) {
+      final name = nested['name'];
+      if (name is String && name.trim().isNotEmpty) names.add(name.trim());
+    }
+  }
+  return names;
+}
+
+Map<String, dynamic>? _authorProfile(Object? profiles) {
+  if (profiles is Map) {
+    return profiles.map((key, value) => MapEntry(key.toString(), value));
+  }
+  if (profiles is List && profiles.isNotEmpty && profiles.first is Map) {
+    final first = profiles.first as Map;
+    return first.map((key, value) => MapEntry(key.toString(), value));
+  }
+  return null;
+}
+
+String? _authorName(Object? profiles) {
+  final map = _authorProfile(profiles);
+  if (map == null) return null;
+  final name = map['display_name'];
+  if (name is String && name.trim().isNotEmpty) return name.trim();
+  return null;
+}
+
+String? _authorAvatarPath(Object? profiles) {
+  final map = _authorProfile(profiles);
+  if (map == null) return null;
+  final path = map['avatar_path'];
+  if (path is String && path.trim().isNotEmpty) return path.trim();
+  return null;
+}
+
+int _rowCount(Object? rows) => rows is List ? rows.length : 0;
 
 String _profileWhen(Story story) {
   final start = story.timeframeStart;
@@ -159,6 +239,9 @@ String _profileWhen(Story story) {
     'December',
   ];
   switch (story.datePrecision) {
+    case StoryDatePrecision.decade:
+      final year = start.year - (start.year % 10);
+      return '${year}s';
     case StoryDatePrecision.year:
       return '${start.year}';
     case StoryDatePrecision.month:
@@ -166,6 +249,29 @@ String _profileWhen(Story story) {
     case StoryDatePrecision.day:
       return '${months[start.month - 1]} ${start.day}, ${start.year}';
   }
+}
+
+List<String> _photoPaths(Object? photos) {
+  if (photos is! List) return const [];
+  final rows = photos.whereType<Map>().toList();
+  rows.sort(
+    (a, b) => ((a['sort_order'] as int?) ?? 0).compareTo(
+      (b['sort_order'] as int?) ?? 0,
+    ),
+  );
+  return [for (final row in rows) ?_effectivePhotoPath(row)];
+}
+
+String? _effectivePhotoPath(Map row) {
+  final keyed = <String, Object?>{
+    for (final entry in row.entries)
+      if (entry.key != null) entry.key.toString(): entry.value,
+  };
+  final edited = keyed['edited_storage_path'];
+  if (edited is String) return edited;
+  final original = keyed['storage_path'];
+  if (original is String) return original;
+  return null;
 }
 
 /// One published story on a person profile.
@@ -176,7 +282,7 @@ class PersonStoryCard {
     required this.whenLabel,
     this.place,
     this.photoCount = 0,
-    this.thumbBytes,
+    this.thumbUrl,
   });
 
   final String id;
@@ -184,7 +290,7 @@ class PersonStoryCard {
   final String whenLabel;
   final String? place;
   final int photoCount;
-  final Uint8List? thumbBytes;
+  final String? thumbUrl;
 }
 
 class PublishReadiness {
@@ -237,6 +343,14 @@ void ensureValidDraftSave({required DateTime? timeframeStart}) {
   }
 }
 
+/// A retried insert of the same client id. The caller updates that row.
+bool isDuplicateStoryKey(Object error) {
+  if (error is! PostgrestException) return false;
+  if (error.code == '23505') return true;
+  final message = error.message.toLowerCase();
+  return message.contains('duplicate key');
+}
+
 abstract class StoriesGateway {
   Future<Story> createDraft({
     String? id,
@@ -281,10 +395,6 @@ abstract class StoriesGateway {
   Future<List<Story>> listMyDrafts(String familyId);
   Future<List<Story>> listPublished(String familyId);
 
-  /// Published stories of every live family in [familyId]'s tree, in
-  /// timeline order. Tree readers of a live family only.
-  Future<List<Story>> listPublishedInTree(String familyId);
-
   /// Published story by id using the published-list select. Null when not found or not readable.
   Future<Story?> getPublishedOrigin(String storyId);
 
@@ -296,21 +406,24 @@ abstract class StoriesGateway {
     DateTime? now,
   });
 
-  /// Deletes the caller's own story with its photos, notes and tags.
   Future<void> discard(String storyId);
 
-  /// Tags [personId] on the story. Does not replace the story's other
-  /// people; a repeat is a no-op.
+  /// One `story_people` insert. Does not replace the story's other people.
   Future<void> linkPerson({required String storyId, required String personId});
 }
 
-/// The story gateway on the server's `story` endpoint.
+/// PostgREST CRUD gateway for family-scoped `stories` rows.
 class StoriesApi implements StoriesGateway {
-  StoriesApi({server.Client? client}) : _injected = client;
+  StoriesApi({SupabaseClient? client})
+    : _client = client ?? Supabase.instance.client;
 
-  final server.Client? _injected;
+  final SupabaseClient _client;
 
-  server.Client get _client => _injected ?? serverClient;
+  static const _storySelect =
+      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, story_people(person_id), photos(id, storage_path, edited_storage_path, edit_version, sort_order), profiles!author_id(display_name, avatar_path)';
+
+  static const _publishedSelect =
+      'id, family_id, author_id, title, body, timeframe_start, timeframe_end, date_precision, created_at, place_id, status, published_at, places(label, address), story_people(person_id, people(name, user_id)), profiles!author_id(display_name, avatar_path), photos(id, storage_path, edited_storage_path, edit_version, sort_order), comments(id), perspectives(id)';
 
   @override
   Future<Story> createDraft({
@@ -328,24 +441,27 @@ class StoriesApi implements StoriesGateway {
     if (!allowUndated) {
       ensureValidDraftSave(timeframeStart: timeframeStart);
     }
-    // The server makes a retried create of the same [id] one draft.
-    final dto = await withServerErrors(
-      () => _client.story.createDraft(
-        _uuid(familyId),
-        storyWriteDto(
-          timeframeStart: timeframeStart,
-          timeframeEnd: timeframeEnd,
-          datePrecision: datePrecision,
-          title: title,
-          body: body,
-          placeId: placeId,
-          personIds: personIds,
-        ),
-        id: id == null ? null : _uuid(id),
-        allowUndated: allowUndated,
-      ),
-    );
-    return Story.fromDto(dto);
+    final uid = _client.auth.currentUser!.id;
+    final payload = <String, dynamic>{
+      'family_id': familyId,
+      'author_id': uid,
+      'title': storedStoryTitle(title),
+      'body': body?.trim(),
+      'timeframe_start': timeframeStart == null ? null : _date(timeframeStart),
+      'timeframe_end': timeframeEnd == null ? null : _date(timeframeEnd),
+      if (datePrecision != null) 'date_precision': datePrecision,
+      'place_id': placeId,
+      'status': 'draft',
+    };
+    if (id != null) payload['id'] = id;
+    final row = await _client
+        .from('stories')
+        .insert(payload)
+        .select(_storySelect)
+        .single();
+    final story = Story.fromJson(row);
+    await _replacePeople(story.id, personIds);
+    return getStory(story.id);
   }
 
   @override
@@ -359,21 +475,19 @@ class StoriesApi implements StoriesGateway {
     String? placeId,
     List<String>? personIds,
   }) async {
-    final dto = await withServerErrors(
-      () => _client.story.updateDraft(
-        _uuid(storyId),
-        storyWriteDto(
-          timeframeStart: timeframeStart,
-          timeframeEnd: timeframeEnd,
-          datePrecision: datePrecision,
-          title: title,
-          body: body,
-          placeId: placeId,
-          personIds: personIds,
-        ),
-      ),
+    // The bool is ignored on purpose. It only reports "no longer a draft" for autosave (draftsOnly); getStory below returns the row as stored.
+    await _applyStoryWrite(
+      storyId: storyId,
+      draftsOnly: false,
+      timeframeStart: timeframeStart,
+      timeframeEnd: timeframeEnd,
+      datePrecision: datePrecision,
+      title: title,
+      body: body,
+      placeId: placeId,
+      personIds: personIds,
     );
-    return Story.fromDto(dto);
+    return getStory(storyId);
   }
 
   @override
@@ -387,134 +501,268 @@ class StoriesApi implements StoriesGateway {
     String? placeId,
     List<String>? personIds,
   }) {
-    return withServerErrors(
-      () => _client.story.autosaveDraft(
-        _uuid(storyId),
-        storyWriteDto(
-          timeframeStart: timeframeStart,
-          timeframeEnd: timeframeEnd,
-          datePrecision: datePrecision,
-          title: title,
-          body: body,
-          placeId: placeId,
-          personIds: personIds,
-        ),
-      ),
+    return _applyStoryWrite(
+      storyId: storyId,
+      draftsOnly: true,
+      timeframeStart: timeframeStart,
+      timeframeEnd: timeframeEnd,
+      datePrecision: datePrecision,
+      title: title,
+      body: body,
+      placeId: placeId,
+      personIds: personIds,
     );
   }
 
-  /// The server checks publish readiness and refuses with `validation`.
-  @override
-  Future<Story> publish(String storyId) async => Story.fromDto(
-    await withServerErrors(() => _client.story.publish(_uuid(storyId))),
-  );
-
-  @override
-  Future<Story> getStory(String storyId) async => Story.fromDto(
-    await withServerErrors(() => _client.story.get(_uuid(storyId))),
-  );
-
-  @override
-  Future<Story?> getPublished(String storyId) async {
-    final dto = await withServerErrors(
-      () => _client.story.getPublished(_uuid(storyId)),
-    );
-    return dto == null ? null : Story.fromDto(dto);
+  /// Story update plus `story_people` replace. [draftsOnly] is the only fork.
+  Future<bool> _applyStoryWrite({
+    required String storyId,
+    required bool draftsOnly,
+    DateTime? timeframeStart,
+    DateTime? timeframeEnd,
+    String? datePrecision,
+    String? title,
+    String? body,
+    String? placeId,
+    List<String>? personIds,
+  }) async {
+    if (timeframeStart != null) {
+      ensureValidDraftSave(timeframeStart: timeframeStart);
+    }
+    final patch = <String, dynamic>{};
+    if (timeframeStart != null) {
+      patch['timeframe_start'] = _date(timeframeStart);
+    }
+    if (timeframeEnd != null) {
+      patch['timeframe_end'] = _date(timeframeEnd);
+    }
+    if (datePrecision != null) {
+      patch['date_precision'] = datePrecision;
+    }
+    // Null leaves the column alone. A blank string clears a saved title.
+    if (title != null) {
+      patch['title'] = storedStoryTitle(title);
+    }
+    if (body != null) {
+      patch['body'] = body.trim();
+    }
+    if (placeId != null) {
+      patch['place_id'] = placeId.isEmpty ? null : placeId;
+    }
+    if (patch.isNotEmpty) {
+      var update = _client.from('stories').update(patch).eq('id', storyId);
+      if (draftsOnly) {
+        update = update.eq('status', 'draft');
+      }
+      final rows = await update.select('id');
+      if (rows.isEmpty) return false;
+    } else if (draftsOnly) {
+      final rows = await _client
+          .from('stories')
+          .select('id')
+          .eq('id', storyId)
+          .eq('status', 'draft');
+      if (rows.isEmpty) return false;
+    }
+    if (personIds != null) {
+      await _replacePeople(storyId, personIds);
+    }
+    return true;
   }
 
-  /// Published stories tagged with [personId] in live families of its tree,
-  /// oldest first, each with its first photo.
+  @override
+  Future<Story> publish(String storyId) async {
+    final story = await getStory(storyId);
+    if (!publishReadiness(
+      title: story.title,
+      body: story.body,
+      timeframeStart: story.timeframeStart,
+      personIds: story.personIds,
+      placeId: story.placeId,
+    ).canPublish) {
+      throw ArgumentError('VALIDATION');
+    }
+    await _client
+        .from('stories')
+        .update({
+          'status': 'published',
+          'published_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', storyId);
+    return getStory(storyId);
+  }
+
+  @override
+  Future<Story> getStory(String storyId) async {
+    final row = await _client
+        .from('stories')
+        .select(_storySelect)
+        .eq('id', storyId)
+        .single();
+    return Story.fromJson(row);
+  }
+
+  @override
+  Future<Story?> getPublished(String storyId) {
+    return _getPublishedWith(storyId, _storySelect);
+  }
+
+  /// Published stories tagged with [personId], oldest first.
   Future<List<PersonStoryCard>> storiesForPerson(String personId) async {
-    final stories = await _stories(
-      () => _client.story.listForPerson(_uuid(personId)),
-    );
-    final thumbs = await downloadFirstThumbs(stories, null, client: _client);
-    return [
-      for (final story in stories)
+    final rows = await _client
+        .from('stories')
+        .select(
+          'id, family_id, author_id, title, body, timeframe_start, timeframe_end, '
+          'date_precision, created_at, place_id, status, published_at, '
+          'places(label), story_people!inner(person_id, people(name)), '
+          'profiles!author_id(display_name, avatar_path), '
+          'photos(id, storage_path, edited_storage_path, edit_version, sort_order)',
+        )
+        .eq('status', 'published')
+        .eq('story_people.person_id', personId)
+        .order('timeframe_start');
+    final cards = <PersonStoryCard>[];
+    for (final row in rows) {
+      final story = Story.fromJson(row);
+      final title = story.title?.trim() ?? '';
+      String? thumb;
+      final path = story.photoPaths.isEmpty ? null : story.photoPaths.first;
+      if (path != null && path.isNotEmpty) {
+        try {
+          thumb = await _client.storage
+              .from(storyPhotosBucket)
+              .createSignedUrl(path, 3600);
+        } catch (_) {
+          thumb = null;
+        }
+      }
+      cards.add(
         PersonStoryCard(
           id: story.id,
-          title: storedStoryTitle(story.title) ?? 'Untitled',
+          title: title.isEmpty ? 'Untitled' : title,
           whenLabel: _profileWhen(story),
           place: story.placeLabel,
           photoCount: story.photoCount,
-          thumbBytes: thumbs[story.id],
+          thumbUrl: thumb,
         ),
-    ];
+      );
+    }
+    return cards;
   }
 
-  /// The caller's drafts, in timeline order with undated drafts last.
   @override
-  Future<List<Story>> listMyDrafts(String familyId) =>
-      _stories(() => _client.story.listMyDrafts(_uuid(familyId)));
+  Future<List<Story>> listMyDrafts(String familyId) async {
+    final uid = _client.auth.currentUser!.id;
+    final rows = await _client
+        .from('stories')
+        .select(_storySelect)
+        .eq('family_id', familyId)
+        .eq('status', 'draft')
+        .eq('author_id', uid)
+        .order('timeframe_start', nullsFirst: false)
+        .order('date_precision')
+        .order('created_at')
+        .order('id');
+    final stories = rows.map(Story.fromJson).toList();
+    stories.sort(compareStories);
+    return stories;
+  }
 
   @override
-  Future<List<Story>> listPublished(String familyId) =>
-      _stories(() => _client.story.listPublished(_uuid(familyId)));
+  Future<List<Story>> listPublished(String familyId) async {
+    final rows = await _client
+        .from('stories')
+        .select(_publishedSelect)
+        .eq('family_id', familyId)
+        .eq('status', 'published')
+        .order('timeframe_start')
+        .order('date_precision')
+        .order('created_at')
+        .order('id');
+    return rows.map(Story.fromJson).toList();
+  }
 
   @override
-  Future<List<Story>> listPublishedInTree(String familyId) =>
-      _stories(() => _client.story.listPublishedInTree(_uuid(familyId)));
+  Future<Story?> getPublishedOrigin(String storyId) {
+    return _getPublishedWith(storyId, _publishedSelect);
+  }
 
-  @override
-  Future<Story?> getPublishedOrigin(String storyId) => getPublished(storyId);
+  Future<Story?> _getPublishedWith(String storyId, String select) async {
+    final row = await _client
+        .from('stories')
+        .select(select)
+        .eq('id', storyId)
+        .eq('status', 'published')
+        .maybeSingle();
+    if (row == null) return null;
+    return Story.fromJson(row);
+  }
 
-  /// The server's clock sets the window; [now] only matters to fakes.
   @override
   Future<List<Story>> listLatestPublished(
     String familyId, {
     int withinDays = 7,
     int limit = 3,
     DateTime? now,
-  }) => _stories(
-    () => _client.story.listLatestPublished(
-      _uuid(familyId),
+  }) async {
+    final cutoff = latestPublishedCutoff(
+      now ?? DateTime.now(),
+      withinDays: withinDays,
+    );
+    final rows = await _client
+        .from('stories')
+        .select(
+          'id, family_id, author_id, title, timeframe_start, timeframe_end, date_precision, status, published_at, photos(id, storage_path, edited_storage_path, edit_version, sort_order)',
+        )
+        .eq('family_id', familyId)
+        .eq('status', 'published')
+        .gte('published_at', cutoff.toUtc().toIso8601String())
+        .order('published_at', ascending: false)
+        .order('id', ascending: false)
+        .limit(limit);
+    return latestShelf(
+      rows.map(Story.fromJson),
+      now: now ?? DateTime.now(),
       withinDays: withinDays,
       limit: limit,
-    ),
-  );
+    );
+  }
 
   @override
-  Future<void> discard(String storyId) =>
-      withServerErrors(() => _client.story.discard(_uuid(storyId)));
+  Future<void> discard(String storyId) async {
+    await _client.from('stories').delete().eq('id', storyId);
+  }
 
   @override
   Future<void> linkPerson({
     required String storyId,
     required String personId,
-  }) => withServerErrors(
-    () => _client.story.linkPerson(_uuid(storyId), _uuid(personId)),
-  );
+  }) async {
+    await _client.from('story_people').insert({
+      'story_id': storyId,
+      'person_id': personId,
+    });
+  }
 
-  Future<List<Story>> _stories(
-    Future<List<server.StoryDto>> Function() call,
-  ) async => [
-    for (final dto in await withServerErrors(call)) Story.fromDto(dto),
-  ];
+  Future<void> _replacePeople(String storyId, List<String> personIds) async {
+    await _client.from('story_people').delete().eq('story_id', storyId);
+    if (personIds.isEmpty) return;
+    await _client.from('story_people').insert([
+      for (final personId in personIds)
+        {'story_id': storyId, 'person_id': personId},
+    ]);
+  }
 }
 
-server.UuidValue _uuid(String id) => server.UuidValue.fromString(id);
+/// Writes calendar dates as `YYYY-MM-DD` for Postgres `date` columns.
+String _date(DateTime value) {
+  final y = value.year.toString().padLeft(4, '0');
+  final m = value.month.toString().padLeft(2, '0');
+  final d = value.day.toString().padLeft(2, '0');
+  return '$y-$m-$d';
+}
 
-/// The server's write payload for the [StoriesGateway] fields. A null field
-/// keeps the stored value, an empty [placeId] clears the place, and a
-/// [personIds] list, even an empty one, replaces the tags.
-server.StoryWriteDto storyWriteDto({
-  DateTime? timeframeStart,
-  DateTime? timeframeEnd,
-  String? datePrecision,
-  String? title,
-  String? body,
-  String? placeId,
-  List<String>? personIds,
-}) => server.StoryWriteDto(
-  dateStart: toWireDate(timeframeStart),
-  dateEnd: toWireDate(timeframeEnd),
-  datePrecision: precisionFromName(datePrecision),
-  title: title,
-  body: body,
-  placeId: placeId == null || placeId.isEmpty ? null : _uuid(placeId),
-  clearPlace: placeId != null && placeId.isEmpty,
-  personIds: personIds == null ? null : [for (final id in personIds) _uuid(id)],
-);
+int decadeStartYear(DateTime start) => (start.year ~/ 10) * 10;
 
 /// Start of the Latest window. A story at this instant is included.
 DateTime latestPublishedCutoff(DateTime now, {int withinDays = 7}) {
@@ -569,40 +817,47 @@ int compareStories(Story a, Story b) {
   return a.id.compareTo(b.id);
 }
 
-/// First photo of each story, by story id. A missing or empty blob is
-/// omitted. With [photos] (tests) each key is downloaded once; without it the
-/// keys go to `media.getMany` on [client] (default [serverClient]) in
-/// batches ([getMediaBatched]), so a failed batch blanks only its thumbs.
-Future<Map<String, Uint8List>> downloadFirstThumbs(
-  List<Story> stories,
-  PhotosGateway? photos, {
-  server.Client? client,
-}) async {
-  final keys = {
-    for (final story in stories)
-      if (story.photoPaths.isNotEmpty) story.photoPaths.first,
-  };
-  if (keys.isEmpty) return const {};
-  final bytes = photos == null
-      ? await getMediaBatched(client ?? serverClient, keys)
-      : await _downloadEach(photos, keys);
-  final out = <String, Uint8List>{};
-  for (final story in stories) {
-    if (story.photoPaths.isEmpty) continue;
-    final data = bytes[story.photoPaths.first];
-    if (data != null && data.isNotEmpty) out[story.id] = data;
-  }
-  return out;
+DateTime _parseDate(String raw) {
+  final parts = raw.split('T').first.split('-');
+  return DateTime(
+    int.parse(parts[0]),
+    int.parse(parts[1]),
+    int.parse(parts[2]),
+  );
 }
 
-Future<Map<String, Uint8List>> _downloadEach(
-  PhotosGateway photos,
-  Set<String> keys,
+StoryStatus _storyStatusFrom(String raw) {
+  return switch (raw) {
+    'published' => StoryStatus.published,
+    'draft' => StoryStatus.draft,
+    _ => throw ArgumentError.value(raw, 'status'),
+  };
+}
+
+/// First photo of each story. A missing or empty file is omitted.
+/// A null gateway downloads nothing unless a story has a photo path, in
+/// which case it uses [PhotosApi].
+Future<Map<String, Uint8List>> downloadFirstThumbs(
+  List<Story> stories,
+  PhotosGateway? photos,
 ) async {
+  final gateway = switch (photos) {
+    final given? => given,
+    null when stories.any((story) => story.photoPaths.isNotEmpty) =>
+      PhotosApi(),
+    null => null,
+  };
+  if (gateway == null) return const {};
   final out = <String, Uint8List>{};
-  for (final key in keys) {
+  final seen = <String, Uint8List>{};
+  for (final story in stories) {
+    if (story.photoPaths.isEmpty) continue;
+    final path = story.photoPaths.first;
     try {
-      out[key] = await photos.downloadBytes(key);
+      final cached = seen[path];
+      final bytes = cached ?? await gateway.downloadBytes(path);
+      if (cached == null) seen[path] = bytes;
+      if (bytes.isNotEmpty) out[story.id] = bytes;
     } catch (_) {
       // A missing thumb stays a parchment blank.
     }

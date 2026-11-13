@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:tell_me_a_story/core/config/env.dart';
-import 'package:tell_me_a_story/ui/album/album_chrome.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/mapbox_search.dart';
-import 'package:tell_me_a_story/data/places_api.dart';
-import 'package:tell_me_a_story/features/places/place_map.dart';
+import '../../core/config/env.dart';
+import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
+import '../../data/mapbox_search.dart';
+import '../../data/places_api.dart';
+import 'place_map.dart';
 
 /// Locked Mapbox failure copy (chrome lock).
 const placeMapFailureCopy =
