@@ -106,4 +106,18 @@ void main() {
     );
     expect(shape.side, side);
   });
+
+  test('selected segment is terracotta with a parchment label', () {
+    final style = albumTheme().segmentedButtonTheme.style!;
+    expect(
+      style.backgroundColor!.resolve({WidgetState.selected}),
+      albumTerracotta,
+    );
+    expect(
+      style.foregroundColor!.resolve({WidgetState.selected}),
+      albumParchment,
+    );
+    expect(style.backgroundColor!.resolve({}), albumPillFill);
+    expect(style.foregroundColor!.resolve({}), albumInk);
+  });
 }

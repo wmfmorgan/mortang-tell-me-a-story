@@ -1,20 +1,20 @@
 # Phase 3.0: Server Endpoints — Shared Foundation Implementation Plan
 
-> Executed 2026-11-07 on `feat/serverpod-migration` (`bb4e443`..`2122f8c`), server tests 100/100.
+> Executed 2026-11-07 on `feat/serverpod-migration` (`bb4e443`..`2122f8c`), with server tests at 100/100.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Land all shared pieces of six Phase 3 endpoint slices so they run parallel without touching same files: live-family `Authz` checks + story predicates, every protocol DTO, blob keys + `blob_deletions` queue, account helpers for invite email binding (D2) and branch person rows (D6d), live-event channel helper, shared test fixtures.
+**Goal:** Land everything the six Phase 3 endpoint slices share, so they can run in parallel without touching the same files: live-family `Authz` checks and story predicates, every protocol DTO, blob keys and the `blob_deletions` queue, account helpers for invite email binding (D2) and branch person rows (D6d), the live-event channel helper, and shared test fixtures.
 
-**Architecture:** Server helpers under `apps/server/lib/src/` (`authz/`, `media/`, `accounts/`, `live/`, `errors.dart`) plus non-table DTO models under `lib/src/models/dto/`. No endpoint classes yet; each slice adds own. All DTOs generated here once, so slices never regenerate `protocol.dart` concurrently.
+**Architecture:** Server-side helpers under `apps/server/lib/src/` (`authz/`, `media/`, `accounts/`, `live/`, `errors.dart`) plus non-table DTO models under `lib/src/models/dto/`. No endpoint classes yet; each slice adds its own. All DTOs are generated here once, so slices never regenerate `protocol.dart` concurrently.
 
 **Tech Stack:** Dart 3.13.5, Serverpod 4.1.1 (`serverpod`, `serverpod_auth_idp_server`, `serverpod_test`), embedded Postgres 16, just.
 
-**Verified:** every file below written + run 2026-11-07 in scratch worktree of `feat/serverpod-migration` at `93646e1`. `dart analyze` clean on server + generated client, `dart format` changed nothing, `dart test` 92/92 (58 before). Review fixes during execution (869ab7b, f8229d6, 7f9f339, 2122f8c) added `Authz.isTreeMemberOf`, optional `message` on `requireLive*` helpers, eight tests. Code blocks below = final landed files, so landed count 100. Throwaway probe endpoint confirmed endpoint conventions in Phase 3 index (`2026-11-07-serverpod-phase3-server-endpoints.md` §Conventions), then deleted.
+**Verified:** every file below was written and run on 2026-11-07 in a scratch worktree of `feat/serverpod-migration` at `93646e1`. `dart analyze` was clean on the server and the generated client, `dart format` left nothing to change, and `dart test` gave 92/92 (58 before); review fixes during execution (869ab7b, f8229d6, 7f9f339, 2122f8c) added `Authz.isTreeMemberOf`, an optional `message` on the `requireLive*` helpers, and eight tests. The code blocks below are the final landed files, so the landed count is 100. A throwaway probe endpoint also confirmed the endpoint conventions in the Phase 3 index (`2026-11-07-serverpod-phase3-server-endpoints.md` §Conventions) and was then deleted.
 
 **References:** `docs/migration/business-rules.md` §1 (predicates), `docs/migration/schema-design.md` §3.2, §3.5, §4.2, §4.3, `docs/migration/endpoint-contract.md` §2.1, roadmap "Product decisions (2026-11-07)".
 
-All commands run from repo root unless step says otherwise.
+All commands run from the repo root unless a step says otherwise.
 
 ---
 
@@ -25,9 +25,9 @@ All commands run from repo root unless step says otherwise.
 | `apps/server/test/integration/support/fixtures.dart` | Shared row builders (`Fx`), `asUser`/`sessionFor`, `throwsAppError`, `pgError` |
 | `apps/server/lib/src/errors.dart` | `forbidden`/`notFound`/`validation`/`conflict` `AppException` shorthands |
 | `apps/server/lib/src/authz/authz.dart` | Adds live-family require helpers (optional `message`), `isTreeMemberOf`, `effectiveOrigin`, `canReadStory`, `canEditStory`, `canContribute` |
-| `apps/server/lib/src/models/dto/*.spy.yaml` | Every DTO + enum in endpoint-contract §2.1 (32 classes, 2 enums) |
+| `apps/server/lib/src/models/dto/*.spy.yaml` | Every DTO and enum in endpoint-contract §2.1 (32 classes, 2 enums) |
 | `apps/server/lib/src/media/blob_keys.dart` | Key builders per schema-design §4.2, size limits, `sniffImageMime` |
-| `apps/server/lib/src/media/blob_outbox.dart` | `queueBlobDeletions` (same transaction) + `drainBlobDeletions` |
+| `apps/server/lib/src/media/blob_outbox.dart` | `queueBlobDeletions` (same transaction) and `drainBlobDeletions` |
 | `apps/server/lib/src/accounts/accounts.dart` | `normalizeEmail`, `accountEmail`, `linkedPersonName`, `ensureLinkedPerson` |
 | `apps/server/lib/src/live/live_events.dart` | `familyChannel`, `storyChannel`, `postLiveEvent` |
 
@@ -35,7 +35,7 @@ All commands run from repo root unless step says otherwise.
 
 ### Task 1: Shared test fixtures
 
-Every slice writes integration tests against shared (non-rolled-back) test DB. Move row builders out of `constraints_test.dart` so all tests use one `Fx`.
+Every slice writes integration tests against the shared (non-rolled-back) test database. Move the row builders out of `constraints_test.dart` so all tests use one `Fx`.
 
 **Files:**
 - Create: `apps/server/test/integration/support/fixtures.dart`
@@ -43,7 +43,7 @@ Every slice writes integration tests against shared (non-rolled-back) test DB. M
 
 - [ ] **Step 1: Create the fixtures file**
 
-`apps/server/test/integration/support/fixtures.dart` (Task 6 adds `userWithEmail` later):
+`apps/server/test/integration/support/fixtures.dart` (Task 6 adds `userWithEmail` to it later):
 
 ```dart
 import 'dart:math';
@@ -258,7 +258,7 @@ class Fx {
 
 - [ ] **Step 2: Point `constraints_test.dart` at it**
 
-Replace lines 1–167 (imports through closing brace of `class Fx` + blank line after, just before `void main() {`) with:
+Replace lines 1–167 (the imports through the closing brace of `class Fx` and the blank line after it, just before `void main() {`) with:
 
 ```dart
 import 'package:serverpod/serverpod.dart';
@@ -289,7 +289,7 @@ git commit -m "test(server): shared integration fixtures"
 
 ### Task 2: Live-family and story predicates in `Authz`
 
-D6b: every write + every member read needs live family. Slices call `requireLiveMember` / `requireLiveSteward` / `requireLiveOwner`, no re-deriving check. Use story predicates from business-rules §1 (`canContribute`, `canEditStory`) and schema-design §3.5 (`effectiveOrigin`). Messages = §5.2 catalogue strings.
+D6b makes every write and every member read require a live family. Slices call `requireLiveMember` / `requireLiveSteward` / `requireLiveOwner` instead of re-deriving the check, and use the story predicates from business-rules §1 (`canContribute`, `canEditStory`) and schema-design §3.5 (`effectiveOrigin`). The messages are the §5.2 catalogue strings.
 
 **Files:**
 - Create: `apps/server/lib/src/errors.dart`
@@ -655,7 +655,7 @@ void main() {
 - [ ] **Step 2: Run them to see them fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/authz_test.dart`
-Expected: compile errors, first `The method 'requireLiveMember' isn't defined for the type 'Authz'.`
+Expected: compile errors, starting with `The method 'requireLiveMember' isn't defined for the type 'Authz'.`
 
 - [ ] **Step 3: Add the error shorthands**
 
@@ -911,10 +911,10 @@ git commit -m "feat(server): live-family checks and story predicates in Authz"
 
 ### Task 3: Every protocol DTO, generated once
 
-DTOs from endpoint-contract §2.1. Not tables, so no migration changes. Generate all here → parallel slices only add endpoint classes. Their generated files (`generated/endpoints.dart`, client's `client.dart`, `test_tools/serverpod_test_tools.dart`) rebuilt with `just server-generate` after each merge.
+The DTOs come from endpoint-contract §2.1. They are not tables, so no migration changes. Generating them all here means the parallel slices only add endpoint classes. Their generated files (`generated/endpoints.dart`, the client's `client.dart`, `test_tools/serverpod_test_tools.dart`) are rebuilt with `just server-generate` after each merge.
 
 **Files:**
-- Create: 34 files under `apps/server/lib/src/models/dto/` listed below
+- Create: the 34 files under `apps/server/lib/src/models/dto/` listed below
 - Generated: `apps/server/lib/src/generated/**`, `packages/tell_me_a_story_client/lib/src/protocol/**`
 
 - [ ] **Step 1: Write the model files**
@@ -1381,7 +1381,7 @@ git commit -m "feat(server): protocol DTOs for the Phase 3 endpoints"
 
 ### Task 4: Blob keys and image sniffing
 
-Keys made only by server, stored in full (schema-design §4.2). Every replacement → new key. Uploads checked by magic bytes before row written.
+Keys are produced only by the server and stored in full (schema-design §4.2). Every replacement gets a new key. Uploads are checked by magic bytes before a row is written.
 
 **Files:**
 - Create: `apps/server/lib/src/media/blob_keys.dart`
@@ -1602,7 +1602,7 @@ git commit -m "feat(server): blob keys and image type sniffing"
 
 ### Task 5: The `blob_deletions` queue
 
-Writers queue old keys in same transaction that drops/replaces reference; recurring future call (slice 3f) drains queue. This is how D6c "fail closed" holds: failed purge transaction queues nothing, keeps family row.
+Writers queue old keys in the same transaction that drops or replaces the reference; a recurring future call (slice 3f) drains the queue. This is how D6c's "fail closed" holds: a failed purge transaction queues nothing and keeps the family row.
 
 **Files:**
 - Create: `apps/server/lib/src/media/blob_outbox.dart`
@@ -1797,7 +1797,7 @@ git commit -m "feat(server): blob deletion queue and drain"
 
 ### Task 6: Account helpers (D2, D6d)
 
-`accountEmail` = email invite acceptance compares against (D2). `ensureLinkedPerson` = only place linked person created: createRoot (3a), createBranch for owner + each picked member (3a, D6d), invite accept (3e).
+`accountEmail` is the email invite acceptance compares against (D2). `ensureLinkedPerson` is the one place a linked person is created: createRoot (3a), createBranch for the owner and each picked member (3a, D6d), and invite accept (3e).
 
 **Files:**
 - Create: `apps/server/lib/src/accounts/accounts.dart`
@@ -1806,7 +1806,7 @@ git commit -m "feat(server): blob deletion queue and drain"
 
 - [ ] **Step 1: Add the fixture**
 
-In `apps/server/test/integration/support/fixtures.dart`, insert method right after `user()`. No new import: `package:serverpod_auth_idp_server/core.dart` already exports `EmailAccount`.
+In `apps/server/test/integration/support/fixtures.dart`, insert this method right after `user()`. No new import is needed: `package:serverpod_auth_idp_server/core.dart` already exports `EmailAccount`.
 
 ```dart
   /// A new auth user with an email login, as the email-code sign-up leaves
@@ -2035,7 +2035,7 @@ git commit -m "feat(server): account email and linked-person helpers"
 
 ### Task 7: Live-event channels
 
-Writers in 3a–3e post after commit; `LiveEndpoint` (3f) subscribes with same channel names. Two-line contract, no own logic; 3f stream tests cover end to end.
+Writers in 3a–3e post after commit; `LiveEndpoint` (3f) subscribes with the same channel names. This is a two-line contract with no logic of its own; 3f's stream tests cover it end to end.
 
 **Files:**
 - Create: `apps/server/lib/src/live/live_events.dart`
@@ -2089,11 +2089,11 @@ mise exec -- dart format --output=none --set-exit-if-changed apps/server/lib app
 mise exec -- just server-test
 mise exec -- just test
 ```
-Expected: `0 changed`, `No issues found!`, `+100: All tests passed!`, Flutter suite unchanged at `+708: All tests passed!`.
+Expected: `0 changed`, `No issues found!`, `+100: All tests passed!`, and the Flutter suite unchanged at `+708: All tests passed!`.
 
 - [ ] **Step 2: Mark 3.0 done in the Phase 3 index**
 
-In `docs/superpowers/plans/2026-11-07-serverpod-phase3-server-endpoints.md`, set 3.0 row status to `landed`, then commit:
+In `docs/superpowers/plans/2026-11-07-serverpod-phase3-server-endpoints.md`, set the 3.0 row's status to `landed`, then commit:
 
 ```bash
 git add docs/superpowers/plans/2026-11-07-serverpod-phase3-server-endpoints.md

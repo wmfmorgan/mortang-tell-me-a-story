@@ -705,14 +705,15 @@ void main() {
       );
 
       test(
-        'when a draft misses a title, body or person then VALIDATION names '
-        'what is missing',
+        'when a draft misses a title, body, person or place then VALIDATION '
+        'names what is missing',
         () async {
           final ready = await c.ready();
           final cases = {
             'title required': write(title: ' '),
             'body required': write(body: ''),
             'person required': write(personIds: []),
+            'place required': write(clearPlace: true),
           };
           for (final MapEntry(key: message, value: gap) in cases.entries) {
             final draft = await endpoints.story.createDraft(
@@ -729,23 +730,6 @@ void main() {
           }
         },
       );
-
-      test('when a draft has no place then it still publishes', () async {
-        final draft = await endpoints.story.createDraft(
-          by(c.author),
-          c.family.id!,
-          await c.ready(),
-          allowUndated: false,
-        );
-        await endpoints.story.updateDraft(
-          by(c.author),
-          draft.id,
-          write(clearPlace: true),
-        );
-        final dto = await endpoints.story.publish(by(c.author), draft.id);
-        expect(dto.status, StoryStatus.published);
-        expect(dto.placeId, isNull);
-      });
 
       // BR 72
       test(

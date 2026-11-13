@@ -1,22 +1,22 @@
 # Phase 3d: Photos and Media Implementation Plan
 
-> Executed 2026-11-07 on `feat/p3d-photos-media` (`a42f350`..`71c1f4f`), server tests 131/131 (100 foundation + 31 here); review follow-up (`5bebc02`, `a6da049`) hardened `finishUpload`, brought to 134/134 (+34 here). Code blocks below match what landed. Deviations found executing: `queued` uses null-aware set element (lint); `_liveFamiliesOf` types id set as `<UuidValue>{…}` (bare literal infers `Set<UuidValue?>`, fails at runtime in `inSet`); `dart format` re-wrapped `finishUpload`. First `server-generate` also re-wrapped imports in already-committed client DTO files (generator output, no content change). Client package needs `dart pub get` once in fresh worktree before `dart analyze`.
+> Executed 2026-11-07 on `feat/p3d-photos-media` (`a42f350`..`71c1f4f`), with server tests at 131/131 (100 foundation + 31 here); a review follow-up (`5bebc02`, `a6da049`) hardened `finishUpload` and brought it to 134/134 (+34 here). Code blocks below match what landed; deviations found while executing: `queued` uses a null-aware set element (lint), `_liveFamiliesOf` types its id set as `<UuidValue>{…}` (a bare literal infers `Set<UuidValue?>` and fails at runtime in `inSet`), and `dart format` re-wrapped `finishUpload`. The first `server-generate` also re-wrapped imports in already-committed client DTO files (generator output, no content change). The client package needs `dart pub get` once in a fresh worktree before `dart analyze`.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add `PhotoEndpoint` (`list`, `startUpload`, `finishUpload`, `delete`, `setHero`) and `MediaEndpoint` (`get`, `getMany`) on landed Phase 3.0 foundation.
+**Goal:** Add `PhotoEndpoint` (`list`, `startUpload`, `finishUpload`, `delete`, `setHero`) and `MediaEndpoint` (`get`, `getMany`) on top of the landed Phase 3.0 foundation.
 
-**Architecture:** Two endpoint files under `apps/server/lib/src/endpoints/`. Photo writes check `Authz` first, run in one transaction (story row locked `forNoKeyUpdate` when cap or order at stake), queue old/rejected keys in `blob_deletions` in same transaction, post `photo` live event after commit, published stories only. Media reads find row holding each requested key (photos, family covers, person avatars, user avatars), check access on that row, return bytes from `private` storage; unknown or unauthorized = simply absent.
+**Architecture:** Two endpoint files under `apps/server/lib/src/endpoints/`. Photo writes check `Authz` first, run in one transaction (story row locked `forNoKeyUpdate` where the cap or the order is at stake), queue old or rejected keys in `blob_deletions` in that transaction, and post a `photo` live event after commit for published stories only. Media reads find the row that holds each requested key (photos, family covers, person avatars, user avatars), check access for that row, and return bytes from the `private` storage; anything unknown or unauthorized is simply absent.
 
 **Tech Stack:** Dart 3.13.5, Serverpod 4.1.1 (`serverpod`, `serverpod_test`), embedded Postgres 16, just.
 
 **References (spec of record):**
 - Phase 3 index `2026-11-07-serverpod-phase3-server-endpoints.md` §Conventions and row "3d Photos and media".
-- `docs/migration/endpoint-contract.md` §2.0 (media finds row holding key), §2.2 `PhotoEndpoint`/`MediaEndpoint` signatures.
+- `docs/migration/endpoint-contract.md` §2.0 (media finds the row holding the key), §2.2 `PhotoEndpoint`/`MediaEndpoint` signatures.
 - `docs/migration/business-rules.md` §2.7 (all rows except save/reset edit), §4.5, §7 cases 25, 27, 46, 47, 78–83 (photo part), 90 (reads).
 - `docs/migration/schema-design.md` §4.2 (upload flow, sniffing, limits), §4.3 (deletion queue).
 
-All commands run from worktree root (`/tmp/tmas-p3d-photos-media`) unless step says otherwise.
+All commands run from the worktree root (`/tmp/tmas-p3d-photos-media`) unless a step says otherwise.
 
 ---
 
@@ -24,26 +24,26 @@ All commands run from worktree root (`/tmp/tmas-p3d-photos-media`) unless step s
 
 - **Authorization (business-rules §2.7).**
   - `list`: `canReadStory(story)`.
-  - `startUpload`/`finishUpload` (attach): `canContribute(story)`; uploader = caller.
-  - `delete` and `setHero` (reorder): `canContribute(story) AND (uploader OR canEditStory(story))`. `setHero` rewrites whole story's `sortOrder` to `0..n-1` in one transaction (endpoint-contract §2.2); rule checked on promoted photo.
-  - Missing story or photo refused as `forbidden` like stranger, so ids don't leak (index §Conventions).
-- **Errors.** `forbidden()` (default text) for access. Photo cap = `AppException(photoCap, 'photo limit reached')` (index §Conventions; §7 case 78 says VALIDATION, index binding). Upload checks = `validation` with texts `unsupported image type` (from `extForMime`/sniffing), `photo is empty`, `photo is too large`, `image type does not match`, `photo already added`. Missing/unverifiable upload = `AppException(storageFailed, 'upload not found')`. Upload texts new: §5.2 has no upload catalogue since old client wrote to Storage directly.
-- **finishUpload has no `mimeType`** (contract signature). Server rebuilds three candidate keys (`original.jpg|png|webp`) for `(story.familyId, storyId, photoId)`, verifies each in turn; one that verifies = the upload, its extension = declared type sniffed bytes must match. Nobody parses keys.
-- **finishUpload failure paths queue blob** in same transaction that decides failure (contract: "on any failure the blob is queued for deletion"). Nothing verifies → all three candidate keys queued (deleting missing key = no-op). One exception: second finish for photo row already existing — blob belongs to row, nothing queued.
+  - `startUpload`/`finishUpload` (attach): `canContribute(story)`; the uploader is the caller.
+  - `delete` and `setHero` (reorder): `canContribute(story) AND (uploader OR canEditStory(story))`. `setHero` rewrites the whole story's `sortOrder` to `0..n-1` in one transaction (endpoint-contract §2.2); the rule is checked on the photo being promoted.
+  - A missing story or photo is refused as `forbidden` like a stranger, so ids don't leak (index §Conventions).
+- **Errors.** `forbidden()` (default text) for access. The photo cap is `AppException(photoCap, 'photo limit reached')` (index §Conventions; §7 case 78 says VALIDATION, the index is binding). Upload checks are `validation` with the texts `unsupported image type` (from `extForMime`/sniffing), `photo is empty`, `photo is too large`, `image type does not match`, `photo already added`. A missing or unverifiable upload is `AppException(storageFailed, 'upload not found')`. These upload texts are new: §5.2 has no upload catalogue because the old client wrote to Storage directly.
+- **finishUpload has no `mimeType`** (contract signature). The server rebuilds the three candidate keys (`original.jpg|png|webp`) for `(story.familyId, storyId, photoId)` and verifies them in turn; the one that verifies is the upload, and its extension is the declared type the sniffed bytes must match. Nobody parses keys.
+- **finishUpload failure paths queue the blob** in the same transaction that decides the failure (contract: "on any failure the blob is queued for deletion"). When nothing verifies, all three candidate keys are queued (deleting a missing key is a no-op). The one exception is a second finish for a photo row that already exists: that blob belongs to the row, so nothing is queued.
 - **finishUpload refusals (review follow-up).**
-  - Candidate key already in `blob_deletions` (earlier failed finish) → `storageFailed 'upload not found'`, no row, checked inside transaction: on S3 `verifyUpload` only stats blob, would pass while drain deletes it.
-  - Access lost between start and finish (`canContribute` false): candidate keys queued unless row with that photoId exists, then `forbidden()`.
-  - Story deleted while finish waits for story lock: locked read returns null, candidate keys queued, `forbidden()` (never raw FK error).
-  - Story already gone before finish starts: `forbidden()`, nothing queued. `familyId` unknowable without parsing keys, so keys can't be rebuilt; blob stays until storage-level sweep.
-- **Cap checked twice:** cheap count at `startUpload`, binding count at `finishUpload` under story row lock (schema-design §3.2 "Lock the story row forNoKeyUpdate, count photos, reject at ≥ 20").
-- **Media.** Cover: `isLiveMember(family)` (D6b). Person avatar: `isTreeMemberOf(person.treeId)` (D8). User avatar: self, or both members of one live family. Photo original/edited: `canReadStory(story)`. Key whose row exists but blob missing = treated as unknown key.
+  - A candidate key already in `blob_deletions` (an earlier failed finish) is `storageFailed 'upload not found'` and no row, checked inside the transaction: on S3 `verifyUpload` only stats the blob, so it would pass while the drain deletes it.
+  - Access lost between start and finish (`canContribute` false): the candidate keys are queued unless a row with that photoId exists, then `forbidden()`.
+  - Story deleted while the finish waits for the story lock: the locked read returns null, the candidate keys are queued, and `forbidden()` (never the raw FK error).
+  - Story already gone before the finish starts: `forbidden()` with nothing queued. Its `familyId` is unknowable without parsing keys, so the keys can't be rebuilt; that blob stays until a storage-level sweep.
+- **The cap is checked twice:** a cheap count at `startUpload`, and the binding count at `finishUpload` under the story row lock (schema-design §3.2 "Lock the story row forNoKeyUpdate, count photos, reject at ≥ 20").
+- **Media.** Cover: `isLiveMember(family)` (D6b). Person avatar: `isTreeMemberOf(person.treeId)` (D8). User avatar: self, or both are members of one live family. Photo original/edited: `canReadStory(story)`. A key whose row exists but whose blob is missing is treated like an unknown key.
 
 ## File map
 
 | Path | Responsibility |
 |---|---|
 | `apps/server/lib/src/endpoints/photo_endpoint.dart` | `PhotoEndpoint`: list, upload ticket, finish (verify, sniff, cap, insert), delete, hero order; live events |
-| `apps/server/lib/src/endpoints/media_endpoint.dart` | `MediaEndpoint`: `get`, `getMany`, private `_MediaAccess` key-to-row authorization |
+| `apps/server/lib/src/endpoints/media_endpoint.dart` | `MediaEndpoint`: `get`, `getMany`, and the private `_MediaAccess` key-to-row authorization |
 | `apps/server/test/integration/support/photo_fixtures.dart` | Slice-only builders: image bytes, stored blobs, simulated client upload, photo rows, covers, avatars, origin branch, queued-key lookup, live event capture |
 | `apps/server/test/integration/photo_endpoint_test.dart` | PhotoEndpoint tests (BR 27, 46, 47, 78, 79, 81, 82, 83) |
 | `apps/server/test/integration/media_endpoint_test.dart` | MediaEndpoint tests (BR 25, 80, 90) |
@@ -65,7 +65,7 @@ All commands run from worktree root (`/tmp/tmas-p3d-photos-media`) unless step s
 | 83 (photo part) | `BR 83` (photo) |
 | 90 (reads) | `BR 90` (media) |
 
-Case 79 enforced structurally: `familyId` not stored, keys built from story, so port checks photo uploaded for story A can't be finished against story B. Case 80 ports to media: malformed/unknown keys return nothing, raise nothing. Case 81: API has no generic photo update; only client-changeable field is `sortOrder`, via `setHero`, so port checks `setHero` changes `sortOrder` only and allowed for uploader or editor.
+Case 79 is enforced structurally: `familyId` isn't stored and keys are built from the story, so the port checks that a photo uploaded for story A can't be finished against story B. Case 80 ports to media: malformed or unknown keys return nothing and raise nothing. Case 81: the API has no generic photo update; the only client-changeable field is `sortOrder`, through `setHero`, so the port checks that `setHero` changes `sortOrder` only and is allowed for the uploader or an editor.
 
 ---
 
@@ -422,7 +422,7 @@ git commit -m "feat(server): PhotoEndpoint.list"
 - Modify: `apps/server/lib/src/endpoints/photo_endpoint.dart`
 - Test: `apps/server/test/integration/photo_endpoint_test.dart`
 
-- [ ] **Step 1: Write the failing tests** (append inside `withServerpod` body)
+- [ ] **Step 1: Write the failing tests** (append inside the `withServerpod` body)
 
 ```dart
     test(
@@ -526,7 +526,7 @@ Expected: compile error, `The method 'startUpload' isn't defined`.
 
 - [ ] **Step 3: Implement `startUpload`**
 
-Add import `import '../media/blob_keys.dart';` and, inside class:
+Add imports `import '../media/blob_keys.dart';` and, inside the class:
 
 ```dart
   /// Photos per story (business-rules.md §4.5).
@@ -604,7 +604,7 @@ git commit -m "feat(server): PhotoEndpoint.startUpload"
 - Modify: `apps/server/lib/src/endpoints/photo_endpoint.dart`
 - Test: `apps/server/test/integration/photo_endpoint_test.dart`
 
-- [ ] **Step 1: Write the failing tests** (append inside `withServerpod` body, after helper `familyStory`; helper `upload` goes right below `familyStory`)
+- [ ] **Step 1: Write the failing tests** (append inside the `withServerpod` body, after the helper `familyStory`; the helper `upload` goes right below `familyStory`)
 
 ```dart
     /// startUpload + client upload of [data] + finishUpload, as [user].
@@ -944,7 +944,7 @@ git commit -m "feat(server): PhotoEndpoint.startUpload"
     );
 ```
 
-Also add `import 'dart:typed_data';` and `import 'package:tell_me_a_story_server/src/media/blob_outbox.dart';` at top of test file.
+Also add `import 'dart:typed_data';` and `import 'package:tell_me_a_story_server/src/media/blob_outbox.dart';` at the top of the test file.
 
 - [ ] **Step 2: Run to verify it fails**
 
@@ -953,7 +953,7 @@ Expected: compile error, `The method 'finishUpload' isn't defined`.
 
 - [ ] **Step 3: Implement `finishUpload`**
 
-Add imports `import '../live/live_events.dart';` and `import '../media/blob_outbox.dart';`, and inside class:
+Add imports `import '../live/live_events.dart';` and `import '../media/blob_outbox.dart';`, and inside the class:
 
 ```dart
   static AppException _uploadNotFound() => AppException(
@@ -1122,7 +1122,7 @@ Add imports `import '../live/live_events.dart';` and `import '../media/blob_outb
 ```
 
 
-Also add `import 'dart:typed_data';` at top of endpoint file (for `ByteData`).
+Also add `import 'dart:typed_data';` at the top of the endpoint file (for `ByteData`).
 
 - [ ] **Step 4: Run to verify it passes**
 
@@ -1762,7 +1762,7 @@ class _MediaAccess {
 }
 ```
 
-(`await` inside collection-`if` legal Dart in `async` function.)
+(`await` inside a collection-`if` is legal Dart in an `async` function.)
 
 Then: `mise exec -- just server-generate`.
 
@@ -1876,11 +1876,11 @@ git commit -m "feat(server): MediaEndpoint reads photo blobs by row access"
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/media_endpoint_test.dart`
-Expected: four new tests fail (cover, avatars read as null).
+Expected: the four new tests fail (cover, avatars read as null).
 
 - [ ] **Step 3: Implement the other key holders**
 
-Replace `visible`, add three lookups in `_MediaAccess`:
+Replace `visible` and add the three lookups in `_MediaAccess`:
 
 ```dart
   Future<Set<String>> visible(Set<String> keys) async {
@@ -1980,4 +1980,4 @@ git commit -m "feat(server): MediaEndpoint reads covers and avatars by row acces
 - [ ] **Step 1: Format** — `mise exec -- dart format apps/server/lib apps/server/test`, then `mise exec -- dart format --output=none --set-exit-if-changed apps/server/lib apps/server/test`. Expected: `Formatted N files (0 changed)`.
 - [ ] **Step 2: Analyze** — `cd apps/server && mise exec -- dart analyze lib test` and `cd packages/tell_me_a_story_client && mise exec -- dart analyze`. Expected: `No issues found!` twice.
 - [ ] **Step 3: Test** — `mise exec -- just server-test`. Expected: all pass (foundation 100 + 34 here).
-- [ ] **Step 4: Commit** format-only changes as `style(server): format 3d`; else nothing to commit.
+- [ ] **Step 4: Commit** any format-only changes as `style(server): format 3d`; otherwise nothing to commit.

@@ -1,10 +1,10 @@
 # Phase 3a: Families, Places, Profile — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans, task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement `FamilyEndpoint` (every method in endpoint-contract §2.2, cover upload incl.), `PlaceEndpoint`, `ProfileEndpoint` (inline avatar incl.) on Serverpod 4.1.1; port business-rules §7 cases for slice 3a as integration tests.
+**Goal:** Implement `FamilyEndpoint` (every method in endpoint-contract §2.2, cover upload included), `PlaceEndpoint` and `ProfileEndpoint` (inline avatar included) on Serverpod 4.1.1, with the business-rules §7 cases listed for slice 3a ported as integration tests.
 
-**Architecture:** Three endpoint classes under `apps/server/lib/src/endpoints/`, on landed 3.0 foundation: `Authz` for every check (live checks everywhere except recovery reads, D6b), `ensureLinkedPerson` for createRoot/createBranch (D6d), `blob_keys.dart` for server-made keys, `queueBlobDeletions` for every replaced key. Writes run in one `session.db.transaction`, lock family row where schema-design §3.2 asks. No live events (family-level writes don't post). No schema change, no new DTO.
+**Architecture:** Three endpoint classes under `apps/server/lib/src/endpoints/`, built on the landed 3.0 foundation: `Authz` for every check (live checks everywhere except the recovery reads, D6b), `ensureLinkedPerson` for createRoot/createBranch (D6d), `blob_keys.dart` for server-made keys and `queueBlobDeletions` for every replaced key. Writes run in one `session.db.transaction`, locking the family row where schema-design §3.2 asks. No live events (family-level writes don't post). No schema change, no new DTO.
 
 **Tech Stack:** Dart 3.13.5, Serverpod 4.1.1, embedded Postgres 16, just, mise.
 
@@ -14,30 +14,30 @@
 
 ## Decisions this plan takes (inside the slice)
 
-- **Order of checks** per business-rules §3 per method; authz first. Missing or soft-deleted family = FORBIDDEN like stranger (`Authz.requireLive*`), except recovery reads (`listStewarded`, `directory`, `detail`) and `recover`, which use caller's (maybe deleted) steward membership.
-- **`detail`** returns `FamilyDetailDto` (non-null, per endpoint-contract §2.2). Throws FORBIDDEN (`member only`) for non-member or missing family; `owner or co-owner only` for plain member of deleted family. Deleted family → members + empty `pendingInvites` (D6b).
-- **`listTree`**, **`listOriginDependents`** return empty list to callers who can't read, like `list_family_tree` / `list_origin_dependents` (BR 30, 48).
-- **`setOrigin`** keeps bare FORBIDDEN of `set_family_origin` (`errors.dart` default message); `NOT_FOUND: story` for story check.
-- **`softDelete`** owner only. Repeat by owner (`isOwner`, ignores soft delete) of already-deleted family = no-op (business-rules §3.5); everyone else refused by `requireLiveOwner`. Only sets `deletedAt`; purge is 3f.
-- **`removeMember`** walks every family with family's `treeId`, soft-deleted incl. (business-rules §6 item 9), unlinks target's person in that tree.
-- **`createBranch` depth** walks `parentId` through deleted families too (D8: deleted family doesn't split tree).
-- **Covers:** `startCoverUpload` validates `mimeType` via `extForMime` (`unsupported image type`) and declared size (`file is empty` / `file is too large`), then pins with `UploadOptions(maxFileSize: coverMaxBytes, contentLength: byteLength, preventOverwrite: true)`. `finishCoverUpload` accepts only keys shaped `families/{familyId}/cover/{uuid}.{jpg|png|webp}` (`invalid cover key`), `verifyUpload`s (`upload not found`), re-checks stored size, sniffs bytes vs key extension; rejected upload queued in `blob_deletions`. Finishing with current cover key = no-op returning it, checked before upload and again under family row lock. Key already in `blob_deletions` (replaced/rejected cover) refused with `storageFailed` 'upload not found', before `verifyUpload` and again inside transaction, so dead key never becomes cover.
-- **Profile:** `me` creates `users` row if auth hook didn't (`ensureAppUser` fallback). `saveName`/`saveAccount` store blank display name as null, then don't touch linked names (BR 107); else every linked person in every tree takes new name in same transaction. `saveAccount` aligns birth date to precision at UTC midnight, checks year 1000–9999 and `about` ≤ 500 with local VALIDATION messages; null `birthVisibility` keeps current. `saveAvatar` accepts JPEG ≤ 2 MiB (sniffed), stores under `userAvatarKey` with `preventOverwrite`, swaps key, queues old.
-- **Places:** reads/writes need live family + caller reads its tree (`Authz.isTreeReadable`, member or tree reader, D6b); place rows checked by `treeId` (`isTreeMemberOf`). `create` trims, requires label + address, returns existing row for known `(treeId, mapboxPlaceId)` (also on lost insert race), stamps `lastUsedAt`. `get` returns null for missing/unreadable place.
-- **Generated client:** Serverpod 4.1.1 drops param defaults on client, so `createBranch(personIds:)` and `recents(limit:)` are required named params in client + test tools; server keeps contract defaults.
+- **Order of checks** follows business-rules §3 per method; authorization first. A missing or soft-deleted family is FORBIDDEN like a stranger (`Authz.requireLive*`), except the recovery reads (`listStewarded`, `directory`, `detail`) and `recover`, which use the caller's (possibly deleted) steward membership.
+- **`detail`** returns `FamilyDetailDto` (non-null, as endpoint-contract §2.2 now declares). It throws FORBIDDEN (`member only`) for a non-member or missing family and `owner or co-owner only` for a plain member of a deleted family. On a deleted family it returns the members and an empty `pendingInvites` (D6b).
+- **`listTree`** and **`listOriginDependents`** return an empty list to callers who can't read them, as `list_family_tree` / `list_origin_dependents` did (BR 30, 48).
+- **`setOrigin`** keeps the bare FORBIDDEN of `set_family_origin` (`errors.dart` default message) and uses `NOT_FOUND: story` for the story check.
+- **`softDelete`** is owner only. Repeating it as the owner (`isOwner`, which ignores soft delete) of an already-deleted family is a no-op (business-rules §3.5); everyone else is refused by `requireLiveOwner`. It only sets `deletedAt`; the purge is 3f.
+- **`removeMember`** walks every family with the family's `treeId`, soft-deleted ones included (business-rules §6 item 9), and unlinks the target's person in that tree.
+- **`createBranch` depth** walks `parentId` through deleted families too (D8: a deleted family doesn't split the tree).
+- **Covers:** `startCoverUpload` validates `mimeType` with `extForMime` (`unsupported image type`) and the declared size (`file is empty` / `file is too large`), then pins it with `UploadOptions(maxFileSize: coverMaxBytes, contentLength: byteLength, preventOverwrite: true)`. `finishCoverUpload` accepts only keys of the shape `families/{familyId}/cover/{uuid}.{jpg|png|webp}` (`invalid cover key`), `verifyUpload`s (`upload not found`), re-checks the stored size and sniffs the bytes against the key's extension; a rejected upload is queued in `blob_deletions`. Finishing with the current cover key is a no-op that returns it, checked before the upload and again under the family row lock. A key already in `blob_deletions` (a replaced or rejected cover) is refused with `storageFailed` 'upload not found', before `verifyUpload` and again inside the transaction, so a dead key can never become the cover.
+- **Profile:** `me` creates the `users` row if the auth hook didn't (`ensureAppUser` fallback). `saveName`/`saveAccount` store a blank display name as null and then don't touch linked names (BR 107); otherwise every linked person in every tree takes the new name in the same transaction. `saveAccount` aligns the birth date to its precision at UTC midnight and checks year 1000–9999 and `about` ≤ 500 with local VALIDATION messages; a null `birthVisibility` keeps the current one. `saveAvatar` accepts JPEG ≤ 2 MiB (sniffed), stores it under `userAvatarKey` with `preventOverwrite`, then swaps the key and queues the old one.
+- **Places:** reads and writes need the family to be live and the caller to read its tree (`Authz.isTreeReadable`, member or tree reader, D6b); place rows are checked by `treeId` (`isTreeMemberOf`). `create` trims and requires label and address, returns the existing row for a known `(treeId, mapboxPlaceId)` (also on a lost insert race), and stamps `lastUsedAt`. `get` returns null for a missing or unreadable place.
+- **Generated client:** Serverpod 4.1.1 drops parameter defaults on the client, so `createBranch(personIds:)` and `recents(limit:)` are required named parameters in the client and test tools; the server keeps the contract defaults.
 
 ## Not ported, or ported in another shape
 
 - BR 3, 55 (null session): one `ServerpodUnauthenticatedException` test per endpoint class (Conventions).
-- BR 14, 22, 39 (direct client writes): no endpoint writes memberships directly or touches `id`/`createdById`/`parentId`/`treeId`/`originStoryId` outside setOrigin; tests pin API leaves them unchanged.
-- BR 18: family-level parts only (members, tree, places). Stories, people, photos of deleted family = 3b–3d reads on same `Authz` predicates.
-- BR 23/24: reshaped per index (server-made keys).
-- BR 49: superseded (places tree-wide, business-rules §8 item 1).
-- BR 61: Dart arg checks (blank name, year bounds) — null/uuid-shape parts impossible with typed params.
-- BR 106: "later direct rename still raises" = people endpoint linked-name lock (3b).
-- BR 107: "invite accept with null display name" is 3e; email-local-part fallback covered via createRoot.
-- BR 109: OTP sign-up has no metadata display name; 3.0 auth hook creates `users` with null display name; ported as "me returns stored display name and login email".
-- BR 110: avatar *reads* are `MediaEndpoint` (3d); ported via `listMembers` (co-member sees name + avatar key, stranger FORBIDDEN) and `saveAvatar` writing only caller's own row.
+- BR 14, 22, 39 (direct client writes): no endpoint writes memberships directly or touches `id`/`createdById`/`parentId`/`treeId`/`originStoryId` outside setOrigin; the tests pin that the API leaves them unchanged.
+- BR 18: family-level parts only (members, tree, places). Stories, people and photos of a deleted family are 3b–3d reads on the same `Authz` predicates.
+- BR 23/24: reshaped per the index (server-made keys).
+- BR 49: superseded (places are tree-wide, business-rules §8 item 1).
+- BR 61: Dart argument checks (blank name, year bounds) — the null/uuid-shape parts can't occur with typed parameters.
+- BR 106: "a later direct rename still raises" is the people endpoint's linked-name lock (3b).
+- BR 107: "invite accept with null display name" is 3e; the email-local-part fallback is covered through createRoot.
+- BR 109: OTP sign-up has no metadata display name and the 3.0 auth hook creates `users` with a null display name; ported as "me returns the stored display name and the login email".
+- BR 110: avatar *reads* are `MediaEndpoint` (3d); ported through `listMembers` (co-member sees name and avatar key, stranger FORBIDDEN) and `saveAvatar` only writing the caller's own row.
 
 ## File map
 
@@ -50,9 +50,9 @@
 | `apps/server/test/integration/profile_endpoint_test.dart` | ProfileEndpoint tests |
 | `apps/server/test/integration/place_endpoint_test.dart` | PlaceEndpoint tests |
 | `apps/server/test/integration/family_endpoint_test.dart` | FamilyEndpoint tests, one group per task |
-| generated (`endpoints.dart`, `serverpod_test_tools.dart`, client `client.dart` + protocol) | `just server-generate` after each endpoint change; never hand-edit |
+| generated (`endpoints.dart`, `serverpod_test_tools.dart`, client `client.dart` + protocol) | `just server-generate` after each endpoint change; never edited by hand |
 
-Run all commands from worktree root unless starts with `cd`.
+Run every command from the worktree root unless it starts with `cd`.
 
 ---
 
@@ -64,7 +64,7 @@ Run all commands from worktree root unless starts with `cd`.
 - Create: `apps/server/test/integration/support/families_fixtures.dart`
 - Regenerate: `apps/server/lib/src/generated/endpoints.dart`, `apps/server/test/integration/test_tools/serverpod_test_tools.dart`, `packages/tell_me_a_story_client/lib/src/protocol/client.dart`
 
-Ports: BR 106, 107, 109, 111 (+ 110 write part).
+Ports: BR 106, 107, 109, 111 (and 110 write part).
 
 - [ ] **Step 1: Add the slice fixtures**
 
@@ -432,7 +432,7 @@ void main() {
 - [ ] **Step 3: Run them to verify they fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/profile_endpoint_test.dart`
-Expected: compile error — `endpoints.profile` missing.
+Expected: compile error — `endpoints.profile` does not exist.
 
 - [ ] **Step 4: Implement**
 
@@ -902,7 +902,7 @@ void main() {
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/place_endpoint_test.dart`
-Expected: compile error — `endpoints.place` missing.
+Expected: compile error — `endpoints.place` does not exist.
 
 - [ ] **Step 3: Implement**
 
@@ -1206,7 +1206,7 @@ void main() {
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/family_endpoint_test.dart`
-Expected: compile error — `endpoints.family` missing.
+Expected: compile error — `endpoints.family` does not exist.
 
 - [ ] **Step 3: Implement**
 
@@ -1288,7 +1288,7 @@ Ports: BR 17, 18 (family-level), 29, 30, 31, 32, 110 (read part).
 
 - [ ] **Step 1: Write the failing tests**
 
-Append group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after previous group:
+Append this group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after the previous group:
 
 ```dart
     group('reads', () {
@@ -1553,11 +1553,11 @@ Append group inside `withServerpod` in `apps/server/test/integration/family_endp
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/family_endpoint_test.dart`
-Expected: compile error — `endpoints.family` methods used by new group don't exist yet.
+Expected: compile error — the `endpoints.family` methods used by the new group don't exist yet.
 
 - [ ] **Step 3: Add the imports and constants**
 
-Add above class doc comment:
+Add above the class doc comment:
 
 ```dart
 /// A soft-deleted family can be recovered for this long (business-rules.md
@@ -1567,7 +1567,7 @@ const recoveryWindow = Duration(days: 60);
 
 - [ ] **Step 4: Implement**
 
-Add to `FamilyEndpoint`, after previous section:
+Add to `FamilyEndpoint`, after the previous section:
 
 ```dart
   // ── reads ────────────────────────────────────────────────────────────
@@ -1734,7 +1734,7 @@ ORDER BY f."createdAt", f."id"
   }
 ```
 
-Append to end of `apps/server/lib/src/endpoints/family_endpoint.dart`:
+Append to the end of `apps/server/lib/src/endpoints/family_endpoint.dart`:
 
 ```dart
 /// The caller's role per family id, optionally owners and co-owners only.
@@ -1803,7 +1803,7 @@ Ports: BR 4–15.
 
 - [ ] **Step 1: Write the failing tests**
 
-Append group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after previous group:
+Append this group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after the previous group:
 
 ```dart
     group('roles', () {
@@ -2109,11 +2109,11 @@ Append group inside `withServerpod` in `apps/server/test/integration/family_endp
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/family_endpoint_test.dart`
-Expected: compile error — `endpoints.family` methods used by new group don't exist yet.
+Expected: compile error — the `endpoints.family` methods used by the new group don't exist yet.
 
 - [ ] **Step 3: Implement**
 
-Add to `FamilyEndpoint`, after previous section:
+Add to `FamilyEndpoint`, after the previous section:
 
 ```dart
   // ── names and roles ──────────────────────────────────────────────────
@@ -2259,7 +2259,7 @@ Add to `FamilyEndpoint`, after previous section:
   }
 ```
 
-Append to end of `apps/server/lib/src/endpoints/family_endpoint.dart`:
+Append to the end of `apps/server/lib/src/endpoints/family_endpoint.dart`:
 
 ```dart
 Future<Family> _lockFamily(
@@ -2320,7 +2320,7 @@ Ports: BR 16, 19.
 
 - [ ] **Step 1: Write the failing tests**
 
-Append group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after previous group:
+Append this group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after the previous group:
 
 ```dart
     group('soft delete and recover', () {
@@ -2425,11 +2425,11 @@ Append group inside `withServerpod` in `apps/server/test/integration/family_endp
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/family_endpoint_test.dart`
-Expected: compile error — `endpoints.family` methods used by new group don't exist yet.
+Expected: compile error — the `endpoints.family` methods used by the new group don't exist yet.
 
 - [ ] **Step 3: Implement**
 
-Add to `FamilyEndpoint`, after previous section:
+Add to `FamilyEndpoint`, after the previous section:
 
 ```dart
   // ── soft delete ──────────────────────────────────────────────────────
@@ -2502,7 +2502,7 @@ Ports: BR 34–42, 48.
 
 - [ ] **Step 1: Write the failing tests**
 
-Append group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after previous group:
+Append this group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after the previous group:
 
 ```dart
     group('origin', () {
@@ -2720,11 +2720,11 @@ Append group inside `withServerpod` in `apps/server/test/integration/family_endp
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/family_endpoint_test.dart`
-Expected: compile error — `endpoints.family` methods used by new group don't exist yet.
+Expected: compile error — the `endpoints.family` methods used by the new group don't exist yet.
 
 - [ ] **Step 3: Implement**
 
-Add to `FamilyEndpoint`, after previous section:
+Add to `FamilyEndpoint`, after the previous section:
 
 ```dart
   // ── origin ───────────────────────────────────────────────────────────
@@ -2813,13 +2813,13 @@ git commit -m "feat(server): family origin and origin dependents"
 - Modify: `apps/server/test/integration/family_endpoint_test.dart`
 - Regenerate: `apps/server/lib/src/generated/endpoints.dart`, `apps/server/test/integration/test_tools/serverpod_test_tools.dart`, `packages/tell_me_a_story_client/lib/src/protocol/client.dart`
 
-Ports: BR 50–60, 61 (Dart arg checks), 115, D6d, linked-person race.
+Ports: BR 50–60, 61 (Dart argument checks), 115, D6d, and the linked-person race.
 
-Race test holds uncommitted linked person in second session while `createBranch` runs: endpoint insert blocks on `people_tree_user_uidx`, fails with 23505 when holder commits, rerun reuses committed person. Remove retry → test fails with `DatabaseUniqueViolationException`.
+The race test holds an uncommitted linked person in a second session while `createBranch` runs: the endpoint's insert blocks on `people_tree_user_uidx`, fails with 23505 when the holder commits, and the rerun reuses the committed person. Removing the retry makes this test fail with `DatabaseUniqueViolationException`.
 
 - [ ] **Step 1: Write the failing tests**
 
-Append group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after previous group:
+Append this group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after the previous group:
 
 ```dart
     group('createBranch', () {
@@ -3198,11 +3198,11 @@ Append group inside `withServerpod` in `apps/server/test/integration/family_endp
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/family_endpoint_test.dart`
-Expected: compile error — `endpoints.family` methods used by new group don't exist yet.
+Expected: compile error — the `endpoints.family` methods used by the new group don't exist yet.
 
 - [ ] **Step 3: Add the imports and constants**
 
-Add above class doc comment:
+Add above the class doc comment:
 
 ```dart
 /// Branch creation refuses a parent this many levels deep (business-rules.md
@@ -3212,7 +3212,7 @@ const maxBranchDepth = 63;
 
 - [ ] **Step 4: Implement**
 
-Add to `FamilyEndpoint`, after previous section:
+Add to `FamilyEndpoint`, after the previous section:
 
 ```dart
   // ── branch ───────────────────────────────────────────────────────────
@@ -3323,7 +3323,7 @@ Add to `FamilyEndpoint`, after previous section:
   }
 ```
 
-Append to end of `apps/server/lib/src/endpoints/family_endpoint.dart`:
+Append to the end of `apps/server/lib/src/endpoints/family_endpoint.dart`:
 
 ```dart
 /// Ancestors above [family], walking `parentId` (deleted families included,
@@ -3365,7 +3365,7 @@ Ports: BR 22, 23, 24 (reshaped).
 
 - [ ] **Step 1: Write the failing tests**
 
-Append group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after previous group:
+Append this group inside `withServerpod` in `apps/server/test/integration/family_endpoint_test.dart`, after the previous group:
 
 ```dart
     group('cover', () {
@@ -3615,18 +3615,18 @@ Append group inside `withServerpod` in `apps/server/test/integration/family_endp
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/family_endpoint_test.dart`
-Expected: compile error — `endpoints.family` methods used by new group don't exist yet.
+Expected: compile error — the `endpoints.family` methods used by the new group don't exist yet.
 
 - [ ] **Step 3: Add the imports and constants**
 
-Add to imports of `apps/server/lib/src/endpoints/family_endpoint.dart`:
+Add to the imports of `apps/server/lib/src/endpoints/family_endpoint.dart`:
 
 ```dart
 import '../media/blob_keys.dart';
 import '../media/blob_outbox.dart';
 ```
 
-Add above class doc comment:
+Add above the class doc comment:
 
 ```dart
 const _mimeByExt = {
@@ -3638,7 +3638,7 @@ const _mimeByExt = {
 
 - [ ] **Step 4: Implement**
 
-Add to `FamilyEndpoint`, after previous section:
+Add to `FamilyEndpoint`, after the previous section:
 
 ```dart
   // ── cover ────────────────────────────────────────────────────────────
@@ -3751,7 +3751,7 @@ Add to `FamilyEndpoint`, after previous section:
   }
 ```
 
-Append to end of `apps/server/lib/src/endpoints/family_endpoint.dart`:
+Append to the end of `apps/server/lib/src/endpoints/family_endpoint.dart`:
 
 ```dart
 /// [key] is already in `blob_deletions` (replaced or rejected), so it must
@@ -3812,7 +3812,7 @@ Expected: `0 changed`, `No issues found!` twice, `All tests passed!`.
 
 - [ ] **Step 2: Keep this plan in sync**
 
-If landed code differs from code block above, update block, commit `docs: sync Phase 3a plan with landed code`.
+If any landed code differs from a code block above, update the block and commit `docs: sync Phase 3a plan with landed code`.
 
 - [ ] **Step 3: Self-review against the slice row**
 

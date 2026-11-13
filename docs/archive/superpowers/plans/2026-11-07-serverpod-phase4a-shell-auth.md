@@ -1,10 +1,10 @@
 # Phase 4a: Shell and Auth Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** App starts on Serverpod client, tracks sign-in via `serverClient.auth`, signs in with 6-digit email code on landing page + invite page.
+**Goal:** The app starts on the Serverpod client, tracks sign-in through `serverClient.auth`, and signs in with a 6-digit email code on both the landing page and the invite page.
 
-**Architecture:** `main` validates `SERVER_URL`, calls `initServer()` with storage wrapper: unreadable saved session → "signed out". `AuthRefresh` listens to `serverClient.auth.authInfoListenable`, binds/clears `ProfileSession` + `FamilySelection`. `AppSession.instance` reads `authInfo`. Both login pages use `OtpSignIn` seam (`ServerOtpSignIn` over `emailIdp`), share one code-entry widget.
+**Architecture:** `main` validates `SERVER_URL` and calls `initServer()` with a storage wrapper that turns an unreadable saved session into "signed out". `AuthRefresh` listens to `serverClient.auth.authInfoListenable` and binds/clears `ProfileSession` and `FamilySelection`. `AppSession.instance` reads `authInfo`. Both login pages talk to an `OtpSignIn` seam (`ServerOtpSignIn` over `emailIdp`) and share one code-entry widget.
 
 **Tech Stack:** Flutter 3.47.7, `tell_me_a_story_client`, `serverpod_auth_core_flutter` / `serverpod_auth_idp_client` 4.1.1.
 
@@ -16,7 +16,7 @@
 
 | File | Action | Responsibility |
 |---|---|---|
-| `lib/core/config/env.dart` | modify | drop `SUPABASE_*`; `validate()` requires absolute http(s) `SERVER_URL` |
+| `lib/core/config/env.dart` | modify | drop `SUPABASE_*`; `validate()` requires an absolute http(s) `SERVER_URL` |
 | `lib/core/server/app_session.dart` | modify | `ServerAppSession` over `client.auth`; `SessionRecoveringStorage` |
 | `lib/core/router/auth_refresh.dart` | modify | listen to `ValueListenable<AuthSuccess?>`; bind/clear sessions |
 | `lib/features/auth/otp_sign_in.dart` | create | `OtpSignIn`, `ServerOtpSignIn`, `signInErrorMessage` + error copy |
@@ -29,9 +29,9 @@
 | `integration_test/e2e_test.dart`, `integration_test/support/prod_guard.dart` | minimal compile fix (Main-approved; 4f's version wins at merge) |
 | tests | see tasks | |
 
-Fakes touched: `MagicLinkSender` fake `_Sender` (m13) → `_Otp implements OtpSignIn`. No gateway interface (`*Gateway`) changes in 4a.
+Fake inventory touched: `MagicLinkSender` fake `_Sender` (m13) → `_Otp implements OtpSignIn`. No gateway interface (`*Gateway`) changes in 4a.
 
-Copy (approved 2026-11-07) = constants: `landingPasswordNote`, `sendCodeLabel`, `sendingLabel` in `magic_link_page.dart`; code-step strings in `sign_in_code_form.dart`; error strings in `otp_sign_in.dart`.
+Copy (approved 2026-11-07) lives as constants: `landingPasswordNote`, `sendCodeLabel`, `sendingLabel` in `magic_link_page.dart`; code-step strings in `sign_in_code_form.dart`; error strings in `otp_sign_in.dart`.
 
 ---
 
@@ -39,7 +39,7 @@ Copy (approved 2026-11-07) = constants: `landingPasswordNote`, `sendCodeLabel`, 
 
 **Files:** Modify `lib/core/config/env.dart`; Test `test/env_test.dart`.
 
-- [ ] **Step 1: failing test** — replace Supabase assertions:
+- [ ] **Step 1: failing test** — replace the Supabase assertions:
 
 ```dart
 test('Env.validate fails closed when SERVER_URL is missing', () {
@@ -59,7 +59,7 @@ test('validateServerUrl accepts only an absolute http(s) URL', () {
   expect(() => Env.validateServerUrl('ws://127.0.0.1:8080'), throwsStateError);
 });
 ```
-Keep Mapbox tests; "does not require MAPBOX" test asserts message not mention MAPBOX.
+Keep the Mapbox tests; the "does not require MAPBOX" test asserts the message does not mention MAPBOX.
 
 - [ ] **Step 2:** `mise exec -- flutter test test/env_test.dart` → FAIL (`validateServerUrl` undefined).
 - [ ] **Step 3: implement**
@@ -78,7 +78,7 @@ static void validateServerUrl(String value) {
 ```
 Delete `supabaseUrl` / `supabaseAnonKey`.
 
-- [ ] **Step 4:** test pass. **Step 5:** commit `feat(client): Env validates SERVER_URL`. (Env.supabase* removal breaks `core/supabase` + integration_test until Tasks 7–8; may commit Task 1 with Task 7 if analyze must stay green per commit — not required per commit, only at gate.)
+- [ ] **Step 4:** test passes. **Step 5:** commit `feat(client): Env validates SERVER_URL`. (Env.supabase* removal breaks `core/supabase` and integration_test until Tasks 7–8; commit Task 1 together with Task 7 if analyze must stay green per commit — it does not need to per commit, only at the gate.)
 
 ### Task 2: ServerAppSession and startup recovery
 
@@ -115,7 +115,7 @@ test('an unreadable saved session starts signed out and is cleared', () async {
   expect(broken.cleared, isTrue);
 });
 ```
-`_BrokenStorage.get` throws `FormatException` until `set(null)` runs. Second test needs no server only if `initialize()` tolerates unreachable server (catches `ServerpodClientException`/`TimeoutException`); verify during impl, else build client + call `auth.restore()` directly.
+`_BrokenStorage.get` throws `FormatException` until `set(null)` runs. The second test needs no server only if `initialize()` tolerates an unreachable server: it catches `ServerpodClientException`/`TimeoutException`; verify while implementing, else build the client and call `auth.restore()` directly.
 
 - [ ] **Step 2:** FAIL (`ServerAppSession`, `SessionRecoveringStorage` undefined).
 - [ ] **Step 3: implement**
@@ -154,7 +154,7 @@ class SessionRecoveringStorage implements ClientAuthSuccessStorage {
   Future<void> set(AuthSuccess? data) => _delegate.set(data);
 }
 ```
-`AppSession.instance` defaults `const ServerAppSession()`. m14_3 tearDown restores `const ServerAppSession()`.
+`AppSession.instance` defaults to `const ServerAppSession()`. m14_3 tearDown restores `const ServerAppSession()`.
 
 - [ ] **Step 4:** PASS. **Step 5:** commit `feat(client): ServerAppSession over serverClient.auth with startup recovery`.
 
@@ -162,7 +162,7 @@ class SessionRecoveringStorage implements ClientAuthSuccessStorage {
 
 **Files:** Modify `lib/core/router/auth_refresh.dart`; Test `test/family_selection_test.dart`, `test/profile_session_test.dart`, `test/router_test.dart`.
 
-- [ ] **Step 1: failing tests** — listener tests use `ValueNotifier<AuthSuccess?>`:
+- [ ] **Step 1: failing tests** — the listener tests use `ValueNotifier<AuthSuccess?>`:
 
 ```dart
 test('the auth listener clears the family when the session drops', () {
@@ -188,9 +188,9 @@ test('signing in as another user drops the remembered family', () {
   expect(FamilySelection.id, isNull);
 });
 ```
-profile_session: "a dropped session clears the profile" (same shape) + "sign-in binds the profile user" (switch user clears `displayName`). router_test: "auth refresh moves signed-out user to Family Landing after sign-in" drives `ValueNotifier<AuthSuccess?>` instead of `setSignedIn`.
+profile_session: "a dropped session clears the profile" (same shape) and "sign-in binds the profile user" (switching user clears `displayName`). router_test: "auth refresh moves signed-out user to Family Landing after sign-in" drives a `ValueNotifier<AuthSuccess?>` instead of `setSignedIn`.
 
-- [ ] **Step 2:** FAIL (no `authInfo` param).
+- [ ] **Step 2:** FAIL (no `authInfo` parameter).
 - [ ] **Step 3: implement**
 
 ```dart
@@ -312,7 +312,7 @@ String signInErrorMessage(Object error) => switch (error) {
 ```
 Copy: `signInCodeWrong = "That code isn't right. Check it and try again."`, `signInCodeExpired = 'That code has expired. Send a new one.'`, `signInTooManyTries = 'Too many tries. Wait a few minutes, then send a new code.'`, `signInRequestFailed = 'Request failed'`.
 
-- [ ] **Step 4:** `flutter test test/otp_sign_in_test.dart` + `just test-live` PASS. **Step 5:** commit `feat(client): ServerOtpSignIn over emailIdp`.
+- [ ] **Step 4:** `flutter test test/otp_sign_in_test.dart` and `just test-live` PASS. **Step 5:** commit `feat(client): ServerOtpSignIn over emailIdp`.
 
 ### Task 5: Landing page code step
 
@@ -324,11 +324,11 @@ Copy: `signInCodeWrong = "That code isn't right. Check it and try again."`, `sig
   - `a@b.co` → "Check your email", "We sent a 6-digit code to a@b.co.", label "Sign-in code", button "Sign in";
   - enter `123456` in `sign-in-code`, tap `sign-in-code-submit` with `signInError = invalid` → "That code isn't right. Check it and try again."; expired → "That code has expired. Send a new one."; tooManyAttempts → "Too many tries. Wait a few minutes, then send a new code.";
   - correct code → `otp.codes == [... '123456']`, `otp.requestIds.last == 'req-1'`;
-  - "Send a new code" sends again (2 calls), clears error; send error → "Request failed";
-  - "Use a different email" → back to "Sign in or get started".
-  - during sign-in, button reads "Signing in…" (`Completer` holds fake).
+  - "Send a new code" sends again (2 calls) and clears the error; send error → "Request failed";
+  - "Use a different email" returns to "Sign in or get started".
+  - while signing in, the button reads "Signing in…" (a `Completer` holds the fake).
 - [ ] **Step 2:** FAIL.
-- [ ] **Step 3: implement** `SignInCodeForm` (stateful; owns code controller):
+- [ ] **Step 3: implement** `SignInCodeForm` (stateful; owns the code controller):
 
 ```dart
 class SignInCodeForm extends StatefulWidget {
@@ -342,7 +342,7 @@ class SignInCodeForm extends StatefulWidget {
   // Colors: albumInk, albumTerracotta, albumParchment, albumModalBorder only.
 }
 ```
-`MagicLinkPage({super.key, this.otpSignIn})`: state `_requestId`, `_sentTo`, `_sending`, `_signingIn`, `_error`. `_sendCode()` validates, calls `sendCode`, stores id; `_signIn(code)` calls `signIn` (router advances via `AuthRefresh`); errors via `signInErrorMessage`. Sent card shows "Check your email" + `SignInCodeForm(message: 'We sent a 6-digit code to $email.')`.
+`MagicLinkPage({super.key, this.otpSignIn})`: state `_requestId`, `_sentTo`, `_sending`, `_signingIn`, `_error`. `_sendCode()` validates, calls `sendCode`, stores the id; `_signIn(code)` calls `signIn` (the router moves on via `AuthRefresh`); errors via `signInErrorMessage`. The sent card shows "Check your email" + `SignInCodeForm(message: 'We sent a 6-digit code to $email.')`.
 
 - [ ] **Step 4:** PASS. **Step 5:** commit `feat(client): landing page signs in with an email code`.
 
@@ -350,9 +350,9 @@ class SignInCodeForm extends StatefulWidget {
 
 **Files:** Modify `lib/features/auth/invite_sign_in_page.dart`; Test `test/m13_fit_finish_test.dart`.
 
-- [ ] **Step 1: failing test** — invite test: `otpSignIn: otp`, `authRefresh: auth`, `signedIn: () => auth.isSignedIn` with `AuthRefresh(initiallySignedIn: false)`; send → `invite-sent` reads "We sent a code to a@b.co. Enter it to join Ada."; enter code, submit; fake's `signIn` calls `auth.setSignedIn(true)`; then `landing-home` shows, `invites.accepts == 1`. Wrong code → wrong-code copy, no accept.
+- [ ] **Step 1: failing test** — invite test: `otpSignIn: otp`, `authRefresh: auth`, `signedIn: () => auth.isSignedIn` with `AuthRefresh(initiallySignedIn: false)`; send → `invite-sent` reads "We sent a code to a@b.co. Enter it to join Ada."; enter code, submit; the fake's `signIn` calls `auth.setSignedIn(true)`; then `landing-home` shows and `invites.accepts == 1`. Wrong code shows the wrong-code copy and no accept.
 - [ ] **Step 2:** FAIL.
-- [ ] **Step 3: implement** — replace `sender` with `OtpSignIn? otpSignIn`; same `_sendCode` / `_signIn` as landing; `_onAuth` → `_accept()` unchanged; send button "Email me a sign-in code"; note = `landingPasswordNote`.
+- [ ] **Step 3: implement** — replace `sender` with `OtpSignIn? otpSignIn`; same `_sendCode` / `_signIn` as the landing page; `_onAuth` → `_accept()` unchanged; send button "Email me a sign-in code"; note = `landingPasswordNote`.
 - [ ] **Step 4:** PASS. **Step 5:** commit `feat(client): invite page signs in with an email code`.
 
 ### Task 7: main on Serverpod; delete Supabase shell
@@ -377,14 +377,14 @@ Future<void> main() async {
     familiesApi: FamiliesApi(), inviteApi: InviteApi(), peopleApi: PeopleApi())));
 }
 ```
-- [ ] **Step 2:** delete files; `rg -n "core/supabase|magic_link_redirect|SupabaseAppSession|Env.supabase" lib test` → nothing.
+- [ ] **Step 2:** delete the files; `rg -n "core/supabase|magic_link_redirect|SupabaseAppSession|Env.supabase" lib test` → nothing.
 - [ ] **Step 3:** `flutter test` PASS. **Step 4:** commit `refactor(client): start on initServer and delete the Supabase shell`.
 
 ### Task 8: integration_test keeps compiling (Main-approved, separate commit)
 
 - `prod_guard.dart`: check `Env.serverUrl` (local `127.0.0.1:8080` / `localhost:8080`).
-- `e2e_test.dart`: drop `supabase_init` import + three `recover-session` steps; `_mountApp` builds `AuthRefresh(authInfo: serverClient.auth.authInfoListenable)`.
-- Commit `chore(client): keep integration_test compiling after Supabase shell removal`. 4f rewrites both files; 4f's version wins at merge.
+- `e2e_test.dart`: drop the `supabase_init` import and the three `recover-session` steps; `_mountApp` builds `AuthRefresh(authInfo: serverClient.auth.authInfoListenable)`.
+- Commit `chore(client): keep integration_test compiling after Supabase shell removal`. 4f rewrites both files; at merge 4f's version wins.
 
 ### Task 9: Gate
 
@@ -397,12 +397,12 @@ cd ../.. && mise exec -- just test-live
 ```
 
 ## As landed (2026-11-07)
-- Commits: `f8de0b0` Env, `48e45ad` AppSession + recovery, `da698e0` AuthRefresh, `6a968a6` OtpSignIn, `52a2717` both login pages (Tasks 5+6 share `m13_fit_finish_test.dart` → one commit), `def253f` main + Supabase shell deleted, `0354261` integration_test compile fix, then `dart format` commit.
-- Recovery = storage wrapper (`SessionRecoveringStorage`), not retry around `initServer()`: clears only unreadable entry, so server down at startup never wipes valid session. Reports failure via `FlutterError.reportError`.
-- Review fix: `main` uses `appAuthStorage()` = `CachedClientAuthSuccessStorage(delegate: SessionRecoveringStorage(KeyValueClientAuthSuccessStorage(keyValueStorage: FlutterSecureKeyValueStorage(null))))`. Cache stays outermost: session manager clears only cached storage before JWT refresh (cross-tab rotation on web). Code field has no hint (none approved). Test pins same-user token rotation not notifying router.
-- Live test calls `AppSession.instance` (default `ServerAppSession`) after `initServer`, adds wrong-code case. Sign-in error text key `sign-in-error`; `magic-link-error` gone (no refs existed).
+- Commits: `f8de0b0` Env, `48e45ad` AppSession + recovery, `da698e0` AuthRefresh, `6a968a6` OtpSignIn, `52a2717` both login pages (Tasks 5 and 6 share `m13_fit_finish_test.dart`, so they landed as one commit), `def253f` main + Supabase shell deleted, `0354261` integration_test compile fix, then a `dart format` commit.
+- Recovery is a storage wrapper (`SessionRecoveringStorage`), not a retry around `initServer()`: it clears only an unreadable entry, so a server that is down at startup never wipes a valid session. It reports the failure with `FlutterError.reportError`.
+- Review fix: `main` uses `appAuthStorage()` = `CachedClientAuthSuccessStorage(delegate: SessionRecoveringStorage(KeyValueClientAuthSuccessStorage(keyValueStorage: FlutterSecureKeyValueStorage(null))))`. The cache stays outermost because the session manager clears only a cached storage before a JWT refresh (cross-tab rotation on web). The code field has no hint (none was approved). A test pins that a same-user token rotation does not notify the router.
+- The live test calls `AppSession.instance` (the default `ServerAppSession`) after `initServer`, and adds a wrong-code case. The sign-in error text has key `sign-in-error`; `magic-link-error` is gone (no references existed).
 - Gate: format 0 changed; analyze 23 issues; `flutter test` +727 ~2; `just test-live` +4.
 
 ## Hand-offs
-- **4b:** `invite_api.currentFamilyId` still calls `ProfileSession.bindUser` / `FamilySelection.bindUser`; `AuthRefresh` now binds on sign-in → 4b drops those calls.
-- **4f:** keys `magic-link-email`, `invite-email`, `sign-in-code`, `sign-in-code-submit`; send text "Email me a sign-in code"; landing code step heading "Check your email" (invite page no heading, shows `invite-sent`); main mounts per Task 7.
+- **4b:** `invite_api.currentFamilyId` still calls `ProfileSession.bindUser` / `FamilySelection.bindUser`; `AuthRefresh` now binds on sign-in, so 4b drops those calls.
+- **4f:** keys `magic-link-email`, `invite-email`, `sign-in-code`, `sign-in-code-submit`; send text "Email me a sign-in code"; landing code step heading "Check your email" (the invite page has no heading, it shows `invite-sent`); main mounts as in Task 7.

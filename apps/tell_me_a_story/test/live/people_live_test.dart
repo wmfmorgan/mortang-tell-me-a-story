@@ -5,7 +5,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:tell_me_a_story/core/data/server_people_repository.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
 
 import 'support/live_server.dart';
@@ -19,7 +19,7 @@ void main() {
   test('person create/update with a picture, and the read paths', () async {
     final owner = await signInLive(freshEmail('people-owner'));
     final familyId = (await owner.family.createRoot('People')).toString();
-    final api = ServerPeopleRepository(client: owner);
+    final api = PeopleApi(client: owner);
 
     expect(await api.isHomeFamilySteward(familyId), isTrue);
 
@@ -87,27 +87,24 @@ void main() {
       );
       await member.invite.accept(invite.token);
 
-      final ownerView = await ServerPeopleRepository(client: owner)
-          .listTreePeople(familyId);
+      final ownerView = await PeopleApi(client: owner).listTreePeople(familyId);
       final bea = ownerView.singleWhere((p) => p.name == 'Bea');
       expect(bea.userId, isNotNull);
       expect(bea.birthDate, DateTime(1990));
       expect(bea.birthPrecision, 'year');
 
-      final selfView = await ServerPeopleRepository(client: member)
-          .listTreePeople(familyId);
+      final selfView = await PeopleApi(client: member).listTreePeople(familyId);
       final self = selfView.singleWhere((p) => p.id == bea.id);
       expect(self.birthDate, DateTime(1990, 5, 17));
       expect(self.birthPrecision, 'day');
 
-      final api = ServerPeopleRepository(client: owner);
+      final api = PeopleApi(client: owner);
       await api.markPassedAway(personId: bea.id, value: true);
       expect((await api.personForEdit(bea.id))!.passedAway, isTrue);
       await api.markPassedAway(personId: bea.id, value: false);
       expect((await api.personForEdit(bea.id))!.passedAway, isFalse);
       expect(
-        await ServerPeopleRepository(client: member)
-            .isHomeFamilySteward(familyId),
+        await PeopleApi(client: member).isHomeFamilySteward(familyId),
         isFalse,
       );
     },

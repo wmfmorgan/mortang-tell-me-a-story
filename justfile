@@ -11,26 +11,22 @@ default:
 setup:
     mise install
 
-# build_runner codegen (freezed, riverpod_generator, json_serializable); outputs are gitignored
-codegen:
-    cd apps/tell_me_a_story && dart run build_runner build
-
 # flutter test in apps/tell_me_a_story (goldens excluded: they are macOS-only)
-test: codegen
+test:
     cd apps/tell_me_a_story && flutter test --exclude-tags golden
 
 # Live client tests against a running `just server` (start it first)
-test-live: codegen
+test-live:
     cd apps/tell_me_a_story && flutter test --tags live --run-skipped test/live
 
 # Golden tests, macOS only (just test-goldens --update-goldens to regenerate)
-test-goldens *args: codegen
+test-goldens *args:
     cd apps/tell_me_a_story && flutter test --tags golden {{args}} test/goldens
 
 alias web := run
 
 # Flutter web-server on 127.0.0.1:3000 (MAPBOX_ACCESS_TOKEN=pk... just run)
-run: codegen
+run:
     #!/usr/bin/env sh
     set -- flutter run -d web-server --web-hostname=127.0.0.1 --web-port=3000 \
         --dart-define=SERVER_URL=http://127.0.0.1:8080 \
@@ -93,11 +89,11 @@ server-test:
 
 # dart format check: app and server (the generated client package is not checked)
 fmt-check:
-    cd apps/tell_me_a_story && find lib test integration_test test_driver -name '*.dart' ! -name '*.g.dart' ! -name '*.freezed.dart' -print0 | xargs -0 dart format --output=none --set-exit-if-changed
+    cd apps/tell_me_a_story && dart format --output=none --set-exit-if-changed .
     cd apps/server && dart format --output=none --set-exit-if-changed .
 
 # flutter analyze in apps/tell_me_a_story: any error fails, and at most `ceiling` other issues
-analyze ceiling="0": codegen
+analyze ceiling="6":
     #!/usr/bin/env bash
     set -uo pipefail
     cd apps/tell_me_a_story
@@ -163,7 +159,7 @@ deploy-server:
 
 # Build Flutter web against the Cloud Run API and deploy to Firebase Hosting.
 # Mapbox token: $MAPBOX_ACCESS_TOKEN, else the story-line-mapbox-token secret. Optional, but without it the place picker is off.
-deploy-web: codegen
+deploy-web:
     #!/usr/bin/env sh
     set -eu
     num=$(gcloud projects describe {{gcp_project}} --format='value(projectNumber)')

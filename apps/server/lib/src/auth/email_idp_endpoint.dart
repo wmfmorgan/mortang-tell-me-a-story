@@ -1,59 +1,9 @@
-import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/providers/email.dart';
 
-import '../errors.dart';
-
-/// The email identity provider endpoint. Only passwordless sign-in with
-/// one-time codes (and [hasAccount]) works.
+/// By extending [EmailOtpIdpBaseEndpoint], the email identity provider
+/// endpoints, including the passwordless sign-in with one-time passwords, are
+/// made available on the server and enable the corresponding sign-in widget on
+/// the client.
 ///
-/// The inherited password methods (login, registration and password reset)
-/// always refuse with `forbidden`. They stay generated because the client's
-/// `EndpointEmailOtpIdpBase` declares them abstract.
-class EmailIdpEndpoint extends EmailOtpIdpBaseEndpoint {
-  @override
-  Future<AuthSuccess> login(
-    Session session, {
-    required String email,
-    required String password,
-  }) => throw forbidden();
-
-  @override
-  Future<UuidValue> startRegistration(
-    Session session, {
-    required String email,
-  }) => throw forbidden();
-
-  @override
-  Future<String> verifyRegistrationCode(
-    Session session, {
-    required UuidValue accountRequestId,
-    required String verificationCode,
-  }) => throw forbidden();
-
-  @override
-  Future<AuthSuccess> finishRegistration(
-    Session session, {
-    required String registrationToken,
-    required String password,
-  }) => throw forbidden();
-
-  @override
-  Future<UuidValue> startPasswordReset(
-    Session session, {
-    required String email,
-  }) => throw forbidden();
-
-  @override
-  Future<String> verifyPasswordResetCode(
-    Session session, {
-    required UuidValue passwordResetRequestId,
-    required String verificationCode,
-  }) => throw forbidden();
-
-  @override
-  Future<void> finishPasswordReset(
-    Session session, {
-    required String finishPasswordResetToken,
-    required String newPassword,
-  }) => throw forbidden();
-}
+/// Extend [EmailIdpBaseEndpoint] instead for the password based sign-in only.
+class EmailIdpEndpoint extends EmailOtpIdpBaseEndpoint {}

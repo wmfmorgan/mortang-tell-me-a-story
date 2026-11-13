@@ -1,0 +1,386 @@
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/photos_api.dart';
+
+const photoUploadFailureCopy =
+    'Couldn’t upload the photo. Check your connection and try again.';
+
+const photoUploadRetryLabel = 'Try again';
+
+/// Horizontal add / thumbnail / retry strip for story capture.
+class PhotoStrip extends StatelessWidget {
+  const PhotoStrip({
+    super.key,
+    required this.photos,
+    this.previews = const {},
+    required this.onAdd,
+    required this.onRemove,
+    required this.onRetry,
+    required this.uploadFailed,
+    required this.canAdd,
+    this.tileSize = 148,
+    this.tileWidth,
+    this.tileHeight,
+    this.addLabel,
+    this.addHint,
+    this.columns,
+    this.addEnabled = true,
+    this.canRemove,
+    this.onToggleHero,
+  });
+
+  final List<Photo> photos;
+  final Map<String, Uint8List> previews;
+  final VoidCallback onAdd;
+  final ValueChanged<Photo> onRemove;
+  final VoidCallback onRetry;
+  final bool uploadFailed;
+  final bool canAdd;
+
+  /// Edge length of each photo card and the dashed add tile.
+  final double tileSize;
+
+  /// Overrides [tileSize] when the row should be landscape cards.
+  final double? tileWidth;
+  final double? tileHeight;
+
+  /// Optional label inside the dashed add tile.
+  final String? addLabel;
+
+  /// Second line under [addLabel], such as the photo cap.
+  final String? addHint;
+
+  /// When set, tiles fill this many columns at a 4:3 ratio.
+  /// Null keeps the horizontal strip.
+  final int? columns;
+
+  /// When false the add tile is dimmed. It still accepts taps.
+  final bool addEnabled;
+
+  /// When null, every thumb shows Remove. When set, only a true result does.
+  final bool Function(Photo)? canRemove;
+
+  /// When set, each thumb shows a hero icon. The first photo by sort order
+  /// is the hero until another is chosen.
+  final ValueChanged<Photo>? onToggleHero;
+
+  @override
+  Widget build(BuildContext context) {
+    final heroId = _heroPhotoId(photos);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (uploadFailed) ...[
+          const Text(photoUploadFailureCopy),
+          TextButton(
+            onPressed: onRetry,
+            child: const Text(photoUploadRetryLabel),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (columns == null)
+          SizedBox(
+            height: tileHeight ?? tileSize,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _tiles(
+                  tileWidth ?? tileSize,
+                  tileHeight ?? tileSize,
+                  heroId,
+                ),
+              ),
+            ),
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const gap = 12.0;
+              final count = columns!;
+              final width = ((constraints.maxWidth - gap * (count - 1)) / count)
+                  .clamp(72.0, 420.0);
+              final height = width * 3 / 4;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: _tiles(width, height, heroId, padRight: false),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  List<Widget> _tiles(
+    double width,
+    double height,
+    String? heroId, {
+    bool padRight = true,
+  }) {
+    return [
+      for (final photo in photos)
+        _Thumb(
+          photo: photo,
+          preview: previews[photo.id],
+          onRemove: onRemove,
+          showRemove: canRemove?.call(photo) ?? true,
+          isHero: photo.id == heroId,
+          onToggleHero: onToggleHero,
+          width: width,
+          height: height,
+          padRight: padRight,
+        ),
+      if (canAdd)
+        _AddTile(
+          onAdd: onAdd,
+          width: width,
+          height: height,
+          label: addLabel,
+          hint: addHint,
+          padRight: padRight,
+          enabled: addEnabled,
+        ),
+    ];
+  }
+}
+
+class _AddTile extends StatelessWidget {
+  const _AddTile({
+    required this.onAdd,
+    required this.width,
+    required this.height,
+    this.label,
+    this.hint,
+    this.padRight = true,
+    this.enabled = true,
+  });
+
+  final VoidCallback onAdd;
+  final double width;
+  final double height;
+  final String? label;
+  final String? hint;
+  final bool padRight;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final labeled = label != null;
+    return Padding(
+      padding: EdgeInsets.only(right: padRight ? 12 : 0),
+      child: Opacity(
+        opacity: enabled ? 1 : 0.4,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: const Key('photo-add'),
+            onTap: onAdd,
+            borderRadius: BorderRadius.circular(12),
+            child: CustomPaint(
+              painter: _DashedCardPainter(
+                color: labeled ? albumSage.withValues(alpha: 0.6) : albumSage,
+              ),
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: labeled ? _labeledBody(context) : _iconOnly(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _iconOnly() {
+    return const Center(
+      child: Icon(Icons.add_a_photo_outlined, color: albumSage, size: 28),
+    );
+  }
+
+  Widget _labeledBody(BuildContext context) {
+    final labelStyle = GoogleFonts.sourceSans3(
+      color: albumInk,
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+    );
+    final hintStyle = GoogleFonts.sourceSans3(color: albumSage, fontSize: 10);
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: albumTerracotta,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 18),
+            ),
+            const SizedBox(height: 8),
+            Text(label!, textAlign: TextAlign.center, style: labelStyle),
+            if (hint != null) ...[
+              const SizedBox(height: 2),
+              Text(hint!, textAlign: TextAlign.center, style: hintStyle),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String? _heroPhotoId(List<Photo> photos) {
+  if (photos.isEmpty) return null;
+  final sorted = [...photos]..sort(comparePhotoOrder);
+  return sorted.first.id;
+}
+
+class _Thumb extends StatelessWidget {
+  const _Thumb({
+    required this.photo,
+    required this.onRemove,
+    required this.showRemove,
+    required this.isHero,
+    required this.width,
+    required this.height,
+    this.onToggleHero,
+    this.preview,
+    this.padRight = true,
+  });
+
+  final Photo photo;
+  final Uint8List? preview;
+  final ValueChanged<Photo> onRemove;
+  final bool showRemove;
+  final bool isHero;
+  final ValueChanged<Photo>? onToggleHero;
+  final double width;
+  final double height;
+  final bool padRight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(right: padRight ? 12 : 0),
+      child: SizedBox(
+        key: const Key('photo-thumb'),
+        width: width,
+        height: height,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: albumSage.withValues(alpha: 0.35)),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: preview == null
+                      ? const ColoredBox(
+                          color: albumParchment,
+                          child: Icon(Icons.photo_outlined, color: albumSage),
+                        )
+                      : Image.memory(
+                          preview!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const ColoredBox(
+                              color: albumParchment,
+                              child: Icon(
+                                Icons.photo_outlined,
+                                color: albumSage,
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+            ),
+            if (onToggleHero != null)
+              Positioned(
+                top: 4,
+                left: 4,
+                child: IconButton(
+                  key: Key('photo-hero-${photo.id}'),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  iconSize: 18,
+                  style: IconButton.styleFrom(
+                    backgroundColor: albumParchment.withValues(alpha: 0.92),
+                    foregroundColor: isHero ? albumTerracotta : albumInk,
+                  ),
+                  onPressed: () => onToggleHero!(photo),
+                  icon: Icon(isHero ? Icons.star : Icons.star_border),
+                ),
+              ),
+            if (showRemove)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IconButton(
+                  key: const Key('photo-remove'),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  iconSize: 18,
+                  style: IconButton.styleFrom(
+                    backgroundColor: albumParchment.withValues(alpha: 0.92),
+                    foregroundColor: albumInk,
+                  ),
+                  onPressed: () => onRemove(photo),
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedCardPainter extends CustomPainter {
+  const _DashedCardPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)),
+      );
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final end = (distance + 7).clamp(0, metric.length).toDouble();
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance += 11;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedCardPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}

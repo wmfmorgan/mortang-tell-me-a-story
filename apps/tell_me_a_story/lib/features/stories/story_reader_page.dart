@@ -1,0 +1,1603 @@
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'package:tell_me_a_story/core/router/app_routes.dart';
+import 'package:tell_me_a_story/ui/album/album_modal_frame.dart';
+import 'package:tell_me_a_story/core/server/app_session.dart';
+import 'package:tell_me_a_story/ui/album/album_chrome.dart';
+import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/ui/avatar/profile_avatar.dart';
+import 'package:tell_me_a_story/data/app_exception.dart';
+import 'package:tell_me_a_story/data/comments_api.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/perspectives_api.dart'
+    hide displayNameOrMember;
+import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story/data/places_api.dart';
+import 'package:tell_me_a_story/data/profile_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/data/timeline_live.dart';
+import 'package:tell_me_a_story/features/comments/comment_composer.dart';
+import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
+import 'package:tell_me_a_story/ui/dialogs/family_blur_dialog.dart';
+import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
+import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';
+import 'package:tell_me_a_story/ui/story/photo_frame.dart';
+import 'package:tell_me_a_story/features/stories/photo_strip.dart';
+import 'package:tell_me_a_story/features/stories/reader_meta.dart';
+import 'package:tell_me_a_story/ui/story/story_date.dart';
+
+/// Large reader headline. Only a saved title is used.
+String readerHeadline({String? title}) {
+  final saved = title?.trim() ?? '';
+  if (saved.isNotEmpty) return saved;
+  return '';
+}
+
+/// Article under the headline. The full body stays, including its first line.
+String readerArticleBody({String? body}) {
+  return (body ?? '').trim();
+}
+
+class OriginMenuEntry {
+  const OriginMenuEntry({required this.familyId, required this.label});
+
+  final String familyId;
+  final String label;
+}
+
+/// Published stories only. The label is always `Set as origin for {Family}`.
+List<OriginMenuEntry> originMenuEntries({
+  required bool published,
+  required String storyFamilyId,
+  required List<TreeFamily> tree,
+  required Map<String, String> stewardRoles,
+}) {
+  if (!published) return const [];
+  final storyFamily = tree.cast<TreeFamily?>().firstWhere(
+    (row) => row?.id == storyFamilyId,
+    orElse: () => null,
+  );
+  final entries = <OriginMenuEntry>[];
+  if (storyFamily != null &&
+      storyFamily.parentFamilyId == null &&
+      originSteward(stewardRoles[storyFamilyId])) {
+    entries.add(
+      OriginMenuEntry(
+        familyId: storyFamilyId,
+        label: 'Set as origin for ${storyFamily.name}',
+      ),
+    );
+  }
+  final children = [
+    for (final row in tree)
+      if (row.parentFamilyId == storyFamilyId &&
+          originSteward(stewardRoles[row.id]))
+        row,
+  ]..sort((a, b) => a.name.compareTo(b.name));
+  for (final child in children) {
+    entries.add(
+      OriginMenuEntry(
+        familyId: child.id,
+        label: 'Set as origin for ${child.name}',
+      ),
+    );
+  }
+  return entries;
+}
+
+String originDeleteBody(List<String> names) {
+  if (names.length == 1) {
+    return 'This story starts the ${names.single} timeline. Delete anyway?';
+  }
+  if (names.length == 2) {
+    return 'This story starts the ${names[0]} and ${names[1]} timelines. Delete anyway?';
+  }
+  final head = names.sublist(0, names.length - 1).join(', ');
+  return 'This story starts the $head, and ${names.last} timelines. Delete anyway?';
+}
+
+/// Published-only reader at `/stories/:storyId`.
+class StoryReaderPage extends StatefulWidget {
+  const StoryReaderPage({
+    super.key,
+    required this.storyId,
+    this.storiesApi,
+    this.peopleApi,
+    this.placesApi,
+    this.photosApi,
+    this.commentsApi,
+    this.perspectivesApi,
+    this.profileApi,
+    this.familiesApi,
+    this.manageApi,
+    this.pickImageBytes,
+    this.currentUserId,
+    this.live,
+  });
+
+  final String storyId;
+  final StoriesGateway? storiesApi;
+  final PeopleGateway? peopleApi;
+  final PlacesGateway? placesApi;
+  final PhotosGateway? photosApi;
+  final CommentsGateway? commentsApi;
+  final PerspectivesGateway? perspectivesApi;
+  final ProfileGateway? profileApi;
+  final FamiliesGateway? familiesApi;
+  final ManageFamiliesGateway? manageApi;
+
+  /// Gallery picker override so widget tests never open the system picker.
+  final Future<Uint8List?> Function()? pickImageBytes;
+
+  /// Session uid for author-only comment delete. Tests inject this.
+  final String? currentUserId;
+
+  /// Family-scoped story feed. Tests omit this. Production subscribes.
+  final TimelineLive? live;
+
+  @override
+  State<StoryReaderPage> createState() => _StoryReaderPageState();
+}
+
+class _StoryReaderPageState extends State<StoryReaderPage> {
+  StoriesGateway? _storiesOverride;
+  PeopleGateway? _peopleOverride;
+  PlacesGateway? _placesOverride;
+  PhotosGateway? _photosOverride;
+  CommentsGateway? _commentsOverride;
+  PerspectivesGateway? _perspectivesOverride;
+  GoRouter? _router;
+  TimelineLive? _ownedLive;
+  String? _watchedStory;
+  List<TreeFamily> _tree = const [];
+  List<StewardFamily> _stewarded = const [];
+
+  var _loading = true;
+  var _notFound = false;
+  Story? _story;
+  Uint8List? _authorBytes;
+  List<Person> _peopleOnStory = const [];
+  Place? _place;
+  List<Photo> _photos = const [];
+  Map<String, Uint8List> _previews = const {};
+  List<Comment> _comments = const [];
+  List<Perspective> _perspectives = const [];
+  var _busy = false;
+  var _editOpen = false;
+  var _confirming = false;
+  var _photoError = false;
+  var _heroIndex = 0;
+  var _composingComment = false;
+  String? _editingCommentId;
+  var _canWrite = false;
+  var _memberOfStoryFamily = false;
+  Uint8List? _pendingPhotoBytes;
+  final _composerFocus = FocusNode();
+  final _editFocus = FocusNode();
+  final _composerKey = GlobalKey();
+
+  bool get _canEditStory {
+    final story = _story;
+    final uid = _currentUserId;
+    if (story == null || uid == null) return false;
+    if (uid == story.authorId) return true;
+    if (story.status != StoryStatus.published) return false;
+    for (final row in _stewarded) {
+      if (row.id == story.familyId &&
+          row.deletedAt == null &&
+          (row.role == 'owner' || row.role == 'co_owner')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String? get _currentUserId =>
+      widget.currentUserId ?? AppSession.instance.currentUserId;
+
+  StoriesGateway get _stories =>
+      widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
+
+  PeopleGateway get _people =>
+      widget.peopleApi ?? (_peopleOverride ??= PeopleApi());
+
+  PlacesGateway get _places =>
+      widget.placesApi ?? (_placesOverride ??= PlacesApi());
+
+  PhotosGateway get _photosApi =>
+      widget.photosApi ?? (_photosOverride ??= PhotosApi());
+
+  CommentsGateway get _commentsApi =>
+      widget.commentsApi ?? (_commentsOverride ??= CommentsApi());
+
+  PerspectivesGateway get _perspectivesApi =>
+      widget.perspectivesApi ?? (_perspectivesOverride ??= PerspectivesApi());
+
+  ProfileGateway get _profile => widget.profileApi ?? ProfileApi();
+
+  TimelineLive? get _live {
+    if (widget.live != null) return widget.live;
+    if (widget.storiesApi != null) return null;
+    return _ownedLive ??= ServerTimelineLive();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.maybeOf(context);
+    if (identical(router, _router)) return;
+    _router?.routerDelegate.removeListener(_onRouteChanged);
+    _router = router;
+    _router?.routerDelegate.addListener(_onRouteChanged);
+  }
+
+  @override
+  void dispose() {
+    _router?.routerDelegate.removeListener(_onRouteChanged);
+    _ownedLive?.dispose();
+    _composerFocus.dispose();
+    _editFocus.dispose();
+    super.dispose();
+  }
+
+  void _watchStory(String storyId) {
+    if (_watchedStory == storyId) return;
+    _watchedStory = storyId;
+    _live?.watchStory(
+      storyId: storyId,
+      onChange: () {
+        if (!mounted || _busy || _composingComment) return;
+        _load();
+      },
+    );
+  }
+
+  void _onRouteChanged() {
+    if (!mounted) return;
+    final path = _router?.routerDelegate.currentConfiguration.uri.path;
+    if (path != AppRoutes.storyPath(widget.storyId)) return;
+    _reloadPerspectives();
+  }
+
+  Future<void> _openEdit() async {
+    final id = _story?.id;
+    if (id == null || GoRouter.maybeOf(context) == null) return;
+    setState(() => _editOpen = true);
+    try {
+      final saved = await context.push<bool>(AppRoutes.storyEditPath(id));
+      if (!mounted || saved != true) return;
+      await _load();
+    } finally {
+      if (mounted) setState(() => _editOpen = false);
+    }
+  }
+
+  Future<void> _openPerspective() async {
+    final created = await AddPerspectivePage.show(
+      context,
+      storyId: widget.storyId,
+      familyId: _story?.familyId,
+      perspectivesApi: _perspectivesApi,
+      storiesApi: _stories,
+      storyAuthorId: _story?.authorId,
+      currentUserId: _currentUserId,
+    );
+    if (!mounted) return;
+    if (created != null && !_perspectives.any((p) => p.id == created.id)) {
+      setState(() => _perspectives = [..._perspectives, created]);
+    }
+    await _reloadPerspectives();
+  }
+
+  /// The caller wrote this note and can still contribute: they may edit it.
+  bool _ownsNote(String? authorId) {
+    return _canWrite && _currentUserId != null && authorId == _currentUserId;
+  }
+
+  bool _canManagePerspective(Perspective row) => _ownsNote(row.authorId);
+
+  Future<void> _openEditPerspective(Perspective row) async {
+    final updated = await AddPerspectivePage.show(
+      context,
+      storyId: widget.storyId,
+      familyId: _story?.familyId ?? row.familyId,
+      perspectivesApi: _perspectivesApi,
+      storiesApi: _stories,
+      storyAuthorId: _story?.authorId,
+      currentUserId: _currentUserId,
+      existing: row,
+    );
+    if (!mounted || updated == null) return;
+    setState(() {
+      _perspectives = [
+        for (final item in _perspectives)
+          if (item.id == updated.id) updated else item,
+      ];
+    });
+    await _reloadPerspectives();
+  }
+
+  Future<void> _confirmDeletePerspective(Perspective row) async {
+    if (_confirming) return;
+    _confirming = true;
+    try {
+      final confirmed = await showFamilyBlurDialog(
+        context,
+        dialogKey: const Key('delete-perspective-dialog'),
+        title: 'Delete this perspective?',
+        confirmLabel: 'Delete perspective',
+        confirmKey: const Key('delete-perspective-go'),
+        confirmColor: albumTerracotta,
+      );
+      if (!confirmed || !mounted) return;
+      await _perspectivesApi.delete(row.id);
+      if (!mounted) return;
+      setState(() {
+        _perspectives = [
+          for (final item in _perspectives)
+            if (item.id != row.id) item,
+        ];
+      });
+      await _reloadPerspectives();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+    } finally {
+      _confirming = false;
+    }
+  }
+
+  Future<void> _reloadPerspectives() async {
+    try {
+      final rows = await _perspectivesApi.listForStory(widget.storyId);
+      if (!mounted) return;
+      setState(() => _perspectives = rows);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+    }
+  }
+
+  Future<void> _load() async {
+    var loadError = false;
+    try {
+      final story = await _stories.getPublished(widget.storyId);
+      if (!mounted) return;
+      if (story == null || story.status != StoryStatus.published) {
+        setState(() {
+          _loading = false;
+          _notFound = true;
+          _story = null;
+        });
+        return;
+      }
+      _watchStory(story.id);
+
+      var memberOfStoryFamily = widget.familiesApi == null;
+      var canWrite = widget.familiesApi == null;
+      var tree = const <TreeFamily>[];
+      var stewarded = const <StewardFamily>[];
+      if (widget.familiesApi != null) {
+        try {
+          final mine = await widget.familiesApi!.listMine();
+          memberOfStoryFamily = mine.any(
+            (family) => family.id == story.familyId,
+          );
+          canWrite = memberOfStoryFamily;
+          try {
+            tree = await widget.familiesApi!.listFamilyTree(story.familyId);
+          } catch (_) {
+            tree = const [];
+          }
+          try {
+            stewarded = await widget.familiesApi!.listStewarded();
+          } catch (_) {
+            stewarded = const [];
+          }
+          if (!canWrite) {
+            final mineIds = mine.map((family) => family.id).toSet();
+            canWrite = tree.any(
+              (row) =>
+                  row.parentFamilyId == story.familyId &&
+                  row.originStoryId == story.id &&
+                  mineIds.contains(row.id),
+            );
+          }
+        } catch (_) {
+          canWrite = false;
+          memberOfStoryFamily = false;
+        }
+      }
+
+      List<Person> people = const [];
+      try {
+        final all = await _people.listTreePeople(story.familyId);
+        people = all.where((p) => story.personIds.contains(p.id)).toList();
+      } catch (_) {
+        loadError = true;
+      }
+
+      Place? place;
+      final placeId = story.placeId;
+      if (placeId != null && placeId.isNotEmpty) {
+        try {
+          place = await _places.getPlace(placeId);
+        } catch (_) {
+          loadError = true;
+        }
+      }
+
+      List<Photo> photos = const [];
+      final previews = <String, Uint8List>{};
+      try {
+        photos = await _photosApi.listPhotos(story.id);
+        for (final photo in photos) {
+          try {
+            previews[photo.id] = await _photosApi.downloadBytes(
+              photo.effectiveStoragePath,
+            );
+          } catch (_) {
+            // Missing bytes fall back to PhotoStrip placeholder icon.
+          }
+        }
+      } catch (_) {
+        loadError = true;
+      }
+
+      List<Comment> comments = const [];
+      try {
+        comments = await _commentsApi.listForStory(story.id);
+      } catch (_) {
+        loadError = true;
+      }
+
+      List<Perspective> perspectives = const [];
+      try {
+        perspectives = await _perspectivesApi.listForStory(story.id);
+      } catch (_) {
+        loadError = true;
+      }
+
+      Uint8List? authorBytes;
+      final avatarPath = story.authorAvatarPath;
+      if (avatarPath != null) {
+        try {
+          authorBytes = await _profile.downloadAvatar(avatarPath);
+        } catch (_) {
+          authorBytes = null;
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _story = story;
+        _authorBytes = authorBytes;
+        _peopleOnStory = people;
+        _place = place;
+        _photos = photos;
+        _heroIndex = 0;
+        _previews = previews;
+        _comments = comments;
+        _perspectives = perspectives;
+        _canWrite = canWrite;
+        _memberOfStoryFamily =
+            widget.familiesApi != null && memberOfStoryFamily;
+        _tree = tree;
+        _stewarded = stewarded;
+        _loading = false;
+        _notFound = false;
+      });
+      if (loadError) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Try again')));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _notFound = false;
+        _story = null;
+      });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+    }
+  }
+
+  List<OriginMenuEntry> get _originEntries {
+    final story = _story;
+    if (story == null) return const [];
+    return originMenuEntries(
+      published: story.status == StoryStatus.published,
+      storyFamilyId: story.familyId,
+      tree: _tree,
+      stewardRoles: {
+        for (final row in _stewarded)
+          if (row.deletedAt == null) row.id: row.role,
+      },
+    );
+  }
+
+  bool get _canDeleteStory {
+    final story = _story;
+    final uid = _currentUserId;
+    return story != null && uid != null && uid == story.authorId;
+  }
+
+  bool get _showStartTimeline {
+    final story = _story;
+    return story != null &&
+        story.status == StoryStatus.published &&
+        widget.familiesApi != null &&
+        _memberOfStoryFamily;
+  }
+
+  Widget _overflow() {
+    final entries = _originEntries;
+    if (entries.isEmpty && !_canDeleteStory && !_showStartTimeline) {
+      return const SizedBox.shrink();
+    }
+    return PopupMenuButton<String>(
+      key: const Key('reader-overflow'),
+      tooltip: 'Story actions',
+      onSelected: (value) {
+        final story = _story;
+        if (story == null) return;
+        if (value == 'start-timeline') {
+          _startNewTimeline(story);
+          return;
+        }
+        if (value == 'delete') {
+          _confirmDelete(story);
+          return;
+        }
+        for (final entry in entries) {
+          if (entry.familyId == value) {
+            _confirmOrigin(story, entry);
+            return;
+          }
+        }
+      },
+      itemBuilder: (context) => [
+        if (_showStartTimeline)
+          const PopupMenuItem<String>(
+            key: Key('reader-start-timeline'),
+            value: 'start-timeline',
+            child: Text('Add a family branch from this story'),
+          ),
+        for (final entry in entries)
+          PopupMenuItem<String>(
+            key: Key('set-origin-${entry.familyId}'),
+            value: entry.familyId,
+            child: Text(entry.label),
+          ),
+        if (_canDeleteStory)
+          const PopupMenuItem<String>(
+            key: Key('delete-story'),
+            value: 'delete',
+            child: Text('Delete story'),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _startNewTimeline(Story story) async {
+    final families = widget.familiesApi;
+    final userId = _currentUserId;
+    if (families == null || userId == null) return;
+    final parentName = await _parentName(story.familyId);
+    if (parentName == null || !mounted) return;
+    final created = await showStartTimelineDialog(
+      context,
+      parentId: story.familyId,
+      parentName: parentName,
+      stories: const [],
+      familiesApi: families,
+      peopleApi: widget.peopleApi ?? PeopleApi(),
+      manageApi: widget.manageApi ?? ManageFamiliesApi(),
+      currentUserId: userId,
+      origin: story,
+      allowChange: false,
+    );
+    if (created == null || !mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${created.name} timeline created')));
+  }
+
+  Future<String?> _parentName(String familyId) async {
+    final loaded = _namedFamily(familyId, _tree);
+    if (loaded != null) return loaded;
+    final families = widget.familiesApi;
+    if (families == null) return null;
+    try {
+      final mine = await families.listMine();
+      for (final row in mine) {
+        final name = row.name.trim();
+        if (row.id == familyId && name.isNotEmpty) return row.name;
+      }
+    } catch (_) {}
+    try {
+      final tree = await families.listFamilyTree(familyId);
+      return _namedFamily(familyId, tree);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _namedFamily(String familyId, List<TreeFamily> tree) {
+    for (final row in tree) {
+      final name = row.name.trim();
+      if (row.id == familyId && name.isNotEmpty) return row.name;
+    }
+    return null;
+  }
+
+  Future<void> _confirmOrigin(Story story, OriginMenuEntry entry) async {
+    final family = _tree.cast<TreeFamily?>().firstWhere(
+      (row) => row?.id == entry.familyId,
+      orElse: () => null,
+    );
+    final name = family?.name ?? 'Family';
+    final confirmed = await showFamilyBlurDialog(
+      context,
+      dialogKey: const Key('set-origin-confirm'),
+      title: 'Set as the origin of $name?',
+      body: 'This story will appear first on the $name timeline.',
+      confirmLabel: 'Set origin',
+      confirmKey: const Key('set-origin-go'),
+      confirmColor: albumTerracotta,
+    );
+    if (!confirmed || !mounted) return;
+    final families = widget.familiesApi;
+    if (families == null) return;
+    try {
+      await families.setFamilyOrigin(
+        familyId: entry.familyId,
+        storyId: story.id,
+      );
+      if (!mounted) return;
+      if (context.canPop()) {
+        context.pop(true);
+      } else {
+        context.go(AppRoutes.timeline);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is AppException ? error.message : 'Try again';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _confirmDelete(Story story) async {
+    if (_confirming) return;
+    _confirming = true;
+    try {
+      final families = widget.familiesApi;
+      final dependents = families == null
+          ? const <OriginDependent>[]
+          : await families.listOriginDependents(story.id);
+      if (!mounted) return;
+      final names = [for (final row in dependents) row.name];
+      final warning = names.isNotEmpty;
+      final confirmed = await showFamilyBlurDialog(
+        context,
+        dialogKey: Key(
+          warning ? 'delete-origin-warning' : 'delete-story-dialog',
+        ),
+        title: 'Delete this story?',
+        body: warning ? originDeleteBody(names) : null,
+        confirmLabel: 'Delete story',
+        confirmKey: const Key('delete-story-go'),
+        confirmColor: albumTerracotta,
+      );
+      if (!confirmed || !mounted) return;
+      await _stories.discard(story.id);
+      if (!mounted) return;
+      if (context.canPop()) {
+        context.pop(true);
+      } else {
+        context.go(AppRoutes.timeline);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+    } finally {
+      _confirming = false;
+    }
+  }
+
+  void _openComposer() {
+    setState(() {
+      _composingComment = true;
+      _editingCommentId = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _composerFocus.requestFocus();
+      final ctx = _composerKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 200),
+          alignment: 1,
+        );
+      }
+    });
+  }
+
+  Future<void> _postComment(String body) async {
+    final story = _story;
+    if (story == null) return;
+    try {
+      final created = await _commentsApi.create(
+        storyId: story.id,
+        familyId: story.familyId,
+        body: body,
+      );
+      if (!mounted) return;
+      setState(() {
+        _comments = [..._comments, created];
+        _composingComment = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+      rethrow;
+    }
+  }
+
+  Future<Uint8List?> _pickFromGallery() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (file == null) return null;
+    return file.readAsBytes();
+  }
+
+  Future<void> _onAddPhoto() async {
+    if (_busy) return;
+    if (_photos.length >= maxPhotosPerStory) return;
+    final story = _story;
+    if (story == null) return;
+    setState(() => _busy = true);
+    try {
+      final picker = widget.pickImageBytes ?? _pickFromGallery;
+      final bytes = await picker();
+      if (!mounted || bytes == null) return;
+      _pendingPhotoBytes = bytes;
+      await _uploadPending();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _onRetryPhoto() async {
+    if (_busy || _pendingPhotoBytes == null) return;
+    setState(() => _busy = true);
+    try {
+      await _uploadPending();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _uploadPending() async {
+    final bytes = _pendingPhotoBytes;
+    final story = _story;
+    if (bytes == null || story == null) return;
+    try {
+      final photo = await _photosApi.uploadPhoto(
+        familyId: story.familyId,
+        storyId: story.id,
+        bytes: bytes,
+        sortOrder: _photos.length,
+      );
+      if (!mounted) return;
+      setState(() {
+        _photos = [..._photos, photo];
+        _previews = {..._previews, photo.id: bytes};
+        _photoError = false;
+        _pendingPhotoBytes = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _photoError = true);
+    }
+  }
+
+  Future<void> _onRemovePhoto(Photo photo) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _photosApi.deletePhoto(photo);
+      if (!mounted) return;
+      setState(() {
+        _photos = _photos.where((p) => p.id != photo.id).toList();
+        _previews = Map.of(_previews)..remove(photo.id);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _startEditComment(Comment row) {
+    setState(() {
+      _editingCommentId = row.id;
+      _composingComment = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _editFocus.requestFocus();
+    });
+  }
+
+  Future<void> _saveComment(Comment row, String body) async {
+    try {
+      await _commentsApi.update(id: row.id, body: body);
+      if (!mounted) return;
+      setState(() {
+        _comments = [
+          for (final item in _comments)
+            if (item.id == row.id)
+              Comment(
+                id: item.id,
+                storyId: item.storyId,
+                familyId: item.familyId,
+                authorId: item.authorId,
+                body: body.trim(),
+                createdAt: item.createdAt,
+                authorDisplayName: item.authorDisplayName,
+                canDelete: item.canDelete,
+              )
+            else
+              item,
+        ];
+        _editingCommentId = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+      rethrow;
+    }
+  }
+
+  Future<void> _deleteComment(Comment row) async {
+    try {
+      await _commentsApi.delete(row.id);
+      if (!mounted) return;
+      setState(() {
+        _comments = _comments.where((c) => c.id != row.id).toList();
+        if (_editingCommentId == row.id) _editingCommentId = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // The edit page paints its own scrim. Menus stay on this one.
+    final covered = _editOpen;
+    return AlbumModalFrame(
+      frameKey: const Key('story-reader-modal'),
+      markKey: const Key('story-reader-mark'),
+      label: 'STORY',
+      showScrim: !covered,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_canEditStory)
+            OutlinedButton.icon(
+              key: const Key('story-edit'),
+              onPressed: _busy ? null : _openEdit,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+              ),
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Edit'),
+            ),
+          if (_canEditStory) const SizedBox(width: 12),
+          _overflow(),
+          IconButton(
+            key: const Key('story-reader-close'),
+            onPressed: () => popOrGoTimeline(context),
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+      child: _body(context),
+    );
+  }
+
+  Widget _body(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_notFound) {
+      return const Center(child: Text('Not found'));
+    }
+    if (_story == null) {
+      return const SizedBox.shrink();
+    }
+
+    final story = _story!;
+    final theme = Theme.of(context);
+    final place = _place;
+    final article = theme.textTheme.bodyLarge?.copyWith(
+      fontSize: 18,
+      height: 1.55,
+    );
+    final headline = theme.textTheme.headlineMedium?.copyWith(
+      fontSize: 36,
+      height: 1.15,
+      fontWeight: FontWeight.w700,
+    );
+    final rest = readerArticleBody(body: story.body);
+    final canAddPhoto = _canWrite && _photos.length < maxPhotosPerStory;
+    final headlineText = readerHeadline(title: story.title);
+    final hero = _heroPhoto();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (headlineText.isNotEmpty) Text(headlineText, style: headline),
+            const SizedBox(height: 8),
+            _metaLine(story),
+            const SizedBox(height: 16),
+            _chipRow(story, place),
+            if (hero != null) ...[const SizedBox(height: 20), hero],
+            if (rest.isNotEmpty) ...[
+              const SizedBox(height: 28),
+              Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: _dropCapText(rest, article),
+                ),
+              ),
+            ],
+            const SizedBox(height: 28),
+            const Divider(height: 1, color: Color(0xFFE7DECE)),
+            const SizedBox(height: 20),
+            _sectionHeader(
+              icon: Icons.photo_library_outlined,
+              iconColor: albumTerracotta,
+              title: 'Keepsake Photos',
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final columns = width >= 900 ? 4 : (width >= 560 ? 2 : 1);
+                return PhotoStrip(
+                  photos: _photos,
+                  previews: _previews,
+                  onAdd: _onAddPhoto,
+                  onRemove: _onRemovePhoto,
+                  canRemove: (photo) =>
+                      _currentUserId != null &&
+                      (_canEditStory ||
+                          (_canWrite && photo.uploaderId == _currentUserId)),
+                  onRetry: _onRetryPhoto,
+                  uploadFailed: _photoError,
+                  canAdd: canAddPhoto,
+                  columns: columns,
+                  addLabel: 'Add photo',
+                  addHint: 'Up to $maxPhotosPerStory photos',
+                );
+              },
+            ),
+            const SizedBox(height: 28),
+            const Divider(height: 1, color: Color(0xFFE7DECE)),
+            const SizedBox(height: 20),
+            _sectionHeader(
+              icon: Icons.diversity_3_outlined,
+              iconColor: albumSage,
+              title: 'Perspectives',
+              subtitle:
+                  'Contribute an alternate or additional telling of this story',
+              trailing: _canWrite
+                  ? FilledButton(
+                      onPressed: _openPerspective,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: albumTerracotta,
+                        foregroundColor: albumParchment,
+                        elevation: 1,
+                        shape: const StadiumBorder(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                      ),
+                      child: PlusLabel(
+                        label: 'Add perspective',
+                        onTerracotta: true,
+                        style: GoogleFonts.sourceSans3(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: albumParchment,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            if (_perspectives.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              for (final row in _perspectives) ...[
+                _perspectiveCard(row),
+                const SizedBox(height: 12),
+              ],
+            ],
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: Color(0xFFE7DECE)),
+            const SizedBox(height: 20),
+            _sectionHeader(
+              icon: Icons.forum_outlined,
+              iconColor: albumTerracotta,
+              title: 'Comments',
+              countLabel: _comments.length == 1
+                  ? '1 note'
+                  : '${_comments.length} notes',
+              trailing: _canWrite
+                  ? FilledButton(
+                      onPressed: _openComposer,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: albumTerracotta,
+                        foregroundColor: albumParchment,
+                        elevation: 1,
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        shape: const StadiumBorder(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                      ),
+                      child: PlusLabel(
+                        label: 'Add comment',
+                        onTerracotta: true,
+                        size: 16,
+                        style: GoogleFonts.sourceSans3(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: albumParchment,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            for (final row in _comments)
+              CommentTile(
+                comment: row,
+                canDelete: row.canDelete,
+                editing: _editingCommentId == row.id,
+                onEdit: _ownsNote(row.authorId)
+                    ? () => _startEditComment(row)
+                    : null,
+                onDelete: () => _deleteComment(row),
+                onSave: (body) => _saveComment(row, body),
+                onCancelEdit: () => setState(() => _editingCommentId = null),
+                editFocus: _editFocus,
+              ),
+            if (_composingComment)
+              KeyedSubtree(
+                key: _composerKey,
+                child: CommentComposer(
+                  onPost: _postComment,
+                  focusNode: _composerFocus,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _metaLine(Story story) {
+    final documented = story.publishedAt == null
+        ? ''
+        : ' · Documented ${albumMonthYear(story.publishedAt!)} by ${displayNameOrMember(story.authorDisplayName)}';
+    final style = Theme.of(context).textTheme.labelMedium
+        ?.copyWith(color: const Color(0xFF6B5E55));
+    return Text.rich(
+      TextSpan(
+        style: style,
+        children: [
+          TextSpan(
+            text: 'Recorded event: ${storyDateLabelFor(story)}$documented ',
+          ),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: ProfileAvatar(
+              size: 20,
+              displayName: story.authorDisplayName,
+              bytes: _authorBytes,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _storyIsOrigin(Story story) {
+    return _tree.any((row) => row.originStoryId == story.id);
+  }
+
+  /// The story's own family, then each branch that starts at this story.
+  List<TreeFamily> _branchesFor(Story story) {
+    final rows = [
+      for (final row in _tree)
+        if (row.id == story.familyId || row.originStoryId == story.id) row,
+    ];
+    rows.sort((a, b) {
+      if (a.id == story.familyId) return -1;
+      if (b.id == story.familyId) return 1;
+      final name = a.name.compareTo(b.name);
+      if (name != 0) return name;
+      return a.id.compareTo(b.id);
+    });
+    return rows;
+  }
+
+  Widget _chipRow(Story story, Place? place) {
+    final placeText = place == null
+        ? null
+        : placeChipText(label: place.label, address: place.address);
+    final branches = _branchesFor(story);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (_storyIsOrigin(story))
+          _labelPill(
+            'Origin',
+            key: const Key('story-origin-pill'),
+            icon: Icons.account_tree_outlined,
+            color: albumSage,
+          ),
+        for (final branch in branches)
+          _labelPill(
+            branch.name,
+            key: Key('story-branch-${branch.id}'),
+            icon: Icons.account_tree_outlined,
+          ),
+        for (final person in _peopleOnStory) _personChip(person),
+        if (placeText != null) _timeframePill(placeText),
+      ],
+    );
+  }
+
+  static const _heroSwipeVelocity = 200.0;
+
+  List<Photo> _sortedPhotos() {
+    final sorted = [..._photos]..sort(comparePhotoOrder);
+    return sorted;
+  }
+
+  void _stepHero(int delta, int count) {
+    if (count < 2) return;
+    setState(() {
+      _heroIndex = (_heroIndex + delta) % count;
+      if (_heroIndex < 0) _heroIndex += count;
+    });
+  }
+
+  Widget? _heroPhoto() {
+    final sorted = _sortedPhotos();
+    if (sorted.isEmpty) return null;
+    final index = _heroIndex.clamp(0, sorted.length - 1);
+    final photo = sorted[index];
+    final bytes = _previews[photo.id];
+    final hasImage = bytes != null && bytes.isNotEmpty;
+    final frame = FramedPhoto(
+      key: Key('story-hero-${photo.id}'),
+      bytes: hasImage ? bytes : null,
+    );
+    if (sorted.length < 2) return frame;
+    return GestureDetector(
+      key: const Key('story-hero-carousel'),
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity <= -_heroSwipeVelocity) _stepHero(1, sorted.length);
+        if (velocity >= _heroSwipeVelocity) _stepHero(-1, sorted.length);
+      },
+      child: Stack(
+        children: [
+          frame,
+          Positioned(
+            left: 8,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _heroStepButton(
+                key: const Key('story-hero-prev'),
+                icon: Icons.chevron_left,
+                onPressed: () => _stepHero(-1, sorted.length),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 8,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _heroStepButton(
+                key: const Key('story-hero-next'),
+                icon: Icons.chevron_right,
+                onPressed: () => _stepHero(1, sorted.length),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroStepButton({
+    required Key key,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Material(
+      color: albumParchment,
+      shape: const CircleBorder(),
+      child: IconButton(
+        key: key,
+        onPressed: onPressed,
+        icon: Icon(icon, color: albumInk),
+      ),
+    );
+  }
+
+  Widget _labelPill(
+    String label, {
+    required Key key,
+    required IconData icon,
+    Color color = albumInk,
+  }) {
+    return DecoratedBox(
+      key: key,
+      decoration: BoxDecoration(
+        color: albumPillFill,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: albumPillBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 4, 10, 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(fontWeight: FontWeight.w600, color: color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _timeframePill(String label) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3EDE6),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_today, size: 14, color: albumTerracotta),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _personChip(Person person) {
+    return PersonNamePill(
+      personId: person.id,
+      name: person.name,
+      people: _people,
+      signedInUserId: _currentUserId,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6F1EB),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE7DECE)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _initialsAvatar(person.name, size: 22),
+              const SizedBox(width: 6),
+              Text(person.name, style: Theme.of(context).textTheme.labelMedium),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _perspectiveCard(Perspective row) {
+    final theme = Theme.of(context);
+    final canEdit = _canManagePerspective(row);
+    final canDelete = row.canDelete;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F1EB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE7DECE)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _initialsAvatar(row.authorLabel, size: 36),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        row.authorLabel,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontSize: 18,
+                        ),
+                      ),
+                      Text(
+                        'Recorded ${albumDate(row.createdAt)}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: const Color(0xFF6B5E55),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (canEdit || canDelete)
+                  PopupMenuButton<String>(
+                    key: Key('perspective-menu-${row.id}'),
+                    tooltip: 'Perspective actions',
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _openEditPerspective(row);
+                        return;
+                      }
+                      if (value == 'delete') {
+                        _confirmDeletePerspective(row);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      if (canEdit)
+                        PopupMenuItem<String>(
+                          key: Key('perspective-edit-${row.id}'),
+                          value: 'edit',
+                          child: const Text('Edit'),
+                        ),
+                      if (canDelete)
+                        PopupMenuItem<String>(
+                          key: Key('perspective-delete-${row.id}'),
+                          value: 'delete',
+                          child: const Text('Delete'),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            DecoratedBox(
+              decoration: const BoxDecoration(
+                border: Border(
+                  left: BorderSide(color: albumTerracotta, width: 2),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Text(
+                  row.body,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontSize: 16,
+                    height: 1.5,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    String? subtitle,
+    String? countLabel,
+    Widget? trailing,
+  }) {
+    final theme = Theme.of(context);
+    final titleBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                title,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            if (countLabel != null) ...[
+              const SizedBox(width: 8),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3EDE6),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  child: Text(
+                    countLabel,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: const Color(0xFF6B5E55),
+            ),
+          ),
+        ],
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 640) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              titleBlock,
+              if (trailing != null) ...[const SizedBox(height: 8), trailing],
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: titleBlock),
+            ?trailing,
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _initialsAvatar(String name, {required double size}) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Color(0xFFE7D5CC),
+        shape: BoxShape.circle,
+      ),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Center(
+          child: Text(
+            _initials(name),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontSize: size < 28 ? 9 : 12,
+              fontWeight: FontWeight.w700,
+              color: albumTerracotta,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dropCapText(String text, TextStyle? article) {
+    final style = article ?? const TextStyle(fontSize: 18, height: 1.5);
+    final chars = text.characters;
+    final first = chars.first;
+    final rest = chars.skip(1).string;
+    return Text.rich(
+      TextSpan(
+        style: style,
+        children: [
+          TextSpan(
+            text: first,
+            style: style.copyWith(fontSize: 52, height: 0.8),
+          ),
+          TextSpan(text: rest),
+        ],
+      ),
+    );
+  }
+}
+
+String _initials(String name) {
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) {
+    final word = parts.first;
+    return (word.length == 1 ? word : word.substring(0, 2)).toUpperCase();
+  }
+  return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+}
