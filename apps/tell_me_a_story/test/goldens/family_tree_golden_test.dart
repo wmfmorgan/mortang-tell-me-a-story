@@ -2,20 +2,15 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/core/domain/families_repository.dart';
-import 'package:tell_me_a_story/core/domain/member_family.dart';
-import 'package:tell_me_a_story/core/domain/steward_family.dart';
-import 'package:tell_me_a_story/core/domain/stories_repository.dart';
-import 'package:tell_me_a_story/core/domain/story.dart';
-import 'package:tell_me_a_story/core/domain/tree_family.dart';
-import 'package:tell_me_a_story/core/theme/album_forui_theme.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/features/timeline/presentation/tree/family_tree_page.dart';
+import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/data/timeline_live.dart';
+import 'package:tell_me_a_story/features/timeline/tree/family_tree_page.dart';
 
-import '../support/fakes/fake_stories_repository.dart';
-import '../support/pump_app.dart';
+import '../support/fakes/fake_stories_gateway.dart';
 import '../support/tree_fixture.dart';
 
 // The whole-tree page: the family tree graph (7.8, with a `+3` on Jenkins'
@@ -27,7 +22,7 @@ const _sizes = <String, Size>{
   'ipad_mini_portrait': Size(744, 1133),
 };
 
-class _Families extends FamiliesRepository {
+class _Families extends FamiliesGateway {
   @override
   Future<List<MemberFamily>> listMine() async => [
     MemberFamily(
@@ -45,28 +40,44 @@ class _Families extends FamiliesRepository {
       TreeFixture.tree;
 }
 
+class _Live implements TimelineLive {
+  @override
+  void watch({required String familyId, required void Function() onChange}) {}
+
+  @override
+  void watchStory({
+    required String storyId,
+    required void Function() onChange,
+  }) {}
+
+  @override
+  void watchTree({
+    required String familyId,
+    required void Function() onChange,
+  }) {}
+
+  @override
+  void dispose() {}
+}
+
 void main() {
+  tearDown(FamilySelection.clear);
+
   for (final MapEntry(key: sizeName, value: size) in _sizes.entries) {
     Future<void> pumpPage(WidgetTester tester, List<Story> stories) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
 
-      // Not pumpApp: the golden keeps the debug banner off.
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            ...defaultTestOverrides,
-            storiesRepositoryProvider.overrideWithValue(
-              FakeStoriesRepository(stories: stories),
-            ),
-            familiesRepositoryProvider.overrideWithValue(_Families()),
-          ],
-          child: MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: albumTheme(),
-            builder: albumAppBuilder,
-            home: const FamilyTreePage(familyId: TreeFixture.jenkins),
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: albumTheme(),
+          home: FamilyTreePage(
+            familyId: TreeFixture.jenkins,
+            storiesApi: FakeStoriesGateway(stories: stories),
+            familiesApi: _Families(),
+            live: _Live(),
           ),
         ),
       );

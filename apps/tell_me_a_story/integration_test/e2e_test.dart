@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart' show TextField, FilledButton;
 import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:go_router/go_router.dart';
-import 'package:tell_me_a_story/app.dart';
-import 'package:tell_me_a_story/core/data/server_stories_repository.dart';
-import 'package:tell_me_a_story/core/domain/story.dart';
-import 'package:tell_me_a_story/core/router/app_router.dart';
+import 'package:tell_me_a_story/app/app.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/main.dart' as app;
 
 import 'support/preconditions.dart';
@@ -66,11 +62,11 @@ void main() {
       );
     });
 
-    await _c1Step('header-nav-stories', () async {
-      await tester.tap(find.byKey(const Key('header-nav-stories')));
+    await _c1Step('timeline-nav', () async {
+      await tester.tap(find.byKey(const Key('timeline-nav')));
       await pumpUntilFound(
         tester,
-        find.byKey(const Key('header-underline-timeline')),
+        find.byKey(const Key('header-underline-decades')),
       );
     });
     await _c1Step('empty-state', () async {
@@ -100,11 +96,7 @@ void main() {
     await _signIn(tester, 'C3', email);
     await _startFamily(tester, 'C3', family);
     final place = await _step('C3', 'favorite', () {
-      return createFavoritePlace(
-        _container(tester),
-        label: placeLabel,
-        address: '1 Archive Lane',
-      );
+      return createFavoritePlace(label: placeLabel, address: '1 Archive Lane');
     });
     await _openCapture(tester, 'C3', family);
     await _enterYear(tester, 'C3');
@@ -133,11 +125,7 @@ void main() {
     await _signIn(tester, 'C4', email);
     await _startFamily(tester, 'C4', family);
     final place = await _step('C4', 'favorite', () {
-      return createFavoritePlace(
-        _container(tester),
-        label: placeLabel,
-        address: '2 Archive Lane',
-      );
+      return createFavoritePlace(label: placeLabel, address: '2 Archive Lane');
     });
     await _openCapture(tester, 'C4', family);
     await _enterYear(tester, 'C4');
@@ -173,7 +161,7 @@ void main() {
       final empty = find.text('No stories yet.');
       // Closing capture returns to family landing. Stories opens All Stories.
       if (empty.evaluate().isEmpty) {
-        final nav = find.byKey(const Key('header-nav-stories'));
+        final nav = find.byKey(const Key('timeline-nav'));
         await tester.ensureVisible(nav);
         await tester.tap(nav);
       }
@@ -247,7 +235,7 @@ void main() {
       await pumpUntilGone(tester, find.byKey(const Key('invite-link')));
     });
     await _step('C6', 'guest-signed-out', () async {
-      await resetAppState(_container(tester));
+      await resetAppState();
       await pumpUntilFound(tester, find.byKey(const Key('magic-link-email')));
     });
     await _step('C6', 'open-invite', () async {
@@ -266,7 +254,7 @@ void main() {
       await tester.tap(find.byKey(const Key('header-nav-timeline')));
       await pumpUntilFound(
         tester,
-        find.byKey(const Key('header-underline-timeline')),
+        find.byKey(const Key('header-underline-decades')),
       );
       expect(find.byKey(const Key('invite-email')), findsNothing);
     });
@@ -366,7 +354,7 @@ Future<T> _step<T>(String flow, String label, Future<T> Function() body) async {
   }
 }
 
-ProviderScope? _mounted;
+TellMeAStoryApp? _mounted;
 
 // app.main() sets the URL strategy and starts the server client, so it runs
 // once. The test binding replaces the tree between flows; later flows sign
@@ -375,16 +363,12 @@ Future<void> _mountApp(WidgetTester tester) async {
   final mounted = _mounted;
   if (mounted == null) {
     await app.main();
-    await pumpUntilFound(tester, find.byType(App));
-    _mounted = tester.widget<ProviderScope>(find.byType(ProviderScope));
+    await pumpUntilFound(tester, find.byType(TellMeAStoryApp));
+    _mounted = _app(tester);
     return;
   }
-  // The previous flow's tree (and its container) is gone: remount main()'s
-  // ProviderScope, which starts a fresh container, then sign out on it.
+  await resetAppState();
   await tester.pumpWidget(mounted);
-  await tester.pump();
-  await resetAppState(_container(tester));
-  await tester.pump();
 }
 
 /// The fixed code a local `just server` accepts (apps/server auth_config.dart).
@@ -750,12 +734,12 @@ Future<void> _publish(
     await tester.ensureVisible(close);
     await tester.tap(close);
     await pumpUntilGone(tester, reader);
-    final finder = find.byKey(const Key('header-underline-stories'));
+    final finder = find.byKey(const Key('header-underline-timeline'));
     // Publish replaces the capture route, which was pushed over family
     // landing. Stories opens All Stories; the timeline button opens the
     // timeline.
     if (finder.evaluate().isEmpty) {
-      final nav = find.byKey(const Key('header-nav-stories'));
+      final nav = find.byKey(const Key('timeline-nav'));
       await tester.ensureVisible(nav);
       await tester.tap(nav);
     }
@@ -786,7 +770,7 @@ Future<void> _untilDraftReady(
   required String familyId,
   required String title,
 }) async {
-  final stories = ServerStoriesRepository();
+  final stories = StoriesApi();
   final deadline = DateTime.now().add(const Duration(seconds: 30));
   while (DateTime.now().isBefore(deadline)) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -805,26 +789,23 @@ Future<void> _untilDraftReady(
   throw TestFailure('draft $title was not autosaved before the deadline');
 }
 
-ProviderContainer _container(WidgetTester tester) =>
-    ProviderScope.containerOf(tester.element(find.byType(App)));
-
-GoRouter _router(WidgetTester tester) {
-  return _container(tester).read(appRouterProvider);
+TellMeAStoryApp _app(WidgetTester tester) {
+  return tester.widget<TellMeAStoryApp>(find.byType(TellMeAStoryApp));
 }
 
 void _go(WidgetTester tester, String location) {
-  _router(tester).go(location);
+  _app(tester).router.go(location);
 }
 
 String _path(WidgetTester tester) {
-  return _router(tester).routerDelegate.currentConfiguration.uri.path;
+  return _app(tester).router.routerDelegate.currentConfiguration.uri.path;
 }
 
 Future<Story> _publishedStory({
   required String familyId,
   required String title,
 }) async {
-  final rows = await ServerStoriesRepository().listPublished(familyId);
+  final rows = await StoriesApi().listPublished(familyId);
   for (final story in rows) {
     if (story.title == title) return story;
   }
@@ -845,11 +826,7 @@ Future<Story> _publishAlbumStory(
   await _signIn(tester, flow, email);
   await _startFamily(tester, flow, family);
   final place = await _step(flow, 'favorite', () {
-    return createFavoritePlace(
-      _container(tester),
-      label: placeLabel,
-      address: address,
-    );
+    return createFavoritePlace(label: placeLabel, address: address);
   });
   await _openCapture(tester, flow, family);
   await _enterYear(tester, flow);
@@ -950,11 +927,9 @@ Future<String> _linkTabInvite(WidgetTester tester, String flow) async {
     await tester.ensureVisible(someoneNew);
     await tester.tap(someoneNew);
     final link = find.byWidgetPredicate((widget) {
-      if (widget is! TextField || widget.key != const Key('invite-link')) {
-        return false;
-      }
-      final text = widget.controller?.text;
-      return text != null &&
+      if (widget.key != const Key('invite-link')) return false;
+      final text = (widget as dynamic).controller?.text;
+      return text is String &&
           (text.contains('invite=') || text.contains('/invite/'));
     });
     await pumpUntilFound(tester, link);
@@ -963,8 +938,9 @@ Future<String> _linkTabInvite(WidgetTester tester, String flow) async {
 }
 
 String _controllerText(WidgetTester tester, Finder field) {
-  final text = tester.widget<TextField>(field).controller?.text;
-  if (text == null) {
+  final controller = (tester.widget(field) as dynamic).controller;
+  final text = controller?.text;
+  if (text is! String) {
     throw TestFailure('invite link field has no text');
   }
   return text.trim();
@@ -1039,7 +1015,7 @@ Future<void> _untilOtherFamilySeesNoStory(
   expect(find.text('Try again'), findsNothing);
   expect(find.text(title), findsNothing);
   expect(find.text(body), findsNothing);
-  expect(await ServerStoriesRepository().getPublished(storyId), isNull);
+  expect(await StoriesApi().getPublished(storyId), isNull);
 }
 
 Future<void> _signOut(WidgetTester tester) async {
@@ -1061,7 +1037,7 @@ Future<void> _signOut(WidgetTester tester) async {
 Future<void> _expectGuardedRedirect(WidgetTester tester, String route) async {
   _go(tester, route);
   final home = find.byWidgetPredicate((widget) {
-    if (widget is! App) return false;
+    if (widget is! TellMeAStoryApp) return false;
     if (_path(tester) != '/') return false;
     if (find.byKey(const Key('family-menu')).evaluate().isNotEmpty) {
       return false;

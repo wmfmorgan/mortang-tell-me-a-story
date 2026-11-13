@@ -1,18 +1,18 @@
 # Phase 1: Server Foundation Implementation Plan
 
-> Executed (Tasks 1-5 landed on feat/serverpod-migration). Schema changed since: models + constraintsSql specified by docs/migration/schema-design.md §1 and §3.3; see docs/migration/data-model-review.md.
+> Executed (Tasks 1-5 landed on feat/serverpod-migration). The schema has since changed: models and constraintsSql are specified by docs/migration/schema-design.md §1 and §3.3; see docs/migration/data-model-review.md.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add Serverpod 4.1.1 backend at `apps/server` + generated client at `packages/tell_me_a_story_client`. Covers full new schema, passwordless email-code login, `AppException` error envelope, family-level authz. Runs + tests locally, no Docker, no Supabase.
+**Goal:** Add a Serverpod 4.1.1 backend at `apps/server`, plus its generated client at `packages/tell_me_a_story_client`. It covers the full new schema, passwordless email-code login, an `AppException` error envelope and family-level authorization, and it runs and tests locally with no Docker and no Supabase.
 
-**Architecture:** Scaffold copied from `serverpod create` into standalone packages (no pub workspace); Flutter app untouched. Dev/test use Serverpod embedded Postgres (`dataPath` in `config/*.yaml`). Raw SQL constraints models can't express live in `lib/src/db/constraints.dart`. Run after every boot + in test setup, since Serverpod builds fresh DBs from `definition.sql` only. Login = `EmailOtpIdpBaseEndpoint`; fixed code `111111` in dev/test, Resend in staging/prod.
+**Architecture:** The scaffold is copied from `serverpod create` into standalone packages (no pub workspace), so the Flutter app is untouched. Dev and test use Serverpod's embedded Postgres (`dataPath` in `config/*.yaml`). Raw SQL constraints that models can't express live in `lib/src/db/constraints.dart`. They run after every boot and in test setup, because Serverpod builds fresh databases from `definition.sql` only. Login is `EmailOtpIdpBaseEndpoint`, with a fixed code `111111` in development and test, and Resend in staging and production.
 
 **Tech Stack:** Dart 3.13.5 (from mise Flutter 3.47.7), Serverpod 4.1.1 (`serverpod`, `serverpod_auth_idp_server`, `serverpod_test`), embedded PostgreSQL 16, `package:http`, just.
 
-**Verified:** every file + command below run in scratch copy 2026-11-06. `dart analyze` clean, `dart test` 9/9 pass, dev boot on :8080 applied init migration + answered `startOtpLogin`. Task 2 just recipes run in same scratch copy.
+**Verified:** every file and command below was run in a scratch copy on 2026-11-06. `dart analyze` was clean and `dart test` gave 9/9 passing, with a dev boot on :8080 that applied the init migration and answered `startOtpLogin`. The Task 2 just recipes were run in the same scratch copy.
 
-**References:** `docs/migration/schema-design.md` (model rationale, old→new column map), `docs/migration/business-rules.md` §1 (predicates), `docs/migration/serverpod-notes.md`.
+**References:** `docs/migration/schema-design.md` (model rationale and the old→new column map), `docs/migration/business-rules.md` §1 (predicates), `docs/migration/serverpod-notes.md`.
 
 ---
 
@@ -23,13 +23,13 @@
 | `apps/server/pubspec.yaml`, `config/*.yaml`, `bin/main.dart` | Serverpod package, run-mode config, entrypoint |
 | `apps/server/lib/server.dart` | Boot: auth, storage, start, constraints |
 | `apps/server/lib/src/auth/auth_config.dart` | `configureAuth()`: JWT, email OTP, dev code, `AppUser` creation hook |
-| `apps/server/lib/src/auth/login_code_sender.dart` | Log code in dev/test, send via Resend in staging/prod |
+| `apps/server/lib/src/auth/login_code_sender.dart` | Logs the code in dev/test, sends it via Resend in staging/prod |
 | `apps/server/lib/src/auth/email_idp_endpoint.dart`, `jwt_refresh_endpoint.dart` | Scaffold auth endpoints (kept as generated) |
 | `apps/server/lib/src/models/*.spy.yaml` | 17 schema models + `AppException` |
 | `apps/server/lib/src/db/constraints.dart` | `constraintsSql` + `applyConstraints()` |
 | `apps/server/lib/src/authz/authz.dart` | `Authz` family-level predicates |
 | `apps/server/test/integration/*_test.dart` | login, constraints, authz tests |
-| `packages/tell_me_a_story_client/` | Generated client (never hand-edit) |
+| `packages/tell_me_a_story_client/` | Generated client (never hand-edited) |
 | `justfile` | `server-*` recipes |
 
 ---
@@ -37,12 +37,12 @@
 ### Task 1: Scaffold the server and client packages
 
 **Files:**
-- Create: `apps/server/**` and `packages/tell_me_a_story_client/**`, copied from scratch scaffold
+- Create: `apps/server/**` and `packages/tell_me_a_story_client/**`, copied from a scratch scaffold
 - Modify: `apps/server/pubspec.yaml`, `apps/server/config/generator.yaml`, `apps/server/config/development.yaml`, `apps/server/lib/server.dart`, `packages/tell_me_a_story_client/pubspec.yaml`
 
 - [ ] **Step 1: Install the CLI and scaffold in a scratch dir**
 
-Never run `serverpod create` inside repo: overwrites config + passwords.
+Never run `serverpod create` inside the repo, because it overwrites config and passwords.
 
 ```bash
 mise exec -- dart pub global activate serverpod_cli 4.1.1
@@ -67,7 +67,7 @@ rm -rf apps/server/docker-compose.yaml apps/server/Dockerfile apps/server/web \
 
 - [ ] **Step 3: Make both packages standalone**
 
-In `apps/server/pubspec.yaml` + `packages/tell_me_a_story_client/pubspec.yaml`, delete line `resolution: workspace`. In `apps/server/pubspec.yaml`, delete top-level `serverpod:` key through EOF (`scripts` + `flutter_apps` blocks point at scaffold Flutter app). Then add `http`:
+In both `apps/server/pubspec.yaml` and `packages/tell_me_a_story_client/pubspec.yaml`, delete the line `resolution: workspace`. In `apps/server/pubspec.yaml`, delete everything from the top-level `serverpod:` key to the end of the file (the `scripts` and `flutter_apps` blocks point at the scaffold's Flutter app). Then add `http`:
 
 ```bash
 cd apps/server && mise exec -- dart pub add http
@@ -108,13 +108,13 @@ server_test_tools_path: test/integration/test_tools
 
 - [ ] **Step 5: Raise the request size for dev uploads**
 
-In `apps/server/config/development.yaml`, replace `maxRequestSize: 524288 ...` line with:
+In `apps/server/config/development.yaml`, replace the `maxRequestSize: 524288 ...` line with:
 
 ```yaml
 maxRequestSize: 52428800 # 50 MiB: dev DatabaseCloudStorage uploads go through the API server
 ```
 
-Keep `database.dataPath: .serverpod/development/pgdata` (embedded Postgres). `config/test.yaml` stays as scaffolded (embedded, `dataPath: .serverpod/test/pgdata`).
+Keep `database.dataPath: .serverpod/development/pgdata`, which is the embedded Postgres. `config/test.yaml` stays as scaffolded (embedded, `dataPath: .serverpod/test/pgdata`).
 
 - [ ] **Step 6: Replace `apps/server/lib/server.dart` with a minimal boot so the package compiles**
 
@@ -136,7 +136,7 @@ mise exec -- dart pub global run serverpod_cli generate     # Expected: ✅ Done
 mise exec -- dart analyze                                   # Expected: No issues found!
 ```
 
-`apps/server/.gitignore` (scaffolded) already ignores `config/passwords.yaml` + `.serverpod/`. Scaffold `config/passwords.yaml` deleted in Step 8; Task 2 regenerates.
+`apps/server/.gitignore` (scaffolded) already ignores `config/passwords.yaml` and `.serverpod/`. The scaffold's `config/passwords.yaml` is deleted in Step 8; Task 2 regenerates it.
 
 - [ ] **Step 8: Commit**
 
@@ -149,8 +149,8 @@ git commit -m "feat(server): scaffold Serverpod 4.1.1 server and client packages
 ### Task 2: just recipes for the server
 
 **Files:**
-- Modify: `justfile` (append after `run` recipe)
-- Modify: `README.md` (one line after `just setup` sentence)
+- Modify: `justfile` (append after the `run` recipe)
+- Modify: `README.md` (one line after the `just setup` sentence)
 
 - [ ] **Step 1: Append the recipes**
 
@@ -200,7 +200,7 @@ server-test:
 
 - [ ] **Step 2: Add a README pointer**
 
-After line starting ``From the repo root, `just setup` installs``, add:
+After the line starting ``From the repo root, `just setup` installs``, add:
 
 ```markdown
 `just server-setup` prepares the Serverpod backend in `apps/server` (CLI, packages, local secrets). `just server` runs it on :8080 with an embedded Postgres; the dev login code is `111111`. `just server-test` runs its tests.
@@ -223,10 +223,10 @@ git add justfile README.md && git commit -m "chore: add just recipes for the Ser
 ### Task 3: Schema models and the init migration
 
 **Files:**
-- Create: 17 files under `apps/server/lib/src/models/` listed below
+- Create: the 17 files under `apps/server/lib/src/models/` listed below
 - Create: `apps/server/migrations/<timestamp>-init/*` (generated)
 
-Design rationale in `docs/migration/schema-design.md` §0–§2. Ids UUID v7. User FKs point at `serverpod_auth_core_user`. `DatePrecision` is `byIndex`, append-only.
+The design rationale is in `docs/migration/schema-design.md` §0–§2. Ids are UUID v7. User foreign keys point at `serverpod_auth_core_user`. `DatePrecision` is `byIndex` and append-only.
 
 - [ ] **Step 1: Write the model files exactly as follows**
 
@@ -625,7 +625,7 @@ git add apps/server packages/tell_me_a_story_client && git commit -m "feat(serve
 
 - [ ] **Step 1: Write the failing test**
 
-`withServerpod` doesn't execute `run()`, so tests call `configureAuth` themselves. Auth module opens own transactions → group needs `RollbackDatabase.disabled`. Hence each test uses unique email.
+`withServerpod` does not execute `run()`, so tests call `configureAuth` themselves. The auth module opens its own transactions, so this group needs `RollbackDatabase.disabled`. Each test uses a unique email for that reason.
 
 ```dart
 import 'package:tell_me_a_story_server/src/auth/auth_config.dart';
@@ -792,7 +792,7 @@ Future<void> _createAppUser(
 }
 ```
 
-`apps/server/lib/server.dart` (constraints wired in Task 5):
+`apps/server/lib/server.dart` (constraints are wired in Task 5):
 
 ```dart
 import 'src/auth/auth_config.dart';
@@ -903,7 +903,7 @@ cd apps/server && mise exec -- dart test test/integration/constraints_test.dart
 
 - [ ] **Step 3: Implement `apps/server/lib/src/db/constraints.dart`**
 
-SQL = §3.3 block of `docs/migration/schema-design.md`, embedded as Dart const so deploys don't depend on file path.
+The SQL is the §3.3 block of `docs/migration/schema-design.md`, embedded as a Dart const so deploys don't depend on a file path.
 
 ```dart
 import '../generated/serverpod.dart';
@@ -1029,7 +1029,7 @@ $constraints$;
 ''';
 ```
 
-Then wire into `apps/server/lib/server.dart`:
+Then wire it into `apps/server/lib/server.dart`:
 
 ```dart
 import 'src/auth/auth_config.dart';
@@ -1074,7 +1074,7 @@ git add apps/server && git commit -m "feat(server): enforce raw SQL constraints 
 - Create: `apps/server/test/integration/authz_test.dart`
 - Create: `apps/server/lib/src/models/app_exception.spy.yaml`, `apps/server/lib/src/authz/authz.dart`
 
-Semantic change vs old SQL: tree membership = `treeId` equality among live families. Old recursive walk split tree at soft-deleted middle family; this doesn't. Story-level predicates (`canContribute`, `canEditStory`, `familyOrigin`) come with Phase 3 story slice.
+Semantic change from the old SQL: tree membership is `treeId` equality among live families. The old recursive walk split the tree at a soft-deleted middle family; this version doesn't. Story-level predicates (`canContribute`, `canEditStory`, `familyOrigin`) arrive with the Phase 3 story slice.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1316,6 +1316,6 @@ git add apps/server packages/tell_me_a_story_client && git commit -m "feat(serve
 ### Task 7: Phase gate
 
 - [ ] **Step 1:** `mise exec -- just server-test`. Expected: `+9: All tests passed!`
-- [ ] **Step 2:** `cd apps/server && mise exec -- dart analyze && mise exec -- dart format --set-exit-if-changed lib test`. Expected: no issues; if anything reformatted, commit as `style(server): dart format`.
-- [ ] **Step 3:** `mise exec -- just test`. Expected: Flutter suite unchanged (677 passing).
-- [ ] **Step 4:** Smoke: `mise exec -- just server`, then in other shell run `curl -s -X POST http://localhost:8080/emailIdp -H 'content-type: application/json' -d '{"method":"startOtpLogin","email":"smoke@example.com"}'`. Expected: quoted UUID + HTTP 200.
+- [ ] **Step 2:** `cd apps/server && mise exec -- dart analyze && mise exec -- dart format --set-exit-if-changed lib test`. Expected: no issues; if anything gets reformatted, commit it as `style(server): dart format`.
+- [ ] **Step 3:** `mise exec -- just test`. Expected: the Flutter suite is unchanged (677 passing).
+- [ ] **Step 4:** Smoke: `mise exec -- just server`, then in another shell run `curl -s -X POST http://localhost:8080/emailIdp -H 'content-type: application/json' -d '{"method":"startOtpLogin","email":"smoke@example.com"}'`. Expected: a quoted UUID and HTTP 200.

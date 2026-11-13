@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tell_me_a_story/core/env.dart';
+import 'package:tell_me_a_story/core/config/env.dart';
 
 const _localServers = {'http://127.0.0.1:8080', 'http://localhost:8080'};
 

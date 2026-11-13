@@ -1,4 +1,8 @@
 emailIdp:
+  - startOtpLogin:
+  - verifyOtpLoginCode:
+  - finishOtpLogin:
+  - finishOtpRegistration:
   - login:
   - startRegistration:
   - verifyRegistrationCode:
@@ -6,10 +10,6 @@ emailIdp:
   - startPasswordReset:
   - verifyPasswordResetCode:
   - finishPasswordReset:
-  - startOtpLogin:
-  - verifyOtpLoginCode:
-  - finishOtpLogin:
-  - finishOtpRegistration:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:

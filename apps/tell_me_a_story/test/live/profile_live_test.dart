@@ -3,8 +3,7 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:tell_me_a_story/core/data/server_profile_repository.dart';
-import 'package:tell_me_a_story/core/domain/birth_visibility.dart';
+import 'package:tell_me_a_story/data/profile_api.dart';
 
 import 'support/live_server.dart';
 
@@ -14,7 +13,7 @@ void main() {
   test('profile: load, saveName, saveAccount, avatar round trip', () async {
     final email = freshEmail('profile');
     await signInLive(email);
-    final api = ServerProfileRepository();
+    final api = ProfileApi();
 
     final fresh = (await api.loadOwn())!;
     expect(fresh.email, email);

@@ -1,10 +1,10 @@
 # Phase 3f: Live streams, purge, blob drain — implementation plan
 
-> **For agentic workers:** execute task by task w/ superpowers:executing-plans. Each task: failing test, impl, passing test, commit.
+> **For agentic workers:** execute task by task with superpowers:executing-plans. Each task: failing test, implementation, passing test, commit.
 
-**Goal:** `LiveEndpoint.watchFamily`/`watchStory` authorized once at subscribe. 60-day family purge (schema-design §4.3, D6c) + `blob_deletions` drain as recurring future calls. Both registered in `lib/server.dart` after `pod.start()`, cancelled first → re-boot keeps one row per identifier.
+**Goal:** `LiveEndpoint.watchFamily`/`watchStory` authorized once at subscribe; the 60-day family purge (schema-design §4.3, D6c) and the `blob_deletions` drain as recurring future calls; both registered in `lib/server.dart` after `pod.start()`, cancelled first so a re-boot keeps one row per identifier.
 
-**Architecture:** Purge logic = plain function (`purgeExpiredFamilies`), tested directly. Future call class = thin wrapper over it + over 3.0 `drainBlobDeletions`. Scheduling in `scheduleMaintenance(FutureCalls)` so test can call twice, count `serverpod_future_call` rows.
+**Architecture:** purge logic is a plain function (`purgeExpiredFamilies`) tested directly; the future call class is a thin wrapper over it and over the 3.0 `drainBlobDeletions`. Scheduling lives in `scheduleMaintenance(FutureCalls)` so a test can call it twice and count `serverpod_future_call` rows.
 
 **Tech:** Serverpod 4.1.1 (`FutureCall` subclass → generated `lib/src/generated/future_calls.dart`, `pod.futureCalls.cancel/callRecurring(identifier:).cron()/.every()`), Dart 3.13.5.
 
@@ -20,15 +20,15 @@
 | `apps/server/lib/src/future_calls/schedule.dart` | `scheduleMaintenance(FutureCalls)` (cancel, then register) |
 | `apps/server/lib/server.dart` | calls `scheduleMaintenance(pod.futureCalls)` after `pod.start()` |
 | `apps/server/test/integration/purge_test.dart` | BR 20, BR 21 |
-| `apps/server/test/integration/live_endpoint_test.dart` | stream authz |
+| `apps/server/test/integration/live_endpoint_test.dart` | stream authorization |
 | `apps/server/test/integration/schedule_test.dart` | two registrations → one row per identifier |
 | generated: `endpoints.dart`, `future_calls.dart`, `serverpod.dart`, `protocol.yaml`, test tools, client `client.dart` | `just server-generate` |
 
-Decisions:
-- "Last family in its tree" = no other family row (live or deleted) w/ same `treeId`. Multiple expired families in one tree purged one per transaction, oldest first; last one takes tree.
-- Purge re-reads family `FOR UPDATE` in its transaction, skips if recovered meanwhile. Failing family logged, loop continues; next run retries.
-- `beforeDelete` = test-only fault hook, runs after keys queued, before any delete. Proves fail-closed (BR 21).
-- Stream refusal msgs: family → `forbidden('member only')`; story (missing or unreadable) → default `forbidden()`, so ids don't leak.
+Decisions taken here:
+- "Last family in its tree" = no other family row (live or deleted) with the same `treeId`. Several expired families in one tree are purged one per transaction, oldest first; the last one takes the tree.
+- Purge re-reads the family `FOR UPDATE` inside its transaction and skips it if it was recovered meanwhile. A failing family is logged and the loop continues; the next run retries it.
+- `beforeDelete` is a test-only fault hook run after the keys are queued and before any delete, to prove fail-closed (BR 21).
+- Stream refusal messages: family → `forbidden('member only')`; story (missing or unreadable) → default `forbidden()`, so ids don't leak.
 - Schedule: purge `cron('0 3 * * *')` (UTC), drain `every(10 minutes)`; identifiers `purge-families`, `drain-blobs`.
 
 ## Task 1: purge function
@@ -618,11 +618,11 @@ class LiveEndpoint extends Endpoint {
 }
 ```
 
-- [ ] Commit w/ generated files: `feat(server): LiveEndpoint watchFamily/watchStory`.
+- [ ] Commit with generated files: `feat(server): LiveEndpoint watchFamily/watchStory`.
 
 ## Task 3: future calls and boot registration
 
-- [ ] Write `test/integration/schedule_test.dart`; run → fails (no `schedule.dart`). Removing `cancel` lines → fails w/ two rows per identifier (checked).
+- [ ] Write `test/integration/schedule_test.dart`; run → fails (no `schedule.dart`). Removing the `cancel` lines makes it fail with two rows per identifier (checked).
 
 ```dart
 import 'package:serverpod/protocol.dart' show FutureCallEntry;
@@ -652,7 +652,7 @@ void main() {
 }
 ```
 
-- [ ] Implement future call + schedule, run `just server-generate`, wire `server.dart`; rerun → passing.
+- [ ] Implement the future call and the schedule, run `just server-generate`, wire `server.dart`; rerun → passing.
 
 ```dart
 import 'package:serverpod/serverpod.dart';
@@ -709,7 +709,7 @@ Future<void> scheduleMaintenance(FutureCalls calls) async {
   await scheduleMaintenance(pod.futureCalls);
 ```
 
-- [ ] Commit w/ generated files: `feat(server): schedule purge and blob drain future calls`.
+- [ ] Commit with generated files: `feat(server): schedule purge and blob drain future calls`.
 
 ## Gate
 

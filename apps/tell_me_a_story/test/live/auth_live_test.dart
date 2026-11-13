@@ -3,10 +3,9 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
-import 'package:tell_me_a_story/core/domain/app_exception.dart';
 import 'package:tell_me_a_story/core/server/app_session.dart';
 import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/features/auth/data/server_otp_sign_in.dart';
+import 'package:tell_me_a_story/data/otp_sign_in.dart';
 
 import 'support/live_server.dart';
 
@@ -22,7 +21,6 @@ void main() {
         storage: MemoryAuthStorage(),
       );
       final otp = ServerOtpSignIn();
-      const session = ServerAppSession();
       final email = freshEmail('otp');
 
       // A new email registers.
@@ -32,16 +30,16 @@ void main() {
       );
       final userId = client.auth.authInfo?.authUserId.toString();
       expect(userId, isNotNull);
-      expect(session.currentUserId, userId);
+      expect(AppSession.instance.currentUserId, userId);
 
       // The same email signs in to the existing account.
-      await session.signOut();
-      expect(session.currentUserId, isNull);
+      await AppSession.instance.signOut();
+      expect(AppSession.instance.currentUserId, isNull);
       await otp.signIn(
         requestId: await otp.sendCode(email),
         code: devLoginCode,
       );
-      expect(session.currentUserId, userId);
+      expect(AppSession.instance.currentUserId, userId);
     },
   );
 
@@ -61,8 +59,7 @@ void main() {
     }
 
     expect(error, isNotNull);
-    expect(error, isA<AppException>());
-    expect((error as AppException).message, signInCodeWrong);
+    expect(signInErrorMessage(error!), signInCodeWrong);
     expect(client.auth.authInfo, isNull);
   });
 }

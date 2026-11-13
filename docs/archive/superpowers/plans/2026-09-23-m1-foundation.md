@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` after human approval. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
-> **Gate:** Plan-only until human approves. No application code before approval.
+> **Gate:** Plan-only until human approves. Do not write application code until approval.
 
-**Goal:** Deliver agent-complete M1 Foundation against **local** Supabase: schema + RLS per Design Doc; magic link (local); profile trigger; empty Flutter app wired (iOS + web). **No claiming full §15 M1 exit criteria complete** until Bill closes cloud staging OPEN (or waives in writing).
+**Goal:** Deliver agent-complete M1 Foundation work against **local** Supabase: schema + RLS per Design Doc; magic link (local); profile trigger; empty Flutter app wired (iOS + web). **Do not claim full §15 M1 exit criteria complete** until Bill closes cloud staging OPEN (or waives in writing).
 
-**Architecture:** Flutter monorepo client at `apps/tell_me_a_story` + `supabase/` for migrations, config, RLS SQL tests. Local `supabase start` = **intended M1 agent data plane** (migrations, RLS tests, magic-link verification). Cloud staging **OPEN (Bill decision)** — First 10 #2 / §15 "Supabase project + staging" stays open until staging project exists with Email magic link enabled.
+**Architecture:** Flutter monorepo client at `apps/tell_me_a_story` + `supabase/` for migrations, config, and RLS SQL tests. Local `supabase start` is the **intended M1 agent data plane** (migrations, RLS tests, magic-link verification). Cloud staging is **OPEN (Bill decision)** — First 10 #2 / §15 “Supabase project + staging” stays open until a staging project exists with Email magic link enabled there.
 
 **Tech Stack (locked):** Flutter 3.x, `supabase_flutter`, Supabase Postgres/Auth/Storage/RLS, Email magic link. Secrets via `--dart-define` only: `SUPABASE_URL`, `SUPABASE_ANON_KEY` (Mapbox deferred to M3).
 
@@ -15,9 +15,9 @@
 - **SoT precedence:** PRD must/must-not → Mugatu screens/copy → SAD names → Design Doc DDL/RLS/Storage/Edge/error codes → Impl Spec §10 routes/behavior → Client copy & chrome locks for strings.
 - **M1 scope only:** First 10 actions **1–5** + **#10** (RLS isolation). Defer **#6–8** (family create, Edge invites, Mapbox). First 10 **#9 split:** M1 = private `story-photos` bucket + path-prefix policies in migrations only; Flutter upload spike = **M4**.
 - **Repo map §3:** `apps/tell_me_a_story/` + `supabase/` only. Include empty `lib/data/` scaffold. No extra packages beyond SAD/Design Doc need.
-- **Out of v1 (don't touch):** SMS, offline drafts, video, Android-required polish, public multi-family, AI stories, genealogy primary UX, live chat, DNA.
-- **Secrets:** Never commit `.env`, service role, or Resend keys. Inject later via dart-define/CI. **No** inventing/creating cloud Supabase project.
-- **Git:** Branch `feat/m01-foundation` from latest `main` in one worktree. Open PR; no merge. No `--no-verify`, no force-push shared branches. No M2 until M1 PR approved + merged.
+- **Out of v1 (do not touch):** SMS, offline drafts, video, Android-required polish, public multi-family, AI stories, genealogy primary UX, live chat, DNA.
+- **Secrets:** Never commit `.env`, service role, or Resend keys. Inject later via dart-define/CI. Do **not** invent or create a cloud Supabase project.
+- **Git:** Branch `feat/m01-foundation` from latest `main` in one worktree. Open PR; do not merge. No `--no-verify`, no force-push shared branches. Do not start M2 until M1 PR approved and merged.
 - **Auth UI:** Chrome locks require signed-out → magic-link entry; post-auth → `/timeline`. Minimal magic-link entry only — no invented Stitch auth screen; no freestyle marketing copy (Mugatu OPEN if labels missing).
 - **Supabase project:** Local `supabase start` = agent test plane. **Cloud staging = OPEN (Bill).** Local does **not** close First 10 #2 / §15 staging criterion.
 
@@ -25,7 +25,7 @@
 
 | Item | Status at plan time |
 |------|---------------------|
-| Repo `wmfmorgan/mortang-tell-me-a-story` | Local `main` **zero commits**; remote maybe empty |
+| Repo `wmfmorgan/mortang-tell-me-a-story` | Local `main` has **zero commits**; remote may be empty |
 | Flutter SDK | **Not on PATH** (`flutter` missing) — install Flutter 3.x before client tasks |
 | Supabase CLI | Present (`2.114.0`) |
 | Cloud staging project | **OPEN (Bill)** — agent must not create; local stack for M1 agent work |
@@ -39,9 +39,9 @@
 | Magic link | Email auth in local `config.toml`; Flutter magic-link entry verified locally | Local yes; staging magic link **OPEN (Bill)** |
 | Profile trigger | `handle_new_user` after insert on `auth.users` | Agent closes |
 | Empty Flutter app wired (iOS + web) | Skeleton + `lib/core`, `lib/features/...`, **`lib/data/`** + `supabase_flutter` via dart-define | Agent closes (needs Flutter SDK) |
-| Checks (§14 slice) | `flutter test`; RLS SQL two-family leak test; profile trigger test (local) | Agent closes on local |
+| Checks (§14 slice) | `flutter test`; RLS SQL two-family leak test; profile trigger test (against local) | Agent closes on local |
 
-**PR title/body stance:** `M1 Foundation (local + staging OPEN)` — no claiming full §15 M1 complete until staging exists with Email magic link enabled (or Bill waives in writing).
+**PR title/body stance:** `M1 Foundation (local + staging OPEN)` — do not claim full §15 M1 complete until staging exists and Email magic link is enabled there (or Bill waives in writing).
 
 ## Files to touch (repo map §3)
 
@@ -59,9 +59,9 @@
 | `apps/tell_me_a_story/lib/core/supabase/supabase_init.dart` | `Supabase.initialize` (anon only) |
 | `apps/tell_me_a_story/lib/core/router/app_router.dart` | Routes: magic-link entry; `/timeline` stub; auth redirect per chrome locks |
 | `apps/tell_me_a_story/lib/features/auth/` | Magic-link sign-in screen + session gate |
-| `apps/tell_me_a_story/lib/features/timeline/` | Minimal `/timeline` placeholder (empty shell for post-auth redirect only — full timeline UX = M6) |
-| `apps/tell_me_a_story/lib/data/` | **Empty scaffold only** (Impl Spec §3) — create dir (e.g. `.gitkeep`); no repositories/models in M1 |
-| `apps/tell_me_a_story/test/` | Smoke tests: env wiring, auth redirect gate (no live network where possible) |
+| `apps/tell_me_a_story/lib/features/timeline/` | Minimal `/timeline` placeholder (empty shell for post-auth redirect only — full timeline UX is M6) |
+| `apps/tell_me_a_story/lib/data/` | **Empty scaffold only** (Impl Spec §3) — create directory (e.g. `.gitkeep`); no repositories/models invented in M1 |
+| `apps/tell_me_a_story/test/` | Smoke tests: env wiring, auth redirect gate (no live network required where possible) |
 | `supabase/config.toml` | `supabase init` defaults; Email auth on |
 | `supabase/migrations/YYYYMMDDHHMMSS_enums.sql` | `story_status`, `invite_status`, `membership_role` |
 | `supabase/migrations/YYYYMMDDHHMMSS_ddl.sql` | All Design Doc tables + indexes + timeframe check |
@@ -69,8 +69,8 @@
 | `supabase/migrations/YYYYMMDDHHMMSS_rls.sql` | `is_family_member` + explicit policies per Design Doc matrix |
 | `supabase/migrations/YYYYMMDDHHMMSS_storage.sql` | Private bucket `story-photos` + path-prefix `is_family_member` policies (First 10 #9 M1 half) |
 | `supabase/tests/rls_two_family_isolation.sql` | Mandatory two-family zero cross-read |
-| `supabase/tests/profile_trigger.sql` | New auth user → profiles row, no client upsert |
-| `docs/superpowers/plans/2026-09-23-m1-foundation.md` | In-repo copy of plan (optional on implement) |
+| `supabase/tests/profile_trigger.sql` | New auth user → profiles row without client upsert |
+| `docs/superpowers/plans/2026-09-23-m1-foundation.md` | Copy of this plan in-repo (optional on implement) |
 
 ### Explicitly NOT in M1 (later milestones)
 
@@ -89,10 +89,10 @@
 
 ## OPEN / CONFLICT to list in PR if encountered
 
-- **OPEN (Bill) — First 10 #2 / §15 staging:** Cloud staging project + Email magic link enabled there. Agent local only. No inventing/creating cloud project. Full M1 exit criteria incomplete until Bill closes (or waives in writing).
-- **OPEN (tooling):** Flutter SDK must be installed on agent machine before `flutter create` / `flutter test`. Report blocker; no workaround.
-- **CONFLICT:** If `flutter create` layout disagrees with Impl Spec §3 (`lib/core`, `lib/features/...`, `lib/data`) — **stop, report, reshape immediately**. **No** deferring `lib/data/`.
-- **OPEN (Mugatu):** If exact magic-link button/field labels missing from chrome locks, use minimal functional labels + list OPEN — no freestyle Memory Album marketing copy.
+- **OPEN (Bill) — First 10 #2 / §15 staging:** Cloud staging project + Email magic link enabled there. Agent uses local only. Do not invent/create cloud project. Full M1 exit criteria remain incomplete until Bill closes this (or waives in writing).
+- **OPEN (tooling):** Flutter SDK must be installed on the agent machine before `flutter create` / `flutter test`. Report blocker; do not invent around it.
+- **CONFLICT:** If `flutter create` layout disagrees with Impl Spec §3 (`lib/core`, `lib/features/...`, `lib/data`) — **stop, report, reshape immediately**. Do **not** defer `lib/data/`.
+- **OPEN (Mugatu):** If exact magic-link button/field labels are missing from chrome locks, use minimal functional labels only and list OPEN — do not freestyle Memory Album marketing copy.
 
 ---
 
@@ -133,7 +133,7 @@ git add .gitignore README.md
 git commit -m "chore: initialize monorepo baseline for M1"
 ```
 
-If remote has commits: `git pull origin main` first; no history rewrite.
+If remote already has commits: `git pull origin main` first; do not rewrite history.
 
 - [ ] **Step 4: Create worktree + branch**
 
@@ -148,7 +148,7 @@ cd .worktrees/feat-m01-foundation
 
 **Files:**
 - Create: `supabase/config.toml`
-- Create: `supabase/migrations/*_enums.sql`, `*_ddl.sql`, `*_profile_trigger.sql`, `*_rls.sql` (+ storage bucket policies for `story-photos` per Design Doc §3)
+- Create: `supabase/migrations/*_enums.sql`, `*_ddl.sql`, `*_profile_trigger.sql`, `*_rls.sql` (and storage bucket policies for `story-photos` per Design Doc §3)
 
 **Interfaces:**
 - Consumes: Design Doc §1–§4 (enums, DDL, RLS matrix, profile trigger, storage)
@@ -160,7 +160,7 @@ cd .worktrees/feat-m01-foundation
 supabase init
 ```
 
-Enable Email auth in `config.toml` (magic link). No SMS providers.
+Enable Email auth in `config.toml` (magic link). Do not enable SMS providers.
 
 - [ ] **Step 2: Write enums migration (exact names)**
 
@@ -172,7 +172,7 @@ create type membership_role as enum ('member');
 
 - [ ] **Step 3: Write DDL migration**
 
-Tables/columns/indexes exactly per Design Doc: `profiles`, `families`, `memberships`, `people`, `places`, `stories` (with `timeframe_start date not null`, `timeframe_end date` nullable + check end ≥ start), `story_people`, `photos`, `comments`, `perspectives`, `invites` (token unique, `expires_at`, single-use semantics enforced in Edge later).
+Tables/columns/indexes exactly as Design Doc: `profiles`, `families`, `memberships`, `people`, `places`, `stories` (with `timeframe_start date not null`, `timeframe_end date` nullable + check end ≥ start), `story_people`, `photos`, `comments`, `perspectives`, `invites` (token unique, `expires_at`, single-use semantics enforced in Edge later).
 
 - [ ] **Step 4: Profile bootstrap trigger**
 
@@ -183,11 +183,11 @@ Tables/columns/indexes exactly per Design Doc: `profiles`, `families`, `membersh
 
 - [ ] **Step 5: RLS helper + policies**
 
-Implement `public.is_family_member(fid uuid)` per Design Doc. Enable RLS on all public tables. Expand Design Doc matrix to explicit `create policy` statements. Never weaken membership checks. Memberships INSERT/UPDATE/DELETE: Edge/security definer only.
+Implement `public.is_family_member(fid uuid)` as Design Doc. Enable RLS on all public tables. Expand Design Doc matrix to explicit `create policy` statements. Never weaken membership checks. Memberships INSERT/UPDATE/DELETE: Edge/security definer only.
 
 - [ ] **Step 6: Storage foundation (First 10 #9 — M1 half only)**
 
-Migration creates private bucket `story-photos` + policies requiring `is_family_member` on path prefix `{family_id}/...`. Allowed extensions `.jpg` `.jpeg` `.png` `.webp`. **No Flutter upload code.**
+Migration creates private bucket `story-photos` and policies requiring `is_family_member` on path prefix `{family_id}/...`. Allowed extensions `.jpg` `.jpeg` `.png` `.webp`. **No Flutter upload code.**
 
 - [ ] **Step 7: Start local stack and apply**
 
@@ -196,7 +196,7 @@ supabase start
 supabase db reset   # applies migrations
 ```
 
-Expected: clean apply, no invented columns. Agent data plane — does **not** close cloud staging OPEN.
+Expected: clean apply, no invent columns. This is the agent data plane — it does **not** close cloud staging OPEN.
 
 - [ ] **Step 8: Commit**
 
@@ -223,11 +223,11 @@ Script creates two users, two families/memberships, inserts tenant rows, asserts
 
 - [ ] **Step 2: Profile trigger test**
 
-Insert into `auth.users` (local test helper / service role in SQL test harness) → assert `profiles` row exists; assert client-style upsert unnecessary.
+Insert into `auth.users` (local test helper / service role in SQL test harness) → assert `profiles` row exists; assert client-style upsert is unnecessary.
 
 - [ ] **Step 3: Author-rule smoke (minimal §14 #2 if cheap)**
 
-Non-author cannot UPDATE story core; optional in M1 if time-boxed — full §14 #1 and #8 mandatory for M1 gate.
+Non-author cannot UPDATE story core; optional in M1 if time-boxed — prefer full §14 #1 and #8 mandatory for M1 gate.
 
 - [ ] **Step 4: Run tests and capture output**
 
@@ -256,7 +256,7 @@ git commit -m "test(m01): add two-family RLS isolation and profile trigger tests
 
 **Interfaces:**
 - Consumes: `SUPABASE_URL`, `SUPABASE_ANON_KEY` via `--dart-define`
-- Produces: empty app initializing Supabase anon client; signed-out → magic-link entry; signed-in → `/timeline` stub
+- Produces: empty app that initializes Supabase anon client; signed-out → magic-link entry; signed-in → `/timeline` stub
 
 - [ ] **Step 1: Install Flutter 3.x if missing** (machine prerequisite)
 
@@ -272,7 +272,7 @@ mkdir -p apps
 flutter create --org com.mortang --platforms=ios,web apps/tell_me_a_story
 ```
 
-Reshape `lib/` to §3 **immediately**: `core/`, `features/auth/`, `features/timeline/`, **`data/`** (empty scaffold with `.gitkeep`). If template layout disagrees with §3 — stop, report CONFLICT, reshape; **no deferring `lib/data/`**.
+Reshape `lib/` to §3 **immediately**: `core/`, `features/auth/`, `features/timeline/`, **`data/`** (empty scaffold with `.gitkeep`). If template layout disagrees with §3 — stop, report CONFLICT, reshape; **do not defer `lib/data/`**.
 
 - [ ] **Step 3: Add dependency**
 
@@ -296,16 +296,16 @@ cd apps/tell_me_a_story && flutter pub get
 
 - [ ] **Step 5: Router + auth gate**
 
-Routes locked for M1:
+Routes locked for M1 use:
 - Magic-link entry (signed-out)
 - `/timeline` stub (signed-in home)
 - Redirect: signed-out → magic-link entry; post-auth → `/timeline`
 
-No full §10 product screens in M1.
+Do not implement full §10 product screens in M1.
 
 - [ ] **Step 6: Magic-link screen**
 
-Email field + request magic link via `supabase.auth.signInWithOtp` (email). Session listener updates router. Manual check: verify link completion via local Supabase Inbucket/Mailpit.
+Email field + request magic link via `supabase.auth.signInWithOtp` (email). Session listener updates router. Verify against local Supabase Inbucket/Mailpit for link completion in manual check.
 
 - [ ] **Step 7: Tests**
 
@@ -314,7 +314,7 @@ cd apps/tell_me_a_story
 flutter test
 ```
 
-Expected: PASS smoke tests (missing env fails closed; router redirects without session).
+Expected: PASS smoke tests (env missing fails closed; router redirects without session).
 
 - [ ] **Step 8: Commit**
 
@@ -335,13 +335,13 @@ git commit -m "feat(m01): scaffold Flutter iOS/web app wired to supabase_flutter
 
 **PR body must include:**
 1. Milestone **M1** → exact §15 exit criteria listed; agent-complete vs **OPEN (Bill)** called out
-2. Files touched vs repo map §3 (incl. empty `lib/data/`)
-3. One-line "spec match / conflicts" — local closed; **First 10 #2 / staging = OPEN (Bill)**
-4. UI: magic-link entry + `/timeline` stub only; "matches chrome locks redirects / no redesign"
+2. Files touched vs repo map §3 (including empty `lib/data/`)
+3. One-line “spec match / conflicts” — local closed; **First 10 #2 / staging = OPEN (Bill)**
+4. UI: magic-link entry + `/timeline` stub only; “matches chrome locks redirects / no redesign”
 5. Test commands + pass/fail output (`flutter test`, RLS SQL against **local**)
 6. Design Doc notes: migrations match enums/DDL/RLS/`handle_new_user`/storage bucket policies
 7. **First 10 #9 split:** M1 = `story-photos` bucket + path-prefix policies; **no Flutter upload spike** (M4)
-8. Explicit: **no** claiming full §15 M1 complete until staging exists with Email magic link (or Bill waives in writing)
+8. Explicit: do **not** claim full §15 M1 complete until staging exists with Email magic link (or Bill waives in writing)
 
 - [ ] **Step 1: Document runbook**
 
@@ -356,7 +356,7 @@ gh pr create --title "feat(m01): Foundation (local + staging OPEN)" --body-file 
 
 - [ ] **Step 3: Stop**
 
-**No** merge. **No** M2 until PR approved + merged.
+Do **not** merge. Do **not** start M2 until PR approved and merged.
 
 ---
 
@@ -365,10 +365,10 @@ gh pr create --title "feat(m01): Foundation (local + staging OPEN)" --body-file 
 | # | Action | M1? |
 |---|--------|-----|
 | 1 | Flutter skeleton + `supabase_flutter` | **Yes** (`lib/core`, `lib/features/...`, `lib/data/` scaffold) |
-| 2 | Supabase staging project | **OPEN (Bill)** — local `supabase start` = agent data plane only; doesn't close #2 |
+| 2 | Supabase staging project | **OPEN (Bill)** — local `supabase start` is agent data plane only; does not close #2 |
 | 3 | Migrations Design Doc DDL + enums | **Yes** |
 | 4 | RLS + profile trigger | **Yes** |
-| 5 | Magic-link sign-in iOS + web | **Yes** (verify local; staging magic link OPEN with #2) |
+| 5 | Magic-link sign-in iOS + web | **Yes** (verify on local; staging magic link OPEN with #2) |
 | 6 | Family create + membership | **No — M2** |
 | 7 | Edge invite functions | **No — M2** |
 | 8 | Mapbox place picker spike | **No — M3** |

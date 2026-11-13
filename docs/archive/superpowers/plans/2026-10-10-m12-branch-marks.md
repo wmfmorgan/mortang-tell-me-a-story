@@ -1,52 +1,52 @@
 # M12 Timeline branch marks
 
-> Gate: plan only until approved. No application code before.
+> Gate: plan only until this plan is approved. Do not write application code before that.
 >
-> On approval: copy file to `docs/superpowers/plans/2026-10-10-m12-branch-marks.md` in first commit. Worktree `.worktrees/feat-m12-branch-marks`, branch `feat/m12-branch-marks`, from **`origin/main` `bbedef6`** (`feat(m10): manage families (#23)`). Local `main` is `1dc7976`, one commit behind. No branching from local checkout. No `.worktrees/feat-m10-manage-families`. No M11 start.
+> On approval: copy this file to `docs/superpowers/plans/2026-10-10-m12-branch-marks.md` in the first commit. Worktree `.worktrees/feat-m12-branch-marks`, branch `feat/m12-branch-marks`, from **`origin/main` `bbedef6`** (`feat(m10): manage families (#23)`). Local `main` is `1dc7976` and is one commit behind. Do not branch from the local checkout. Do not use `.worktrees/feat-m10-manage-families`. Do not start M11.
 
-**Goal:** On Macro, Mid, Full Cards, paint dashed sage hollow-ring marks for other families in current branch tree. Mark, or row in family menu's related list, opens that family's own timeline for read. Other family's stories never join current dial. No branch → marks and related list empty. Exit = Bill local smoke. Open one PR. No merge. No claiming Bill smoke. No stamping CLOSED.
+**Goal:** On Macro, Mid, and Full Cards, paint dashed sage hollow-ring marks for the other families in the current branch tree. A mark, or a row in the family menu’s related list, opens that family’s own timeline for read. The other family’s stories never join the dial you were on. Until a branch exists, the marks and the related list are empty. Exit is Bill local smoke. Open one PR. Do not merge. Do not claim Bill smoke. Do not stamp CLOSED.
 
-**Architecture:** One migration adds nullable `families.branch_year`, locked helpers and `list_family_tree`, `people_tree_read` view, SELECT-only policy changes. `people` SELECT stays member-only. Writes stay membership-only. Client loads tree once for session family, caches in memory, paints marks + menu from same result. No new table, Edge function, route, or package.
+**Architecture:** One migration adds nullable `families.branch_year`, the locked helpers and `list_family_tree`, the `people_tree_read` view, and SELECT-only policy changes. `people` SELECT stays member-only. Writes stay membership-only. The client loads the tree once for the session family, caches it in memory, and paints marks and the menu from that same result. No new table, Edge function, route, or package.
 
-**Tech stack:** Flutter 3.x, `albumTheme()`, `go_router`, PostgREST, existing `FamilySelection`. Local Supabase only. No `db reset`.
+**Tech stack:** Flutter 3.x, `albumTheme()`, `go_router`, PostgREST, existing `FamilySelection`. Local Supabase only. Do not `db reset`.
 
 ## Sources
 
-- Impl Spec §15 M12, status READY, not CLOSED, incl. 2026-10-10 amendments: https://app.notion.com/p/3e0c4bcef238814f9686d1d956b1f3f8
-- Design Doc "M12 Timeline branch marks" (Gilfoyle 2026-10-07) and "M12 amendments (LOCKED Bill 2026-10-10)". Amendment SQL beats original helper SQL: https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7
-- UXD M12 (Mugatu, UX locked 2026-10-06) and "M12 Related families menu (LOCKED Bill 2026-10-10)": https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4
+- Impl Spec §15 M12, status READY, not CLOSED, including the 2026-10-10 amendments: https://app.notion.com/p/3e0c4bcef238814f9686d1d956b1f3f8
+- Design Doc “M12 Timeline branch marks” (Gilfoyle 2026-10-07) and “M12 amendments (LOCKED Bill 2026-10-10)”. The amendment SQL wins over the original helper SQL: https://app.notion.com/p/3e0c4bcef23881c0ba43db61e6195ec7
+- UXD M12 (Mugatu, UX locked 2026-10-06) and “M12 Related families menu (LOCKED Bill 2026-10-10)”: https://app.notion.com/p/3e0c4bcef238818dba09d617a2127cd4
 - PRD M12 (Jared, locked 2026-10-06): https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2
 - Stitch project `12192342757314667328`. Branch chrome only:
   - Macro `a6259996a3b1408486c6074a4fa75f5d` (supersedes `02972cf4` for marks only)
   - Mid `5a0fa5949a9647daa363c3daf34bd49e` (supersedes `0cd5bfaa` for marks only)
   - Full Cards `974665ebd3a44254a61da7f1cf45a3f2` (supersedes `c2c1a5e9` for marks only)
-- Code base = `origin/main` `bbedef6`. `parent_family_id` exists. `family_tree_ids` exists, revoked from `public`. `families.deleted_at` and owner/co-owner exist. Don't edit those migrations.
+- Code base is `origin/main` `bbedef6`. `parent_family_id` already exists. `family_tree_ids` already exists and is revoked from `public`. `families.deleted_at` and owner/co-owner already exist. Do not edit those migrations.
 
 ## Global constraints
 
-- Don't reopen M1–M10, R2, R3. Don't restyle R2 header. Don't change zoom fade, newest-first order, 240ms zoom pill, or M9 tap map (Macro decade, decade node, story dot open Mid; Mid stub and full card open reader; Mid rail node opens Full Cards).
-- Don't build branch create, "Start a branch", tree-wide write, notifications, year editor. Those = M11. M11 on hold.
-- No new graph table, Edge function, package. No seed, no fake branches in local DB.
-- Don't invent `branch_year` from `created_at`. M11 sole writer. M12 reads only. Roots stay null.
-- Don't merge other family's stories into current dial.
-- Don't widen `people` SELECT. No `email` in `people_tree_read`. Don't grant `family_tree_root` to any client role.
-- Don't widen `profiles` SELECT or `avatars` storage. Non-co-member tree reader already sees `Member`, no photo. Keep fallback.
-- Don't widen draft SELECT. Non-members never see drafts.
-- Realtime stays `family_id=eq.<current session family>`. No second channel, no cross-family fan-in.
-- Ignore superseded Stitch chrome on three frames: Stories, Family Members, Places, Help, Save draft, Publish, all-caps "CONTINUOUS FAMILY DIAL" bar, `+/−`, Fit all. Shipped sub-header and R2 bar stay.
-- Demo copy off: Jenkins, Everest Cousins, Oak Ridge, "Est. ~1972", "Archive Node", "union joined archive" as new string. Existing M6 rail label stays; PR adds no extra copy.
-- Tokens: parchment `#FBF7F2`, terracotta `#8B5E4B`, sage `#7A8B74`, ink `#2C2416`.
+- Do not reopen M1–M10, R2, or R3. Do not restyle the R2 header. Do not change zoom fade, newest-first order, the 240ms zoom pill, or the M9 tap map (Macro decade, decade node, and story dot open Mid; Mid stub and full card open the reader; Mid rail node opens Full Cards).
+- Do not build branch create, “Start a branch”, tree-wide write, notifications, or a year editor. Those are M11. M11 is on hold.
+- No new graph table. No new Edge function. No new package. No seed and no fake branches in the local database.
+- Do not invent `branch_year` from `created_at`. M11 is the only writer. M12 only reads. Roots stay null.
+- Do not merge another family’s stories into the current dial.
+- Do not widen `people` SELECT. Do not add `email` to `people_tree_read`. Do not grant `family_tree_root` to any client role.
+- Do not widen `profiles` SELECT or `avatars` storage. A tree reader who is not a co-member already sees `Member` and no photo. Leave that fallback.
+- Do not widen draft SELECT. Non-members never see drafts.
+- Realtime stays `family_id=eq.<current session family>`. No second channel and no cross-family fan-in.
+- Ignore superseded Stitch chrome on the three frames: Stories, Family Members, Places, Help, Save draft, Publish, the all-caps “CONTINUOUS FAMILY DIAL” bar, `+/−`, and Fit all. The shipped sub-header and R2 bar stay.
+- Demo copy stays off: Jenkins, Everest Cousins, Oak Ridge, “Est. ~1972”, “Archive Node”, “union joined archive” as a new string. The existing M6 rail label stays; this PR does not add another copy of it.
+- Tokens stay parchment `#FBF7F2`, terracotta `#8B5E4B`, sage `#7A8B74`, ink `#2C2416`.
 
 ## Picks where the sources overlap
 
-1. **Related-families list lives in existing family menu.** PRD: entry points = dial mark + family menu. UXD "M12 Related families menu (LOCKED Bill 2026-10-10)" puts list under M10 block. Membership block stays exactly as M10 locked: live families, check on current, divider, "+ Start a family", "Manage families" only for owner/co-owner. Below: divider, disabled `Related families` label, one row per other tree family (same monogram + `families.name`, no year). Whole block, divider included, hides when list empty. Soft-deleted families absent for everyone, owners included. Recover stays on Manage hub. When open family = related row you're not member of, that row checked, no membership row checked.
-2. **Null `branch_year` picks no decade.** Until M11, every child row null year. Those marks sort by `families.id` ascending, render as own group, name, no year. Not on story dot, decade row, or card. Macro + Mid put group at newest end of rail (top). Full Cards put group above first card. When `branch_year` set, placement follows year rules below. This = reading of "stable sort among nulls" and "do not invent a year from `created_at`".
+1. **Related-families list lives in the existing family menu.** PRD says the entry points are the dial mark and the family menu. UXD “M12 Related families menu (LOCKED Bill 2026-10-10)” puts that list under the M10 block. The membership block stays exactly as M10 locked it: live families, check on the current one, divider, “+ Start a family”, “Manage families” only for an owner or co-owner. Below that, a divider, a disabled `Related families` label, then one row per other family in the tree (same monogram plus `families.name`, no year). The whole block, divider included, hides when that list is empty. Soft-deleted families are absent for everyone, owners included. Recover stays on the Manage hub. When the open family is a related row you are not a member of, that row shows the check and no membership row is checked.
+2. **Null `branch_year` does not pick a decade.** Until M11, every child row has a null year. Those marks sort by `families.id` ascending and render as their own group, with the name and no year. They do not sit on a story dot, a decade row, or a card. Macro and Mid put the group at the newest end of the rail (the top). Full Cards put the group above the first card. When `branch_year` is set, placement follows the year rules below. This is the reading of “stable sort among nulls” and “do not invent a year from `created_at`”.
 
 ## Data
 
-One new migration, `supabase/migrations/20261010230000_family_tree_read.sql`, after `20261010184643_invite_resend_revoke.sql`. Don't edit older files. No new table. Apply via `supabase migration up --local`. No DB reset.
+One new migration, `supabase/migrations/20261010230000_family_tree_read.sql`, after `20261010184643_invite_resend_revoke.sql`. Do not edit older files. No new table. Apply with `supabase migration up --local`. Do not reset the database.
 
-Copy SQL as written. Don't rewrite walks. `union` doesn't dedupe rows carrying `depth`; `path` array stops cycles. `parent_family_id` not cleared. `family_tree_ids` stays as M10 shipped. Don't grant it.
+Copy this SQL as written. Do not rewrite the walks. `union` does not dedupe rows that carry `depth`; the `path` array is what stops a cycle. `parent_family_id` is not cleared. `family_tree_ids` stays as M10 shipped it. Do not grant it.
 
 ```sql
 alter table public.families add column branch_year int null
@@ -127,159 +127,159 @@ revoke all on public.people_tree_read from public, anon, authenticated;
 grant select on public.people_tree_read to authenticated;
 ```
 
-No backfill. No trigger writes `branch_year`. Soft-deleted family has no root → nothing tree-reads it. `list_family_tree` returns live families only; returns no rows when caller can't read `fid`. Client calls `list_family_tree` once per session family; doesn't walk `parent_family_id` itself.
+No backfill. No trigger writes `branch_year`. A soft-deleted family has no root, so nothing tree-reads it. `list_family_tree` returns live families only, and it returns no rows when the caller cannot read `fid`. The client calls `list_family_tree` once per session family and does not walk `parent_family_id` itself.
 
 ### SELECT policies
 
-Replace SELECT only. INSERT, UPDATE, DELETE stay as on `bbedef6`.
+Replace SELECT only. INSERT, UPDATE, and DELETE stay as they are on `bbedef6`.
 
-Every new SELECT policy calling `is_family_tree_readable` is `to authenticated`. Member check first in each (`is_family_member(...) or is_family_tree_readable(...)`) so members never start tree walk.
+Every new SELECT policy that calls `is_family_tree_readable` is `to authenticated`. In each policy the member check comes first (`is_family_member(...) or is_family_tree_readable(...)`) so a member never starts the tree walk.
 
 | Object | New SELECT |
 | --- | --- |
-| `families` | (`is_family_member(id)` OR `is_family_tree_readable(id)`) AND M10 soft-delete clause (`deleted_at` is null OR owner OR co-owner). Drop + recreate `families_select_member`. |
-| `stories` | member OR (tree-readable AND `status = 'published'`). Drafts member-only. |
-| `photos`, `comments`, `perspectives`, `story_people` | member of story's family OR (tree-readable AND story `published`). |
+| `families` | (`is_family_member(id)` OR `is_family_tree_readable(id)`) AND the M10 soft-delete clause (`deleted_at` is null OR owner OR co-owner). Drop and recreate `families_select_member`. |
+| `stories` | member OR (tree-readable AND `status = 'published'`). Drafts stay member-only. |
+| `photos`, `comments`, `perspectives`, `story_people` | member of the story’s family OR (tree-readable AND that story is `published`). |
 | `places` | member OR tree-readable. |
-| `people` | member only. Leave `people_select_member` as is. `people.email` never reaches tree reader. |
+| `people` | member only. Leave `people_select_member` as it is. `people.email` does not reach a tree reader. |
 
-Storage `story-photos` SELECT: member of path family, OR (tree-readable AND `published` story in that family owns object path). Insert/update/delete stay member-only.
+Storage `story-photos` SELECT becomes: member of the path family, OR (tree-readable AND a `published` story in that family owns that object path). Insert, update, and delete stay member-only.
 
 `profiles` and `avatars` stay co-member only.
 
-`people_tree_read` = name source for tree reader. Columns `id`, `family_id`, `name`, `relationship`. View filter = SQL above (`is_family_member` OR `is_family_tree_readable`), sole gate, since view runs with owner rights. Reader queries view only when viewer not member of session family. Members keep reading `people`.
+`people_tree_read` is the name source for a tree reader. Columns are `id`, `family_id`, `name`, `relationship`. The view filter is the SQL above (`is_family_member` OR `is_family_tree_readable`) and it is the only gate, because the view runs with owner rights. The reader queries this view only when the viewer is not a member of the session family. Members keep reading `people`.
 
 ### Tests (pgTAP)
 
-`supabase/tests/family_tree_read.sql`, transaction + rollback, same harness style as `rls_two_family_isolation.sql`. Insert link via SQL (`update families set parent_family_id = …`). That = RLS proof, not product seed.
+`supabase/tests/family_tree_read.sql`, transaction plus rollback, same harness style as `rls_two_family_isolation.sql`. Insert the link with SQL (`update families set parent_family_id = …`). That is the RLS proof. It is not a product seed.
 
-Assert all:
+Assert all of these:
 
-- Parent member who isn't child member can SELECT child's published story, its photo row, comment, perspective, place.
-- Same user can't SELECT child's draft, can't SELECT `people` (no email), can SELECT `people_tree_read` for child (`name` and `relationship` only).
-- Same user can't INSERT comment or photo on child.
-- Signed-in user outside tree gets 0 rows from `people_tree_read`, can't SELECT child's published story.
-- As `anon`, selecting from `stories` returns 0 rows, no error.
-- Soft-deleted child absent from `list_family_tree` for parent member and for child's owner.
-- `is_family_tree_readable` false for soft-deleted `fid`.
-- User whose only tree link is membership in soft-deleted family can't read tree.
-- Soft-deleted parent splits walk: child's visible root = child; parent's other relatives don't see child.
-- Two families parented to each other: walk ends, returns each id once.
-- `list_family_tree` on family with no `parent_family_id` and no children returns that one family.
-- `branch_year` rejects `0` and `10000`, accepts null.
+- A member of the parent who is not a member of the child can SELECT the child’s published story, its photo row, a comment, a perspective, and a place.
+- That same user cannot SELECT the child’s draft, cannot SELECT `people` (no email), and can SELECT `people_tree_read` for that child (`name` and `relationship` only).
+- That same user cannot INSERT a comment or a photo on the child.
+- A signed-in user outside the tree gets 0 rows from `people_tree_read` and cannot SELECT the child’s published story.
+- As `anon`, selecting from `stories` returns 0 rows and does not error.
+- A soft-deleted child is absent from `list_family_tree` for a parent member and for the child’s owner.
+- `is_family_tree_readable` is false for a soft-deleted `fid`.
+- A user whose only tree link is a membership in a soft-deleted family cannot read the tree.
+- A soft-deleted parent splits the walk: the child’s visible root is the child, and the parent’s other relatives do not see the child.
+- Two families parented to each other: the walk ends and returns each id once.
+- `list_family_tree` on a family with no `parent_family_id` and no children returns that one family.
+- `branch_year` rejects `0` and `10000` and accepts null.
 - `people_tree_read` has no `email` column.
-- `has_function_privilege('anon', 'public.family_tree_root(uuid)', 'execute')` false; same false for `is_family_tree_readable(uuid)` and `list_family_tree(uuid)`.
-- `has_function_privilege('authenticated', 'public.family_tree_root(uuid)', 'execute')` false.
-- `has_table_privilege('anon', 'public.people_tree_read', 'select')` false.
+- `has_function_privilege('anon', 'public.family_tree_root(uuid)', 'execute')` is false, and the same is false for `is_family_tree_readable(uuid)` and `list_family_tree(uuid)`.
+- `has_function_privilege('authenticated', 'public.family_tree_root(uuid)', 'execute')` is false.
+- `has_table_privilege('anon', 'public.people_tree_read', 'select')` is false.
 
-Run repo's existing Supabase SQL test for pgTAP. Paste output in PR.
+Run the Supabase SQL test the repo already uses for pgTAP. Paste the output in the PR.
 
 ## Client
 
 ### Tree cache
 
-Add `listFamilyTree(familyId)` on families gateway (`apps/tell_me_a_story/lib/data/families_api.dart` or manage gateway if `origin/main` reads families there — follow file owning `listMine`). Call `list_family_tree` once. Map `branch_year`. Marks + menu share result. No second call for menu.
+Add `listFamilyTree(familyId)` on the families gateway (`apps/tell_me_a_story/lib/data/families_api.dart` or the manage gateway if that is where `origin/main` already reads families — follow the file that owns `listMine`). Call `list_family_tree` once. Map `branch_year`. Marks and the menu share that result. Do not call it a second time for the menu.
 
-Cache rows in memory, keyed by session family id. Drop cache on `FamilySelection` change. Don't persist.
+Cache the rows in memory, keyed by the session family id. Drop the cache when `FamilySelection` changes. Do not persist it.
 
-`relatedMarks(tree, currentId)` returns every row except `currentId`, sorted `branch_year` nulls first, then year asc, then `id` asc.
+`relatedMarks(tree, currentId)` returns every row except `currentId`, sorted by `branch_year` nulls first, then year ascending, then `id` ascending.
 
 ### Family menu
 
-In `apps/tell_me_a_story/lib/core/theme/album_header.dart`, M10 block doesn't move: membership rows, divider, "+ Start a family", "Manage families".
+In `apps/tell_me_a_story/lib/core/theme/album_header.dart`, the M10 block does not move: membership rows, divider, “+ Start a family”, “Manage families”.
 
-Related rows = every `list_family_tree` row whose id not in `listMine`, incl. open session family when viewer not member. Show block only when list non-empty. Marks keep using `relatedMarks` (every tree row except `currentId`). Menu + marks share one `list_family_tree` call, one cache.
+Related rows are every `list_family_tree` row whose id is not in `listMine`, including the open session family when the viewer is not a member of it. Show the block only when that list is non-empty. Marks keep using `relatedMarks` (every tree row except `currentId`). The menu and the marks share one `list_family_tree` call and one cache.
 
-Below M10 block, when non-membership list non-empty:
+Below the M10 block, when that non-membership list is non-empty:
 
 - Divider, key `family-menu-related-divider`.
-- Disabled label row `Related families`.
-- One `PopupMenuItem` per related row, key `family-menu-related-{id}`. Row = `FamilyMonogram` + `families.name`. No year.
-- When id = open session family, row shows same check as M10 rows; no membership row checked.
-- `onSelected` = existing family-id path: `FamilySelection.remember`, then timeline reloads in place. From Manage hub or detail, keep `_openFamilyTimeline`.
+- A disabled label row `Related families`.
+- One `PopupMenuItem` per related row, key `family-menu-related-{id}`. The row is `FamilyMonogram` plus `families.name`. No year.
+- When that id is the open session family, the row shows the same check the M10 rows use, and no membership row is checked.
+- `onSelected` is the existing family-id path: `FamilySelection.remember`, then the timeline reloads in place. From Manage hub or detail, keep `_openFamilyTimeline`.
 
-Family you belong to stays in M10 block only. Soft-deleted families never appear (function omits them).
+A family you belong to stays in the M10 block only. Soft-deleted families never appear, because the function omits them.
 
 ### Marks
 
-Hollow ring: sage stroke ~2px, transparent fill, outer size ~16, not terracotta, not filled story dot. Label beside = family name. Non-null `branch_year` → label `Name · 1972`. No tilde, no "Est.". Key `timeline-branch-mark-{familyId}`. Tooltip = same label. Cursor = click pointer. Tap calls same select path as menu. Doesn't call `_openStory`, `_openMid`, `_openNear`.
+Hollow ring: sage stroke about 2px, transparent fill, outer size about 16, not terracotta, not a filled story dot. Label beside it is the family name. When `branch_year` is non-null, the label adds the year as `Name · 1972`. No tilde, no “Est.”. Key `timeline-branch-mark-{familyId}`. Tooltip is the same label. Cursor is the click pointer. Tap calls the same select path as the menu. It does not call `_openStory`, `_openMid`, or `_openNear`.
 
-Keep existing M6 dashed sage rail, `timeline-branch-{storyId}`, `{NAME} BRANCH`, `← {name} union joined archive`. Those still come from `childFamily` over memberships. Marks = second widget set. Story dot stays `timeline-dot-{storyId}`.
+Keep the existing M6 dashed sage rail, `timeline-branch-{storyId}`, `{NAME} BRANCH`, and `← {name} union joined archive`. Those still come from `childFamily` over memberships. Marks are a second set of widgets. A story dot stays `timeline-dot-{storyId}`.
 
-Placement when `branch_year` set:
+Placement when `branch_year` is set:
 
 | Zoom | Where |
 | --- | --- |
-| Macro | On decade row with start year `branch_year - (branch_year % 10)`. Multiple marks on one decade stack by `id`. |
-| Mid | Beside published story whose `timeframe_start` year closest to `branch_year`. Tie → newer story. |
-| Full Cards | Between cards, newest-first. Mark after last card with year > `branch_year`, before first card with year ≤ it. Year past either end sits at that end. |
+| Macro | On the decade row whose start year is `branch_year - (branch_year % 10)`. Several marks on one decade stack by `id`. |
+| Mid | Beside the published story whose `timeframe_start` year is closest to `branch_year`. Tie breaks to the newer story. |
+| Full Cards | Between cards, newest-first. The mark sits after the last card with year greater than `branch_year` and before the first card with year less than or equal to it. A year past both ends sits at that end. |
 
-Placement when `branch_year` null: group per pick 2. Group not inside story row's hit target.
+Placement when `branch_year` is null: the group described in pick 2. The group is not inside a story row’s hit target.
 
-Three rails keep story taps, arrow keys, fade, zoom switch.
+The three rails keep their story taps, arrow keys, fade, and zoom switch.
 
 ### Read-only session family
 
-Write still requires membership of family on screen. Tree read doesn't grant it. M11 tree-wide write out.
+Write still requires membership of the family on screen. Tree read does not grant it. M11’s tree-wide write is out.
 
-`listMine` = membership set. When session family absent from it:
+`listMine` is the membership set. When the session family is absent from it:
 
-- AlbumHeader omits Invite and New story. Timeline, Drafts, search chip stay.
-- `/stories/new` redirects to `/timeline`. No new error screen, no new copy.
-- Reader hides `+ Add comment`, `+ Add your perspective`, `+ Add photos`. Existing comments + perspectives still render. People chips load from `people_tree_read` (`name`, `relationship` only). Author name keeps current fallback (`Member` when profile row invisible).
-- Drafts load returns empty state (draft SELECT still member-only). No error in place of empty copy.
-- Search keeps querying session family, keeps excluding drafts. Published stories of opened family in scope since session family switched. Search doesn't query whole tree in one request.
+- AlbumHeader omits Invite and New story. Timeline, Drafts, and the search chip stay.
+- `/stories/new` redirects to `/timeline`. No new error screen and no new copy.
+- The reader hides `+ Add comment`, `+ Add your perspective`, and `+ Add photos`. Existing comments and perspectives still render. People chips load from `people_tree_read` (`name`, `relationship` only). Author name stays the current fallback (`Member` when the profile row is invisible).
+- Drafts load returns the empty state, because draft SELECT is still member-only. Do not show an error in place of that empty copy.
+- Search keeps querying the session family and keeps excluding drafts. Published stories of the family you opened are in scope because you switched the session family. Search does not query the whole tree in one request.
 
-When session family in `listMine`, controls unchanged.
+When the session family is in `listMine`, those controls stay as they are today.
 
 ### Realtime
 
-On family switch, existing stories subscription must filter to new id only. If timeline already resubscribes on family change, leave path. No channel listening to sibling families.
+On a family switch, the existing stories subscription must filter to the new id only. If the timeline already resubscribes on family change, leave that path. Do not add a channel that listens to sibling families.
 
 ## Files
 
 - `supabase/migrations/20261010230000_family_tree_read.sql`
 - `supabase/tests/family_tree_read.sql`
-- `apps/tell_me_a_story/lib/data/families_api.dart` (tree read + cache type)
+- `apps/tell_me_a_story/lib/data/families_api.dart` (tree read and the cache type)
 - `apps/tell_me_a_story/lib/core/theme/album_header.dart`
 - `apps/tell_me_a_story/lib/features/timeline/timeline_page.dart`
 - `apps/tell_me_a_story/lib/features/timeline/timeline_zoom.dart` (mark placement helpers only)
-- Reader page, only to hide three write controls for non-member
-- New story route guard in router
-- Tests: `test/timeline_page_test.dart`, `test/m10_navigation_test.dart` or header test already covering menu, plus small reader test for hidden write controls
+- Reader page, only to hide the three write controls when the viewer is not a member
+- New story route guard in the router
+- Tests: `test/timeline_page_test.dart`, `test/m10_navigation_test.dart` or the header test that already covers the menu, plus a small reader test for the hidden write controls
 
-Fakes constructing families gateway gain `listFamilyTree`. Default returns current family only → existing tests stay on empty-mark path.
+Fakes that construct the families gateway gain `listFamilyTree`. Default returns the current family only, so existing tests stay on the empty-mark path.
 
 ## Widget tests
 
-- One-family tree paints no `timeline-branch-mark-` widget, no `Related families` label, on far, mid, near.
-- Second family with null `branch_year` paints one hollow-ring mark per zoom, labeled name, no year; doesn't paint that id as `timeline-dot-`.
-- Second family with `branch_year` 1972 paints `Name · 1972` on 1970s Macro row, beside closest Mid story, between Full Cards at that year.
-- Tapping mark remembers family id; next build shows that family's stories, not mix.
-- Macro story dots still open Mid. Mid stubs still open reader. M6 `MARTINEZ BRANCH` rail still paints when membership child exists.
-- Family menu still shows Start and Manage, same order. Related row selects that family. Widget test: two-family tree where open family = related one shows related block, that row checked, no membership row checked. Related block absent when every tree row in `listMine`.
-- Non-membership session family hides Invite, New story, three reader write controls.
+- A tree of one family paints no `timeline-branch-mark-` widget and no `Related families` label, on far, mid, and near.
+- A second family with null `branch_year` paints one hollow-ring mark on each zoom, labeled with the name and no year, and does not paint that id as `timeline-dot-`.
+- A second family with `branch_year` 1972 paints `Name · 1972` on the 1970s Macro row, beside the closest Mid story, and between Full Cards at that year.
+- Tapping the mark remembers that family id and the next build shows that family’s stories, not a mix.
+- Macro story dots still open Mid. Mid stubs still open the reader. The M6 `MARTINEZ BRANCH` rail still paints when a membership child exists.
+- The family menu still shows Start and Manage in the same order. A related row selects that family. Widget test: a two-family tree where the open family is the related one shows the related block, that row is checked, and no membership row is checked. The related block is absent when every tree row is in `listMine`.
+- A session family that is not a membership hides Invite, New story, and the three reader write controls.
 
-`flutter test` from `apps/tell_me_a_story`. Paste summary in PR.
+`flutter test` from `apps/tell_me_a_story`. Paste the summary in the PR.
 
 ## Out
 
 - M11 branch create, owner assignment, member copy, attach-year editor, parent-delete email, tree-wide write.
-- Seeding `parent_family_id` or `branch_year` in local app DB. pgTAP may insert both inside rolled-back transaction.
-- Loading sibling stories onto current dial.
-- New graph table, Edge function, route, package.
-- Widening draft SELECT, `people` SELECT, profile SELECT, avatar SELECT.
-- `email` column on `people_tree_read`. Granting `family_tree_root` to `anon` or `authenticated`. Returning soft-deleted family from `list_family_tree`.
+- Seeding `parent_family_id` or `branch_year` in the local app database. pgTAP may insert both inside its rolled-back transaction.
+- Loading sibling stories onto the current dial.
+- A new graph table, Edge function, route, or package.
+- Widening draft SELECT, `people` SELECT, profile SELECT, or avatar SELECT.
+- An `email` column on `people_tree_read`. Granting `family_tree_root` to `anon` or `authenticated`. Returning a soft-deleted family from `list_family_tree`.
 - Cross-family Realtime.
-- Replacing M6 dashed rail.
-- Stamping CLOSED. Bill local smoke closes milestone. Cloud staging stays separate open item.
+- Replacing the M6 dashed rail.
+- Stamping CLOSED. Bill local smoke closes the milestone. Cloud staging stays a separate open item.
 
 ## Smoke (Bill)
 
-Family with no branches: Macro, Mid, Full Cards look as today — no hollow-ring marks, no Related families block. Story taps, zoom, search, invite, new story still work.
+On a family with no branches, Macro, Mid, and Full Cards look as they do today: no hollow-ring marks, no Related families block. Story taps, zoom, search, invite, and new story still work.
 
-SQL-linked child optional, not required to close empty-mark smoke. If Bill wants read path exercised: link family in local DB outside app, reload, confirm mark opens that timeline, published story readable, draft not listed, New story + Invite absent for non-member.
+A SQL-linked child is optional and is not required to close the empty-mark smoke. If Bill wants the read path exercised, link a family in the local database outside the app, reload, and confirm the mark opens that timeline, a published story is readable, a draft is not listed, and New story and Invite are absent for a non-member.
 
 ## PR
 
-Branch `feat/m12-branch-marks`. One PR against `main`. Title `feat(m12): timeline branch marks`. Body: M11 not in PR, marks empty until branch exists, Bill smoke not claimed. No merge.
+Branch `feat/m12-branch-marks`. One PR against `main`. Title `feat(m12): timeline branch marks`. Body says M11 is not in the PR, marks are empty until a branch exists, and Bill smoke is not claimed. Do not merge.

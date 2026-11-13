@@ -1,56 +1,56 @@
 # Phase 3e: Invites Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement `InviteEndpoint` (`create`, `sendEmail`, `accept`, `resend`, `revoke`) + `InvitePublicEndpoint.preview` on Serverpod 4.1.1. Invite email goes through mailer shared with login codes. Covers business-rules §7 cases 112–114, 117–119, 121–131, 133–135 + invite part of 137.
+**Goal:** Implement `InviteEndpoint` (`create`, `sendEmail`, `accept`, `resend`, `revoke`) and `InvitePublicEndpoint.preview` on Serverpod 4.1.1, with invite email delivery through a mailer shared with login codes, covering business-rules §7 cases 112–114, 117–119, 121–131, 133–135 and the invite part of 137.
 
-**Architecture:** One endpoint file per class under `apps/server/lib/src/endpoints/`. Token, link, expiry, invite-email helpers in `lib/src/invites/invites.dart`. Resend transport moves from `lib/src/auth/login_code_sender.dart` to `lib/src/mail/mailer.dart`, used by login codes + invites. Local servers log mail, not send (as before). Authz via 3.0 `Authz.requireLive*` helpers. Accept uses 3.0 `accountEmail` (D2) + `ensureLinkedPerson`, reruns once on losing `people_tree_user_uidx` race (Phase 3 index §Conventions).
+**Architecture:** One endpoint file per class under `apps/server/lib/src/endpoints/`. Token, link, expiry and invite-email helpers live in `lib/src/invites/invites.dart`. The Resend transport moves out of `lib/src/auth/login_code_sender.dart` into `lib/src/mail/mailer.dart`, which both login codes and invites use. Local servers log mail instead of sending it, as before. Authorization uses the 3.0 `Authz.requireLive*` helpers, accept uses the 3.0 `accountEmail` (D2) and `ensureLinkedPerson`, and accept reruns once when it loses the `people_tree_user_uidx` race (Phase 3 index §Conventions).
 
 **Tech Stack:** Dart 3.13.5, Serverpod 4.1.1 (`serverpod`, `serverpod_auth_idp_server`, `serverpod_test`), `crypto` (SHA-256), embedded Postgres 16, just.
 
-**Spec of record:** `docs/migration/business-rules.md` §2.9, §3.4, §4.7, §5.2, §7; `docs/migration/schema-design.md` §3.2 (invite create, invite accept, resend/revoke rows); `docs/migration/endpoint-contract.md` §2.2; Phase 3 index (`2026-11-07-serverpod-phase3-server-endpoints.md`) row "3e Invites" + §Conventions.
+**Spec of record:** `docs/migration/business-rules.md` §2.9, §3.4, §4.7, §5.2, §7; `docs/migration/schema-design.md` §3.2 (invite create, invite accept, resend/revoke rows); `docs/migration/endpoint-contract.md` §2.2; Phase 3 index (`2026-11-07-serverpod-phase3-server-endpoints.md`) row "3e Invites" and §Conventions.
 
-**Verified:** every code block below run 2026-11-07 in this worktree on top of 3.0 commit `652e670`, before commit. `dart analyze` clean for server + generated client, `dart format` changed nothing, 54 new + login tests passed.
+**Verified:** every code block below was run on 2026-11-07 in this worktree on top of the 3.0 commit `652e670`, before any of it was committed. `dart analyze` was clean for the server and the generated client, `dart format` changed nothing, and the 54 new and login tests passed.
 
-All commands run from repo root unless step says otherwise.
+All commands run from the repo root unless a step says otherwise.
 
 ---
 
 ## Decisions taken in this slice (approved by Main, 2026-11-07)
 
-1. **`sendEmail` takes raw token.** Only `tokenHash` stored (schema-design, invites) → server can't rebuild accept link from `inviteId` alone; rotating token would break link `create` just returned. Contract becomes `sendEmail(Session, UuidValue inviteId, String token)`. Server compares `sha256(token)` vs `tokenHash` in constant time; mismatch = `inviteInvalid` "Invite is not valid", checked right after member check, before §3.4 status, expiry, no-email checks. All app callers (`invite_modal.dart`, `add_person_modal.dart`, `edit_person_dialog.dart`) already hold `created.token`. `endpoint-contract.md` §2.2 + §2.3 updated in plan commit.
-2. **Invite link origin.** No server-side origin setting yet. Origin from `inviteAppOrigin` password: `config/passwords.yaml` or env var `SERVERPOD_PASSWORD_inviteAppOrigin`. Local server (`isLocalPod`) falls back to `http://127.0.0.1:3000`, app's `INVITE_APP_ORIGIN` default; other servers without it throw `StateError`. `passwords.yaml` gitignored, no committed template → deployments must add key, e.g.:
+1. **`sendEmail` takes the raw token.** Only `tokenHash` is stored (schema-design, invites), so the server can't rebuild the accept link from `inviteId` alone, and rotating the token would break the link `create` just returned. The contract becomes `sendEmail(Session, UuidValue inviteId, String token)`. The server compares `sha256(token)` with `tokenHash` in constant time; a mismatch is `inviteInvalid` "Invite is not valid", checked right after the member check and before the §3.4 status, expiry and no-email checks. Every app caller (`invite_modal.dart`, `add_person_modal.dart`, `edit_person_dialog.dart`) already holds `created.token`. `endpoint-contract.md` §2.2 and §2.3 are updated in the plan commit.
+2. **Invite link origin.** There is no server-side origin setting yet. The origin comes from the `inviteAppOrigin` password: `config/passwords.yaml`, or the env var `SERVERPOD_PASSWORD_inviteAppOrigin`. A local server (`isLocalPod`) falls back to `http://127.0.0.1:3000`, the app's `INVITE_APP_ORIGIN` default, and any other server without it throws `StateError`. `passwords.yaml` is gitignored and has no committed template, so deployments must add the key, for example:
    ```yaml
    production:
      inviteAppOrigin: 'https://app.example.com'
    ```
-   Link shape per business-rules §3.4: `{origin}/timeline?invite={token}`. App router rewrites to `/invite/<token>`.
-3. **Tokens** = 32 `Random.secure` bytes as 64 lower-case hex chars, per business-rules §4.7 + slice brief. Schema-design "base64url" note conflicts. Only SHA-256 hex stored (`invites_token_hash_shape`).
-4. **Preview has no error code.** `InvitePreviewDto` is `valid, familyId?, familyName?, inviterName?`. All §3.4 validate invalid cases (unknown, family deleted, accepted, revoked, expired) return `valid: false`, no family/inviter. App shows one generic copy (business-rules §5.3).
-5. **Email failures** (old 503/502) = `VALIDATION` "Email is not configured" / "Could not send invite email" (index row 3e). `resend` checks config first → no token rotates (BR 129).
-6. **Bare NOT_FOUND** for invite persons uses `'person not found'`, same text as slice 3b.
-7. **Accept, person rows.** Per schema-design §3.2: link invited person if still unlinked + caller has no linked person in tree; else `ensureLinkedPerson`. If invited person linked to someone else (BR 112), row untouched; acceptor gets own single linked row.
-8. **BR 137 (invite read part).** `InviteEndpoint` has no list method. Member read of family invites = `FamilyEndpoint.detail` (slice 3a, empty `pendingInvites` while deleted). Here 137 ported as: in soft-deleted family, member `sendEmail` + steward `resend`/`revoke` refused FORBIDDEN, nothing changes.
+   The link shape is business-rules §3.4: `{origin}/timeline?invite={token}`. The app router rewrites it to `/invite/<token>`.
+3. **Tokens** are 32 `Random.secure` bytes as 64 lower-case hex characters, which matches business-rules §4.7 and the slice brief. Schema-design's "base64url" note conflicts with that. Only the SHA-256 hex is stored (`invites_token_hash_shape`).
+4. **Preview has no error code.** `InvitePreviewDto` is `valid, familyId?, familyName?, inviterName?`. Every invalid case of §3.4 validate (unknown, family deleted, accepted, revoked, expired) returns `valid: false` with no family or inviter. The app shows one generic copy for all of them (business-rules §5.3).
+5. **Email failures** (old 503/502) are `VALIDATION` "Email is not configured" / "Could not send invite email" (index row 3e). `resend` checks configuration before anything else, so no token rotates (BR 129).
+6. **Bare NOT_FOUND** for invite persons uses `'person not found'`, the same text slice 3b uses.
+7. **Accept, person rows.** This follows schema-design §3.2: link the invited person if it is still unlinked and the caller has no linked person in the tree; otherwise `ensureLinkedPerson`. When the invited person is linked to someone else (BR 112), that row is left alone and the acceptor gets their own single linked row.
+8. **BR 137 (invite read part).** `InviteEndpoint` has no list method. The member read of a family's invites is `FamilyEndpoint.detail` (slice 3a, empty `pendingInvites` while deleted). Here 137 is ported as: in a soft-deleted family, a member's `sendEmail` and a steward's `resend`/`revoke` are refused with FORBIDDEN, and nothing changes.
 
 ## File map
 
 | Path | Responsibility |
 |---|---|
-| `apps/server/lib/src/mail/mailer.dart` | `OutgoingMail`, `MailTransport` (`LogMailTransport` local, `ResendMailTransport` else), `mailTransport(session)`, test override |
-| `apps/server/lib/src/auth/login_code_sender.dart` | Sends login codes via `mailTransport` (Resend code moved out) |
-| `apps/server/lib/src/invites/invites.dart` | Token make/hash/compare, expiry, origin + link, invite email, invite `AppException`s |
+| `apps/server/lib/src/mail/mailer.dart` | `OutgoingMail`, `MailTransport` (`LogMailTransport` locally, `ResendMailTransport` otherwise), `mailTransport(session)`, test override |
+| `apps/server/lib/src/auth/login_code_sender.dart` | Sends login codes through `mailTransport` (Resend code moved out) |
+| `apps/server/lib/src/invites/invites.dart` | Token make/hash/compare, expiry, origin and link, invite email, invite `AppException`s |
 | `apps/server/lib/src/endpoints/invite_endpoint.dart` | `InviteEndpoint` |
 | `apps/server/lib/src/endpoints/invite_public_endpoint.dart` | `InvitePublicEndpoint.preview` (`requireLogin => false`) |
-| `apps/server/pubspec.yaml` | `crypto` becomes direct dep (already transitive in lock) |
+| `apps/server/pubspec.yaml` | `crypto` becomes a direct dependency (already in the lock as transitive) |
 | `apps/server/test/integration/support/mail_fixtures.dart` | `RecordingMailTransport`, `uniqueEmail` |
 | `apps/server/test/integration/support/invite_fixtures.dart` | `InviteFx` extension: `tokenInvite`, `reload`, `membershipOf`, `linkedPeople`, `inviteCount` |
-| `apps/server/test/unit/invites_test.dart` | Token, link, mail helpers |
-| `apps/server/test/integration/mailer_test.dart` | Login codes via mailer; local logs; Resend unconfigured |
+| `apps/server/test/unit/invites_test.dart` | Token, link and mail helpers |
+| `apps/server/test/integration/mailer_test.dart` | Login codes go through the mailer; local logs; Resend unconfigured |
 | `apps/server/test/integration/invite_endpoint_test.dart` | `InviteEndpoint` |
 | `apps/server/test/integration/invite_public_endpoint_test.dart` | `InvitePublicEndpoint` |
 | Generated: `lib/src/generated/endpoints.dart`, `lib/src/generated/protocol.yaml`, `test/integration/test_tools/serverpod_test_tools.dart`, `packages/tell_me_a_story_client/lib/src/protocol/client.dart` | From `just server-generate` |
 
-`fixtures.dart` + `lib/server.dart` untouched. `server-generate` also adds blank line after `serverpod_client` import in ~25 unrelated client files. Revert those whitespace-only changes before each commit (`git checkout -- <file>`) to avoid collisions with other slices.
+`fixtures.dart` and `lib/server.dart` are not touched. `server-generate` also adds a blank line after the `serverpod_client` import in about 25 unrelated client files. Those whitespace-only changes are reverted before each commit (`git checkout -- <file>`) so they don't collide with other slices.
 
 ## §7 coverage
 
@@ -60,7 +60,7 @@ All commands run from repo root unless step says otherwise.
 | 117, 118, 119 | `invite_endpoint_test` › `create` |
 | 121 | `invite_public_endpoint_test` |
 | 122–126, 133–135 | `invite_endpoint_test` › `accept` |
-| 127 | `resend` + `revoke` |
+| 127 | `resend` and `revoke` |
 | 128, 129 | `resend` |
 | 130 | `revoke` |
 | 131 | `sendEmail` |
@@ -76,7 +76,7 @@ All commands run from repo root unless step says otherwise.
 - Create: `apps/server/test/integration/support/mail_fixtures.dart`
 - Test: `apps/server/test/integration/mailer_test.dart`
 
-- [ ] **Step 1: Write test fixture + failing test**
+- [ ] **Step 1: Write the test fixture and the failing test**
 
 `apps/server/test/integration/support/mail_fixtures.dart`:
 
@@ -177,12 +177,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run, see fail**
+- [ ] **Step 2: Run it and see it fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/mailer_test.dart`
-Expected: compile error, `src/mail/mailer.dart` missing.
+Expected: compile error, `src/mail/mailer.dart` doesn't exist.
 
-- [ ] **Step 3: Create mailer, point login codes at it**
+- [ ] **Step 3: Create the mailer and point login codes at it**
 
 `apps/server/lib/src/mail/mailer.dart`:
 
@@ -310,7 +310,7 @@ MailTransport mailTransport(Session session) =>
         : const ResendMailTransport());
 ```
 
-`apps/server/lib/src/auth/login_code_sender.dart` (replace file):
+`apps/server/lib/src/auth/login_code_sender.dart` (replace the file):
 
 ```dart
 import 'package:serverpod/serverpod.dart';
@@ -347,7 +347,7 @@ Future<void> sendLoginCode(
 }
 ```
 
-- [ ] **Step 4: Run mailer + login tests**
+- [ ] **Step 4: Run the mailer and login tests**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/mailer_test.dart test/integration/login_test.dart test/unit/local_mode_test.dart`
 Expected: all pass.
@@ -366,7 +366,7 @@ git commit -m "refactor(server): shared mailer for login codes and invites"
 - Create: `apps/server/lib/src/invites/invites.dart`
 - Test: `apps/server/test/unit/invites_test.dart`
 
-- [ ] **Step 1: Write failing test**
+- [ ] **Step 1: Write the failing test**
 
 `apps/server/test/unit/invites_test.dart`:
 
@@ -435,12 +435,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run, see fail**
+- [ ] **Step 2: Run it and see it fail**
 
 Run: `cd apps/server && mise exec -- dart test test/unit/invites_test.dart`
-Expected: compile error, `src/invites/invites.dart` missing.
+Expected: compile error, `src/invites/invites.dart` doesn't exist.
 
-- [ ] **Step 3: Add `crypto` + helpers**
+- [ ] **Step 3: Add `crypto` and the helpers**
 
 Run: `cd apps/server && mise exec -- dart pub add crypto:^3.0.6`
 
@@ -569,7 +569,7 @@ AppException inviteAccepted() => AppException(
 );
 ```
 
-- [ ] **Step 4: Run test**
+- [ ] **Step 4: Run the test**
 
 Run: `cd apps/server && mise exec -- dart test test/unit/invites_test.dart`
 Expected: 5 pass.
@@ -587,9 +587,9 @@ git commit -m "feat(server): invite tokens, links and email"
 - Create: `apps/server/test/integration/support/invite_fixtures.dart`
 - Create: `apps/server/lib/src/endpoints/invite_endpoint.dart`
 - Test: `apps/server/test/integration/invite_endpoint_test.dart`
-- Generated: see file map
+- Generated: see the file map
 
-- [ ] **Step 1: Write fixtures + failing tests**
+- [ ] **Step 1: Write the fixtures and the failing tests**
 
 `apps/server/test/integration/support/invite_fixtures.dart`:
 
@@ -657,7 +657,7 @@ extension InviteFx on Fx {
 }
 ```
 
-`apps/server/test/integration/invite_endpoint_test.dart`: shared header, `create` group, closing lines.
+`apps/server/test/integration/invite_endpoint_test.dart`: the shared header, the `create` group, and the closing lines.
 
 ```dart
 import 'dart:async';
@@ -917,10 +917,10 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run, see fail**
+- [ ] **Step 2: Run it and see it fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
-Expected: compile error, `endpoints.invite` missing.
+Expected: compile error, `endpoints.invite` doesn't exist.
 
 - [ ] **Step 3: Implement `create`**
 
@@ -1010,9 +1010,9 @@ class InviteEndpoint extends Endpoint {
 }
 ```
 
-Run: `mise exec -- just server-generate`, then revert whitespace-only client changes: `git diff --name-only packages | grep -v '/client.dart$' | xargs git checkout --`.
+Run: `mise exec -- just server-generate`, then revert the whitespace-only client changes: `git diff --name-only packages | grep -v '/client.dart$' | xargs git checkout --`.
 
-- [ ] **Step 4: Run tests**
+- [ ] **Step 4: Run the tests**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
 Expected: 7 pass.
@@ -1030,7 +1030,7 @@ git commit -m "feat(server): InviteEndpoint.create"
 - Create: `apps/server/lib/src/endpoints/invite_public_endpoint.dart`
 - Test: `apps/server/test/integration/invite_public_endpoint_test.dart`
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **Step 1: Write the failing tests**
 
 `apps/server/test/integration/invite_public_endpoint_test.dart`:
 
@@ -1171,10 +1171,10 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run, see fail**
+- [ ] **Step 2: Run it and see it fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_public_endpoint_test.dart`
-Expected: compile error, `endpoints.invitePublic` missing.
+Expected: compile error, `endpoints.invitePublic` doesn't exist.
 
 - [ ] **Step 3: Implement `preview`**
 
@@ -1230,7 +1230,7 @@ class InvitePublicEndpoint extends Endpoint {
 
 Run: `mise exec -- just server-generate`, then `git diff --name-only packages | grep -v '/client.dart$' | xargs git checkout --`.
 
-- [ ] **Step 4: Run tests**
+- [ ] **Step 4: Run the tests**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_public_endpoint_test.dart`
 Expected: 4 pass.
@@ -1248,9 +1248,9 @@ git commit -m "feat(server): InvitePublicEndpoint.preview"
 - Modify: `apps/server/lib/src/endpoints/invite_endpoint.dart`
 - Test: `apps/server/test/integration/invite_endpoint_test.dart`
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **Step 1: Write the failing tests**
 
-Insert group inside `withServerpod`, right before closing `}, rollbackDatabase: RollbackDatabase.disabled);` line of `apps/server/test/integration/invite_endpoint_test.dart`:
+Insert this group inside `withServerpod`, directly before the closing `}, rollbackDatabase: RollbackDatabase.disabled);` line of `apps/server/test/integration/invite_endpoint_test.dart`:
 
 ```dart
     group('accept', () {
@@ -1547,12 +1547,12 @@ Insert group inside `withServerpod`, right before closing `}, rollbackDatabase: 
     });
 ```
 
-- [ ] **Step 2: Run, see fail**
+- [ ] **Step 2: Run it and see it fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
-Expected: compile error, `endpoints.invite.accept` missing.
+Expected: compile error, `endpoints.invite.accept` doesn't exist.
 
-- [ ] **Step 3: Implement `accept`, no membership-race mapping yet**
+- [ ] **Step 3: Implement `accept`, without the membership-race mapping yet**
 
 Append to `InviteEndpoint` (after `_requireInvitablePerson`):
 
@@ -1634,14 +1634,14 @@ Append to `InviteEndpoint` (after `_requireInvitablePerson`):
 
 Run: `mise exec -- just server-generate`, then `git diff --name-only packages | grep -v '/client.dart$' | xargs git checkout --`.
 
-- [ ] **Step 4: Run tests, only collision case fails**
+- [ ] **Step 4: Run the tests and see only the collision case fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
-Expected: all `accept` tests pass except "when the membership insert collides…", which fails with raw `DatabaseQueryException` (23505 `memberships_family_user_uidx`) instead of `VALIDATION`.
+Expected: every `accept` test passes except "when the membership insert collides…", which fails with a raw `DatabaseQueryException` (23505 `memberships_family_user_uidx`) instead of `VALIDATION`.
 
-- [ ] **Step 5: Map collision to catalogue message**
+- [ ] **Step 5: Map the collision to the catalogue message**
 
-In `_accept`, replace plain membership insert with:
+In `_accept`, replace the plain membership insert with:
 
 ```dart
       try {
@@ -1675,9 +1675,9 @@ git commit -m "feat(server): InviteEndpoint.accept with email binding and live-f
 - Modify: `apps/server/lib/src/endpoints/invite_endpoint.dart`
 - Test: `apps/server/test/integration/invite_endpoint_test.dart`
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **Step 1: Write the failing tests**
 
-Insert group inside `withServerpod`, right before closing `}, rollbackDatabase: RollbackDatabase.disabled);` line of `apps/server/test/integration/invite_endpoint_test.dart`:
+Insert this group inside `withServerpod`, directly before the closing `}, rollbackDatabase: RollbackDatabase.disabled);` line of `apps/server/test/integration/invite_endpoint_test.dart`:
 
 ```dart
     group('accept: person rows', () {
@@ -1869,14 +1869,14 @@ Insert group inside `withServerpod`, right before closing `}, rollbackDatabase: 
     });
 ```
 
-- [ ] **Step 2: Run, see fail**
+- [ ] **Step 2: Run it and see it fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
-Expected: BR 113 tests fail (invited person stays unlinked); race test fails with 23505 `people_tree_user_uidx`.
+Expected: the BR 113 tests fail (the invited person stays unlinked), and the race test fails with 23505 `people_tree_user_uidx`.
 
-- [ ] **Step 3: Link person, rerun once on race**
+- [ ] **Step 3: Link the person, and rerun once on the race**
 
-In `_accept`, replace `ensureLinkedPerson(...)` call with:
+In `_accept`, replace the `ensureLinkedPerson(...)` call with:
 
 ```dart
     await _linkPerson(session, invite, family, uid, now, t);
@@ -1960,7 +1960,7 @@ Replace `accept` with:
   }
 ```
 
-- [ ] **Step 4: Run tests**
+- [ ] **Step 4: Run the tests**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
 Expected: all pass.
@@ -1978,9 +1978,9 @@ git commit -m "feat(server): invite accept links the invited person and survives
 - Modify: `apps/server/lib/src/endpoints/invite_endpoint.dart`
 - Test: `apps/server/test/integration/invite_endpoint_test.dart`
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **Step 1: Write the failing tests**
 
-Insert group inside `withServerpod`, right before closing `}, rollbackDatabase: RollbackDatabase.disabled);` line of `apps/server/test/integration/invite_endpoint_test.dart`:
+Insert this group inside `withServerpod`, directly before the closing `}, rollbackDatabase: RollbackDatabase.disabled);` line of `apps/server/test/integration/invite_endpoint_test.dart`:
 
 ```dart
     group('sendEmail', () {
@@ -2156,10 +2156,10 @@ Insert group inside `withServerpod`, right before closing `}, rollbackDatabase: 
     });
 ```
 
-- [ ] **Step 2: Run, see fail**
+- [ ] **Step 2: Run it and see it fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
-Expected: compile error, `endpoints.invite.sendEmail` missing.
+Expected: compile error, `endpoints.invite.sendEmail` doesn't exist.
 
 - [ ] **Step 3: Implement `sendEmail`**
 
@@ -2201,7 +2201,7 @@ Insert after `_requireInvitablePerson`:
 
 Run: `mise exec -- just server-generate`, then `git diff --name-only packages | grep -v '/client.dart$' | xargs git checkout --`.
 
-- [ ] **Step 4: Run tests**
+- [ ] **Step 4: Run the tests**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
 Expected: all pass.
@@ -2219,9 +2219,9 @@ git commit -m "feat(server): InviteEndpoint.sendEmail"
 - Modify: `apps/server/lib/src/endpoints/invite_endpoint.dart`
 - Test: `apps/server/test/integration/invite_endpoint_test.dart`
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **Step 1: Write the failing tests**
 
-Insert group inside `withServerpod`, right before closing `}, rollbackDatabase: RollbackDatabase.disabled);` line of `apps/server/test/integration/invite_endpoint_test.dart`:
+Insert this group inside `withServerpod`, directly before the closing `}, rollbackDatabase: RollbackDatabase.disabled);` line of `apps/server/test/integration/invite_endpoint_test.dart`:
 
 ```dart
     group('resend', () {
@@ -2392,10 +2392,10 @@ Insert group inside `withServerpod`, right before closing `}, rollbackDatabase: 
     });
 ```
 
-- [ ] **Step 2: Run, see fail**
+- [ ] **Step 2: Run it and see it fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
-Expected: compile error, `endpoints.invite.resend` missing.
+Expected: compile error, `endpoints.invite.resend` doesn't exist.
 
 - [ ] **Step 3: Implement `resend`**
 
@@ -2450,7 +2450,7 @@ Append to `InviteEndpoint`:
 
 Run: `mise exec -- just server-generate`, then `git diff --name-only packages | grep -v '/client.dart$' | xargs git checkout --`.
 
-- [ ] **Step 4: Run tests**
+- [ ] **Step 4: Run the tests**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
 Expected: all pass.
@@ -2468,9 +2468,9 @@ git commit -m "feat(server): InviteEndpoint.resend"
 - Modify: `apps/server/lib/src/endpoints/invite_endpoint.dart`
 - Test: `apps/server/test/integration/invite_endpoint_test.dart`
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **Step 1: Write the failing tests**
 
-Insert group inside `withServerpod`, right before closing `}, rollbackDatabase: RollbackDatabase.disabled);` line of `apps/server/test/integration/invite_endpoint_test.dart`:
+Insert this group inside `withServerpod`, directly before the closing `}, rollbackDatabase: RollbackDatabase.disabled);` line of `apps/server/test/integration/invite_endpoint_test.dart`:
 
 ```dart
     group('revoke', () {
@@ -2580,10 +2580,10 @@ Insert group inside `withServerpod`, right before closing `}, rollbackDatabase: 
     });
 ```
 
-- [ ] **Step 2: Run, see fail**
+- [ ] **Step 2: Run it and see it fail**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
-Expected: compile error, `endpoints.invite.revoke` missing.
+Expected: compile error, `endpoints.invite.revoke` doesn't exist.
 
 - [ ] **Step 3: Implement `revoke`**
 
@@ -2616,7 +2616,7 @@ Append to `InviteEndpoint`:
 
 Run: `mise exec -- just server-generate`, then `git diff --name-only packages | grep -v '/client.dart$' | xargs git checkout --`.
 
-- [ ] **Step 4: Run tests**
+- [ ] **Step 4: Run the tests**
 
 Run: `cd apps/server && mise exec -- dart test test/integration/invite_endpoint_test.dart`
 Expected: all pass.
@@ -2639,10 +2639,10 @@ mise exec -- dart format --output=none --set-exit-if-changed apps/server/lib app
 mise exec -- just server-test
 ```
 
-Expected: `0 changed`, `No issues found!` twice, all tests pass (100 from 3.0 + 52 here: 3 mailer, 5 unit, 40 `InviteEndpoint`, 4 `InvitePublicEndpoint`).
+Expected: `0 changed`, `No issues found!` twice, and all tests pass (100 from 3.0 plus 52 here: 3 mailer, 5 unit, 40 `InviteEndpoint`, 4 `InvitePublicEndpoint`).
 
-- [ ] **Step 2: Self-review vs index row**
+- [ ] **Step 2: Self-review against the index row**
 
-- Every Port case in §7 coverage table.
-- Owns: `InviteEndpoint`, `InvitePublicEndpoint`, invite email delivery.
-- Nothing else: no `lib/server.dart`, no model/migration changes, no live events.
+- Every Port case is in the §7 coverage table.
+- Owns: `InviteEndpoint`, `InvitePublicEndpoint` and invite email delivery.
+- Nothing else: no `lib/server.dart`, no model or migration changes, no live events.
