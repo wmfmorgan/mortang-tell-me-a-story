@@ -1,86 +1,87 @@
 # AGENTS.md: Mortang · Tell Me a Story
 
-Rules for any coding agent working in this repo. This file is the rule text. `.cursor/rules/mortang-contract.mdc` always applies and only points here. `.cursor/rules/architecture.mdc` and `.cursor/rules/coding.mdc` only point at sections of this file. They add no rules and hold no gates. `.cursor/rules/pstack-models.mdc` always applies the Bill-approved medium pstack budget; it is not a pointer and isn't restated here.
+Rules for any coding agent working in this repo. This file is the rule text. `.cursor/rules/mortang-contract.mdc` always applies and only points here. `.cursor/rules/architecture.mdc` and `.cursor/rules/coding.mdc` only point at sections of this file. They add no rules and hold no gates. `.cursor/rules/pstack-models.mdc` always applies the Bill-approved medium pstack budget. It is not a pointer and is not restated here.
 
 ## What governs a task
 1. The one section of the task's plan in `docs/superpowers/plans/`, or the one Notion spec section the task links, and the product decisions that section cites (roadmap, "Product decisions"). § Build contract item 1 is the intake rule.
 2. This file: layout, gates, code rules, § Architecture and layers, and § Build contract.
-3. `docs/archive/` is history (the old impl spec, design doc, UX notes, migration specs and earlier plans). Read it only when that linked section cites it. A current plan wins over the archive.
+3. Older notes in `docs/impl-spec/`, `docs/plans/`, `docs/ux/`, and `docs/m14-review/` are history. Read one only when the linked plan section cites it. `docs/design-doc/` holds locked decisions, including `docs/design-doc/ci.md`. A current plan wins over that history.
 
-If the code and the plan disagree, stop and report the difference; don't reconcile silently. Chat is never a lock. If a Notion spec and a repo plan both cover the task and they disagree, stop and report in a draft PR body. Do not pick a winner.
+If the code and the plan disagree, stop and report the difference. Do not reconcile silently. Chat is never a lock. If a Notion spec and a repo plan both cover the task and they disagree, stop and report in a draft PR body. Do not pick a winner.
 
 ## Layout
-- `apps/tell_me_a_story/`: Flutter client (iPad + web).
-  - `lib/app`: router and app widget.
-  - `lib/core`: config, route paths, server connection, theme tokens.
-  - `lib/data`: gateways and session state.
-  - `lib/ui`: widgets used by several features.
-  - `lib/features/<feature>`: screens.
-  - `test/` mirrors `lib/`; `test/architecture` holds the guards; `test/support/fakes` holds the shared gateway fakes; `test/live` (tag `live`); `test/goldens` (tag `golden`, macOS only, own `flutter_test_config.dart`; run by `just test-goldens`, excluded from `just test` and CI); `integration_test/` (e2e).
-- `apps/server/`: Serverpod 4.1.1 server. Endpoints are in `lib/src/endpoints`, rules in `lib/src/<domain>`, models in `lib/src/models/*.spy.yaml`, migrations in `migrations/`.
-- `packages/tell_me_a_story_client/`: generated; never edit by hand.
+- `apps/tell_me_a_story/`: Flutter client (iOS, iPad, and web). Dependencies are in `apps/tell_me_a_story/pubspec.yaml`. The client uses `supabase_flutter` and `go_router`.
+  - `lib/main.dart` starts the app and calls `initSupabase()`. `lib/app.dart` holds the app widget.
+  - `lib/core/config/env.dart` reads `--dart-define` values. `lib/core/supabase/supabase_init.dart` builds the anon client. `lib/core/` also holds navigation, the router, and theme tokens.
+  - `lib/data/`: PostgREST and edge-function gateways (`*_api.dart`) and session helpers. RPC error text goes through `mapRpcError` in `lib/data/rpc_error.dart`.
+  - `lib/features/<feature>/`: screens.
+  - `test/`: Flutter tests. The color guard is `test/theme/no_hardcoded_colors_test.dart`.
+  - `integration_test/`: end-to-end flows (`integration_test/flows.md` and `integration_test/e2e_test.dart`). The manifest check is `e2e/check_flows.sh` at the repo root.
+- `supabase/migrations/`: schema, row level security, storage policies, and SQL functions. A schema change is a new file here. Never edit a migration that has been applied.
+- `supabase/functions/`: Deno edge functions. Shared code is in `supabase/functions/_shared/`. Tests are `supabase/functions/*_test.ts`.
+- `supabase/tests/`: pgTAP.
+- `Makefile` and the README Tests block are the local commands. Tool versions are pinned in `.github/workflows/ci.yml`.
 
 ## Work rules
-- Build only what the plan lists. Don't add or remove a feature, screen, endpoint, table or dependency on your own; if it's unclear, stop and ask.
-- No direct push to `main`. Don't merge into `main`.
+- Build only what the plan lists. Do not add or remove a feature, screen, endpoint, table, or dependency on your own. If it is unclear, stop and ask.
+- No direct push to `main`. Do not merge into `main`.
 - TDD: write the failing test, make it pass, then refactor with the tests green.
-- Server models change only in `*.spy.yaml`, followed by `just server-generate`. A schema change gets a new migration (`just server-migration <tag>`). Never edit an existing migration.
+- A schema change is a new SQL file under `supabase/migrations/`. Never edit a migration that has been applied.
 - Every PR follows § Build contract (intake, scope, pre-PR checks, stop-and-report). It adds to these rules and relaxes none of them.
 
 ## Gates
-Run from the repo root as `mise exec -- just …` (or in a shell with mise activated) and paste the output in the PR body.
+Run from the repo root unless the command names another directory. Paste the output in the PR body. CI is `.github/workflows/ci.yml`. It runs four jobs, `flutter`, `deno`, `pgtap`, and `e2e`, on pull requests to `main` and on pushes to `main`. There is no path filter.
 
 | Gate | Command | Baseline |
 |---|---|---|
-| All local gates | `just check` | passes |
-| …format | `just fmt-check` | 0 changed |
-| …app analyze | `just analyze` | ≤ 6 issues, no errors |
-| …app tests | `just test` | all passing; never fewer tests |
-| …server analyze | `just server-analyze` | no issues |
-| …server tests | `just server-test` | all passing |
-| Live client tests | `just server`, then `just test-live` | all passing |
-| Goldens (macOS) | `just test-goldens` | Required only when the diff touches UI, theme, or golden files, and only on macOS. Otherwise the PR body carries the exact not-run line from § Build contract item 4: `Goldens: not run (OS: <os>). Needs a macOS run.` or `Goldens: not run (no UI, theme, or golden changes).` When run, all passing. Regenerate only on purpose (`just test-goldens --update-goldens`) and list every changed PNG. |
-| e2e | `flutter drive` per README | 9/9 flows |
+| Format | `dart format --output=none --set-exit-if-changed .` in `apps/tell_me_a_story` | 0 files changed |
+| Analyze | the `flutter` job's analyze step | at most `ANALYZE_CEILING` issues (27), and no `error •` line |
+| Flutter tests | `make test` | all passing, and never fewer tests |
+| Deno | `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts`, then `deno test --allow-env supabase/functions` | check clean, tests passing |
+| pgTAP | `make db-test` | all passing |
+| Flow manifest | `bash e2e/check_flows.sh` | exits 0 |
+| End-to-end drive | the CI `e2e` job | `flutter drive` of `integration_test/e2e_test.dart` on local Supabase |
 
-- `just test` includes `test/architecture/e2e_flow_manifest_test.dart`, which fails if `integration_test/flows.md` and `e2e_test.dart` disagree.
-- The analyze ceiling lives in `justfile` (`analyze ceiling="6"`). Lower it when you fix issues; never raise it.
-- CI runs the same recipes (`app`, `server` and `e2e` jobs).
-- `just check` runs `just test`. § Build contract item 4 says which other rows a PR must paste (goldens, live, e2e).
-- Every pull request to `main` or `feature/serverpod` must pass `just check` and the CI `e2e` job. `just check` does not run e2e. Goldens are not a CI job. Run live tests (`just server`, then `just test-live`) when the milestone closes.
-- Planned CI, not required yet: an outsider endpoint test, `terraform fmt` and `terraform validate` on `infra/gcp`, and a secrets scan. § Architecture and layers states what each one is. Do not add them in a drive-by.
+- `make test` runs `flutter test` in `apps/tell_me_a_story`. `make db-test` runs `supabase test db`.
+- The README Tests block is `supabase db reset`, then `supabase test db`, then `cd apps/tell_me_a_story && flutter test`. Local Supabase has to be up for the database commands.
+- `e2e/check_flows.sh` fails when `apps/tell_me_a_story/integration_test/flows.md` and the `testWidgets` names in `apps/tell_me_a_story/integration_test/e2e_test.dart` disagree. The manifest lists flows C1 through C9.
+- The analyze ceiling is `ANALYZE_CEILING: 27` in `.github/workflows/ci.yml`. Lower it when you fix issues. Never raise it. Do not add `// ignore:` or `// ignore_for_file:` to pass a gate.
+- `docs/design-doc/ci.md` is the CI lock. It names the same four jobs.
 
 ## Code rules
 - No swallowed errors. Every catch shows or returns a mapped message, or rethrows.
-- Server errors are `AppException` with an `AppErrorCode` (`apps/server/lib/src/models/app_error_code.spy.yaml`; shorthands in `apps/server/lib/src/errors.dart`). Messages are user-facing copy; never put raw database text in them. The client maps them in `lib/data/server/server_errors.dart`. A new code needs the owner's approval.
-- UI uses only `lib/core/theme/album_theme.dart` tokens. `test/architecture/no_hardcoded_colors_test.dart` fails on `Color(0x` or `Colors.` anywhere else in `lib/`. Its skip list names files by exact path from `lib/` and only shrinks: never add a path. A new token needs the owner's approval.
-- No new user-facing copy without the owner's approval.
-- No new dependencies without approval. Pin majors; no drive-by upgrades. An approved dependency also needs the dependency note in § Build contract item 6. Approval is Bill's. A note never stands in for it.
+- Database failures that the product handles use one of these prefixes on the exception message: `NOT_FOUND:`, `FORBIDDEN:`, `VALIDATION:`, `INVITE_INVALID:`. The client reads them only in `mapRpcError` (`lib/data/rpc_error.dart`). The edge-function copy is `mapRpcError` in `supabase/functions/_shared/manage.ts`. A new prefix needs Bill's approval. Messages are user-facing detail after the prefix. Do not put raw database text in them.
+- UI uses only `lib/core/theme/album_theme.dart` tokens. `test/theme/no_hardcoded_colors_test.dart` fails on `Color(0x` or `Colors.` anywhere else in `lib/`. Its skip list names files by exact path from `lib/` and only shrinks. Never add a path. A new token needs Bill's approval.
+- No new user-facing copy without Bill's approval.
+- No new dependencies without Bill's approval. Pin majors. Do not upgrade a package in passing. An approved dependency also needs the dependency note in § Build contract item 6. A note never stands in for the approval.
 - `lib/` layer rules are only in § Architecture and layers item 1. Follow that item.
+- Only `lib/core/config/env.dart` calls `String.fromEnvironment`. Defines are compiled in. They are never secrets in git.
 
 ## Architecture and layers
 
 Extends Layout, Work rules, and Gates. Item 1 is the only statement of the `lib/` layer rules. `.cursor/rules/architecture.mdc` points here and adds no rules.
 
-1. Honor `apps/tell_me_a_story/test/architecture/import_boundaries_test.dart`. `app/` and `main.dart` may import anything. `core/` imports `core/` only, except `core/server/` may import `package:tell_me_a_story_client/` and `serverpod*`. `data/` imports `core/`, `data/`, and those server packages, and never imports Flutter UI libraries, `ui/`, or `features/`. `ui/` imports `core/`, `data/`, and `ui/`, and never imports the generated client. `features/<f>/` imports those plus lower-rank features only (`featureRank` in the test). There is no `lib/state/`. Session state lives in `lib/data/`. Server layer imports are convention only. There is no server import-boundary test. Do not invent one.
-2. Only `app/`, `data/`, and `core/server/` import the generated client (`packages/tell_me_a_story_client/`) or `serverpod*`. Never edit that package or `apps/server/lib/src/generated/` by hand.
-3. Put new endpoints in `apps/server/lib/src/endpoints/`. Put domain rules in `apps/server/lib/src/<domain>/`. Put models in `apps/server/lib/src/models/*.spy.yaml`, and DTOs in `models/dto/`. Then run `just server-generate`. A schema change also gets `just server-migration <tag>`, which writes `apps/server/migrations/`. Never edit an existing migration.
-4. Put new client API wrappers in `apps/tell_me_a_story/lib/data/<name>_api.dart`. Put screens in `lib/features/<feature>/`. When `<feature>` is new, add it to `featureRank`. Change an existing rank only with the owner's approval. Put shared widgets in `lib/ui/`. Put infra in `infra/gcp/` (`main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `bootstrap.sh`). Do not run `just gcp-infra` unless the owner asks.
-5. Every endpoint method authenticates and calls `Authz` (`apps/server/lib/src/authz/authz.dart`) before it touches data. Set `requireLogin => true` unless the method is the documented public invite preview. Never trust a client-sent user id, family id used for permission, role, or storage path. Derive the caller from `session.authenticated` (`Authz.userId` and `requireUser()`). Derive family, tree, and story rights from the database through `Authz`. Build storage keys on the server (`apps/server/lib/src/media/blob_keys.dart`). Do not parse a key the client sends. `MediaEndpoint` resolves each key to the holding row, then checks `Authz`.
-6. GCS stays private. Issue a signed PUT only after `Authz`, through `session.storage.createUploadDescription`. `PhotoEndpoint.startUpload` and `FamilyEndpoint.startCoverUpload` are that path. Read blobs only through `MediaEndpoint.get` and `getMany`. Unknown, unreadable, and missing blobs all look the same: null or omitted. `ProfileEndpoint.saveAvatar` and `PeopleEndpoint` person pictures may store JPEG bytes with `session.storage.storeFile` after `Authz`. That is the only upload exception. Still use a server-built key, and still read them through `media.get`. Do not invent a second upload path. `InvitePublicEndpoint.preview` is the only `requireLogin => false` method, and it does not call `Authz`. Unknown, deleted, accepted, revoked, and expired tokens all return `valid: false` with no family and no inviter.
-7. Throw `AppException` with an `AppErrorCode` (`apps/server/lib/src/models/app_error_code.spy.yaml`, shorthands in `apps/server/lib/src/errors.dart`). Do not put raw database text in the message. Do not reveal which role was required, or whether a hidden row exists. Use the default `forbidden()` copy ("You don't have access to that.") or the method's documented not-leak shape: an empty list, null, or `notFound` for both missing and unreadable. New code uses that generic copy. Leave the older role-named messages in place. They are `member only`, `owner or co-owner only`, and `owner only` in `apps/server/lib/src/authz/authz.dart`, plus `LiveEndpoint.watchFamily`, `LiveEndpoint.watchTree`, `FamilyEndpoint.detail`, `FamilyEndpoint.recover`, and `PeopleEndpoint.delete` when the person is missing. Rewriting them is a security-copy change for Trinity or Bill. Do not do it in passing.
-8. No direct database or GCS access from outside `apps/server`.
-9. CI (`.github/workflows/ci.yml`) runs the `app`, `server`, and `e2e` jobs on every pull request to `main` and `feature/serverpod`. There is no path filter. The `app` job runs `just fmt-check`, `just analyze`, and `just test`, which keeps `import_boundaries_test.dart` green. The `server` job runs `just server-analyze` and `just server-test` on embedded Postgres. The `e2e` job runs `flutter drive` on every such pull request. Do not add goldens to CI. `e2e_flow_manifest_test.dart`, `no_hardcoded_colors_test.dart`, and `test_layout_test.dart` live in the same test folder and are not import-boundary tests.
-   Planned, and not required until a later PR adds them:
-   - Outsider endpoint test. Enumerate every Serverpod endpoint method. Call each one as a signed-in non-member and as an unauthenticated caller. Require `FORBIDDEN`, an unauthenticated failure, or that method's documented not-leak response. Fail when a new endpoint method has no coverage. Allow `InvitePublicEndpoint.preview`. Self-scoped methods (`ProfileEndpoint.*`, `FamilyEndpoint.createRoot`, `listMine`, `listStewarded`, `directory`, and `InviteEndpoint.accept`) must not expose another family's data. `apps/server/test/integration/authz_test.dart` is not this test.
-   - `terraform fmt` and `terraform validate` on `infra/gcp`.
-   - A secrets scan. Gilfoyle's architecture draft does not specify one. A later PR may add it. Do not invent a scanner here.
+1. `lib/main.dart` calls `initSupabase()` in `lib/core/supabase/supabase_init.dart`. That function builds the anon client from `Env` in `lib/core/config/env.dart`. It does not read the service role key. `lib/app.dart` holds the router widget. `lib/core/` holds config, navigation, the router, Supabase init, and theme. `lib/data/` holds `*_api.dart` gateways and session helpers. `lib/features/<feature>/` holds screens. There is no `lib/state/`. Session state lives in `lib/data/`. There is no import-boundary test. Do not invent one.
+2. The client talks to Supabase through `supabase_flutter`. New wrappers go in `apps/tell_me_a_story/lib/data/<name>_api.dart`. Screens go in `lib/features/<feature>/`. Follow the constructor pattern already in that folder. A screen takes the gateway as an optional argument and uses the live `*Api()` only when the argument is null. Tests pass a fake.
+3. Schema, row level security, storage policies, and SQL functions live in `supabase/migrations/`. `supabase/migrations/20260923000004_rls.sql` enables row level security. `supabase/migrations/20260923000005_storage.sql` creates the private `story-photos` bucket. A change is a new migration file. Never edit a migration that has been applied.
+4. Edge functions live in `supabase/functions/<name>/index.ts`. Shared helpers live in `supabase/functions/_shared/`. `userClient` and `serviceClient` are in `supabase/functions/_shared/supabase.ts`. pgTAP lives in `supabase/tests/`.
+5. Rights come from row level security and from SQL functions that read `auth.uid()`. Do not trust a client-sent user id, family id, or role as permission. An edge function that changes data takes the caller's bearer token and uses `userClient`. `serviceClient` stays in edge functions. The Flutter app does not construct it.
+6. The `story-photos` bucket is private. Storage policies on `storage.objects` check family membership. Read and write photos through the data gateways and those policies. `validate-invite-token` is the public invite preview. A rejected token returns `valid: false` and a null family name.
+7. A handled database failure uses `raise exception` with one of `NOT_FOUND:`, `FORBIDDEN:`, `VALIDATION:`, or `INVITE_INVALID:`. `mapRpcError` in `lib/data/rpc_error.dart` returns the detail after the prefix, or null when the message has none of them. `mapRpcError` in `supabase/functions/_shared/manage.ts` maps the same four prefixes to HTTP status codes. Do not add a fifth prefix. Do not scan for those prefixes anywhere else. Do not reveal raw database text. Leave an existing message in place. Rewriting one is a copy change for Bill.
+8. The Flutter app does not open Postgres on its own. It uses the Supabase client. The service role key, `RESEND_API_KEY`, and `RESEND_FROM` stay out of the client and out of git.
+9. CI (`.github/workflows/ci.yml`) runs `flutter`, `deno`, `pgtap`, and `e2e` on every pull request to `main` and every push to `main`. There is no path filter.
+   - `flutter` runs in `apps/tell_me_a_story`: `flutter pub get --enforce-lockfile`, `dart format --output=none --set-exit-if-changed .`, the analyze ceiling, and `flutter test`.
+   - `deno` runs `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` and `deno test --allow-env supabase/functions`.
+   - `pgtap` runs `supabase db start`, `supabase test db`, and the splinter advisors check against `supabase/advisors-baseline.json`.
+   - `e2e` runs `bash e2e/check_flows.sh`, then `flutter drive` against local Supabase. The drive target is `apps/tell_me_a_story/integration_test/e2e_test.dart`.
+   Tool pins in that workflow are Flutter `3.47.7`, Deno `2.9.4`, and Supabase CLI `2.121.0`. A bump of any pin is its own PR and needs Bill's approval.
 
 ## Build contract
 
 Extends Work rules, Gates, and Code rules. Architecture, layers, access control, and which CI jobs must stay green live in § Architecture and layers. This section does not change those rules. Each item has a Check that a reviewer can read from the diff or the PR body. Send the PR back when a Check fails.
 
 ### 1. Intake
-1. Read only the one plan or spec section the task links (path and heading), the product decisions that section cites, this file, and the files that section names. Read `docs/archive/` only when that section cites it.
+1. Read only the one plan or spec section the task links (path and heading), the product decisions that section cites, this file, and the files that section names. Read `docs/impl-spec/`, `docs/plans/`, `docs/ux/`, or `docs/m14-review/` only when that section cites it.
 2. Copy that section's acceptance items into the PR body as a checklist under **Spec**, with the path and heading.
 3. Stop and report (item 5) when the section is missing, unclear, contradicts the code, contradicts another linked section, or needs something it does not list. Do not improvise. When a Notion spec and a repo plan both cover the task and they differ, stop and report in a draft PR body. Do not pick a winner.
 Check: The PR body has **Spec** with one path and heading and the acceptance checklist. Every changed file traces to an item in it.
@@ -88,19 +89,19 @@ Check: The PR body has **Spec** with one path and heading and the acceptance che
 ### 2. Branch and PR scope
 1. One PR is one milestone of one plan, and one lane. Branch from current `main`. Never push to `main` or merge into `main`.
 2. Touch only files the milestone needs. No drive-by refactors, renames, reformatting of untouched files, or upgrades.
-3. Generated output (`just server-generate`) and a new migration (`just server-migration <tag>`) are in scope only when the milestone changes `*.spy.yaml` or endpoints.
-4. A lane is the path set the milestone declares. The lanes are the client at `apps/tell_me_a_story/`, the server at `apps/server/` with its generated client at `packages/tell_me_a_story_client/`, infra at `infra/gcp/`, and docs at `AGENTS.md`, `.cursor/`, and `docs/`.
+3. A new file under `supabase/migrations/` is in scope only when the milestone changes the schema. Never edit a migration that has been applied.
+4. A lane is the path set the milestone declares. The lanes are the client at `apps/tell_me_a_story/`, the backend at `supabase/`, and docs at `AGENTS.md`, `.cursor/`, and `docs/`.
 5. Name the branch `<lane>/<milestone>-<slug>`. Name a docs branch `docs/<slug>`, with no milestone.
-6. Keep the PR to about 400 changed lines. Do not count generated code, migrations, or golden PNGs. Split the work when it is larger than that.
+6. Keep the PR to about 400 changed lines. Do not count migration SQL. Split the work when it is larger than that.
 Check: The PR body names **Milestone** and **Lane**. `git diff --stat main...HEAD` lists only files in that lane and milestone. The diff has no unrelated hunks and stays within the size cap.
 
 ### 3. Code rules for new and changed code
 1. Keep a new or changed function or method body to at most 40 lines. Count a Flutter `build` method, and extract a private widget instead of letting `build` grow past that. Take at most 4 positional parameters. Use named parameters past that.
-2. Give each new file one public top-level type, and name the file after that type in snake_case. Generated code and `*.spy.yaml` models are exempt.
-3. Pass gateways in. Do not construct them in the widget. New code in `lib/ui/` and `lib/features/` receives gateways (`lib/data/*_api.dart`) through a constructor or the existing composition in `app/`. Follow the pattern already used in that folder.
+2. Give each new file one public top-level type, and name the file after that type in snake_case. SQL migrations and edge-function `index.ts` files are exempt.
+3. Follow the gateway pattern already in the folder. A screen in `lib/features/` takes the gateway (`lib/data/*_api.dart`) as an optional constructor argument. The live `*Api()` is only the default when that argument is null. Tests pass a fake. `lib/main.dart` may construct the live gateways it passes into the router.
 4. When behavior varies by kind, use a Dart `sealed` class and an exhaustive `switch`. Do not add a chain of `is` checks, `runtimeType` checks, or a string-keyed `if` ladder.
-5. Do not add a state-management, dependency-injection, error-handling, or result library, and do not add a new error or result pattern. That is a dependency (item 6) and an architecture question. Stop and report. A 'new error pattern' now means anything other than the four rules in Client gateway errors.
-Check: Function bodies and parameter lists in the diff stay within these limits, or the PR body names each exception and the reason. The diff adds no `XxxApi(` constructor call under `lib/ui/` or `lib/features/`. The diff adds no new `is` or `runtimeType` dispatch chain.
+5. Do not add a state-management, dependency-injection, error-handling, or result library, and do not add a new error or result pattern. That is a dependency (item 6) and an architecture question. Stop and report. A new error pattern means anything other than the four rules in Client gateway errors.
+Check: Function bodies and parameter lists in the diff stay within these limits, or the PR body names each exception and the reason. A new screen that calls a gateway takes that gateway as a constructor argument. The diff adds no new `is` or `runtimeType` dispatch chain.
 
 ### Which skill when
 
@@ -114,16 +115,18 @@ Read the skill at `.cursor/skills/<name>/SKILL.md` before the work in that row.
 | Before you declare the work done, or before you open the PR | `prove-it-works` |
 
 ### 4. Pre-PR checklist
-Run these from the repo root. Paste the output in the PR body.
+Run these commands. They are the commands in the four jobs of `.github/workflows/ci.yml`. Paste the output in the PR body.
 
-1. On a fresh checkout, run `mise install`. Then run `mise exec -- just server-setup` before any server test.
-2. When `*.spy.yaml` or endpoints changed, run `mise exec -- just server-generate`. For a schema change, also run `mise exec -- just server-migration <tag>`. Commit that output. Running generate again leaves `git status` clean.
-3. Run `mise exec -- just check`. It must pass at the baselines in § Gates. The output includes the `just test` run. Tests are all passing, and there are never fewer tests.
-4. When the diff touches `apps/tell_me_a_story/lib/ui/`, `apps/tell_me_a_story/lib/features/`, `apps/tell_me_a_story/lib/core/theme/`, or `apps/tell_me_a_story/test/goldens/`, run `mise exec -- just test-goldens` on macOS. When that diff is on any other OS, write exactly `Goldens: not run (OS: <os>). Needs a macOS run.` When the diff touches none of those paths, write exactly `Goldens: not run (no UI, theme, or golden changes).` Regenerate goldens only on purpose with `just test-goldens --update-goldens`, and list every changed PNG.
-5. The CI `e2e` job is required on every pull request to `main` or `feature/serverpod`. Do not skip it and do not drop it from the workflow. A local `flutter drive` is not an extra pre-PR command. CI runs it. In **Gates**, write exactly `e2e: required in CI. Not run locally.` Run live tests (`just server`, then `just test-live`) when the milestone closes. Until then, write exactly `Live: not run (milestone still open).`
-6. Paste `git diff --stat main...HEAD` and a clean `git status`.
-7. Under **Skills**, name every skill from the table above that applied. Write `None` only when no row applies.
-Check: The PR body has a **Gates** section with the output of each command above, or the exact not-run line for that row. **Skills** names the skills that applied, or `None`.
+1. In `apps/tell_me_a_story`, run `flutter pub get --enforce-lockfile`.
+2. In `apps/tell_me_a_story`, run `dart format --output=none --set-exit-if-changed .`.
+3. In `apps/tell_me_a_story`, run the analyze step from the `flutter` job. The issue count is at most 27. An `error •` line fails.
+4. Run `make test` from the repo root. It must pass. The test count does not drop.
+5. From the repo root, run `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` and `deno test --allow-env supabase/functions`.
+6. With local Supabase up, run `make db-test`. The README Tests block runs `supabase db reset`, then `supabase test db`, then Flutter tests.
+7. Run `bash e2e/check_flows.sh`. It must exit 0. The CI `e2e` job also runs `flutter drive`. In **Gates**, write exactly `e2e: check_flows passed locally. flutter drive runs in the CI e2e job.`
+8. Paste `git diff --stat main...HEAD` and a clean `git status`.
+9. Under **Skills**, name every skill from the table above that applied. Write `None` only when no row applies.
+Check: The PR body has a **Gates** section with the output of each command above, or the exact end-to-end line from step 7. **Skills** names the skills that applied, or `None`.
 
 ### 5. Stop-and-report
 Stop work on the blocked file. Keep doing unblocked work in the same milestone. Put the block below under **Stop-and-report** in the PR body. Always open that PR as a draft. Stop-and-report always goes in a draft PR body. Use the same block when a Notion spec and a repo plan disagree, and do not pick a winner.
@@ -138,61 +141,62 @@ Stop work on the blocked file. Keep doing unblocked work in the same milestone. 
 Check: Every deviation from the spec appears in this block. The diff contains no code for an option that nobody has chosen.
 
 ### 6. Dependency note
-Any added or changed entry in a `pubspec.yaml`, or any tool in `mise.toml`, needs Bill's approval (Code rules) and this block under **Dependency note** in the PR body. A note never stands in for that approval.
+Any added or changed entry in `apps/tell_me_a_story/pubspec.yaml`, or any version pin in `.github/workflows/ci.yml` (Flutter, Deno, or the Supabase CLI), needs Bill's approval (Code rules) and this block under **Dependency note** in the PR body. A note never stands in for that approval.
 
-- Package and version: `name: ^x.y.z` (major pinned) in `<path>/pubspec.yaml`.
+- Package and version: `name: ^x.y.z` (major pinned) in `apps/tell_me_a_story/pubspec.yaml`, or the tool pin and its file.
 - What it is: one sentence.
 - Why this spec item needs it.
 - Alternatives considered: at least (a) no new dependency, using code or an SDK already in the repo, and (b) one other package. Say why not, for each.
 - Approval: Bill, and where he approved it.
-Check: The diff touches a dependency in `pubspec.yaml`, `pubspec.lock`, or `mise.toml` only when the PR body has a complete **Dependency note**, and a complete note is present only when such a diff exists. The lockfile has no version bump of an unrelated package.
+Check: The diff touches a dependency in `apps/tell_me_a_story/pubspec.yaml`, `apps/tell_me_a_story/pubspec.lock`, or a tool pin in `.github/workflows/ci.yml` only when the PR body has a complete **Dependency note**, and a complete note is present only when such a diff exists. The lockfile has no version bump of an unrelated package.
 
 ### 7. Typed errors
-1. Never throw a `String`, a number, a `Map`, or a bare `Exception(...)`. A server failure is an `AppException` with an `AppErrorCode`, thrown through the shorthands in `apps/server/lib/src/errors.dart`. A new code needs the owner's approval.
+1. In Dart, never throw a `String`, a number, a `Map`, or a bare `Exception(...)`. A handled database failure uses one of `NOT_FOUND:`, `FORBIDDEN:`, `VALIDATION:`, or `INVITE_INVALID:` on the message. The client maps that message only in `lib/data/rpc_error.dart`. The edge-function copy is `supabase/functions/_shared/manage.ts`. A new prefix needs Bill's approval.
 2. Use `Error` subclasses (`StateError`, `ArgumentError`, and the rest) for programmer bugs only. Never catch one to choose a behavior.
-3. Catch by type, with `on AppException catch (e)` or another named type. A bare `catch (e)` is allowed only at a boundary that maps the error and shows it, or that rethrows. On the client, that mapping lives in `lib/data/server/server_errors.dart`. Never write `catch (_) {}`.
-4. Never branch on error text. Do not write `toString().contains(`, `message.contains(`, or a string compare on an error. Branch on the type or the `AppErrorCode`.
-5. Every new `AppException` throw has a test that asserts its `AppErrorCode`.
-Check: The added lines contain none of `throw '`, `throw "`, `throw Exception(`, `catch (_) {}`, `.toString().contains(`, or `message.contains(`. Each new `AppException` throw has a matching test.
+3. Catch by type, with `on PostgrestException catch (e)`, `on FunctionException catch (e)`, `on AuthException catch (e)`, or another named type. A bare `catch (e)` is allowed only at a boundary that maps the error and shows it, or that rethrows. On the client, showing the product message goes through `mapRpcError`. Never write `catch (_) {}`.
+4. Never branch on raw error text outside the two `mapRpcError` functions. Do not write `toString().contains(`, `message.contains(`, or a `startsWith` check for those prefixes in a screen, a gateway, or a new edge function. Branch by calling `mapRpcError`.
+5. Every new prefixed failure has a test that asserts the prefix or the mapped detail.
+Check: The added lines contain none of `throw '`, `throw "`, `throw Exception(`, `catch (_) {}`, `.toString().contains(`, or `message.contains(`. Each new prefixed failure has a matching test. A new prefix scan exists only inside the two `mapRpcError` functions.
 
 ### 8. Tests
 1. Ship tests in the same PR as the code. Write the test first (Work rules: TDD). The PR body has a **TDD log** with each new test name and the failure line from before the fix.
-2. Each changed non-generated file under `apps/tell_me_a_story/lib/` has a new or changed test at the mirrored path under `test/`. Each changed file under `apps/server/lib/src/` outside `generated/` has a new or changed test under `apps/server/test/`. Name any exception in the PR body, with a reason.
-3. Never lower the test count. Do not delete a test. Do not add `skip:`, `@Skip`, or a tag change that moves a test out of `just test`, unless the spec says so.
-4. Assert what a user or a caller can observe: widget finders and text, return values, and `AppErrorCode`. Do not assert on private members. Put shared gateway fakes in `test/support/fakes`. `just test` makes no network calls. Live tests use the tag `live`.
-5. Never edit a guard under `test/architecture/` to make code pass. The only allowed edits are the ones § Architecture and layers and Code rules already allow: add a new feature to `featureRank`, or shrink the hard-coded-colors skip list.
-Check: The diff pairs each changed source file with a test change. It removes or skips no test. The **TDD log** is present. Any `test/architecture/` edit stays inside the list above.
+2. A changed non-generated file under `apps/tell_me_a_story/lib/` has a new or changed test under `apps/tell_me_a_story/test/`. A changed migration has a new or changed pgTAP file under `supabase/tests/`. A changed edge function has a new or changed `supabase/functions/*_test.ts`. Name any exception in the PR body, with a reason.
+3. Never lower the test count. Do not delete a test. Do not add `skip:`, `@Skip`, or a tag change that moves a test out of `flutter test`, `deno test`, or `supabase test db`, unless the spec says so.
+4. Assert what a user or a caller can observe: widget finders and text, return values, and the mapped RPC detail. Do not assert on private members. `make test` passes with no `--dart-define` and does not call the hosted project.
+5. Do not edit `test/theme/no_hardcoded_colors_test.dart` to make a color pass, except to shrink its skip list.
+Check: The diff pairs each changed source file with a test change. It removes or skips no test. The **TDD log** is present. Any color-guard edit only shrinks the skip list.
 
 ### 9. Do not
 1. Push to `main`, or merge into `main`.
 2. Edit outside the PR's lane or milestone, or bundle two milestones.
-3. Add a dependency, feature, screen, endpoint, table, `AppErrorCode`, theme token, or user-facing copy that the spec does not list and the owner has not approved.
+3. Add a dependency, feature, screen, endpoint, table, error prefix, theme token, or user-facing copy that the spec does not list and Bill has not approved.
 4. Raise the analyze ceiling, add a path to a skip list, or add `// ignore:` or `// ignore_for_file:` to get past a gate.
 5. Delete, skip, or weaken a test to go green.
-6. Hand-edit generated code, or an existing migration.
+6. Edit a migration that has been applied.
 7. Edit the plan or the spec so that it matches your code.
 8. Add a `TODO` or `FIXME` without a Stop-and-report entry for it.
-9. Run `gcp-bootstrap`, `gcp-infra`, `deploy-server`, or `deploy-web` unless the owner asks. Do not put a secret in code, docs, or chat (Off limits).
+9. Deploy Netlify, or change the hosted Supabase project `lchytafmnuefrgkguynt`, unless Bill asks. The GCP project `story-line-app` is not this repo's target. Do not put a secret in code, docs, or chat (Off limits).
 10. Improvise around a spec gap. Stop and report.
 11. Add a nested `AGENTS.md`, a `CLAUDE.md`, or a `.cursorrules`.
 Check: None of these appear in the diff or the PR body.
 
 ### Client gateway errors
 
-There is no client-side typed failure at `lib/data`.
+Product failures from Postgres reach the screen through `mapRpcError`.
 
-1. `lib/data` gateways let `AppException` pass through unchanged. Gateways map only through `server_errors.dart`, and never catch, re-wrap, or swallow it again. They never turn a failure into null, false or an empty result. The one exception is a method whose locked spec says not-found and unreadable look the same.
-2. Mapping from `AppErrorCode` to user copy lives only in `lib/data/server/server_errors.dart`. Callers branch on `AppErrorCode`, never on error text.
-3. A client-only failure that doesn't map cleanly through `server_errors.dart` (for example a signed-PUT upload to GCS failing, or the network dropping) is a Stop-and-report to Gilfoyle. Don't invent a type.
-4. A new failure kind means a new `AppErrorCode`, which needs the owner's approval as the Code rules already require. Never add a client-side enum.
+1. Gateways in `lib/data/` let `PostgrestException` and `FunctionException` pass through. They map only by letting the caller use `mapRpcError`. They do not turn a failure into null, false, or an empty result. The one exception is a method whose locked spec says not-found and unreadable look the same.
+2. `mapRpcError` in `lib/data/rpc_error.dart` reads a `PostgrestException` message. It returns the trimmed detail after `NOT_FOUND:`, `FORBIDDEN:`, `VALIDATION:`, or `INVITE_INVALID:`. It returns null when none of those prefixes match. Screens show that detail, or the copy already on the screen when the result is null.
+3. The edge-function copy is `mapRpcError` in `supabase/functions/_shared/manage.ts`. It maps the same four prefixes to status codes. A new edge function uses that function. It does not keep a second list of prefixes.
+4. A failure that matches none of the four prefixes is a stop-and-report to Gilfoyle. Do not invent a type or a fifth prefix.
 
-A 'new error pattern' now means anything other than these four rules.
+A new error pattern means anything other than these four rules.
 
 ### PR body sections
 
 Use this order. Spec, Milestone, Lane, Changes, Gates, TDD log, Tests, Skills, Dependency note (or "None"), Stop-and-report (or "None").
 
 ## Off limits
-- No secrets in code, docs or chat. `apps/server/config/passwords.yaml` comes from `just server-passwords` and is git-ignored.
-- No production or hosted config changes (web and server hosting, DNS, mail provider keys).
-- Deployment (README "Deployment"; needs terraform from `mise.toml`, gcloud and firebase): once `BILLING_ACCOUNT=… RESEND_API_KEY=… RESEND_FROM=… just gcp-bootstrap`, then `just gcp-infra` → `just deploy-server` → `just deploy-web`. These change hosted resources, so run them only when the owner asks.
+- No secrets in code, docs, or chat. Keep the Supabase service role key (`SUPABASE_SERVICE_ROLE_KEY`), `RESEND_API_KEY`, and `RESEND_FROM` out of git. Do not commit `.env` files. `supabase/functions/.env.example` is the example and holds no secret values.
+- No production or hosted config changes (web hosting, DNS, the Supabase project, mail provider keys) unless Bill asks.
+- Hosted deploy is Netlify (`netlify.toml`) plus the Supabase project `lchytafmnuefrgkguynt`. Run it only when Bill asks.
+- The GCP project `story-line-app` is not this repo's target.

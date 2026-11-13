@@ -3,19 +3,20 @@
 Rev 4 (2026-10-19, M14.8 #60) was Bill's ask to run lint, typecheck and unit tests on every PR. Rev 5 (#43, Bill 2026-10-20: "let's do 43") adds pgTAP and a `dart format` check. Rev 6 (#75, Bill 2026-10-20: "Make an exception: allow one read-only post-deploy GitHub job against prod for #75"; #48, Bill 2026-10-20 1:57 PM CT) adds the Supabase advisors (splinter) step to `pgtap` and exactly two exceptions, listed under Exceptions. CI never touches prod, except the one read-only job in Exception P1.
 
 ## Shape
-One file, `.github/workflows/ci.yml`, three parallel jobs, no secrets. Exception E2E adds a fourth job, `e2e`, to this file. Exception P1 is the only other workflow, `.github/workflows/advisors-prod.yml`.
+One file, `.github/workflows/ci.yml`, four jobs, no secrets. The jobs are `flutter`, `deno`, `pgtap`, and `e2e`. Exception E2E states the limits on `e2e`. Exception P1 is the only other workflow, `.github/workflows/advisors-prod.yml`.
 
 | Job | Runs in | Steps |
 |---|---|---|
 | `flutter` | `apps/tell_me_a_story` | `flutter pub get --enforce-lockfile` → `dart format --output=none --set-exit-if-changed .` → analyze ceiling (below) → `flutter test` |
 | `deno` | repo root | `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` → `deno test --allow-env supabase/functions` |
 | `pgtap` | repo root | install pinned Supabase CLI (sha256-verified) → `supabase db start` → `supabase test db` → fetch pinned splinter (commit + sha256) → advisors check against `supabase/advisors-baseline.json` |
+| `e2e` | repo root, drive step in `apps/tell_me_a_story` | `bash e2e/check_flows.sh` → `supabase start` with the workflow's `-x` exclusions → `flutter drive` on `integration_test/e2e_test.dart` |
 
 - `flutter analyze` is the lint and the typecheck for Dart. `flutter test` is the unit tests. `dart format` runs after pub get because the formatter's style follows the package language version.
 - `deno test` type-checks only the modules its tests load. `deno check` covers every `index.ts` and all of `_shared`. The Deno tests use injected fake DBs and need only `--allow-env`.
 - `pgtap` starts only the local database container (with the auth, storage and realtime schemas `config.toml` enables), applies every migration to an empty database, then runs `supabase/tests`. Not bare Postgres: the migrations depend on Supabase's `auth`, `storage`, roles, `extensions` schema and realtime publication.
 - Prod isolation: the job has no secrets, so the CLI has no token and cannot reach the hosted project. No `link`, `--linked`, `--db-url`, `db push`, `db reset`, `db pull` or `migration` commands in CI, ever.
-- 🚫 Not in CI: `deno lint` (never gated, no baseline), `supabase start` (full stack), E2E, `flutter build`, coverage, caching beyond what the setup actions do by default.
+- 🚫 Not in CI: `deno lint` (never gated, no baseline), a full `supabase start` with no `-x` exclusions, `flutter build`, coverage, caching beyond what the setup actions do by default. The `e2e` job is in this file. It is the only job that runs `supabase start` and `flutter drive`, and only against local Supabase (Exception E2E).
 - 🚫 No `--dart-define` and no secrets in CI. `env_test.dart` asserts that the defines are empty.
 
 ## Triggers
@@ -31,12 +32,12 @@ concurrency:
 permissions:
   contents: read
 ```
-- No `paths` filter, so every PR reports all three checks and they can all be required.
-- `timeout-minutes: 15` for `flutter` and `deno`, `20` for `pgtap`.
+- No `paths` filter, so every PR reports all four checks.
+- `timeout-minutes: 15` for `flutter` and `deno`, `20` for `pgtap`, `25` for `e2e`.
 
 ## Version pinning
 - Flutter: exact `3.47.7` (Dart 3.13.5) via `subosito/flutter-action`. Deno: exact `2.9.4` via `denoland/setup-deno`. Supabase CLI: exact `2.121.0`, downloaded from the GitHub release and checked against a pinned sha256 (`SUPABASE_CLI_SHA256`, job `env`). Not `supabase/setup-cli`, which resolves from npm and pulls more actions. A bump of any of the three is its own PR.
-- Actions: every `uses:` is pinned by full commit SHA with the tag in a trailing comment, including `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0` in all three jobs, each with `persist-credentials: false`. The allowed actions are checkout, flutter-action and setup-deno. These pins are part of the lock, not extra hardening.
+- Actions: every `uses:` is pinned by full commit SHA with the tag in a trailing comment, including `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0` in all four jobs, each with `persist-credentials: false`. The allowed actions are checkout, flutter-action and setup-deno. These pins are part of the lock, not extra hardening.
 - Dependencies: Flutter uses `--enforce-lockfile`. Deno's `jsr:`/`npm:` imports aren't locked (no `deno.lock`); that gets its own issue.
 
 ## Analyze: ceiling, not zero
@@ -48,7 +49,7 @@ permissions:
 - `dart format` with default settings (page width 80, no `formatter:` override). The #43 PR's first commit was formatter output only, so main starts clean. Format churn in a feature PR is still only allowed in files the PR changes on purpose.
 
 ## Test counts
-- CI fails on any failing test. Counts aren't parsed in CI. PR bodies quote them: flutter ≥ 495, Deno ≥ 43, pgTAP from the `pgtap` log (`Files=25, Tests=825` at rev 6).
+- CI fails on any failing test. Counts are not parsed in CI. Quote the suite totals from the run. Measured after `supabase db reset` on this tree: `flutter test` 677, `deno test --allow-env supabase/functions` 43, `supabase test db` `Files=27, Tests=943`.
 - A red `pgtap` is never fixed by editing tests, migrations, `config.toml` or `seed.sql` in the same PR without a Gilfoyle lock. Fresh-database differences are findings.
 
 ## Exceptions (rev 6)
@@ -70,15 +71,15 @@ One job, `e2e` in `ci.yml`, may:
 - build and drive a debug/profile Flutter web app (`flutter drive -d web-server`);
 - pass `--dart-define` values sourced **only** from `supabase status -o env` (local demo values).
 
-It is **local Supabase only, never prod.** It uses no `${{ secrets.* }}`, no `link`, no `--linked`, no `--db-url`, no `db push/pull/reset`, and no `migration` command. Its permissions are `contents: read`. It uses only the allowlisted SHA-pinned actions, and `timeout-minutes: 25`. The job is report-only (not required) until 10 consecutive green runs on main, then it is a required check. Everything else in the Shape bullets on prod isolation and 🚫 (l.17–19) still applies to every job.
+It is **local Supabase only, never prod.** It uses no `${{ secrets.* }}`, no `link`, no `--linked`, no `--db-url`, no `db push/pull/reset`, and no `migration` command. Its permissions are `contents: read`. It uses only the allowlisted SHA-pinned actions, and `timeout-minutes: 25`. The job is report-only (not required) until 10 consecutive green runs on main, then it is a required check. The prod-isolation bullet and the Not in CI list still apply to every job, except the local `supabase start` and `flutter drive` that this exception allows.
 
 **Also in rev 6:**
 - The `pgtap` job runs splinter (pinned by commit plus sha256; a bump is its own PR) against `supabase/advisors-baseline.json`. New findings fail, stale entries fail, and an ERROR can never be accepted. The step fails closed if `psql` is missing.
-- pgTAP count note: 25 files / 825 tests after the M17a policy and index asserts (+23) and the definer-allowlist fold (−1).
+- pgTAP count: 27 files / 943 tests (`supabase test db` after `supabase db reset`). Rev 6 recorded 25 files / 825 tests.
 
 ## Required checks
 - `flutter`, `deno` and `pgtap` are required on `main`. Branch protection is a GitHub setting Bill changes by hand; no PR touches it. `pgtap` is added after the first green push run on main following the #43 merge. `e2e` is added only after 10 consecutive green runs on `main` (Exception E2E). `prod-advisors` is never a required check (Exception P1).
 
 ## Repo docs
-- `AGENTS.md` CI line: CI runs `dart format`, analyze, flutter test, Deno and pgTAP, and Supabase advisors (splinter) against a baseline on every PR. Local `supabase test db` is still how you check a migration before pushing.
+- `AGENTS.md` CI line: CI runs the `flutter`, `deno`, `pgtap`, and `e2e` jobs on every pull request to `main`. `pgtap` includes the Supabase advisors (splinter) check against a baseline. Local `supabase test db` is still how you check a migration before pushing.
 - `docs/design-doc/README.md` index line: `` `ci.md` — CI (LOCKED 2026-10-21, Gilfoyle, rev 6) ``.
