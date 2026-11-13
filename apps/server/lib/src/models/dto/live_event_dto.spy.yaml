@@ -1,9 +1,0 @@
-### Posted after commit to family:<familyId>, tree:<treeId> and, when storyId
-### is set, story:<storyId>. A `family` event goes to tree:<treeId> only.
-class: LiveEventDto
-fields:
-  familyId: UuidValue
-  storyId: UuidValue?
-  kind: LiveKind
-  storyStatus: StoryStatus?
-  deleted: bool

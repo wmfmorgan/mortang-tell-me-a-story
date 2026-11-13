@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/data/auth_refresh.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/ui/family/family_role.dart';
-import 'package:tell_me_a_story/features/auth/sign_in_page.dart';
-import 'package:tell_me_a_story/data/otp_sign_in.dart';
-import 'package:tell_me_a_story/features/auth/sign_in_code_form.dart';
+import '../../core/router/app_router.dart';
+import '../../core/router/auth_refresh.dart';
+import '../../core/theme/album_theme.dart';
+import '../../data/family_selection.dart';
+import '../../data/invite_api.dart';
+import '../family/family_role.dart';
+import 'magic_link_page.dart';
+import 'magic_link_redirect.dart';
 
 const _inviteSage = Color(0xFF7A8B74);
 const _inviteOutline = albumSage;
@@ -28,7 +28,7 @@ class InviteSignInPage extends StatefulWidget {
     required this.token,
     this.previewApi,
     this.inviteApi,
-    this.otpSignIn,
+    this.sender,
     this.authRefresh,
     this.signedIn,
   });
@@ -36,9 +36,7 @@ class InviteSignInPage extends StatefulWidget {
   final String token;
   final InviteLinkGateway? previewApi;
   final InviteGateway? inviteApi;
-
-  /// Injectable for tests; defaults to [ServerOtpSignIn].
-  final OtpSignIn? otpSignIn;
+  final MagicLinkSender? sender;
   final AuthRefresh? authRefresh;
   final bool Function()? signedIn;
 
@@ -48,18 +46,21 @@ class InviteSignInPage extends StatefulWidget {
 
 class _InviteSignInPageState extends State<InviteSignInPage> {
   final _email = TextEditingController();
-  late final OtpSignIn _otp = widget.otpSignIn ?? ServerOtpSignIn();
   InvitePreview? _preview;
   var _loading = true;
   var _sending = false;
-  var _signingIn = false;
+  var _sent = false;
   var _accepting = false;
   var _accepted = false;
   String? _error;
-  String? _requestId;
   String? _sentTo;
 
+  static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
   bool get _isSignedIn => widget.signedIn?.call() ?? false;
+
+  MagicLinkSender get _sender =>
+      widget.sender ?? GoTrueMagicLinkSender(Supabase.instance.client.auth);
 
   @override
   void initState() {
@@ -125,10 +126,10 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
     }
   }
 
-  Future<void> _sendCode() async {
+  Future<void> _send() async {
     final email = _email.text.trim();
-    if (!isFullEmail(email)) {
-      setState(() => _error = invalidEmailMessage);
+    if (!_emailPattern.hasMatch(email)) {
+      setState(() => _error = 'Please enter a full email address.');
       return;
     }
     setState(() {
@@ -136,44 +137,27 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       _error = null;
     });
     try {
-      final requestId = await _otp.sendCode(email);
+      final origin = magicLinkEmailRedirectTo();
+      await _sender.send(
+        email,
+        redirectTo: '$origin/invite/${Uri.encodeComponent(widget.token)}',
+      );
       if (!mounted) return;
       setState(() {
-        _requestId = requestId;
+        _sent = true;
         _sentTo = email;
       });
-    } catch (e) {
+    } on AuthException catch (e) {
       if (!mounted) return;
-      setState(() => _error = signInErrorMessage(e));
+      setState(() {
+        _error = e.message.isEmpty ? 'Request failed' : e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Request failed');
     } finally {
       if (mounted) setState(() => _sending = false);
     }
-  }
-
-  /// Success changes the auth session; [_onAuth] then accepts the invite.
-  Future<void> _signIn(String code) async {
-    final requestId = _requestId;
-    if (requestId == null) return;
-    setState(() {
-      _signingIn = true;
-      _error = null;
-    });
-    try {
-      await _otp.signIn(requestId: requestId, code: code);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = signInErrorMessage(e));
-    } finally {
-      if (mounted) setState(() => _signingIn = false);
-    }
-  }
-
-  void _useDifferentEmail() {
-    setState(() {
-      _requestId = null;
-      _sentTo = null;
-      _error = null;
-    });
   }
 
   @override
@@ -346,17 +330,16 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
           const SizedBox(height: 32),
           if (_isSignedIn)
             const CircularProgressIndicator(color: albumTerracotta)
-          else if (_requestId != null)
-            SignInCodeForm(
-              message:
-                  'We sent a code to $_sentTo. Enter it to join $familyLabel.',
-              messageKey: const Key('invite-sent'),
-              signingIn: _signingIn,
-              sending: _sending,
-              error: _error,
-              onSubmit: _signIn,
-              onResend: _sendCode,
-              onUseDifferentEmail: _useDifferentEmail,
+          else if (_sent)
+            Text(
+              'We sent a sign-in link to $_sentTo. Tap it to join $familyLabel.',
+              key: const Key('invite-sent'),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.literata(
+                color: albumInk.withValues(alpha: 0.8),
+                fontSize: 14,
+                height: 1.625,
+              ),
             )
           else
             _form(),
@@ -411,7 +394,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
           keyboardType: TextInputType.emailAddress,
           autofillHints: const [AutofillHints.email],
           enabled: !_sending,
-          onSubmitted: (_) => _sendCode(),
+          onSubmitted: (_) => _send(),
           style: GoogleFonts.literata(color: albumInk, fontSize: 14),
           cursorColor: albumTerracotta,
           decoration: InputDecoration(
@@ -442,7 +425,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
         ],
         const SizedBox(height: 16),
         FilledButton(
-          onPressed: _sending ? null : _sendCode,
+          onPressed: _sending ? null : _send,
           style: FilledButton.styleFrom(
             backgroundColor: albumTerracotta,
             foregroundColor: _inviteOnPrimary,
@@ -461,7 +444,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _sending ? sendingCodeLabel : sendCodeLabel,
+                  _sending ? 'Sending…' : 'Email me a sign-in link',
                   style: GoogleFonts.sourceSans3(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -478,7 +461,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
         ),
         const SizedBox(height: 16),
         Text(
-          landingPasswordNote,
+          'We’ll email you a link. No password needed.',
           textAlign: TextAlign.center,
           style: GoogleFonts.literata(color: _inviteOutline, fontSize: 12),
         ),

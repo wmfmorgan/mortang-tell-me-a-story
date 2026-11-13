@@ -1,8 +1,4 @@
-import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
-
-import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/data/server/server_errors.dart';
-import 'package:tell_me_a_story/data/server/wire.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class ManageFamiliesGateway {
   Future<String> createRootFamily(String name);
@@ -34,18 +30,24 @@ abstract class ManageFamiliesGateway {
 }
 
 class ManageFamiliesApi implements ManageFamiliesGateway {
-  ManageFamiliesApi({server.Client? client}) : _injected = client;
+  ManageFamiliesApi({SupabaseClient? client})
+    : _client = client ?? Supabase.instance.client;
 
-  final server.Client? _injected;
-
-  server.Client get _client => _injected ?? serverClient;
-
-  static server.UuidValue _id(String id) => server.UuidValue.fromString(id);
+  final SupabaseClient _client;
 
   @override
   Future<String> createRootFamily(String name) async {
-    final id = await withServerErrors(() => _client.family.createRoot(name));
-    return id.toString();
+    final json = await _invoke('create-root-family', {
+      'name': name,
+    }, expectStatus: 201);
+    final id = json['family_id'];
+    if (id is! String || id.isEmpty) {
+      throw ManageFamiliesException(
+        code: 'VALIDATION',
+        message: 'create_family returned no id',
+      );
+    }
+    return id;
   }
 
   @override
@@ -57,29 +59,29 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     required String ownerUserId,
     List<String> personIds = const [],
   }) async {
-    final id = await withServerErrors(
-      () => _client.family.createBranch(
-        parentFamilyId: _id(parentFamilyId),
-        originStoryId: _id(originStoryId),
-        name: name,
-        branchYear: branchYear,
-        ownerUserId: _id(ownerUserId),
-        personIds: [for (final personId in personIds) _id(personId)],
-      ),
-    );
-    return id.toString();
+    final json = await _invoke('create-branch-family', {
+      'parent_family_id': parentFamilyId,
+      'origin_story_id': originStoryId,
+      'name': name,
+      'branch_year': branchYear,
+      'owner_user_id': ownerUserId,
+      'person_ids': personIds,
+    }, expectStatus: 201);
+    final id = json['family_id'];
+    if (id is! String || id.isEmpty) {
+      throw ManageFamiliesException(code: 'VALIDATION', message: 'Try again');
+    }
+    return id;
   }
 
   @override
   Future<void> renameFamily({required String familyId, required String name}) {
-    return withServerErrors(() => _client.family.rename(_id(familyId), name));
+    return _invoke('rename-family', {'family_id': familyId, 'name': name});
   }
 
   @override
   Future<void> addCoOwner({required String familyId, required String userId}) {
-    return withServerErrors(
-      () => _client.family.addCoOwner(_id(familyId), _id(userId)),
-    );
+    return _invoke('add-co-owner', {'family_id': familyId, 'user_id': userId});
   }
 
   @override
@@ -87,9 +89,10 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     required String familyId,
     required String userId,
   }) {
-    return withServerErrors(
-      () => _client.family.removeCoOwner(_id(familyId), _id(userId)),
-    );
+    return _invoke('remove-co-owner', {
+      'family_id': familyId,
+      'user_id': userId,
+    });
   }
 
   @override
@@ -97,9 +100,7 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     required String familyId,
     required String userId,
   }) {
-    return withServerErrors(
-      () => _client.family.removeMember(_id(familyId), _id(userId)),
-    );
+    return _invoke('remove-member', {'family_id': familyId, 'user_id': userId});
   }
 
   @override
@@ -108,33 +109,89 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     required String newOwnerUserId,
     required String formerOwnerBecomes,
   }) {
-    return withServerErrors(
-      () => _client.family.transferOwnership(
-        _id(familyId),
-        _id(newOwnerUserId),
-        roleFromName(formerOwnerBecomes),
-      ),
-    );
+    return _invoke('transfer-ownership', {
+      'family_id': familyId,
+      'new_owner_user_id': newOwnerUserId,
+      'former_owner_becomes': formerOwnerBecomes,
+    });
   }
 
   @override
   Future<void> softDeleteFamily(String familyId) {
-    return withServerErrors(() => _client.family.softDelete(_id(familyId)));
+    return _invoke('soft-delete-family', {'family_id': familyId});
   }
 
   @override
   Future<void> recoverFamily(String familyId) {
-    return withServerErrors(() => _client.family.recover(_id(familyId)));
+    return _invoke('recover-family', {'family_id': familyId});
   }
 
-  /// Rotates the token and returns the new expiry.
   @override
-  Future<DateTime> resendInvite(String inviteId) {
-    return withServerErrors(() => _client.invite.resend(_id(inviteId)));
+  Future<DateTime> resendInvite(String inviteId) async {
+    final json = await _invoke('resend-invite', {'invite_id': inviteId});
+    final raw = json['expires_at'];
+    final expires = raw is String ? DateTime.tryParse(raw) : null;
+    if (expires == null) {
+      throw ManageFamiliesException(
+        code: 'VALIDATION',
+        message: 'resend_invite returned no expires_at',
+      );
+    }
+    return expires;
   }
 
   @override
   Future<void> revokeInvite(String inviteId) {
-    return withServerErrors(() => _client.invite.revoke(_id(inviteId)));
+    return _invoke('revoke-invite', {'invite_id': inviteId});
   }
+
+  Future<Map<String, dynamic>> _invoke(
+    String functionName,
+    Map<String, dynamic> body, {
+    int expectStatus = 200,
+  }) async {
+    if (_client.auth.currentSession == null) {
+      throw ManageFamiliesException(
+        code: 'AUTH_REQUIRED',
+        message: 'Sign-in required',
+      );
+    }
+    try {
+      final res = await _client.functions.invoke(functionName, body: body);
+      final decoded = _asMap(res.data);
+      if (res.status != expectStatus) {
+        throw ManageFamiliesException(
+          code: decoded['code'] as String? ?? 'VALIDATION',
+          message: decoded['message'] as String? ?? 'Try again',
+        );
+      }
+      return decoded;
+    } on ManageFamiliesException {
+      rethrow;
+    } on FunctionException catch (e) {
+      final decoded = _asMap(e.details);
+      throw ManageFamiliesException(
+        code: decoded['code'] as String? ?? 'VALIDATION',
+        message: decoded['message'] as String? ?? 'Try again',
+      );
+    }
+  }
+}
+
+Map<String, dynamic> _asMap(dynamic data) {
+  return switch (data) {
+    final Map<String, dynamic> m => m,
+    final Map m => Map<String, dynamic>.from(m),
+    _ => <String, dynamic>{},
+  };
+}
+
+class ManageFamiliesException implements Exception {
+  ManageFamiliesException({required this.code, required this.message});
+
+  final String code;
+  final String message;
+
+  @override
+  String toString() => 'ManageFamiliesException($code: $message)';
 }

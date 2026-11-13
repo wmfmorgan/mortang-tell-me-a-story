@@ -3,11 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:tell_me_a_story/ui/album/album_chrome.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/ui/dialogs/family_blur_dialog.dart';
+import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
+import '../../data/invite_api.dart';
+import '../../data/people_api.dart';
+import '../family/family_blur_dialog.dart';
 
 /// Edit person. The gate is [Person.userId] from the people row.
 Future<Person?> showEditPersonDialog(
@@ -58,7 +58,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
   late final TextEditingController _email;
   late bool _passedAway;
   Uint8List? _picture;
-  Uint8List? _existingBytes;
+  String? _existingUrl;
   var _removed = false;
   var _busy = false;
   String? _aboutError;
@@ -79,12 +79,12 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
 
   Future<void> _loadExisting(String path) async {
     try {
-      final bytes = await widget.people.pictureBytes(
+      final url = await widget.people.signedPictureUrl(
         personId: widget.person.id,
         path: path,
       );
       if (!mounted || _removed || _picture != null) return;
-      setState(() => _existingBytes = bytes);
+      setState(() => _existingUrl = url);
     } catch (_) {}
   }
 
@@ -109,7 +109,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
   void _remove() {
     setState(() {
       _picture = null;
-      _existingBytes = null;
+      _existingUrl = null;
       _removed = true;
     });
   }
@@ -170,10 +170,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
             email: email,
             personId: person.id,
           );
-          await invites.sendInviteEmail(
-            inviteId: created.inviteId,
-            token: created.token,
-          );
+          await invites.sendInviteEmail(inviteId: created.inviteId);
         }
       }
       if (!mounted) return;
@@ -432,10 +429,10 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
         ),
       );
     }
-    final existing = _existingBytes;
-    if (!_removed && existing != null && existing.isNotEmpty) {
-      return Image.memory(
-        existing,
+    final url = _existingUrl;
+    if (!_removed && url != null && url.isNotEmpty) {
+      return Image.network(
+        url,
         key: const Key('edit-person-picture-preview'),
         width: 64,
         height: 64,

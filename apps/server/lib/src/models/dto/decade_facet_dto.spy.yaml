@@ -1,5 +1,0 @@
-### Search facet: a decade and its story count.
-class: DecadeFacetDto
-fields:
-  decade: int
-  storyCount: int

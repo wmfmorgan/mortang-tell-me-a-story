@@ -1,20 +1,9 @@
 import 'dart:typed_data';
 
-import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/family_covers.dart';
-import 'package:tell_me_a_story/data/recovery_window.dart';
-import 'package:tell_me_a_story/data/server/media_batches.dart';
-import 'package:tell_me_a_story/data/server/server_errors.dart';
-import 'package:tell_me_a_story/data/server/wire.dart';
-
-/// A trimmed family name, or `Family` when blank.
-String _familyName(String name) {
-  final trimmed = name.trim();
-  return trimmed.isEmpty ? 'Family' : trimmed;
-}
+import 'family_covers.dart';
+import 'recovery_window.dart';
 
 /// A family the signed-in member can already read.
 class MemberFamily {
@@ -43,15 +32,22 @@ class MemberFamily {
   /// Object key in `family-covers`, or null when the hero is a placeholder.
   final String? coverPhotoPath;
 
-  factory MemberFamily.fromDto(server.MemberFamilyDto dto) => MemberFamily(
-    id: dto.id.toString(),
-    name: _familyName(dto.name),
-    parentFamilyId: dto.parentId?.toString(),
-    createdAt: dto.createdAt,
-    branchYear: dto.branchYear,
-    role: roleName(dto.role),
-    coverPhotoPath: dto.coverKey,
-  );
+  factory MemberFamily.fromJson(Map<String, dynamic> json, {String? role}) {
+    final rawYear = json['branch_year'];
+    return MemberFamily(
+      id: json['id'] as String,
+      name: (json['name'] as String?)?.trim().isNotEmpty == true
+          ? (json['name'] as String).trim()
+          : 'Family',
+      parentFamilyId: json['parent_family_id'] as String?,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.utc(2020),
+      branchYear: rawYear is num ? rawYear.toInt() : null,
+      role: role,
+      coverPhotoPath: json['cover_photo_path'] as String?,
+    );
+  }
 }
 
 /// A family the caller owns or co-owns. [deletedAt] is set while it is
@@ -69,13 +65,6 @@ class StewardFamily {
   final String role;
   final DateTime? deletedAt;
 
-  factory StewardFamily.fromDto(server.StewardFamilyDto dto) => StewardFamily(
-    id: dto.id.toString(),
-    name: _familyName(dto.name),
-    role: roleName(dto.role),
-    deletedAt: dto.deletedAt,
-  );
-
   bool countsForManage([DateTime? now]) {
     if (!originSteward(role)) return false;
     final deleted = deletedAt;
@@ -87,7 +76,17 @@ class StewardFamily {
 /// Owner or co-owner of a family. Other roles are false.
 bool originSteward(String? role) => role == 'owner' || role == 'co_owner';
 
-/// One live family from `family.listTree`.
+/// Hosted preview can serve this branch before the cover migration is applied.
+bool familiesCoverColumnMissing(PostgrestException error) {
+  final message = error.message.toLowerCase();
+  if (!message.contains('cover_photo_path')) return false;
+  return error.code == '42703' ||
+      error.code == 'PGRST204' ||
+      message.contains('does not exist') ||
+      message.contains('schema cache');
+}
+
+/// One live family from `list_family_tree`.
 /// [branchYear] and [originStoryId] are whatever the server returns.
 class TreeFamily {
   const TreeFamily({
@@ -106,13 +105,21 @@ class TreeFamily {
   /// Effective origin from `family_origin`. Null when the timeline has none.
   final String? originStoryId;
 
-  factory TreeFamily.fromDto(server.TreeFamilyDto dto) => TreeFamily(
-    id: dto.id.toString(),
-    name: _familyName(dto.name),
-    parentFamilyId: dto.parentId?.toString(),
-    branchYear: dto.branchYear,
-    originStoryId: dto.effectiveOriginStoryId?.toString(),
-  );
+  factory TreeFamily.fromJson(Map<String, dynamic> json) {
+    final rawYear = json['branch_year'];
+    final rawOrigin = json['origin_story_id'];
+    return TreeFamily(
+      id: json['id'] as String,
+      name: (json['name'] as String?)?.trim().isNotEmpty == true
+          ? (json['name'] as String).trim()
+          : 'Family',
+      parentFamilyId: json['parent_family_id'] as String?,
+      branchYear: rawYear is num ? rawYear.toInt() : null,
+      originStoryId: rawOrigin is String && rawOrigin.isNotEmpty
+          ? rawOrigin
+          : null,
+    );
+  }
 }
 
 /// A live family whose effective origin is [storyId].
@@ -123,31 +130,40 @@ class OriginDependent {
   final String name;
 }
 
-/// The set-origin copy users saw before the server cutover: forbidden and
-/// not-found get fixed sentences; validation keeps the server's message.
-/// Anything else is returned unchanged.
-Object originErrorCopy(Object error) {
-  if (error is! AppException) return error;
-  return switch (error.code) {
-    AppErrorCode.forbidden => const AppException(
-      code: AppErrorCode.forbidden,
-      message: 'You do not have permission to do that.',
-    ),
-    AppErrorCode.notFound => const AppException(
-      code: AppErrorCode.notFound,
-      message: 'Not found.',
-    ),
-    _ => error,
-  };
+/// Mapped from `set_family_origin` and `list_origin_dependents`.
+class OriginRpcException implements Exception {
+  const OriginRpcException(this.code, this.message);
+
+  /// `FORBIDDEN`, `NOT_FOUND`, or `VALIDATION`.
+  final String code;
+  final String message;
+
+  @override
+  String toString() => message;
 }
 
-/// Runs a set-origin call with [originErrorCopy] applied to its errors.
-Future<T> _withOriginCopy<T>(Future<T> Function() call) async {
-  try {
-    return await withServerErrors(call);
-  } catch (error, stackTrace) {
-    Error.throwWithStackTrace(originErrorCopy(error), stackTrace);
+/// §12 catalog text for an origin RPC failure. Null when [error] is not one.
+OriginRpcException? originRpcException(Object error) {
+  if (error is! PostgrestException) return null;
+  final raw = error.message;
+  if (raw.contains('FORBIDDEN')) {
+    return const OriginRpcException(
+      'FORBIDDEN',
+      'You do not have permission to do that.',
+    );
   }
+  if (raw.contains('NOT_FOUND')) {
+    return const OriginRpcException('NOT_FOUND', 'Not found.');
+  }
+  if (raw.contains('VALIDATION')) {
+    const marker = 'VALIDATION: ';
+    final index = raw.indexOf(marker);
+    final detail = index >= 0
+        ? raw.substring(index + marker.length).trim()
+        : raw;
+    return OriginRpcException('VALIDATION', detail);
+  }
+  return null;
 }
 
 abstract class FamiliesGateway {
@@ -225,15 +241,6 @@ class FamilyRoster {
   final int memberCount;
   final int publishedCount;
   final DateTime? deletedAt;
-
-  factory FamilyRoster.fromDto(server.FamilyRosterDto dto) => FamilyRoster(
-    id: dto.id.toString(),
-    name: _familyName(dto.name),
-    role: roleName(dto.role),
-    memberCount: dto.memberCount,
-    publishedCount: dto.publishedCount,
-    deletedAt: dto.deletedAt,
-  );
 }
 
 class FamilyDirectory {
@@ -255,17 +262,6 @@ class FamilyPerson {
   final String role;
   final String? displayName;
   final Uint8List? avatarBytes;
-
-  /// [avatars] holds downloaded avatar bytes by object key.
-  factory FamilyPerson.fromDto(
-    server.FamilyMemberDto dto, {
-    required Map<String, Uint8List> avatars,
-  }) => FamilyPerson(
-    userId: dto.userId.toString(),
-    role: roleName(dto.role),
-    displayName: dto.displayName,
-    avatarBytes: avatars[dto.avatarKey],
-  );
 }
 
 class FamilyInvite {
@@ -274,32 +270,21 @@ class FamilyInvite {
     required this.email,
     required this.expiresAt,
     this.createdAt,
-    this.lastSentAt,
   });
 
   final String id;
   final String? email;
   final DateTime? expiresAt;
+
+  /// Invites have no created_at column. Callers may pass one for display.
+  /// Otherwise the sent date is [expiresAt] minus the 7-day invite window.
   final DateTime? createdAt;
-
-  /// When the invite was last emailed or resent.
-  final DateTime? lastSentAt;
-
-  factory FamilyInvite.fromDto(server.PendingInviteDto dto) => FamilyInvite(
-    id: dto.id.toString(),
-    email: dto.email?.trim(),
-    expiresAt: dto.expiresAt,
-    createdAt: dto.createdAt,
-    lastSentAt: dto.sentAt,
-  );
 
   bool get isExpired =>
       expiresAt != null && expiresAt!.isBefore(DateTime.now());
 
-  /// [lastSentAt], else [createdAt], else [expiresAt] minus the 7-day window.
   DateTime? get sentAt {
-    final sent = lastSentAt ?? createdAt;
-    if (sent != null) return sent;
+    if (createdAt != null) return createdAt;
     final expiry = expiresAt;
     if (expiry == null) return null;
     return expiry.subtract(const Duration(days: 7));
@@ -341,23 +326,6 @@ class FamilyDetail {
   final String myRole;
   final List<FamilyPerson> people;
   final List<FamilyInvite> pendingInvites;
-
-  /// [avatars] holds downloaded member avatar bytes by object key.
-  factory FamilyDetail.fromDto(
-    server.FamilyDetailDto dto, {
-    required Map<String, Uint8List> avatars,
-  }) => FamilyDetail(
-    id: dto.id.toString(),
-    name: _familyName(dto.name),
-    myRole: roleName(dto.myRole),
-    people: [
-      for (final member in dto.members)
-        FamilyPerson.fromDto(member, avatars: avatars),
-    ],
-    pendingInvites: [
-      for (final invite in dto.pendingInvites) FamilyInvite.fromDto(invite),
-    ],
-  );
 }
 
 abstract class FamilyDirectoryGateway {
@@ -367,13 +335,12 @@ abstract class FamilyDirectoryGateway {
 
 class FamiliesApi
     implements FamiliesGateway, FamilyDirectoryGateway, FamilyCoverClient {
-  FamiliesApi({server.Client? client}) : _injected = client;
+  FamiliesApi({SupabaseClient? client})
+    : _client = client ?? Supabase.instance.client;
 
-  final server.Client? _injected;
+  final SupabaseClient _client;
 
-  server.Client get _client => _injected ?? serverClient;
-
-  FamilyCoversApi get _covers => FamilyCoversApi(client: _injected);
+  FamilyCoversApi get _covers => FamilyCoversApi(client: _client);
 
   @override
   Future<Uint8List?> download(String? path) => _covers.download(path);
@@ -388,128 +355,358 @@ class FamiliesApi
     return _covers.clear(familyId: familyId, path: path);
   }
 
-  /// Uploads the hero and makes it the cover. The server queues the
-  /// replaced cover for deletion, so [previousPath] is not used.
+  /// Upload the hero, then store its object key on the family row.
   @override
   Future<String> setCoverPhoto({
     required String familyId,
     required Uint8List bytes,
     String? previousPath,
-  }) => save(familyId: familyId, bytes: bytes);
+  }) async {
+    final path = await save(familyId: familyId, bytes: bytes);
+    await _client
+        .from('families')
+        .update({'cover_photo_path': path})
+        .eq('id', familyId);
+    if (previousPath != null &&
+        previousPath.isNotEmpty &&
+        previousPath != path) {
+      await _client.storage.from(familyCoversBucket).remove([previousPath]);
+    }
+    return path;
+  }
 
-  /// Clears the cover; the server queues its object for deletion.
+  /// Delete the hero object and clear `cover_photo_path`.
   @override
   Future<void> clearCoverPhoto({
     required String familyId,
     required String? path,
-  }) => clear(familyId: familyId, path: path);
+  }) async {
+    await clear(familyId: familyId, path: path);
+    await _client
+        .from('families')
+        .update({'cover_photo_path': null})
+        .eq('id', familyId);
+  }
+
+  static const _mineSelectWithCover =
+      'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at, cover_photo_path)';
+  static const _mineSelectWithoutCover =
+      'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at)';
 
   @override
   Future<List<MemberFamily>> listMine() async {
-    final rows = await withServerErrors(() => _client.family.listMine());
-    return [for (final row in rows) MemberFamily.fromDto(row)];
+    try {
+      return await _listMine(_mineSelectWithCover);
+    } on PostgrestException catch (error) {
+      if (!familiesCoverColumnMissing(error)) rethrow;
+      return _listMine(_mineSelectWithoutCover);
+    }
+  }
+
+  Future<List<MemberFamily>> _listMine(String select) async {
+    final uid = _client.auth.currentUser!.id;
+    final rows = await _client
+        .from('memberships')
+        .select(select)
+        .eq('user_id', uid)
+        .isFilter('families.deleted_at', null);
+    final families = <MemberFamily>[];
+    for (final row in rows) {
+      final role = row['role'] as String?;
+      final embedded = row['families'];
+      if (embedded is Map<String, dynamic>) {
+        families.add(MemberFamily.fromJson(embedded, role: role));
+      } else if (embedded is Map) {
+        families.add(
+          MemberFamily.fromJson(
+            Map<String, dynamic>.from(embedded),
+            role: role,
+          ),
+        );
+      }
+    }
+    return families;
   }
 
   @override
   Future<List<TreeFamily>> listFamilyTree(String familyId) async {
-    final rows = await withServerErrors(
-      () => _client.family.listTree(server.UuidValue.fromString(familyId)),
+    final rows = await _client.rpc(
+      'list_family_tree',
+      params: {'fid': familyId},
     );
-    return [for (final row in rows) TreeFamily.fromDto(row)];
+    if (rows is! List) return const [];
+    final families = <TreeFamily>[];
+    for (final row in rows) {
+      if (row is Map<String, dynamic>) {
+        families.add(TreeFamily.fromJson(row));
+      } else if (row is Map) {
+        families.add(TreeFamily.fromJson(Map<String, dynamic>.from(row)));
+      }
+    }
+    return families;
   }
 
   @override
   Future<void> setFamilyOrigin({
     required String familyId,
     required String storyId,
-  }) {
-    return _withOriginCopy(
-      () => _client.family.setOrigin(
-        server.UuidValue.fromString(familyId),
-        server.UuidValue.fromString(storyId),
-      ),
-    );
+  }) async {
+    try {
+      await _client.rpc(
+        'set_family_origin',
+        params: {'p_family_id': familyId, 'p_story_id': storyId},
+      );
+    } catch (error) {
+      final mapped = originRpcException(error);
+      if (mapped != null) throw mapped;
+      rethrow;
+    }
   }
 
   @override
   Future<List<OriginDependent>> listOriginDependents(String storyId) async {
-    final rows = await _withOriginCopy(
-      () => _client.family.listOriginDependents(
-        server.UuidValue.fromString(storyId),
-      ),
-    );
-    return [
-      for (final row in rows)
-        OriginDependent(familyId: row.familyId.toString(), name: row.name),
-    ];
+    final Object rows;
+    try {
+      rows = await _client.rpc(
+        'list_origin_dependents',
+        params: {'p_story_id': storyId},
+      );
+    } catch (error) {
+      final mapped = originRpcException(error);
+      if (mapped != null) throw mapped;
+      rethrow;
+    }
+    if (rows is! List) return const [];
+    final dependents = <OriginDependent>[];
+    for (final row in rows) {
+      final map = row is Map<String, dynamic>
+          ? row
+          : row is Map
+          ? Map<String, dynamic>.from(row)
+          : null;
+      if (map == null) continue;
+      final id = map['family_id'];
+      final name = map['name'];
+      if (id is! String || name is! String) continue;
+      dependents.add(OriginDependent(familyId: id, name: name));
+    }
+    return dependents;
   }
 
-  /// The server returns live families and soft-deleted ones inside the
-  /// recovery window.
   @override
   Future<List<StewardFamily>> listStewarded() async {
-    final rows = await withServerErrors(() => _client.family.listStewarded());
-    return [
-      for (final row in rows)
-        if (StewardFamily.fromDto(row) case final family
-            when family.countsForManage())
-          family,
-    ];
+    final uid = _client.auth.currentUser!.id;
+    final rows = await _membershipRows(uid, deleted: null, stewardOnly: true);
+    final stewarded = <StewardFamily>[];
+    for (final roster in _rosters(rows)) {
+      final family = StewardFamily(
+        id: roster.id,
+        name: roster.name,
+        role: roster.role,
+        deletedAt: roster.deletedAt,
+      );
+      if (family.countsForManage()) stewarded.add(family);
+    }
+    return stewarded;
   }
 
   @override
   Future<FamilyDirectory> listDirectory() async {
-    final dto = await withServerErrors(() => _client.family.directory());
+    final uid = _client.auth.currentUser!.id;
+    final activeRows = await _membershipRows(
+      uid,
+      deleted: false,
+      stewardOnly: true,
+    );
+    final recoverableRows = await _membershipRows(
+      uid,
+      deleted: true,
+      stewardOnly: true,
+    );
+    final active = _rosters(activeRows);
+    final recoverable = [
+      for (final row in _rosters(recoverableRows))
+        if (row.deletedAt != null && isInsideRecoveryWindow(row.deletedAt!))
+          row,
+    ];
+    final ids = [...active, ...recoverable].map((row) => row.id).toList();
+    final members = await _counts('memberships', ids);
+    final stories = await _publishedCounts(ids);
+    FamilyRoster withCounts(FamilyRoster row) {
+      return FamilyRoster(
+        id: row.id,
+        name: row.name,
+        role: row.role,
+        memberCount: members[row.id] ?? 0,
+        publishedCount: stories[row.id] ?? 0,
+        deletedAt: row.deletedAt,
+      );
+    }
+
     return FamilyDirectory(
-      active: [for (final row in dto.active) FamilyRoster.fromDto(row)],
-      recoverable: [
-        for (final row in dto.recoverable)
-          if (row.deletedAt != null && isInsideRecoveryWindow(row.deletedAt!))
-            FamilyRoster.fromDto(row),
-      ],
+      active: [for (final row in active) withCounts(row)],
+      recoverable: [for (final row in recoverable) withCounts(row)],
     );
   }
 
   @override
   Future<List<FamilyPerson>> listMembers(String familyId) async {
-    final rows = await withServerErrors(
-      () => _client.family.listMembers(server.UuidValue.fromString(familyId)),
-    );
-    final avatars = await _avatars([for (final row in rows) row.avatarKey]);
-    return [
-      for (final row in rows) FamilyPerson.fromDto(row, avatars: avatars),
-    ];
+    final rows = await _client
+        .from('memberships')
+        .select('user_id, role, profiles(display_name, avatar_path)')
+        .eq('family_id', familyId);
+    final people = <FamilyPerson>[];
+    for (final row in rows) {
+      final userId = row['user_id'] as String?;
+      final role = row['role'] as String? ?? 'member';
+      if (userId == null) continue;
+      final profile = row['profiles'];
+      String? displayName;
+      String? avatarPath;
+      if (profile is Map) {
+        displayName = profile['display_name'] as String?;
+        avatarPath = profile['avatar_path'] as String?;
+      }
+      Uint8List? bytes;
+      if (avatarPath != null && avatarPath.isNotEmpty) {
+        try {
+          bytes = await _client.storage.from('avatars').download(avatarPath);
+        } catch (_) {
+          bytes = null;
+        }
+      }
+      people.add(
+        FamilyPerson(
+          userId: userId,
+          role: role,
+          displayName: displayName,
+          avatarBytes: bytes,
+        ),
+      );
+    }
+    return people;
   }
 
-  /// Null when the caller cannot see [familyId].
   @override
   Future<FamilyDetail?> loadDetail(String familyId) async {
-    final server.FamilyDetailDto dto;
-    try {
-      dto = await withServerErrors(
-        () => _client.family.detail(server.UuidValue.fromString(familyId)),
-      );
-    } on AppException catch (error) {
-      if (error.code == AppErrorCode.forbidden ||
-          error.code == AppErrorCode.notFound) {
-        return null;
-      }
-      rethrow;
+    final uid = _client.auth.currentUser?.id;
+    final family = await _client
+        .from('families')
+        .select('id, name')
+        .eq('id', familyId)
+        .maybeSingle();
+    if (family == null) return null;
+    final people = await listMembers(familyId);
+    var myRole = 'member';
+    for (final person in people) {
+      if (person.userId == uid) myRole = person.role;
     }
-    final avatars = await _avatars([
-      for (final member in dto.members) member.avatarKey,
-    ]);
-    return FamilyDetail.fromDto(dto, avatars: avatars);
+    final inviteRows = await _client
+        .from('invites')
+        .select('id, email, expires_at')
+        .eq('family_id', familyId)
+        .eq('status', 'pending')
+        .order('email');
+    final pendingInvites = <FamilyInvite>[];
+    for (final row in inviteRows) {
+      final id = row['id'] as String?;
+      if (id == null) continue;
+      final rawExpiry = row['expires_at'];
+      pendingInvites.add(
+        FamilyInvite(
+          id: id,
+          email: (row['email'] as String?)?.trim(),
+          expiresAt: rawExpiry is String ? DateTime.tryParse(rawExpiry) : null,
+        ),
+      );
+    }
+    return FamilyDetail(
+      id: family['id'] as String,
+      name: (family['name'] as String?)?.trim().isNotEmpty == true
+          ? (family['name'] as String).trim()
+          : 'Family',
+      myRole: myRole,
+      people: people,
+      pendingInvites: pendingInvites,
+    );
   }
 
-  /// Avatar bytes by key. Avatars are decoration: a failed download leaves
-  /// the initials.
-  Future<Map<String, Uint8List>> _avatars(List<String?> keys) async {
-    final wanted = {
-      for (final key in keys)
-        if (key != null && key.isNotEmpty) key,
-    };
-    if (wanted.isEmpty) return const {};
-    return getMediaBatched(_client, wanted);
+  Future<List<Map<String, dynamic>>> _membershipRows(
+    String uid, {
+    required bool? deleted,
+    bool stewardOnly = false,
+  }) async {
+    var query = _client
+        .from('memberships')
+        .select('role, families!inner(id, name, deleted_at)')
+        .eq('user_id', uid);
+    if (stewardOnly) {
+      query = query.inFilter('role', ['owner', 'co_owner']);
+    }
+    final List<dynamic> rows;
+    if (deleted == null) {
+      rows = await query;
+    } else if (deleted) {
+      rows = await query.not('families.deleted_at', 'is', null);
+    } else {
+      rows = await query.isFilter('families.deleted_at', null);
+    }
+    return [for (final row in rows) Map<String, dynamic>.from(row as Map)];
+  }
+
+  List<FamilyRoster> _rosters(List<dynamic> rows) {
+    final rosters = <FamilyRoster>[];
+    for (final row in rows) {
+      if (row is! Map) continue;
+      final map = Map<String, dynamic>.from(row);
+      final embedded = map['families'];
+      if (embedded is! Map) continue;
+      final family = Map<String, dynamic>.from(embedded);
+      final id = family['id'];
+      if (id is! String) continue;
+      final deleted = family['deleted_at'];
+      rosters.add(
+        FamilyRoster(
+          id: id,
+          name: (family['name'] as String?)?.trim().isNotEmpty == true
+              ? (family['name'] as String).trim()
+              : 'Family',
+          role: map['role'] as String? ?? 'member',
+          memberCount: 0,
+          publishedCount: 0,
+          deletedAt: deleted is String ? DateTime.tryParse(deleted) : null,
+        ),
+      );
+    }
+    return rosters;
+  }
+
+  Future<Map<String, int>> _counts(String table, List<String> ids) async {
+    if (ids.isEmpty) return {};
+    final rows = await _client
+        .from(table)
+        .select('family_id')
+        .inFilter('family_id', ids);
+    final counts = <String, int>{};
+    for (final row in rows) {
+      final id = row['family_id'];
+      if (id is String) counts[id] = (counts[id] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  Future<Map<String, int>> _publishedCounts(List<String> ids) async {
+    if (ids.isEmpty) return {};
+    final rows = await _client
+        .from('stories')
+        .select('family_id')
+        .inFilter('family_id', ids)
+        .eq('status', 'published');
+    final counts = <String, int>{};
+    for (final row in rows) {
+      final id = row['family_id'];
+      if (id is String) counts[id] = (counts[id] ?? 0) + 1;
+    }
+    return counts;
   }
 }

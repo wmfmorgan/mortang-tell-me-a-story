@@ -4,27 +4,27 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:tell_me_a_story/core/config/env.dart';
-import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
-import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/ui/album/album_modal_frame.dart';
-import 'package:tell_me_a_story/ui/album/album_chrome.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/data/mapbox_search.dart';
-import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/data/photos_api.dart';
-import 'package:tell_me_a_story/data/places_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/features/people/add_person_modal.dart';
-import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
-import 'package:tell_me_a_story/features/places/place_map.dart';
-import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
-import 'package:tell_me_a_story/features/stories/photo_strip.dart';
-import 'package:tell_me_a_story/ui/story/story_date.dart';
-import 'package:tell_me_a_story/ui/story/story_date_picker.dart';
+import '../../core/config/env.dart';
+import '../../core/navigation/unsaved_guard.dart';
+import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
+import '../../data/invite_api.dart';
+import '../../data/mapbox_search.dart';
+import '../../data/people_api.dart';
+import '../../data/photos_api.dart';
+import '../../data/places_api.dart';
+import '../../data/stories_api.dart';
+import '../people/add_person_modal.dart';
+import '../people/person_profile_dialog.dart';
+import '../places/place_map.dart';
+import '../places/place_picker_modal.dart';
+import 'photo_strip.dart';
+import 'story_date.dart';
+import 'story_date_picker.dart';
 
 const _storyCardGap = 20.0;
 
@@ -108,6 +108,9 @@ class _NewStoryPageState extends State<NewStoryPage> {
   int? _month;
   int? _day;
 
+  /// Decade-dated row loaded for edit. The year box stays empty. Saving the
+  /// same year leaves the decade in place.
+  StoryDate? _loadedLegacy;
   final List<Person> _selectedPeople = [];
 
   /// Linked ids hydrate could not show. While non-empty, saves leave story_people as is.
@@ -151,6 +154,15 @@ class _NewStoryPageState extends State<NewStoryPage> {
   List<String>? get _personIdsToWrite => _unloadedPersonIds.isEmpty
       ? [for (final p in _selectedPeople) p.id]
       : null;
+
+  /// True when the boxes differ from a loaded decade row, or this is any other story.
+  bool get _shouldWriteDate {
+    final date = _storyDate;
+    if (date == null) return false;
+    final legacy = _loadedLegacy;
+    if (legacy == null) return true;
+    return date.year != legacy.year || date.month != null || date.day != null;
+  }
 
   @override
   void initState() {
@@ -314,13 +326,17 @@ class _NewStoryPageState extends State<NewStoryPage> {
     final parsed = start == null
         ? null
         : StoryDate.fromRow(start, story.timeframeEnd, story.datePrecision);
-    _year.text = parsed == null ? '' : '${parsed.year}';
+    final legacy = parsed?.legacyDecade ?? false;
+    // A decade row opens with an empty year, including edit.
+    final keepDecadeBlank = legacy;
+    _year.text = parsed == null || keepDecadeBlank ? '' : '${parsed.year}';
     _autosaveInserted = true;
     setState(() {
       _storyId = story.id;
       _familyId = familyId;
-      _month = parsed?.month;
-      _day = parsed?.day;
+      _loadedLegacy = legacy && _editing ? parsed : null;
+      _month = parsed == null || legacy ? null : parsed.month;
+      _day = parsed == null || legacy ? null : parsed.day;
       _title.text = story.title ?? '';
       _body.text = story.body ?? '';
       _placeId = story.placeId;
@@ -432,8 +448,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           for (final person in _selectedPeople) person.id,
           ..._unloadedPersonIds,
         },
-        linkPerson: ({required storyId, required personId}) =>
-            _stories.linkPerson(storyId: storyId, personId: personId),
+        linkPerson: _linkIgnoringDuplicate,
       );
       if (!mounted || added == null) return;
       setState(() {
@@ -447,6 +462,20 @@ class _NewStoryPageState extends State<NewStoryPage> {
       _scheduleAutosave();
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _linkIgnoringDuplicate({
+    required String storyId,
+    required String personId,
+  }) async {
+    try {
+      await _stories.linkPerson(storyId: storyId, personId: personId);
+    } on PostgrestException catch (error) {
+      if (error.code != '23505' ||
+          !error.message.contains('story_people_pkey')) {
+        rethrow;
+      }
     }
   }
 
@@ -646,12 +675,13 @@ class _NewStoryPageState extends State<NewStoryPage> {
     _autosaveDirty = false;
     final familyId = await _ensureFamilyId();
     final date = _storyDate;
+    final keepLegacy = !_shouldWriteDate && _loadedLegacy != null;
     if (familyId == null) {
       if (autosave) throw StateError('no family');
       return null;
     }
-    if (!autosave && date == null) return null;
-    final resolvedRange = range ?? date?.toRange();
+    if (!autosave && (date == null && !keepLegacy)) return null;
+    final resolvedRange = range ?? (_shouldWriteDate ? date?.toRange() : null);
     if (!autosave && resolvedRange == null && !_autosaveInserted) return null;
     final story = await _writeDraft(
       _DraftSnapshot(
@@ -677,21 +707,26 @@ class _NewStoryPageState extends State<NewStoryPage> {
   }) async {
     if (!_autosaveInserted) {
       if (!autosave && snapshot.start == null) return null;
-      final created = await _stories.createDraft(
-        id: snapshot.id,
-        allowUndated: autosave,
-        familyId: snapshot.familyId,
-        timeframeStart: snapshot.start,
-        timeframeEnd: snapshot.end,
-        datePrecision: snapshot.precision,
-        title: snapshot.title,
-        body: snapshot.body,
-        placeId: snapshot.placeId,
-        personIds: snapshot.personIds ?? const [],
-      );
-      _autosaveInserted = true;
-      _storyId = created.id;
-      return created;
+      try {
+        final created = await _stories.createDraft(
+          id: snapshot.id,
+          allowUndated: autosave,
+          familyId: snapshot.familyId,
+          timeframeStart: snapshot.start,
+          timeframeEnd: snapshot.end,
+          datePrecision: snapshot.precision,
+          title: snapshot.title,
+          body: snapshot.body,
+          placeId: snapshot.placeId,
+          personIds: snapshot.personIds ?? const [],
+        );
+        _autosaveInserted = true;
+        _storyId = created.id;
+        return created;
+      } on PostgrestException catch (error) {
+        if (snapshot.id == null || !isDuplicateStoryKey(error)) rethrow;
+        _autosaveInserted = true;
+      }
     }
     if (autosave) {
       final wrote = await _stories.autosaveDraft(

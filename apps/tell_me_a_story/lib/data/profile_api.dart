@@ -1,38 +1,33 @@
 import 'dart:typed_data';
 
-import 'package:serverpod_auth_core_flutter/serverpod_auth_core_flutter.dart';
-import 'package:tell_me_a_story_client/tell_me_a_story_client.dart' as server;
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:tell_me_a_story/core/server/server_client.dart';
-import 'package:tell_me_a_story/data/photos_api.dart';
-import 'package:tell_me_a_story/data/server/server_errors.dart';
-import 'package:tell_me_a_story/data/server/wire.dart';
+import 'photos_api.dart';
 
-/// Who sees the account's birth date on its linked people.
+/// Wire values for `profiles.birth_visibility`.
 enum BirthVisibility {
   hidden,
   year,
   yearMonth,
   full;
 
-  server.BirthVisibility toServer() => switch (this) {
-    BirthVisibility.hidden => server.BirthVisibility.hidden,
-    BirthVisibility.year => server.BirthVisibility.year,
-    BirthVisibility.yearMonth => server.BirthVisibility.yearMonth,
-    BirthVisibility.full => server.BirthVisibility.full,
+  String toWire() => switch (this) {
+    BirthVisibility.hidden => 'hidden',
+    BirthVisibility.year => 'year',
+    BirthVisibility.yearMonth => 'year_month',
+    BirthVisibility.full => 'full',
   };
 
-  static BirthVisibility fromServer(server.BirthVisibility value) =>
-      switch (value) {
-        server.BirthVisibility.hidden => BirthVisibility.hidden,
-        server.BirthVisibility.year => BirthVisibility.year,
-        server.BirthVisibility.yearMonth => BirthVisibility.yearMonth,
-        server.BirthVisibility.full => BirthVisibility.full,
-      };
+  static BirthVisibility fromWire(String? raw) => switch (raw) {
+    'year' => BirthVisibility.year,
+    'year_month' => BirthVisibility.yearMonth,
+    'full' => BirthVisibility.full,
+    _ => BirthVisibility.hidden,
+  };
 }
 
-/// The signed-in user's account. The email is the login identity and is
-/// read-only (D1). [avatarPath] is the avatar's blob key.
+/// The signed-in user's profile row. Email is not written here.
 class OwnProfile {
   const OwnProfile({
     required this.id,
@@ -54,24 +49,41 @@ class OwnProfile {
   final BirthVisibility birthVisibility;
   final String? about;
 
-  factory OwnProfile.fromDto(server.OwnProfileDto dto) => OwnProfile(
-    id: dto.authUserId.toString(),
-    displayName: dto.displayName,
-    email: dto.email,
-    avatarPath: dto.avatarKey,
-    birthDate: fromWireDate(dto.birthDate),
-    birthPrecision: dto.birthPrecision == null
-        ? null
-        : precisionName(dto.birthPrecision!),
-    birthVisibility: BirthVisibility.fromServer(dto.birthVisibility),
-    about: dto.about,
-  );
+  factory OwnProfile.fromJson(Map<String, dynamic> json) {
+    return OwnProfile(
+      id: json['id'] as String,
+      displayName: json['display_name'] as String?,
+      email: json['email'] as String?,
+      avatarPath: json['avatar_path'] as String?,
+      birthDate: _profileDate(json['birth_date']),
+      birthPrecision: json['birth_precision'] as String?,
+      birthVisibility: BirthVisibility.fromWire(
+        json['birth_visibility'] as String?,
+      ),
+      about: json['about'] as String?,
+    );
+  }
+}
+
+DateTime? _profileDate(Object? raw) {
+  if (raw == null) return null;
+  if (raw is DateTime) return raw;
+  if (raw is String && raw.isNotEmpty) return DateTime.parse(raw);
+  return null;
+}
+
+String? _profileDateIso(DateTime? date) {
+  if (date == null) return null;
+  final y = date.year.toString().padLeft(4, '0');
+  final m = date.month.toString().padLeft(2, '0');
+  final d = date.day.toString().padLeft(2, '0');
+  return '$y-$m-$d';
 }
 
 abstract class ProfileGateway {
   Future<OwnProfile?> loadOwn();
 
-  /// Writes the display name only.
+  /// Writes `display_name` only.
   Future<void> saveName(String displayName);
 
   /// One Save: display name, birth, and about. Does not write email or people.
@@ -83,35 +95,82 @@ abstract class ProfileGateway {
     String? about,
   });
 
-  /// Stores [bytes] as the account avatar; returns its blob key.
+  /// Uploads `{uid}/avatar.jpg` and sets `avatar_path`.
   Future<String> saveAvatar(Uint8List bytes);
 
-  /// Clears the account avatar.
+  /// Clears `profiles.avatar_path`. Does not delete the storage object.
   Future<void> clearAvatar();
 
   Future<Uint8List?> downloadAvatar(String path);
+
+  /// `auth.updateUser` only. Does not write `profiles.email`.
+  Future<void> updateEmail(String email);
 }
 
-/// The caller's account through the `profile` endpoint; avatars through
-/// `media`.
+const avatarsBucket = 'avatars';
+
+String avatarObjectPath(String userId) => '$userId/avatar.jpg';
+
+typedef ProfilePatch = Future<void> Function(Map<String, dynamic> patch);
+typedef AvatarUpload = Future<void> Function({
+  required String path,
+  required Uint8List bytes,
+});
+typedef EmailUpdate = Future<void> Function(String email);
+
 class ProfileApi implements ProfileGateway {
-  ProfileApi({server.Client? client}) : _injected = client;
+  ProfileApi({
+    SupabaseClient? client,
+    String? userId,
+    Future<OwnProfile?> Function()? loadOwn,
+    ProfilePatch? updateProfile,
+    AvatarUpload? uploadBinary,
+    Future<Uint8List?> Function(String path)? downloadAvatar,
+    EmailUpdate? updateEmail,
+  }) : _client = client,
+       _userId = userId,
+       _loadOwn = loadOwn,
+       _updateProfile = updateProfile,
+       _uploadBinary = uploadBinary,
+       _downloadAvatar = downloadAvatar,
+       _updateEmail = updateEmail;
 
-  final server.Client? _injected;
+  final SupabaseClient? _client;
+  final String? _userId;
+  final Future<OwnProfile?> Function()? _loadOwn;
+  final ProfilePatch? _updateProfile;
+  final AvatarUpload? _uploadBinary;
+  final Future<Uint8List?> Function(String path)? _downloadAvatar;
+  final EmailUpdate? _updateEmail;
 
-  server.Client get _client => _injected ?? serverClient;
+  SupabaseClient get _supabase => _client ?? Supabase.instance.client;
 
-  /// Null when nobody is signed in.
+  String _uid() => _userId ?? _supabase.auth.currentUser!.id;
+
   @override
   Future<OwnProfile?> loadOwn() async {
-    if (!_client.auth.isAuthenticated) return null;
-    final dto = await withServerErrors(() => _client.profile.me());
-    return OwnProfile.fromDto(dto);
+    if (_loadOwn != null) return _loadOwn();
+    final uid = _supabase.auth.currentUser?.id;
+    if (uid == null) return null;
+    final row = await _supabase
+        .from('profiles')
+        .select('id, display_name, email, avatar_path, about')
+        .eq('id', uid)
+        .maybeSingle();
+    if (row == null) return null;
+    final birth = await _supabase.rpc('my_profile');
+    final birthRow = switch (birth) {
+      List(isNotEmpty: true) when birth.first is Map =>
+        Map<String, dynamic>.from(birth.first as Map),
+      final Map map => Map<String, dynamic>.from(map),
+      _ => const <String, dynamic>{},
+    };
+    return OwnProfile.fromJson({...row, ...birthRow});
   }
 
   @override
   Future<void> saveName(String displayName) {
-    return withServerErrors(() => _client.profile.saveName(displayName));
+    return _patch({'display_name': displayName});
   }
 
   @override
@@ -122,34 +181,69 @@ class ProfileApi implements ProfileGateway {
     BirthVisibility? birthVisibility,
     String? about,
   }) {
-    return withServerErrors(
-      () => _client.profile.saveAccount(
-        displayName: displayName,
-        birthDate: toWireDate(birthDate),
-        birthPrecision: precisionFromName(birthPrecision),
-        birthVisibility: birthVisibility?.toServer(),
-        about: about,
-      ),
-    );
+    return _patch({
+      'display_name': displayName,
+      'birth_date': _profileDateIso(birthDate),
+      'birth_precision': birthPrecision,
+      'birth_visibility': ?birthVisibility?.toWire(),
+      'about': about,
+    });
   }
 
-  /// Compresses to a 512 px JPEG first, so undecodable bytes never leave.
   @override
-  Future<String> saveAvatar(Uint8List bytes) {
+  Future<String> saveAvatar(Uint8List bytes) async {
     final compressed = compressStoryPhoto(bytes, maxEdge: 512, quality: 80);
-    return withServerErrors(
-      () => _client.profile.saveAvatar(ByteData.sublistView(compressed.bytes)),
-    );
+    final path = avatarObjectPath(_uid());
+    if (_uploadBinary != null) {
+      await _uploadBinary(path: path, bytes: compressed.bytes);
+    } else {
+      await _supabase.storage
+          .from(avatarsBucket)
+          .uploadBinary(
+            path,
+            compressed.bytes,
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+              upsert: true,
+            ),
+          );
+    }
+    await _patch({'avatar_path': path});
+    return path;
   }
 
   @override
   Future<void> clearAvatar() {
-    return withServerErrors(() => _client.profile.clearAvatar());
+    return _patch({'avatar_path': null});
   }
 
   @override
   Future<Uint8List?> downloadAvatar(String path) async {
-    final data = await withServerErrors(() => _client.media.get(path));
-    return data == null ? null : Uint8List.sublistView(data);
+    if (_downloadAvatar != null) return _downloadAvatar(path);
+    final signedUrl = await _supabase.storage
+        .from(avatarsBucket)
+        .createSignedUrl(path, 3600);
+    final response = await http.get(Uri.parse(signedUrl));
+    if (response.statusCode != 200) {
+      throw StateError('avatar download failed');
+    }
+    return response.bodyBytes;
+  }
+
+  @override
+  Future<void> updateEmail(String email) async {
+    if (_updateEmail != null) {
+      await _updateEmail(email);
+      return;
+    }
+    await _supabase.auth.updateUser(UserAttributes(email: email));
+  }
+
+  Future<void> _patch(Map<String, dynamic> patch) async {
+    if (_updateProfile != null) {
+      await _updateProfile(patch);
+      return;
+    }
+    await _supabase.from('profiles').update(patch).eq('id', _uid());
   }
 }

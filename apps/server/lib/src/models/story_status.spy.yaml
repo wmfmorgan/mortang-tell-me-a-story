@@ -1,5 +1,0 @@
-enum: StoryStatus
-serialized: byName
-values:
-  - draft
-  - published

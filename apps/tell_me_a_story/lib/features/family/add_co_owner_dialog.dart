@@ -3,9 +3,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/ui/avatar/profile_initials.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
+import '../../core/theme/album_theme.dart';
+import '../../core/theme/profile_initials.dart';
+import '../../data/families_api.dart';
 
 /// Stitch `71ccb38d05c54f75b6c830e480b06bc0`. Returns the chosen member id.
 Future<String?> showAddCoOwnerDialog(

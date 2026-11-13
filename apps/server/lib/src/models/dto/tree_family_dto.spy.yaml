@@ -1,9 +1,0 @@
-### A live family in the caller's tree (FamilyEndpoint.listTree).
-class: TreeFamilyDto
-fields:
-  id: UuidValue
-  name: String
-  parentId: UuidValue?
-  branchYear: int?
-  ### Derived, schema-design.md §3.5.
-  effectiveOriginStoryId: UuidValue?

@@ -4,27 +4,27 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:tell_me_a_story/ui/navigation/unsaved_guard.dart';
-import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/core/server/app_session.dart';
-import 'package:tell_me_a_story/ui/album/album_chrome.dart';
-import 'package:tell_me_a_story/ui/album/album_header.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/ui/avatar/profile_avatar.dart';
-import 'package:tell_me_a_story/ui/avatar/profile_initials.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
-import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/data/profile_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/data/profile_session.dart';
-import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
-import 'package:tell_me_a_story/features/invites/invite_modal.dart';
-import 'package:tell_me_a_story/features/people/person_date_field.dart';
-import 'package:tell_me_a_story/ui/story/story_date.dart';
+import '../../core/navigation/unsaved_guard.dart';
+import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_header.dart';
+import '../../core/theme/album_theme.dart';
+import '../../core/theme/profile_avatar.dart';
+import '../../core/theme/profile_initials.dart';
+import '../../data/families_api.dart';
+import '../../data/family_selection.dart';
+import '../../data/invite_api.dart';
+import '../../data/manage_families_api.dart';
+import '../../data/people_api.dart';
+import '../../data/profile_api.dart';
+import '../../data/stories_api.dart';
+import '../../data/profile_session.dart';
+import '../family/start_timeline_dialog.dart';
+import '../invites/invite_modal.dart';
+import '../people/person_date_field.dart';
+import '../stories/story_date.dart';
 
 /// Signed-in profile at `/settings`. Name, email, a picture, and one Save.
 class SettingsPage extends StatefulWidget {
@@ -68,6 +68,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Uint8List? _savedBytes;
   Uint8List? _pending;
   String _loadedName = '';
+  String _loadedEmail = '';
   String _loadedAbout = '';
   StoryDate? _loadedBirth;
   BirthVisibility _loadedVisibility = BirthVisibility.hidden;
@@ -195,7 +196,13 @@ class _SettingsPageState extends State<SettingsPage> {
     return id != null && _memberIds.contains(id);
   }
 
-  String? _sessionUserId() => AppSession.instance.currentUserId;
+  String? _sessionUserId() {
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> _startTimeline() async {
     final id = _familyId;
@@ -256,6 +263,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _rememberLoaded() {
     _loadedName = _name.text;
+    _loadedEmail = _email.text;
     _loadedAbout = _about.text;
     _loadedBirth = _birth;
     _loadedVisibility = _visibility;
@@ -264,6 +272,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _cancel() {
     _name.text = _loadedName;
+    _email.text = _loadedEmail;
     _about.text = _loadedAbout;
     setState(() {
       _birth = _loadedBirth;
@@ -300,6 +309,7 @@ class _SettingsPageState extends State<SettingsPage> {
         birth?.date != loadedBirth?.date ||
         birth?.precision != loadedBirth?.precision;
     return _name.text != _loadedName ||
+        _email.text != _loadedEmail ||
         _about.text != _loadedAbout ||
         birthDiffers ||
         _visibility != _loadedVisibility ||
@@ -341,6 +351,14 @@ class _SettingsPageState extends State<SettingsPage> {
         _pending = null;
       }
       _savedNotice = true;
+      final typed = _email.text.trim();
+      final stored = _storedEmail ?? '';
+      if (typed.isEmpty) {
+        _email.text = stored;
+      } else if (typed != stored) {
+        await _profile.updateEmail(typed);
+        _email.text = stored;
+      }
       _rememberLoaded();
       if (!mounted) return true;
       setState(() {});
@@ -826,7 +844,6 @@ class _SettingsPageState extends State<SettingsPage> {
         TextField(
           key: const Key('settings-email'),
           controller: _email,
-          readOnly: true,
           keyboardType: TextInputType.emailAddress,
           style: GoogleFonts.sourceSans3(
             color: const Color(0xFF58504D),
@@ -912,7 +929,7 @@ class _SettingsPageState extends State<SettingsPage> {
 }
 
 ({DateTime date, String precision})? _storedBirth(StoryDate? date) {
-  if (date == null) return null;
+  if (date == null || date.legacyDecade) return null;
   return storedPersonDate(year: date.year, month: date.month, day: date.day);
 }
 

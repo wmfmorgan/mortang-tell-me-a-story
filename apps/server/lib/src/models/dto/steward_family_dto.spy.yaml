@@ -1,7 +1,0 @@
-### A family the caller stewards, including soft-deleted ones still inside the 60-day window.
-class: StewardFamilyDto
-fields:
-  id: UuidValue
-  name: String
-  role: MembershipRole
-  deletedAt: DateTime?

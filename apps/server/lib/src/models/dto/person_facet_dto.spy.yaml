@@ -1,6 +1,0 @@
-### Search facet: a tagged person and their story count.
-class: PersonFacetDto
-fields:
-  personId: UuidValue
-  name: String
-  storyCount: int

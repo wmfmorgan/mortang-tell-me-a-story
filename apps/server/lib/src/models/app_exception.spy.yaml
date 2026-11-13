@@ -1,6 +1,0 @@
-### Single error envelope for every endpoint. [code] is the typed
-### [AppErrorCode]; [message] is human-readable.
-exception: AppException
-fields:
-  code: AppErrorCode
-  message: String

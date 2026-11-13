@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "splinter": {
+    "commit": "fccca4b1c4d8b48b8ccd69bd6b30e84adcb92975",
+    "sha256": "d8d558baad3e03832e521c527907fa50a9a172fabd899dd0f5c2504a5a0e9349"
+  },
+  "report_only_lints": [
+    { "name": "unused_index", "reason": "depends on pg_stat idx_scan; fresh CI DB and new prod indexes always flag", "owner": "Gilfoyle" },
+    { "name": "table_bloat", "reason": "depends on pg_stats", "owner": "Gilfoyle" }
+  ],
+  "local_skip_lints": [
+    { "name": "extension_versions_outdated", "reason": "local image versions differ from prod; checked at prod layer", "owner": "Gilfoyle" },
+    { "name": "pg_graphql_anon_table_exposed", "reason": "pg_graphql absent on prod; checked at prod layer", "owner": "Gilfoyle" },
+    { "name": "pg_graphql_authenticated_table_exposed", "reason": "same", "owner": "Gilfoyle" }
+  ],
+  "delegated": [
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "source": "supabase/tests/catalog_acl_guard.sql",
+      "reason": "PR #39 SECURITY DEFINER allowlist; the catalog_acl_guard.sql set_eq list is the single source of truth",
+      "owner": "Gilfoyle"
+    }
+  ],
+  "accepted": [
+    {
+      "match": { "name": "auth_leaked_password_protection", "metadata.entity": "Auth" },
+      "scope": "prod",
+      "reason": "Accepted by Bill 2026-10-20 1:59 PM CT. Free plan: HIBP requires Pro; no Pro upgrade. App is magic-link only (signInWithOtp); no password UI.",
+      "owner": "Bill",
+      "added": "2026-10-20",
+      "review_by": "2027-01-20",
+      "ref": "#75"
+    }
+  ]
+}

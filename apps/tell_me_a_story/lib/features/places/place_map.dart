@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:tell_me_a_story/core/config/env.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import '../../core/config/env.dart';
+import '../../core/theme/album_theme.dart';
 
 /// Mapbox streets-v12 raster tile URL (never OSM).
 String mapboxStreetsTileUrl(String accessToken) {

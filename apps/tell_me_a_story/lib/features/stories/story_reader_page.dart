@@ -4,34 +4,31 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/ui/album/album_modal_frame.dart';
-import 'package:tell_me_a_story/core/server/app_session.dart';
-import 'package:tell_me_a_story/ui/album/album_chrome.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/ui/avatar/profile_avatar.dart';
-import 'package:tell_me_a_story/data/app_exception.dart';
-import 'package:tell_me_a_story/data/comments_api.dart';
-import 'package:tell_me_a_story/data/families_api.dart';
-import 'package:tell_me_a_story/data/manage_families_api.dart';
-import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/data/perspectives_api.dart'
-    hide displayNameOrMember;
-import 'package:tell_me_a_story/data/photos_api.dart';
-import 'package:tell_me_a_story/data/places_api.dart';
-import 'package:tell_me_a_story/data/profile_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/data/timeline_live.dart';
-import 'package:tell_me_a_story/features/comments/comment_composer.dart';
-import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
-import 'package:tell_me_a_story/ui/dialogs/family_blur_dialog.dart';
-import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
-import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';
-import 'package:tell_me_a_story/ui/story/photo_frame.dart';
-import 'package:tell_me_a_story/features/stories/photo_strip.dart';
-import 'package:tell_me_a_story/features/stories/reader_meta.dart';
-import 'package:tell_me_a_story/ui/story/story_date.dart';
+import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
+import '../../core/theme/profile_avatar.dart';
+import '../../data/comments_api.dart';
+import '../../data/families_api.dart';
+import '../../data/manage_families_api.dart';
+import '../../data/people_api.dart';
+import '../../data/perspectives_api.dart' hide displayNameOrMember;
+import '../../data/photos_api.dart';
+import '../../data/places_api.dart';
+import '../../data/profile_api.dart';
+import '../../data/stories_api.dart';
+import '../../data/timeline_live.dart';
+import '../comments/comment_composer.dart';
+import '../people/person_profile_dialog.dart';
+import '../family/family_blur_dialog.dart';
+import '../family/start_timeline_dialog.dart';
+import '../perspectives/add_perspective_page.dart';
+import 'photo_frame.dart';
+import 'photo_strip.dart';
+import 'reader_meta.dart';
+import 'story_date.dart';
 
 /// Large reader headline. Only a saved title is used.
 String readerHeadline({String? title}) {
@@ -199,8 +196,14 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     return false;
   }
 
-  String? get _currentUserId =>
-      widget.currentUserId ?? AppSession.instance.currentUserId;
+  String? get _currentUserId {
+    if (widget.currentUserId != null) return widget.currentUserId;
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
@@ -225,7 +228,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   TimelineLive? get _live {
     if (widget.live != null) return widget.live;
     if (widget.storiesApi != null) return null;
-    return _ownedLive ??= ServerTimelineLive();
+    return _ownedLive ??= SupabaseTimelineLive();
   }
 
   @override
@@ -302,12 +305,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     await _reloadPerspectives();
   }
 
-  /// The caller wrote this note and can still contribute: they may edit it.
-  bool _ownsNote(String? authorId) {
-    return _canWrite && _currentUserId != null && authorId == _currentUserId;
+  bool _canManagePerspective(Perspective row) {
+    return _canWrite &&
+        _currentUserId != null &&
+        row.authorId == _currentUserId;
   }
-
-  bool _canManagePerspective(Perspective row) => _ownsNote(row.authorId);
 
   Future<void> _openEditPerspective(Perspective row) async {
     final updated = await AddPerspectivePage.show(
@@ -678,7 +680,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       }
     } catch (error) {
       if (!mounted) return;
-      final message = error is AppException ? error.message : 'Try again';
+      final message = error is OriginRpcException ? error.message : 'Try again';
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
     }
@@ -870,7 +872,6 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                 body: body.trim(),
                 createdAt: item.createdAt,
                 authorDisplayName: item.authorDisplayName,
-                canDelete: item.canDelete,
               )
             else
               item,
@@ -1107,11 +1108,12 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             for (final row in _comments)
               CommentTile(
                 comment: row,
-                canDelete: row.canDelete,
+                canDelete:
+                    _canWrite &&
+                    _currentUserId != null &&
+                    row.authorId == _currentUserId,
                 editing: _editingCommentId == row.id,
-                onEdit: _ownsNote(row.authorId)
-                    ? () => _startEditComment(row)
-                    : null,
+                onEdit: () => _startEditComment(row),
                 onDelete: () => _deleteComment(row),
                 onSave: (body) => _saveComment(row, body),
                 onCancelEdit: () => setState(() => _editingCommentId = null),
@@ -1363,6 +1365,14 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
               _initialsAvatar(person.name, size: 22),
               const SizedBox(width: 6),
               Text(person.name, style: Theme.of(context).textTheme.labelMedium),
+              if ((person.relationship ?? '').trim().isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Text(
+                  person.relationship!,
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: const Color(0xFF6B5E55)),
+                ),
+              ],
             ],
           ),
         ),
@@ -1372,8 +1382,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   Widget _perspectiveCard(Perspective row) {
     final theme = Theme.of(context);
-    final canEdit = _canManagePerspective(row);
-    final canDelete = row.canDelete;
+    final canManage = _canManagePerspective(row);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFFF6F1EB),
@@ -1409,7 +1418,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                     ],
                   ),
                 ),
-                if (canEdit || canDelete)
+                if (canManage)
                   PopupMenuButton<String>(
                     key: Key('perspective-menu-${row.id}'),
                     tooltip: 'Perspective actions',
@@ -1423,18 +1432,16 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                       }
                     },
                     itemBuilder: (context) => [
-                      if (canEdit)
-                        PopupMenuItem<String>(
-                          key: Key('perspective-edit-${row.id}'),
-                          value: 'edit',
-                          child: const Text('Edit'),
-                        ),
-                      if (canDelete)
-                        PopupMenuItem<String>(
-                          key: Key('perspective-delete-${row.id}'),
-                          value: 'delete',
-                          child: const Text('Delete'),
-                        ),
+                      PopupMenuItem<String>(
+                        key: Key('perspective-edit-${row.id}'),
+                        value: 'edit',
+                        child: const Text('Edit'),
+                      ),
+                      PopupMenuItem<String>(
+                        key: Key('perspective-delete-${row.id}'),
+                        value: 'delete',
+                        child: const Text('Delete'),
+                      ),
                     ],
                   ),
               ],

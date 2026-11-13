@@ -1,6 +1,0 @@
-# What `just deploy-server` does not upload to Cloud Build.
-.gcloudignore
-.git
-test/
-# Everything apps/server/.gitignore ignores (passwords, keys, local state).
-#!include:.gitignore

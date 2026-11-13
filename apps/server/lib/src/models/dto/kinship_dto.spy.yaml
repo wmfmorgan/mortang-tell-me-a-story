@@ -1,7 +1,0 @@
-### A kinship edge (contract only; no client UI yet).
-class: KinshipDto
-fields:
-  id: UuidValue
-  kind: KinshipKind
-  fromPersonId: UuidValue
-  toPersonId: UuidValue

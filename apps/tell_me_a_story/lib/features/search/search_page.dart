@@ -5,19 +5,20 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:tell_me_a_story/core/router/app_routes.dart';
-import 'package:tell_me_a_story/ui/album/album_chrome.dart';
-import 'package:tell_me_a_story/core/theme/album_theme.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/data/people_api.dart';
-import 'package:tell_me_a_story/data/perspectives_api.dart'
-    show displayNameOrMember;
-import 'package:tell_me_a_story/data/photos_api.dart';
-import 'package:tell_me_a_story/data/search_api.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
-import 'package:tell_me_a_story/ui/story/story_date.dart';
-import 'package:tell_me_a_story/features/search/search_recents.dart';
+import '../../core/router/app_router.dart';
+import '../../core/theme/album_chrome.dart';
+import '../../core/theme/album_theme.dart';
+import '../../data/invite_api.dart';
+import '../../data/people_api.dart';
+import '../../data/perspectives_api.dart' show displayNameOrMember;
+import '../../data/photos_api.dart';
+import '../../data/places_api.dart';
+import '../../data/search_api.dart';
+import '../../data/stories_api.dart';
+import '../people/person_profile_dialog.dart';
+import '../stories/story_date.dart';
+import '../stories/timeframe_chips.dart';
+import 'search_recents.dart';
 
 const _noMatches = 'No stories match. Try another person, place, or time.';
 const _searchingCopy = 'Searching the album…';
@@ -27,6 +28,7 @@ class SearchPage extends StatefulWidget {
     super.key,
     this.inviteApi,
     this.peopleApi,
+    this.placesApi,
     this.searchApi,
     this.photosApi,
     this.recents,
@@ -34,6 +36,7 @@ class SearchPage extends StatefulWidget {
 
   final InviteGateway? inviteApi;
   final PeopleGateway? peopleApi;
+  final PlacesGateway? placesApi;
   final SearchGateway? searchApi;
   final PhotosGateway? photosApi;
   final SearchRecents? recents;
@@ -45,6 +48,7 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   late final InviteGateway _invite;
   late final PeopleGateway _peopleApi;
+  late final PlacesGateway _placesApi;
   late final SearchGateway _searchApi;
   late final PhotosGateway _photos;
   late final SearchRecents _recents;
@@ -53,8 +57,10 @@ class _SearchPageState extends State<SearchPage> {
 
   Timer? _debounce;
   String? _familyId;
-  SearchFacets _facets = const SearchFacets();
-  List<Story> _results = const [];
+  List<Person> _people = const [];
+  List<Place> _places = const [];
+  List<int> _storyDecades = const [];
+  List<SearchRecord> _results = const [];
   final _personIds = <String>[];
   String? _placeId;
   final _decades = <int>[];
@@ -68,6 +74,7 @@ class _SearchPageState extends State<SearchPage> {
     super.initState();
     _invite = widget.inviteApi ?? InviteApi();
     _peopleApi = widget.peopleApi ?? PeopleApi();
+    _placesApi = widget.placesApi ?? PlacesApi();
     _searchApi = widget.searchApi ?? SearchApi();
     _photos = widget.photosApi ?? PhotosApi();
     _recents = widget.recents ?? SearchRecents();
@@ -99,12 +106,24 @@ class _SearchPageState extends State<SearchPage> {
     try {
       final familyId = await _invite.currentFamilyId();
       if (!mounted) return;
-      var facets = const SearchFacets();
-      if (familyId != null) facets = await _searchApi.facets(familyId);
+      List<Person> people = const [];
+      List<Place> places = const [];
+      var decades = const <int>[];
+      if (familyId != null) {
+        people = await _peopleApi.listPeople(familyId);
+        places = await _placesApi.listPlaces(familyId);
+        try {
+          decades = await _decadesWithStories(familyId);
+        } catch (_) {
+          decades = const [];
+        }
+      }
       if (!mounted) return;
       setState(() {
         _familyId = familyId;
-        _facets = facets;
+        _people = people;
+        _places = places;
+        _storyDecades = decades;
         _booting = false;
       });
     } catch (_) {
@@ -112,6 +131,21 @@ class _SearchPageState extends State<SearchPage> {
       setState(() => _booting = false);
       _showTryAgain();
     }
+  }
+
+  Future<List<int>> _decadesWithStories(String familyId) async {
+    final rows = await _searchApi.search(SearchRequest(familyId: familyId));
+    final years = <int>{};
+    for (final row in rows) {
+      final start = decadeStartYear(row.story.publishedStart);
+      if (start < decadeChips.first.startYear ||
+          start > decadeChips.last.startYear) {
+        continue;
+      }
+      years.add(start);
+    }
+    final sorted = years.toList()..sort();
+    return sorted;
   }
 
   void _showTryAgain() {
@@ -217,9 +251,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Future<void> _pickPerson() async {
-    final available = _facets.people
-        .where((p) => !_personIds.contains(p.id))
-        .toList();
+    final available = _people.where((p) => !_personIds.contains(p.id)).toList();
     final picked = await showAlbumDialog<String>(
       context: context,
       maxWidth: 420,
@@ -283,11 +315,12 @@ class _SearchPageState extends State<SearchPage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final decade in _facets.decades)
-                    if (!_decades.contains(decade))
+                  for (final decade in decadeChips)
+                    if (!_decades.contains(decade.startYear))
                       TextButton(
-                        onPressed: () => Navigator.pop(context, decade),
-                        child: Text('${decade}s'),
+                        onPressed: () =>
+                            Navigator.pop(context, decade.startYear),
+                        child: Text(decade.label),
                       ),
                 ],
               ),
@@ -471,12 +504,11 @@ class _SearchPageState extends State<SearchPage> {
                 label: 'Add Person',
                 onTap: _pickPerson,
               ),
-              if (_facets.decades.any((year) => !_decades.contains(year)))
-                _AddPill(
-                  key: const Key('search-add-decade'),
-                  label: 'Decade',
-                  onTap: _pickDecade,
-                ),
+              _AddPill(
+                key: const Key('search-add-decade'),
+                label: 'Decade',
+                onTap: _pickDecade,
+              ),
             ],
           ),
         ),
@@ -550,14 +582,15 @@ class _SearchPageState extends State<SearchPage> {
           spacing: gap,
           runSpacing: gap,
           children: [
-            for (final story in _results)
+            for (final record in _results)
               SizedBox(
                 width: width,
                 child: _ResultCard(
-                  story: story,
+                  record: record,
                   photos: _photos,
                   people: _peopleApi,
-                  onOpen: () => context.push(AppRoutes.storyPath(story.id)),
+                  onOpen: () =>
+                      context.push(AppRoutes.storyPath(record.story.id)),
                 ),
               ),
           ],
@@ -601,9 +634,9 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _suggestedSection() {
-    final people = _facets.people.where((p) => !_personIds.contains(p.id));
-    final places = _facets.places.where((p) => p.id != _placeId);
-    final decades = _facets.decades.where((year) => !_decades.contains(year));
+    final people = _people.where((p) => !_personIds.contains(p.id));
+    final places = _places.where((p) => p.id != _placeId);
+    final decades = _storyDecades.where((year) => !_decades.contains(year));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -672,14 +705,14 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   String _personName(String id) {
-    for (final person in _facets.people) {
+    for (final person in _people) {
       if (person.id == id) return person.name;
     }
     return 'Person';
   }
 
   String _placeLabel(String id) {
-    for (final place in _facets.places) {
+    for (final place in _places) {
       if (place.id == id) return place.label;
     }
     return 'Place';
@@ -735,19 +768,20 @@ class _AddPill extends StatelessWidget {
 
 class _ResultCard extends StatelessWidget {
   const _ResultCard({
-    required this.story,
+    required this.record,
     required this.photos,
     required this.onOpen,
     this.people,
   });
 
-  final Story story;
+  final SearchRecord record;
   final PhotosGateway photos;
   final VoidCallback onOpen;
   final PeopleGateway? people;
 
   @override
   Widget build(BuildContext context) {
+    final story = record.story;
     final title = storedStoryTitle(story.title);
     final body = (story.body ?? '').trim();
     final year = storyDateLabelFor(story);
