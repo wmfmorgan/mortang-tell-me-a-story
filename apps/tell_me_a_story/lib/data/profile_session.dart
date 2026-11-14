@@ -20,7 +20,6 @@ class ProfileSession extends ChangeNotifier {
   String? displayName;
   String? email;
   Uint8List? avatarBytes;
-  Object? loadError;
   var _started = false;
 
   /// A different signed-in user drops the previous profile.
@@ -36,7 +35,6 @@ class ProfileSession extends ChangeNotifier {
     displayName = null;
     email = null;
     avatarBytes = null;
-    loadError = null;
     _started = false;
     notifyListeners();
   }
@@ -58,7 +56,6 @@ class ProfileSession extends ChangeNotifier {
     final loader = loadOwn;
     if (_started || loader == null) return;
     _started = true;
-    loadError = null;
     try {
       final profile = await loader();
       if (profile == null) {
@@ -74,18 +71,9 @@ class ProfileSession extends ChangeNotifier {
       displayName = profile.displayName;
       email = profile.email;
       avatarBytes = bytes;
-      loadError = null;
       notifyListeners();
-    } on Object catch (error) {
-      loadError = error;
+    } on Object catch (_) {
       _started = false;
-      notifyListeners();
     }
-  }
-
-  Future<void> retryLoad() async {
-    _started = false;
-    loadError = null;
-    await ensureLoaded();
   }
 }

@@ -27,6 +27,8 @@ import '../invites/invite_modal.dart';
 import '../people/person_date_field.dart';
 import '../stories/story_date.dart';
 
+const _profileLoadFailureCopy = "Couldn't load your profile.";
+
 /// Signed-in profile at `/settings`. Name, email, a picture, and one Save.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
@@ -161,7 +163,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _loadErrorMessage = mapRpcError(error) ?? "Couldn't load your profile.";
+        _loadErrorMessage = mapRpcError(error) ?? _profileLoadFailureCopy;
       });
       return;
     }
@@ -394,8 +396,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Widget _loadFailure() {
-    final message = _loadErrorMessage ?? "Couldn't load your profile.";
+  Widget _loadFailure(String message) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -454,7 +455,7 @@ class _SettingsPageState extends State<SettingsPage> {
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : _loadErrorMessage != null
-              ? _loadFailure()
+              ? _loadFailure(_loadErrorMessage!)
               : AlbumColumn(
                   maxWidth: 720,
                   child: ListView(

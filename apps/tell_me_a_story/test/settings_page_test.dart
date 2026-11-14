@@ -67,11 +67,16 @@ void main() {
   testWidgets('a failed profile load shows the error and Retry loads profile', (
     tester,
   ) async {
-    final profile = _RetryProfile();
+    final profile = _Profile(
+      failFirstLoad: true,
+      firstLoadError: const PostgrestException(
+        message: 'FORBIDDEN: Profile is not readable.',
+      ),
+    );
     await pumpTall(tester, _app(profile));
     await tester.pumpAndSettle();
 
-    expect(find.text('Service unavailable'), findsOneWidget);
+    expect(find.text('Profile is not readable.'), findsOneWidget);
     expect(find.byKey(const Key('settings-retry')), findsOneWidget);
     expect(find.text('NAME'), findsNothing);
 
@@ -81,6 +86,24 @@ void main() {
     expect(profile.loadCalls, 2);
     expect(find.text('NAME'), findsOneWidget);
     expect(_text(tester, 'settings-name'), 'Sarah Morgan');
+  });
+
+  testWidgets('an unmapped profile load error shows the fallback copy', (
+    tester,
+  ) async {
+    await pumpTall(
+      tester,
+      _app(
+        _Profile(
+          failFirstLoad: true,
+          firstLoadError: const PostgrestException(message: 'connection reset'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text("Couldn't load your profile."), findsOneWidget);
+    expect(find.byKey(const Key('settings-retry')), findsOneWidget);
   });
 
   testWidgets('a blank stored name with no picture paints an empty circle', (
@@ -406,49 +429,6 @@ Widget _bar(AlbumHeaderPage page) {
   );
 }
 
-class _RetryProfile implements ProfileGateway {
-  var loadCalls = 0;
-
-  static const profile = OwnProfile(
-    id: 'user-1',
-    displayName: 'Sarah Morgan',
-    email: 'sarah@example.com',
-  );
-
-  @override
-  Future<OwnProfile?> loadOwn() async {
-    loadCalls += 1;
-    if (loadCalls == 1) {
-      throw const PostgrestException(message: 'NOT_FOUND: Service unavailable');
-    }
-    return profile;
-  }
-
-  @override
-  Future<Uint8List?> downloadAvatar(String path) async => null;
-
-  @override
-  Future<String> saveAvatar(Uint8List bytes) async => 'user-1/avatar.jpg';
-
-  @override
-  Future<void> clearAvatar() async {}
-
-  @override
-  Future<void> saveName(String displayName) async {}
-
-  @override
-  Future<void> saveAccount({
-    required String displayName,
-    DateTime? birthDate,
-    String? birthPrecision,
-    BirthVisibility? birthVisibility,
-    String? about,
-  }) async {}
-
-  @override
-  Future<void> updateEmail(String email) async {}
-}
-
 class _Profile implements ProfileGateway {
   _Profile({
     this.profile = const OwnProfile(
@@ -457,10 +437,15 @@ class _Profile implements ProfileGateway {
       email: 'sarah@example.com',
     ),
     this.download,
+    this.failFirstLoad = false,
+    this.firstLoadError,
   });
 
   OwnProfile profile;
   Uint8List? download;
+  final bool failFirstLoad;
+  final Object? firstLoadError;
+  var loadCalls = 0;
   final names = <String>[];
   final emails = <String>[];
   final births = <(DateTime?, String?)>[];
@@ -474,7 +459,16 @@ class _Profile implements ProfileGateway {
   Future<Uint8List?> downloadAvatar(String path) async => download;
 
   @override
-  Future<OwnProfile?> loadOwn() async => profile;
+  Future<OwnProfile?> loadOwn() async {
+    loadCalls += 1;
+    if (failFirstLoad && loadCalls == 1) {
+      throw firstLoadError ??
+          const PostgrestException(
+            message: 'FORBIDDEN: Profile is not readable.',
+          );
+    }
+    return profile;
+  }
 
   @override
   Future<String> saveAvatar(Uint8List bytes) async {
