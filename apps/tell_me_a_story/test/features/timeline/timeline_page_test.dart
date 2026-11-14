@@ -511,6 +511,48 @@ bool _mossRingOn(WidgetTester tester, Finder dot) {
       });
 }
 
+void _expectFarDot(
+  WidgetTester tester,
+  String id, {
+  required double diameter,
+  required bool bordered,
+}) {
+  final dot = find.byKey(Key('timeline-dot-$id'));
+  expect(tester.getSize(dot), Size(diameter, diameter));
+  final decoration =
+      tester
+              .widget<Container>(
+                find.descendant(of: dot, matching: find.byType(Container)),
+              )
+              .decoration!
+          as BoxDecoration;
+  expect(decoration.color, albumTerracotta);
+  expect(decoration.shape, BoxShape.circle);
+  final side = decoration.border?.top;
+  expect(side?.color, bordered ? albumTerracotta : null);
+  expect(side?.width, bordered ? 2 : null);
+}
+
+Size _mossRingSize(WidgetTester tester, Finder dot) {
+  final dotCenter = tester.getCenter(dot);
+  for (final element in _mossRings.evaluate()) {
+    final box = element.renderObject! as RenderBox;
+    final center = box.localToGlobal(box.size.center(Offset.zero));
+    if ((center - dotCenter).distance <= 1) return box.size;
+  }
+  fail('no moss ring on $dot');
+}
+
+final _mossRings = find.byWidgetPredicate((widget) {
+  if (widget is! DecoratedBox) return false;
+  final decoration = widget.decoration;
+  if (decoration is! BoxDecoration) return false;
+  final side = decoration.border?.top;
+  return decoration.shape == BoxShape.circle &&
+      side?.color == branchMoss &&
+      side?.width == calloutStroke;
+});
+
 String _tooltipFor(WidgetTester tester, String storyId) {
   return tester
           .widget<Tooltip>(
@@ -813,6 +855,60 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     expect(_preservedDecade(2020), findsOneWidget);
+  });
+
+  testWidgets(
+    'a focused decade enlarges one far dot and leaves the other plain',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        _timeline(
+          stories: _FakeStoriesApi(
+            published: [
+              _published(
+                id: 'jan',
+                title: 'January',
+                timeframeStart: DateTime(1980, 1, 1),
+              ),
+              _published(
+                id: 'jun',
+                title: 'June',
+                timeframeStart: DateTime(1980, 6, 1),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      _expectFarDot(
+        tester,
+        'jan',
+        diameter: farDotHighlightedDiameter,
+        bordered: true,
+      );
+      _expectFarDot(tester, 'jun', diameter: farDotDiameter, bordered: false);
+      expect(_tooltipFor(tester, 'jun'), isNot(contains('Origin')));
+      expect(_tooltipFor(tester, 'jan'), contains('January'));
+    },
+  );
+
+  testWidgets('an origin ring grows when its decade is focused', (
+    tester,
+  ) async {
+    await _pumpOriginAndEarlier(tester);
+    final dot = find.byKey(const Key('timeline-dot-origin'));
+    const pad = 2 * calloutDotGap + 2 * calloutStroke;
+    expect(_mossRingSize(tester, dot), Size.square(farDotDiameter + pad));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(
+      _mossRingSize(tester, dot),
+      Size.square(farDotHighlightedDiameter + pad),
+    );
+    expect(_tooltipFor(tester, 'origin'), contains('Origin'));
   });
 
   testWidgets('published story preview appears after listPublished', (
@@ -4179,6 +4275,43 @@ Finder _preservedDecade(int year) {
     of: find.byKey(Key('timeline-decade-row-$year')),
     matching: find.text('1 story preserved'),
   );
+}
+
+Future<void> _pumpOriginAndEarlier(WidgetTester tester) async {
+  await tester.binding.setSurfaceSize(const Size(1200, 900));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  addTearDown(FamilySelection.clear);
+  await tester.pumpWidget(
+    _timeline(
+      stories: _FakeStoriesApi(
+        published: [
+          _published(
+            id: 'origin',
+            title: 'The beginning',
+            timeframeStart: DateTime(1980),
+          ),
+          _published(
+            id: 'older',
+            title: 'Earlier',
+            timeframeStart: DateTime(1954),
+          ),
+        ],
+      ),
+      families: _TreeFamilies(
+        mine: [
+          MemberFamily(
+            id: kTestFamilyId,
+            name: 'Ada',
+            createdAt: DateTime.utc(1970),
+          ),
+        ],
+        tree: const [
+          TreeFamily(id: kTestFamilyId, name: 'Ada', originStoryId: 'origin'),
+        ],
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpThreeDecades(WidgetTester tester) async {
