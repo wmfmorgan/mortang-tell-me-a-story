@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// Memory Album tokens (Impl Spec §15 M4.5 / UXD DESIGN.md).
 const albumParchment = Color(0xFFFBF7F2);
+const albumParchmentClear = Color(0x00FBF7F2);
 const albumModalScrim = Color(0x661C140C);
 const albumModalBorder = Color(0xFFE6DCD1);
 const albumPillFill = Color(0xFFF6F1EB);
@@ -11,8 +12,14 @@ const albumTerracotta = Color(0xFF8B5E4B);
 const albumSage = Color(0xFF7A8B74);
 const branchMoss = Color(0xFF5B7F3A);
 const albumInk = Color(0xFF2C2416);
+const albumInkFaint = Color(0x332C2416);
+const albumInkDim = Color(0xB32C2416);
 const albumDialogSurface = Color(0xFFFFF8F6);
 const albumBackdropClear = Colors.transparent;
+const albumBlush = Color(0xFFF5DED6);
+const albumBlushWash = Color.fromRGBO(0xF5, 0xDE, 0xD6, 0.3);
+const albumPaleRose = Color(0xFFF5ECE9);
+const albumWhite = Color(0xFFFFFFFF);
 
 const albumCardRadius = 12.0;
 

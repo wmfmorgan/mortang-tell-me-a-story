@@ -15,6 +15,15 @@ void main() {
     expect(albumSage, const Color(0xFF7A8B74));
     expect(branchMoss, const Color(0xFF5B7F3A));
     expect(albumInk, const Color(0xFF2C2416));
+    expect(albumInkFaint, const Color(0x332C2416));
+    expect(albumInkDim, const Color(0xB32C2416));
+    expect(albumParchmentClear, const Color(0x00FBF7F2));
+    expect(albumParchmentClear, isNot(Colors.transparent));
+    expect(albumBlush, const Color(0xFFF5DED6));
+    expect(albumBlushWash, const Color(0xFFF5DED6).withValues(alpha: 0.3));
+    expect(albumPaleRose, const Color(0xFFF5ECE9));
+    expect(albumWhite, const Color(0xFFFFFFFF));
+    expect(albumWhite, Colors.white);
     expect(albumSage, isNot(const Color(0xFF665D5A)));
   });
 
