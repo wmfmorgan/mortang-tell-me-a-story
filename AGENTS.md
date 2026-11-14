@@ -33,7 +33,7 @@ If the code and the plan disagree, stop and report the difference. Do not reconc
 
 Pstack has no per-lane selector; skills read the last role line in `.cursor/rules/pstack-models.mdc`, so lane 3 and 5 keep the medium block there. Lane 1 (copy), lane 4 (bug fix), and docs agents use the low block in that file (every role `inherit-parent`, single-entry panels only) and must not use arena, swarm, interrogate, or architect. Docs PRs touch `AGENTS.md`, `.cursor/`, or `docs/` only.
 
-Docs agents work alone: no subagents, arena, swarm, interrogate, or architect panels. Skip local `mise install` and `just check`; CI runs them. Edit only the files named in the brief; do not explore beyond them. At most one review-fix round.
+Docs agents work alone: no subagents, arena, swarm, interrogate, or architect panels. Skip local Makefile targets and Flutter or Deno test runs; CI runs them. Edit only the files named in the brief; do not explore beyond them. At most one review-fix round.
 
 ## Gates
 Run from the repo root unless the command names another directory. Paste the output in the PR body. CI is `.github/workflows/ci.yml`. It runs four jobs, `flutter`, `deno`, `pgtap`, and `e2e`, on pull requests to `main` and on pushes to `main`. There is no path filter.
