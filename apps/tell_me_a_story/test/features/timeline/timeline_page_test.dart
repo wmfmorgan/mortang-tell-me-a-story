@@ -3860,6 +3860,51 @@ void main() {
     expect(daysStart.dy, closeTo(daysCard.top - calloutLeaderGap, 3));
   });
 
+  testWidgets('a right days card sends its parent callout to the right', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    const parent = '00000000-0000-0000-0000-0000000000aa';
+    const origin = 'origin';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'newer',
+              title: 'Later',
+              timeframeStart: DateTime(1998),
+            ),
+            _published(
+              id: origin,
+              title: 'The beginning',
+              timeframeStart: DateTime(1974),
+            ),
+          ],
+        ),
+        families: _parentChild(parent, origin),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+
+    final card = tester.getRect(find.byKey(const Key('timeline-card-$origin')));
+    final dot = tester.getCenter(
+      find.byKey(const Key('timeline-full-dot-$origin')),
+    );
+    final start = _leaderStart(tester);
+    expect(start.dx, closeTo(card.center.dx, 3));
+    expect(start.dy, closeTo(card.top - calloutLeaderGap, 3));
+    expect((dot.dy - card.center.dy).abs(), lessThanOrEqualTo(1));
+    expect(
+      _calloutLeaders(tester).single.elbow.dx,
+      greaterThan(_calloutLeaders(tester).single.start.dx),
+    );
+  });
+
   testWidgets('a days parent callout follows the card at the decade angle', (
     tester,
   ) async {
@@ -4355,6 +4400,28 @@ Finder _mossFocusOutline() {
         side?.color == branchMoss &&
         side?.width == calloutStroke;
   });
+}
+
+_TreeFamilies _parentChild(String parent, String origin) {
+  return _TreeFamilies(
+    mine: [
+      MemberFamily(
+        id: kTestFamilyId,
+        name: 'Ada',
+        createdAt: DateTime.utc(1970),
+        parentFamilyId: parent,
+      ),
+    ],
+    tree: [
+      TreeFamily(id: parent, name: 'Parent'),
+      TreeFamily(
+        id: kTestFamilyId,
+        name: 'Ada',
+        parentFamilyId: parent,
+        originStoryId: origin,
+      ),
+    ],
+  );
 }
 
 double _cardScale(WidgetTester tester, Finder card) {
