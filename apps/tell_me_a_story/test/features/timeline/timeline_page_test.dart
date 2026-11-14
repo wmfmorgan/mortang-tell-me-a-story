@@ -4348,6 +4348,48 @@ void main() {
     await tester.pump();
     expect(tester.getTopLeft(card), laidOut);
   });
+
+  testWidgets('an unfocused far decade keeps the pale node and faint spine', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'newer',
+              title: 'Later',
+              timeframeStart: DateTime(1998),
+            ),
+            _published(
+              id: 'older',
+              title: 'Early',
+              timeframeStart: DateTime(1974),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final node = tester.widget<Container>(
+      find.descendant(
+        of: find.byKey(const Key('timeline-decade-node-1990')),
+        matching: find.byType(Container),
+      ),
+    );
+    final decoration = node.decoration! as BoxDecoration;
+    expect(decoration.color, albumDialogSurface);
+    expect(tester.getSize(find.byWidget(node)).width, 14);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is ColoredBox && widget.color == albumInkFaint,
+      ),
+      findsOneWidget,
+    );
+  });
 }
 
 Offset _leaderStart(WidgetTester tester) {
