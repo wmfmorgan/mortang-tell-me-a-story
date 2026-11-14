@@ -19,6 +19,7 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/stories/photo_frame.dart';
+import 'package:tell_me_a_story/features/timeline/dial_fade.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
@@ -4452,6 +4453,48 @@ void main() {
       find.byKey(const Key('timeline-zoom-macro')),
     );
     expect(decades.style!.foregroundColor!.resolve({}), albumParchment);
+  });
+
+  testWidgets('one years row stays brighter and both edges fade', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(id: 'late', timeframeStart: DateTime(2024)),
+            _published(id: 'mid', timeframeStart: DateTime(1980)),
+            _published(id: 'early', timeframeStart: DateTime(1954)),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+
+    double rowOpacity(String id) {
+      return tester
+          .widget<Opacity>(
+            find
+                .ancestor(
+                  of: find.byKey(Key('timeline-stub-$id')),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity;
+    }
+
+    final values = [
+      rowOpacity('early'),
+      rowOpacity('mid'),
+      rowOpacity('late'),
+    ]..sort();
+    expect(values.last, greaterThan(values[1]));
+    expect(find.byType(DialFade), findsNWidgets(2));
   });
 }
 
