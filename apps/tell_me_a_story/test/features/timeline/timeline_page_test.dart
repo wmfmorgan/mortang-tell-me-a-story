@@ -23,7 +23,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
-const _familyId = '00000000-0000-0000-0000-000000000001';
+import '../../fakes/fake_invite_api.dart';
 
 Uint8List _pngOf(int width, int height) {
   final bytes = Uint8List.fromList(const [
@@ -40,31 +40,6 @@ Uint8List _pngOf(int width, int height) {
   bytes[22] = (height >> 8) & 0xff;
   bytes[23] = height & 0xff;
   return bytes;
-}
-
-class _FakeInviteApi implements InviteGateway {
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => _familyId;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => _familyId;
-
-  @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
 }
 
 class _FakeStoriesApi implements StoriesGateway {
@@ -319,7 +294,7 @@ class _SlowStoriesApi extends _FakeStoriesApi {
 
 Story _published({
   String id = 's1',
-  String familyId = _familyId,
+  String familyId = kTestFamilyId,
   String? title,
   String? body = 'Jam',
   DateTime? timeframeStart,
@@ -366,7 +341,7 @@ Widget _timeline({
     theme: theme,
     home: TimelinePage(
       key: pageKey,
-      api: _FakeInviteApi(),
+      api: FakeInviteApi(),
       storiesApi: stories,
       familiesApi: families,
       live: live,
@@ -677,17 +652,17 @@ void main() {
           families: _ReadableTree(
             mine: [
               MemberFamily(
-                id: _familyId,
+                id: kTestFamilyId,
                 name: 'Ada',
                 createdAt: DateTime.utc(2020),
               ),
             ],
             tree: const [
-              TreeFamily(id: _familyId, name: 'Ada'),
+              TreeFamily(id: kTestFamilyId, name: 'Ada'),
               TreeFamily(
                 id: branchId,
                 name: 'East Branch',
-                parentFamilyId: _familyId,
+                parentFamilyId: kTestFamilyId,
               ),
             ],
           ),
@@ -710,12 +685,12 @@ void main() {
         families: _ReadableTree(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Ada',
               createdAt: DateTime.utc(2020),
             ),
           ],
-          tree: const [TreeFamily(id: _familyId, name: 'Ada')],
+          tree: const [TreeFamily(id: kTestFamilyId, name: 'Ada')],
         ),
       ),
     );
@@ -943,7 +918,7 @@ void main() {
         live: live,
         families: _FakeFamilies([
           MemberFamily(
-            id: _familyId,
+            id: kTestFamilyId,
             name: 'Ada',
             createdAt: DateTime.utc(2020),
           ),
@@ -952,8 +927,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(live.familyId, _familyId);
-    expect(stories.loads, [_familyId]);
+    expect(live.familyId, kTestFamilyId);
+    expect(stories.loads, [kTestFamilyId]);
 
     await tester.tap(find.byKey(const Key('family-menu')));
     await tester.pumpAndSettle();
@@ -981,7 +956,7 @@ void main() {
         GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) => TimelinePage(
-            api: _FakeInviteApi(),
+            api: FakeInviteApi(),
             storiesApi: _FakeStoriesApi(published: []),
           ),
         ),
@@ -1016,7 +991,7 @@ void main() {
     const otherId = '00000000-0000-0000-0000-000000000002';
     final stories = _FakeStoriesApi(
       published: [
-        _published(id: 'old', title: 'Old', familyId: _familyId),
+        _published(id: 'old', title: 'Old', familyId: kTestFamilyId),
         _published(id: 'new', title: 'New', familyId: otherId),
       ],
     );
@@ -1026,11 +1001,11 @@ void main() {
         GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) => TimelinePage(
-            api: _FakeInviteApi(),
+            api: FakeInviteApi(),
             storiesApi: stories,
             familiesApi: _FakeFamilies([
               MemberFamily(
-                id: _familyId,
+                id: kTestFamilyId,
                 name: 'Ada',
                 createdAt: DateTime.utc(2020),
               ),
@@ -1070,13 +1045,17 @@ void main() {
       addTearDown(FamilySelection.clear);
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      FamilySelection.remember(_familyId);
+      FamilySelection.remember(kTestFamilyId);
       final families = _FakeFamilies([
-        MemberFamily(id: _familyId, name: 'Ada', createdAt: DateTime.utc(2020)),
+        MemberFamily(
+          id: kTestFamilyId,
+          name: 'Ada',
+          createdAt: DateTime.utc(2020),
+        ),
       ]);
       final stories = _FakeStoriesApi(
         published: [
-          _published(id: 'oldA', title: 'Old A', familyId: _familyId),
+          _published(id: 'oldA', title: 'Old A', familyId: kTestFamilyId),
         ],
       );
       final router = GoRouter(
@@ -1085,7 +1064,7 @@ void main() {
           GoRoute(
             path: AppRoutes.timeline,
             builder: (context, state) => TimelinePage(
-              api: _FakeInviteApi(),
+              api: FakeInviteApi(),
               storiesApi: stories,
               familiesApi: families,
               live: _FakeLive(),
@@ -1120,7 +1099,7 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteApi(),
       storiesApi: stories,
     );
 
@@ -1137,7 +1116,7 @@ void main() {
     router.push(AppRoutes.drafts);
     await tester.pumpAndSettle();
 
-    stories.published.add(_published(familyId: _familyId, title: 'Jam'));
+    stories.published.add(_published(familyId: kTestFamilyId, title: 'Jam'));
 
     router.go(AppRoutes.timeline);
     await tester.pumpAndSettle();
@@ -1163,7 +1142,7 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteApi(),
       storiesApi: _FakeStoriesApi(published: [story]),
     );
 
@@ -1261,7 +1240,7 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteApi(),
       storiesApi: _FakeStoriesApi(published: [story]),
     );
     addTearDown(auth.dispose);
@@ -1735,14 +1714,14 @@ void main() {
         ),
         families: _FakeFamilies([
           MemberFamily(
-            id: _familyId,
+            id: kTestFamilyId,
             name: 'Jenkins',
             createdAt: DateTime.utc(1970),
           ),
           MemberFamily(
             id: 'child',
             name: 'Martinez',
-            parentFamilyId: _familyId,
+            parentFamilyId: kTestFamilyId,
             createdAt: DateTime.utc(1985),
           ),
         ]),
@@ -1765,7 +1744,7 @@ void main() {
             _published(title: 'Jam'),
             Story(
               id: 'draft-1',
-              familyId: _familyId,
+              familyId: kTestFamilyId,
               authorId: 'u1',
               title: 'Secret draft',
               body: 'hidden',
@@ -1789,14 +1768,14 @@ void main() {
         stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
         families: _FakeFamilies([
           MemberFamily(
-            id: _familyId,
+            id: kTestFamilyId,
             name: 'Jenkins',
             createdAt: DateTime.utc(1970),
           ),
           MemberFamily(
             id: 'child',
             name: 'Martinez',
-            parentFamilyId: _familyId,
+            parentFamilyId: kTestFamilyId,
             createdAt: DateTime.utc(1985),
           ),
         ]),
@@ -1834,7 +1813,7 @@ void main() {
         GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) => TimelinePage(
-            api: _FakeInviteApi(),
+            api: FakeInviteApi(),
             storiesApi: _FakeStoriesApi(published: [_published(title: 'Jam')]),
           ),
         ),
@@ -2136,14 +2115,14 @@ void main() {
         stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
         families: _FakeFamilies([
           MemberFamily(
-            id: _familyId,
+            id: kTestFamilyId,
             name: 'Jenkins',
             createdAt: DateTime.utc(1970),
           ),
           MemberFamily(
             id: 'child',
             name: 'Martinez',
-            parentFamilyId: _familyId,
+            parentFamilyId: kTestFamilyId,
             createdAt: DateTime.utc(1985),
           ),
         ]),
@@ -2217,7 +2196,7 @@ void main() {
   test('other-family and draft events do not refresh the rail', () {
     expect(
       timelineEventMatters(
-        familyId: _familyId,
+        familyId: kTestFamilyId,
         table: 'stories',
         eventFamilyId: 'other',
         status: 'published',
@@ -2227,9 +2206,9 @@ void main() {
     );
     expect(
       timelineEventMatters(
-        familyId: _familyId,
+        familyId: kTestFamilyId,
         table: 'stories',
-        eventFamilyId: _familyId,
+        eventFamilyId: kTestFamilyId,
         status: 'draft',
         isDelete: false,
       ),
@@ -2237,9 +2216,9 @@ void main() {
     );
     expect(
       timelineEventMatters(
-        familyId: _familyId,
+        familyId: kTestFamilyId,
         table: 'stories',
-        eventFamilyId: _familyId,
+        eventFamilyId: kTestFamilyId,
         status: 'published',
         isDelete: false,
       ),
@@ -2272,7 +2251,7 @@ void main() {
         stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
         families: _FakeFamilies([
           MemberFamily(
-            id: _familyId,
+            id: kTestFamilyId,
             name: 'Jenkins',
             createdAt: DateTime.utc(1970),
           ),
@@ -2311,17 +2290,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 's1',
             ),
           ],
@@ -2419,17 +2398,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 'mid',
               branchYear: 1972,
             ),
@@ -2509,17 +2488,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 'mid',
               branchYear: 1972,
             ),
@@ -2566,17 +2545,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 'first',
             ),
           ],
@@ -2631,17 +2610,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 'first',
             ),
           ],
@@ -2681,17 +2660,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 's1',
             ),
           ],
@@ -2726,17 +2705,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 's1',
             ),
           ],
@@ -2769,17 +2748,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 's1',
             ),
           ],
@@ -2811,17 +2790,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 's1',
             ),
           ],
@@ -2861,17 +2840,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 'old',
               branchYear: 1972,
             ),
@@ -2940,17 +2919,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 'branch',
               branchYear: 1974,
             ),
@@ -2999,17 +2978,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 's1',
             ),
           ],
@@ -3040,22 +3019,22 @@ void main() {
     addTearDown(auth.dispose);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteApi(),
       storiesApi: _FakeStoriesApi(published: [story]),
       familiesApi: _TreeFamilies(
         mine: [
           MemberFamily(
-            id: _familyId,
+            id: kTestFamilyId,
             name: 'Jenkins',
             createdAt: DateTime.utc(1970),
           ),
         ],
         tree: [
-          const TreeFamily(id: _familyId, name: 'Jenkins'),
+          const TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
           TreeFamily(
             id: bea,
             name: 'Bea',
-            parentFamilyId: _familyId,
+            parentFamilyId: kTestFamilyId,
             originStoryId: story.id,
           ),
         ],
@@ -3102,17 +3081,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 'ada',
             ),
           ],
@@ -3143,7 +3122,9 @@ void main() {
     expect(_tooltipFor(tester, 'ada'), contains('Origin'));
     expect(find.text('Origin · from Jenkins'), findsNothing);
     expect(find.text('Ada tale'), findsNothing);
-    final parentLabel = find.byKey(Key('timeline-branch-callout-$_familyId'));
+    final parentLabel = find.byKey(
+      Key('timeline-branch-callout-$kTestFamilyId'),
+    );
     expect(parentLabel, findsOneWidget);
     expect(
       tester.getCenter(parentLabel).dy,
@@ -3215,7 +3196,7 @@ void main() {
             families: _TreeFamilies(
               mine: [
                 MemberFamily(
-                  id: _familyId,
+                  id: kTestFamilyId,
                   name: 'Ada',
                   createdAt: DateTime.utc(1970),
                   parentFamilyId: parent,
@@ -3223,10 +3204,14 @@ void main() {
               ],
               tree: const [
                 TreeFamily(id: parent, name: 'Parent'),
-                TreeFamily(id: _familyId, name: 'Ada', parentFamilyId: parent),
+                TreeFamily(
+                  id: kTestFamilyId,
+                  name: 'Ada',
+                  parentFamilyId: parent,
+                ),
               ],
               stewarded: [
-                StewardFamily(id: _familyId, name: 'Ada', role: role),
+                StewardFamily(id: kTestFamilyId, name: 'Ada', role: role),
               ],
             ),
           ),
@@ -3253,14 +3238,14 @@ void main() {
           families: _TreeFamilies(
             mine: [
               MemberFamily(
-                id: _familyId,
+                id: kTestFamilyId,
                 name: 'Ada',
                 createdAt: DateTime.utc(1970),
               ),
             ],
-            tree: const [TreeFamily(id: _familyId, name: 'Ada')],
+            tree: const [TreeFamily(id: kTestFamilyId, name: 'Ada')],
             stewarded: const [
-              StewardFamily(id: _familyId, name: 'Ada', role: 'owner'),
+              StewardFamily(id: kTestFamilyId, name: 'Ada', role: 'owner'),
             ],
           ),
         ),
@@ -3275,14 +3260,14 @@ void main() {
           families: _TreeFamilies(
             mine: [
               MemberFamily(
-                id: _familyId,
+                id: kTestFamilyId,
                 name: 'Ada',
                 createdAt: DateTime.utc(1970),
               ),
             ],
-            tree: const [TreeFamily(id: _familyId, name: 'Ada')],
+            tree: const [TreeFamily(id: kTestFamilyId, name: 'Ada')],
             stewarded: const [
-              StewardFamily(id: _familyId, name: 'Ada', role: 'owner'),
+              StewardFamily(id: kTestFamilyId, name: 'Ada', role: 'owner'),
             ],
           ),
         ),
@@ -3325,7 +3310,7 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Child line',
               createdAt: DateTime.utc(1995),
               parentFamilyId: parent,
@@ -3334,7 +3319,7 @@ void main() {
           tree: const [
             TreeFamily(id: parent, name: 'The WFM Morgans'),
             TreeFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Child line',
               parentFamilyId: parent,
               originStoryId: origin,
@@ -3465,7 +3450,7 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Child line',
               createdAt: DateTime.utc(1995),
               parentFamilyId: parent,
@@ -3474,7 +3459,7 @@ void main() {
           tree: const [
             TreeFamily(id: parent, name: 'The WFM Morgans'),
             TreeFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Child line',
               parentFamilyId: parent,
               originStoryId: origin,
@@ -3483,7 +3468,7 @@ void main() {
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: origin,
               branchYear: 1996,
             ),
@@ -3556,7 +3541,7 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Child line',
               createdAt: DateTime.utc(1995),
               parentFamilyId: parent,
@@ -3565,7 +3550,7 @@ void main() {
           tree: const [
             TreeFamily(id: parent, name: 'The WFM Morgans'),
             TreeFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Child line',
               parentFamilyId: parent,
               originStoryId: origin,
@@ -3645,13 +3630,13 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Ada',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Ada', originStoryId: origin),
+            TreeFamily(id: kTestFamilyId, name: 'Ada', originStoryId: origin),
           ],
         ),
       ),
@@ -3694,7 +3679,7 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Ada',
               createdAt: DateTime.utc(1970),
               parentFamilyId: parent,
@@ -3703,7 +3688,7 @@ void main() {
           tree: const [
             TreeFamily(id: parent, name: 'Parent'),
             TreeFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Ada',
               parentFamilyId: parent,
               originStoryId: origin,
@@ -3755,7 +3740,7 @@ void main() {
           families: _TreeFamilies(
             mine: [
               MemberFamily(
-                id: _familyId,
+                id: kTestFamilyId,
                 name: 'Ada',
                 createdAt: DateTime.utc(1970),
                 parentFamilyId: parent,
@@ -3764,7 +3749,7 @@ void main() {
             tree: const [
               TreeFamily(id: parent, name: 'Parent'),
               TreeFamily(
-                id: _familyId,
+                id: kTestFamilyId,
                 name: 'Ada',
                 parentFamilyId: parent,
                 originStoryId: origin,
@@ -3830,7 +3815,7 @@ void main() {
           families: _TreeFamilies(
             mine: [
               MemberFamily(
-                id: _familyId,
+                id: kTestFamilyId,
                 name: 'Ada',
                 createdAt: DateTime.utc(1970),
                 parentFamilyId: parent,
@@ -3839,7 +3824,7 @@ void main() {
             tree: const [
               TreeFamily(id: parent, name: 'Parent'),
               TreeFamily(
-                id: _familyId,
+                id: kTestFamilyId,
                 name: 'Ada',
                 parentFamilyId: parent,
                 originStoryId: origin,
@@ -3900,17 +3885,17 @@ void main() {
         families: _TreeFamilies(
           mine: [
             MemberFamily(
-              id: _familyId,
+              id: kTestFamilyId,
               name: 'Jenkins',
               createdAt: DateTime.utc(1970),
             ),
           ],
           tree: const [
-            TreeFamily(id: _familyId, name: 'Jenkins'),
+            TreeFamily(id: kTestFamilyId, name: 'Jenkins'),
             TreeFamily(
               id: bea,
               name: 'Bea',
-              parentFamilyId: _familyId,
+              parentFamilyId: kTestFamilyId,
               originStoryId: 's1',
             ),
           ],

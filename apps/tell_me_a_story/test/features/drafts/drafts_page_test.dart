@@ -9,8 +9,6 @@ import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
-import 'package:tell_me_a_story/data/invite_api.dart';
-import 'package:tell_me_a_story/data/mapbox_search.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
@@ -18,32 +16,8 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/drafts/drafts_page.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
-const _familyId = '00000000-0000-0000-0000-000000000001';
-
-class _FakeInviteApi implements InviteGateway {
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => _familyId;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => _familyId;
-
-  @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
-}
+import '../../fakes/fake_invite_api.dart';
+import '../../fakes/fake_mapbox_search.dart';
 
 Story _draft({
   String id = 's1',
@@ -57,7 +31,7 @@ Story _draft({
 }) {
   return Story(
     id: id,
-    familyId: _familyId,
+    familyId: kTestFamilyId,
     authorId: 'u1',
     title: title,
     body: body,
@@ -254,12 +228,6 @@ class _StubPlacesApi implements PlacesGateway {
   Future<Place?> getPlace(String id) async => null;
 }
 
-class _StubMapboxSearch implements MapboxSearchGateway {
-  @override
-  Future<List<MapboxSearchHit>> search(String query, {int limit = 5}) async =>
-      const [];
-}
-
 class _FakePhotosApi implements PhotosGateway {
   _FakePhotosApi({List<String>? callLog, this.failDelete = false})
     : callLog = callLog ?? [];
@@ -312,7 +280,7 @@ Widget _drafts({
 }) {
   return MaterialApp(
     home: DraftsPage(
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteApi(),
       storiesApi: stories,
       photosApi: photos ?? _FakePhotosApi(),
       familiesApi: families,
@@ -441,10 +409,10 @@ void main() {
     addTearDown(auth.dispose);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteApi(),
       peopleApi: _StubPeopleApi(),
       placesApi: _StubPlacesApi(),
-      mapboxSearch: _StubMapboxSearch(),
+      mapboxSearch: FakeMapboxSearch(),
       storiesApi: _FakeStoriesApi(
         drafts: [_draft(id: 's1', body: 'Jam')],
       ),
@@ -535,7 +503,7 @@ void main() {
         stories: stories,
         families: _FakeFamilies([
           MemberFamily(
-            id: _familyId,
+            id: kTestFamilyId,
             name: 'Ada',
             createdAt: DateTime.utc(2020),
           ),
@@ -555,7 +523,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('family-menu-invite')), findsOneWidget);
     expect(find.byKey(const Key('family-menu-start-timeline')), findsOneWidget);
-    expect(stories.familyLoads, [_familyId]);
+    expect(stories.familyLoads, [kTestFamilyId]);
 
     await tester.tap(find.text('Bea').last);
     await tester.pumpAndSettle();
@@ -569,7 +537,7 @@ void main() {
   ) async {
     final undated = Story.fromJson({
       'id': 'undated',
-      'family_id': _familyId,
+      'family_id': kTestFamilyId,
       'author_id': 'u1',
       'title': 'Undated',
       'timeframe_start': null,
@@ -580,7 +548,7 @@ void main() {
     });
     final dated = Story.fromJson({
       'id': 'dated',
-      'family_id': _familyId,
+      'family_id': kTestFamilyId,
       'author_id': 'u1',
       'title': 'Dated',
       'timeframe_start': '1980-01-01',
