@@ -4134,6 +4134,48 @@ void main() {
     },
   );
 
+  testWidgets('a focused wide days card grows and keeps its dot', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'jan',
+              title: 'January',
+              timeframeStart: DateTime(1980, 1, 1),
+            ),
+            _published(
+              id: 'jun',
+              title: 'June',
+              timeframeStart: DateTime(1980, 6, 1),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-full')));
+    await tester.pumpAndSettle();
+
+    final jan = find.byKey(const Key('timeline-card-jan'));
+    final jun = find.byKey(const Key('timeline-card-jun'));
+    final janScale = _cardScale(tester, jan);
+    final junScale = _cardScale(tester, jun);
+    expect((janScale - junScale).abs(), closeTo(0.05, 0.001));
+    final focused = janScale > junScale ? jan : jun;
+    final focusedId = janScale > junScale ? 'jan' : 'jun';
+    expect(_cardScale(tester, focused), closeTo(1.05, 0.001));
+    final card = tester.getRect(focused);
+    final dot = tester.getCenter(
+      find.byKey(Key('timeline-full-dot-$focusedId')),
+    );
+    expect((dot.dy - card.center.dy).abs(), lessThanOrEqualTo(1));
+  });
+
   testWidgets(
     'a focused parent origin card has a moss border and does not scale',
     (tester) async {
