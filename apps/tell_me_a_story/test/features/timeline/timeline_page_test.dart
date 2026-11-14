@@ -3722,6 +3722,30 @@ void main() {
     expect(FamilySelection.id, parent);
   });
 
+  testWidgets('a years parent callout keeps the rail dot on the card', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpDecadeParentRow(tester);
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+
+    final card = tester.getRect(find.byKey(const Key('timeline-stub-origin')));
+    final node = tester.getCenter(
+      find.byKey(const Key('timeline-mid-node-origin')),
+    );
+    final label = tester.getRect(
+      find.byKey(
+        const Key(
+          'timeline-branch-callout-00000000-0000-0000-0000-0000000000aa',
+        ),
+      ),
+    );
+    expect(label.bottom, lessThan(card.top));
+    expect((node.dy - card.center.dy).abs(), lessThanOrEqualTo(1));
+  });
+
   testWidgets('a parent callout keeps the origin dot level with its row', (
     tester,
   ) async {
