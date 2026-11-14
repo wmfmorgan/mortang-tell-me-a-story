@@ -1,0 +1,12 @@
+id
+family_id
+author_id
+title
+body
+timeframe_start
+timeframe_end
+place_id
+status
+published_at
+date_precision
+created_at
