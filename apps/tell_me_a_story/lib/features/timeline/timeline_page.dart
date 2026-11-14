@@ -1,8 +1,8 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -24,7 +24,9 @@ import '../invites/invite_modal.dart';
 import '../stories/photo_frame.dart';
 import '../stories/story_date.dart';
 import 'origin_banner.dart';
+import 'timeline_arrow_keys.dart';
 import 'timeline_branching.dart';
+import 'timeline_empty_tap.dart';
 import 'timeline_zoom.dart';
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
@@ -779,82 +781,6 @@ class _TimelinePageState extends State<TimelinePage> {
   }
 }
 
-void scrollDialStep({
-  required ScrollController controller,
-  required int direction,
-  required BuildContext? target,
-}) {
-  if (target != null && target.mounted) {
-    Scrollable.ensureVisible(
-      target,
-      alignment: 0.5,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-    );
-    return;
-  }
-  if (!controller.hasClients) return;
-  final position = controller.position;
-  final delta = direction * position.viewportDimension * 0.45;
-  final next = (position.pixels + delta).clamp(
-    position.minScrollExtent,
-    position.maxScrollExtent,
-  );
-  position.animateTo(
-    next,
-    duration: const Duration(milliseconds: 200),
-    curve: Curves.easeOut,
-  );
-}
-
-class _ArrowKeys extends StatefulWidget {
-  const _ArrowKeys({required this.onStep, required this.child});
-
-  final ValueChanged<int> onStep;
-  final Widget child;
-
-  @override
-  State<_ArrowKeys> createState() => _ArrowKeysState();
-}
-
-class _ArrowKeysState extends State<_ArrowKeys> {
-  final _focus = FocusNode();
-
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
-
-  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-      return KeyEventResult.ignored;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      widget.onStep(1);
-      return KeyEventResult.handled;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      widget.onStep(-1);
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _focus,
-      autofocus: true,
-      onKeyEvent: _onKey,
-      child: Listener(
-        onPointerDown: (_) => _focus.requestFocus(),
-        child: widget.child,
-      ),
-    );
-  }
-}
-
 class _FarRail extends StatefulWidget {
   const _FarRail({
     required this.bands,
@@ -1050,7 +976,7 @@ class _FarRailState extends State<_FarRail> {
 
   @override
   Widget build(BuildContext context) {
-    return _ArrowKeys(
+    return ArrowKeys(
       onStep: _step,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1065,7 +991,7 @@ class _FarRailState extends State<_FarRail> {
             ),
           ),
           Expanded(
-            child: _EmptyTap(
+            child: EmptyTap(
               onTap: widget.onEmpty,
               child: NotificationListener<ScrollNotification>(
                 onNotification: (notification) {
@@ -1107,33 +1033,6 @@ class _FarRailState extends State<_FarRail> {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Small empty target at the top-left of a rail. Interactive children stay above it.
-class _EmptyTap extends StatelessWidget {
-  const _EmptyTap({required this.onTap, required this.child});
-
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        child,
-        Positioned(
-          top: 0,
-          left: 0,
-          child: GestureDetector(
-            key: const Key('timeline-empty'),
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: const SizedBox(width: 48, height: 24),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1677,7 +1576,7 @@ class _MidRailState extends State<_MidRail> {
 
   @override
   Widget build(BuildContext context) {
-    return _ArrowKeys(
+    return ArrowKeys(
       onStep: _step,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1692,7 +1591,7 @@ class _MidRailState extends State<_MidRail> {
             ),
           ),
           Expanded(
-            child: _EmptyTap(
+            child: EmptyTap(
               onTap: widget.onEmpty,
               child: NotificationListener<ScrollNotification>(
                 onNotification: (notification) {
@@ -2674,7 +2573,7 @@ class _FullCardRailState extends State<_FullCardRail> {
 
   @override
   Widget build(BuildContext context) {
-    return _ArrowKeys(
+    return ArrowKeys(
       onStep: _step,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2689,7 +2588,7 @@ class _FullCardRailState extends State<_FullCardRail> {
             ),
           ),
           Expanded(
-            child: _EmptyTap(
+            child: EmptyTap(
               onTap: widget.onEmpty,
               child: NotificationListener<ScrollNotification>(
                 onNotification: (notification) {
