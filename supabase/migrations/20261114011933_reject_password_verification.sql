@@ -1,4 +1,4 @@
--- Password grants always reject. Magic link does not call this hook.
+-- Magic link does not call this hook.
 -- event.valid is ignored so a password stored before confirm cannot be used.
 
 create function public.hook_password_verification_attempt(event jsonb)

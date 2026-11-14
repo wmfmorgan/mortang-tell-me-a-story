@@ -283,7 +283,7 @@ max_frequency = "5s"
 # Force log out if the user has been inactive longer than the specified duration.
 # inactivity_timeout = "8h"
 
-# Password sign-in is closed. GoTrue calls this hook only for a password grant.
+# GoTrue calls this hook only for a password grant.
 # Magic link does not. before_user_created cannot tell those apart, so it stays off.
 # Hosted Auth can enable this hook on the Teams and Enterprise plans.
 [auth.hook.password_verification_attempt]
