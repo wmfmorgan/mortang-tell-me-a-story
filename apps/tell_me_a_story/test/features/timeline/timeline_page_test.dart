@@ -23,7 +23,9 @@ import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
-const _familyId = '00000000-0000-0000-0000-000000000001';
+import '../../fakes/fake_invite_api.dart';
+
+const _familyId = kTestFamilyId;
 
 Uint8List _pngOf(int width, int height) {
   final bytes = Uint8List.fromList(const [
@@ -40,31 +42,6 @@ Uint8List _pngOf(int width, int height) {
   bytes[22] = (height >> 8) & 0xff;
   bytes[23] = height & 0xff;
   return bytes;
-}
-
-class _FakeInviteApi implements InviteGateway {
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => _familyId;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => _familyId;
-
-  @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
 }
 
 class _FakeStoriesApi implements StoriesGateway {
@@ -366,7 +343,7 @@ Widget _timeline({
     theme: theme,
     home: TimelinePage(
       key: pageKey,
-      api: _FakeInviteApi(),
+      api: FakeInviteApi(),
       storiesApi: stories,
       familiesApi: families,
       live: live,
@@ -981,7 +958,7 @@ void main() {
         GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) => TimelinePage(
-            api: _FakeInviteApi(),
+            api: FakeInviteApi(),
             storiesApi: _FakeStoriesApi(published: []),
           ),
         ),
@@ -1026,7 +1003,7 @@ void main() {
         GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) => TimelinePage(
-            api: _FakeInviteApi(),
+            api: FakeInviteApi(),
             storiesApi: stories,
             familiesApi: _FakeFamilies([
               MemberFamily(
@@ -1085,7 +1062,7 @@ void main() {
           GoRoute(
             path: AppRoutes.timeline,
             builder: (context, state) => TimelinePage(
-              api: _FakeInviteApi(),
+              api: FakeInviteApi(),
               storiesApi: stories,
               familiesApi: families,
               live: _FakeLive(),
@@ -1120,7 +1097,7 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteApi(),
       storiesApi: stories,
     );
 
@@ -1163,7 +1140,7 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteApi(),
       storiesApi: _FakeStoriesApi(published: [story]),
     );
 
@@ -1261,7 +1238,7 @@ void main() {
     final auth = AuthRefresh(initiallySignedIn: true);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteApi(),
       storiesApi: _FakeStoriesApi(published: [story]),
     );
     addTearDown(auth.dispose);
@@ -1834,7 +1811,7 @@ void main() {
         GoRoute(
           path: AppRoutes.timeline,
           builder: (context, state) => TimelinePage(
-            api: _FakeInviteApi(),
+            api: FakeInviteApi(),
             storiesApi: _FakeStoriesApi(published: [_published(title: 'Jam')]),
           ),
         ),
@@ -3040,7 +3017,7 @@ void main() {
     addTearDown(auth.dispose);
     final router = createAppRouter(
       authRefresh: auth,
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteApi(),
       storiesApi: _FakeStoriesApi(published: [story]),
       familiesApi: _TreeFamilies(
         mine: [

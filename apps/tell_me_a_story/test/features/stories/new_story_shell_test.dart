@@ -13,6 +13,8 @@ import 'package:tell_me_a_story/features/places/place_map.dart';
 import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
+import '../../fakes/fake_mapbox_search.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
 class _FakeInviteApi implements InviteGateway {
@@ -160,12 +162,6 @@ class _FakePlacesApi implements PlacesGateway {
   }
 }
 
-class _FakeMapboxSearch implements MapboxSearchGateway {
-  @override
-  Future<List<MapboxSearchHit>> search(String query, {int limit = 5}) async =>
-      const [];
-}
-
 Widget _shell({
   Key? key,
   InviteGateway? invite,
@@ -182,7 +178,7 @@ Widget _shell({
       inviteApi: invite ?? _FakeInviteApi(),
       peopleApi: people ?? _FakePeopleApi(),
       placesApi: places ?? _FakePlacesApi(),
-      mapboxSearch: search ?? _FakeMapboxSearch(),
+      mapboxSearch: search ?? FakeMapboxSearch(),
       storiesApi: stories,
       hasMapboxToken: hasMapboxToken,
       mapBuilder: mapBuilder,
@@ -782,7 +778,7 @@ void main() {
             inviteApi: _FakeInviteApi(),
             peopleApi: _FakePeopleApi(),
             placesApi: _FakePlacesApi(),
-            mapboxSearch: _FakeMapboxSearch(),
+            mapboxSearch: FakeMapboxSearch(),
             storiesApi: stories,
             hasMapboxToken: true,
             mapBuilder: _defaultStubMap,
