@@ -242,26 +242,6 @@
     },
     {
       "name": "authenticated_security_definer_function_executable",
-      "title": "synthetic-title-sentinel-12",
-      "level": "WARN",
-      "facing": "EXTERNAL",
-      "categories": [
-        "SECURITY"
-      ],
-      "description": "synthetic-description-sentinel-12",
-      "detail": "synthetic-detail-sentinel-12",
-      "remediation": "synthetic-remediation-sentinel-12",
-      "metadata": {
-        "schema": "public",
-        "name": "link_accepted_person",
-        "arguments": "uuid",
-        "marker": "synthetic-metadata-sentinel-12"
-      },
-      "cache_key": "synthetic-cache-key-sentinel-12",
-      "observed_at": "synthetic-stamp-sentinel-12"
-    },
-    {
-      "name": "authenticated_security_definer_function_executable",
       "title": "synthetic-title-sentinel-13",
       "level": "WARN",
       "facing": "EXTERNAL",

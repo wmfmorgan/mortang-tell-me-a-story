@@ -52,12 +52,12 @@ select is_empty($$
     and has_table_privilege(r.rolname, c.oid, p.priv)
 $$, 'D: no TRUNCATE/REFERENCES/TRIGGER for anon/authenticated on public tables');
 
--- Definer allowlist. #84 adds save_photo_edit and reset_photo_edit: exactly these 32.
+-- Definer allowlist. link_accepted_person is not executable by authenticated.
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.prosecdef
      and has_function_privilege('authenticated', p.oid, 'EXECUTE')),
-  32, 'exactly 32 SECURITY DEFINER functions are executable by authenticated');
+  31, 'exactly 31 SECURITY DEFINER functions are executable by authenticated');
 select set_eq($$
   select format('%s(%s)', p.proname, oidvectortypes(p.proargtypes))
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -69,7 +69,7 @@ $$, $$values
   ('create_branch_family(uuid, uuid, text, integer, uuid, uuid[])'),('create_family(text)'),
   ('is_family_co_owner(uuid)'),('is_family_member(uuid)'),('is_family_owner(uuid)'),
   ('is_family_tree_readable(uuid)'),('is_live_family_member(uuid)'),('is_tree_member(uuid)'),
-  ('link_accepted_person(uuid)'),('list_family_tree(uuid)'),('list_origin_dependents(uuid)'),
+  ('list_family_tree(uuid)'),('list_origin_dependents(uuid)'),
   ('list_unlinked_people(uuid)'),('mark_passed_away(uuid, boolean)'),('my_profile()'),
   ('person_profile(uuid)'),('recover_family(uuid)'),('remove_co_owner(uuid, uuid)'),
   ('remove_member(uuid, uuid)'),('rename_family(uuid, text)'),('resend_invite(uuid)'),

@@ -94,14 +94,14 @@ select family_id, member_id, 'member'::public.membership_role from m14a_ctx
 union all
 select family_id, open_id, 'member'::public.membership_role from m14a_ctx;
 
-set local role authenticated;
-set local request.jwt.claim.role = 'authenticated';
-set local request.jwt.claim.sub = 'a14a0000-0000-4000-8000-0000000000a1';
+insert into public.invites (family_id, invited_by, email, token, person_id)
+select family_id, owner_id, 'owner@test.local', 'tok_m14a_owner', other_person
+from m14a_ctx;
 
-select public.link_accepted_person((select other_person from m14a_ctx));
-
-reset role;
-select set_config('request.jwt.claim.sub', '', true);
+select public.link_accepted_person(
+  (select id from public.invites where token = 'tok_m14a_owner'),
+  (select owner_id from m14a_ctx)
+);
 
 select results_eq(
   $$select
@@ -113,14 +113,14 @@ select results_eq(
   'accept with an already-linked person creates no duplicate'
 );
 
-set local role authenticated;
-set local request.jwt.claim.role = 'authenticated';
-set local request.jwt.claim.sub = 'b14a0000-0000-4000-8000-0000000000b1';
+insert into public.invites (family_id, invited_by, email, token, person_id)
+select family_id, owner_id, 'invitee@test.local', 'tok_m14a_invitee', invite_person
+from m14a_ctx;
 
-select public.link_accepted_person((select invite_person from m14a_ctx));
-
-reset role;
-select set_config('request.jwt.claim.sub', '', true);
+select public.link_accepted_person(
+  (select id from public.invites where token = 'tok_m14a_invitee'),
+  (select invitee_id from m14a_ctx)
+);
 
 select results_eq(
   $$select

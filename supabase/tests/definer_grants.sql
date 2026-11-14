@@ -233,9 +233,10 @@ select ok(
   has_function_privilege('authenticated', 'public.assert_invite_person(uuid, uuid)', 'execute'),
   'authenticated can execute assert_invite_person'
 );
-select ok(
+select is(
   has_function_privilege('authenticated', 'public.link_accepted_person(uuid)', 'execute'),
-  'authenticated can execute link_accepted_person'
+  false,
+  'authenticated cannot execute link_accepted_person'
 );
 select ok(
   has_function_privilege('authenticated', 'public.list_unlinked_people(uuid)', 'execute'),
