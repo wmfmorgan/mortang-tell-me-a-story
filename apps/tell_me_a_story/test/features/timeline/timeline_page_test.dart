@@ -4390,6 +4390,46 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('a focused years card and a plain years dot stay pale', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(id: 'newer', timeframeStart: DateTime(1998)),
+            _published(id: 'older', timeframeStart: DateTime(1974)),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+
+    final card = tester.widget<DecoratedBox>(
+      find
+          .descendant(
+            of: find.byKey(const Key('timeline-stub-newer')),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
+    );
+    expect((card.decoration as BoxDecoration).color, albumDialogSurface);
+    final dot = tester.widget<Container>(
+      find
+          .descendant(
+            of: find.byKey(const Key('timeline-mid-node-older')),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    expect(tester.getSize(find.byWidget(dot)).width, midDotDiameter);
+    expect((dot.decoration! as BoxDecoration).color, albumDialogSurface);
+  });
 }
 
 Offset _leaderStart(WidgetTester tester) {
