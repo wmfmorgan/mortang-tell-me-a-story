@@ -491,6 +491,53 @@ void _pinch(WidgetTester tester, double scale) {
   );
 }
 
+bool _isYearsFade(Widget widget) {
+  if (widget is! DecoratedBox) return false;
+  final decoration = widget.decoration;
+  if (decoration is! BoxDecoration) return false;
+  final gradient = decoration.gradient;
+  if (gradient is! LinearGradient || gradient.colors.length != 3) {
+    return false;
+  }
+  final colors = gradient.colors;
+  final stops = gradient.stops;
+  return colors[0] == albumParchment &&
+      colors[1] == albumParchment.withValues(alpha: 0.85) &&
+      colors[2] == albumParchment.withValues(alpha: 0) &&
+      stops != null &&
+      stops[0] == 0.15 &&
+      stops[1] == 0.45 &&
+      stops[2] == 1;
+}
+
+bool _isRailLine(Widget widget) {
+  return widget is ColoredBox &&
+      widget.color == albumInk.withValues(alpha: 0.16);
+}
+
+class _YearsFade {
+  const _YearsFade(this.rect, this.gradient);
+
+  final Rect rect;
+  final LinearGradient gradient;
+}
+
+List<_YearsFade> _yearsFades(WidgetTester tester) {
+  final fades = <_YearsFade>[];
+  for (final element in find.byWidgetPredicate(_isYearsFade).evaluate()) {
+    final box = element.renderObject! as RenderBox;
+    final decoration = (element.widget as DecoratedBox).decoration;
+    fades.add(
+      _YearsFade(
+        box.localToGlobal(Offset.zero) & box.size,
+        (decoration as BoxDecoration).gradient! as LinearGradient,
+      ),
+    );
+  }
+  fades.sort((a, b) => a.rect.top.compareTo(b.rect.top));
+  return fades;
+}
+
 bool _mossRingOn(WidgetTester tester, Finder dot) {
   final dotCenter = tester.getCenter(dot);
   return find
@@ -909,6 +956,64 @@ void main() {
       Size.square(farDotHighlightedDiameter + pad),
     );
     expect(_tooltipFor(tester, 'origin'), contains('Origin'));
+  });
+
+  testWidgets('years fades hug the top and bottom of the dial', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byWidgetPredicate(_isYearsFade), findsNothing);
+
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+    final fades = _yearsFades(tester);
+    expect(fades, hasLength(2));
+    final stack = tester.getRect(
+      find
+          .ancestor(
+            of: find.byWidgetPredicate(_isYearsFade).first,
+            matching: find.byType(Stack),
+          )
+          .first,
+    );
+    expect(fades.first.rect.height, 120);
+    expect(fades.last.rect.height, 120);
+    expect(fades.first.rect.top, closeTo(stack.top, 0.5));
+    expect(fades.last.rect.bottom, closeTo(stack.bottom, 0.5));
+    expect(fades.first.gradient.begin, Alignment.topCenter);
+    expect(fades.first.gradient.end, Alignment.bottomCenter);
+    expect(fades.last.gradient.begin, Alignment.bottomCenter);
+    expect(fades.last.gradient.end, Alignment.topCenter);
+  });
+
+  testWidgets('the years rail draws a two-pixel ink line through the row', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timeline-zoom-mid')));
+    await tester.pumpAndSettle();
+
+    final stub = find.byKey(const Key('timeline-stub-s1'));
+    final row = find.ancestor(of: stub, matching: find.byType(Stack)).first;
+    final line = find.descendant(
+      of: row,
+      matching: find.byWidgetPredicate(_isRailLine),
+    );
+    expect(line, findsOneWidget);
+    expect(tester.getSize(line).width, 2);
+    expect(tester.getCenter(line).dx, closeTo(tester.getCenter(row).dx, 1));
   });
 
   testWidgets('published story preview appears after listPublished', (
