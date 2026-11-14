@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../data/stories_api.dart';
+import 'dial_subheader.dart';
 import 'far_decade_row.dart';
 import 'timeline_arrow_keys.dart';
 import 'timeline_branching.dart';
@@ -20,7 +21,8 @@ class FarRail extends StatefulWidget {
     required this.onYear,
     required this.onFocus,
     required this.onOpenBranch,
-    required this.header,
+    required this.onMid,
+    required this.onFullCards,
   });
 
   final List<DecadeBand> bands;
@@ -32,7 +34,8 @@ class FarRail extends StatefulWidget {
   final ValueChanged<int> onYear;
   final ValueChanged<String> onFocus;
   final ValueChanged<String> onOpenBranch;
-  final Widget header;
+  final VoidCallback onMid;
+  final VoidCallback onFullCards;
 
   @override
   State<FarRail> createState() => _FarRailState();
@@ -209,7 +212,12 @@ class _FarRailState extends State<FarRail> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-            child: widget.header,
+            child: DialSubheader(
+              selected: TimelineZoom.far,
+              onMacro: () {},
+              onMid: widget.onMid,
+              onFullCards: widget.onFullCards,
+            ),
           ),
           Expanded(
             child: EmptyTap(
