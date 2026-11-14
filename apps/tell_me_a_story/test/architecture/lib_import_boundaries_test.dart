@@ -2,35 +2,25 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-// AGENTS.md § Architecture and layers, item 1 (verbatim):
-//
-// `lib/main.dart` calls `initSupabase()` in `lib/core/supabase/supabase_init.dart`.
-// That function builds the anon client from `Env` in `lib/core/config/env.dart`. It
-// does not read the service role key. `lib/app.dart` holds the router widget.
-// `lib/core/` holds config, navigation, the router, Supabase init, and theme.
-// `lib/data/` holds `*_api.dart` gateways and session helpers.
-// `lib/features/<feature>/` holds screens. There is no `lib/state/`. Session state
-// lives in `lib/data/`.
-//
-// Import boundaries read only from that item:
-// - Nothing under `lib/` may import `lib/state/`.
-// - `lib/data/` holds gateways and session helpers, not screens: it must not import
-//   `lib/features/`.
-// - `lib/features/<feature>/` holds screens: it may import `lib/data/` and `lib/core/`.
-// - `lib/core/` holds config, navigation, the router, Supabase init, and theme: paths
-//   under `lib/core/router/` may import `lib/features/` and `lib/data/` to wire routes;
-//   other paths under `lib/core/` must not import `lib/features/` or `lib/data/`.
-// - `lib/main.dart` and `lib/app.dart` may import any `lib/` layer.
+// Enforces AGENTS.md § Architecture and layers, item 1 (import rules block).
 
 const temporaryImportBoundaryViolations = <String>{
-  'core/navigation/leave_story_dialog.dart:5 -> features/family/family_blur_dialog.dart',
-  'core/theme/album_chrome.dart:4 -> features/family/family_blur_dialog.dart',
-  'core/theme/album_header.dart:8 -> data/families_api.dart',
-  'core/theme/album_header.dart:9 -> data/family_selection.dart',
-  'core/theme/album_header.dart:10 -> data/manage_families_api.dart',
-  'core/theme/album_header.dart:11 -> data/profile_session.dart',
-  'core/theme/album_header.dart:12 -> features/family/family_role.dart',
-  'core/theme/album_header.dart:13 -> features/family/family_tree_order.dart',
+  'core/navigation/leave_story_dialog.dart -> features/family/family_blur_dialog.dart',
+  'core/theme/album_chrome.dart -> features/family/family_blur_dialog.dart',
+  'core/theme/album_header.dart -> data/families_api.dart',
+  'core/theme/album_header.dart -> data/family_selection.dart',
+  'core/theme/album_header.dart -> data/manage_families_api.dart',
+  'core/theme/album_header.dart -> data/profile_session.dart',
+  'core/theme/album_header.dart -> features/family/family_role.dart',
+  'core/theme/album_header.dart -> features/family/family_tree_order.dart',
+};
+
+const _knownCoreAreas = <String>{
+  'config',
+  'navigation',
+  'router',
+  'supabase',
+  'theme',
 };
 
 void main() {
@@ -44,6 +34,7 @@ void main() {
         reason: 'run this test from apps/tell_me_a_story',
       );
 
+      final structural = _structuralViolations(libDir);
       final offenders = <String>[];
       final allowHits = {
         for (final entry in temporaryImportBoundaryViolations) entry: false,
@@ -53,19 +44,16 @@ void main() {
         if (entity is! File || !entity.path.endsWith('.dart')) {
           continue;
         }
-        final relative = _libRelativePath(entity.path);
-        final importerLayer = _layerOf(relative);
-        final lines = entity.readAsLinesSync();
-        for (var i = 0; i < lines.length; i++) {
-          final line = lines[i];
-          final target = _resolveLibImport(relative, line);
-          if (target == null) {
+        final importer = _libRelativePath(entity.path);
+        if (_importerZone(importer) == _ImporterZone.unknown) {
+          structural.add('unknown lib path $importer');
+          continue;
+        }
+        for (final target in _libUrisFromFile(entity, importer)) {
+          if (!_violatesImportRule(importer, target)) {
             continue;
           }
-          if (!_isForbiddenImport(importerLayer, relative, target)) {
-            continue;
-          }
-          final entry = '$relative:${i + 1} -> $target';
+          final entry = '$importer -> $target';
           if (temporaryImportBoundaryViolations.contains(entry)) {
             allowHits[entry] = true;
             continue;
@@ -78,62 +66,124 @@ void main() {
           .where((hit) => !hit.value)
           .map((hit) => 'allowlist has no hit ${hit.key}')
           .toList();
+      structural.sort();
       offenders.sort();
       stale.sort();
 
-      final report = <String>[...stale, ...offenders];
+      final report = <String>[...structural, ...stale, ...offenders];
       expect(report, <String>[], reason: report.join('\n'));
     },
   );
 }
 
-String _libRelativePath(String path) {
-  final normalized = path.replaceAll('\\', '/');
-  const prefix = 'lib/';
-  if (normalized.startsWith(prefix)) {
-    return normalized.substring(prefix.length);
+List<String> _structuralViolations(Directory libDir) {
+  final report = <String>[];
+  if (Directory('lib/state').existsSync()) {
+    report.add('lib/state/ must not exist');
   }
-  const marker = '/lib/';
-  final index = normalized.lastIndexOf(marker);
-  if (index == -1) {
-    fail('dart path is not under lib/: $path');
+  for (final entity in libDir.listSync()) {
+    final name = entity.path.replaceAll('\\', '/').split('/').last;
+    if (entity is File && name.endsWith('.dart')) {
+      if (name != 'main.dart' && name != 'app.dart') {
+        report.add('unknown lib path $name');
+      }
+      continue;
+    }
+    if (entity is! Directory) {
+      continue;
+    }
+    if (name == 'core' || name == 'data' || name == 'features') {
+      if (name == 'core') {
+        report.addAll(_unknownCoreChildren(entity));
+      }
+      continue;
+    }
+    report.add('unknown lib path $name/');
   }
-  return normalized.substring(index + marker.length);
+  return report;
 }
 
-String _layerOf(String relativePath) {
-  if (relativePath == 'main.dart' || relativePath == 'app.dart') {
-    return 'root';
+List<String> _unknownCoreChildren(Directory coreDir) {
+  final unknown = <String>[];
+  for (final child in coreDir.listSync()) {
+    final name = child.path.replaceAll('\\', '/').split('/').last;
+    if (child is! Directory) {
+      unknown.add('unknown lib path core/$name');
+      continue;
+    }
+    if (!_knownCoreAreas.contains(name)) {
+      unknown.add('unknown lib path core/$name/');
+    }
   }
-  final top = relativePath.split('/').first;
-  switch (top) {
-    case 'core':
-      return 'core';
-    case 'data':
-      return 'data';
-    case 'features':
-      return 'features';
-    case 'state':
-      return 'state';
-    default:
-      return 'unknown';
+  return unknown;
+}
+
+enum _ImporterZone { root, coreRouter, coreRest, data, features, unknown }
+
+_ImporterZone _importerZone(String relative) {
+  if (relative == 'main.dart' || relative == 'app.dart') {
+    return _ImporterZone.root;
+  }
+  if (relative.startsWith('core/router/')) {
+    return _ImporterZone.coreRouter;
+  }
+  if (relative.startsWith('core/config/') ||
+      relative.startsWith('core/supabase/') ||
+      relative.startsWith('core/theme/') ||
+      relative.startsWith('core/navigation/')) {
+    return _ImporterZone.coreRest;
+  }
+  if (relative.startsWith('data/')) {
+    return _ImporterZone.data;
+  }
+  if (relative.startsWith('features/')) {
+    return _ImporterZone.features;
+  }
+  return _ImporterZone.unknown;
+}
+
+bool _violatesImportRule(String importer, String target) {
+  if (target == 'state' || target.startsWith('state/')) {
+    return true;
+  }
+  switch (_importerZone(importer)) {
+    case _ImporterZone.root:
+      return false;
+    case _ImporterZone.coreRouter:
+      return !target.startsWith('core/') &&
+          !target.startsWith('data/') &&
+          !target.startsWith('features/');
+    case _ImporterZone.coreRest:
+      return !target.startsWith('core/');
+    case _ImporterZone.data:
+      return !target.startsWith('data/') &&
+          !target.startsWith('core/config/') &&
+          !target.startsWith('core/supabase/');
+    case _ImporterZone.features:
+      return false;
+    case _ImporterZone.unknown:
+      return true;
   }
 }
 
-String? _resolveLibImport(String importer, String line) {
+Iterable<String> _libUrisFromFile(File file, String importer) sync* {
+  for (final line in file.readAsLinesSync()) {
+    final target = _resolveLibUri(importer, line);
+    if (target != null) {
+      yield target;
+    }
+  }
+}
+
+String? _resolveLibUri(String importer, String line) {
   final trimmed = line.trimLeft();
   if (!trimmed.startsWith('import ') && !trimmed.startsWith('export ')) {
     return null;
   }
-  final quoteStart = trimmed.indexOf("'");
-  if (quoteStart == -1) {
+  final uri = _quotedUri(trimmed);
+  if (uri == null) {
     return null;
   }
-  final quoteEnd = trimmed.indexOf("'", quoteStart + 1);
-  if (quoteEnd == -1) {
-    return null;
-  }
-  final uri = trimmed.substring(quoteStart + 1, quoteEnd);
   if (uri.startsWith('package:tell_me_a_story/')) {
     return uri.substring('package:tell_me_a_story/'.length);
   }
@@ -141,6 +191,22 @@ String? _resolveLibImport(String importer, String line) {
     return null;
   }
   return _normalizeRelativeImport(importer, uri);
+}
+
+String? _quotedUri(String trimmed) {
+  const quotes = ["'", '"'];
+  for (final quote in quotes) {
+    final start = trimmed.indexOf(quote);
+    if (start == -1) {
+      continue;
+    }
+    final end = trimmed.indexOf(quote, start + 1);
+    if (end == -1) {
+      continue;
+    }
+    return trimmed.substring(start + 1, end);
+  }
+  return null;
 }
 
 String? _normalizeRelativeImport(String importer, String uri) {
@@ -163,18 +229,16 @@ String? _normalizeRelativeImport(String importer, String uri) {
   return out.join('/');
 }
 
-bool _isForbiddenImport(String importerLayer, String importer, String target) {
-  if (target == 'state' || target.startsWith('state/')) {
-    return true;
+String _libRelativePath(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  const prefix = 'lib/';
+  if (normalized.startsWith(prefix)) {
+    return normalized.substring(prefix.length);
   }
-  if (importerLayer == 'root') {
-    return false;
+  const marker = '/lib/';
+  final index = normalized.lastIndexOf(marker);
+  if (index == -1) {
+    fail('dart path is not under lib/: $path');
   }
-  if (importerLayer == 'data') {
-    return target.startsWith('features/');
-  }
-  if (importerLayer == 'core' && !importer.startsWith('core/router/')) {
-    return target.startsWith('features/') || target.startsWith('data/');
-  }
-  return false;
+  return normalized.substring(index + marker.length);
 }
