@@ -3617,6 +3617,29 @@ void main() {
     expect(FamilySelection.id, parent);
   });
 
+  testWidgets('a parent callout keeps the origin dot level with its row', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpDecadeParentRow(tester);
+    final origin = tester.getCenter(
+      find.byKey(const Key('timeline-dot-origin')),
+    );
+    final earlier = tester.getCenter(
+      find.byKey(const Key('timeline-dot-earlier')),
+    );
+    final label = tester.getCenter(
+      find.byKey(
+        const Key(
+          'timeline-branch-callout-00000000-0000-0000-0000-0000000000aa',
+        ),
+      ),
+    );
+    expect((origin.dy - earlier.dy).abs(), lessThanOrEqualTo(1));
+    expect(label.dy, lessThan(origin.dy));
+  });
+
   testWidgets('a decade parent callout sits above a child callout', (
     tester,
   ) async {
@@ -4275,6 +4298,49 @@ Finder _preservedDecade(int year) {
     of: find.byKey(Key('timeline-decade-row-$year')),
     matching: find.text('1 story preserved'),
   );
+}
+
+Future<void> _pumpDecadeParentRow(WidgetTester tester) async {
+  const parent = '00000000-0000-0000-0000-0000000000aa';
+  await tester.pumpWidget(
+    _timeline(
+      stories: _FakeStoriesApi(
+        published: [
+          _published(
+            id: 'earlier',
+            title: 'Earlier',
+            timeframeStart: DateTime(1992),
+          ),
+          _published(
+            id: 'origin',
+            title: 'Start',
+            timeframeStart: DateTime(1995),
+          ),
+        ],
+      ),
+      families: _TreeFamilies(
+        mine: [
+          MemberFamily(
+            id: kTestFamilyId,
+            name: 'Child line',
+            createdAt: DateTime.utc(1995),
+            parentFamilyId: parent,
+          ),
+        ],
+        tree: [
+          TreeFamily(id: parent, name: 'The WFM Morgans'),
+          TreeFamily(
+            id: kTestFamilyId,
+            name: 'Child line',
+            parentFamilyId: parent,
+            originStoryId: 'origin',
+            branchYear: 1995,
+          ),
+        ],
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpOriginAndEarlier(WidgetTester tester) async {
