@@ -357,14 +357,14 @@ class RulesTest(unittest.TestCase):
         code, out = self.run_prod(baseline_doc(delegated=[DELEGATED]), security, [])
         self.assertEqual(code, 1)
         self.assertIn("class=new name=authenticated_security_definer_function_executable level=WARN count=1", out)
-        self.assertIn("class=delegated name=authenticated_security_definer_function_executable level=WARN count=32", out)
+        self.assertIn("class=delegated name=authenticated_security_definer_function_executable level=WARN count=31", out)
         self.assertNotIn("not_allowed", out)
         self.assertNotIn("SENTINEL", out)
 
     def test_definer_missing_finding_fails(self):
         allow = check.load_allowlist(check.catalog_path())
         kept = [sig for sig in allow if sig.name != "transfer_ownership"]
-        self.assertEqual(len(kept), 31)
+        self.assertEqual(len(kept), 30)
         rows = [definer_row(sig) for sig in kept]
         code, out = self.run_local(baseline_doc(delegated=[DELEGATED]), rows)
         self.assertEqual(code, 1)
@@ -481,12 +481,13 @@ class RulesTest(unittest.TestCase):
 
     def test_allowlist_comes_from_catalog_file(self):
         sigs = check.load_allowlist(check.catalog_path())
-        self.assertEqual(len(sigs), 32)
+        self.assertEqual(len(sigs), 31)
         names = {sig.name for sig in sigs}
         self.assertIn("add_co_owner", names)
         self.assertIn("my_profile", names)
         self.assertIn("rename_family", names)
         self.assertNotIn("upsert_story_member", names)
+        self.assertNotIn("link_accepted_person", names)
         text = check.catalog_path().read_text(encoding="utf-8")
         for sig in sigs:
             self.assertIn(f"{sig.name}({sig.types})", text)
@@ -508,8 +509,8 @@ class RulesTest(unittest.TestCase):
             ["--layer", "local", "--baseline", str(REAL_BASELINE), "--findings", str(findings)]
         )
         self.assertEqual(code, 0, out)
-        self.assertIn("delegated name=authenticated_security_definer_function_executable matched=32", out)
-        self.assertIn("summary new=0 stale=0 delegated=32 accepted=0 report-only=1 local-skip=1", out)
+        self.assertIn("delegated name=authenticated_security_definer_function_executable matched=31", out)
+        self.assertIn("summary new=0 stale=0 delegated=31 accepted=0 report-only=1 local-skip=1", out)
         self.assertIn("report-only name=unused_index count=1", out)
         self.assertIn("report-only name=table_bloat count=0", out)
         self.assertIn("local-skip name=pg_graphql_anon_table_exposed count=0", out)
