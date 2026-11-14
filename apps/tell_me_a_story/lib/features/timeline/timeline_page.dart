@@ -24,9 +24,11 @@ import '../invites/invite_modal.dart';
 import '../stories/photo_frame.dart';
 import '../stories/story_date.dart';
 import 'center_on_dot.dart';
+import 'dial_fade.dart';
 import 'far_dot.dart';
 import 'origin_banner.dart';
 import 'origin_dot.dart';
+import 'rail_gutter.dart';
 import 'timeline_arrow_keys.dart';
 import 'timeline_branching.dart';
 import 'timeline_empty_tap.dart';
@@ -1507,47 +1509,14 @@ class _MidRailState extends State<_MidRail> {
                         );
                       },
                     ),
-                    const _DialFade(top: true),
-                    const _DialFade(top: false),
+                    const DialFade(top: true),
+                    const DialFade(top: false),
                   ],
                 ),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _DialFade extends StatelessWidget {
-  const _DialFade({required this.top});
-
-  final bool top;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: 0,
-      right: 0,
-      top: top ? 0 : null,
-      bottom: top ? null : 0,
-      height: 120,
-      child: IgnorePointer(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: top ? Alignment.topCenter : Alignment.bottomCenter,
-              end: top ? Alignment.bottomCenter : Alignment.topCenter,
-              colors: [
-                albumParchment,
-                albumParchment.withValues(alpha: 0.85),
-                albumParchment.withValues(alpha: 0),
-              ],
-              stops: const [0.15, 0.45, 1],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -2048,7 +2017,7 @@ class _DialRow extends StatelessWidget {
           alignment: placed == null ? Alignment.center : Alignment.topCenter,
           clipBehavior: Clip.none,
           children: [
-            const Positioned.fill(child: _RailGutter()),
+            const Positioned.fill(child: RailGutter()),
             if (placed == null)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -2265,34 +2234,6 @@ class _RenderHangParentCallout extends RenderBox
   @override
   void paint(PaintingContext context, Offset offset) {
     defaultPaint(context, offset);
-  }
-}
-
-class _RailGutter extends StatelessWidget {
-  const _RailGutter();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: SizedBox.shrink()),
-        SizedBox(
-          width: calloutGutter,
-          child: Stack(
-            children: [
-              Positioned(
-                top: 0,
-                bottom: 0,
-                left: 27,
-                width: 2,
-                child: ColoredBox(color: albumInk.withValues(alpha: 0.16)),
-              ),
-            ],
-          ),
-        ),
-        const Expanded(child: SizedBox.shrink()),
-      ],
-    );
   }
 }
 
