@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image/image.dart' as img;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/theme/album_header.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
@@ -61,6 +62,25 @@ void main() {
     expect(_text(tester, 'settings-name'), 'Sarah Morgan');
     expect(_text(tester, 'settings-email'), 'sarah@example.com');
     expect(find.text('SM'), findsWidgets);
+  });
+
+  testWidgets('a failed profile load shows the error and Retry loads profile', (
+    tester,
+  ) async {
+    final profile = _RetryProfile();
+    await pumpTall(tester, _app(profile));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Service unavailable'), findsOneWidget);
+    expect(find.byKey(const Key('settings-retry')), findsOneWidget);
+    expect(find.text('NAME'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('settings-retry')));
+    await tester.pumpAndSettle();
+
+    expect(profile.loadCalls, 2);
+    expect(find.text('NAME'), findsOneWidget);
+    expect(_text(tester, 'settings-name'), 'Sarah Morgan');
   });
 
   testWidgets('a blank stored name with no picture paints an empty circle', (
@@ -297,7 +317,7 @@ Uint8List _jpeg() {
 }
 
 Widget _app(
-  _Profile profile, {
+  ProfileGateway profile, {
   Future<Uint8List?> Function()? pick,
   Future<void> Function()? onLogout,
 }) {
@@ -384,6 +404,49 @@ Widget _bar(AlbumHeaderPage page) {
       ),
     ),
   );
+}
+
+class _RetryProfile implements ProfileGateway {
+  var loadCalls = 0;
+
+  static const profile = OwnProfile(
+    id: 'user-1',
+    displayName: 'Sarah Morgan',
+    email: 'sarah@example.com',
+  );
+
+  @override
+  Future<OwnProfile?> loadOwn() async {
+    loadCalls += 1;
+    if (loadCalls == 1) {
+      throw const PostgrestException(message: 'NOT_FOUND: Service unavailable');
+    }
+    return profile;
+  }
+
+  @override
+  Future<Uint8List?> downloadAvatar(String path) async => null;
+
+  @override
+  Future<String> saveAvatar(Uint8List bytes) async => 'user-1/avatar.jpg';
+
+  @override
+  Future<void> clearAvatar() async {}
+
+  @override
+  Future<void> saveName(String displayName) async {}
+
+  @override
+  Future<void> saveAccount({
+    required String displayName,
+    DateTime? birthDate,
+    String? birthPrecision,
+    BirthVisibility? birthVisibility,
+    String? about,
+  }) async {}
+
+  @override
+  Future<void> updateEmail(String email) async {}
 }
 
 class _Profile implements ProfileGateway {

@@ -19,6 +19,7 @@ import '../../data/invite_api.dart';
 import '../../data/manage_families_api.dart';
 import '../../data/people_api.dart';
 import '../../data/profile_api.dart';
+import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 import '../../data/profile_session.dart';
 import '../family/start_timeline_dialog.dart';
@@ -59,6 +60,7 @@ class _SettingsPageState extends State<SettingsPage> {
   BirthVisibility _visibility = BirthVisibility.hidden;
 
   var _loading = true;
+  String? _loadErrorMessage;
   var _saving = false;
   var _savedNotice = false;
   var _birthEpoch = 0;
@@ -121,6 +123,12 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _load() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadErrorMessage = null;
+      });
+    }
     try {
       final profile = await _profile.loadOwn();
       if (!mounted) return;
@@ -141,6 +149,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _displayName = profile?.displayName;
         _savedBytes = bytes;
         _loading = false;
+        _loadErrorMessage = null;
         _rememberLoaded();
       });
       ProfileSession.instance.apply(
@@ -148,9 +157,13 @@ class _SettingsPageState extends State<SettingsPage> {
         email: profile?.email,
         avatarBytes: bytes,
       );
-    } catch (_) {
+    } on Object catch (error) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _loadErrorMessage = mapRpcError(error) ?? "Couldn't load your profile.";
+      });
+      return;
     }
     await _loadFamilies();
   }
@@ -381,6 +394,42 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Widget _loadFailure() {
+    final message = _loadErrorMessage ?? "Couldn't load your profile.";
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.sourceSans3(
+                color: Theme.of(context).colorScheme.error,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              key: const Key('settings-retry'),
+              onPressed: _load,
+              style: TextButton.styleFrom(foregroundColor: albumTerracotta),
+              child: Text(
+                'Retry',
+                style: GoogleFonts.sourceSans3(
+                  color: albumTerracotta,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final preview = _preview;
@@ -404,6 +453,8 @@ class _SettingsPageState extends State<SettingsPage> {
         body: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
+              : _loadErrorMessage != null
+              ? _loadFailure()
               : AlbumColumn(
                   maxWidth: 720,
                   child: ListView(
