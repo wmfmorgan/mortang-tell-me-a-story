@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' show ClientException;
+import 'package:supabase_flutter/supabase_flutter.dart' show StorageException;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -352,9 +354,10 @@ Widget _timeline({
 }
 
 class _FakePhotos implements PhotosGateway {
-  _FakePhotos({Uint8List? bytes}) : bytes = bytes ?? _png;
+  _FakePhotos({Uint8List? bytes, this.errors}) : bytes = bytes ?? _png;
 
   final Uint8List bytes;
+  final Map<String, Object>? errors;
 
   static final _png = Uint8List.fromList(const [
     0x89,
@@ -443,7 +446,11 @@ class _FakePhotos implements PhotosGateway {
   Future<void> deletePhoto(Photo photo) async {}
 
   @override
-  Future<Uint8List> downloadBytes(String storagePath) async => bytes;
+  Future<Uint8List> downloadBytes(String storagePath) async {
+    final failure = errors?[storagePath];
+    if (failure != null) throw failure;
+    return bytes;
+  }
 
   @override
   Future<List<Photo>> listPhotos(String storyId) async => const [];
@@ -4492,6 +4499,72 @@ void main() {
       ..sort();
     expect(values.last, greaterThan(values[1]));
     expect(find.byType(DialFade), findsNWidgets(2));
+  });
+
+  testWidgets('a photo that cannot be read stays off the card', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        photos: _FakePhotos(
+          errors: {
+            'families/missing.jpg': const StorageException(
+              'missing',
+              statusCode: '404',
+            ),
+            'families/down.jpg': ClientException('offline'),
+          },
+        ),
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'stored',
+              title: 'Stored',
+              photoPaths: const ['families/missing.jpg'],
+            ),
+            _published(
+              id: 'offline',
+              title: 'Offline',
+              photoPaths: const ['families/down.jpg'],
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'stored');
+
+    expect(find.text('Stored'), findsOneWidget);
+    expect(find.text('Offline'), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an unexpected photo error is not swallowed', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        photos: _FakePhotos(errors: {'families/a.jpg': StateError('boom')}),
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'lawn',
+              title: 'Lawn',
+              photoPaths: const ['families/a.jpg'],
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Object? surfaced;
+    await runZonedGuarded(
+      () => _openFullCards(tester, 'lawn'),
+      (error, _) => surfaced = error,
+    );
+    expect(surfaced, isA<StateError>());
+    expect(find.text('Lawn'), findsOneWidget);
   });
 }
 
