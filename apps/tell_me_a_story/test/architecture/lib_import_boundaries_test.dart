@@ -124,13 +124,18 @@ _ImporterZone _importerZone(String relative) {
   if (relative == 'main.dart' || relative == 'app.dart') {
     return _ImporterZone.root;
   }
-  if (relative.startsWith('core/router/')) {
-    return _ImporterZone.coreRouter;
-  }
-  if (relative.startsWith('core/config/') ||
-      relative.startsWith('core/supabase/') ||
-      relative.startsWith('core/theme/') ||
-      relative.startsWith('core/navigation/')) {
+  if (relative.startsWith('core/')) {
+    final segments = relative.split('/');
+    if (segments.length < 2) {
+      return _ImporterZone.unknown;
+    }
+    final area = segments[1];
+    if (!_knownCoreAreas.contains(area)) {
+      return _ImporterZone.unknown;
+    }
+    if (area == 'router') {
+      return _ImporterZone.coreRouter;
+    }
     return _ImporterZone.coreRest;
   }
   if (relative.startsWith('data/')) {
@@ -146,7 +151,12 @@ bool _violatesImportRule(String importer, String target) {
   if (target == 'state' || target.startsWith('state/')) {
     return true;
   }
-  switch (_importerZone(importer)) {
+  final zone = _importerZone(importer);
+  if (zone == _ImporterZone.unknown) {
+    // Main loop records unknown importers structurally and skips import checks.
+    return true;
+  }
+  switch (zone) {
     case _ImporterZone.root:
       return false;
     case _ImporterZone.coreRouter:
@@ -160,9 +170,11 @@ bool _violatesImportRule(String importer, String target) {
           !target.startsWith('core/config/') &&
           !target.startsWith('core/supabase/');
     case _ImporterZone.features:
-      return false;
+      return !target.startsWith('core/') &&
+          !target.startsWith('data/') &&
+          !target.startsWith('features/');
     case _ImporterZone.unknown:
-      return true;
+      throw StateError('unknown zone guarded above');
   }
 }
 
