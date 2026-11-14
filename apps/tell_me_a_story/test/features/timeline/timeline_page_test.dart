@@ -4488,11 +4488,8 @@ void main() {
           .opacity;
     }
 
-    final values = [
-      rowOpacity('early'),
-      rowOpacity('mid'),
-      rowOpacity('late'),
-    ]..sort();
+    final values = [rowOpacity('early'), rowOpacity('mid'), rowOpacity('late')]
+      ..sort();
     expect(values.last, greaterThan(values[1]));
     expect(find.byType(DialFade), findsNWidgets(2));
   });
