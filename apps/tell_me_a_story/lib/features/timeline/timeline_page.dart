@@ -24,6 +24,8 @@ import '../invites/invite_modal.dart';
 import '../stories/photo_frame.dart';
 import '../stories/story_date.dart';
 import 'center_on_dot.dart';
+import 'days_card_probe.dart';
+import 'days_card_slot.dart';
 import 'dial_fade.dart';
 import 'far_dot.dart';
 import 'hang_parent_callout.dart';
@@ -2375,77 +2377,6 @@ class _FullCardRailState extends State<_FullCardRail> {
 
 const _narrowFullDotColumn = 28.0;
 
-/// Layout facts for the story card, written by [_DaysCardProbe] during its
-/// own layout. The row reads these fields instead of a descendant's size.
-class _DaysCardSlot {
-  Size layoutSize = Size.zero;
-  double scale = 1;
-  RenderBox? box;
-}
-
-/// Wraps the focused card so the parent callout can find its corner without
-/// reading a descendant's [RenderBox.size] during layout.
-class _DaysCardProbe extends SingleChildRenderObjectWidget {
-  const _DaysCardProbe({
-    required this.slot,
-    required this.scale,
-    required super.child,
-  });
-
-  final _DaysCardSlot slot;
-  final double scale;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) {
-    return _RenderDaysCardProbe(slot, scale);
-  }
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    _RenderDaysCardProbe renderObject,
-  ) {
-    renderObject
-      ..slot = slot
-      ..scale = scale;
-  }
-}
-
-class _RenderDaysCardProbe extends RenderProxyBox {
-  _RenderDaysCardProbe(this._slot, this._scale);
-
-  _DaysCardSlot _slot;
-  double _scale;
-
-  set slot(_DaysCardSlot value) {
-    if (_slot == value) return;
-    if (_slot.box == this) _slot.box = null;
-    _slot = value;
-    markNeedsLayout();
-  }
-
-  set scale(double value) {
-    if (_scale == value) return;
-    _scale = value;
-    markNeedsLayout();
-  }
-
-  @override
-  void performLayout() {
-    super.performLayout();
-    _slot
-      ..layoutSize = size
-      ..scale = _scale
-      ..box = this;
-  }
-
-  @override
-  void detach() {
-    if (_slot.box == this) _slot.box = null;
-    super.detach();
-  }
-}
-
 /// Days parent callout. The leader matches the decade parent: 45°, then
 /// horizontal. It meets the top center of the story card and runs to the
 /// card's own side. A left card runs left. A right card runs right. Narrow
@@ -2464,14 +2395,14 @@ class _DaysAttachedCallout extends StatefulWidget {
   /// Point in [callout] that sits on the top center of the card.
   final Offset anchor;
   final Widget callout;
-  final Widget Function(_DaysCardSlot slot) body;
+  final Widget Function(DaysCardSlot slot) body;
 
   @override
   State<_DaysAttachedCallout> createState() => _DaysAttachedCalloutState();
 }
 
 class _DaysAttachedCalloutState extends State<_DaysAttachedCallout> {
-  final _slot = _DaysCardSlot();
+  final _slot = DaysCardSlot();
 
   @override
   Widget build(BuildContext context) {
@@ -2492,7 +2423,7 @@ class _DaysAttachedCalloutBox extends MultiChildRenderObjectWidget {
     required Widget callout,
   }) : super(children: [body, callout]);
 
-  final _DaysCardSlot slot;
+  final DaysCardSlot slot;
   final Offset anchor;
 
   @override
@@ -2517,10 +2448,10 @@ class _RenderDaysAttachedCallout extends RenderBox
         RenderBoxContainerDefaultsMixin<RenderBox, HangParentParentData> {
   _RenderDaysAttachedCallout({required this._slot, required this._anchor});
 
-  _DaysCardSlot _slot;
+  DaysCardSlot _slot;
   Offset _anchor;
 
-  set slot(_DaysCardSlot value) {
+  set slot(DaysCardSlot value) {
     if (_slot == value) return;
     _slot = value;
     markNeedsLayout();
@@ -2678,7 +2609,7 @@ class _FullCardRow extends StatelessWidget {
     );
   }
 
-  Widget _row(BuildContext context, _DaysCardSlot? slot) {
+  Widget _row(BuildContext context, DaysCardSlot? slot) {
     final storyCard = _FullCard(
       story: story,
       focused: focused,
@@ -2702,7 +2633,7 @@ class _FullCardRow extends StatelessWidget {
       opacity: opacity.clamp(0, 1),
       child: slot == null
           ? scaled
-          : _DaysCardProbe(slot: slot, scale: scale, child: scaled),
+          : DaysCardProbe(slot: slot, scale: scale, child: scaled),
     );
     final dot = _FullCardDot(
       key: Key('timeline-full-dot-${story.id}'),
