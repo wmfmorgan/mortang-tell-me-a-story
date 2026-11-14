@@ -24,13 +24,8 @@ void main() {
     if (storyApi == null) return;
     final model = _quotedTokens(_fromJsonBody(storyApi)).difference(_embeds);
     final queried = _queriedTokens(sources).difference(_embeds);
-    expect(model, isNotEmpty, reason: 'Story.fromJson names no column');
     expect(queried, isNotEmpty, reason: 'no stories query names a column');
-    expect(
-      model.difference(columns),
-      isEmpty,
-      reason: 'Story.fromJson names a column outside stories_columns.txt',
-    );
+    expect(model, columns, reason: 'Story.fromJson');
     expect(
       queried.difference(columns),
       isEmpty,
@@ -83,9 +78,13 @@ Set<String> _queriedTokens(Map<String, String> sources) {
     for (final statement in source.split(';')) {
       if (!statement.contains(".from('stories')")) continue;
       tokens.addAll(_quotedTokens(statement));
+      tokens.addAll(_writeKeys(statement, source));
       for (final select in _selectTexts(statement, source)) {
         tokens.addAll(_topLevelFields(select));
       }
+    }
+    for (final select in _starSelects(source)) {
+      tokens.addAll(_topLevelFields(select));
     }
   }
   return tokens;
@@ -128,21 +127,70 @@ Set<String> _selectTexts(String statement, String source) {
     );
     if (name == null) continue;
     final direct = _constText(source, name);
-    if (direct != null) {
-      texts.add(direct);
-      continue;
-    }
-    for (final constName in _passedConsts(source, name)) {
-      final text = _constText(source, constName);
-      expect(
-        text,
-        isNotNull,
-        reason: '.select($name) passed $constName, which moved',
-      );
-      if (text != null) texts.add(text);
-    }
+    if (direct != null) texts.add(direct);
   }
   return texts;
+}
+
+Set<String> _writeKeys(String statement, String source) {
+  final keys = <String>{};
+  final calls = RegExp(
+    r'\.(?:insert|update|upsert)\(\s*([A-Za-z_][A-Za-z0-9_]*)',
+  );
+  for (final match in calls.allMatches(statement)) {
+    final name = match.group(1);
+    if (name == null) continue;
+    final found = _keysFor(source, name);
+    expect(found, isNotEmpty, reason: '.$name write map moved or was renamed');
+    keys.addAll(found);
+  }
+  return keys;
+}
+
+Set<String> _keysFor(String source, String name) {
+  final keys = <String>{};
+  for (final match in RegExp(
+    "$name\\['([a-z][a-z0-9_]*)'\\]",
+  ).allMatches(source)) {
+    _add(keys, match.group(1));
+  }
+  final assign = RegExp('$name\\s*=\\s*(?:<[^;{]+>)?\\s*\\{')
+      .firstMatch(source);
+  final open = assign?.end;
+  if (open == null) return keys;
+  for (final match in RegExp(
+    r"'([a-z][a-z0-9_]*)'\s*:",
+  ).allMatches(_braceBody(source, open - 1))) {
+    _add(keys, match.group(1));
+  }
+  return keys;
+}
+
+String _braceBody(String source, int open) {
+  var depth = 0;
+  for (var i = open; i < source.length; i++) {
+    final char = source[i];
+    if (char == '{') depth++;
+    if (char == '}') {
+      depth--;
+      if (depth == 0) return source.substring(open, i);
+    }
+  }
+  return source.substring(open);
+}
+
+Iterable<String> _starSelects(String source) sync* {
+  final named = RegExp(
+    "static const (_[A-Za-z0-9_]*Select)\\s*=\\s*((?:'[^']*'\\s*)+);",
+  );
+  for (final match in named.allMatches(source)) {
+    final body = match.group(2);
+    if (body == null) continue;
+    yield RegExp(r"'([^']*)'")
+        .allMatches(body)
+        .map((part) => part.group(1) ?? '')
+        .join();
+  }
 }
 
 String? _constText(String source, String name) {
@@ -154,26 +202,6 @@ String? _constText(String source, String name) {
       .allMatches(body)
       .map((m) => m.group(1) ?? '')
       .join();
-}
-
-Set<String> _passedConsts(String source, String param) {
-  final names = <String>{};
-  final headers = RegExp(
-    '([A-Za-z0-9_]+)\\([^,()]*,\\s*(?:[A-Za-z0-9_<>?]+\\s+)?'
-    '$param\\b[^)]*\\)\\s*(?:async\\s*)?\\{',
-  );
-  for (final header in headers.allMatches(source)) {
-    final fn = header.group(1);
-    if (fn == null) continue;
-    final calls = RegExp(
-      '\\b$fn\\(\\s*[^,()]+,\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*\\)',
-    );
-    for (final call in calls.allMatches(source)) {
-      _add(names, call.group(1));
-    }
-  }
-  expect(names, isNotEmpty, reason: '.select($param) column list moved');
-  return names;
 }
 
 String _adjacentStrings(String rest) {
