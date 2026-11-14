@@ -58,7 +58,10 @@ class ProfileSession extends ChangeNotifier {
     _started = true;
     try {
       final profile = await loader();
-      if (profile == null) return;
+      if (profile == null) {
+        _started = false;
+        return;
+      }
       Uint8List? bytes;
       final path = profile.avatarPath;
       final download = downloadAvatar;
@@ -69,7 +72,7 @@ class ProfileSession extends ChangeNotifier {
       email = profile.email;
       avatarBytes = bytes;
       notifyListeners();
-    } catch (_) {
+    } on Object catch (_) {
       _started = false;
     }
   }

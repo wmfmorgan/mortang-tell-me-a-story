@@ -7,7 +7,11 @@ import 'package:tell_me_a_story/core/router/auth_refresh.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 
 void main() {
-  tearDown(ProfileSession.instance.clear);
+  tearDown(() {
+    ProfileSession.loadOwn = null;
+    ProfileSession.downloadAvatar = null;
+    ProfileSession.instance.clear();
+  });
 
   test('a different user clears the saved profile', () {
     ProfileSession.instance.bindUser('user-a');

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image/image.dart' as img;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/theme/album_header.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
@@ -61,6 +62,48 @@ void main() {
     expect(_text(tester, 'settings-name'), 'Sarah Morgan');
     expect(_text(tester, 'settings-email'), 'sarah@example.com');
     expect(find.text('SM'), findsWidgets);
+  });
+
+  testWidgets('a failed profile load shows the error and Retry loads profile', (
+    tester,
+  ) async {
+    final profile = _Profile(
+      failFirstLoad: true,
+      firstLoadError: const PostgrestException(
+        message: 'FORBIDDEN: Profile is not readable.',
+      ),
+    );
+    await pumpTall(tester, _app(profile));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profile is not readable.'), findsOneWidget);
+    expect(find.byKey(const Key('settings-retry')), findsOneWidget);
+    expect(find.text('NAME'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('settings-retry')));
+    await tester.pumpAndSettle();
+
+    expect(profile.loadCalls, 2);
+    expect(find.text('NAME'), findsOneWidget);
+    expect(_text(tester, 'settings-name'), 'Sarah Morgan');
+  });
+
+  testWidgets('an unmapped profile load error shows the fallback copy', (
+    tester,
+  ) async {
+    await pumpTall(
+      tester,
+      _app(
+        _Profile(
+          failFirstLoad: true,
+          firstLoadError: const PostgrestException(message: 'connection reset'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text("Couldn't load your profile."), findsOneWidget);
+    expect(find.byKey(const Key('settings-retry')), findsOneWidget);
   });
 
   testWidgets('a blank stored name with no picture paints an empty circle', (
@@ -297,7 +340,7 @@ Uint8List _jpeg() {
 }
 
 Widget _app(
-  _Profile profile, {
+  ProfileGateway profile, {
   Future<Uint8List?> Function()? pick,
   Future<void> Function()? onLogout,
 }) {
@@ -394,10 +437,15 @@ class _Profile implements ProfileGateway {
       email: 'sarah@example.com',
     ),
     this.download,
+    this.failFirstLoad = false,
+    this.firstLoadError,
   });
 
   OwnProfile profile;
   Uint8List? download;
+  final bool failFirstLoad;
+  final Object? firstLoadError;
+  var loadCalls = 0;
   final names = <String>[];
   final emails = <String>[];
   final births = <(DateTime?, String?)>[];
@@ -411,7 +459,16 @@ class _Profile implements ProfileGateway {
   Future<Uint8List?> downloadAvatar(String path) async => download;
 
   @override
-  Future<OwnProfile?> loadOwn() async => profile;
+  Future<OwnProfile?> loadOwn() async {
+    loadCalls += 1;
+    if (failFirstLoad && loadCalls == 1) {
+      throw firstLoadError ??
+          const PostgrestException(
+            message: 'FORBIDDEN: Profile is not readable.',
+          );
+    }
+    return profile;
+  }
 
   @override
   Future<String> saveAvatar(Uint8List bytes) async {
