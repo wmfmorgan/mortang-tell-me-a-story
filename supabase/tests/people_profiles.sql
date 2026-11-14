@@ -643,8 +643,8 @@ select is(
 );
 select is(
   has_function_privilege('authenticated', 'public.link_accepted_person(uuid)', 'execute'),
-  true,
-  'authenticated can execute link_accepted_person'
+  false,
+  'authenticated cannot execute link_accepted_person'
 );
 
 set local role authenticated;
@@ -757,23 +757,27 @@ select lives_ok(
 );
 
 set local request.jwt.claim.sub = 'c1400000-0000-4000-8000-0000000000c1';
-select lives_ok(
+select throws_ok(
   $$select public.link_accepted_person('77777777-14a1-4111-8111-777777777777')$$,
-  'link_accepted_person sets user_id when it was null'
+  '42501',
+  null,
+  'an outsider cannot link a person'
 );
 reset role;
 select is(
   (select user_id from public.people where id = '77777777-14a1-4111-8111-777777777777'),
-  'c1400000-0000-4000-8000-0000000000c1'::uuid,
-  'the caller is linked'
+  null,
+  'an outsider is not linked'
 );
 
 set local role authenticated;
 set local request.jwt.claim.role = 'authenticated';
 set local request.jwt.claim.sub = 'c1400000-0000-4000-8000-0000000000c1';
-select lives_ok(
+select throws_ok(
   $$select public.link_accepted_person('55555555-14a1-4111-8111-555555555555')$$,
-  'a person already linked to someone else does not raise'
+  '42501',
+  null,
+  'an outsider cannot link a person who is already linked'
 );
 reset role;
 select is(
@@ -785,9 +789,11 @@ select is(
 set local role authenticated;
 set local request.jwt.claim.role = 'authenticated';
 set local request.jwt.claim.sub = 'a1400000-0000-4000-8000-0000000000a1';
-select lives_ok(
+select throws_ok(
   $$select public.link_accepted_person('44444444-14a1-4111-8111-444444444444')$$,
-  'a caller already linked in the tree does not raise'
+  '42501',
+  null,
+  'a member cannot link a person by id'
 );
 reset role;
 select is(
@@ -800,8 +806,8 @@ select set_config('request.jwt.claim.sub', '', true);
 select throws_ok(
   $$select public.link_accepted_person('44444444-14a1-4111-8111-444444444444')$$,
   'P0001',
-  'NOT_FOUND:',
-  'a null uid cannot link a person'
+  'INVITE_INVALID:',
+  'a person id alone cannot link a person'
 );
 
 select * from finish();

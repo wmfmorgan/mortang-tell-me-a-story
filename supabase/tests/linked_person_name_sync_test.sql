@@ -79,14 +79,14 @@ select results_eq(
 insert into public.people (id, family_id, name, created_by)
 select link_id, tree_c, 'Sent Name', owner_id from m14n_ctx;
 
-set local role authenticated;
-set local request.jwt.claim.role = 'authenticated';
-set local request.jwt.claim.sub = 'b14b0000-0000-4000-8000-0000000000b1';
+insert into public.invites (family_id, invited_by, email, token, person_id)
+select tree_c, owner_id, 'm14n-member@test.local', 'tok_m14n_link', link_id
+from m14n_ctx;
 
-select public.link_accepted_person((select link_id from m14n_ctx));
-
-reset role;
-select set_config('request.jwt.claim.sub', '', true);
+select public.link_accepted_person(
+  (select id from public.invites where token = 'tok_m14n_link'),
+  (select member_id from m14n_ctx)
+);
 
 select is(
   (select name from public.people where id = (select link_id from m14n_ctx)),
@@ -448,17 +448,22 @@ select
   owner_id
 from m14n_ctx;
 
-set local role authenticated;
-set local request.jwt.claim.role = 'authenticated';
-set local request.jwt.claim.sub = 'a14c0000-0000-4000-8000-0000000000c2';
+insert into public.invites (family_id, invited_by, email, token, person_id)
+select
+  tree_a,
+  owner_id,
+  'm14n-link-space@test.local',
+  'tok_m14n_space',
+  '88888888-14b1-4111-8111-888888888888'
+from m14n_ctx;
 
 select lives_ok(
-  $$select public.link_accepted_person('88888888-14b1-4111-8111-888888888888')$$,
+  $$select public.link_accepted_person(
+      (select id from public.invites where token = 'tok_m14n_space'),
+      'a14c0000-0000-4000-8000-0000000000c2'
+    )$$,
   'a person link with a whitespace display name succeeds'
 );
-
-reset role;
-select set_config('request.jwt.claim.sub', '', true);
 
 select results_eq(
   $$select name, user_id::text
