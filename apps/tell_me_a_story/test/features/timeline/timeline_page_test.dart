@@ -4430,6 +4430,29 @@ void main() {
     expect(tester.getSize(find.byWidget(dot)).width, midDotDiameter);
     expect((dot.decoration! as BoxDecoration).color, albumDialogSurface);
   });
+
+  testWidgets('an unselected zoom label stays dim ink on a clear button', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final years = tester.widget<TextButton>(
+      find.byKey(const Key('timeline-zoom-mid')),
+    );
+    expect(years.style!.foregroundColor!.resolve({}), albumInkDim);
+    expect(years.style!.backgroundColor!.resolve({}), albumBackdropClear);
+    final decades = tester.widget<TextButton>(
+      find.byKey(const Key('timeline-zoom-macro')),
+    );
+    expect(decades.style!.foregroundColor!.resolve({}), albumParchment);
+  });
 }
 
 Offset _leaderStart(WidgetTester tester) {
