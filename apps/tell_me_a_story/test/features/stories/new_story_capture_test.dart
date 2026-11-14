@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
-import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
@@ -15,36 +14,8 @@ import 'package:tell_me_a_story/features/stories/story_date_picker.dart';
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 import 'package:tell_me_a_story/features/stories/timeframe_chips.dart';
 
+import '../../fakes/fake_invite_api.dart';
 import '../../fakes/fake_mapbox_search.dart';
-
-const _familyId = '00000000-0000-0000-0000-000000000001';
-
-class _FakeInviteApi implements InviteGateway {
-  final String? familyId = _familyId;
-
-  @override
-  Future<AcceptInviteResult> acceptInvite({required String token}) async {
-    return const AcceptInviteResult(familyId: 'f', membershipId: 'm');
-  }
-
-  @override
-  Future<String> createFamily(String name) async => _familyId;
-
-  @override
-  Future<CreateInviteResult> createInvite({
-    required String familyId,
-    String? email,
-    String? personId,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String?> currentFamilyId() async => familyId;
-
-  @override
-  Future<void> sendInviteEmail({required String inviteId}) async {}
-}
 
 class _FakePeopleApi extends PeopleGateway {
   _FakePeopleApi({List<Person>? seed, List<Person>? tree})
@@ -262,7 +233,7 @@ class _FakeStoriesApi implements StoriesGateway {
     lastPersonIds = personIds ?? lastPersonIds;
     story = _draft(
       id: storyId,
-      familyId: story?.familyId ?? _familyId,
+      familyId: story?.familyId ?? kTestFamilyId,
       timeframeStart: lastTimeframeStart ?? DateTime(1980, 1, 1),
       timeframeEnd: lastTimeframeEnd,
       title: lastTitle,
@@ -296,7 +267,7 @@ class _FakeStoriesApi implements StoriesGateway {
     lastPersonIds = personIds ?? lastPersonIds;
     story = _draft(
       id: storyId,
-      familyId: story?.familyId ?? _familyId,
+      familyId: story?.familyId ?? kTestFamilyId,
       timeframeStart: lastTimeframeStart,
       timeframeEnd: lastTimeframeEnd,
       title: lastTitle,
@@ -454,7 +425,7 @@ class _FakePhotosApi implements PhotosGateway {
 
 const _ada = Person(
   id: 'p1',
-  familyId: _familyId,
+  familyId: kTestFamilyId,
   name: 'Ada',
   relationship: 'Aunt',
   createdBy: 'u1',
@@ -485,7 +456,7 @@ const _wren = Person(
 
 final _park = Place(
   id: 'pl1',
-  familyId: _familyId,
+  familyId: kTestFamilyId,
   label: 'Central Park',
   address: 'New York, NY',
   lat: 40.78,
@@ -504,7 +475,7 @@ Widget _captureShell({
 }) {
   return MaterialApp(
     home: NewStoryPage(
-      inviteApi: _FakeInviteApi(),
+      inviteApi: FakeInviteApi(),
       peopleApi: people ?? _FakePeopleApi(seed: const [_ada]),
       placesApi: places ?? _FakePlacesApi(seed: [_park]),
       mapboxSearch: FakeMapboxSearch(),
@@ -806,7 +777,7 @@ void main() {
     final stories = _FakeStoriesApi(
       story: Story(
         id: 'draft-1',
-        familyId: _familyId,
+        familyId: kTestFamilyId,
         authorId: 'u1',
         title: 'Making Blackberry Jam on the Back Porch',
         body: 'Jam at the park',
@@ -1073,7 +1044,7 @@ void main() {
       (i) => Photo(
         id: 'ph$i',
         storyId: 's1',
-        familyId: _familyId,
+        familyId: kTestFamilyId,
         uploaderId: 'u1',
         storagePath: 'f/s/ph$i.jpg',
         sortOrder: i,
@@ -1156,7 +1127,7 @@ void main() {
     final stories = _FakeStoriesApi(
       story: Story(
         id: 'legacy',
-        familyId: _familyId,
+        familyId: kTestFamilyId,
         authorId: 'u1',
         title: 'Old',
         body: 'Body',
@@ -1183,7 +1154,7 @@ void main() {
     final stories = _FakeStoriesApi(
       story: Story(
         id: 's1',
-        familyId: _familyId,
+        familyId: kTestFamilyId,
         authorId: 'u1',
         title: 'Jam',
         body: 'Porch',
@@ -1199,7 +1170,7 @@ void main() {
         GoRoute(
           path: '/stories/:storyId/edit',
           builder: (context, state) => NewStoryPage(
-            inviteApi: _FakeInviteApi(),
+            inviteApi: FakeInviteApi(),
             peopleApi: _FakePeopleApi(seed: const [_ada]),
             placesApi: _FakePlacesApi(seed: [_park]),
             mapboxSearch: FakeMapboxSearch(),
@@ -1258,7 +1229,7 @@ void main() {
     final stories = _FakeStoriesApi(
       story: Story(
         id: 's1',
-        familyId: _familyId,
+        familyId: kTestFamilyId,
         authorId: 'u1',
         title: 'Jam',
         body: 'Porch',
@@ -1274,7 +1245,7 @@ void main() {
         GoRoute(
           path: '/stories/:storyId/edit',
           builder: (context, state) => NewStoryPage(
-            inviteApi: _FakeInviteApi(),
+            inviteApi: FakeInviteApi(),
             peopleApi: _FakePeopleApi(seed: const [_ada]),
             placesApi: _FakePlacesApi(seed: [_park]),
             mapboxSearch: FakeMapboxSearch(),
@@ -1311,7 +1282,7 @@ void main() {
     final stories = _FakeStoriesApi(
       story: Story(
         id: 's1',
-        familyId: _familyId,
+        familyId: kTestFamilyId,
         authorId: 'u1',
         title: 'Jam',
         body: 'Porch',
@@ -1327,7 +1298,7 @@ void main() {
         GoRoute(
           path: '/stories/:storyId/edit',
           builder: (context, state) => NewStoryPage(
-            inviteApi: _FakeInviteApi(),
+            inviteApi: FakeInviteApi(),
             peopleApi: _FakePeopleApi(seed: const [_ada]),
             placesApi: _FakePlacesApi(seed: [_park]),
             mapboxSearch: FakeMapboxSearch(),
@@ -1376,14 +1347,14 @@ void main() {
     (tester) async {
       const grace = Person(
         id: 'p2',
-        familyId: _familyId,
+        familyId: kTestFamilyId,
         name: 'Grace',
         createdBy: 'u1',
       );
       final stories = _FakeStoriesApi(
         story: Story(
           id: 's1',
-          familyId: _familyId,
+          familyId: kTestFamilyId,
           authorId: 'u1',
           title: 'Jam',
           body: 'Porch',
@@ -2003,7 +1974,7 @@ Story _mattIsBorn({
 }) {
   return Story(
     id: id,
-    familyId: _familyId,
+    familyId: kTestFamilyId,
     authorId: 'u1',
     title: 'Matt is born',
     body: 'Porch',
