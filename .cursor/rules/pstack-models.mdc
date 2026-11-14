@@ -4,27 +4,6 @@ alwaysApply: true
 ---
 # pstack model configuration. One line per role. Delete a line to fall back to the skill default.
 # `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit Task `model`). Alias entries in a panel list still count toward its fan-out.
-# Lane 1 (copy), lane 4 (bug fix), docs lane (`AGENTS.md`, `.cursor/`, `docs/`). Agents on these lanes follow this block per AGENTS.md § Cheap lanes and docs; do not fan out panels or spawn helper subagents.
-# budget: low (medium)
-feature, refactoring: inherit-parent
-bug-fix: inherit-parent
-perf-issue: inherit-parent
-hillclimb: inherit-parent
-judgment and prose: inherit-parent
-hardest tasks: inherit-parent
-how explorer: inherit-parent
-how explainer: inherit-parent
-why investigators: inherit-parent
-why synthesizer: inherit-parent
-reflect tooling: inherit-parent
-reflect judgment, divergent, synthesizer: inherit-parent
-arena runners: inherit-parent
-arena cross-judge pool: inherit-parent
-swarm workers: inherit-parent
-architect runners: inherit-parent
-interrogate reviewers: inherit-parent
-
-# Lane 3 (big feature) and lane 5 (small feature). Active pstack defaults (last role line wins; pstack has no per-lane selector).
 # budget: medium (high)
 feature, refactoring: grok-4.7-high-fast
 bug-fix: grok-4.7-high-fast
