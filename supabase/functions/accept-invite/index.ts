@@ -4,6 +4,7 @@ import { bearerToken, serviceClient, userClient } from "../_shared/supabase.ts";
 
 const MEMBERSHIP_CHECK_FAILED = "Could not check membership";
 const MEMBERSHIP_CREATE_FAILED = "Could not create membership";
+const INVITE_LOOKUP_FAILED = "Could not look up invite";
 const INVITE_NOT_VALID = "INVITE_INVALID: Invite is not valid";
 
 type InviteRow = {
@@ -67,14 +68,14 @@ async function inviteByToken(
     .select("id, family_id, status, expires_at, person_id, accepted_by, email")
     .eq("token", token)
     .maybeSingle();
-  if (error) return { row: null, error: error.message };
+  if (error) return { row: null, error: INVITE_LOOKUP_FAILED };
   if (!data) return { row: null, error: null };
   const family = await admin
     .from("families")
     .select("deleted_at")
     .eq("id", data.family_id)
     .maybeSingle();
-  if (family.error) return { row: null, error: family.error.message };
+  if (family.error) return { row: null, error: INVITE_LOOKUP_FAILED };
   return {
     row: {
       id: data.id,
@@ -155,13 +156,6 @@ function emailRefusal(
   return mapRpcError(INVITE_NOT_VALID);
 }
 
-function linkFailure(message: string): Response {
-  if (message.trim().startsWith("NOT_FOUND:")) {
-    return errorResponse("AUTH_REQUIRED", "Sign-in required", 401);
-  }
-  return mapRpcError(message);
-}
-
 async function readToken(req: Request): Promise<string | Response> {
   let body: { token?: string };
   try {
@@ -232,7 +226,7 @@ async function acceptToken(
   const userId = await store.userId();
   if (!userId) return errorResponse("AUTH_REQUIRED", "Sign-in required", 401);
   const { row: invite, error: inviteErr } = await store.inviteByToken(token);
-  if (inviteErr) return errorResponse("VALIDATION", inviteErr, 400);
+  if (inviteErr) return errorResponse("VALIDATION", INVITE_LOOKUP_FAILED, 400);
   if (!invite) return errorResponse("INVITE_INVALID", "Invite is not valid", 400);
   const reopened = await reopenAccepted(store, invite, userId);
   if (reopened) return reopened;
@@ -241,7 +235,7 @@ async function acceptToken(
   const emailStop = emailRefusal(await store.userEmail(), invite.email);
   if (emailStop) return emailStop;
   const claimErr = await store.claimInvite(invite.id, userId);
-  if (claimErr) return linkFailure(claimErr);
+  if (claimErr) return mapRpcError(claimErr);
   const membershipId = await ensureMembership(store, invite, userId);
   if (membershipId instanceof Response) return membershipId;
   return jsonResponse({

@@ -112,9 +112,6 @@ security definer
 set search_path = ''
 as $$
 begin
-  if p_person_id is not null then
-    raise exception 'INVITE_INVALID:';
-  end if;
   raise exception 'INVITE_INVALID:';
 end;
 $$;

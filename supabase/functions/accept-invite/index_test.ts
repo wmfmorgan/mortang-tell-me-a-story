@@ -33,6 +33,7 @@ function dbWith(opts: {
   insertError?: string | null;
   personId?: string | null;
   linkError?: string | null;
+  inviteError?: string | null;
   status?: string;
   acceptedBy?: string | null;
   userEmail?: string | null;
@@ -47,15 +48,17 @@ function dbWith(opts: {
     userEmail: () => Promise.resolve(opts.userEmail ?? null),
     inviteByToken: () =>
       Promise.resolve({
-        row: {
-          ...pending,
-          person_id: opts.personId ?? null,
-          status: opts.status ?? pending.status,
-          accepted_by: opts.acceptedBy ?? null,
-          email: opts.inviteEmail ?? null,
-          family_deleted: opts.familyDeleted ?? false,
-        },
-        error: null,
+        row: opts.inviteError
+          ? null
+          : {
+            ...pending,
+            person_id: opts.personId ?? null,
+            status: opts.status ?? pending.status,
+            accepted_by: opts.acceptedBy ?? null,
+            email: opts.inviteEmail ?? null,
+            family_deleted: opts.familyDeleted ?? false,
+          },
+        error: opts.inviteError ?? null,
       }),
     membershipId: () =>
       Promise.resolve({
@@ -95,34 +98,32 @@ Deno.test("an owner who opens their own invite stays owner", async () => {
   assertEquals(inserted, false);
 });
 
-Deno.test("an unlinked person_id is linked before the invite is accepted", async () => {
-  const order: string[] = [];
+Deno.test("an unlinked person_id still accepts", async () => {
+  let claimed = false;
   const res = await acceptInvite(post({ token: "abc" }), {
     db: dbWith({
       personId: "person-1",
-      onLink: () => order.push("link"),
-      onAccept: () => order.push("accept"),
+      onLink: () => {
+        claimed = true;
+      },
     }),
   });
+  const json = await res.json();
   assertEquals(res.status, 200);
-  assertEquals(order, ["link", "accept"]);
+  assertEquals(json.membership_id, "mem-new");
+  assertEquals(json.family_id, pending.family_id);
+  assertEquals(claimed, true);
 });
 
 Deno.test(
   "accept-invite still accepts a pending invite on a flagged person",
   async () => {
-    const order: string[] = [];
     const res = await acceptInvite(post({ token: "abc" }), {
-      db: dbWith({
-        personId: "flagged-person",
-        onLink: () => order.push("link"),
-        onAccept: () => order.push("accept"),
-      }),
+      db: dbWith({ personId: "flagged-person" }),
     });
     const json = await res.json();
     assertEquals(res.status, 200);
     assertEquals(json.family_id, pending.family_id);
-    assertEquals(order, ["link", "accept"]);
     assertEquals(json.membership_id, "mem-new");
   },
 );
@@ -149,11 +150,11 @@ Deno.test("an already linked person still accepts", async () => {
   assertEquals(json.membership_id, "mem-new");
 });
 
-Deno.test("a missing uid while linking is 401 and does not accept", async () => {
+Deno.test("a missing person is not a sign-in error", async () => {
   let accepted = false;
   const res = await acceptInvite(post({ token: "abc" }), {
     db: dbWith({
-      personId: "person-1",
+      personId: "missing-person",
       linkError: "NOT_FOUND:",
       onAccept: () => {
         accepted = true;
@@ -161,8 +162,25 @@ Deno.test("a missing uid while linking is 401 and does not accept", async () => 
     }),
   });
   const json = await res.json();
-  assertEquals(res.status, 401);
-  assertEquals(json.code, "AUTH_REQUIRED");
+  assertEquals(res.status, 404);
+  assertEquals(json.code, "NOT_FOUND");
+  assertEquals(accepted, false);
+});
+
+Deno.test("a person outside the tree is not a sign-in error", async () => {
+  let accepted = false;
+  const res = await acceptInvite(post({ token: "abc" }), {
+    db: dbWith({
+      personId: "other-tree-person",
+      linkError: "NOT_FOUND:",
+      onAccept: () => {
+        accepted = true;
+      },
+    }),
+  });
+  const json = await res.json();
+  assertEquals(res.status, 404);
+  assertEquals(json.code, "NOT_FOUND");
   assertEquals(accepted, false);
 });
 
@@ -264,6 +282,16 @@ Deno.test("a soft-deleted family invite is refused", async () => {
   assertEquals(json.code, "INVITE_INVALID");
   assertEquals(json.message, "Invite is not valid");
   assertEquals(accepted, false);
+});
+
+Deno.test("invite lookup failures hide raw database text", async () => {
+  const res = await acceptInvite(post({ token: "abc" }), {
+    db: dbWith({ inviteError: rawDb }),
+  });
+  const body = await res.text();
+  assertEquals(res.status, 400);
+  assertEquals(body.includes(rawDb), false);
+  assertEquals(body.includes("Could not look up invite"), true);
 });
 
 Deno.test("membership failures hide raw database text", async () => {

@@ -494,7 +494,7 @@ class RulesTest(unittest.TestCase):
         rename = next(sig for sig in sigs if sig.name == "rename_family")
         self.assertEqual(check.normalize_arg_types("fid uuid, name text"), rename.types)
 
-    def test_real_baseline_matches_thirty_two_definers(self):
+    def test_real_baseline_matches_thirty_one_definers(self):
         allow = check.load_allowlist(check.catalog_path())
         rows = [definer_row(sig) for sig in allow]
         rows.append(csv_row("unused_index", "INFO", {"schema": "public", "name": "stories", "type": "index"}))
