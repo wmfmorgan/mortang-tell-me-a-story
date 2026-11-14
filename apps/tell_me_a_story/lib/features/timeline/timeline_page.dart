@@ -23,7 +23,9 @@ import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
 import '../stories/photo_frame.dart';
 import '../stories/story_date.dart';
+import 'far_dot.dart';
 import 'origin_banner.dart';
+import 'origin_dot.dart';
 import 'timeline_arrow_keys.dart';
 import 'timeline_branching.dart';
 import 'timeline_empty_tap.dart';
@@ -1126,14 +1128,14 @@ class _FarDecadeRow extends StatelessWidget {
           _farBranch(context, frame, highlighted: highlighted, origin: origin),
         );
       } else {
-        final dot = _FarDot(
+        final dot = FarDot(
           story: story,
           highlighted: highlighted,
           origin: origin,
           onTap: () => onDot(story),
         );
         plain.add(
-          origin ? _OriginDot(highlighted: highlighted, child: dot) : dot,
+          origin ? OriginDot(highlighted: highlighted, child: dot) : dot,
         );
       }
     }
@@ -1223,7 +1225,7 @@ class _FarDecadeRow extends StatelessWidget {
     final mark = decadeParentMark(
       context: context,
       frame: frame,
-      dot: _FarDot(
+      dot: FarDot(
         story: story,
         highlighted: highlighted,
         origin: origin,
@@ -1252,7 +1254,7 @@ class _FarDecadeRow extends StatelessWidget {
       context: context,
       frame: frame,
       side: CalloutSide.right,
-      dot: _FarDot(
+      dot: FarDot(
         story: story,
         highlighted: highlighted,
         origin: origin,
@@ -1353,77 +1355,6 @@ class _RenderCenterOnDot extends RenderShiftedBox {
       Size(childSize.width, extraAbove + childSize.height + extraBelow),
     );
     (child.parentData! as BoxParentData).offset = Offset(0, extraAbove);
-  }
-}
-
-/// Moss ring for an origin story that has no callout of its own.
-class _OriginDot extends StatelessWidget {
-  const _OriginDot({required this.highlighted, required this.child});
-
-  final bool highlighted;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final diameter = highlighted ? farDotHighlightedDiameter : farDotDiameter;
-    final ring = diameter + 2 * calloutDotGap + 2 * calloutStroke;
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
-      children: [
-        IgnorePointer(
-          child: Container(
-            width: ring,
-            height: ring,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: branchMoss, width: calloutStroke),
-            ),
-          ),
-        ),
-        child,
-      ],
-    );
-  }
-}
-
-class _FarDot extends StatelessWidget {
-  const _FarDot({
-    required this.story,
-    required this.highlighted,
-    required this.onTap,
-    this.origin = false,
-  });
-
-  final Story story;
-  final bool highlighted;
-  final VoidCallback onTap;
-  final bool origin;
-
-  @override
-  Widget build(BuildContext context) {
-    final dot = GestureDetector(
-      key: Key('timeline-dot-${story.id}'),
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          width: highlighted ? farDotHighlightedDiameter : farDotDiameter,
-          height: highlighted ? farDotHighlightedDiameter : farDotDiameter,
-          decoration: BoxDecoration(
-            color: albumTerracotta,
-            shape: BoxShape.circle,
-            border: highlighted
-                ? Border.all(color: albumTerracotta, width: 2)
-                : null,
-          ),
-        ),
-      ),
-    );
-    return Tooltip(
-      message: dotTooltip(story, origin: origin),
-      child: dot,
-    );
   }
 }
 
