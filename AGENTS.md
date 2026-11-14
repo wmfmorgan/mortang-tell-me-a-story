@@ -1,6 +1,6 @@
 # AGENTS.md: Mortang · Tell Me a Story
 
-Rules for any coding agent working in this repo. This file is the rule text. `.cursor/rules/mortang-contract.mdc` always applies and only points here. `.cursor/rules/architecture.mdc` and `.cursor/rules/coding.mdc` only point at sections of this file. They add no rules and hold no gates. `.cursor/rules/pstack-models.mdc` always applies the Bill-approved medium pstack budget. It is not a pointer and is not restated here.
+Rules for any coding agent working in this repo. This file is the rule text. `.cursor/rules/mortang-contract.mdc` always applies and only points here. `.cursor/rules/architecture.mdc` and `.cursor/rules/coding.mdc` only point at sections of this file. They add no rules and hold no gates. `.cursor/rules/pstack-models.mdc` always applies the Bill-approved medium pstack budget; cheap lanes are in § Cheap lanes and docs. It is not a pointer and is not restated here.
 
 ## What governs a task
 1. The one section of the task's plan in `docs/superpowers/plans/`, or the one Notion spec section the task links, and the product decisions that section cites (roadmap, "Product decisions"). § Build contract item 1 is the intake rule.
@@ -28,6 +28,14 @@ If the code and the plan disagree, stop and report the difference. Do not reconc
 - TDD: write the failing test, make it pass, then refactor with the tests green.
 - A schema change is a new SQL file under `supabase/migrations/`. Never edit a migration that has been applied.
 - Every PR follows § Build contract (intake, scope, pre-PR checks, stop-and-report). It adds to these rules and relaxes none of them.
+
+## Cheap lanes and docs
+
+Lanes 1 (copy), 4 (bug fix), and docs use the cheap rules below; lanes 2 (UI), 3 (big feature), and 5 (small feature) use the full medium setup in `.cursor/rules/pstack-models.mdc`.
+
+Lane 1 (copy), lane 4 (bug fix), and docs agents omit the Task `model` and run on the parent model. Do not use arena, swarm, interrogate, or architect.
+
+Docs agents work alone with no subagents. Skip local Makefile targets and Flutter or Deno test runs; CI runs them. Edit only the files named in the brief; do not explore beyond them. At most one review-fix round.
 
 ## Gates
 Run from the repo root unless the command names another directory. Paste the output in the PR body. CI is `.github/workflows/ci.yml`. It runs four jobs, `flutter`, `deno`, `pgtap`, and `e2e`, on pull requests to `main` and on pushes to `main`. There is no path filter.
