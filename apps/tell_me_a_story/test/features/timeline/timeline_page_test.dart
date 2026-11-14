@@ -769,6 +769,52 @@ void main() {
     expect(find.text('1980 · IN FOCUS'), findsNothing);
   });
 
+  testWidgets('arrow keys step the focused decade', (tester) async {
+    await _pumpThreeDecades(tester);
+    expect(_preservedDecade(1980), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(_preservedDecade(1950), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(_preservedDecade(1980), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(_preservedDecade(2020), findsOneWidget);
+  });
+
+  testWidgets('left, right, and the end of the dial leave the decade', (
+    tester,
+  ) async {
+    await _pumpThreeDecades(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(_preservedDecade(1950), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(_preservedDecade(1950), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(_preservedDecade(2020), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(_preservedDecade(2020), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(_preservedDecade(2020), findsOneWidget);
+  });
+
   testWidgets('published story preview appears after listPublished', (
     tester,
   ) async {
@@ -4121,6 +4167,38 @@ Future<void> _pumpOwnerChildBanner(WidgetTester tester) async {
         ],
         stewarded: const [
           StewardFamily(id: kTestFamilyId, name: 'Ada', role: 'owner'),
+        ],
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Finder _preservedDecade(int year) {
+  return find.descendant(
+    of: find.byKey(Key('timeline-decade-row-$year')),
+    matching: find.text('1 story preserved'),
+  );
+}
+
+Future<void> _pumpThreeDecades(WidgetTester tester) async {
+  await tester.binding.setSurfaceSize(const Size(1200, 900));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(
+    _timeline(
+      stories: _FakeStoriesApi(
+        published: [
+          _published(
+            id: 'early',
+            title: 'Arrival',
+            timeframeStart: DateTime(1954),
+          ),
+          _published(id: 'mid', title: 'Jam', timeframeStart: DateTime(1980)),
+          _published(
+            id: 'late',
+            title: 'Willow',
+            timeframeStart: DateTime(2024),
+          ),
         ],
       ),
     ),
