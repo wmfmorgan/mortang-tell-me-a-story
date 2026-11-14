@@ -3282,6 +3282,53 @@ void main() {
     },
   );
 
+  testWidgets('closing the origin banner hides it and leaves Ada open', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    await _pumpOwnerChildBanner(tester);
+
+    expect(find.byKey(const Key('timeline-origin-banner')), findsOneWidget);
+    expect(find.text('Ada'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('timeline-origin-banner')),
+        matching: find.byTooltip('Close'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('timeline-origin-banner')), findsNothing);
+    expect(
+      find.text(
+        'Every timeline starts with a story. Set the origin story for Ada.',
+      ),
+      findsNothing,
+    );
+    expect(find.text('Ada'), findsOneWidget);
+  });
+
+  testWidgets('choosing from the parent opens that family', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(FamilySelection.clear);
+    await _pumpOwnerChildBanner(tester);
+
+    expect(find.text('Choose from Parent'), findsOneWidget);
+    expect(find.text('Ada'), findsOneWidget);
+
+    await tester.tap(find.text('Choose from Parent'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('timeline-origin-banner')), findsNothing);
+    expect(find.text('Choose from Parent'), findsNothing);
+    expect(find.text('Ada'), findsNothing);
+    expect(find.text('Parent'), findsOneWidget);
+  });
+
   testWidgets('a decade parent callout leaves the top of the origin dot', (
     tester,
   ) async {
@@ -4052,6 +4099,33 @@ class _FamilyInvite implements InviteGateway {
 
   @override
   Future<void> sendInviteEmail({required String inviteId}) async {}
+}
+
+Future<void> _pumpOwnerChildBanner(WidgetTester tester) async {
+  const parent = '00000000-0000-0000-0000-0000000000aa';
+  await tester.pumpWidget(
+    _timeline(
+      stories: _FakeStoriesApi(),
+      families: _TreeFamilies(
+        mine: [
+          MemberFamily(
+            id: kTestFamilyId,
+            name: 'Ada',
+            createdAt: DateTime.utc(1970),
+            parentFamilyId: parent,
+          ),
+        ],
+        tree: const [
+          TreeFamily(id: parent, name: 'Parent'),
+          TreeFamily(id: kTestFamilyId, name: 'Ada', parentFamilyId: parent),
+        ],
+        stewarded: const [
+          StewardFamily(id: kTestFamilyId, name: 'Ada', role: 'owner'),
+        ],
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 class _TreeFamilies extends FamiliesGateway {
