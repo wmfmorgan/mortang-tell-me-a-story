@@ -4495,9 +4495,8 @@ void main() {
           .opacity;
     }
 
-    final values = [rowOpacity('early'), rowOpacity('mid'), rowOpacity('late')]
-      ..sort();
-    expect(values.last, greaterThan(values[1]));
+    expect(rowOpacity('late'), greaterThan(rowOpacity('mid')));
+    expect(rowOpacity('late'), greaterThan(rowOpacity('early')));
     expect(find.byType(DialFade), findsNWidgets(2));
   });
 
@@ -4604,7 +4603,31 @@ void main() {
       return (box.decoration! as BoxDecoration).color!;
     }
 
-    expect({fill('Kitchen'), fill('Garden')}, {albumBlush, albumPaleRose});
+    expect(fill('Kitchen'), albumBlush);
+    expect(fill('Garden'), albumPaleRose);
+  });
+
+  testWidgets('a plain days card stays white', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [_published(id: 'plain', title: 'Wagon')],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'plain');
+    final material = tester.widget<Material>(
+      find
+          .ancestor(
+            of: find.byKey(const Key('timeline-card-plain')),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    expect(material.color, albumWhite);
   });
 }
 
