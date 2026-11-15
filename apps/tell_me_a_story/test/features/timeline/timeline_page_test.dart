@@ -284,6 +284,17 @@ class _RecordingStories extends _FakeStoriesApi {
   }
 }
 
+class _TimelineLoadFailure implements Exception {
+  const _TimelineLoadFailure();
+}
+
+class _FailingStoriesApi extends _FakeStoriesApi {
+  @override
+  Future<List<Story>> listPublished(String familyId) async {
+    throw const _TimelineLoadFailure();
+  }
+}
+
 class _SlowStoriesApi extends _FakeStoriesApi {
   _SlowStoriesApi() {
     _pending = Completer<List<Story>>();
@@ -4704,6 +4715,27 @@ void main() {
     ]);
     expect(gradient.stops, [0, 0.18, 0.82, 1]);
     expect(find.byKey(const Key('timeline-spine')), findsOneWidget);
+  });
+
+  testWidgets('a failed load shows the error state, not an empty timeline', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    await tester.pumpWidget(_timeline(stories: _FailingStoriesApi()));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Couldn't load stories."), findsOneWidget);
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsNothing,
+    );
+    final errorText = tester.widget<Text>(find.text("Couldn't load stories."));
+    expect(
+      errorText.style?.color,
+      Theme.of(tester.element(find.text("Couldn't load stories.")))
+          .colorScheme
+          .error,
+    );
   });
 }
 
