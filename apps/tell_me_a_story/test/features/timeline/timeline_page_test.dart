@@ -4629,6 +4629,49 @@ void main() {
     );
     expect(material.color, albumWhite);
   });
+
+  testWidgets('a focused days dot keeps a blush halo', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'late',
+              title: 'Late',
+              timeframeStart: DateTime(2024),
+            ),
+            _published(
+              id: 'early',
+              title: 'Early',
+              timeframeStart: DateTime(1954),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'late');
+
+    BoxDecoration decoration(String id) {
+      final box = tester.widget<Container>(
+        find.descendant(
+          of: find.byKey(Key('timeline-full-dot-$id')),
+          matching: find.byType(Container),
+        ),
+      );
+      return box.decoration! as BoxDecoration;
+    }
+
+    final focused = decoration('late');
+    expect(focused.color, albumTerracotta);
+    expect(focused.boxShadow!.single.color, albumBlush);
+    final plain = decoration('early');
+    expect(plain.color, albumParchment);
+    expect(plain.boxShadow, isNull);
+    expect(plain.border!.top.color, albumInk.withValues(alpha: 0.4));
+  });
 }
 
 Offset _leaderStart(WidgetTester tester) {
