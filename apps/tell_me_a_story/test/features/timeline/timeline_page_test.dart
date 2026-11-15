@@ -4566,6 +4566,46 @@ void main() {
     expect(surfaced, isA<StateError>());
     expect(find.text('Lawn'), findsOneWidget);
   });
+
+  testWidgets('a days chip uses blush when focused and pale rose when not', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'late',
+              title: 'Late',
+              placeLabel: 'Kitchen',
+              timeframeStart: DateTime(2024),
+            ),
+            _published(
+              id: 'early',
+              title: 'Early',
+              placeLabel: 'Garden',
+              timeframeStart: DateTime(1954),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'late');
+
+    Color fill(String label) {
+      final box = tester.widget<Container>(
+        find
+            .ancestor(of: find.text(label), matching: find.byType(Container))
+            .first,
+      );
+      return (box.decoration! as BoxDecoration).color!;
+    }
+
+    expect({fill('Kitchen'), fill('Garden')}, {albumBlush, albumPaleRose});
+  });
 }
 
 Offset _leaderStart(WidgetTester tester) {
