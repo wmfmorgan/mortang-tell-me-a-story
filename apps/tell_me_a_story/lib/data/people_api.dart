@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'families_api.dart';
 import 'photos_api.dart';
+import 'rpc_error.dart';
 
 /// Family-scoped person row. Relationship is optional; new people send null.
 class Person {
@@ -340,7 +341,7 @@ class PeopleApi implements PeopleGateway {
       );
       return personProfileFromRpc(res);
     } on PostgrestException catch (error) {
-      if (error.message.startsWith('NOT_FOUND:')) {
+      if (mapRpcError(error, match: RpcErrorMatch.notFoundPrefix) != null) {
         throw const PersonProfileNotFound();
       }
       rethrow;

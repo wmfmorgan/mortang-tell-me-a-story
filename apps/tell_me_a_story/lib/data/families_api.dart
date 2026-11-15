@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'family_covers.dart';
 import 'recovery_window.dart';
+import 'rpc_error.dart';
 
 /// A family the signed-in member can already read.
 class MemberFamily {
@@ -78,12 +79,7 @@ bool originSteward(String? role) => role == 'owner' || role == 'co_owner';
 
 /// Hosted preview can serve this branch before the cover migration is applied.
 bool familiesCoverColumnMissing(PostgrestException error) {
-  final message = error.message.toLowerCase();
-  if (!message.contains('cover_photo_path')) return false;
-  return error.code == '42703' ||
-      error.code == 'PGRST204' ||
-      message.contains('does not exist') ||
-      message.contains('schema cache');
+  return mapRpcError(error, match: RpcErrorMatch.missingCoverColumn) != null;
 }
 
 /// One live family from `list_family_tree`.
@@ -144,25 +140,12 @@ class OriginRpcException implements Exception {
 
 /// §12 catalog text for an origin RPC failure. Null when [error] is not one.
 OriginRpcException? originRpcException(Object error) {
-  if (error is! PostgrestException) return null;
-  final raw = error.message;
-  if (raw.contains('FORBIDDEN')) {
-    return const OriginRpcException(
-      'FORBIDDEN',
-      'You do not have permission to do that.',
-    );
-  }
-  if (raw.contains('NOT_FOUND')) {
-    return const OriginRpcException('NOT_FOUND', 'Not found.');
-  }
-  if (raw.contains('VALIDATION')) {
-    const marker = 'VALIDATION: ';
-    final index = raw.indexOf(marker);
-    final detail = index >= 0
-        ? raw.substring(index + marker.length).trim()
-        : raw;
-    return OriginRpcException('VALIDATION', detail);
-  }
+  final forbidden = mapRpcError(error, match: RpcErrorMatch.originForbidden);
+  if (forbidden != null) return OriginRpcException('FORBIDDEN', forbidden);
+  final missing = mapRpcError(error, match: RpcErrorMatch.originNotFound);
+  if (missing != null) return OriginRpcException('NOT_FOUND', missing);
+  final validation = mapRpcError(error, match: RpcErrorMatch.originValidation);
+  if (validation != null) return OriginRpcException('VALIDATION', validation);
   return null;
 }
 

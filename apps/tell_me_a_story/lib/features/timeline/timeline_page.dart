@@ -11,6 +11,7 @@ import '../../data/invite_api.dart';
 import '../../data/manage_families_api.dart';
 import '../../data/people_api.dart';
 import '../../data/photos_api.dart';
+import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../family/start_timeline_dialog.dart';
@@ -23,6 +24,8 @@ import 'mid_rail.dart';
 import 'origin_banner.dart';
 import 'timeline_branching.dart';
 import 'timeline_zoom.dart';
+
+const _storiesLoadError = "Couldn't load stories.";
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
 class TimelinePage extends StatefulWidget {
@@ -66,6 +69,7 @@ class _TimelinePageState extends State<TimelinePage> {
   List<Story> _published = const [];
   var _loadingFamily = true;
   var _loadingPublished = true;
+  String? _loadError;
   var _inviteHandled = false;
   var _zoom = TimelineZoom.far;
   var _originBannerHidden = false;
@@ -188,19 +192,34 @@ class _TimelinePageState extends State<TimelinePage> {
       setState(() {
         _familyId = id;
         _loadingFamily = false;
+        _loadError = null;
       });
       await _loadFamilies();
-      _watchLive();
+      if (!_watchLiveOrSkip()) return;
       await _loadPublished();
       await _maybeAcceptInvite();
       await _maybeOpenNewTimelineOrigin();
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
       setState(() {
         _loadingFamily = false;
         _loadingPublished = false;
+        _loadError = mapRpcError(error) ?? _storiesLoadError;
       });
     }
+  }
+
+  Future<void> _retryLoad() async {
+    setState(() {
+      _loadError = null;
+      _loadingPublished = true;
+      if (_familyId == null) _loadingFamily = true;
+    });
+    if (_familyId == null) {
+      await _bootstrap();
+      return;
+    }
+    await _loadPublished();
   }
 
   bool get _canStartTimeline {
@@ -348,6 +367,23 @@ class _TimelinePageState extends State<TimelinePage> {
     });
   }
 
+  /// An uninitialized client throws [AssertionError] from `Supabase.instance`.
+  /// Tests that build the page without a stories gateway still show the
+  /// empty timeline. A later story-list [Exception] is a visible load error.
+  bool _watchLiveOrSkip() {
+    try {
+      _watchLive();
+      return true;
+    } on AssertionError {
+      if (!mounted) return false;
+      setState(() {
+        _loadingFamily = false;
+        _loadingPublished = false;
+      });
+      return false;
+    }
+  }
+
   void _watchLive() {
     final familyId = _familyId;
     final live = _live;
@@ -387,16 +423,21 @@ class _TimelinePageState extends State<TimelinePage> {
       setState(() {
         _published = publishedStories(merged);
         _loadingPublished = false;
+        _loadError = null;
       });
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      setState(() => _loadingPublished = false);
+      setState(() {
+        _loadingPublished = false;
+        _loadError = mapRpcError(error) ?? _storiesLoadError;
+      });
     }
   }
 
   Future<void> _maybeAcceptInvite() async {
     if (_inviteHandled || !mounted) return;
     _inviteHandled = true;
+    if (GoRouter.maybeOf(context) == null) return;
     final uri = GoRouterState.of(context).uri;
     if (!uri.queryParameters.containsKey('invite')) return;
     await acceptInviteFromUriIfPresent(context: context, uri: uri, api: _api);
@@ -696,10 +737,38 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 
+  Widget _loadFailure() {
+    final message = _loadError ?? _storiesLoadError;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge
+                  ?.copyWith(color: Theme.of(context).colorScheme.error),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              key: const Key('timeline-load-retry'),
+              onPressed: _retryLoad,
+              style: TextButton.styleFrom(foregroundColor: albumTerracotta),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _body(List<DecadeBand> bands) {
     if (_loadingFamily || _loadingPublished) {
       return const Center(child: CircularProgressIndicator());
     }
+    if (_loadError != null) return _loadFailure();
     if (bands.isEmpty) {
       return const Center(
         child: Padding(

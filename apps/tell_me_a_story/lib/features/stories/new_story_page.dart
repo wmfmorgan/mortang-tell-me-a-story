@@ -17,6 +17,7 @@ import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
 import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
+import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 import '../people/add_person_modal.dart';
 import '../people/person_profile_dialog.dart';
@@ -472,8 +473,8 @@ class _NewStoryPageState extends State<NewStoryPage> {
     try {
       await _stories.linkPerson(storyId: storyId, personId: personId);
     } on PostgrestException catch (error) {
-      if (error.code != '23505' ||
-          !error.message.contains('story_people_pkey')) {
+      if (mapRpcError(error, match: RpcErrorMatch.storyPeopleDuplicate) ==
+          null) {
         rethrow;
       }
     }
