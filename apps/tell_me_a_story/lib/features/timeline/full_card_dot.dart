@@ -4,11 +4,7 @@ import '../../core/theme/album_theme.dart';
 import 'timeline_branching.dart';
 
 class FullCardDot extends StatelessWidget {
-  const FullCardDot({
-    super.key,
-    required this.focused,
-    required this.branched,
-  });
+  const FullCardDot({super.key, required this.focused, required this.branched});
 
   final bool focused;
   final bool branched;
