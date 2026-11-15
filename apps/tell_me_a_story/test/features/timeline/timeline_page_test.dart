@@ -295,6 +295,22 @@ class _FailingStoriesApi extends _FakeStoriesApi {
   }
 }
 
+class _FailOnSecondMine extends _FakeFamilies {
+  _FailOnSecondMine(super.rows);
+
+  var mines = 0;
+
+  @override
+  Future<List<MemberFamily>> listMine() async {
+    mines++;
+    if (mines > 1) throw const _TimelineLoadFailure();
+    return super.listMine();
+  }
+
+  @override
+  Future<List<TreeFamily>> listFamilyTree(String familyId) async => const [];
+}
+
 class _FlakyFamilies extends _FakeFamilies {
   _FlakyFamilies(super.rows);
 
@@ -4812,6 +4828,36 @@ void main() {
     expect(find.byKey(const Key('timeline-load-retry')), findsNothing);
     expect(find.byKey(const Key('timeline-dot-s1')), findsOneWidget);
     expect(_tooltipFor(tester, 's1'), contains('Jam'));
+  });
+
+  testWidgets('a family switch that fails shows a message and no spinner', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    const otherId = '00000000-0000-0000-0000-000000000002';
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _FailOnSecondMine([
+          MemberFamily(
+            id: kTestFamilyId,
+            name: 'Ada',
+            createdAt: DateTime.utc(2020),
+          ),
+          MemberFamily(id: otherId, name: 'Bea', createdAt: DateTime.utc(2021)),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bea').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 }
 

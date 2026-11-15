@@ -194,7 +194,7 @@ class _TimelinePageState extends State<TimelinePage> {
       _failBootstrap(error);
       return;
     }
-    if (!mounted) return;
+    if (!mounted || _bootstrapFailed) return;
     await _loadPublished();
     if (!mounted || _loadError != null) return;
     try {
@@ -214,8 +214,20 @@ class _TimelinePageState extends State<TimelinePage> {
       _loadingFamily = false;
       _bootstrapFailed = false;
     });
-    await _loadFamilies();
+    if (!await _loadFamilies()) {
+      _markBootstrapFailed();
+      return;
+    }
     _watchLive();
+  }
+
+  void _markBootstrapFailed() {
+    if (!mounted) return;
+    setState(() {
+      _loadingFamily = false;
+      _loadingPublished = false;
+      _bootstrapFailed = true;
+    });
   }
 
   void _failBootstrap(Object error) {
@@ -258,7 +270,7 @@ class _TimelinePageState extends State<TimelinePage> {
       _failBootstrap(error);
       return;
     }
-    if (!mounted) return;
+    if (!mounted || _bootstrapFailed) return;
     await _loadPublished();
   }
 
@@ -310,7 +322,7 @@ class _TimelinePageState extends State<TimelinePage> {
       },
     );
     if (created == null || !mounted) return;
-    await _loadFamilies();
+    if (!await _loadFamilies()) return;
     await _loadPublished();
     if (!mounted) return;
     ScaffoldMessenger.of(
@@ -340,44 +352,28 @@ class _TimelinePageState extends State<TimelinePage> {
     }
   }
 
-  Future<void> _loadFamilies() async {
+  Future<bool> _loadFamilies() async {
     final familyId = _familyId;
     List<MemberFamily> rows = const [];
     List<StewardFamily> stewarded = const [];
     List<TreeFamily> tree = const [];
     var memberIds = <String>{};
     final gateway = widget.familiesApi;
-    if (gateway != null) {
-      rows = await gateway.listMine();
-      stewarded = await gateway.listStewarded();
-      memberIds = rows.map((row) => row.id).toSet();
-      FamilyMembership.remember(memberIds);
-    } else if (widget.storiesApi != null) {
-      if (familyId != null) {
-        rows = [
-          MemberFamily(
-            id: familyId,
-            name: 'Family',
-            createdAt: DateTime.utc(2020),
-          ),
-        ];
-        memberIds = {familyId};
-        tree = [TreeFamily(id: familyId, name: 'Family')];
-      }
-    } else {
-      final live = FamiliesApi();
-      rows = await live.listMine();
-      stewarded = await live.listStewarded();
-      memberIds = rows.map((row) => row.id).toSet();
-      FamilyMembership.remember(memberIds);
-      if (familyId != null) {
-        tree = await live.listFamilyTree(familyId);
-      }
+    try {
+      final read = await _readMembership(gateway, familyId);
+      rows = read.rows;
+      stewarded = read.stewarded;
+      memberIds = read.memberIds;
+      tree = read.tree;
+      if (gateway != null) FamilyMembership.remember(memberIds);
+    } on Exception catch (error) {
+      _showFailure(error);
+      return false;
     }
     if (gateway != null && familyId != null) {
-      tree = await gateway.listFamilyTree(familyId);
+      tree = await _headerTree(gateway, familyId);
     }
-    if (!mounted) return;
+    if (!mounted) return false;
     // A name for the header only. This row is not a membership.
     if (rows.isEmpty && familyId != null && memberIds.isEmpty) {
       rows = [
@@ -394,6 +390,81 @@ class _TimelinePageState extends State<TimelinePage> {
       _tree = tree;
       _memberIds = memberIds;
     });
+    return true;
+  }
+
+  Future<
+    ({
+      List<MemberFamily> rows,
+      List<StewardFamily> stewarded,
+      Set<String> memberIds,
+      List<TreeFamily> tree,
+    })
+  >
+  _readMembership(FamiliesGateway? gateway, String? familyId) async {
+    if (gateway != null) {
+      final rows = await gateway.listMine();
+      final stewarded = await gateway.listStewarded();
+      return (
+        rows: rows,
+        stewarded: stewarded,
+        memberIds: rows.map((row) => row.id).toSet(),
+        tree: const <TreeFamily>[],
+      );
+    }
+    if (widget.storiesApi != null) return _localMembership(familyId);
+    final live = FamiliesApi();
+    final rows = await live.listMine();
+    final stewarded = await live.listStewarded();
+    final tree = familyId == null
+        ? const <TreeFamily>[]
+        : await live.listFamilyTree(familyId);
+    return (
+      rows: rows,
+      stewarded: stewarded,
+      memberIds: rows.map((row) => row.id).toSet(),
+      tree: tree,
+    );
+  }
+
+  ({
+    List<MemberFamily> rows,
+    List<StewardFamily> stewarded,
+    Set<String> memberIds,
+    List<TreeFamily> tree,
+  })
+  _localMembership(String? familyId) {
+    if (familyId == null) {
+      return (
+        rows: const [],
+        stewarded: const [],
+        memberIds: const {},
+        tree: const [],
+      );
+    }
+    return (
+      rows: [
+        MemberFamily(
+          id: familyId,
+          name: 'Family',
+          createdAt: DateTime.utc(2020),
+        ),
+      ],
+      stewarded: const [],
+      memberIds: {familyId},
+      tree: [TreeFamily(id: familyId, name: 'Family')],
+    );
+  }
+
+  Future<List<TreeFamily>> _headerTree(
+    FamiliesGateway gateway,
+    String familyId,
+  ) async {
+    try {
+      return await gateway.listFamilyTree(familyId);
+    } on Exception {
+      return const [];
+    }
   }
 
   void _watchLive() {
@@ -467,7 +538,11 @@ class _TimelinePageState extends State<TimelinePage> {
       _tree = const [];
     });
     _watchLive();
-    await _loadFamilies();
+    if (!await _loadFamilies()) {
+      if (!mounted) return;
+      setState(() => _loadingPublished = false);
+      return;
+    }
     await _loadPublished();
     if (!mounted) return;
     final still =
@@ -596,7 +671,7 @@ class _TimelinePageState extends State<TimelinePage> {
     if (GoRouter.maybeOf(context) == null) return;
     await context.push(AppRoutes.storyPath(story.id));
     if (!mounted) return;
-    await _loadFamilies();
+    if (!await _loadFamilies()) return;
     await _loadPublished();
   }
 
