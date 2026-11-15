@@ -12,10 +12,9 @@ import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/family/manage_families_page.dart';
+import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 
 import '../../fakes/quiet_stories.dart';
-
-import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 
 void main() {
   setUp(() {

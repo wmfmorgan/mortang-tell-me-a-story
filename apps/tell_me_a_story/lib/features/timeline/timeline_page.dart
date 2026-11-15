@@ -26,6 +26,7 @@ import 'timeline_branching.dart';
 import 'timeline_zoom.dart';
 
 const _storiesLoadError = "Couldn't load stories.";
+const _bootstrapLoadError = 'Try again';
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
 class TimelinePage extends StatefulWidget {
@@ -252,8 +253,7 @@ class _TimelinePageState extends State<TimelinePage> {
       _loadError = null;
     });
     try {
-      await _loadFamilies();
-      _watchLive();
+      await _openFamily();
     } on Exception catch (error) {
       _failBootstrap(error);
       return;
@@ -347,46 +347,35 @@ class _TimelinePageState extends State<TimelinePage> {
     List<TreeFamily> tree = const [];
     var memberIds = <String>{};
     final gateway = widget.familiesApi;
-    try {
-      if (gateway != null) {
-        rows = await gateway.listMine();
-        stewarded = await gateway.listStewarded();
-        memberIds = rows.map((row) => row.id).toSet();
-        FamilyMembership.remember(memberIds);
-      } else if (widget.storiesApi != null) {
-        if (familyId != null) {
-          rows = [
-            MemberFamily(
-              id: familyId,
-              name: 'Family',
-              createdAt: DateTime.utc(2020),
-            ),
-          ];
-          memberIds = {familyId};
-          tree = [TreeFamily(id: familyId, name: 'Family')];
-        }
-      } else {
-        final live = FamiliesApi();
-        rows = await live.listMine();
-        stewarded = await live.listStewarded();
-        memberIds = rows.map((row) => row.id).toSet();
-        FamilyMembership.remember(memberIds);
-        if (familyId != null) {
-          tree = await live.listFamilyTree(familyId);
-        }
+    if (gateway != null) {
+      rows = await gateway.listMine();
+      stewarded = await gateway.listStewarded();
+      memberIds = rows.map((row) => row.id).toSet();
+      FamilyMembership.remember(memberIds);
+    } else if (widget.storiesApi != null) {
+      if (familyId != null) {
+        rows = [
+          MemberFamily(
+            id: familyId,
+            name: 'Family',
+            createdAt: DateTime.utc(2020),
+          ),
+        ];
+        memberIds = {familyId};
+        tree = [TreeFamily(id: familyId, name: 'Family')];
       }
-    } catch (_) {
-      rows = const [];
-      stewarded = const [];
-      tree = const [];
-      memberIds = {};
+    } else {
+      final live = FamiliesApi();
+      rows = await live.listMine();
+      stewarded = await live.listStewarded();
+      memberIds = rows.map((row) => row.id).toSet();
+      FamilyMembership.remember(memberIds);
+      if (familyId != null) {
+        tree = await live.listFamilyTree(familyId);
+      }
     }
     if (gateway != null && familyId != null) {
-      try {
-        tree = await gateway.listFamilyTree(familyId);
-      } catch (_) {
-        tree = const [];
-      }
+      tree = await gateway.listFamilyTree(familyId);
     }
     if (!mounted) return;
     // A name for the header only. This row is not a membership.
@@ -763,7 +752,7 @@ class _TimelinePageState extends State<TimelinePage> {
   }
 
   Widget _loadFailure() {
-    final message = _loadError ?? _storiesLoadError;
+    final message = _loadError ?? _bootstrapLoadError;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -793,7 +782,7 @@ class _TimelinePageState extends State<TimelinePage> {
     if (_loadingFamily || _loadingPublished) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_loadError != null) return _loadFailure();
+    if (_bootstrapFailed || _loadError != null) return _loadFailure();
     if (bands.isEmpty) {
       return const Center(
         child: Padding(

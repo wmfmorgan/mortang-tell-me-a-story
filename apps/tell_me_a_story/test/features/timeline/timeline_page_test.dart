@@ -295,6 +295,21 @@ class _FailingStoriesApi extends _FakeStoriesApi {
   }
 }
 
+class _FlakyFamilies extends _FakeFamilies {
+  _FlakyFamilies(super.rows);
+
+  var failedOnce = false;
+
+  @override
+  Future<List<MemberFamily>> listMine() async {
+    if (!failedOnce) {
+      failedOnce = true;
+      throw const _TimelineLoadFailure();
+    }
+    return super.listMine();
+  }
+}
+
 class _RetryStoriesApi extends _FakeStoriesApi {
   _RetryStoriesApi() : super(published: [_published(title: 'Jam')]);
 
@@ -4763,6 +4778,38 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text("Couldn't load stories."), findsNothing);
+    expect(find.byKey(const Key('timeline-dot-s1')), findsOneWidget);
+    expect(_tooltipFor(tester, 's1'), contains('Jam'));
+  });
+
+  testWidgets('a failed family load shows Retry and not an empty timeline', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(published: [_published(title: 'Jam')]),
+        families: _FlakyFamilies([
+          MemberFamily(
+            id: kTestFamilyId,
+            name: 'Ada',
+            createdAt: DateTime.utc(2020),
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('timeline-load-retry')), findsOneWidget);
+    expect(find.text('Try again'), findsWidgets);
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const Key('timeline-load-retry')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('timeline-load-retry')), findsNothing);
     expect(find.byKey(const Key('timeline-dot-s1')), findsOneWidget);
     expect(_tooltipFor(tester, 's1'), contains('Jam'));
   });
