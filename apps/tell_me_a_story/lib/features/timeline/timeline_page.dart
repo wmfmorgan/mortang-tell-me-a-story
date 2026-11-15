@@ -1,9 +1,6 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
@@ -21,14 +18,12 @@ import '../family/start_timeline_dialog.dart';
 import '../people/person_profile_dialog.dart';
 import '../invites/invite_accept.dart';
 import '../invites/invite_modal.dart';
-import '../stories/photo_frame.dart';
-import '../stories/story_date.dart';
 import 'days_attached_callout.dart';
 import 'days_card_probe.dart';
 import 'days_card_slot.dart';
 import 'dial_subheader.dart';
 import 'far_rail.dart';
-import 'full_chip.dart';
+import 'full_card.dart';
 import 'mid_rail.dart';
 import 'origin_banner.dart';
 import 'timeline_arrow_keys.dart';
@@ -1111,7 +1106,7 @@ class _FullCardRow extends StatelessWidget {
   }
 
   Widget _row(BuildContext context, DaysCardSlot? slot) {
-    final storyCard = _FullCard(
+    final storyCard = FullCard(
       story: story,
       focused: focused,
       branched: frame.branchesStory,
@@ -1359,296 +1354,6 @@ class _FullCardDot extends StatelessWidget {
                 ),
               ]
             : null,
-      ),
-    );
-  }
-}
-
-class _FullCard extends StatelessWidget {
-  const _FullCard({
-    required this.story,
-    required this.focused,
-    required this.branched,
-    required this.parentOrigin,
-    required this.photos,
-    required this.onOpen,
-    this.originTag,
-    this.onPerson,
-  });
-
-  final Story story;
-  final bool focused;
-  final bool branched;
-  final bool parentOrigin;
-  final PhotosGateway? photos;
-  final VoidCallback onOpen;
-  final String? originTag;
-  final void Function(({String id, String name}) person)? onPerson;
-
-  @override
-  Widget build(BuildContext context) {
-    final notes = story.commentCount + story.perspectiveCount;
-    final author = (story.authorDisplayName ?? '').trim().isEmpty
-        ? 'Member'
-        : story.authorDisplayName!.trim();
-    final paths = focused
-        ? (story.photoPaths.isEmpty
-              ? const <String>[]
-              : [story.photoPaths.first])
-        : story.photoPaths.take(2).toList();
-    return Material(
-      color: branched ? albumParchment : Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(albumCardRadius),
-        side: BorderSide(
-          color: branched || (focused && parentOrigin)
-              ? branchMoss
-              : focused
-              ? albumTerracotta
-              : albumInk.withValues(alpha: 0.2),
-          width: branched ? 1 : (focused ? 2 : 1),
-        ),
-      ),
-      child: InkWell(
-        key: Key('timeline-card-${story.id}'),
-        onTap: onOpen,
-        borderRadius: BorderRadius.circular(albumCardRadius),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(albumCardRadius),
-            boxShadow: branched || (focused && parentOrigin)
-                ? null
-                : [
-                    BoxShadow(
-                      color: albumInk.withValues(alpha: focused ? 0.08 : 0.04),
-                      blurRadius: focused ? 24 : 8,
-                      offset: Offset(0, focused ? 8 : 2),
-                    ),
-                    if (focused && !parentOrigin)
-                      BoxShadow(
-                        color: const Color(0xFFF5DED6).withValues(alpha: 0.3),
-                        spreadRadius: 4,
-                        blurRadius: 0,
-                      ),
-                  ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    Text(
-                      storyDateLabelFor(story),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: albumTerracotta,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        for (final person
-                            in story.people.isNotEmpty
-                                ? story.people
-                                : [
-                                    for (final name in story.personNames)
-                                      (id: '', name: name),
-                                  ])
-                          GestureDetector(
-                            key: Key(
-                              'timeline-person-${story.id}-${person.name}',
-                            ),
-                            onTap: person.id.isEmpty || onPerson == null
-                                ? null
-                                : () => onPerson!(person),
-                            child: FullChip(
-                              icon: Icons.person,
-                              label: person.name,
-                              filled: focused,
-                            ),
-                          ),
-                        if ((story.placeLabel ?? '').isNotEmpty)
-                          FullChip(
-                            icon: Icons.location_on,
-                            label: story.placeLabel!,
-                            filled: focused,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (originTag != null)
-                  Text(
-                    originTag!,
-                    key: Key('timeline-origin-tag-${story.id}'),
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: albumSage,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                Text(
-                  story.title ?? '',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 24,
-                    height: 1.15,
-                  ),
-                ),
-                if (paths.isNotEmpty && photos != null)
-                  _CardPhotos(paths: paths, photos: photos!, focused: focused),
-                if (focused) ...[
-                  const SizedBox(height: 12),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(
-                          color: albumInk.withValues(alpha: 0.12),
-                        ),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          Text(
-                            'Added by $author',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  fontSize: 12,
-                                  color: albumInk.withValues(alpha: 0.7),
-                                ),
-                          ),
-                          Text(
-                            '${countWord(story.photoCount, 'photo', 'photos')} · ${countWord(notes, 'note', 'notes')}',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: albumTerracotta,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CardPhotos extends StatefulWidget {
-  const _CardPhotos({
-    required this.paths,
-    required this.photos,
-    required this.focused,
-  });
-
-  final List<String> paths;
-  final PhotosGateway photos;
-  final bool focused;
-
-  @override
-  State<_CardPhotos> createState() => _CardPhotosState();
-}
-
-class _CardPhotosState extends State<_CardPhotos> {
-  final Map<String, Uint8List> _bytes = {};
-  final Map<String, double> _aspect = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    for (final path in widget.paths) {
-      try {
-        final bytes = await widget.photos.downloadBytes(path);
-        if (!mounted) return;
-        setState(() {
-          _bytes[path] = bytes;
-          _aspect[path] = encodedPhotoAspect(bytes) ?? (16 / 9);
-        });
-      } on StorageException {
-        // The object cannot be read. Leave it out of the well.
-      } on ClientException {
-        // The download never arrived. Leave it out of the well.
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ready = [
-      for (final path in widget.paths)
-        if (_bytes[path] != null) path,
-    ];
-    if (ready.isEmpty) return const SizedBox.shrink();
-    final shared = ready.length > 1;
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final gaps = 12.0 * (ready.length - 1);
-          final cellWidth = ready.length == 1
-              ? constraints.maxWidth
-              : (constraints.maxWidth - gaps) / ready.length;
-          final height = shared
-              ? cardPhotoRowHeight(focused: widget.focused)
-              : cardPhotoHeight(
-                  width: cellWidth,
-                  imageAspect: _aspect[ready.first] ?? (16 / 9),
-                  focused: widget.focused,
-                );
-          return SizedBox(
-            key: Key('timeline-card-photos-${ready.first}'),
-            height: height,
-            child: Row(
-              children: [
-                for (var i = 0; i < ready.length; i++)
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(left: i == 0 ? 0 : 12),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: ColoredBox(
-                          color: albumParchment,
-                          child: Image.memory(
-                            _bytes[ready[i]]!,
-                            height: height,
-                            width: double.infinity,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
       ),
     );
   }
