@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
@@ -1642,8 +1643,10 @@ class _CardPhotosState extends State<_CardPhotos> {
           _bytes[path] = bytes;
           _aspect[path] = encodedPhotoAspect(bytes) ?? (16 / 9);
         });
-      } catch (_) {
-        // A photo that cannot be read stays out of the well.
+      } on StorageException {
+        // The object cannot be read. Leave it out of the well.
+      } on ClientException {
+        // The download never arrived. Leave it out of the well.
       }
     }
   }
