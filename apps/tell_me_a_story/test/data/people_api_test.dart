@@ -304,6 +304,38 @@ void main() {
       expect(people.map((p) => p.name), ['Ada', 'Zoe']);
     });
   });
+
+  group('PeopleApi.personProfile', () {
+    test('NOT_FOUND becomes PersonProfileNotFound', () async {
+      final api = PeopleApi(
+        client: SupabaseClient(
+          'http://localhost',
+          'test-anon-key',
+          httpClient: _RpcErrorClient('NOT_FOUND: person'),
+        ),
+      );
+
+      await expectLater(
+        api.personProfile('missing'),
+        throwsA(isA<PersonProfileNotFound>()),
+      );
+    });
+
+    test('a non-NOT_FOUND prefix stays a PostgrestException', () async {
+      final api = PeopleApi(
+        client: SupabaseClient(
+          'http://localhost',
+          'test-anon-key',
+          httpClient: _RpcErrorClient('FORBIDDEN: member only'),
+        ),
+      );
+
+      await expectLater(
+        api.personProfile('locked'),
+        throwsA(isA<PostgrestException>()),
+      );
+    });
+  });
 }
 
 /// In-memory [PeopleGateway] that mirrors PeopleApi create validation rules.
@@ -391,6 +423,25 @@ class _ProfileDelayClient extends http.BaseClient {
     return http.StreamedResponse(
       Stream.value(bytes),
       200,
+      headers: const {'content-type': 'application/json'},
+      request: request,
+    );
+  }
+}
+
+class _RpcErrorClient extends http.BaseClient {
+  _RpcErrorClient(this.message);
+
+  final String message;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final bytes = utf8.encode(
+      jsonEncode({'message': message, 'code': 'P0001'}),
+    );
+    return http.StreamedResponse(
+      Stream.value(bytes),
+      400,
       headers: const {'content-type': 'application/json'},
       request: request,
     );

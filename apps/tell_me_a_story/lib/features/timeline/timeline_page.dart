@@ -11,6 +11,7 @@ import '../../data/invite_api.dart';
 import '../../data/manage_families_api.dart';
 import '../../data/people_api.dart';
 import '../../data/photos_api.dart';
+import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../family/start_timeline_dialog.dart';
@@ -23,6 +24,9 @@ import 'mid_rail.dart';
 import 'origin_banner.dart';
 import 'timeline_branching.dart';
 import 'timeline_zoom.dart';
+
+const _storiesLoadError = "Couldn't load stories.";
+const _bootstrapLoadError = 'Try again';
 
 /// Signed-in home. Far / mid / near rails match the Stitch timeline screens.
 class TimelinePage extends StatefulWidget {
@@ -66,6 +70,8 @@ class _TimelinePageState extends State<TimelinePage> {
   List<Story> _published = const [];
   var _loadingFamily = true;
   var _loadingPublished = true;
+  String? _loadError;
+  var _bootstrapFailed = false;
   var _inviteHandled = false;
   var _zoom = TimelineZoom.far;
   var _originBannerHidden = false;
@@ -183,24 +189,89 @@ class _TimelinePageState extends State<TimelinePage> {
 
   Future<void> _bootstrap() async {
     try {
-      final id = await _readableSavedFamily();
-      if (!mounted) return;
-      setState(() {
-        _familyId = id;
-        _loadingFamily = false;
-      });
-      await _loadFamilies();
-      _watchLive();
-      await _loadPublished();
+      await _openFamily();
+    } on Exception catch (error) {
+      _failBootstrap(error);
+      return;
+    }
+    if (!mounted || _bootstrapFailed) return;
+    await _loadPublished();
+    if (!mounted || _loadError != null) return;
+    try {
       await _maybeAcceptInvite();
       await _maybeOpenNewTimelineOrigin();
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      setState(() {
-        _loadingFamily = false;
-        _loadingPublished = false;
-      });
+      _showFailure(error);
     }
+  }
+
+  Future<void> _openFamily() async {
+    final id = await _readableSavedFamily();
+    if (!mounted) return;
+    setState(() {
+      _familyId = id;
+      _loadingFamily = false;
+      _bootstrapFailed = false;
+    });
+    if (!await _loadFamilies()) {
+      _markBootstrapFailed();
+      return;
+    }
+    _watchLive();
+  }
+
+  void _markBootstrapFailed() {
+    if (!mounted) return;
+    setState(() {
+      _loadingFamily = false;
+      _loadingPublished = false;
+      _bootstrapFailed = true;
+    });
+  }
+
+  void _failBootstrap(Object error) {
+    if (!mounted) return;
+    setState(() {
+      _loadingFamily = false;
+      _loadingPublished = false;
+      _bootstrapFailed = true;
+    });
+    _showFailure(error);
+  }
+
+  void _showFailure(Object error) {
+    final detail = mapRpcError(error) ?? 'Try again';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(detail)));
+  }
+
+  Future<void> _retryLoad() async {
+    if (_bootstrapFailed) {
+      await _retryBootstrap();
+      return;
+    }
+    setState(() {
+      _loadError = null;
+      _loadingPublished = true;
+    });
+    await _loadPublished();
+  }
+
+  Future<void> _retryBootstrap() async {
+    setState(() {
+      _bootstrapFailed = false;
+      _loadingFamily = true;
+      _loadingPublished = true;
+      _loadError = null;
+    });
+    try {
+      await _openFamily();
+    } on Exception catch (error) {
+      _failBootstrap(error);
+      return;
+    }
+    if (!mounted || _bootstrapFailed) return;
+    await _loadPublished();
   }
 
   bool get _canStartTimeline {
@@ -251,7 +322,7 @@ class _TimelinePageState extends State<TimelinePage> {
       },
     );
     if (created == null || !mounted) return;
-    await _loadFamilies();
+    if (!await _loadFamilies()) return;
     await _loadPublished();
     if (!mounted) return;
     ScaffoldMessenger.of(
@@ -281,7 +352,7 @@ class _TimelinePageState extends State<TimelinePage> {
     }
   }
 
-  Future<void> _loadFamilies() async {
+  Future<bool> _loadFamilies() async {
     final familyId = _familyId;
     List<MemberFamily> rows = const [];
     List<StewardFamily> stewarded = const [];
@@ -289,47 +360,21 @@ class _TimelinePageState extends State<TimelinePage> {
     var memberIds = <String>{};
     final gateway = widget.familiesApi;
     try {
-      if (gateway != null) {
-        rows = await gateway.listMine();
-        stewarded = await gateway.listStewarded();
-        memberIds = rows.map((row) => row.id).toSet();
-        FamilyMembership.remember(memberIds);
-      } else if (widget.storiesApi != null) {
-        if (familyId != null) {
-          rows = [
-            MemberFamily(
-              id: familyId,
-              name: 'Family',
-              createdAt: DateTime.utc(2020),
-            ),
-          ];
-          memberIds = {familyId};
-          tree = [TreeFamily(id: familyId, name: 'Family')];
-        }
-      } else {
-        final live = FamiliesApi();
-        rows = await live.listMine();
-        stewarded = await live.listStewarded();
-        memberIds = rows.map((row) => row.id).toSet();
-        FamilyMembership.remember(memberIds);
-        if (familyId != null) {
-          tree = await live.listFamilyTree(familyId);
-        }
-      }
-    } catch (_) {
-      rows = const [];
-      stewarded = const [];
-      tree = const [];
-      memberIds = {};
+      final read = await _readMembership(gateway, familyId);
+      rows = read.rows;
+      stewarded = read.stewarded;
+      memberIds = read.memberIds;
+      tree = read.tree;
+      if (gateway != null) FamilyMembership.remember(memberIds);
+    } on Exception catch (error) {
+      if (!mounted) return false;
+      _showFailure(error);
+      return false;
     }
     if (gateway != null && familyId != null) {
-      try {
-        tree = await gateway.listFamilyTree(familyId);
-      } catch (_) {
-        tree = const [];
-      }
+      tree = await _headerTree(gateway, familyId);
     }
-    if (!mounted) return;
+    if (!mounted) return false;
     // A name for the header only. This row is not a membership.
     if (rows.isEmpty && familyId != null && memberIds.isEmpty) {
       rows = [
@@ -346,6 +391,82 @@ class _TimelinePageState extends State<TimelinePage> {
       _tree = tree;
       _memberIds = memberIds;
     });
+    return true;
+  }
+
+  Future<
+    ({
+      List<MemberFamily> rows,
+      List<StewardFamily> stewarded,
+      Set<String> memberIds,
+      List<TreeFamily> tree,
+    })
+  >
+  _readMembership(FamiliesGateway? gateway, String? familyId) async {
+    if (gateway != null) {
+      final rows = await gateway.listMine();
+      final stewarded = await gateway.listStewarded();
+      return (
+        rows: rows,
+        stewarded: stewarded,
+        memberIds: rows.map((row) => row.id).toSet(),
+        tree: const <TreeFamily>[],
+      );
+    }
+    if (widget.storiesApi != null) return _localMembership(familyId);
+    final live = FamiliesApi();
+    final rows = await live.listMine();
+    final stewarded = await live.listStewarded();
+    final tree = familyId == null
+        ? const <TreeFamily>[]
+        : await live.listFamilyTree(familyId);
+    return (
+      rows: rows,
+      stewarded: stewarded,
+      memberIds: rows.map((row) => row.id).toSet(),
+      tree: tree,
+    );
+  }
+
+  ({
+    List<MemberFamily> rows,
+    List<StewardFamily> stewarded,
+    Set<String> memberIds,
+    List<TreeFamily> tree,
+  })
+  _localMembership(String? familyId) {
+    if (familyId == null) {
+      return (
+        rows: const [],
+        stewarded: const [],
+        memberIds: const {},
+        tree: const [],
+      );
+    }
+    return (
+      rows: [
+        MemberFamily(
+          id: familyId,
+          name: 'Family',
+          createdAt: DateTime.utc(2020),
+        ),
+      ],
+      stewarded: const [],
+      memberIds: {familyId},
+      tree: [TreeFamily(id: familyId, name: 'Family')],
+    );
+  }
+
+  Future<List<TreeFamily>> _headerTree(
+    FamiliesGateway gateway,
+    String familyId,
+  ) async {
+    try {
+      return await gateway.listFamilyTree(familyId);
+    } on Exception {
+      // Header name only. A miss leaves the tree empty and the load continues.
+      return const [];
+    }
   }
 
   void _watchLive() {
@@ -387,17 +508,24 @@ class _TimelinePageState extends State<TimelinePage> {
       setState(() {
         _published = publishedStories(merged);
         _loadingPublished = false;
+        _loadError = null;
       });
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      setState(() => _loadingPublished = false);
+      setState(() {
+        _loadingPublished = false;
+        _loadError = mapRpcError(error) ?? _storiesLoadError;
+      });
     }
   }
 
   Future<void> _maybeAcceptInvite() async {
     if (_inviteHandled || !mounted) return;
     _inviteHandled = true;
-    final uri = GoRouterState.of(context).uri;
+    // This page's context has a GoRouter and no GoRouterState above it.
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return;
+    final uri = router.routeInformationProvider.value.uri;
     if (!uri.queryParameters.containsKey('invite')) return;
     await acceptInviteFromUriIfPresent(context: context, uri: uri, api: _api);
   }
@@ -412,7 +540,11 @@ class _TimelinePageState extends State<TimelinePage> {
       _tree = const [];
     });
     _watchLive();
-    await _loadFamilies();
+    if (!await _loadFamilies()) {
+      if (!mounted) return;
+      setState(() => _loadingPublished = false);
+      return;
+    }
     await _loadPublished();
     if (!mounted) return;
     final still =
@@ -541,7 +673,7 @@ class _TimelinePageState extends State<TimelinePage> {
     if (GoRouter.maybeOf(context) == null) return;
     await context.push(AppRoutes.storyPath(story.id));
     if (!mounted) return;
-    await _loadFamilies();
+    if (!await _loadFamilies()) return;
     await _loadPublished();
   }
 
@@ -696,10 +828,38 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 
+  Widget _loadFailure() {
+    final message = _loadError ?? _bootstrapLoadError;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge
+                  ?.copyWith(color: Theme.of(context).colorScheme.error),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              key: const Key('timeline-load-retry'),
+              onPressed: _retryLoad,
+              style: TextButton.styleFrom(foregroundColor: albumTerracotta),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _body(List<DecadeBand> bands) {
     if (_loadingFamily || _loadingPublished) {
       return const Center(child: CircularProgressIndicator());
     }
+    if (_bootstrapFailed || _loadError != null) return _loadFailure();
     if (bands.isEmpty) {
       return const Center(
         child: Padding(

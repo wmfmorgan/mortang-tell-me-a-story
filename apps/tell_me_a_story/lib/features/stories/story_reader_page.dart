@@ -18,6 +18,7 @@ import '../../data/perspectives_api.dart' hide displayNameOrMember;
 import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/profile_api.dart';
+import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import '../comments/comment_composer.dart';
@@ -626,19 +627,41 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     if (loaded != null) return loaded;
     final families = widget.familiesApi;
     if (families == null) return null;
-    try {
+    Object? failure;
+    final fromMine = await _readParentName(() async {
       final mine = await families.listMine();
       for (final row in mine) {
         final name = row.name.trim();
         if (row.id == familyId && name.isNotEmpty) return row.name;
       }
-    } catch (_) {}
-    try {
+      return null;
+    }, (error) => failure = error);
+    if (fromMine != null) return fromMine;
+    final fromTree = await _readParentName(() async {
       final tree = await families.listFamilyTree(familyId);
       return _namedFamily(familyId, tree);
-    } catch (_) {
+    }, (error) => failure ??= error);
+    if (fromTree != null) return fromTree;
+    _showParentLookupFailure(failure);
+    return null;
+  }
+
+  Future<String?> _readParentName(
+    Future<String?> Function() read,
+    void Function(Object error) remember,
+  ) async {
+    try {
+      return await read();
+    } on Exception catch (error) {
+      remember(error);
       return null;
     }
+  }
+
+  void _showParentLookupFailure(Object? failure) {
+    if (failure == null || !mounted) return;
+    final detail = mapRpcError(failure) ?? 'Try again';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(detail)));
   }
 
   String? _namedFamily(String familyId, List<TreeFamily> tree) {

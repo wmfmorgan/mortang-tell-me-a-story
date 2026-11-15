@@ -25,6 +25,10 @@ import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
+class _LookupFailure implements Exception {
+  const _LookupFailure();
+}
+
 const _parent = '00000000-0000-0000-0000-0000000000aa';
 const _me = '00000000-0000-0000-0000-0000000000b1';
 const _other = '00000000-0000-0000-0000-0000000000b2';
@@ -87,9 +91,18 @@ class _Families extends FamiliesGateway {
   final List<FamilyPerson> members;
   final List<StewardFamily> stewarded;
   var treeLoads = 0;
+  var mineCalls = 0;
+  var failAfterFirstMine = false;
+  var failAfterFirstTree = false;
 
   @override
-  Future<List<MemberFamily>> listMine() async => mine;
+  Future<List<MemberFamily>> listMine() async {
+    mineCalls++;
+    if (failAfterFirstMine && mineCalls > 1) {
+      throw const _LookupFailure();
+    }
+    return mine;
+  }
 
   @override
   Future<List<StewardFamily>> listStewarded() async => stewarded;
@@ -97,6 +110,9 @@ class _Families extends FamiliesGateway {
   @override
   Future<List<TreeFamily>> listFamilyTree(String familyId) async {
     treeLoads++;
+    if (failAfterFirstTree && treeLoads > 1) {
+      throw const _LookupFailure();
+    }
     return tree;
   }
 
@@ -573,6 +589,36 @@ void main() {
       '1974',
     );
   });
+
+  testWidgets(
+    'a failed parent lookup shows Try again instead of dropping the error',
+    (tester) async {
+      final families = _Families(
+        mine: [
+          MemberFamily(
+            id: _parent,
+            name: 'Parent',
+            createdAt: DateTime.utc(1970),
+          ),
+        ],
+        tree: const [],
+        members: [_member(_me, name: 'Bill')],
+      );
+      families.failAfterFirstMine = true;
+      families.failAfterFirstTree = true;
+      await tester.pumpWidget(
+        _reader(story: _story(), families: families, manage: _Manage()),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('reader-overflow')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('reader-start-timeline')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Try again'), findsOneWidget);
+      expect(find.byKey(const Key('start-timeline-year')), findsNothing);
+    },
+  );
 
   testWidgets('a draft hides the reader item', (tester) async {
     await tester.pumpWidget(

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'photos_api.dart';
+import 'rpc_error.dart';
 
 enum StoryStatus { draft, published }
 
@@ -345,10 +346,7 @@ void ensureValidDraftSave({required DateTime? timeframeStart}) {
 
 /// A retried insert of the same client id. The caller updates that row.
 bool isDuplicateStoryKey(Object error) {
-  if (error is! PostgrestException) return false;
-  if (error.code == '23505') return true;
-  final message = error.message.toLowerCase();
-  return message.contains('duplicate key');
+  return rpcErrorIs(error, RpcErrorMatch.duplicateStoryKey);
 }
 
 abstract class StoriesGateway {
