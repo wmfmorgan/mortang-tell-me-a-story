@@ -79,7 +79,7 @@ bool originSteward(String? role) => role == 'owner' || role == 'co_owner';
 
 /// Hosted preview can serve this branch before the cover migration is applied.
 bool familiesCoverColumnMissing(PostgrestException error) {
-  return mapRpcError(error, match: RpcErrorMatch.missingCoverColumn) != null;
+  return rpcErrorIs(error, RpcErrorMatch.missingCoverColumn);
 }
 
 /// One live family from `list_family_tree`.
@@ -140,11 +140,11 @@ class OriginRpcException implements Exception {
 
 /// §12 catalog text for an origin RPC failure. Null when [error] is not one.
 OriginRpcException? originRpcException(Object error) {
-  final forbidden = mapRpcError(error, match: RpcErrorMatch.originForbidden);
+  final forbidden = rpcOriginDetail(error, RpcErrorMatch.originForbidden);
   if (forbidden != null) return OriginRpcException('FORBIDDEN', forbidden);
-  final missing = mapRpcError(error, match: RpcErrorMatch.originNotFound);
+  final missing = rpcOriginDetail(error, RpcErrorMatch.originNotFound);
   if (missing != null) return OriginRpcException('NOT_FOUND', missing);
-  final validation = mapRpcError(error, match: RpcErrorMatch.originValidation);
+  final validation = rpcOriginDetail(error, RpcErrorMatch.originValidation);
   if (validation != null) return OriginRpcException('VALIDATION', validation);
   return null;
 }

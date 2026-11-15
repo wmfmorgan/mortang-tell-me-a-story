@@ -9,6 +9,8 @@ import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
+import '../../fakes/quiet_stories.dart';
+
 class _MemberOf extends FamiliesGateway {
   _MemberOf(this.id);
 
@@ -85,6 +87,7 @@ void main() {
         home: TimelinePage(
           api: _StubInviteApi(),
           familiesApi: _MemberOf('family-1'),
+          storiesApi: QuietStories(),
         ),
       ),
     );

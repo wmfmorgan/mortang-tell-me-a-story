@@ -41,25 +41,25 @@ void main() {
 
   test('notFoundPrefix matches only a leading NOT_FOUND prefix', () {
     expect(
-      mapRpcError(
+      rpcErrorIs(
         const PostgrestException(message: 'NOT_FOUND: person'),
-        match: RpcErrorMatch.notFoundPrefix,
+        RpcErrorMatch.notFoundPrefix,
       ),
-      'person',
+      isTrue,
     );
     expect(
-      mapRpcError(
+      rpcErrorIs(
         const PostgrestException(message: 'FORBIDDEN: NOT_FOUND: person'),
-        match: RpcErrorMatch.notFoundPrefix,
+        RpcErrorMatch.notFoundPrefix,
       ),
-      isNull,
+      isFalse,
     );
     expect(
-      mapRpcError(
+      rpcErrorIs(
         const PostgrestException(message: 'not found'),
-        match: RpcErrorMatch.notFoundPrefix,
+        RpcErrorMatch.notFoundPrefix,
       ),
-      isNull,
+      isFalse,
     );
   });
 
@@ -67,35 +67,35 @@ void main() {
     'duplicateStoryKey matches sqlstate 23505 or the duplicate key text',
     () {
       expect(
-        mapRpcError(
+        rpcErrorIs(
           const PostgrestException(message: 'unique violation', code: '23505'),
-          match: RpcErrorMatch.duplicateStoryKey,
+          RpcErrorMatch.duplicateStoryKey,
         ),
-        'duplicate key',
+        isTrue,
       );
       expect(
-        mapRpcError(
+        rpcErrorIs(
           const PostgrestException(
             message: 'duplicate key value violates unique constraint',
             code: '23503',
           ),
-          match: RpcErrorMatch.duplicateStoryKey,
+          RpcErrorMatch.duplicateStoryKey,
         ),
-        'duplicate key',
+        isTrue,
       );
       expect(
-        mapRpcError(
+        rpcErrorIs(
           const PostgrestException(message: 'permission denied', code: '42501'),
-          match: RpcErrorMatch.duplicateStoryKey,
+          RpcErrorMatch.duplicateStoryKey,
         ),
-        isNull,
+        isFalse,
       );
       expect(
-        mapRpcError(
+        rpcErrorIs(
           StateError('duplicate key'),
-          match: RpcErrorMatch.duplicateStoryKey,
+          RpcErrorMatch.duplicateStoryKey,
         ),
-        isNull,
+        isFalse,
       );
       expect(
         isDuplicateStoryKey(
@@ -124,22 +124,10 @@ void main() {
       code: '42703',
     );
 
-    expect(
-      mapRpcError(missing, match: RpcErrorMatch.missingCoverColumn),
-      'cover_photo_path',
-    );
-    expect(
-      mapRpcError(cache, match: RpcErrorMatch.missingCoverColumn),
-      'cover_photo_path',
-    );
-    expect(
-      mapRpcError(denied, match: RpcErrorMatch.missingCoverColumn),
-      isNull,
-    );
-    expect(
-      mapRpcError(otherColumn, match: RpcErrorMatch.missingCoverColumn),
-      isNull,
-    );
+    expect(rpcErrorIs(missing, RpcErrorMatch.missingCoverColumn), isTrue);
+    expect(rpcErrorIs(cache, RpcErrorMatch.missingCoverColumn), isTrue);
+    expect(rpcErrorIs(denied, RpcErrorMatch.missingCoverColumn), isFalse);
+    expect(rpcErrorIs(otherColumn, RpcErrorMatch.missingCoverColumn), isFalse);
     expect(familiesCoverColumnMissing(missing), isTrue);
     expect(familiesCoverColumnMissing(denied), isFalse);
   });
@@ -155,20 +143,14 @@ void main() {
       code: '23505',
     );
 
+    expect(rpcErrorIs(people, RpcErrorMatch.storyPeopleDuplicate), isTrue);
+    expect(rpcErrorIs(stories, RpcErrorMatch.storyPeopleDuplicate), isFalse);
     expect(
-      mapRpcError(people, match: RpcErrorMatch.storyPeopleDuplicate),
-      'story_people_pkey',
-    );
-    expect(
-      mapRpcError(stories, match: RpcErrorMatch.storyPeopleDuplicate),
-      isNull,
-    );
-    expect(
-      mapRpcError(
+      rpcErrorIs(
         const PostgrestException(message: 'story_people_pkey', code: '23503'),
-        match: RpcErrorMatch.storyPeopleDuplicate,
+        RpcErrorMatch.storyPeopleDuplicate,
       ),
-      isNull,
+      isFalse,
     );
   });
 

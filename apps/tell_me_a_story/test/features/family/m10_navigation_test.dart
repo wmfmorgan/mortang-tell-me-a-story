@@ -10,7 +10,11 @@ import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/family/manage_families_page.dart';
+
+import '../../fakes/quiet_stories.dart';
+
 import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 
 void main() {
@@ -451,7 +455,11 @@ void main() {
   testWidgets(
     'no live family and nothing to recover lands on the empty Start state',
     (tester) async {
-      final path = await _land(tester, families: _Families());
+      final path = await _land(
+        tester,
+        families: _Families(),
+        storiesApi: QuietStories(),
+      );
       expect(path, AppRoutes.timeline);
       expect(
         find.text('No stories yet. Capture the first one for this family.'),
@@ -547,12 +555,14 @@ Future<String> _land(
   WidgetTester tester, {
   required _Families families,
   String? familyId,
+  StoriesGateway? storiesApi,
 }) async {
   final auth = AuthRefresh(initiallySignedIn: true);
   final router = createAppRouter(
     authRefresh: auth,
     inviteApi: _Invite(familyId),
     familiesApi: families,
+    storiesApi: storiesApi,
   );
   addTearDown(auth.dispose);
   addTearDown(router.dispose);

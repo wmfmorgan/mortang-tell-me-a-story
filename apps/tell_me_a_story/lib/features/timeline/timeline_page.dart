@@ -70,6 +70,7 @@ class _TimelinePageState extends State<TimelinePage> {
   var _loadingFamily = true;
   var _loadingPublished = true;
   String? _loadError;
+  var _bootstrapFailed = false;
   var _inviteHandled = false;
   var _zoom = TimelineZoom.far;
   var _originBannerHidden = false;
@@ -187,38 +188,77 @@ class _TimelinePageState extends State<TimelinePage> {
 
   Future<void> _bootstrap() async {
     try {
-      final id = await _readableSavedFamily();
-      if (!mounted) return;
-      setState(() {
-        _familyId = id;
-        _loadingFamily = false;
-        _loadError = null;
-      });
-      await _loadFamilies();
-      if (!_watchLiveOrSkip()) return;
-      await _loadPublished();
+      await _openFamily();
+    } on Exception catch (error) {
+      _failBootstrap(error);
+      return;
+    }
+    if (!mounted) return;
+    await _loadPublished();
+    if (!mounted || _loadError != null) return;
+    try {
       await _maybeAcceptInvite();
       await _maybeOpenNewTimelineOrigin();
     } on Exception catch (error) {
       if (!mounted) return;
-      setState(() {
-        _loadingFamily = false;
-        _loadingPublished = false;
-        _loadError = mapRpcError(error) ?? _storiesLoadError;
-      });
+      _showFailure(error);
     }
   }
 
+  Future<void> _openFamily() async {
+    final id = await _readableSavedFamily();
+    if (!mounted) return;
+    setState(() {
+      _familyId = id;
+      _loadingFamily = false;
+      _bootstrapFailed = false;
+    });
+    await _loadFamilies();
+    _watchLive();
+  }
+
+  void _failBootstrap(Object error) {
+    if (!mounted) return;
+    setState(() {
+      _loadingFamily = false;
+      _loadingPublished = false;
+      _bootstrapFailed = true;
+    });
+    _showFailure(error);
+  }
+
+  void _showFailure(Object error) {
+    final detail = mapRpcError(error) ?? 'Try again';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(detail)));
+  }
+
   Future<void> _retryLoad() async {
+    if (_bootstrapFailed) {
+      await _retryBootstrap();
+      return;
+    }
     setState(() {
       _loadError = null;
       _loadingPublished = true;
-      if (_familyId == null) _loadingFamily = true;
     });
-    if (_familyId == null) {
-      await _bootstrap();
+    await _loadPublished();
+  }
+
+  Future<void> _retryBootstrap() async {
+    setState(() {
+      _bootstrapFailed = false;
+      _loadingFamily = true;
+      _loadingPublished = true;
+      _loadError = null;
+    });
+    try {
+      await _loadFamilies();
+      _watchLive();
+    } on Exception catch (error) {
+      _failBootstrap(error);
       return;
     }
+    if (!mounted) return;
     await _loadPublished();
   }
 
@@ -367,23 +407,6 @@ class _TimelinePageState extends State<TimelinePage> {
     });
   }
 
-  /// An uninitialized client throws [AssertionError] from `Supabase.instance`.
-  /// Tests that build the page without a stories gateway still show the
-  /// empty timeline. A later story-list [Exception] is a visible load error.
-  bool _watchLiveOrSkip() {
-    try {
-      _watchLive();
-      return true;
-    } on AssertionError {
-      if (!mounted) return false;
-      setState(() {
-        _loadingFamily = false;
-        _loadingPublished = false;
-      });
-      return false;
-    }
-  }
-
   void _watchLive() {
     final familyId = _familyId;
     final live = _live;
@@ -437,6 +460,8 @@ class _TimelinePageState extends State<TimelinePage> {
   Future<void> _maybeAcceptInvite() async {
     if (_inviteHandled || !mounted) return;
     _inviteHandled = true;
+    // Timeline widget tests mount this page in a MaterialApp with no GoRouter.
+    // There is no invite query to accept. GoRouterState.of throws in that case.
     if (GoRouter.maybeOf(context) == null) return;
     final uri = GoRouterState.of(context).uri;
     if (!uri.queryParameters.containsKey('invite')) return;

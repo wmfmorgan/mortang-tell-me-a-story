@@ -341,7 +341,7 @@ class PeopleApi implements PeopleGateway {
       );
       return personProfileFromRpc(res);
     } on PostgrestException catch (error) {
-      if (mapRpcError(error, match: RpcErrorMatch.notFoundPrefix) != null) {
+      if (rpcErrorIs(error, RpcErrorMatch.notFoundPrefix)) {
         throw const PersonProfileNotFound();
       }
       rethrow;

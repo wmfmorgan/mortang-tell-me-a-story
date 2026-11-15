@@ -295,6 +295,21 @@ class _FailingStoriesApi extends _FakeStoriesApi {
   }
 }
 
+class _RetryStoriesApi extends _FakeStoriesApi {
+  _RetryStoriesApi() : super(published: [_published(title: 'Jam')]);
+
+  var failedOnce = false;
+
+  @override
+  Future<List<Story>> listPublished(String familyId) async {
+    if (!failedOnce) {
+      failedOnce = true;
+      throw const _TimelineLoadFailure();
+    }
+    return super.listPublished(familyId);
+  }
+}
+
 class _SlowStoriesApi extends _FakeStoriesApi {
   _SlowStoriesApi() {
     _pending = Completer<List<Story>>();
@@ -4736,6 +4751,20 @@ void main() {
           .colorScheme
           .error,
     );
+  });
+
+  testWidgets('retry after a failed load shows the stories', (tester) async {
+    addTearDown(FamilySelection.clear);
+    await tester.pumpWidget(_timeline(stories: _RetryStoriesApi()));
+    await tester.pumpAndSettle();
+    expect(find.text("Couldn't load stories."), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-load-retry')));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Couldn't load stories."), findsNothing);
+    expect(find.byKey(const Key('timeline-dot-s1')), findsOneWidget);
+    expect(_tooltipFor(tester, 's1'), contains('Jam'));
   });
 }
 

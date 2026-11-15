@@ -1,8 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Which failure [mapRpcError] reads. [detail] is the four RPC prefixes.
+/// Predicate and origin-catalog matches. Prefix detail stays on [mapRpcError].
 enum RpcErrorMatch {
-  detail,
   notFoundPrefix,
   duplicateStoryKey,
   missingCoverColumn,
@@ -13,20 +12,34 @@ enum RpcErrorMatch {
 }
 
 /// Detail after one of the four RPC prefixes, or null when none match.
-String? mapRpcError(
-  Object error, {
-  RpcErrorMatch match = RpcErrorMatch.detail,
-}) {
+String? mapRpcError(Object error) {
   final raw = error is PostgrestException ? error.message : '';
+  return _prefixDetail(raw, null);
+}
+
+/// True when [error] is the PostgREST case named by [match].
+bool rpcErrorIs(Object error, RpcErrorMatch match) {
   return switch (match) {
-    RpcErrorMatch.detail => _prefixDetail(raw, null),
-    RpcErrorMatch.notFoundPrefix => _prefixDetail(raw, 'NOT_FOUND:'),
+    RpcErrorMatch.notFoundPrefix => _hasNotFoundPrefix(error),
     RpcErrorMatch.duplicateStoryKey => _duplicateStoryKey(error),
     RpcErrorMatch.missingCoverColumn => _missingCoverColumn(error),
     RpcErrorMatch.storyPeopleDuplicate => _storyPeopleDuplicate(error),
-    RpcErrorMatch.originForbidden => _originCatalog(error, 'FORBIDDEN'),
-    RpcErrorMatch.originNotFound => _originCatalog(error, 'NOT_FOUND'),
+    RpcErrorMatch.originForbidden ||
+    RpcErrorMatch.originNotFound ||
+    RpcErrorMatch.originValidation => rpcOriginDetail(error, match) != null,
+  };
+}
+
+/// Catalog text for an origin RPC failure. Null for other matches.
+String? rpcOriginDetail(Object error, RpcErrorMatch match) {
+  return switch (match) {
+    RpcErrorMatch.originForbidden ||
+    RpcErrorMatch.originNotFound => _originCatalog(error, match),
     RpcErrorMatch.originValidation => _originValidation(error),
+    RpcErrorMatch.notFoundPrefix ||
+    RpcErrorMatch.duplicateStoryKey ||
+    RpcErrorMatch.missingCoverColumn ||
+    RpcErrorMatch.storyPeopleDuplicate => null,
   };
 }
 
@@ -47,43 +60,52 @@ String? _prefixDetail(String raw, String? only) {
   return null;
 }
 
-String? _duplicateStoryKey(Object error) {
-  if (error is! PostgrestException) return null;
-  if (error.code == '23505') return 'duplicate key';
-  final text = error.message.toLowerCase();
-  if (text.contains('duplicate key')) return 'duplicate key';
-  return null;
+bool _hasNotFoundPrefix(Object error) {
+  if (error is! PostgrestException) return false;
+  return _prefixDetail(error.message, 'NOT_FOUND:') != null;
 }
 
-String? _missingCoverColumn(Object error) {
-  if (error is! PostgrestException) return null;
+bool _duplicateStoryKey(Object error) {
+  if (error is! PostgrestException) return false;
+  if (error.code == '23505') return true;
   final text = error.message.toLowerCase();
-  if (!text.contains('cover_photo_path')) return null;
-  final missing =
-      error.code == '42703' ||
+  return text.contains('duplicate key');
+}
+
+bool _missingCoverColumn(Object error) {
+  if (error is! PostgrestException) return false;
+  final text = error.message.toLowerCase();
+  if (!text.contains('cover_photo_path')) return false;
+  return error.code == '42703' ||
       error.code == 'PGRST204' ||
       text.contains('does not exist') ||
       text.contains('schema cache');
-  return missing ? 'cover_photo_path' : null;
 }
 
-String? _storyPeopleDuplicate(Object error) {
-  if (error is! PostgrestException) return null;
-  if (error.code != '23505') return null;
+bool _storyPeopleDuplicate(Object error) {
+  if (error is! PostgrestException) return false;
+  if (error.code != '23505') return false;
   final text = error.message;
-  if (!text.contains('story_people_pkey')) return null;
-  return 'story_people_pkey';
+  return text.contains('story_people_pkey');
 }
 
-String? _originCatalog(Object error, String code) {
+String? _originCatalog(Object error, RpcErrorMatch match) {
   if (error is! PostgrestException) return null;
   final text = error.message;
-  if (!text.contains(code)) return null;
-  return switch (code) {
-    'FORBIDDEN' => 'You do not have permission to do that.',
-    'NOT_FOUND' => 'Not found.',
-    _ => null,
-  };
+  switch (match) {
+    case RpcErrorMatch.originForbidden:
+      if (!text.contains('FORBIDDEN')) return null;
+      return 'You do not have permission to do that.';
+    case RpcErrorMatch.originNotFound:
+      if (!text.contains('NOT_FOUND')) return null;
+      return 'Not found.';
+    case RpcErrorMatch.originValidation:
+    case RpcErrorMatch.notFoundPrefix:
+    case RpcErrorMatch.duplicateStoryKey:
+    case RpcErrorMatch.missingCoverColumn:
+    case RpcErrorMatch.storyPeopleDuplicate:
+      return null;
+  }
 }
 
 String? _originValidation(Object error) {
@@ -93,6 +115,5 @@ String? _originValidation(Object error) {
   const marker = 'VALIDATION: ';
   final index = text.indexOf(marker);
   if (index < 0) return text;
-  final detail = text.substring(index + marker.length).trim();
-  return detail;
+  return text.substring(index + marker.length).trim();
 }

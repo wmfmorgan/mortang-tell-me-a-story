@@ -346,7 +346,7 @@ void ensureValidDraftSave({required DateTime? timeframeStart}) {
 
 /// A retried insert of the same client id. The caller updates that row.
 bool isDuplicateStoryKey(Object error) {
-  return mapRpcError(error, match: RpcErrorMatch.duplicateStoryKey) != null;
+  return rpcErrorIs(error, RpcErrorMatch.duplicateStoryKey);
 }
 
 abstract class StoriesGateway {
