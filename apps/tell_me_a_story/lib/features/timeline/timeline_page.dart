@@ -367,6 +367,7 @@ class _TimelinePageState extends State<TimelinePage> {
       tree = read.tree;
       if (gateway != null) FamilyMembership.remember(memberIds);
     } on Exception catch (error) {
+      if (!mounted) return false;
       _showFailure(error);
       return false;
     }
@@ -463,6 +464,7 @@ class _TimelinePageState extends State<TimelinePage> {
     try {
       return await gateway.listFamilyTree(familyId);
     } on Exception {
+      // Header name only. A miss leaves the tree empty and the load continues.
       return const [];
     }
   }
@@ -520,10 +522,10 @@ class _TimelinePageState extends State<TimelinePage> {
   Future<void> _maybeAcceptInvite() async {
     if (_inviteHandled || !mounted) return;
     _inviteHandled = true;
-    // Timeline widget tests mount this page in a MaterialApp with no GoRouter.
-    // There is no invite query to accept. GoRouterState.of throws in that case.
-    if (GoRouter.maybeOf(context) == null) return;
-    final uri = GoRouterState.of(context).uri;
+    // This page's context has a GoRouter and no GoRouterState above it.
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return;
+    final uri = router.routeInformationProvider.value.uri;
     if (!uri.queryParameters.containsKey('invite')) return;
     await acceptInviteFromUriIfPresent(context: context, uri: uri, api: _api);
   }

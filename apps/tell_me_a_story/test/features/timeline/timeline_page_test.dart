@@ -1404,6 +1404,26 @@ void main() {
     },
   );
 
+  testWidgets('bootstrap under the app router completes with no exception', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    final auth = AuthRefresh(initiallySignedIn: true);
+    addTearDown(auth.dispose);
+    final router = createAppRouter(
+      authRefresh: auth,
+      inviteApi: FakeInviteApi(),
+      storiesApi: _FakeStoriesApi(published: const []),
+      familiesApi: _FakeFamilies(const []),
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TimelinePage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('returning to timeline after publish reloads published list', (
     tester,
   ) async {
