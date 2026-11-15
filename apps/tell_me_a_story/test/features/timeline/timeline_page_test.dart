@@ -4672,6 +4672,39 @@ void main() {
     expect(plain.boxShadow, isNull);
     expect(plain.border!.top.color, albumInk.withValues(alpha: 0.4));
   });
+
+  testWidgets('the days rail fades through clear parchment', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [_published(id: 'plain', title: 'Wagon')],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'plain');
+
+    final box = tester.widget<DecoratedBox>(
+      find.byWidgetPredicate((widget) {
+        if (widget is! DecoratedBox) return false;
+        final decoration = widget.decoration;
+        if (decoration is! BoxDecoration) return false;
+        return decoration.gradient is LinearGradient;
+      }),
+    );
+    final gradient =
+        (box.decoration as BoxDecoration).gradient! as LinearGradient;
+    expect(gradient.colors, [
+      albumParchment,
+      albumParchmentClear,
+      albumParchmentClear,
+      albumParchment,
+    ]);
+    expect(gradient.stops, [0, 0.18, 0.82, 1]);
+    expect(find.byKey(const Key('timeline-spine')), findsOneWidget);
+  });
 }
 
 Offset _leaderStart(WidgetTester tester) {
