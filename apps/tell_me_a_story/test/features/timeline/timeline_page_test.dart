@@ -4629,6 +4629,82 @@ void main() {
     );
     expect(material.color, albumWhite);
   });
+
+  testWidgets('a focused days dot keeps a blush halo', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [
+            _published(
+              id: 'late',
+              title: 'Late',
+              timeframeStart: DateTime(2024),
+            ),
+            _published(
+              id: 'early',
+              title: 'Early',
+              timeframeStart: DateTime(1954),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'late');
+
+    BoxDecoration decoration(String id) {
+      final box = tester.widget<Container>(
+        find.descendant(
+          of: find.byKey(Key('timeline-full-dot-$id')),
+          matching: find.byType(Container),
+        ),
+      );
+      return box.decoration! as BoxDecoration;
+    }
+
+    final focused = decoration('late');
+    expect(focused.color, albumTerracotta);
+    expect(focused.boxShadow!.single.color, albumBlush);
+    final plain = decoration('early');
+    expect(plain.color, albumParchment);
+    expect(plain.boxShadow, isNull);
+    expect(plain.border!.top.color, albumInk.withValues(alpha: 0.4));
+  });
+
+  testWidgets('the days rail fades through clear parchment', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _timeline(
+        stories: _FakeStoriesApi(
+          published: [_published(id: 'plain', title: 'Wagon')],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openFullCards(tester, 'plain');
+
+    final box = tester.widget<DecoratedBox>(
+      find.byWidgetPredicate((widget) {
+        if (widget is! DecoratedBox) return false;
+        final decoration = widget.decoration;
+        if (decoration is! BoxDecoration) return false;
+        return decoration.gradient is LinearGradient;
+      }),
+    );
+    final gradient =
+        (box.decoration as BoxDecoration).gradient! as LinearGradient;
+    expect(gradient.colors, [
+      albumParchment,
+      albumParchmentClear,
+      albumParchmentClear,
+      albumParchment,
+    ]);
+    expect(gradient.stops, [0, 0.18, 0.82, 1]);
+    expect(find.byKey(const Key('timeline-spine')), findsOneWidget);
+  });
 }
 
 Offset _leaderStart(WidgetTester tester) {
