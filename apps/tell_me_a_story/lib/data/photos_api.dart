@@ -7,7 +7,7 @@ import 'package:uuid/uuid.dart';
 const maxPhotosPerStory = 20;
 const storyPhotosBucket = 'story-photos';
 
-/// Supabase storage signed-URL lifetime (seconds); matches one-hour JWT/OTP defaults.
+/// Lifetime of Supabase storage signed URLs, in seconds (one hour).
 const storageSignedUrlLifetimeSeconds = 3600;
 
 const _photoSelect =
