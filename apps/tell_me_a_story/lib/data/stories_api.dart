@@ -629,7 +629,7 @@ class StoriesApi implements StoriesGateway {
         try {
           thumb = await _client.storage
               .from(storyPhotosBucket)
-              .createSignedUrl(path, 3600);
+              .createSignedUrl(path, storageSignedUrlLifetimeSeconds);
         } catch (_) {
           thumb = null;
         }

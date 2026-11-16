@@ -222,7 +222,7 @@ class ProfileApi implements ProfileGateway {
     if (_downloadAvatar != null) return _downloadAvatar(path);
     final signedUrl = await _supabase.storage
         .from(avatarsBucket)
-        .createSignedUrl(path, 3600);
+        .createSignedUrl(path, storageSignedUrlLifetimeSeconds);
     final response = await http.get(Uri.parse(signedUrl));
     if (response.statusCode != 200) {
       throw StateError('avatar download failed');
