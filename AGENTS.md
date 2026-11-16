@@ -15,7 +15,7 @@ If the code and the plan disagree, stop and report the difference. Do not reconc
   - `lib/core/config/env.dart` reads `--dart-define` values. `lib/core/supabase/supabase_init.dart` builds the anon client. `lib/core/` also holds navigation, the router, and theme tokens.
   - `lib/data/`: PostgREST and edge-function gateways (`*_api.dart`) and session helpers. RPC error text goes through `mapRpcError` in `lib/data/rpc_error.dart`.
   - `lib/features/<feature>/`: screens.
-  - `test/`: Flutter tests. The color guard is `test/theme/no_hardcoded_colors_test.dart`.
+  - `test/`: Flutter tests. The color guard is `test/core/theme/no_hardcoded_colors_test.dart`.
   - `integration_test/`: end-to-end flows (`integration_test/flows.md` and `integration_test/e2e_test.dart`). The manifest check is `e2e/check_flows.sh` at the repo root.
 - `supabase/migrations/`: schema, row level security, storage policies, and SQL functions. A schema change is a new file here. Never edit a migration that has been applied.
 - `supabase/functions/`: Deno edge functions. Shared code is in `supabase/functions/_shared/`. Tests are `supabase/functions/*_test.ts`.
@@ -59,7 +59,7 @@ Run from the repo root unless the command names another directory. Paste the out
 ## Code rules
 - No swallowed errors. Every catch shows or returns a mapped message, or rethrows.
 - Database failures that the product handles use one of these prefixes on the exception message: `NOT_FOUND:`, `FORBIDDEN:`, `VALIDATION:`, `INVITE_INVALID:`. The client reads them only in `mapRpcError` (`lib/data/rpc_error.dart`). The edge-function copy is `mapRpcError` in `supabase/functions/_shared/manage.ts`. A new prefix needs Bill's approval. Messages are user-facing detail after the prefix. Do not put raw database text in them.
-- UI uses only `lib/core/theme/album_theme.dart` tokens. `test/theme/no_hardcoded_colors_test.dart` fails on `Color(0x` or `Colors.` anywhere else in `lib/`. Its skip list names files by exact path from `lib/` and only shrinks. Never add a path. A new token needs Bill's approval.
+- UI uses only `lib/core/theme/album_theme.dart` tokens. `test/core/theme/no_hardcoded_colors_test.dart` fails on `Color(0x` or `Colors.` anywhere else in `lib/`. Its skip list names files by exact path from `lib/` and only shrinks. Never add a path. A new token needs Bill's approval.
 - No new user-facing copy without Bill's approval.
 - No new dependencies without Bill's approval. Pin majors. Do not upgrade a package in passing. An approved dependency also needs the dependency note in § Build contract item 6. A note never stands in for the approval.
 - `lib/` layer rules are only in § Architecture and layers item 1. Follow that item.
@@ -178,7 +178,7 @@ Check: The added lines contain none of `throw '`, `throw "`, `throw Exception(`,
 2. A changed non-generated file under `apps/tell_me_a_story/lib/` has a new or changed test under `apps/tell_me_a_story/test/`. A changed migration has a new or changed pgTAP file under `supabase/tests/`. A changed edge function has a new or changed `supabase/functions/*_test.ts`. Name any exception in the PR body, with a reason.
 3. Never lower the test count. Do not delete a test. Do not add `skip:`, `@Skip`, or a tag change that moves a test out of `flutter test`, `deno test`, or `supabase test db`, unless the spec says so.
 4. Assert what a user or a caller can observe: widget finders and text, return values, and the mapped RPC detail. Do not assert on private members. `make test` passes with no `--dart-define` and does not call the hosted project.
-5. Do not edit `test/theme/no_hardcoded_colors_test.dart` to make a color pass, except to shrink its skip list.
+5. Do not edit `test/core/theme/no_hardcoded_colors_test.dart` to make a color pass, except to shrink its skip list.
 Check: The diff pairs each changed source file with a test change. It removes or skips no test. The **TDD log** is present. Any color-guard edit only shrinks the skip list.
 
 ### 9. Do not

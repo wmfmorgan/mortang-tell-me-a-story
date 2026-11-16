@@ -7,6 +7,9 @@ import 'package:uuid/uuid.dart';
 const maxPhotosPerStory = 20;
 const storyPhotosBucket = 'story-photos';
 
+/// Lifetime of Supabase storage signed URLs, in seconds (one hour).
+const storageSignedUrlLifetimeSeconds = 3600;
+
 const _photoSelect =
     'id, story_id, family_id, uploader_id, storage_path, edited_storage_path, edit_version, sort_order';
 

@@ -442,7 +442,9 @@ class PeopleApi implements PeopleGateway {
     final bucket = path == personAvatarObjectPath(personId)
         ? personAvatarsBucket
         : avatarsBucketName;
-    return _client.storage.from(bucket).createSignedUrl(path, 3600);
+    return _client.storage
+        .from(bucket)
+        .createSignedUrl(path, storageSignedUrlLifetimeSeconds);
   }
 
   Future<Person> _uploadPersonPicture(Person person, List<int> bytes) async {
