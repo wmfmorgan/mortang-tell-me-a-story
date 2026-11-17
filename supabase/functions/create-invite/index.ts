@@ -1,4 +1,5 @@
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
+import { readJsonObject } from "../_shared/json_object.ts";
 import { mapRpcError } from "../_shared/manage.ts";
 import {
   bearerToken,
@@ -100,12 +101,13 @@ async function handleCreateInvite(
     return errorResponse("AUTH_REQUIRED", "Sign-in required", 401);
   }
 
-  let body: { family_id?: string; email?: string; person_id?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return errorResponse("VALIDATION", "Invalid JSON body", 400);
-  }
+  const parsed = await readJsonObject(req);
+  if (parsed instanceof Response) return parsed;
+  const body = parsed as {
+    family_id?: string;
+    email?: string;
+    person_id?: string;
+  };
 
   const familyId = body.family_id?.trim();
   if (!familyId) {

@@ -1,4 +1,5 @@
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
+import { readJsonObject } from "../_shared/json_object.ts";
 import { mapRpcError } from "../_shared/manage.ts";
 import { bearerToken, serviceClient, userClient } from "../_shared/supabase.ts";
 
@@ -157,12 +158,9 @@ function emailRefusal(
 }
 
 async function readToken(req: Request): Promise<string | Response> {
-  let body: { token?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return errorResponse("VALIDATION", "Invalid JSON body", 400);
-  }
+  const parsed = await readJsonObject(req);
+  if (parsed instanceof Response) return parsed;
+  const body = parsed as { token?: string };
   const token = body.token?.trim();
   if (!token) return errorResponse("VALIDATION", "token is required", 400);
   return token;

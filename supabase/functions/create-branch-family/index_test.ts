@@ -1,5 +1,6 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
+import { readJsonObject } from "../_shared/json_object.ts";
 import { mapRpcError } from "../_shared/manage.ts";
 import {
   createBranchFamily,
@@ -29,7 +30,8 @@ function gateWith(rpc: BranchRpc) {
       body: Record<string, unknown>,
     ) => Promise<Response>,
   ) => {
-    const body = await req.json();
+    const body = await readJsonObject(req);
+    if (body instanceof Response) return body;
     return run({ rpc }, body);
   };
 }
@@ -271,4 +273,38 @@ Deno.test("INVITE_INVALID: used passes through", async () => {
   const res = mapRpcError("INVITE_INVALID: used");
   assertEquals(res.status, 400);
   assertEquals(await res.json(), { code: "INVITE_INVALID", message: "used" });
+});
+
+function rawPost(body: string): Request {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  headers.set("Authorization", "Bearer test-token");
+  return new Request("http://local/create-branch-family", {
+    method: "POST",
+    headers,
+    body,
+  });
+}
+
+async function expectGateRejects(body: string): Promise<void> {
+  let calls = 0;
+  const rpc: BranchRpc = () => {
+    calls += 1;
+    return Promise.resolve({ data: null, error: null });
+  };
+  const res = await createBranchFamily(rawPost(body), { gate: gateWith(rpc) });
+  assertEquals(res.status, 400);
+  assertEquals(await res.json(), {
+    code: "VALIDATION",
+    message: "Invalid JSON body",
+  });
+  assertEquals(calls, 0);
+}
+
+Deno.test("branch gate rejects an empty body", () => expectGateRejects(""));
+
+Deno.test("branch gate rejects invalid JSON", () => expectGateRejects("{"));
+
+Deno.test("branch gate rejects a non-object body", async () => {
+  await expectGateRejects("[1]");
+  await expectGateRejects("\"hi\"");
 });

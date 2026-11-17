@@ -17,14 +17,26 @@ const pending = {
 };
 
 function post(body: unknown): Request {
+  return rawPost(JSON.stringify(body));
+}
+
+function rawPost(body: string): Request {
   return new Request("http://local/accept-invite", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: "Bearer test-token",
     },
-    body: JSON.stringify(body),
+    body,
   });
+}
+
+const invalidJson = { code: "VALIDATION", message: "Invalid JSON body" };
+
+async function expectInvalidJson(body: string): Promise<void> {
+  const res = await acceptInvite(rawPost(body));
+  assertEquals(res.status, 400);
+  assertEquals(await res.json(), invalidJson);
 }
 
 function dbWith(opts: {
@@ -310,4 +322,13 @@ Deno.test("membership failures hide raw database text", async () => {
   assertEquals(insert.status, 400);
   assertEquals(insertBody.includes(rawDb), false);
   assertEquals(insertBody.includes("Could not create membership"), true);
+});
+
+Deno.test("accept-invite rejects an empty body", () => expectInvalidJson(""));
+
+Deno.test("accept-invite rejects invalid JSON", () => expectInvalidJson("{"));
+
+Deno.test("accept-invite rejects a non-object body", async () => {
+  await expectInvalidJson("[1]");
+  await expectInvalidJson("\"hi\"");
 });
