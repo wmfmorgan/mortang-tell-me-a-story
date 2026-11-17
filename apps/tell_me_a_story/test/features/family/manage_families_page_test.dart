@@ -14,6 +14,8 @@ import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 
+import '../../support/quiet_gateways.dart';
+
 void main() {
   late _Directory directory;
   late _Manage manage;
@@ -923,7 +925,7 @@ class _Manage implements ManageFamiliesGateway {
   }
 }
 
-class _HubFamilies extends FamiliesGateway {
+class _HubFamilies extends FamiliesGateway with QuietFamiliesDefaults {
   _HubFamilies(this.directory);
 
   final _Directory directory;
@@ -956,20 +958,6 @@ class _HubFamilies extends FamiliesGateway {
           ),
     ];
   }
-
-  @override
-  Future<void> setFamilyOrigin({
-    required String familyId,
-    required String storyId,
-  }) async {}
-
-  @override
-  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
-    return const [];
-  }
-
-  @override
-  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
 class _HubInvite implements InviteGateway {

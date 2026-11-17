@@ -52,7 +52,7 @@ class _FakeInviteApi implements InviteGateway {
   Future<void> sendInviteEmail({required String inviteId}) async {}
 }
 
-class _FakePeopleApi extends PeopleGateway {
+class _FakePeopleApi extends PeopleGateway with QuietPeopleDefaults {
   _FakePeopleApi({List<Person>? seed}) : rows = [...?seed];
 
   final List<Person> rows;
@@ -82,24 +82,6 @@ class _FakePeopleApi extends PeopleGateway {
     rows.add(person);
     return person;
   }
-
-  @override
-  Future<Person?> personForEdit(String personId) async => null;
-
-  @override
-  Future<PersonProfile?> personProfile(String personId) async => null;
-
-  @override
-  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
-
-  @override
-  Future<bool> isHomeFamilySteward(String familyId) async => false;
-
-  @override
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
 }
 
 class _FakePlacesApi implements PlacesGateway {

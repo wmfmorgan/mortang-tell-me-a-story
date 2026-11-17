@@ -23,6 +23,8 @@ import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/family/family_landing_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 class _StubInviteLinkApi implements InviteLinkGateway {
   @override
   Future<InvitePreview> validateInviteToken(String token) async {
@@ -60,7 +62,7 @@ class _StubInviteApi implements InviteGateway {
   Future<void> sendInviteEmail({required String inviteId}) async {}
 }
 
-class _StubPeopleApi extends PeopleGateway {
+class _StubPeopleApi extends PeopleGateway with QuietPeopleDefaults {
   @override
   Future<List<Person>> listPeople(String familyId) async => const [];
 
@@ -75,24 +77,6 @@ class _StubPeopleApi extends PeopleGateway {
   }) async {
     throw UnimplementedError();
   }
-
-  @override
-  Future<Person?> personForEdit(String personId) async => null;
-
-  @override
-  Future<PersonProfile?> personProfile(String personId) async => null;
-
-  @override
-  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
-
-  @override
-  Future<bool> isHomeFamilySteward(String familyId) async => false;
-
-  @override
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
 }
 
 class _StubPlacesApi implements PlacesGateway {
@@ -740,7 +724,7 @@ void main() {
   });
 }
 
-class _MemberOf extends FamiliesGateway {
+class _MemberOf extends FamiliesGateway with QuietFamiliesDefaults {
   _MemberOf(this.ids);
 
   final List<String> ids;
@@ -755,18 +739,4 @@ class _MemberOf extends FamiliesGateway {
 
   @override
   Future<List<StewardFamily>> listStewarded() async => const [];
-
-  @override
-  Future<void> setFamilyOrigin({
-    required String familyId,
-    required String storyId,
-  }) async {}
-
-  @override
-  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
-    return const [];
-  }
-
-  @override
-  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }

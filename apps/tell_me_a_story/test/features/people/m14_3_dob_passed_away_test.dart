@@ -14,6 +14,8 @@ import 'package:tell_me_a_story/features/people/edit_person_dialog.dart';
 import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
 import 'package:tell_me_a_story/features/settings/settings_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
 Future<List<PersonStoryCard>> _noPersonStories(String personId) async =>
@@ -478,7 +480,7 @@ Future<void> _openProfile(
   await tester.pumpAndSettle();
 }
 
-class _People extends PeopleGateway {
+class _People extends PeopleGateway with QuietPeopleDefaults {
   List<Person> tree = const [];
   List<Person> unlinked = const [];
   PersonProfile? profile;
@@ -526,15 +528,9 @@ class _People extends PeopleGateway {
     if (error != null) throw error;
     marks.add((personId: personId, value: value));
   }
-
-  @override
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
 }
 
-class _Profile implements ProfileGateway {
+class _Profile extends ProfileGateway with QuietProfileDefaults {
   final profile = const OwnProfile(
     id: 'user-1',
     displayName: 'Sarah Morgan',
@@ -572,9 +568,6 @@ class _Profile implements ProfileGateway {
 
   @override
   Future<void> updateEmail(String email) async {}
-
-  @override
-  Future<String?> displayName(String userId) async => null;
 }
 
 class _Invites implements InviteGateway {

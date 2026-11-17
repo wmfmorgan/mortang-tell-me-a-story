@@ -10,8 +10,9 @@ import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 import '../../fakes/quiet_stories.dart';
+import '../../support/quiet_gateways.dart';
 
-class _MemberOf extends FamiliesGateway {
+class _MemberOf extends FamiliesGateway with QuietFamiliesDefaults {
   _MemberOf(this.id);
 
   final String id;
@@ -23,20 +24,6 @@ class _MemberOf extends FamiliesGateway {
 
   @override
   Future<List<StewardFamily>> listStewarded() async => const [];
-
-  @override
-  Future<void> setFamilyOrigin({
-    required String familyId,
-    required String storyId,
-  }) async {}
-
-  @override
-  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
-    return const [];
-  }
-
-  @override
-  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
 class _StubInviteApi implements InviteGateway {
@@ -441,7 +428,7 @@ void main() {
   });
 }
 
-class _EmailPeople extends PeopleGateway {
+class _EmailPeople extends PeopleGateway with QuietPeopleDefaults {
   int updates = 0;
   String? savedEmail;
   Object? updateError;
@@ -490,24 +477,9 @@ class _EmailPeople extends PeopleGateway {
     );
     return person;
   }
-
-  @override
-  Future<Person?> personForEdit(String personId) async => null;
-
-  @override
-  Future<PersonProfile?> personProfile(String personId) async => null;
-
-  @override
-  Future<bool> isHomeFamilySteward(String familyId) async => false;
-
-  @override
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
 }
 
-class _UnlinkedPeople extends PeopleGateway {
+class _UnlinkedPeople extends PeopleGateway with QuietPeopleDefaults {
   @override
   Future<List<Person>> listPeople(String familyId) async => const [];
 
@@ -527,21 +499,6 @@ class _UnlinkedPeople extends PeopleGateway {
   Future<List<Person>> listUnlinkedPeople(String familyId) async {
     return const [Person(id: 'p1', familyId: 'f', name: 'Ada')];
   }
-
-  @override
-  Future<Person?> personForEdit(String personId) async => null;
-
-  @override
-  Future<PersonProfile?> personProfile(String personId) async => null;
-
-  @override
-  Future<bool> isHomeFamilySteward(String familyId) async => false;
-
-  @override
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
 }
 
 Future<void> _open(

@@ -6,24 +6,14 @@ import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
+import 'package:tell_me_a_story/data/profile_api.dart';
 
 import '../fakes/fake_invite_api.dart';
 
-class TestFamilies extends FamiliesGateway {
-  TestFamilies(this.rows);
-
-  factory TestFamilies.member([String id = kTestFamilyId]) => TestFamilies([
-    MemberFamily(id: id, name: id, createdAt: DateTime.utc(2020)),
-  ]);
-
-  final List<MemberFamily> rows;
-
-  @override
-  Future<List<MemberFamily>> listMine() async => rows;
-
-  @override
-  Future<List<StewardFamily>> listStewarded() async => const [];
-
+/// Quiet answers for family methods a test does not exercise.
+/// [listFamilyTree] is the old gateway default: the matching row from
+/// [FamiliesGateway.listMine], so marks stay empty until a fake returns a tree.
+mixin QuietFamiliesDefaults on FamiliesGateway {
   @override
   Future<void> setFamilyOrigin({
     required String familyId,
@@ -37,6 +27,66 @@ class TestFamilies extends FamiliesGateway {
 
   @override
   Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
+
+  @override
+  Future<List<TreeFamily>> listFamilyTree(String familyId) async {
+    final mine = await listMine();
+    for (final row in mine) {
+      if (row.id == familyId) {
+        return [
+          TreeFamily(
+            id: row.id,
+            name: row.name,
+            parentFamilyId: row.parentFamilyId,
+          ),
+        ];
+      }
+    }
+    return const [];
+  }
+}
+
+/// Quiet answers for people methods a test does not exercise.
+mixin QuietPeopleDefaults on PeopleGateway {
+  @override
+  Future<Person?> personForEdit(String personId) async => null;
+
+  @override
+  Future<PersonProfile?> personProfile(String personId) async => null;
+
+  @override
+  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
+
+  @override
+  Future<bool> isHomeFamilySteward(String familyId) async => false;
+
+  @override
+  Future<String?> signedPictureUrl({
+    required String personId,
+    String? path,
+  }) async => null;
+}
+
+/// Quiet [ProfileGateway.displayName] for tests that never show a posting name.
+mixin QuietProfileDefaults on ProfileGateway {
+  @override
+  Future<String?> displayName(String userId) async => null;
+}
+
+class TestFamilies extends FamiliesGateway with QuietFamiliesDefaults {
+  TestFamilies(this.rows);
+
+  factory TestFamilies.member([String id = kTestFamilyId]) => TestFamilies([
+    MemberFamily(id: id, name: id, createdAt: DateTime.utc(2020)),
+  ]);
+
+  final List<MemberFamily> rows;
+
+  @override
+  Future<List<MemberFamily>> listMine() async => rows;
+
+  @override
+  Future<List<StewardFamily>> listStewarded() async => const [];
 }
 
 class QuietPhotos implements PhotosGateway {
@@ -155,7 +205,7 @@ class QuietPlaces implements PlacesGateway {
   }) => throw UnimplementedError();
 }
 
-class QuietPeople extends PeopleGateway {
+class QuietPeople extends PeopleGateway with QuietPeopleDefaults {
   @override
   Future<List<Person>> listPeople(String familyId) async => const [];
 
@@ -170,22 +220,4 @@ class QuietPeople extends PeopleGateway {
   }) {
     throw UnimplementedError();
   }
-
-  @override
-  Future<Person?> personForEdit(String personId) async => null;
-
-  @override
-  Future<PersonProfile?> personProfile(String personId) async => null;
-
-  @override
-  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
-
-  @override
-  Future<bool> isHomeFamilySteward(String familyId) async => false;
-
-  @override
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
 }

@@ -8,9 +8,11 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
-class _FakePeopleGateway extends PeopleGateway {
+class _FakePeopleGateway extends PeopleGateway with QuietPeopleDefaults {
   _FakePeopleGateway({List<Person>? seed, this._tree = const {}})
     : rows = [...?seed];
 
@@ -59,24 +61,6 @@ class _FakePeopleGateway extends PeopleGateway {
     rows.add(person);
     return person;
   }
-
-  @override
-  Future<Person?> personForEdit(String personId) async => null;
-
-  @override
-  Future<PersonProfile?> personProfile(String personId) async => null;
-
-  @override
-  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
-
-  @override
-  Future<bool> isHomeFamilySteward(String familyId) async => false;
-
-  @override
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
 }
 
 const _pickerKey = Key('add-person-picker');

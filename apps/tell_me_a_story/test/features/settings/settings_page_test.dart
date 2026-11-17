@@ -13,6 +13,8 @@ import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/features/settings/settings_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -429,7 +431,7 @@ Widget _bar(AlbumHeaderPage page) {
   );
 }
 
-class _Profile implements ProfileGateway {
+class _Profile extends ProfileGateway with QuietProfileDefaults {
   _Profile({
     this.profile = const OwnProfile(
       id: 'user-1',
@@ -505,9 +507,6 @@ class _Profile implements ProfileGateway {
   Future<void> updateEmail(String email) async {
     emails.add(email);
   }
-
-  @override
-  Future<String?> displayName(String userId) async => null;
 }
 
 class _Invite implements InviteGateway {

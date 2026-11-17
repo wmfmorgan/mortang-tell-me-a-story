@@ -14,6 +14,8 @@ import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
 import 'package:tell_me_a_story/features/family/delete_family_dialog.dart';
 import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 
+import '../../support/quiet_gateways.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
@@ -420,7 +422,7 @@ class _Invites implements InviteGateway {
   Future<void> sendInviteEmail({required String inviteId}) async {}
 }
 
-class _People extends PeopleGateway {
+class _People extends PeopleGateway with QuietPeopleDefaults {
   @override
   Future<List<Person>> listPeople(String familyId) async => const [];
 
@@ -435,22 +437,4 @@ class _People extends PeopleGateway {
   }) {
     throw UnimplementedError();
   }
-
-  @override
-  Future<Person?> personForEdit(String personId) async => null;
-
-  @override
-  Future<PersonProfile?> personProfile(String personId) async => null;
-
-  @override
-  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
-
-  @override
-  Future<bool> isHomeFamilySteward(String familyId) async => false;
-
-  @override
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
 }

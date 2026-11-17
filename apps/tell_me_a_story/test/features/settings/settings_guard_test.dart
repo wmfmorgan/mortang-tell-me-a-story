@@ -12,6 +12,8 @@ import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/features/settings/settings_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _ada = 'ada';
 const _bea = 'bea';
 
@@ -164,7 +166,7 @@ Future<GoRouter> _mount(
   return router;
 }
 
-class _Profile implements ProfileGateway {
+class _Profile extends ProfileGateway with QuietProfileDefaults {
   final emails = <String>[];
 
   @override
@@ -196,12 +198,9 @@ class _Profile implements ProfileGateway {
   Future<void> updateEmail(String email) async {
     emails.add(email);
   }
-
-  @override
-  Future<String?> displayName(String userId) async => null;
 }
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesGateway with QuietFamiliesDefaults {
   @override
   Future<List<MemberFamily>> listMine() async => [
     MemberFamily(id: _ada, name: 'Ada', createdAt: DateTime.utc(2020)),
@@ -212,20 +211,6 @@ class _Families extends FamiliesGateway {
   Future<List<StewardFamily>> listStewarded() async => const [
     StewardFamily(id: _ada, name: 'Ada', role: 'owner'),
   ];
-
-  @override
-  Future<void> setFamilyOrigin({
-    required String familyId,
-    required String storyId,
-  }) async {}
-
-  @override
-  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
-    return const [];
-  }
-
-  @override
-  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
 class _Invite implements InviteGateway {

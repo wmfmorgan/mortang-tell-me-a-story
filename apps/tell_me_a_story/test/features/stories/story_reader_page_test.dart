@@ -22,6 +22,8 @@ import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart'
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
 const _storyId = 's1';
 
@@ -209,7 +211,7 @@ class _FakeStoriesApi implements StoriesGateway {
   }) async {}
 }
 
-class _FakePeopleApi extends PeopleGateway {
+class _FakePeopleApi extends PeopleGateway with QuietPeopleDefaults {
   _FakePeopleApi({List<Person>? seed}) : rows = [...?seed];
 
   final List<Person> rows;
@@ -230,24 +232,6 @@ class _FakePeopleApi extends PeopleGateway {
   }) {
     throw UnimplementedError();
   }
-
-  @override
-  Future<Person?> personForEdit(String personId) async => null;
-
-  @override
-  Future<PersonProfile?> personProfile(String personId) async => null;
-
-  @override
-  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
-
-  @override
-  Future<bool> isHomeFamilySteward(String familyId) async => false;
-
-  @override
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
 }
 
 class _FakePlacesApi implements PlacesGateway {
@@ -2732,7 +2716,7 @@ void main() {
   );
 }
 
-class _OriginFamilies extends FamiliesGateway {
+class _OriginFamilies extends FamiliesGateway with QuietFamiliesDefaults {
   _OriginFamilies({
     this.mine = const [],
     this.tree = const [],
@@ -2770,31 +2754,14 @@ class _OriginFamilies extends FamiliesGateway {
   Future<List<OriginDependent>> listOriginDependents(String storyId) async {
     return dependents;
   }
-
-  @override
-  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
-class _NoMembership extends FamiliesGateway {
+class _NoMembership extends FamiliesGateway with QuietFamiliesDefaults {
   @override
   Future<List<MemberFamily>> listMine() async => const [];
 
   @override
   Future<List<StewardFamily>> listStewarded() async => const [];
-
-  @override
-  Future<void> setFamilyOrigin({
-    required String familyId,
-    required String storyId,
-  }) async {}
-
-  @override
-  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
-    return const [];
-  }
-
-  @override
-  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
 class _TreePeople extends _FakePeopleApi {
@@ -2814,7 +2781,7 @@ class _TreePeople extends _FakePeopleApi {
   }
 }
 
-class _FailingAvatarProfile implements ProfileGateway {
+class _FailingAvatarProfile extends ProfileGateway with QuietProfileDefaults {
   @override
   Future<Uint8List?> downloadAvatar(String path) async {
     throw Exception('avatar download failed');
@@ -2843,9 +2810,6 @@ class _FailingAvatarProfile implements ProfileGateway {
 
   @override
   Future<void> updateEmail(String email) => throw UnimplementedError();
-
-  @override
-  Future<String?> displayName(String userId) async => null;
 }
 
 class _WholeTreePeople extends _FakePeopleApi {

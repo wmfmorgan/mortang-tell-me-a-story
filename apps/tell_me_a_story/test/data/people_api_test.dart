@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 
+import '../support/quiet_gateways.dart';
+
 void main() {
   group('Person.fromJson', () {
     test('parses required columns and optional email', () {
@@ -194,7 +196,13 @@ void main() {
 
       await expectLater(
         api.listTreePeople('parent'),
-        throwsA(isA<StateError>()),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'list_family_tree did not return a list',
+          ),
+        ),
       );
     });
 
@@ -364,7 +372,7 @@ void main() {
 }
 
 /// In-memory [PeopleGateway] that mirrors PeopleApi create validation rules.
-class FakePeopleGateway extends PeopleGateway {
+class FakePeopleGateway extends PeopleGateway with QuietPeopleDefaults {
   FakePeopleGateway({required this.createdBy});
 
   final String createdBy;
@@ -402,24 +410,6 @@ class FakePeopleGateway extends PeopleGateway {
     rows.add(person);
     return person;
   }
-
-  @override
-  Future<Person?> personForEdit(String personId) async => null;
-
-  @override
-  Future<PersonProfile?> personProfile(String personId) async => null;
-
-  @override
-  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
-
-  @override
-  Future<bool> isHomeFamilySteward(String familyId) async => false;
-
-  @override
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
 }
 
 class _ProfileDelayClient extends http.BaseClient {

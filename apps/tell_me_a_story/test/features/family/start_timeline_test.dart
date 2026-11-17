@@ -25,6 +25,8 @@ import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 import 'package:tell_me_a_story/features/timeline/callout_layout.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 class _LookupFailure implements Exception {
   const _LookupFailure();
 }
@@ -55,7 +57,7 @@ Story _story({
   );
 }
 
-class _People extends PeopleGateway {
+class _People extends PeopleGateway with QuietPeopleDefaults {
   _People(this.rows);
 
   final List<Person> rows;
@@ -76,27 +78,9 @@ class _People extends PeopleGateway {
   }) {
     throw UnimplementedError();
   }
-
-  @override
-  Future<Person?> personForEdit(String personId) async => null;
-
-  @override
-  Future<PersonProfile?> personProfile(String personId) async => null;
-
-  @override
-  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
-
-  @override
-  Future<bool> isHomeFamilySteward(String familyId) async => false;
-
-  @override
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
 }
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesGateway with QuietFamiliesDefaults {
   _Families({
     required this.mine,
     this.tree = const [],
@@ -136,17 +120,6 @@ class _Families extends FamiliesGateway {
 
   @override
   Future<List<FamilyPerson>> listMembers(String familyId) async => members;
-
-  @override
-  Future<void> setFamilyOrigin({
-    required String familyId,
-    required String storyId,
-  }) async {}
-
-  @override
-  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
-    return const [];
-  }
 }
 
 class _EmptyDirectory implements FamilyDirectoryGateway {

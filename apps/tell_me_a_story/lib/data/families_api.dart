@@ -204,24 +204,8 @@ abstract class FamiliesGateway {
   /// Live members of [familyId], with accounts.
   Future<List<FamilyPerson>> listMembers(String familyId);
 
-  /// Live families in the session family's tree. The default is the current
-  /// family only, so marks and the related menu stay empty until a caller
-  /// returns the rest of the tree.
-  Future<List<TreeFamily>> listFamilyTree(String familyId) async {
-    final mine = await listMine();
-    for (final row in mine) {
-      if (row.id == familyId) {
-        return [
-          TreeFamily(
-            id: row.id,
-            name: row.name,
-            parentFamilyId: row.parentFamilyId,
-          ),
-        ];
-      }
-    }
-    return const [];
-  }
+  /// Live families in the session family's tree.
+  Future<List<TreeFamily>> listFamilyTree(String familyId);
 }
 
 /// Hub card. Active rows have a null [deletedAt].
