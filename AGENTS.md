@@ -18,7 +18,7 @@ If the code and the plan disagree, stop and report the difference. Do not reconc
   - `test/`: Flutter tests. The color guard is `test/core/theme/no_hardcoded_colors_test.dart`.
   - `integration_test/`: end-to-end flows (`integration_test/flows.md` and `integration_test/e2e_test.dart`). The manifest check is `e2e/check_flows.sh` at the repo root.
 - `supabase/migrations/`: schema, row level security, storage policies, and SQL functions. A schema change is a new file here. Never edit a migration that has been applied.
-- `supabase/functions/`: Deno edge functions. Shared code is in `supabase/functions/_shared/`. Tests are `supabase/functions/*_test.ts`.
+- `supabase/functions/`: Deno edge functions. Shared code is in `supabase/functions/_shared/`. Tests are `supabase/functions/*_test.ts`. The Supabase GitHub integration deploys every function declared in `supabase/config.toml` from `main` on each merge. A new function must be added to `supabase/config.toml`.
 - `supabase/tests/`: pgTAP.
 - `Makefile` and the README Tests block are the local commands. Tool versions are pinned in `.github/workflows/ci.yml`.
 

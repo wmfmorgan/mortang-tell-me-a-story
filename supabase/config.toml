@@ -421,6 +421,48 @@ enabled = true
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
 
+[functions.accept-invite]
+verify_jwt = true
+
+[functions.add-co-owner]
+verify_jwt = true
+
+[functions.create-branch-family]
+verify_jwt = true
+
+[functions.create-invite]
+verify_jwt = true
+
+[functions.create-root-family]
+verify_jwt = true
+
+[functions.recover-family]
+verify_jwt = true
+
+[functions.remove-co-owner]
+verify_jwt = true
+
+[functions.remove-member]
+verify_jwt = true
+
+[functions.rename-family]
+verify_jwt = true
+
+[functions.resend-invite]
+verify_jwt = true
+
+[functions.revoke-invite]
+verify_jwt = true
+
+[functions.send-invite-email]
+verify_jwt = true
+
+[functions.soft-delete-family]
+verify_jwt = true
+
+[functions.transfer-ownership]
+verify_jwt = true
+
 # M2: validate-invite-token may be public (Design Doc)
 [functions.validate-invite-token]
 verify_jwt = false
