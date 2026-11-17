@@ -21,12 +21,3 @@ GoTrueClient? readGoTrueClient() {
     return null;
   }
 }
-
-/// Anon client when initialized; null in widget tests without init.
-SupabaseClient? readSupabaseClient() {
-  try {
-    return Supabase.instance.client;
-  } catch (_) {
-    return null;
-  }
-}

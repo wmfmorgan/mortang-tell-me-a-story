@@ -617,6 +617,20 @@ class _Families extends FamiliesGateway implements FamilyDirectoryGateway {
 
   @override
   Future<FamilyDetail?> loadDetail(String familyId) async => null;
+
+  @override
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  @override
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    return const [];
+  }
+
+  @override
+  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
 class _Invite implements InviteGateway {

@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 
@@ -9,4 +12,66 @@ void main() {
     );
     expect(api.listStewarded(), throwsA(isA<NotSignedInException>()));
   });
+
+  test('familyTreeRows keeps maps and drops other rows', () {
+    final rows = familyTreeRows([
+      {'id': 'parent', 'name': ' Morgan '},
+      {'id': 'child'},
+      'skip',
+    ]);
+    expect(rows, [
+      {'id': 'parent', 'name': ' Morgan '},
+      {'id': 'child'},
+    ]);
+    expect(familyTreeRows({'id': 'parent'}), isNull);
+  });
+
+  test('listFamilyTree maps a tree row', () async {
+    final families = await _api([
+      {
+        'id': 'parent',
+        'name': ' Morgan ',
+        'parent_family_id': null,
+        'branch_year': 1970,
+        'origin_story_id': 'story-1',
+      },
+      'skip',
+    ]).listFamilyTree('parent');
+    expect(families, hasLength(1));
+    expect(families.single.name, 'Morgan');
+    expect(families.single.branchYear, 1970);
+    expect(families.single.originStoryId, 'story-1');
+  });
+
+  test('listFamilyTree returns none when the rpc is not a list', () async {
+    final families = await _api({'id': 'parent'}).listFamilyTree('parent');
+    expect(families, isEmpty);
+  });
+}
+
+FamiliesApi _api(Object body) {
+  return FamiliesApi(
+    client: SupabaseClient(
+      'http://localhost',
+      'test-anon-key',
+      httpClient: _TreeClient(body),
+    ),
+  );
+}
+
+class _TreeClient extends http.BaseClient {
+  _TreeClient(this.body);
+
+  final Object body;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final bytes = utf8.encode(jsonEncode(body));
+    return http.StreamedResponse(
+      Stream.value(bytes),
+      200,
+      headers: const {'content-type': 'application/json'},
+      request: request,
+    );
+  }
 }

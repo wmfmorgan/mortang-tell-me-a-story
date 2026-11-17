@@ -920,6 +920,20 @@ class _Families extends FamiliesGateway {
       ),
     ];
   }
+
+  @override
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  @override
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    return const [];
+  }
+
+  @override
+  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
 class _Photos implements PhotosGateway {

@@ -155,6 +155,20 @@ class _ReadableTree extends FamiliesGateway {
 
   @override
   Future<List<TreeFamily>> listFamilyTree(String familyId) async => tree;
+
+  @override
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  @override
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    return const [];
+  }
+
+  @override
+  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
 class _FakeFamilies extends FamiliesGateway {
@@ -167,6 +181,20 @@ class _FakeFamilies extends FamiliesGateway {
 
   @override
   Future<List<StewardFamily>> listStewarded() async => const [];
+
+  @override
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  @override
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    return const [];
+  }
+
+  @override
+  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
 class _FakeManage implements ManageFamiliesGateway {
@@ -5252,4 +5280,18 @@ class _TreeFamilies extends FamiliesGateway {
 
   @override
   Future<List<TreeFamily>> listFamilyTree(String familyId) async => tree;
+
+  @override
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  @override
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    return const [];
+  }
+
+  @override
+  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }

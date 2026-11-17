@@ -5,6 +5,7 @@ import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/current_session.dart';
 import '../../data/perspectives_api.dart';
+import '../../data/profile_api.dart';
 import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 
@@ -48,6 +49,7 @@ class AddPerspectivePage extends StatefulWidget {
     this.familyId,
     this.perspectivesApi,
     this.storiesApi,
+    this.profileApi,
     this.asDialog = false,
     this.postingAs,
     this.storyAuthorId,
@@ -61,6 +63,7 @@ class AddPerspectivePage extends StatefulWidget {
   final String? familyId;
   final PerspectivesGateway? perspectivesApi;
   final StoriesGateway? storiesApi;
+  final ProfileGateway? profileApi;
 
   /// Reader opens this as a dialog. The route page stays for the existing URL.
   final bool asDialog;
@@ -81,6 +84,7 @@ class AddPerspectivePage extends StatefulWidget {
     String? familyId,
     PerspectivesGateway? perspectivesApi,
     StoriesGateway? storiesApi,
+    ProfileGateway? profileApi,
     String? postingAs,
     String? storyAuthorId,
     String? currentUserId,
@@ -94,6 +98,7 @@ class AddPerspectivePage extends StatefulWidget {
         familyId: familyId,
         perspectivesApi: perspectivesApi,
         storiesApi: storiesApi,
+        profileApi: profileApi,
         asDialog: true,
         postingAs: postingAs,
         storyAuthorId: storyAuthorId,
@@ -110,6 +115,7 @@ class AddPerspectivePage extends StatefulWidget {
 class _AddPerspectivePageState extends State<AddPerspectivePage> {
   PerspectivesGateway? _perspectivesOverride;
   StoriesGateway? _storiesOverride;
+  ProfileGateway? _profileOverride;
   final _body = TextEditingController();
   var _busy = false;
   String? _postingAs;
@@ -119,6 +125,9 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
 
   StoriesGateway get _stories =>
       widget.storiesApi ?? (_storiesOverride ??= StoriesApi());
+
+  ProfileGateway get _profile =>
+      widget.profileApi ?? (_profileOverride ??= ProfileApi());
 
   bool get _editing => widget.existing != null;
 
@@ -149,15 +158,8 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
     try {
       final id = CurrentSession.userId;
       if (id == null) return;
-      final client = CurrentSession.client;
-      if (client == null) return;
-      final row = await client
-          .from('profiles')
-          .select('display_name')
-          .eq('id', id)
-          .maybeSingle();
-      final name = (row?['display_name'] as String?)?.trim() ?? '';
-      if (!mounted || name.isEmpty) return;
+      final name = await _profile.displayName(id);
+      if (!mounted || name == null) return;
       setState(() => _postingAs = name);
     } on Exception catch (_) {
       // Tests and signed-out sessions have no profile row to show.

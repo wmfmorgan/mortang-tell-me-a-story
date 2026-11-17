@@ -23,6 +23,20 @@ class _MemberOf extends FamiliesGateway {
 
   @override
   Future<List<StewardFamily>> listStewarded() async => const [];
+
+  @override
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  @override
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    return const [];
+  }
+
+  @override
+  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
 class _StubInviteApi implements InviteGateway {
@@ -476,6 +490,21 @@ class _EmailPeople extends PeopleGateway {
     );
     return person;
   }
+
+  @override
+  Future<Person?> personForEdit(String personId) async => null;
+
+  @override
+  Future<PersonProfile?> personProfile(String personId) async => null;
+
+  @override
+  Future<bool> isHomeFamilySteward(String familyId) async => false;
+
+  @override
+  Future<String?> signedPictureUrl({
+    required String personId,
+    String? path,
+  }) async => null;
 }
 
 class _UnlinkedPeople extends PeopleGateway {
@@ -498,6 +527,21 @@ class _UnlinkedPeople extends PeopleGateway {
   Future<List<Person>> listUnlinkedPeople(String familyId) async {
     return const [Person(id: 'p1', familyId: 'f', name: 'Ada')];
   }
+
+  @override
+  Future<Person?> personForEdit(String personId) async => null;
+
+  @override
+  Future<PersonProfile?> personProfile(String personId) async => null;
+
+  @override
+  Future<bool> isHomeFamilySteward(String familyId) async => false;
+
+  @override
+  Future<String?> signedPictureUrl({
+    required String personId,
+    String? path,
+  }) async => null;
 }
 
 Future<void> _open(

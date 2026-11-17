@@ -157,6 +157,31 @@ void main() {
       },
     );
 
+    test('listTreePeople skips a row whose id is not a string', () async {
+      final httpClient = _StubHttpClient(
+        tree: [
+          {'id': 'parent'},
+          {'id': 4},
+          {'name': 'no id'},
+        ],
+        people: [
+          {'id': 'ada', 'family_id': 'parent', 'name': 'Ada'},
+        ],
+      );
+      final api = PeopleApi(
+        client: SupabaseClient(
+          'http://localhost',
+          'test-anon-key',
+          httpClient: httpClient,
+        ),
+      );
+
+      final people = await api.listTreePeople('parent');
+
+      expect(people.single.name, 'Ada');
+      expect(people.single.familyId, 'parent');
+    });
+
     test('listTreePeople throws when list_family_tree is not a list', () async {
       final httpClient = _StubHttpClient(tree: {'id': 'parent'});
       final api = PeopleApi(
@@ -377,6 +402,24 @@ class FakePeopleGateway extends PeopleGateway {
     rows.add(person);
     return person;
   }
+
+  @override
+  Future<Person?> personForEdit(String personId) async => null;
+
+  @override
+  Future<PersonProfile?> personProfile(String personId) async => null;
+
+  @override
+  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
+
+  @override
+  Future<bool> isHomeFamilySteward(String familyId) async => false;
+
+  @override
+  Future<String?> signedPictureUrl({
+    required String personId,
+    String? path,
+  }) async => null;
 }
 
 class _ProfileDelayClient extends http.BaseClient {

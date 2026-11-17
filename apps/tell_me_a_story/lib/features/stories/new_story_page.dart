@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:uuid/uuid.dart';
 
 import '../../core/config/env.dart';
@@ -398,13 +398,12 @@ class _NewStoryPageState extends State<NewStoryPage> {
       if (!mounted) return;
       final previews = <String, Uint8List>{};
       for (final photo in listed) {
-        try {
-          previews[photo.id] = await _photos.downloadBytes(
-            photo.effectiveStoragePath,
-          );
-        } on Exception catch (_) {
-          // Keep the tile; placeholder icon if bytes are missing.
-        }
+        final bytes = await downloadStoryPhotoBytes(
+          _photos,
+          photo.effectiveStoragePath,
+          failure: StoryPhotoFailure.any,
+        );
+        if (bytes != null) previews[photo.id] = bytes;
       }
       if (!mounted) return;
       setState(() {

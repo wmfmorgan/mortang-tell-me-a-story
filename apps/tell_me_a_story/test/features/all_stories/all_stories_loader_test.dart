@@ -237,4 +237,18 @@ class _Families extends FamiliesGateway {
     if (error != null) throw error!;
     return tree;
   }
+
+  @override
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  @override
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    return const [];
+  }
+
+  @override
+  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }

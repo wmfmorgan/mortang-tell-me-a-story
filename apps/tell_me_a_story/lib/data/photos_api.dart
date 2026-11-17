@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:http/http.dart' show ClientException;
 import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -161,6 +162,47 @@ CompressedPhoto compressStoryPhoto(
     mimeType: 'image/jpeg',
     extension: 'jpg',
   );
+}
+
+/// Which download failures become a missing photo instead of a throw.
+enum StoryPhotoFailure {
+  /// A missing object is null. A failed transfer still throws.
+  storage,
+
+  /// A missing object or a failed transfer is null.
+  storageOrTransport,
+
+  /// Any [Exception] is null. An [Error] still throws.
+  any,
+}
+
+/// Bytes for [path], or null for the failures [failure] names.
+Future<Uint8List?> downloadStoryPhotoBytes(
+  PhotosGateway photos,
+  String path, {
+  required StoryPhotoFailure failure,
+}) async {
+  try {
+    return await photos.downloadBytes(path);
+  } on StorageException {
+    return null;
+  } on ClientException {
+    switch (failure) {
+      case StoryPhotoFailure.storage:
+        rethrow;
+      case StoryPhotoFailure.storageOrTransport:
+      case StoryPhotoFailure.any:
+        return null;
+    }
+  } on Exception {
+    switch (failure) {
+      case StoryPhotoFailure.any:
+        return null;
+      case StoryPhotoFailure.storage:
+      case StoryPhotoFailure.storageOrTransport:
+        rethrow;
+    }
+  }
 }
 
 abstract class PhotosGateway {

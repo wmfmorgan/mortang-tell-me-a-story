@@ -573,6 +573,24 @@ class _People extends PeopleGateway {
   }) async {
     throw UnimplementedError();
   }
+
+  @override
+  Future<Person?> personForEdit(String personId) async => null;
+
+  @override
+  Future<PersonProfile?> personProfile(String personId) async => null;
+
+  @override
+  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
+
+  @override
+  Future<bool> isHomeFamilySteward(String familyId) async => false;
+
+  @override
+  Future<String?> signedPictureUrl({
+    required String personId,
+    String? path,
+  }) async => null;
 }
 
 class _Places implements PlacesGateway {

@@ -747,6 +747,12 @@ class _People extends PeopleGateway {
     this.clearPicture = clearPicture;
     return Person(id: personId, familyId: _familyId, name: name, email: email);
   }
+
+  @override
+  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
+
+  @override
+  Future<bool> isHomeFamilySteward(String familyId) async => false;
 }
 
 class _Invites implements InviteGateway {
@@ -801,6 +807,17 @@ class _Families extends FamiliesGateway {
     return const [
       FamilyPerson(userId: 'me', role: 'owner', displayName: 'Ada'),
     ];
+  }
+
+  @override
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  @override
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    return const [];
   }
 }
 

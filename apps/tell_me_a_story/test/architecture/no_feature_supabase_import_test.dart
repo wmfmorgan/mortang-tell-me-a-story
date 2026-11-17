@@ -5,14 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 /// `lib/features/` and non-router `lib/core/` must not import
 /// `package:supabase_flutter`. The allowlist only shrinks.
 const supabaseImportAllowlist = <String>{
-  'lib/core/supabase/auth_user_id.dart',
-  'lib/core/supabase/supabase_init.dart',
-  'lib/core/theme/album_header.dart',
-  'lib/features/auth/invite_sign_in_page.dart',
-  'lib/features/auth/magic_link_page.dart',
-  'lib/features/search/search_page.dart',
-  'lib/features/stories/new_story_page.dart',
-  'lib/features/timeline/card_photos.dart',
+  'lib/core/supabase/auth_user_id.dart', // The only §7.2 catch.
+  'lib/core/supabase/supabase_init.dart', // Builds the anon client.
+  'lib/core/theme/album_header.dart', // signOut; theme cannot import data/.
+  'lib/features/auth/invite_sign_in_page.dart', // AuthException. Uses .auth.
+  'lib/features/auth/magic_link_page.dart', // GoTrueClient and AuthException.
+  'lib/features/stories/new_story_page.dart', // PostgrestException only.
 };
 
 void main() {

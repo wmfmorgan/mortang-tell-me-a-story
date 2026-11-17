@@ -183,9 +183,9 @@ abstract class PeopleGateway {
   });
 
   /// Tree-member row, including `user_id`. Not `person_profile`.
-  Future<Person?> personForEdit(String personId) async => null;
+  Future<Person?> personForEdit(String personId);
 
-  Future<PersonProfile?> personProfile(String personId) async => null;
+  Future<PersonProfile?> personProfile(String personId);
 
   Future<Person> updatePerson({
     required String personId,
@@ -202,11 +202,11 @@ abstract class PeopleGateway {
     throw UnimplementedError();
   }
 
-  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
+  Future<List<Person>> listUnlinkedPeople(String familyId);
 
   /// Home-family owner or co-owner. Other members, including owners of
   /// another family in the tree, are false.
-  Future<bool> isHomeFamilySteward(String familyId) async => false;
+  Future<bool> isHomeFamilySteward(String familyId);
 
   /// `mark_passed_away(p_person_id, p_value)`.
   Future<void> markPassedAway({required String personId, required bool value}) {
@@ -214,10 +214,7 @@ abstract class PeopleGateway {
   }
 
   /// `person-avatars` when [path] is `{personId}/avatar.jpg`, else `avatars`.
-  Future<String?> signedPictureUrl({
-    required String personId,
-    String? path,
-  }) async => null;
+  Future<String?> signedPictureUrl({required String personId, String? path});
 }
 
 /// PostgREST CRUD gateway for family-scoped `people` rows.
@@ -273,16 +270,15 @@ class PeopleApi implements PeopleGateway {
 
   /// Families in [familyId]'s tree. One family when the walk returns none.
   Future<List<String>> _treeFamilyIds(String familyId) async {
-    final tree = await _client.rpc(
-      'list_family_tree',
-      params: {'fid': familyId},
+    final rows = familyTreeRows(
+      await _client.rpc('list_family_tree', params: {'fid': familyId}),
     );
-    if (tree is! List) {
+    if (rows == null) {
       throw StateError('list_family_tree did not return a list');
     }
     final ids = <String>[
-      for (final row in tree)
-        if (row is Map && row['id'] is String) row['id'] as String,
+      for (final row in rows)
+        if (row['id'] is String) row['id'] as String,
     ];
     if (ids.isEmpty) return [familyId];
     return ids;

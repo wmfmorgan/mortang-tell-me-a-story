@@ -105,6 +105,10 @@ abstract class ProfileGateway {
 
   /// `auth.updateUser` only. Does not write `profiles.email`.
   Future<void> updateEmail(String email);
+
+  /// Trimmed `profiles.display_name` for [userId].
+  /// Null when the row is missing or the name is blank.
+  Future<String?> displayName(String userId);
 }
 
 const avatarsBucket = 'avatars';
@@ -233,6 +237,18 @@ class ProfileApi implements ProfileGateway {
       throw const AvatarDownloadException();
     }
     return response.bodyBytes;
+  }
+
+  @override
+  Future<String?> displayName(String userId) async {
+    final row = await _supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', userId)
+        .maybeSingle();
+    final name = (row?['display_name'] as String?)?.trim() ?? '';
+    if (name.isEmpty) return null;
+    return name;
   }
 
   @override

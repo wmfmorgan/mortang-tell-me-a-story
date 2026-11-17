@@ -230,6 +230,24 @@ class _FakePeopleApi extends PeopleGateway {
   }) {
     throw UnimplementedError();
   }
+
+  @override
+  Future<Person?> personForEdit(String personId) async => null;
+
+  @override
+  Future<PersonProfile?> personProfile(String personId) async => null;
+
+  @override
+  Future<List<Person>> listUnlinkedPeople(String familyId) async => const [];
+
+  @override
+  Future<bool> isHomeFamilySteward(String familyId) async => false;
+
+  @override
+  Future<String?> signedPictureUrl({
+    required String personId,
+    String? path,
+  }) async => null;
 }
 
 class _FakePlacesApi implements PlacesGateway {
@@ -2752,6 +2770,9 @@ class _OriginFamilies extends FamiliesGateway {
   Future<List<OriginDependent>> listOriginDependents(String storyId) async {
     return dependents;
   }
+
+  @override
+  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
 class _NoMembership extends FamiliesGateway {
@@ -2760,6 +2781,20 @@ class _NoMembership extends FamiliesGateway {
 
   @override
   Future<List<StewardFamily>> listStewarded() async => const [];
+
+  @override
+  Future<void> setFamilyOrigin({
+    required String familyId,
+    required String storyId,
+  }) async {}
+
+  @override
+  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
+    return const [];
+  }
+
+  @override
+  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
 }
 
 class _TreePeople extends _FakePeopleApi {
@@ -2808,6 +2843,9 @@ class _FailingAvatarProfile implements ProfileGateway {
 
   @override
   Future<void> updateEmail(String email) => throw UnimplementedError();
+
+  @override
+  Future<String?> displayName(String userId) async => null;
 }
 
 class _WholeTreePeople extends _FakePeopleApi {

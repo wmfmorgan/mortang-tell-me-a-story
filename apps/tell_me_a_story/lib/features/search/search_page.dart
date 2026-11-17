@@ -20,8 +20,6 @@ import '../stories/story_date.dart';
 import '../stories/timeframe_chips.dart';
 import 'search_recents.dart';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 const _noMatches = 'No stories match. Try another person, place, or time.';
 const _searchingCopy = 'Searching the album…';
 
@@ -912,12 +910,12 @@ class _PhotoWellState extends State<_PhotoWell> {
     _bytes = _load();
   }
 
-  Future<Uint8List?> _load() async {
-    try {
-      return await widget.photos.downloadBytes(widget.path);
-    } on StorageException catch (_) {
-      return null;
-    }
+  Future<Uint8List?> _load() {
+    return downloadStoryPhotoBytes(
+      widget.photos,
+      widget.path,
+      failure: StoryPhotoFailure.storage,
+    );
   }
 
   @override

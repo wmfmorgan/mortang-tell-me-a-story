@@ -526,6 +526,12 @@ class _People extends PeopleGateway {
     if (error != null) throw error;
     marks.add((personId: personId, value: value));
   }
+
+  @override
+  Future<String?> signedPictureUrl({
+    required String personId,
+    String? path,
+  }) async => null;
 }
 
 class _Profile implements ProfileGateway {
@@ -566,6 +572,9 @@ class _Profile implements ProfileGateway {
 
   @override
   Future<void> updateEmail(String email) async {}
+
+  @override
+  Future<String?> displayName(String userId) async => null;
 }
 
 class _Invites implements InviteGateway {

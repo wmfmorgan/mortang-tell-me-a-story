@@ -505,6 +505,9 @@ class _Profile implements ProfileGateway {
   Future<void> updateEmail(String email) async {
     emails.add(email);
   }
+
+  @override
+  Future<String?> displayName(String userId) async => null;
 }
 
 class _Invite implements InviteGateway {

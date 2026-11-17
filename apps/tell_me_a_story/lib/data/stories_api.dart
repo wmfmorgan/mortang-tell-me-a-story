@@ -851,14 +851,17 @@ Future<Map<String, Uint8List>> downloadFirstThumbs(
   for (final story in stories) {
     if (story.photoPaths.isEmpty) continue;
     final path = story.photoPaths.first;
-    try {
-      final cached = seen[path];
-      final bytes = cached ?? await gateway.downloadBytes(path);
-      if (cached == null) seen[path] = bytes;
-      if (bytes.isNotEmpty) out[story.id] = bytes;
-    } on Exception catch (_) {
-      // A missing thumb stays a parchment blank.
-    }
+    final cached = seen[path];
+    final bytes =
+        cached ??
+        await downloadStoryPhotoBytes(
+          gateway,
+          path,
+          failure: StoryPhotoFailure.any,
+        );
+    if (bytes == null) continue;
+    if (cached == null) seen[path] = bytes;
+    if (bytes.isNotEmpty) out[story.id] = bytes;
   }
   return out;
 }
