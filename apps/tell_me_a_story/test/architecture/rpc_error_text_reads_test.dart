@@ -2,20 +2,23 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Hits already on main. One `path: pattern` entry. The list only shrinks.
-const temporaryErrorTextReads = <String>{
-  'data/invite_api.dart: e.details',
-  'data/manage_families_api.dart: e.details',
-  'features/auth/invite_sign_in_page.dart: e.message',
-  'features/auth/magic_link_page.dart: e.message',
-  'features/family/family_landing_page.dart: error.message',
-  'features/family/manage_families_page.dart: e.message',
-  'features/family/manage_family_page.dart: e.message',
-  'features/family/start_family_dialog.dart: e.message',
-  'features/family/start_timeline_dialog.dart: code ==',
-  'features/invites/invite_modal.dart: error.message',
-  'features/people/edit_person_dialog.dart: \$error',
-  'features/stories/story_reader_page.dart: error.message',
+/// Grandfathered raw-error reads. Key is `path: pattern`. The count is exact.
+const temporaryErrorTextReads = <String, int>{
+  'data/invite_api.dart: e.details': 1,
+  'data/manage_families_api.dart: e.details': 1,
+  'features/auth/invite_sign_in_page.dart: e.message': 2,
+  'features/auth/magic_link_page.dart: e.message': 2,
+  'features/family/start_timeline_dialog.dart: code ==': 2,
+  'features/people/edit_person_dialog.dart: \$error': 1,
+};
+
+const _rawCatchTypes = <String>{
+  'Object',
+  'Exception',
+  'PostgrestException',
+  'FunctionException',
+  'AuthException',
+  'StorageException',
 };
 
 const _fields = <String>['message', 'code', 'details', 'hint'];
@@ -28,16 +31,16 @@ void main() {
       isTrue,
       reason: 'run from apps/tell_me_a_story',
     );
-    final found = <String>{};
+    final found = <String, int>{};
     for (final entity in libDir.listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final relative = _libRelative(entity.path);
       final source = entity.readAsStringSync();
       if (relative == 'data/rpc_error.dart') {
-        found.addAll(_prefix(relative, _rpcContainsOutside(source)));
+        _merge(found, relative, _rpcContainsOutside(source));
         continue;
       }
-      found.addAll(_prefix(relative, _errorTextReadPatterns(source)));
+      _merge(found, relative, _errorTextReadCounts(source));
     }
     expect(found, temporaryErrorTextReads);
   });
@@ -89,6 +92,39 @@ void f() {
 ''';
     expect(_errorTextReadPatterns(lookalikes), isEmpty);
 
+    const ownType = '''
+void f() {
+  try {
+    work();
+  } on ManageFamiliesException catch (e) {
+    print(e.message);
+  }
+}
+''';
+    expect(_errorTextReadPatterns(ownType), isEmpty);
+
+    const auth = '''
+void f() {
+  try {
+    work();
+  } on AuthException catch (e) {
+    print(e.message);
+  }
+}
+''';
+    expect(_errorTextReadPatterns(auth), {'e.message'});
+
+    const untyped = '''
+void f() {
+  try {
+    work();
+  } catch (e) {
+    print(e.message);
+  }
+}
+''';
+    expect(_errorTextReadPatterns(untyped), {'e.message'});
+
     const inside = '''
 bool rpcConstraintViolation(Object error, String sqlstate, String constraint) {
   return error.message.contains(constraint);
@@ -101,12 +137,14 @@ String? mapRpcError(Object error) {
   return error.message.contains('x') ? 'no' : null;
 }
 ''';
-    expect(_rpcContainsOutside(outside), {'.contains('});
+    expect(_rpcContainsOutside(outside), {'.contains(': 1});
   });
 }
 
-Set<String> _prefix(String path, Set<String> patterns) {
-  return {for (final pattern in patterns) '$path: $pattern'};
+void _merge(Map<String, int> found, String path, Map<String, int> counts) {
+  for (final entry in counts.entries) {
+    found['$path: ${entry.key}'] = entry.value;
+  }
 }
 
 String _libRelative(String path) {
@@ -120,6 +158,10 @@ String _libRelative(String path) {
 
 /// Banned error-text forms in [source], ignoring `//` lines.
 Set<String> _errorTextReadPatterns(String source) {
+  return _errorTextReadCounts(source).keys.toSet();
+}
+
+Map<String, int> _errorTextReadCounts(String source) {
   final scan = _Scan();
   for (final line in source.split('\n')) {
     if (line.trimLeft().startsWith('//')) continue;
@@ -129,10 +171,27 @@ Set<String> _errorTextReadPatterns(String source) {
   return scan.hits;
 }
 
-void _fileWide(String line, Set<String> hits) {
-  if (line.contains('.toString().contains(')) hits.add('.toString().contains(');
-  if (line.contains('message.contains(')) hits.add('message.contains(');
-  if (RegExp(r'(?<![\w])code ==').hasMatch(line)) hits.add('code ==');
+void _fileWide(String line, Map<String, int> hits) {
+  _add(hits, '.toString().contains(', _occurs(line, '.toString().contains('));
+  _add(hits, 'message.contains(', _occurs(line, 'message.contains('));
+  final codes = RegExp(r'(?<![\w])code ==').allMatches(line).length;
+  _add(hits, 'code ==', codes);
+}
+
+void _add(Map<String, int> hits, String pattern, int count) {
+  if (count == 0) return;
+  hits[pattern] = (hits[pattern] ?? 0) + count;
+}
+
+int _occurs(String line, String needle) {
+  var count = 0;
+  var start = 0;
+  while (true) {
+    final at = line.indexOf(needle, start);
+    if (at < 0) return count;
+    count++;
+    start = at + needle.length;
+  }
 }
 
 void _scanLine(String line, _Scan scan) {
@@ -150,48 +209,98 @@ void _scanLine(String line, _Scan scan) {
       i = quoteAt.end;
       continue;
     }
-    if (line.startsWith('{', i)) {
-      scan.depth++;
-      _openCatch(scan);
-      i++;
-      continue;
-    }
-    if (line.startsWith('}', i)) {
-      scan.depth--;
-      scan.active.removeWhere((bound) => bound.depth > scan.depth);
-      i++;
+    final structure = _structureAt(line, i, scan);
+    if (structure != null) {
+      i = structure;
       continue;
     }
     final catchName = _catchAt(line, i);
     if (catchName != null) {
       scan.pending = catchName.name;
+      scan.pendingChecks = _checksText(scan);
+      scan.onType = null;
+      scan.wantOnType = false;
       i = catchName.end;
+      continue;
+    }
+    final ident = _identAt(line, i);
+    if (ident != null && _takeOnType(scan, ident)) {
+      i += ident.length;
       continue;
     }
     i = _propertyAt(line, i, scan);
   }
 }
 
+int? _structureAt(String line, int i, _Scan scan) {
+  if (line.startsWith('{', i)) {
+    scan.depth++;
+    if (scan.pending != null) {
+      _openCatch(scan);
+    } else {
+      _clearOn(scan);
+    }
+    return i + 1;
+  }
+  if (line.startsWith(';', i) || line.startsWith('}', i)) {
+    if (line.startsWith('}', i)) {
+      scan.depth--;
+      scan.active.removeWhere((bound) => bound.depth > scan.depth);
+    } else {
+      _clearOn(scan);
+    }
+    return i + 1;
+  }
+  return null;
+}
+
+void _clearOn(_Scan scan) {
+  scan.onType = null;
+  scan.wantOnType = false;
+}
+
 void _openCatch(_Scan scan) {
   final name = scan.pending;
   if (name == null) return;
-  scan.active.add(_Bound(name, scan.depth));
+  scan.active.add(_Bound(name, scan.depth, scan.pendingChecks));
   scan.pending = null;
+}
+
+bool _checksText(_Scan scan) {
+  if (scan.wantOnType) return false;
+  final type = scan.onType;
+  if (type == null) return true;
+  return _rawCatchTypes.contains(type);
+}
+
+bool _takeOnType(_Scan scan, String ident) {
+  if (scan.wantOnType) {
+    scan.onType = ident;
+    scan.wantOnType = false;
+    return true;
+  }
+  if (ident == 'on') {
+    scan.wantOnType = true;
+    scan.onType = null;
+    return true;
+  }
+  return false;
 }
 
 int _propertyAt(String line, int i, _Scan scan) {
   for (final bound in scan.active) {
+    if (!bound.checksText) continue;
     final name = bound.name;
     for (final field in _fields) {
       final token = '$name.$field';
       if (!line.startsWith(token, i)) continue;
       if (_wordAfter(line, i + token.length)) continue;
-      scan.hits.add(token);
+      _add(scan.hits, token, 1);
       return i + token.length;
     }
     final call = '$name.toString(';
     if (line.startsWith(call, i)) {
-      scan.hits.add('$name.toString(');
+      _add(scan.hits, '$name.toString(', 1);
       return i + call.length;
     }
   }
@@ -220,8 +329,10 @@ int _inString(String line, int i, _Scan scan) {
 void _interpolation(String line, int i, _Scan scan) {
   for (final bound in scan.active) {
     final name = bound.name;
+    if (!bound.checksText) continue;
     if (line.startsWith('\${$name}', i) || _simpleInterp(line, i, name)) {
-      scan.hits.add(line.startsWith('\${', i) ? '\${$name}' : '\$$name');
+      final pattern = line.startsWith('\${', i) ? '\${$name}' : '\$$name';
+      _add(scan.hits, pattern, 1);
     }
   }
 }
@@ -234,6 +345,11 @@ bool _simpleInterp(String line, int i, String name) {
 bool _wordAfter(String line, int index) {
   if (index >= line.length) return false;
   return RegExp(r'\w').hasMatch(line[index]);
+}
+
+String? _identAt(String line, int i) {
+  if (!_identStart(line, i)) return null;
+  return RegExp(r'[A-Za-z_]\w*').matchAsPrefix(line, i)?.group(0);
 }
 
 _CatchHit? _catchAt(String line, int i) {
@@ -260,8 +376,8 @@ _Quote? _quoteAt(String line, int i) {
   return null;
 }
 
-Set<String> _rpcContainsOutside(String source) {
-  final hits = <String>{};
+Map<String, int> _rpcContainsOutside(String source) {
+  final hits = <String, int>{};
   var depth = 0;
   var fnDepth = 0;
   var inConstraint = false;
@@ -284,7 +400,7 @@ Set<String> _rpcContainsOutside(String source) {
         depth--;
       }
     }
-    if (!inConstraint && line.contains('.contains(')) hits.add('.contains(');
+    _add(hits, '.contains(', inConstraint ? 0 : _occurs(line, '.contains('));
   }
   return hits;
 }
@@ -292,17 +408,21 @@ Set<String> _rpcContainsOutside(String source) {
 class _Scan {
   int depth = 0;
   String? pending;
+  bool pendingChecks = false;
+  String? onType;
+  bool wantOnType = false;
   String? quote;
   bool triple = false;
   bool raw = false;
   final active = <_Bound>[];
-  final hits = <String>{};
+  final hits = <String, int>{};
 }
 
 class _Bound {
-  _Bound(this.name, this.depth);
+  _Bound(this.name, this.depth, this.checksText);
   final String name;
   final int depth;
+  final bool checksText;
 }
 
 class _CatchHit {
