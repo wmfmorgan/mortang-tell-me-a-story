@@ -1,6 +1,7 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
 import { decideInvite } from "./invite_decision.ts";
+import { validateInviteToken } from "./index.ts";
 
 const keys = [
   "valid",
@@ -21,6 +22,19 @@ const live = {
   family_deleted: false,
   inviter_name: "Ada",
 };
+
+Deno.test("a database lookup error hides the database text", async () => {
+  const raw = 'relation "invites" does not exist';
+  const res = await validateInviteToken(
+    new Request("http://local/validate-invite-token?token=abc"),
+    { lookup: () => Promise.resolve({ row: null, error: raw }) },
+  );
+  const json = await res.json();
+  assertEquals(res.status, 400);
+  assertEquals(json.code, "VALIDATION");
+  assertEquals(json.message, "Could not look up invite");
+  assertEquals(JSON.stringify(json).includes("relation"), false);
+});
 
 Deno.test("a live invite returns the inviter name", () => {
   const body = decideInvite(live);

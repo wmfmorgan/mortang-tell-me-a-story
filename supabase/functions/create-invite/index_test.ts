@@ -159,6 +159,16 @@ Deno.test("a raw database insert error stays generic", async () => {
   assertEquals(JSON.stringify(json).includes("duplicate key"), false);
 });
 
+Deno.test("create-invite rejects a non-string family_id", async () => {
+  const res = await createInvite(
+    post({ family_id: 12, email: { to: "a@b.co" }, person_id: true }),
+    { db: dbWith({}) },
+  );
+  const json = await res.json();
+  assertEquals(res.status, 400);
+  assertEquals(json, { code: "VALIDATION", message: "family_id is required" });
+});
+
 Deno.test("create-invite rejects an empty body", () => expectInvalidJson(""));
 
 Deno.test("create-invite rejects invalid JSON", () => expectInvalidJson("{"));

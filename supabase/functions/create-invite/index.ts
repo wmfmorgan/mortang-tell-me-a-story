@@ -1,6 +1,6 @@
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import { readJsonObject } from "../_shared/json_object.ts";
-import { mapRpcError } from "../_shared/manage.ts";
+import { mapRpcError, textField } from "../_shared/manage.ts";
 import {
   bearerToken,
   buildInviteUrl,
@@ -78,6 +78,24 @@ function liveDb(auth: string): CreateInviteDb {
   };
 }
 
+function inviteFields(body: Record<string, unknown>): {
+  familyId: string;
+  email: string | null;
+  personId: string | null;
+} | Response {
+  const familyId = textField(body, "family_id");
+  if (!familyId) {
+    return errorResponse("VALIDATION", "family_id is required", 400);
+  }
+  const email = textField(body, "email");
+  const personId = textField(body, "person_id");
+  return {
+    familyId,
+    email: email.length > 0 ? email : null,
+    personId: personId.length > 0 ? personId : null,
+  };
+}
+
 export function createInvite(
   req: Request,
   options?: { db?: CreateInviteDb },
@@ -103,18 +121,9 @@ async function handleCreateInvite(
 
   const parsed = await readJsonObject(req);
   if (parsed instanceof Response) return parsed;
-  const body = parsed as {
-    family_id?: string;
-    email?: string;
-    person_id?: string;
-  };
-
-  const familyId = body.family_id?.trim();
-  if (!familyId) {
-    return errorResponse("VALIDATION", "family_id is required", 400);
-  }
-  const email = body.email?.trim() || null;
-  const personId = body.person_id?.trim() || null;
+  const fields = inviteFields(parsed);
+  if (fields instanceof Response) return fields;
+  const { familyId, email, personId } = fields;
 
   const store = db ?? liveDb(auth);
   const userId = await store.userId();
