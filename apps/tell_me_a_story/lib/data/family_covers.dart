@@ -65,10 +65,16 @@ class FamilyCoversApi implements FamilyCoverClient {
     if (bytes.isEmpty) {
       throw CoverPhotoException('Couldn’t save the family photo. Try again.');
     }
-    if (img.decodeImage(bytes) == null) {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) {
       throw CoverPhotoException('Couldn’t save the family photo. Try again.');
     }
-    final compressed = compressStoryPhoto(bytes, maxEdge: 1920, quality: 80);
+    final compressed = compressStoryPhoto(
+      bytes,
+      maxEdge: 1920,
+      quality: 80,
+      decodedImage: decoded,
+    );
     if (compressed.bytes.length > familyCoverMaxBytes) {
       throw CoverPhotoException('Couldn’t save the family photo. Try again.');
     }

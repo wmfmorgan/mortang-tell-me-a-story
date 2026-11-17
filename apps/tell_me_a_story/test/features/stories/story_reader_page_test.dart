@@ -1,13 +1,11 @@
 import 'dart:async';
-
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';

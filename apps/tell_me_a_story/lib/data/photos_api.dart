@@ -144,8 +144,9 @@ CompressedPhoto compressStoryPhoto(
   Uint8List bytes, {
   int maxEdge = 1920,
   int quality = 80,
+  img.Image? decodedImage,
 }) {
-  final decoded = img.decodeImage(bytes);
+  final decoded = decodedImage ?? img.decodeImage(bytes);
   if (decoded == null) {
     throw ArgumentError.value(bytes, 'bytes', 'not a decodable image');
   }

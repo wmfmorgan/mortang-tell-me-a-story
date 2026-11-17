@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Fails when lib/ catches `Object` or an `Error` type.
 ///
-/// `lib/core/supabase/auth_user_id.dart` is the only allowlisted file.
+/// Allowlisted files:
+/// `lib/core/supabase/auth_user_id.dart` returns null when Supabase asserts
+/// before initialize. `lib/features/all_stories/all_stories_loader.dart`
+/// unwraps ParallelWaitError and rethrows the original gateway error.
 void main() {
   test('lib/ has no on Error or on AssertionError catch clauses', () {
     final libDir = Directory('lib');
@@ -21,13 +24,13 @@ void main() {
       final relative = entity.path.split('lib/').last;
       final path = 'lib/$relative';
       if (path == 'lib/core/supabase/auth_user_id.dart') continue;
+      if (path == 'lib/features/all_stories/all_stories_loader.dart') continue;
       final lines = entity.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
         final line = lines[i];
-        if (!errorCatch.hasMatch(line)) continue;
-        // ParallelWaitError extends Error. `.wait` unwrap cannot use on Exception.
-        if (line.contains('ParallelWaitError')) continue;
-        offenders.add('$path:${i + 1}: $line');
+        if (errorCatch.hasMatch(line)) {
+          offenders.add('$path:${i + 1}: $line');
+        }
       }
     }
     offenders.sort();
